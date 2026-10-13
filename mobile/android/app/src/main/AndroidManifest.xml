@@ -59,7 +59,24 @@
                 <data android:scheme="content" android:mimeType="application/pdf"/>
             </intent-filter>
         </activity>
-        <receiver android:name=".DeskWidgetProvider" android:exported="true">
+        <receiver android:name=".MonthWidgetProvider" android:exported="true" android:label="DeskCalendar 달력">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/month_widget_info"/>
+        </receiver>
+        <receiver android:name=".TodoWidgetProvider" android:exported="true" android:label="DeskCalendar 할 일">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/todo_widget_info"/>
+        </receiver>
+        <receiver android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="es.antonborri.home_widget.action.BACKGROUND"/>
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".DeskWidgetProvider" android:exported="true" android:label="DeskCalendar 일정 목록">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>

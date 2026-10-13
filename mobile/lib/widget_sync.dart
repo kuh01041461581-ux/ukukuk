@@ -1,4 +1,5 @@
 // 안드로이드 홈 화면 위젯: 오늘과 가까운 일정의 '내용'을 보여 준다 (점이 아니라 글자로)
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -6,6 +7,7 @@ import 'package:home_widget/home_widget.dart';
 
 import 'core.dart';
 import 'store.dart';
+import 'widget_data.dart';
 
 const _wd = ['월', '화', '수', '목', '금', '토', '일'];
 
@@ -44,7 +46,15 @@ Future<void> updateHomeWidget(AppStore store) async {
     await HomeWidget.saveWidgetData<String>('w_title', title);
     await HomeWidget.saveWidgetData<String>('w_body', lines.join('\n'));
     await HomeWidget.saveWidgetData<String>('w_count', '$nToday');
-    await HomeWidget.updateWidget(name: 'DeskWidgetProvider', androidName: 'DeskWidgetProvider');
+    // 월간 달력 위젯: 지난달~2달 뒤까지 미리 넣어 두면 위젯의 ‹ › 버튼이 앱 없이도 넘겨 본다
+    for (var off = -1; off <= 2; off++) {
+      await HomeWidget.saveWidgetData<String>('m_$off', jsonEncode(monthWidgetData(store.data, today, off)));
+    }
+    // 할 일 위젯
+    await HomeWidget.saveWidgetData<String>('td', jsonEncode(todoWidgetData(store.data, today)));
+    for (final name in ['DeskWidgetProvider', 'MonthWidgetProvider', 'TodoWidgetProvider']) {
+      await HomeWidget.updateWidget(name: name, androidName: name);
+    }
   } catch (_) {
     // 위젯이 없거나 지원하지 않는 환경이면 조용히 넘어간다
   }

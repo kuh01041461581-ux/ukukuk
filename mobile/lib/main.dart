@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -11,6 +11,8 @@ import 'holidays.dart';
 import 'notify.dart';
 import 'pairing.dart';
 import 'quickadd.dart';
+import 'package:home_widget/home_widget.dart';
+
 import 'bgsync.dart';
 import 'candidates.dart';
 import 'ocr_mobile.dart';
@@ -161,6 +163,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   late DateTime month = DateTime(selected.year, selected.month);
 
   Timer? _poll;
+  StreamSubscription<Uri?>? _widgetSub;
   ShareImporter? _share;
 
   // 앱이 화면에 떠 있는 동안 30초마다 PC 의 변경을 받아온다 (내 변경은 입력 후 4초 안에 자동으로 올라감)
@@ -175,12 +178,39 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _startPoll();
     _share = ShareImporter(widget.store, () => context)..start();
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      HomeWidget.initiallyLaunchedFromHomeWidget().then(_widgetUri).catchError((_) {});
+      _widgetSub = HomeWidget.widgetClicked.listen(_widgetUri, onError: (_) {});
+    }
+  }
+
+  /// 홈 화면 위젯을 눌러 들어왔을 때: 날짜를 누르면 그 날짜 시트, + 는 오늘에 추가, 제목은 보관함
+  void _widgetUri(Uri? u) {
+    if (u == null || !mounted) return;
+    if (u.host == 'date' && u.pathSegments.isNotEmpty) {
+      final d = parseDate(u.pathSegments.first);
+      if (d != null) {
+        jump(d);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) showDaySheet(context, widget.store, d);
+        });
+      }
+    } else if (u.host == 'add') {
+      final d = dayOnly(DateTime.now());
+      jump(d);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showDaySheet(context, widget.store, d);
+      });
+    } else if (u.host == 'tasks') {
+      setState(() => tab = 2);
+    }
   }
 
   @override
   void dispose() {
     _poll?.cancel();
     _share?.dispose();
+    _widgetSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

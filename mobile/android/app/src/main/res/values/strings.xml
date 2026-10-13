@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="widget_desc">오늘과 가까운 일정을 글자로 보여 줘요</string>
+    <string name="month_widget_desc">한 달 달력에 일정 내용을 보여 줘요 (삼성·구글 달력 위젯처럼)</string>
+    <string name="todo_widget_desc">지난 일정·오늘·보관함의 할 일만 모아 보고, 눌러서 체크해요</string>
 </resources>

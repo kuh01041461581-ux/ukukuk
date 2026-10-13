@@ -51,6 +51,12 @@ class AppStore extends ChangeNotifier {
 
   Future<void> _persist() async => _prefs.setString('data', jsonEncode(data));
 
+  /// 저장 예약을 기다리지 않고 바로 저장한다 (위젯 백그라운드처럼 곧 끝나는 곳에서 사용)
+  Future<void> persistNow() async {
+    _saveTimer?.cancel();
+    await _persist();
+  }
+
   /// 일정이 바뀌었을 때 호출: 화면 갱신 + 저장 + (연결돼 있으면) 동기화 + 알림 다시 예약
   void changed({bool sync = true}) {
     notifyListeners();

@@ -25,6 +25,8 @@ from tkinter import colorchooser, filedialog, messagebox
 import core
 import glass
 import gongmun
+import holidays_api
+import holidays_kr
 import cloudsync
 from core import item_end
 from holidays_kr import holiday_name
@@ -36,6 +38,7 @@ IS_FROZEN = getattr(sys, "frozen", False)
 DATA_DIR = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), APP_NAME)
 DATA_FILE = os.path.join(DATA_DIR, "data.json")
 CONF_FILE = os.path.join(DATA_DIR, "config.json")
+HOLIDAY_FILE = os.path.join(DATA_DIR, "holidays_cache.json")   # 공공데이터 API 로 받은 공휴일 보관
 REQUEST_FILE = os.path.join(DATA_DIR, "open_request.txt")   # 이미 실행 중인 앱으로 PDF 경로를 넘길 때 쓰는 파일
 
 if IS_WIN:
@@ -1199,6 +1202,17 @@ class SettingsDialog:
         for v, lab in (("", "끔"), ("08:00", "8시"), ("09:00", "9시"), ("10:00", "10시")):
             pill(r, lab, lambda v=v: self.act(app.update_conf, brief=v), on=brief == v)
 
+        section("공휴일 (공공데이터포털 API)")
+        r = row()
+        self.hol_entry = tk.Entry(r, font=app.f_small, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
+                                  show="•", highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        self.hol_entry.insert(0, app.conf.get("holiday_key", ""))
+        self.hol_entry.pack(side="left", fill="x", expand=True, ipady=S(5), padx=(0, S(8)))
+        pill(r, "저장 · 가져오기", self.save_holiday_key)
+        tk.Label(body, text=app.hol_status or "서비스키(일반 인증키)를 넣으면 임시공휴일·선거일·대체공휴일까지 정확히 반영돼요. "
+                 "비워 두면 내장 규칙을 써요. 키는 이 PC에만 저장돼요.", font=app.f_tiny, bg=SURFACE, fg=DIM,
+                 anchor="w", justify="left", wraplength=S(430)).pack(fill="x", padx=pad, pady=(S(4), 0))
+
         section("투명도")
         r = row()
         sc = tk.Scale(r, from_=40, to=100, orient="horizontal", length=S(300), showvalue=True,
@@ -1219,6 +1233,12 @@ class SettingsDialog:
     def act(self, fn, *a, **kw):
         fn(*a, **kw)
         self.build()
+
+    def save_holiday_key(self):
+        app = self.app
+        app.update_conf(holiday_key=self.hol_entry.get().strip())
+        app.refresh_holidays(force=True)
+        self.top.after(3000, self.build)       # 가져온 결과 표시를 갱신
 
     def swatch(self, parent, col, size):
         c = tk.Canvas(parent, width=size, height=size, bg=SURFACE, highlightthickness=0)
@@ -1303,6 +1323,8 @@ class DeskCalendar:
             except Exception:
                 pass
         auto_backup()
+        self.hol_status = ""
+        self._hol_cache = {}
         apply_conf_theme(self.conf)
         self.dpi_scale = max(1.0, root.winfo_fpixels("1i") / 96.0)
         self.ui = min(2.0, max(0.7, float(self.conf.get("scale", 1.0))))
@@ -1389,6 +1411,8 @@ class DeskCalendar:
         root.bind_all("<ButtonRelease-1>", lambda e: root.after(40, self._bottom_soon), add="+")
         if not self.conf.get("seen_help"):
             root.after(900, self._first_help)
+        self._load_holiday_cache()
+        root.after(6000, self.refresh_holidays)
         root.after(300, self._poll_sync)
         root.after(3000, self.sync_now)
         root.after(5 * 60 * 1000, self._sync_tick)
@@ -1916,7 +1940,53 @@ class DeskCalendar:
         self._sync_retry = 0
         self.sync_status = f"{text} · {dt.datetime.now():%H:%M}"
 
+    # ── 공휴일 (공공데이터포털 API, 설정에 서비스키를 넣었을 때만) ──
+    def _load_holiday_cache(self):
+        self._hol_cache = holidays_api.load_cache(HOLIDAY_FILE)
+        for y, ent in self._hol_cache.items():
+            try:
+                holidays_kr.set_override(int(y), ent.get("items"))
+            except Exception:
+                pass
+
+    def refresh_holidays(self, force=False):
+        key = (self.conf.get("holiday_key") or "").strip()
+        if not key:
+            return
+        started = False
+        for y in (self.today.year, self.today.year + 1):
+            if not force and holidays_api.is_fresh(self._hol_cache.get(str(y))):
+                continue
+            started = True
+
+            def work(y=y):
+                try:
+                    self.sync_q.put(("holidays", y, holidays_api.fetch_year(key, y), None))
+                except Exception as ex:
+                    self.sync_q.put(("holidays", y, None, str(ex)))
+
+            threading.Thread(target=work, daemon=True).start()
+        if started:
+            self.hol_status = "공휴일 가져오는 중…"
+
+    def _on_holidays(self, y, items, err):
+        now = dt.datetime.now().strftime("%H:%M")
+        if items:
+            holidays_kr.set_override(y, items)
+            self._hol_cache[str(y)] = {"fetched": time.time(), "items": items}
+            holidays_api.save_cache(HOLIDAY_FILE, self._hol_cache)
+            self.hol_status = f"{y}년 공휴일 {len(items)}일 반영됨 · {now}"
+            self.render_month()
+            self.render_todos()
+        elif err:
+            self.hol_status = f"{y}년: {err} · {now}"
+        else:
+            self.hol_status = f"{y}년: 받은 공휴일이 없어 내장 규칙을 써요 · {now}"
+
     def _on_sync_msg(self, msg):
+        if msg[0] == "holidays":
+            self._on_holidays(msg[1], msg[2], msg[3])
+            return
         cfg = self.sync_cfg()
         if not cfg:
             self._syncing = False

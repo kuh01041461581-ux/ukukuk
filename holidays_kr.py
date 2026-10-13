@@ -19,9 +19,24 @@ EXTRA = {dt.date(2024, 4, 10): "국회의원선거", dt.date(2024, 10, 1): "국�
          dt.date(2026, 6, 3): "지방선거", dt.date(2028, 4, 12): "국회의원선거"}
 
 _cache = {}
+_override = {}      # 공공데이터 API 로 받은 연도별 공휴일 {year: {date: 이름}} — 있으면 내장 규칙보다 우선
+
+
+def set_override(year, mapping):
+    """mapping: {'YYYY-MM-DD': 이름}. 비어 있으면 무시(내장 규칙 사용)"""
+    out = {}
+    for k, v in (mapping or {}).items():
+        try:
+            out[dt.date.fromisoformat(k)] = v
+        except ValueError:
+            pass
+    if out:
+        _override[year] = out
 
 
 def holidays(year):
+    if year in _override:
+        return _override[year]
     if year in _cache:
         return _cache[year]
     h, need = {}, []          # need: 대체공휴일이 필요한 묶음의 마지막 날

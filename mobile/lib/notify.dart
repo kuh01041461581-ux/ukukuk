@@ -13,14 +13,20 @@ class Notifier {
   static Future<void> init() async {
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
-    const init = InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher'));
+    const init = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(
+          requestAlertPermission: false, requestBadgePermission: false, requestSoundPermission: false),
+    );
     await plugin.initialize(init);
     _ready = true;
   }
 
   static Future<bool> requestPermission() async {
     final a = plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    return await a?.requestNotificationsPermission() ?? false;
+    if (a != null) return await a.requestNotificationsPermission() ?? false;
+    final i = plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+    return await i?.requestPermissions(alert: true, badge: true, sound: true) ?? false;
   }
 
   /// 앞으로 3주 안의 일정 알림을 모두 다시 예약한다 (최대 60개)
@@ -58,6 +64,7 @@ class Notifier {
       const details = NotificationDetails(
         android: AndroidNotificationDetails('schedule', '일정 알림',
             channelDescription: '일정 시작 전에 알려줘요', importance: Importance.high, priority: Priority.high),
+        iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
       );
       var id = 1;
       for (final e in list.take(60)) {

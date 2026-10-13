@@ -69,7 +69,8 @@ DONE = "#5e6178"
 SUN = "#ff6b81"         # 코랄
 SAT = "#5db8ff"         # 스카이
 # 중요도 (인덱스 = 저장값 "pri", 기본 2 = 보통)
-PRIORITIES = [("매우 중요", "#ff5c7a"), ("중요", "#ffb547"), ("보통", "#8b7bff"), ("낮음", "#3ddc97")]
+# 중요도는 3단계(중요/보통/낮음). 번호 0 은 예전 데이터용(= 중요)
+PRIORITIES = [("중요", "#ff5c7a"), ("중요", "#ff5c7a"), ("보통", "#8b7bff"), ("낮음", "#3ddc97")]
 DEFAULT_PRI = 2
 PRIORITIES_DEFAULT = list(PRIORITIES)
 CHIP_MIX = "#ffffff"    # 칩 글자색을 섞을 색 (밝은 테마에서는 검정)
@@ -379,7 +380,14 @@ def rrect(c, x1, y1, x2, y2, r, **kw):
 
 def pri_of(t):
     p = t.get("pri", DEFAULT_PRI)
+    if p == 0:
+        return 1
     return p if isinstance(p, int) and 0 <= p < len(PRIORITIES) else DEFAULT_PRI
+
+
+def next_pri(p):
+    """중요 → 낮음 → 보통 → 중요 … 로 돌려 가며 바꾸기"""
+    return 3 if p <= 1 else p - 1
 
 
 def pri_color(t):
@@ -545,7 +553,7 @@ class ImportDialog:
         oval = dot.create_oval(2, 2, S(14), S(14), fill=PRIORITIES[r["pri"]][1], outline="")
 
         def cycle(_=None):
-            r["pri"] = (r["pri"] - 1) % len(PRIORITIES)
+            r["pri"] = next_pri(r["pri"])
             dot.itemconfig(oval, fill=PRIORITIES[r["pri"]][1])
 
         dot.bind("<Button-1>", cycle)
@@ -647,7 +655,8 @@ class EditDialog:
         self.dots = []
         for n, (name, col) in enumerate(PRIORITIES):
             cv = tk.Canvas(f, width=S(24), height=S(24), bg=SURFACE, highlightthickness=0, cursor="hand2")
-            cv.pack(side="left", padx=(0, S(4)))
+            if n:
+                cv.pack(side="left", padx=(0, S(4)))
             cv.bind("<Button-1>", lambda e, n=n: self.set_pri(n))
             self.dots.append(cv)
         self.pri_lbl = tk.Label(f, font=app.f_tiny, bg=SURFACE)
@@ -852,7 +861,8 @@ class DayDetail:
         self.dots = []
         for n, (name, col) in enumerate(PRIORITIES):
             cv = tk.Canvas(pr, width=S(22), height=S(22), bg=SURFACE, highlightthickness=0, cursor="hand2")
-            cv.pack(side="left", padx=(S(8) if n == 0 else 0, 0))
+            if n:
+                cv.pack(side="left", padx=(S(8) if n == 1 else 0, 0))
             cv.bind("<Button-1>", lambda e, n=n: self.set_pri(n))
             self.dots.append(cv)
         self.pri_lbl = tk.Label(pr, font=app.f_tiny, bg=SURFACE)
@@ -1355,7 +1365,7 @@ class FontDialog:
 class SettingsDialog:
     """화면 설정: 작은 창 + 탭 (모양 / 글자 / 색 / 기타). 슬라이더는 움직이는 대로 바로 적용"""
 
-    TABS = ("모양", "글자", "색", "기타")
+    TABS = ("모양", "글자", "기타", "고급")
 
     def __init__(self, app):
         self.app = app
@@ -1397,7 +1407,7 @@ class SettingsDialog:
         scroll = lambda e: cv.yview_scroll(int(-e.delta / 120), "units")
         top.bind("<MouseWheel>", scroll)
         self.body, self.pad = body, pad
-        getattr(self, "tab_" + {"모양": "look", "글자": "text", "색": "color", "기타": "misc"}[self.tab])()
+        getattr(self, "tab_" + {"모양": "look", "글자": "text", "고급": "color", "기타": "misc"}[self.tab])()
         for w in body.winfo_children():
             w.bind("<MouseWheel>", scroll)
 
@@ -1456,11 +1466,6 @@ class SettingsDialog:
                     None, release=lambda v: app.set_style(glass_strength=round(v / 100, 2)))
         self.slider("달력 칸 글자", 70, 240, int(round(float(app.conf.get("cal_font", 1.15)) * 100)),
                     None, release=lambda v: app.set_cal_font(v / 100))
-        self.label("보기 방식")
-        r = self.row()
-        st = app.conf.get("style", "glass")
-        self.pill(r, "유리", lambda: self.act(app.set_style, style="glass"), on=st == "glass")
-        self.pill(r, "카드", lambda: self.act(app.set_style, style="card"), on=st == "card")
         self.label("보이는 주")
         r = self.row()
         for n in (4, 5, 6):
@@ -1503,6 +1508,13 @@ class SettingsDialog:
 
     def tab_color(self):
         app, S = self.app, self.app.S
+        tk.Label(self.body, text="자주 바꾸지 않는 꾸미기 설정이에요. 기본값으로 충분해요.", font=app.f_tiny, bg=SURFACE, fg=DIM,
+                 anchor="w").pack(fill="x", padx=self.pad, pady=(S(10), 0))
+        self.label("보기 방식")
+        r = self.row()
+        st = app.conf.get("style", "glass")
+        self.pill(r, "유리", lambda: self.act(app.set_style, style="glass"), on=st == "glass")
+        self.pill(r, "카드", lambda: self.act(app.set_style, style="card"), on=st == "card")
         self.label("색상 테마 (카드 모양)")
         names = list(THEMES.items())
         for i in range(0, len(names), 3):                 # 3개씩 줄을 나눠 잘리지 않게
@@ -1518,7 +1530,7 @@ class SettingsDialog:
             c.bind("<Button-1>", lambda e, col=col: self.act(app.update_appearance, accent=col))
         self.pill(r, "직접…", lambda: self.pick("accent", ACCENT))
         self.label("중요도 색")
-        for i, (name, col) in enumerate(PRIORITIES):
+        for i, (name, col) in list(enumerate(PRIORITIES))[1:]:
             r = self.row()
             r.pack_configure(pady=(S(4), 0))
             self.swatch(r, col, S(20))
@@ -1592,6 +1604,7 @@ class SettingsDialog:
         if hexv:
             cols = [c for _, c in PRIORITIES]
             cols[i] = hexv
+            cols[0] = cols[1]
             self.act(self.app.update_appearance, pri_colors=cols)
 
 
@@ -2025,7 +2038,7 @@ class DeskCalendar:
         grab = tk.Frame(bar, bg=BG, cursor="fleur")      # 중요도 색 안내를 겸한 이동 막대
         grab.pack(side="left", fill="y", padx=S(8))
         legend = []
-        for name, col in PRIORITIES:
+        for name, col in PRIORITIES[1:]:
             legend.append(tk.Label(grab, text="●", font=self.f_tiny, bg=BG, fg=col, cursor="fleur"))
             legend.append(tk.Label(grab, text=name, font=self.f_tiny, bg=BG, fg=SUB, cursor="fleur"))
         for i, lb in enumerate(legend):
@@ -2146,8 +2159,8 @@ class DeskCalendar:
         self.todo_entry.bind("<Button-1>", lambda e: self.todo_entry.focus_force(), add="+")
         self.todo_entry.bind("<FocusIn>", lambda e: self.box.config(bg=ACCENT), add="+")
         self.todo_entry.bind("<FocusOut>", lambda e: self.box.config(bg=BORDER), add="+")
-        for n in range(4):
-            self.todo_entry.bind(f"<Control-Key-{n + 1}>", lambda e, n=n: self._pick_pri(n))
+        for n in range(1, 4):
+            self.todo_entry.bind(f"<Control-Key-{n}>", lambda e, n=n: self._pick_pri(n))
         self._placeholder(self.todo_entry, "")
 
         # 중요도 선택
@@ -2157,7 +2170,8 @@ class DeskCalendar:
         for n, (name, col) in enumerate(PRIORITIES):
             cv = tk.Canvas(prow, width=S(20), height=S(20), bg=SURFACE, highlightthickness=0,
                            cursor="hand2")
-            cv.pack(side="left", padx=(S(6) if n == 0 else 0, 0))
+            if n:
+                cv.pack(side="left", padx=(S(6) if n == 1 else 0, 0))
             cv.bind("<Button-1>", lambda e, n=n: self._pick_pri(n))
             self.pri_dots.append(cv)
         self.pri_name = tk.Label(prow, font=self.f_tiny, bg=SURFACE, fg=SUB)
@@ -2944,6 +2958,25 @@ class DeskCalendar:
         return {"m": m, "gap": gap, "gx": gx, "y0": y0, "cw": cw, "ch": ch, "cells": cells, "panel": panel,
                 "hdr": hdr, "wd": [(cells[c][0], y_wd, cells[c][2], y_wd + wd_h) for c in range(7)]}
 
+    def _summary_counts(self):
+        """(오늘 남은 일정, 지난 미완료, 앞으로 3일 안 미완료)"""
+        today = dt.date.today()
+        late = 0
+        for key, v in self.data.items():
+            if key in core.NON_DATE_KEYS or not isinstance(v, dict):
+                continue
+            s0 = core.parse_date(key)
+            if not s0 or s0 >= today:
+                continue
+            for t in v.get("todos", []):
+                if t.get("done") or t.get("repeat"):
+                    continue
+                if (core.item_end(t, s0) or s0) < today:
+                    late += 1
+        undone = lambda d: sum(1 for _, t, _ in core.day_items(self.data, d) if not t.get("done"))
+        soon = sum(undone(today + dt.timedelta(days=k)) for k in (1, 2, 3))
+        return undone(today), late, soon
+
     def _glass_colors(self):
         if self.conf.get("glass_tint", "그래파이트") == "밝게":
             return {"txt": "#1c2230", "dim": "#6b7385", "sun": "#c8374a", "sat": "#2f6bd1",
@@ -3014,6 +3047,21 @@ class DeskCalendar:
         self._gtext(hx1 + S(4), mid_y, f"{mid.year}년 {mid.month}월", self.f_h2, col["txt"], "w")
         title_w = self.f_h2.measure(f"{mid.year}년 {mid.month}월")
         self._gbtns = []
+        # 요약 줄: 오늘 N · 지연 N · 3일 내 N (눌러서 '예정' 보기)
+        n_today, n_late, n_soon = self._summary_counts()
+        sx = hx1 + title_w + S(22)
+        chips = [(f"오늘 {n_today}", col["txt"])]
+        if n_late:
+            chips.append((f"지연 {n_late}", col["sun"]))
+        chips.append((f"3일 내 {n_soon}", col["dim"] if not n_soon else ACCENT))
+        for text, fg in chips:
+            wch = self.f_small.measure(text) + S(18)
+            self._rr(sx, mid_y - S(11), sx + wch, mid_y + S(11), S(11), fill="#e2e6ef" if col.get("light") else "#2c303b", outline="")
+            self._gtext(sx + wch / 2, mid_y, text, self.f_small, fg, "center")
+            self._gbtns.append((sx, mid_y - S(11), sx + wch, mid_y + S(11),
+                                lambda e: (self.set_mode("agenda"), self.set_panel(True)), "sum:" + text))
+            sx += wch + S(6)
+        sum_end = sx
         labels = [("보관함", lambda e: self.open_inbox()), ("공문", lambda e: self.import_pdf()),
                   ("검색", lambda e: self.open_search()), ("폰 연결", lambda e: PhoneDialog(self)),
                   ("설정", lambda e: self.open_settings()),
@@ -3029,12 +3077,12 @@ class DeskCalendar:
             self._gbtns.append(btn)
             hov = self._ghover == text
             if hov:
-                self._rr(x1, mid_y - S(13), x, mid_y + S(13), S(7), fill="#ffffff", outline="", stipple="gray12")
+                self._rr(x1, mid_y - S(13), x, mid_y + S(13), S(7), fill="#dde2ec" if col.get("light") else "#383d4a", outline="")
             strong = text in ("오늘", "‹", "›")
             self._gtext((x1 + x) / 2, mid_y, text, fb, col["txt"] if strong or hov else col["dim"], "center")
             x = x1 - S(2)
-        if self.sync_cfg() and self.sync_status and x - (hx1 + title_w) > S(150):
-            self._gtext(hx1 + title_w + S(14), mid_y + S(2), "☁ " + self.sync_status.split(" · ")[0],
+        if self.sync_cfg() and self.sync_status and x - sum_end > S(150):
+            self._gtext(sum_end + S(8), mid_y + S(2), "☁ " + self.sync_status.split(" · ")[0],
                         self.f_tiny, col["dim"], "w")
         for i, r in enumerate(L["wd"]):
             fg = col["sun"] if i == 0 else col["sat"] if i == 6 else col["dim"]
@@ -3087,6 +3135,8 @@ class DeskCalendar:
             p = pri_of(t)
             fg = col["done"] if done else (col["pri"][p] if p < 2 else col["txt"])
             dot_c = col["done"] if done else col["pri"][p] if p != 2 else ACCENT
+            if not done and d < today and not t.get("repeat") and "_src" not in t and (e0 is None or e0 < today):
+                fg = dot_c = col["sun"]                      # 지난 미완료는 붉게
             top = y
             for li, line in enumerate(lines):
                 if y + lh > bottom:
@@ -3753,7 +3803,7 @@ class DeskCalendar:
 
     def cycle_pri(self, t):
         b = core.base_of(t)
-        b["pri"] = (pri_of(b) - 1) % len(PRIORITIES)
+        b["pri"] = next_pri(pri_of(b))
         core.touch(b)
         self._after_todo_change()
 
@@ -3835,7 +3885,7 @@ class DeskCalendar:
         if self.mode != "inbox":
             m.add_command(label="보관함으로 보내기", command=lambda: self.to_inbox(lst, t))
         m.add_separator()
-        for p, (name, _) in enumerate(PRIORITIES):
+        for p, (name, _) in list(enumerate(PRIORITIES))[1:]:
             m.add_command(label=("✓ " if pri_of(t) == p else "    ") + f"● {name}",
                           command=lambda p=p: self.set_pri(t, p))
         m.add_separator()

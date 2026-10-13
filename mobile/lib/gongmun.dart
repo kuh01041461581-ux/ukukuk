@@ -132,6 +132,8 @@ String _tidy(String t) {
   t = t.replaceAll(RegExp(r'\(\s*[,.~∼～\-:·\s]*\)'), ' ');
   t = t.trim().replaceAll(_tail, '');
   t = t.replaceAll(RegExp(r'(?:기한|마감일?)\s*[:：]\s*(?=\S)'), ' ');
+  t = t.replaceAll(RegExp(r'\s*[:：]\s*(?=[,，;])'), ''); // 날짜를 빼고 남은 "설명회: , 장소"
+  t = t.replaceAllMapped(RegExp(r'\s*([,，;])(?:\s*[,，;])+'), (m) => m.group(1)!);
   t = t.replaceAllMapped(RegExp(r'(?<!\S)(\S{2,})(\s+\1)+(?!\S)'), (m) => m.group(1)!);
   t = _stripChars(t.replaceAll(RegExp(r'\s+'), ' '), ' \t:;,.~∼～-–—·ㆍ');
   final m = RegExp(r'^\(([^()]*)\)$').firstMatch(t);

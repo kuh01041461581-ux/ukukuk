@@ -5,3 +5,5 @@ pillow
 korean-lunar-calendar
 pyinstaller
 pystray
+openpyxl
+olefile

@@ -32,6 +32,8 @@ import cloudsync
 import analyze
 import ocr
 import quickadd
+import work
+import hwpdoc
 from core import item_end
 from holidays_kr import holiday_name
 
@@ -340,6 +342,8 @@ def start_tray(q):
         pystray.MenuItem("열기", put("show"), default=True),
         pystray.MenuItem("오늘 일정 추가", put("add")),
         pystray.MenuItem("클립보드 내용으로 일정 만들기", put("clip")),
+        pystray.MenuItem("업무 관리", put("work")),
+        pystray.MenuItem("주간 업무 보고", put("report")),
         pystray.MenuItem("휴대폰 연결", put("phone")),
         pystray.MenuItem("설정", put("settings")),
         pystray.Menu.SEPARATOR,
@@ -479,9 +483,11 @@ def THEME_IS_DARK():
 class ImportDialog:
     """공문 PDF 에서 찾은 일정 후보를 확인하고 추가하는 창"""
 
-    def __init__(self, app, doc_title, items, src_path=None, heading="공문에서 일정 가져오기"):
+    def __init__(self, app, doc_title, items, src_path=None, heading="공문에서 일정 가져오기", doc_text=None):
         self.app, S = app, app.S
         self.src_path = src_path
+        self.doc_text = doc_text
+        self.items = items
         self.doc_title = doc_title
         self.rows = []
         top = self.top = _dialog(app, heading, S(760), S(520))
@@ -612,11 +618,19 @@ class ImportDialog:
                                             **({"src_path": self.src_path} if self.src_path else {}))))
         for d, item in picked:
             core.add_item(app.data, d.isoformat() if d else "_inbox", item)
-        if picked:
+        case = None
+        if self.src_path and self.doc_text is not None:          # 공문이면 업무(폴더)도 함께
+            case, _ = app.case_from_doc(self.src_path, self.doc_text, self.doc_title, self.items,
+                                        [it for _, it in picked])
+        if picked or case:
             app._after_todo_change()
         self.top.destroy()
-        if picked:
-            messagebox.showinfo("가져오기 완료", f"{len(picked)}개 일정을 추가했어요.", parent=app.root)
+        if picked or case:
+            msg = f"{len(picked)}개 일정을 추가했어요."
+            if case:
+                msg += "\n업무 폴더도 만들었어요. 제출 현황·양식 취합은 '업무'에서 할 수 있어요."
+            NotifyPopup(app, "가져오기 완료", msg, beep=False,
+                        actions=[("업무 열기", lambda: app.open_work(case["id"]))] if case else None)
 
 
 class EditDialog:
@@ -946,8 +960,14 @@ class DayDetail:
         if t.get("time"):
             tags.append(t["time"])
         tags.append(PRIORITIES[pri_of(t)][0])
-        tk.Label(body, text="  ·  ".join(tags), font=app.f_tiny, bg=CARD, fg=DIM if done else col,
-                 anchor="w").pack(fill="x")
+        cid = core.base_of(t).get("case")
+        if cid in (app.data.get("_work") or {}):
+            tags.append("업무")
+        tl = tk.Label(body, text="  ·  ".join(tags), font=app.f_tiny, bg=CARD, fg=DIM if done else col, anchor="w")
+        tl.pack(fill="x")
+        if cid in (app.data.get("_work") or {}):
+            tl.config(cursor="hand2")
+            tl.bind("<Button-1>", lambda e, cid=cid: app.open_work(cid))
         tk.Label(body, text=t.get("text", ""), font=app.f_done if done else app.f_body, bg=CARD,
                  fg=DONE if done else TEXT, anchor="w", justify="left", wraplength=S(260)).pack(fill="x")
         if t.get("note"):
@@ -1068,7 +1088,10 @@ class CommandBar:
         app = self.app
         cmds = [("오늘로 이동", "달력", app.go_today), ("설정 열기", "설정", app.open_settings),
                 ("휴대폰 연결 (QR)", "폰 연결 동기화", lambda: PhoneDialog(app)),
-                ("공문 PDF 가져오기", "공문 pdf 가져오기", app.import_pdf),
+                ("공문 가져오기 (PDF·한글)", "공문 pdf 한글 hwp 가져오기", app.import_pdf),
+                ("업무 관리 · 제출 현황", "업무 제출 취합 양식 독촉 폴더", app.open_work),
+                ("주간 업무 보고 만들기", "보고 주간 월간 실적 계획", app.open_report),
+                ("반복 업무 추가", "반복 정기 템플릿 매월 분기", app.open_templates),
                 ("보관함 열기", "보관함 인박스", app.open_inbox), ("사용법 보기", "도움말 사용법", app.open_help)]
         q = q.lower()
         return [(n, k, f) for n, k, f in cmds if q and (q in n.lower() or q in k.lower())]
@@ -1109,6 +1132,9 @@ class CommandBar:
             clip_ok = IS_WIN            # 이미지를 복사한 경우도 있을 수 있어 윈도우에서는 항상 보여 줌
         if clip_ok and (not q or len(q) < 3):
             self.rows.append(("📋  클립보드 내용으로 일정 만들기", "복사한 글·캡처", lambda: (self.close(), self.app.analyze_clipboard())))
+        wd = self._workdays(q)
+        if wd:
+            self.rows.insert(0, wd)
         for name, _, fn in self._commands(q):
             self.rows.append(("▸  " + name, "명령", lambda fn=fn: (self.close(), fn())))
         for _, d, t in self._hits(q):
@@ -1116,6 +1142,30 @@ class CommandBar:
             self.rows.append(("🔎  " + t.get("text", ""), when, lambda d=d: (self.close(), self._open_date(d))))
         self.sel = 0
         self.draw()
+
+    _WD_RE = re.compile(r"^(?:(.*?)\s*(?:부터|로부터|에서|기준)\s*)?(\d{1,3})\s*(?:근무일|영업일|업무일|일\s*근무)\s*(뒤|후|전)?$")
+
+    def _workdays(self, q):
+        """'7근무일', '10/20부터 5근무일 전' → 주말·공휴일을 뺀 날짜 계산"""
+        m = self._WD_RE.match(q.strip())
+        if not m:
+            return None
+        today = dt.date.today()
+        base = quickadd.parse(m.group(1), today)["date"] if m.group(1) else today
+        base = base or today
+        n = int(m.group(2))
+        if m.group(3) == "전":
+            d = base
+            k = n
+            while k:
+                d -= dt.timedelta(days=1)
+                if core.is_workday(d, _hol):
+                    k -= 1
+        else:
+            d = core.add_workdays(base, n, _hol)
+        cal = (d - today).days
+        label = f"📅  {work.fmt_date(base)} {'전' if m.group(3) == '전' else '부터'} 근무일 {n}일 → {work.fmt_date(d)}"
+        return (label, f"달력으로 {cal:+d}일", lambda d=d: (self.close(), self.app.select_date(d)))
 
     def _open_date(self, d):
         if d is None:
@@ -1168,7 +1218,7 @@ class CommandBar:
 class NotifyPopup:
     """화면 오른쪽 아래에 뜨는 알림 카드"""
 
-    def __init__(self, app, title, body, on_snooze=None, action=None):
+    def __init__(self, app, title, body, on_snooze=None, action=None, actions=None, beep=True):
         self.app = app
         S = app.S
         top = self.top = tk.Toplevel(app.root)
@@ -1188,17 +1238,19 @@ class NotifyPopup:
         if on_snooze:
             Pill(row, "10분 뒤", lambda: (on_snooze(), self.close()), app.f_small, parent_bg=SURFACE,
                  padx=S(14), pady=S(4)).pack(side="left", padx=S(8))
-        if action:
-            Pill(row, action[0], lambda: (action[1](), self.close()), app.f_small, parent_bg=SURFACE,
-                 padx=S(14), pady=S(4)).pack(side="left", padx=S(8))
+        for lab, fn in ([action] if action else []) + list(actions or []):
+            Pill(row, lab, lambda fn=fn: (fn(), self.close()), app.f_small, parent_bg=SURFACE,
+                 padx=S(14), pady=S(4)).pack(side="left", padx=(S(8), 0))
         top.update_idletasks()
         w, h = top.winfo_reqwidth(), top.winfo_reqheight()
         vx, vy, vw, vh = virtual_screen(app.root)
         off = sum(p.top.winfo_reqheight() + S(10) for p in app.popups)
         top.geometry(f"+{vx + vw - w - S(20)}+{vy + vh - h - S(70) - off}")
         app.popups.append(self)
+        while len(app.popups) > 4:                     # 알림이 너무 쌓이면 오래된 것부터 닫는다
+            app.popups[0].close()
         top.after(25000, self.close)
-        if IS_WIN:
+        if IS_WIN and beep:
             try:
                 import winsound
                 winsound.MessageBeep(0x40)
@@ -1390,7 +1442,7 @@ class FontDialog:
 class SettingsDialog:
     """화면 설정: 작은 창 + 탭 (모양 / 글자 / 색 / 기타). 슬라이더는 움직이는 대로 바로 적용"""
 
-    TABS = ("모양", "글자", "기타", "고급")
+    TABS = ("모양", "글자", "업무", "기타", "고급")
 
     def __init__(self, app):
         self.app = app
@@ -1432,7 +1484,7 @@ class SettingsDialog:
         scroll = lambda e: cv.yview_scroll(int(-e.delta / 120), "units")
         top.bind("<MouseWheel>", scroll)
         self.body, self.pad = body, pad
-        getattr(self, "tab_" + {"모양": "look", "글자": "text", "고급": "color", "기타": "misc"}[self.tab])()
+        getattr(self, "tab_" + {"모양": "look", "글자": "text", "고급": "color", "기타": "misc", "업무": "work"}[self.tab])()
         for w in body.winfo_children():
             w.bind("<MouseWheel>", scroll)
 
@@ -1590,6 +1642,48 @@ class SettingsDialog:
                  font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(400)
                  ).pack(fill="x", padx=self.pad, pady=(S(4), S(10)))
 
+    def tab_work(self):
+        app, S = self.app, self.app.S
+        self.label("업무 폴더 위치")
+        r = self.row()
+        tk.Label(r, text=app.work_root(), font=app.f_tiny, bg=SURFACE, fg=ACCENT, anchor="w", justify="left",
+                 wraplength=S(300)).pack(side="left", fill="x", expand=True)
+        self.pill(r, "변경…", self.pick_work_root)
+        self.pill(r, "열기", lambda: (os.makedirs(app.work_root(), exist_ok=True), open_path(app.work_root())))
+        tk.Label(self.body, text="공문 한 건마다 '연도\\월일 제목' 폴더가 생기고 그 안에 1.공문 · 2.양식·배포 · 3.제출받은 파일 · "
+                                 "4.취합 결과 폴더가 만들어져요.", font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w",
+                 justify="left", wraplength=S(400)).pack(fill="x", padx=self.pad, pady=(S(4), 0))
+        self.label("공문을 넣으면 업무 폴더 만들기")
+        r = self.row()
+        on = app.conf.get("auto_case", True)
+        self.pill(r, "켬", lambda: self.act(app.update_conf, auto_case=True), on=on)
+        self.pill(r, "끔", lambda: self.act(app.update_conf, auto_case=False), on=not on)
+        self.label("복사한 글에 날짜가 있으면 알려 주기")
+        r = self.row()
+        on = app.conf.get("clip_watch", False)
+        self.pill(r, "켬", lambda: self.act(app.update_conf, clip_watch=True), on=on)
+        self.pill(r, "끔", lambda: self.act(app.update_conf, clip_watch=False), on=not on)
+        tk.Label(self.body, text="메신저에서 Ctrl+C 로 복사하면 오른쪽 아래에 '일정 n개를 찾았어요' 알림이 떠요. "
+                                 "복사한 글은 이 PC 안에서만 읽고 어디에도 보내지 않아요.",
+                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(400)
+                 ).pack(fill="x", padx=self.pad, pady=(S(4), 0))
+        self.label("저장된 제출 대상 목록")
+        groups = app.conf.get("target_groups") or {}
+        if not groups:
+            tk.Label(self.body, text="업무 → 대상 편집에서 '이 목록을 이름 붙여 저장' 하면 여기 보여요.",
+                     font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=self.pad, pady=(S(4), 0))
+        for name, names in groups.items():
+            r = self.row()
+            tk.Label(r, text=f"{name}  ·  {len(names)}곳", font=app.f_small, bg=SURFACE, fg=TEXT).pack(side="left")
+            self.pill(r, "지우기", lambda n=name: self.act(app.update_conf, target_groups={
+                k: v for k, v in groups.items() if k != n}))
+        tk.Frame(self.body, bg=SURFACE, height=S(10)).pack()
+
+    def pick_work_root(self):
+        p = filedialog.askdirectory(parent=self.top, title="업무 폴더를 만들 곳", initialdir=self.app.work_root())
+        if p:
+            self.act(self.app.update_conf, work_root=p)
+
     def act(self, fn, *a, **kw):
         fn(*a, **kw)
         self.build()
@@ -1633,6 +1727,804 @@ class SettingsDialog:
             self.act(self.app.update_appearance, pri_colors=cols)
 
 
+def _scroll_area(parent, bg):
+    """세로로 스크롤되는 영역 (canvas, 안쪽 프레임)"""
+    cv = tk.Canvas(parent, bg=bg, highlightthickness=0, bd=0)
+    inner = tk.Frame(cv, bg=bg)
+    win = cv.create_window((0, 0), window=inner, anchor="nw")
+    inner.bind("<Configure>", lambda e: cv.configure(scrollregion=cv.bbox("all")))
+    cv.bind("<Configure>", lambda e: cv.itemconfigure(win, width=e.width))
+
+    def wheel(e):
+        if cv.winfo_height() < inner.winfo_reqheight():
+            cv.yview_scroll(int(-e.delta / 120) or (-1 if e.delta > 0 else 1), "units")
+    cv._wheel = wheel
+    cv.bind("<MouseWheel>", wheel)
+    return cv, inner
+
+
+def _bind_wheel(widget, cv):
+    for w in (widget, *widget.winfo_children()):
+        w.bind("<MouseWheel>", cv._wheel)
+        if w is not widget:
+            _bind_wheel(w, cv)
+
+
+def _flat_entry(app, parent, text="", font=None, width=None, bg=None):
+    e = tk.Entry(parent, font=font or app.f_body, bg=bg or CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
+                 highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
+                 **({"width": width} if width else {}))
+    e.insert(0, text)
+    return e
+
+
+def _hol(d):
+    return bool(holiday_name(d))
+
+
+def dday_color(n):
+    if n is None:
+        return DIM
+    if n < 0:
+        return SUN
+    if n <= 2:
+        return PRIORITIES[1][1]
+    return ACCENT
+
+
+ST_COLORS = lambda: (DIM, ACCENT, "#3ddc97")        # 미제출 · 제출 · 확인
+
+
+class WorkWindow:
+    """업무 관리: 공문 한 건 = 업무 하나. 왼쪽 목록, 오른쪽에 기한·제출 현황·양식 배포·취합·연결된 일정"""
+
+    def __init__(self, app, select=None):
+        self.app = app
+        S = app.S
+        self.show_done = False
+        self.sel = select
+        top = self.top = _dialog(app, "업무 관리", S(920), S(640))
+        top.attributes("-topmost", False)
+        top.minsize(S(720), S(480))
+        top.resizable(True, True)
+        top.protocol("WM_DELETE_WINDOW", self.close)
+        top.bind("<Escape>", lambda e: self.close())
+        self.left = tk.Frame(top, bg=BG, width=S(300))
+        self.left.pack(side="left", fill="y")
+        self.left.pack_propagate(False)
+        tk.Frame(top, bg=BORDER, width=1).pack(side="left", fill="y")
+        self.right = tk.Frame(top, bg=SURFACE)
+        self.right.pack(side="left", fill="both", expand=True)
+        self.drop_q = queue.Queue()
+        self._drop_keep = {}
+        self._scan_sig = None
+        cs = work.sorted_cases(app.data)
+        if self.sel is None and cs:
+            self.sel = cs[0]["id"]
+        self.build_left()
+        self.build_right()
+        top.after(300, self._hook)
+        top.after(400, self._poll)
+
+    # ── 공통 ──
+    def case(self):
+        return (self.app.data.get("_work") or {}).get(self.sel)
+
+    def close(self):
+        self._save_fields()
+        try:
+            self.top.destroy()
+        except tk.TclError:
+            pass
+        self.app.workwin = None
+
+    def changed(self, c=None, left=True):
+        if c is not None:
+            work.touch(c)
+        self.app._after_todo_change()
+        if left:
+            self.build_left()
+
+    def _hook(self):
+        if not IS_WIN:
+            return
+        try:
+            hs = [ctypes.windll.user32.GetParent(self.top.winfo_id()) or self.top.winfo_id(), self.top.winfo_id()]
+            stack = [self.top]
+            while stack:
+                w = stack.pop()
+                stack.extend(w.winfo_children())
+                try:
+                    hs.append(w.winfo_id())
+                except tk.TclError:
+                    pass
+            hook_dropfiles(hs, self.drop_q, self._drop_keep)
+        except Exception:
+            pass
+
+    def _poll(self):
+        try:
+            if not self.top.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        try:
+            while True:
+                self.on_drop(self.drop_q.get_nowait())
+        except queue.Empty:
+            pass
+        c = self.case()
+        if c and c.get("folder"):                       # 제출 폴더에 직접 넣은 파일도 알아서 반영
+            try:
+                sig = tuple(sorted(os.listdir(work.sub(c, 2))))
+            except OSError:
+                sig = None
+            if sig != self._scan_sig:
+                self._scan_sig = sig
+                if work.scan(c):
+                    self.changed(c)
+                    self.build_right()
+        self.top.after(1500, self._poll)
+
+    # ── 왼쪽: 업무 목록 ──
+    def build_left(self):
+        app, S = self.app, self.app.S
+        for w in self.left.winfo_children():
+            w.destroy()
+        head = tk.Frame(self.left, bg=BG)
+        head.pack(fill="x", padx=S(16), pady=(S(16), S(6)))
+        tk.Label(head, text="업무", font=app.f_title, bg=BG, fg=TEXT).pack(side="left")
+        Pill(head, "＋ 새 업무", self.new_case, app.f_small, fg="#ffffff", bg=ACCENT,
+             hover=blend(ACCENT, "#ffffff", 0.2), parent_bg=BG, padx=S(12), pady=S(4)).pack(side="right")
+        tabs = tk.Frame(self.left, bg=BG)
+        tabs.pack(fill="x", padx=S(14), pady=(0, S(6)))
+        allc = list((app.data.get("_work") or {}).values())
+        n_on = sum(1 for c in allc if not c.get("done"))
+        for lab, val in ((f"진행 중 {n_on}", False), (f"완료 {len(allc) - n_on}", True)):
+            on = self.show_done == val
+            Pill(tabs, lab, lambda v=val: self.set_filter(v), app.f_small, parent_bg=BG, padx=S(10), pady=S(3),
+                 **({"fg": TEXT, "bg": CARD_HOVER, "hover": CARD_HOVER} if on else {"fg": SUB, "bg": BG, "hover": CARD})
+                 ).pack(side="left", padx=(0, S(4)))
+        cv, inner = _scroll_area(self.left, BG)
+        cv.pack(fill="both", expand=True, padx=S(8), pady=(0, S(8)))
+        items = [c for c in work.sorted_cases(app.data, include_done=True) if bool(c.get("done")) == self.show_done]
+        if not items:
+            tk.Label(inner, text=("완료한 업무가 없어요" if self.show_done else
+                                  "공문(PDF·한글)을 달력이나 이 창에\n끌어다 놓으면 업무가 생겨요.\n\n"
+                                  "업무마다 폴더가 만들어지고\n제출 현황·양식 배포·취합을\n한곳에서 할 수 있어요."),
+                     font=app.f_small, bg=BG, fg=DIM, justify="left").pack(anchor="w", padx=S(10), pady=S(16))
+        for c in items:
+            self._case_card(inner, c)
+        _bind_wheel(inner, cv)
+
+    def _case_card(self, parent, c):
+        app, S = self.app, self.app.S
+        on = c["id"] == self.sel
+        bg = CARD_HOVER if on else BG
+        card = tk.Frame(parent, bg=bg, cursor="hand2")
+        card.pack(fill="x", pady=S(2))
+        bar = tk.Frame(card, bg=ACCENT if on else bg, width=S(3))
+        bar.pack(side="left", fill="y")
+        body = tk.Frame(card, bg=bg)
+        body.pack(side="left", fill="x", expand=True, padx=(S(10), S(10)), pady=S(9))
+        tk.Label(body, text=c.get("title", ""), font=app.f_body, bg=bg, fg=DIM if c.get("done") else TEXT,
+                 anchor="w", justify="left", wraplength=S(240)).pack(fill="x")
+        meta = tk.Frame(body, bg=bg)
+        meta.pack(fill="x", pady=(S(3), 0))
+        n = work.dday(c, app.today)
+        if n is not None:
+            tk.Label(meta, text=work.dday_label(n), font=app.f_tiny, bg=bg,
+                     fg=DIM if c.get("done") else dday_color(n)).pack(side="left")
+            tk.Label(meta, text="  " + work.fmt_date(c["due"]), font=app.f_tiny, bg=bg, fg=SUB).pack(side="left")
+        got, tot = work.progress(c)
+        if tot:
+            pb = tk.Canvas(meta, width=S(54), height=S(6), bg=bg, highlightthickness=0)
+            pb.pack(side="right", padx=(S(6), 0))
+            rrect(pb, 0, 0, S(54), S(6), S(3), fill=blend(TEXT, bg, 0.12), outline="")
+            if got:
+                rrect(pb, 0, 0, max(S(6), S(54) * got / tot), S(6), S(3), fill="#3ddc97" if got == tot else ACCENT,
+                      outline="")
+            tk.Label(meta, text=f"{got}/{tot}", font=app.f_tiny, bg=bg, fg=SUB).pack(side="right")
+        for w in (card, bar, body, *body.winfo_children(), *meta.winfo_children()):
+            w.bind("<Button-1>", lambda e, cid=c["id"]: self.select(cid))
+            if not on:
+                w.bind("<Enter>", lambda e, cs=(card, body, meta): [x.config(bg=CARD) for x in cs] +
+                       [ch.config(bg=CARD) for x in (body, meta) for ch in x.winfo_children() if not isinstance(ch, tk.Canvas)])
+                w.bind("<Leave>", lambda e, cs=(card, body, meta): [x.config(bg=bg) for x in cs] +
+                       [ch.config(bg=bg) for x in (body, meta) for ch in x.winfo_children() if not isinstance(ch, tk.Canvas)])
+
+    def set_filter(self, done):
+        self.show_done = done
+        self.build_left()
+
+    def select(self, cid):
+        self._save_fields()
+        self.sel = cid
+        self._scan_sig = None
+        self.build_left()
+        self.build_right()
+
+    def new_case(self):
+        c = work.add_case(self.app.data, work.new_case("새 업무", None))
+        self.show_done = False
+        self.select(c["id"])
+        self.changed()
+        try:
+            self.e_title.focus_set()
+            self.e_title.select_range(0, "end")
+        except (AttributeError, tk.TclError):
+            pass
+
+    # ── 오른쪽: 업무 한 건 ──
+    def _save_fields(self):
+        c = self.case()
+        if not c or not getattr(self, "e_title", None):
+            return
+        try:
+            title = self.e_title.get().strip()
+            due = self.e_due.get().strip()
+            note = self.t_note.get("1.0", "end-1c").strip()
+        except tk.TclError:
+            return
+        ch = False
+        if title and title != c.get("title"):
+            c["title"] = title
+            ch = True
+        d = core.parse_date(due) if due else None
+        if due and not d:
+            q = quickadd.parse(due, self.app.today)       # '10/20', '다음주 금요일' 도 받아 준다
+            d = q["date"]
+        nd = d.isoformat() if d else None
+        if nd != c.get("due") and (d or not due):
+            c["due"] = nd
+            ch = True
+        if note != c.get("note", ""):
+            c["note"] = note
+            ch = True
+        if ch:
+            self.changed(c)
+
+    def section(self, parent, title, right=None):
+        app, S = self.app, self.app.S
+        f = tk.Frame(parent, bg=SURFACE)
+        f.pack(fill="x", padx=S(24), pady=(S(18), S(6)))
+        tk.Label(f, text=title, font=app.f_head, bg=SURFACE, fg=TEXT).pack(side="left")
+        if right:
+            tk.Label(f, text=right, font=app.f_small, bg=SURFACE, fg=SUB).pack(side="left", padx=S(8))
+        return f
+
+    def pill(self, parent, text, cmd, primary=False, side="left"):
+        S = self.app.S
+        p = Pill(parent, text, cmd, self.app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(4),
+                 **({"fg": "#ffffff", "bg": ACCENT, "hover": blend(ACCENT, "#ffffff", 0.2)} if primary else {}))
+        p.pack(side=side, padx=(0, S(6)) if side == "left" else (S(6), 0))
+        return p
+
+    def build_right(self):
+        app, S = self.app, self.app.S
+        for w in self.right.winfo_children():
+            w.destroy()
+        self.e_title = None
+        c = self.case()
+        if not c:
+            box = tk.Frame(self.right, bg=SURFACE)
+            box.place(relx=0.5, rely=0.45, anchor="center")
+            tk.Label(box, text="업무를 고르거나 새로 만들어 주세요", font=app.f_h2, bg=SURFACE, fg=SUB).pack()
+            tk.Label(box, text="공문 PDF·한글 파일을 끌어다 놓으면 일정과 업무 폴더가 함께 만들어져요",
+                     font=app.f_small, bg=SURFACE, fg=DIM).pack(pady=(S(6), 0))
+            return
+        cv, body = _scroll_area(self.right, SURFACE)
+        cv.pack(fill="both", expand=True)
+        # 제목 + 기한
+        self.e_title = tk.Entry(body, font=app.f_title, bg=SURFACE, fg=TEXT, insertbackground=TEXT, relief="flat",
+                                highlightthickness=0)
+        self.e_title.insert(0, c.get("title", ""))
+        self.e_title.pack(fill="x", padx=S(22), pady=(S(20), S(2)))
+        self.e_title.bind("<Return>", lambda e: (self._save_fields(), self.top.focus_set()))
+        self.e_title.bind("<FocusOut>", lambda e: self._save_fields())
+        meta = tk.Frame(body, bg=SURFACE)
+        meta.pack(fill="x", padx=S(24), pady=(S(4), 0))
+        tk.Label(meta, text="기한", font=app.f_small, bg=SURFACE, fg=SUB).pack(side="left")
+        self.e_due = _flat_entry(app, meta, c.get("due") or "", app.f_small, 11)
+        self.e_due.pack(side="left", padx=(S(8), S(6)), ipady=S(3))
+        self.e_due.bind("<Return>", lambda e: (self._save_fields(), self.build_right()))
+        self.e_due.bind("<FocusOut>", lambda e: self._save_fields())
+        n = work.dday(c, app.today)
+        if n is not None:
+            chip = tk.Label(meta, text=f" {work.dday_label(n)} · {work.fmt_date(c['due'])} ", font=app.f_small,
+                            bg=blend(dday_color(n), SURFACE, 0.18), fg=dday_color(n))
+            chip.pack(side="left")
+            wd = core.workdays_between(app.today, core.parse_date(c["due"]), _hol)
+            if n > 0:
+                tk.Label(meta, text=f"근무일 {wd}일 남음", font=app.f_tiny, bg=SURFACE, fg=DIM).pack(side="left", padx=S(8))
+        else:
+            tk.Label(meta, text="예) 2026-10-20 · 10/20 · 다음주 금요일", font=app.f_tiny, bg=SURFACE, fg=DIM
+                     ).pack(side="left")
+        info = []
+        if c.get("doc_no"):
+            info.append(f"문서 {c['doc_no']}")
+        if c.get("received"):
+            info.append(f"받은 날 {work.fmt_date(c['received'])}")
+        if info:
+            tk.Label(body, text="  ·  ".join(info), font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w"
+                     ).pack(fill="x", padx=S(24), pady=(S(6), 0))
+        acts = tk.Frame(body, bg=SURFACE)
+        acts.pack(fill="x", padx=S(24), pady=(S(12), 0))
+        self.pill(acts, "폴더 열기", self.open_folder)
+        docs = self._files(c, 0)
+        if docs:
+            self.pill(acts, "공문 보기", lambda: open_path(docs[0]))
+        self.pill(acts, "다시 진행" if c.get("done") else "완료로 표시", self.toggle_done)
+        self.pill(acts, "삭제", self.delete, side="right")
+
+        # 제출 현황
+        got, tot = work.progress(c)
+        h = self.section(body, "제출 현황", f"{got} / {tot}" if tot else "")
+        self.pill(h, "대상 편집", lambda: TargetsDialog(app, c, self.after_targets), side="right")
+        if work.missing(c):
+            self.pill(h, "독촉 메시지 복사", self.copy_reminder, side="right")
+        grid = tk.Frame(body, bg=SURFACE)
+        grid.pack(fill="x", padx=S(24))
+        if not tot:
+            tk.Label(grid, text="자료를 받을 부서·담당자를 등록하면 누가 냈는지 한눈에 보여요.\n"
+                                "받은 파일 이름에 부서 이름이 있으면 알아서 '제출'로 바뀌어요.",
+                     font=app.f_small, bg=SURFACE, fg=DIM, justify="left").pack(anchor="w")
+        else:
+            cols = 4
+            for i, t in enumerate(c["targets"]):
+                self._target_chip(grid, c, t).grid(row=i // cols, column=i % cols, sticky="ew", padx=(0, S(6)), pady=S(3))
+            for k in range(cols):
+                grid.grid_columnconfigure(k, weight=1, uniform="t")
+            tk.Label(body, text="누르면 미제출 → 제출 → 확인 순으로 바뀌어요 · 오른쪽 버튼: 받은 파일 열기",
+                     font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(24), pady=(S(4), 0))
+
+        # 양식 · 취합
+        self.section(body, "양식 배포 · 취합")
+        row = tk.Frame(body, bg=SURFACE)
+        row.pack(fill="x", padx=S(24))
+        form = work.form_path(c) if c.get("folder") else None
+        tk.Label(row, text=("양식  " + c["form"]) if form else "양식 파일(엑셀·한글)을 이 창에 끌어다 놓거나 '양식 넣기'를 누르세요",
+                 font=app.f_small, bg=SURFACE, fg=TEXT if form else DIM, anchor="w").pack(side="left")
+        btns = tk.Frame(body, bg=SURFACE)
+        btns.pack(fill="x", padx=S(24), pady=(S(8), 0))
+        self.pill(btns, "양식 넣기…", self.pick_form)
+        if form and tot:
+            self.pill(btns, f"부서별 파일 만들기 ({tot})", self.distribute)
+        self.pill(btns, "제출 파일 넣기…", self.pick_submissions)
+        subs = work.submissions(c) if c.get("folder") else []
+        if subs:
+            self.pill(btns, f"취합하기 ({len(subs)})", self.merge, primary=True)
+        results = self._files(c, 3)
+        if results:
+            last = max(results, key=os.path.getmtime)
+            tk.Label(body, text="최근 취합: " + os.path.basename(last), font=app.f_tiny, bg=SURFACE, fg=ACCENT,
+                     cursor="hand2", anchor="w").pack(fill="x", padx=S(24), pady=(S(6), 0))
+            body.winfo_children()[-1].bind("<Button-1>", lambda e: open_path(last))
+        tk.Label(body, text="엑셀: 목록형은 한 표로 이어 붙이고(제출처 열 추가), 집계형은 같은 칸끼리 더해요. "
+                            "양식에 {부서} 라고 적어 두면 부서별 파일에 이름이 채워져요. 한글 파일은 본문을 한 파일로 모아요.",
+                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(540)
+                 ).pack(fill="x", padx=S(24), pady=(S(6), 0))
+
+        # 연결된 일정
+        items = sorted(work.case_items(app.data, c["id"]), key=lambda x: x[0])
+        h = self.section(body, "연결된 일정", str(len(items)) if items else "")
+        self.pill(h, "기한을 일정으로", self.add_due_item, side="right")
+        for key, t in items:
+            d = core.parse_date(key)
+            r = tk.Frame(body, bg=SURFACE, cursor="hand2")
+            r.pack(fill="x", padx=S(24), pady=S(1))
+            tk.Label(r, text=work.fmt_date(d) if d else "보관함", font=app.f_small, bg=SURFACE, fg=SUB, width=10,
+                     anchor="w").pack(side="left")
+            tk.Label(r, text=t.get("text", ""), font=app.f_body, bg=SURFACE,
+                     fg=DIM if t.get("done") else TEXT, anchor="w").pack(side="left", fill="x", expand=True)
+            for w in (r, *r.winfo_children()):
+                w.bind("<Button-1>", lambda e, d=d: d and self.app.select_date(d))
+        # 메모
+        self.section(body, "메모")
+        self.t_note = tk.Text(body, height=4, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
+                              wrap="word", padx=S(10), pady=S(8), highlightthickness=1, highlightbackground=BORDER,
+                              highlightcolor=ACCENT)
+        self.t_note.insert("1.0", c.get("note", ""))
+        self.t_note.pack(fill="x", padx=S(24), pady=(0, S(24)))
+        self.t_note.bind("<FocusOut>", lambda e: self._save_fields())
+        _bind_wheel(body, cv)
+
+    def _target_chip(self, parent, c, t):
+        app, S = self.app, self.app.S
+        st = int(t.get("st", 0))
+        col = ST_COLORS()[st]
+        cvs = tk.Canvas(parent, height=S(34), bg=SURFACE, highlightthickness=0, cursor="hand2")
+
+        def draw(e=None, hover=False):
+            cvs.delete("all")
+            w = max(cvs.winfo_width(), S(80))
+            fill = blend(col, SURFACE, 0.16 if st else 0.0) if not hover else blend(col, SURFACE, 0.26)
+            rrect(cvs, 1, 1, w - 2, S(33), S(9), fill=fill if st or hover else CARD,
+                  outline=blend(col, SURFACE, 0.55) if st else BORDER)
+            cvs.create_oval(S(10), S(13), S(18), S(21), fill=col if st else "", outline=col, width=S(1.5))
+            cvs.create_text(S(26), S(17), text=app._fit(t["name"], app.f_small, w - S(80)), font=app.f_small,
+                            fill=TEXT, anchor="w")
+            cvs.create_text(w - S(10), S(17), text=work.ST_NAMES[st], font=app.f_tiny, fill=col if st else DIM,
+                            anchor="e")
+        cvs.bind("<Configure>", draw)
+        cvs.bind("<Enter>", lambda e: draw(hover=True))
+        cvs.bind("<Leave>", lambda e: draw())
+        cvs.bind("<Button-1>", lambda e: self.cycle(c, t))
+        cvs.bind("<Button-3>", lambda e: self.target_menu(e, c, t))
+        return cvs
+
+    def cycle(self, c, t):
+        work.set_status(c, t["name"], (int(t.get("st", 0)) + 1) % 3)
+        self.changed(c)
+        self.build_right()
+
+    def target_menu(self, e, c, t):
+        m = tk.Menu(self.top, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff", bd=0,
+                    font=(self.app.family, 10))
+        p = os.path.join(work.sub(c, 2), t["file"]) if t.get("file") and c.get("folder") else None
+        if p and os.path.exists(p):
+            m.add_command(label="받은 파일 열기", command=lambda: open_path(p))
+            m.add_separator()
+        for k, name in enumerate(work.ST_NAMES):
+            m.add_command(label=("● " if int(t.get("st", 0)) == k else "   ") + name,
+                          command=lambda k=k: (work.set_status(c, t["name"], k), self.changed(c), self.build_right()))
+        m.tk_popup(e.x_root, e.y_root)
+        return "break"
+
+    # ── 동작 ──
+    def _folder(self, c):
+        return work.ensure_folder(self.app.work_root(), c)
+
+    def _files(self, c, k):
+        if not c.get("folder"):
+            return []
+        d = work.sub(c, k)
+        try:
+            return [os.path.join(d, f) for f in sorted(os.listdir(d)) if os.path.isfile(os.path.join(d, f))
+                    and not f.startswith("~$")]
+        except OSError:
+            return []
+
+    def open_folder(self):
+        c = self.case()
+        try:
+            path = self._folder(c)
+        except OSError as ex:
+            messagebox.showerror("폴더", f"업무 폴더를 만들지 못했어요.\n{ex}", parent=self.top)
+            return
+        self.changed(c, left=False)
+        open_path(path)
+
+    def toggle_done(self):
+        c = self.case()
+        c["done"] = not c.get("done")
+        self.changed(c)
+        self.build_right()
+
+    def delete(self):
+        c = self.case()
+        if not messagebox.askyesno("업무 삭제", f"'{c['title']}' 업무를 목록에서 지울까요?\n"
+                                   "(업무 폴더와 파일, 달력의 일정은 그대로 남아요)", parent=self.top):
+            return
+        work.delete_case(self.app.data, c["id"])
+        cs = work.sorted_cases(self.app.data)
+        self.sel = cs[0]["id"] if cs else None
+        self.changed()
+        self.build_right()
+
+    def after_targets(self):
+        self.changed(self.case())
+        self.build_right()
+
+    def copy_reminder(self):
+        c = self.case()
+        self.app.copy_text(work.reminder_text(c, self.app.today))
+        NotifyPopup(self.app, "독촉 메시지를 복사했어요", "메신저 대화창에 붙여 넣기(Ctrl+V) 하세요.\n\n" +
+                    work.reminder_text(c, self.app.today), beep=False)
+
+    def pick_form(self):
+        p = filedialog.askopenfilename(parent=self.top, title="양식 파일 선택",
+                                       filetypes=[("양식 (엑셀·한글)", "*.xlsx *.xlsm *.xls *.hwp *.hwpx *.docx"),
+                                                  ("모든 파일", "*.*")])
+        if p:
+            self.put_form(p)
+
+    def put_form(self, p):
+        c = self.case()
+        try:
+            self._folder(c)
+            work.set_form(c, p)
+        except OSError as ex:
+            messagebox.showerror("양식", str(ex), parent=self.top)
+            return
+        self.changed(c, left=False)
+        self.build_right()
+
+    def pick_submissions(self):
+        ps = filedialog.askopenfilenames(parent=self.top, title="받은 제출 파일 선택 (여러 개 가능)")
+        if ps:
+            self.put_submissions(list(ps))
+
+    def put_submissions(self, ps):
+        c = self.case()
+        try:
+            self._folder(c)
+            got = work.receive(c, ps)
+        except OSError as ex:
+            messagebox.showerror("제출 파일", str(ex), parent=self.top)
+            return
+        self._scan_sig = None
+        self.changed(c)
+        self.build_right()
+        unknown = [os.path.basename(p) for p, who in got if not who]
+        msg = f"{len(got)}개 파일을 '3. 제출받은 파일' 에 넣었어요."
+        known = [who for _, who in got if who]
+        if known:
+            msg += "\n제출 표시: " + ", ".join(known)
+        if unknown:
+            msg += "\n\n부서를 못 찾은 파일: " + ", ".join(unknown[:4]) + "\n(파일 이름에 부서 이름을 넣거나 직접 눌러 표시하세요)"
+        NotifyPopup(self.app, "제출 파일", msg, beep=False)
+
+    def distribute(self):
+        c = self.case()
+        try:
+            out = work.distribute(c)
+        except Exception as ex:  # noqa: BLE001
+            messagebox.showerror("부서별 파일", f"만들지 못했어요.\n{ex}", parent=self.top)
+            return
+        folder = os.path.dirname(out[0]) if out else work.sub(c, 1)
+        NotifyPopup(self.app, "부서별 파일을 만들었어요", f"{len(out)}개 파일 · 메신저로 보낼 때 그대로 첨부하세요.",
+                    action=("폴더 열기", lambda: open_path(folder)), beep=False)
+
+    def merge(self):
+        c = self.case()
+        self.top.config(cursor="watch")
+        self.top.update_idletasks()
+        try:
+            out, res = work.merge(c)
+        except Exception as ex:  # noqa: BLE001
+            self.top.config(cursor="")
+            messagebox.showerror("취합", f"취합하지 못했어요.\n{ex}", parent=self.top)
+            return
+        self.top.config(cursor="")
+        parts = []
+        if res.get("rows"):
+            parts.append(f"{res['rows']}줄을 한 표로 모았어요")
+        if res.get("sums"):
+            parts.append(f"{res['sums']}칸을 합계 냈어요")
+        if res.get("texts"):
+            parts.append(f"글 {res['texts']}개는 '글 모음' 시트에")
+        if res.get("bad"):
+            parts.append("제외: " + ", ".join(f"{w}({why})" for w, why in res["bad"][:3]))
+        miss = work.missing(c)
+        if miss:
+            parts.append("아직 안 낸 곳: " + ", ".join(miss[:6]))
+        self.build_right()
+        NotifyPopup(self.app, "취합 완료", "\n".join(parts) or "취합했어요", action=("결과 열기", lambda: open_path(out)),
+                    beep=False)
+
+    def add_due_item(self):
+        c = self.case()
+        d = core.parse_date(c.get("due"))
+        if not d:
+            messagebox.showinfo("기한", "먼저 기한 날짜를 적어 주세요.", parent=self.top)
+            return
+        text = f"{c['title']} 제출"
+        if not any(t.get("text") == text for _, t, _ in core.day_items(self.app.data, d)):
+            core.add_item(self.app.data, d.isoformat(), core.new_item(text, pri=1, case=c["id"]))
+        self.changed(c)
+        self.build_right()
+
+    def on_drop(self, files):
+        app = self.app
+        docs = [f for f in files if f.lower().endswith((".pdf", ".hwp", ".hwpx", ".docx"))]
+        c = self.case()
+        if c is None or (len(files) == len(docs) and all(app.looks_like_gongmun(f) for f in docs)):
+            app.import_dropped(files, open_case=False)       # 공문이면 새 업무로
+            cs = work.sorted_cases(app.data)
+            if cs:
+                self.select(max(cs, key=lambda x: x.get("created", 0))["id"])
+            return
+        names = [t["name"] for t in c.get("targets") or []]
+        if names and all(work.match_target(f, names) for f in files):
+            self.put_submissions(files)                       # 부서 이름이 붙은 파일 → 바로 제출 처리
+            return
+        m = tk.Menu(self.top, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff", bd=0,
+                    font=(app.family, 10))
+        if len(files) == 1:
+            m.add_command(label="양식으로 넣기", command=lambda: self.put_form(files[0]))
+        m.add_command(label=f"제출 파일로 넣기 ({len(files)}개)", command=lambda: self.put_submissions(files))
+        m.add_command(label="공문으로 넣기 (업무 폴더에 보관)",
+                      command=lambda: [work.add_doc(c, f) for f in files if self._folder(c)])
+        x, y = self.top.winfo_pointerxy()
+        m.tk_popup(x, y)
+
+
+class TargetsDialog:
+    """제출 대상(부서·담당자) 편집: 한 줄에 하나씩. 자주 쓰는 목록은 이름을 붙여 저장해 두고 불러온다"""
+
+    def __init__(self, app, case, on_done):
+        self.app, self.case, self.on_done = app, case, on_done
+        S = app.S
+        top = self.top = _dialog(app, "제출 대상", S(420), S(560))
+        top.resizable(True, True)
+        tk.Label(top, text="제출 대상", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
+            fill="x", padx=S(20), pady=(S(16), 0))
+        tk.Label(top, text="한 줄에 하나씩 (쉼표로 이어 써도 돼요). 예) 도시재생과 / 중앙동 / 홍길동",
+                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(20), pady=(S(2), S(8)))
+        groups = app.conf.get("target_groups") or {}
+        sug = case.get("_suggest") or []
+        if groups or sug:
+            r = tk.Frame(top, bg=SURFACE)
+            r.pack(fill="x", padx=S(20), pady=(0, S(6)))
+            tk.Label(r, text="불러오기", font=app.f_tiny, bg=SURFACE, fg=SUB).pack(side="left", padx=(0, S(6)))
+            if sug:
+                Pill(r, f"공문 수신자 {len(sug)}곳", lambda: self.load(sug), app.f_tiny, parent_bg=SURFACE,
+                     padx=S(8), pady=S(2)).pack(side="left", padx=(0, S(4)))
+            for name, names in list(groups.items())[:5]:
+                Pill(r, f"{name} {len(names)}", lambda n=names: self.load(n), app.f_tiny, parent_bg=SURFACE,
+                     padx=S(8), pady=S(2)).pack(side="left", padx=(0, S(4)))
+        foot = tk.Frame(top, bg=SURFACE)
+        foot.pack(side="bottom", fill="x", padx=S(20), pady=S(14))
+        Pill(foot, "저장", self.save, app.f_body, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.2),
+             parent_bg=SURFACE, padx=S(20), pady=S(6)).pack(side="right")
+        Pill(foot, "취소", top.destroy, app.f_body, parent_bg=SURFACE, padx=S(14), pady=S(6)).pack(side="right", padx=S(8))
+        g = tk.Frame(top, bg=SURFACE)
+        g.pack(side="bottom", fill="x", padx=S(20))
+        tk.Label(g, text="이 목록을 이름 붙여 저장", font=app.f_tiny, bg=SURFACE, fg=SUB).pack(side="left")
+        self.e_group = _flat_entry(app, g, "", app.f_small, 12)
+        self.e_group.pack(side="left", padx=S(6), ipady=S(2))
+        Pill(g, "저장", self.save_group, app.f_tiny, parent_bg=SURFACE, padx=S(8), pady=S(2)).pack(side="left")
+        self.txt = tk.Text(top, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", wrap="word",
+                           padx=S(10), pady=S(8), highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        self.txt.insert("1.0", "\n".join(t["name"] for t in case.get("targets") or []))
+        self.txt.pack(fill="both", expand=True, padx=S(20), pady=(0, S(10)))
+        self.txt.focus_set()
+
+    def load(self, names):
+        cur = work.split_names(self.txt.get("1.0", "end"))
+        merged = cur + [n for n in names if n not in cur]
+        self.txt.delete("1.0", "end")
+        self.txt.insert("1.0", "\n".join(merged))
+
+    def save_group(self):
+        name = self.e_group.get().strip()
+        names = work.split_names(self.txt.get("1.0", "end"))
+        if not name or not names:
+            messagebox.showinfo("목록 저장", "목록 이름과 대상을 적어 주세요.", parent=self.top)
+            return
+        groups = dict(self.app.conf.get("target_groups") or {})
+        groups[name] = names
+        self.app.update_conf(target_groups=groups)
+        NotifyPopup(self.app, "목록 저장", f"'{name}' ({len(names)}곳) 을 저장했어요. 다음 업무부터 바로 불러올 수 있어요.",
+                    beep=False)
+
+    def save(self):
+        work.set_targets(self.case, work.split_names(self.txt.get("1.0", "end")))
+        self.top.destroy()
+        self.on_done()
+
+
+class ReportDialog:
+    """주간·월간 업무 보고 글을 만들어 복사 (끝낸 일 → 실적, 못 끝낸 일 → 이월, 다음 주 일정 → 계획, 진행 중 업무)"""
+
+    def __init__(self, app, kind="week"):
+        self.app = app
+        S = app.S
+        top = self.top = _dialog(app, "업무 보고 만들기", S(620), S(640))
+        top.resizable(True, True)
+        head = tk.Frame(top, bg=SURFACE)
+        head.pack(fill="x", padx=S(20), pady=(S(16), S(4)))
+        tk.Label(head, text="업무 보고 만들기", font=app.f_h2, bg=SURFACE, fg=TEXT).pack(side="left")
+        self.tabs = tk.Frame(top, bg=SURFACE)
+        self.tabs.pack(fill="x", padx=S(20), pady=(S(4), S(8)))
+        tk.Label(top, text="달력의 완료 표시를 기준으로 만들어요. 고친 뒤 복사해서 보고서·메신저에 붙여 넣으세요.",
+                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(20))
+        foot = tk.Frame(top, bg=SURFACE)
+        foot.pack(side="bottom", fill="x", padx=S(20), pady=S(14))
+        Pill(foot, "복사", self.copy, app.f_body, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.2),
+             parent_bg=SURFACE, padx=S(22), pady=S(6)).pack(side="right")
+        Pill(foot, "파일로 저장…", self.save, app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(6)).pack(side="right", padx=S(8))
+        Pill(foot, "닫기", top.destroy, app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(6)).pack(side="left")
+        self.txt = tk.Text(top, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", wrap="word",
+                           padx=S(14), pady=S(12), spacing1=S(2), spacing3=S(2), highlightthickness=1,
+                           highlightbackground=BORDER, highlightcolor=ACCENT)
+        self.txt.pack(fill="both", expand=True, padx=S(20), pady=(S(8), 0))
+        self.set_kind(kind)
+
+    def set_kind(self, kind):
+        app, S = self.app, self.app.S
+        self.kind = kind
+        for w in self.tabs.winfo_children():
+            w.destroy()
+        for k, lab in (("week", "이번 주"), ("last", "지난 주"), ("month", "이번 달")):
+            on = k == kind
+            Pill(self.tabs, lab, lambda k=k: self.set_kind(k), app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(4),
+                 **({"fg": "#ffffff", "bg": ACCENT, "hover": ACCENT} if on else {})).pack(side="left", padx=(0, S(4)))
+        if kind == "month":
+            text = work.monthly(app.data, app.today)
+        else:
+            text = work.weekly(app.data, app.today, last=kind == "last")
+        self.txt.delete("1.0", "end")
+        self.txt.insert("1.0", text)
+
+    def copy(self):
+        self.app.copy_text(self.txt.get("1.0", "end-1c"))
+        NotifyPopup(self.app, "복사했어요", "보고서나 메신저에 붙여 넣기(Ctrl+V) 하세요.", beep=False)
+
+    def save(self):
+        p = filedialog.asksaveasfilename(parent=self.top, defaultextension=".txt",
+                                         initialfile=f"업무보고_{self.app.today:%Y%m%d}.txt",
+                                         filetypes=[("글 파일", "*.txt")])
+        if p:
+            with open(p, "w", encoding="utf-8-sig") as f:
+                f.write(self.txt.get("1.0", "end-1c"))
+
+
+class TemplateDialog:
+    """정기·반복 업무 모음에서 골라 한 번에 넣기 (기관마다 날짜가 다르니 이름·첫 날짜를 고칠 수 있다)"""
+
+    def __init__(self, app):
+        self.app = app
+        S = app.S
+        top = self.top = _dialog(app, "반복 업무 추가", S(640), S(620))
+        top.resizable(True, True)
+        tk.Label(top, text="반복 업무 추가", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
+            fill="x", padx=S(20), pady=(S(16), 0))
+        tk.Label(top, text="공무원이 자주 챙기는 정기 업무 예시예요. 필요한 것만 체크하고, 이름과 첫 날짜는 우리 기관에 맞게 고치세요.",
+                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", wraplength=S(590), justify="left").pack(
+            fill="x", padx=S(20), pady=(S(2), S(8)))
+        foot = tk.Frame(top, bg=SURFACE)
+        foot.pack(side="bottom", fill="x", padx=S(20), pady=S(14))
+        Pill(foot, "추가", self.add, app.f_body, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.2),
+             parent_bg=SURFACE, padx=S(22), pady=S(6)).pack(side="right")
+        Pill(foot, "취소", top.destroy, app.f_body, parent_bg=SURFACE, padx=S(14), pady=S(6)).pack(side="right", padx=S(8))
+        cv, inner = _scroll_area(top, SURFACE)
+        cv.pack(fill="both", expand=True, padx=S(20))
+        self.rows = []
+        existing = {t.get("text") for _, v in app.data.items() if isinstance(v, dict) for t in v.get("todos", [])
+                    if t.get("repeat")}
+        cat = None
+        for c, text, rule in work.TEMPLATES:
+            if c != cat:
+                cat = c
+                tk.Label(inner, text=c, font=app.f_head, bg=SURFACE, fg=SUB, anchor="w").pack(
+                    fill="x", pady=(S(10), S(2)))
+            d, code = work.template_first(rule, app.today)
+            r = tk.Frame(inner, bg=SURFACE)
+            r.pack(fill="x", pady=S(2))
+            have = text in existing
+            var = tk.BooleanVar(value=False)
+            tk.Checkbutton(r, variable=var, bg=SURFACE, activebackground=SURFACE, selectcolor=CARD, bd=0,
+                           highlightthickness=0, state="disabled" if have else "normal").pack(side="left")
+            e = _flat_entry(app, r, text, app.f_small)
+            e.pack(side="left", fill="x", expand=True, ipady=S(3), padx=(0, S(6)))
+            de = _flat_entry(app, r, d.isoformat(), app.f_small, 11)
+            de.pack(side="left", ipady=S(3), padx=(0, S(6)))
+            tk.Label(r, text="추가됨" if have else work.rule_label(rule), font=app.f_tiny, bg=SURFACE,
+                     fg=ACCENT if have else DIM, width=16, anchor="w").pack(side="left")
+            self.rows.append((var, e, de, code))
+        _bind_wheel(inner, cv)
+
+    def add(self):
+        app = self.app
+        n = 0
+        for var, e, de, code in self.rows:
+            if not var.get() or not e.get().strip():
+                continue
+            d = core.parse_date(de.get().strip())
+            if not d:
+                messagebox.showwarning("날짜 확인", "첫 날짜는 2026-10-25 처럼 적어 주세요.", parent=self.top)
+                return
+            rep = core.repeat_from_code(code, d)
+            core.add_item(app.data, d.isoformat(), core.new_item(e.get().strip(), repeat=rep))
+            n += 1
+        self.top.destroy()
+        if n:
+            app._after_todo_change()
+            NotifyPopup(app, "반복 업무 추가", f"{n}개를 달력에 넣었어요. 각 일정을 눌러 날짜·반복을 바꿀 수 있어요.", beep=False)
+
+
 class HelpDialog:
     TEXT_LINES = [
         ("달력 보기", "바탕화면이 비치는 유리 달력이에요. 위쪽 날짜 줄을 끌면 창이 옮겨지고, ‹ › 나 마우스 휠로 한 주씩, 왼쪽 아래 월 이름을 누르면 다음 달로 가요."),
@@ -1642,7 +2534,13 @@ class HelpDialog:
         ("완료 / 삭제", "동그라미를 누르면 완료(취소선). ✕ 는 삭제, 목록에서 우클릭하면 더 많은 메뉴가 나와요."),
         ("중요도 색", "입력창 아래 색 점으로 중요도를 고르면 달력에도 그 색으로 보여요."),
         ("보관함", "날짜를 정하기 전의 할 일을 적어 뒀다가 '꺼내기'로 원하는 날짜에 옮겨요."),
-        ("공문 PDF", "'공문 PDF' 버튼으로 PDF를 고르면 날짜가 있는 항목을 찾아 일정으로 넣어 줘요."),
+        ("공문 → 업무", "공문(PDF·한글)을 달력에 끌어다 놓으면 일정이 추가되고, 업무 폴더(공문·양식·제출·취합)가 만들어져요."),
+        ("제출 현황", "'업무'에서 받을 부서를 등록하면 누가 냈는지 보여요. 받은 파일을 끌어다 놓으면 이름으로 알아서 '제출' 표시, "
+                    "'독촉 메시지 복사'로 메신저에 바로 붙여 넣어요."),
+        ("양식·취합", "엑셀 양식을 넣고 '부서별 파일 만들기' → 받은 파일을 넣고 '취합하기'. 목록형은 한 표로, 집계형은 칸끼리 더해요."),
+        ("업무 보고", "☰ → 주간 업무 보고: 끝낸 일정은 실적, 남은 일은 이월, 다음 주 일정은 계획으로 정리해 복사해 줘요."),
+        ("근무일 계산", "Ctrl+K 에 '7근무일' 이나 '10/20부터 5근무일' 을 쓰면 주말·공휴일을 뺀 날짜를 알려 줘요."),
+        ("메신저 글", "메신저 글을 복사하고 Ctrl+Shift+V. 설정 → 업무에서 '복사한 글 알림'을 켜면 복사만 해도 알려 줘요."),
         ("창 크기", "창 가장자리나 모서리에 마우스를 가져가면 양방향 화살표가 나와요. 끌면 창 크기가 바뀌어요."),
         ("달력 글자", "위쪽 '달력 글자 －/＋' 또는 Ctrl+마우스 휠로 달력 칸 안 글자만 키우고 줄여요. (팝업·입력창은 그대로)"),
         ("글자·색", "위쪽 'Aa' 에서 글자 크기, 글꼴, 색상 테마, 강조색, 중요도 색, 투명도를 바꿔요."),
@@ -1754,6 +2652,8 @@ class DeskCalendar:
         self._in_sync = False
         self.sync_status = ""
         self.popups, self._snooze = [], {}
+        self.workwin = None
+        self._clip_last = self._own_clip = None
 
         self.locked = tk.BooleanVar(value=self.conf.get("locked", False))
         self.alpha = tk.DoubleVar(value=self.conf.get("alpha", 0.97))
@@ -1798,6 +2698,7 @@ class DeskCalendar:
             root.after(1500, lambda: self.import_path(open_pdfs[0]))
         root.after(300, self._apply_desktop_mode)
         root.after(30_000, self._tick)
+        root.after(2000, self._clip_watch)
         if IS_WIN:
             start_hotkey_listener(self.hotkey_q, 0x0002 | 0x0001, 0x20)  # Ctrl+Alt+Space
             self.tray = start_tray(self.tray_q)
@@ -2081,6 +2982,7 @@ class DeskCalendar:
             lb.bind("<Enter>", lambda e: lb.config(fg=ACCENT))
             lb.bind("<Leave>", lambda e: lb.config(fg=SUB))
 
+        tool("업무", lambda e: self.open_work())
         tool("Aa 화면 설정", lambda e: self.open_settings())
         tool("? 사용법", lambda e: self.open_help())
         tool("⚙", lambda e: self.menu.tk_popup(e.x_root, e.y_root))
@@ -2251,8 +3153,12 @@ class DeskCalendar:
         m.add_command(label="사용법", command=self.open_help)
         m.add_command(label="검색  (Ctrl+F)", command=self.open_search)
         m.add_separator()
+        m.add_command(label="업무 관리 (제출 현황·취합)…", command=self.open_work)
+        m.add_command(label="주간 업무 보고 만들기…", command=self.open_report)
+        m.add_command(label="반복 업무 추가 (정기 업무 모음)…", command=self.open_templates)
+        m.add_separator()
         m.add_command(label="휴대폰 연결…", command=lambda: PhoneDialog(self))
-        m.add_command(label="공문 PDF 가져오기…", command=self.import_pdf)
+        m.add_command(label="공문 가져오기 (PDF·한글)…", command=self.import_pdf)
         m.add_command(label="클립보드 내용으로 일정 만들기  (Ctrl+Shift+V)", command=self.analyze_clipboard)
         bm = tk.Menu(m, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff",
                      bd=0, font=f)
@@ -3034,17 +3940,20 @@ class DeskCalendar:
         ox, oy = self.cal.winfo_rootx(), self.cal.winfo_rooty()
         tint_name = self.conf.get("glass_tint", "그래파이트")
         strength = float(self.conf.get("glass_strength", 0.6))
-        key = (W, H, ox, oy, self.weeks, tint_name, strength, self.scale)
+        today = dt.date.today()
+        mid = self.dates[len(self.dates) // 2].month
+        key = (W, H, ox, oy, self.weeks, tint_name, strength, self.scale, self.dates[0], today, ACCENT)
         if key == self._gkey and self._gimg is not None:
             return self._gimg
         cx, cy = ox + W // 2, oy + H // 2
         wp = glass.wallpaper(sw, sh) if (0 <= cx < sw and 0 <= cy < sh) else None   # 보조 모니터는 기본 그라데이션
         wp = wp or glass.fallback_wallpaper(sw, sh)
-        cells = [(*r, (i % 7) in (0, 6)) for i, r in enumerate(L["cells"])]
+        kinds = ["today" if d == today else "out" if d.month != mid else None for d in self.dates]
+        cells = [(*r, (i % 7) in (0, 6), kinds[i] if i < len(kinds) else None) for i, r in enumerate(L["cells"])]
         im = glass.render_bg(wp, ox, oy, W, H, L["panel"], cells,
                              tint=glass.TINTS.get(tint_name, glass.TINTS["그래파이트"]), strength=strength,
-                             blur=max(8, self.S(18)), radius=self.S(14), cell_radius=self.S(8),
-                             light=tint_name == "밝게")
+                             blur=max(8, self.S(18)), radius=self.S(14), cell_radius=self.S(10),
+                             light=tint_name == "밝게", accent=tuple(int(ACCENT[i:i + 2], 16) for i in (1, 3, 5)))
         self._gimg = ImageTk.PhotoImage(im)
         self._gkey = key
         return self._gimg
@@ -3090,7 +3999,9 @@ class DeskCalendar:
                                 lambda e: (self.set_mode("agenda"), self.set_panel(True)), "sum:" + text))
             sx += wch + S(6)
         sum_end = sx
-        labels = [("보관함", lambda e: self.open_inbox()), ("공문", lambda e: self.import_pdf()),
+        n_case = sum(1 for c in (self.data.get("_work") or {}).values() if not c.get("done"))
+        labels = [(f"업무 {n_case}" if n_case else "업무", lambda e: self.open_work()),
+                  ("보관함", lambda e: self.open_inbox()), ("공문", lambda e: self.import_pdf()),
                   ("검색", lambda e: self.open_search()), ("폰 연결", lambda e: PhoneDialog(self)),
                   ("설정", lambda e: self.open_settings()),
                   ("☰", lambda e: self.menu.tk_popup(e.x_root, e.y_root)),
@@ -3107,7 +4018,10 @@ class DeskCalendar:
             if hov:
                 self._rr(x1, mid_y - S(13), x, mid_y + S(13), S(7), fill="#dde2ec" if col.get("light") else "#383d4a", outline="")
             strong = text in ("오늘", "‹", "›")
-            self._gtext((x1 + x) / 2, mid_y, text, fb, col["txt"] if strong or hov else col["dim"], "center")
+            fg = col["txt"] if strong or hov else col["dim"]
+            if text.startswith("업무 ") and not hov:          # 진행 중인 업무가 있으면 강조색
+                fg = ACCENT if not col.get("light") else blend(ACCENT, "#000000", 0.85)
+            self._gtext((x1 + x) / 2, mid_y, text, fb, fg, "center")
             x = x1 - S(2)
         if self.sync_cfg() and self.sync_status and x - sum_end > S(150):
             self._gtext(sum_end + S(8), mid_y + S(2), "☁ " + self.sync_status.split(" · ")[0],
@@ -3170,10 +4084,16 @@ class DeskCalendar:
                 if y + lh > bottom:
                     clipped = True
                     break
-                if li == 0:
-                    c.create_oval(x1 + pad, y + lh / 2 - dot / 2 - 1, x1 + pad + dot, y + lh / 2 + dot / 2 - 1,
-                                  fill=dot_c, outline="")
-                self._gtext(x1 + pad + dot + S(6), y, line, fdone if done else font, fg, "nw")
+                if li == 0:                              # 왼쪽 색 막대 (중요도) — 점보다 차분하고 잘 보인다
+                    self._rr(x1 + pad, y + S(3), x1 + pad + S(3), y + lh - S(3), S(2), fill=dot_c, outline="")
+                f_ = fdone if done else font
+                tx = x1 + pad + dot + S(6)
+                tm = t.get("time")
+                if li == 0 and tm and line.startswith(tm) and not done:   # 시간은 흐린 색으로 앞에
+                    self._gtext(tx, y, tm, f_, col["dim"], "nw")
+                    self._gtext(tx + f_.measure(tm + " "), y, line[len(tm):].lstrip(), f_, fg, "nw")
+                else:
+                    self._gtext(tx, y, line, f_, fg, "nw")
                 y += lh
             if y > top:
                 self._hits.append((x1 + pad, top, x2 - pad, y, t))
@@ -3898,6 +4818,9 @@ class DeskCalendar:
         m = tk.Menu(self.root, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT,
                     activeforeground="#ffffff", bd=0, font=self.f_small)
         m.add_command(label="수정…", command=lambda: self.edit_item(t))
+        cid = core.base_of(t).get("case")
+        if cid and cid in (self.data.get("_work") or {}):
+            m.add_command(label="업무 열기 (제출 현황·폴더)", command=lambda: self.open_work(cid))
         if core.base_of(t).get("src_path"):
             m.add_command(label="공문 원본 열기", command=lambda: open_path(core.base_of(t)["src_path"]))
         m.add_separator()
@@ -3943,16 +4866,99 @@ class DeskCalendar:
 
     # ── 공문 PDF ──
     def import_pdf(self):
-        path = filedialog.askopenfilename(parent=self.root, title="공문 PDF 선택",
-                                          filetypes=[("PDF 파일", "*.pdf"), ("모든 파일", "*.*")])
+        path = filedialog.askopenfilename(parent=self.root, title="공문 선택 (PDF·한글)",
+                                          filetypes=[("공문 (PDF·한글·워드)", "*.pdf *.hwp *.hwpx *.docx"),
+                                                     ("모든 파일", "*.*")])
         if path:
             self.import_path(path)
 
+    # ── 업무 ──
+    DOC_EXT = (".pdf", ".hwp", ".hwpx", ".docx", ".txt")
+
+    def work_root(self):
+        r = self.conf.get("work_root")
+        if r:
+            return r
+        docs = os.path.join(os.path.expanduser("~"), "Documents")
+        if IS_WIN:
+            try:
+                buf = ctypes.create_unicode_buffer(260)
+                if ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, buf) == 0 and buf.value:
+                    docs = buf.value                       # 내 문서 (OneDrive 로 옮겨 둔 경우도)
+            except Exception:
+                pass
+        return os.path.join(docs, "DeskCalendar 업무")
+
+    def read_doc_text(self, path):
+        if path.lower().endswith(".pdf"):
+            return gongmun.extract_text(path)
+        return hwpdoc.read_text(path)
+
+    def looks_like_gongmun(self, path, text=None):
+        """PDF 는 공문으로 본다. 한글·워드는 '제목' 줄과 수신·시행 같은 공문 표지가 있어야 공문"""
+        if path.lower().endswith(".pdf"):
+            return True
+        try:
+            text = text if text is not None else self.read_doc_text(path)
+        except Exception:
+            return False
+        return bool(re.search(r"^\s*제\s*목", text, re.M)) and bool(re.search(r"수\s*신|시\s*행|발\s*신|기안자|협조자", text))
+
+    def copy_text(self, text):
+        self._own_clip = text
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        self.root.update()
+
+    def open_work(self, select=None):
+        if self.workwin is not None:
+            try:
+                self.workwin.top.deiconify()
+                self.workwin.top.lift()
+                if select:
+                    self.workwin.select(select)
+                return self.workwin
+            except tk.TclError:
+                self.workwin = None
+        self.workwin = WorkWindow(self, select)
+        return self.workwin
+
+    def open_report(self, kind="week"):
+        ReportDialog(self, kind)
+
+    def open_templates(self):
+        TemplateDialog(self)
+
+    def case_from_doc(self, path, text, title, items, linked):
+        """공문 한 건 → 업무 하나 (폴더를 만들고 공문 원본을 넣고, 추가한 일정을 묶는다). 같은 제목 업무가 있으면 그걸 쓴다"""
+        if not self.conf.get("auto_case", True):
+            return None, False
+        title = (title or os.path.splitext(os.path.basename(path))[0]).strip()
+        for c in (self.data.get("_work") or {}).values():
+            if c.get("title") == title and not c.get("done"):
+                for t in linked:
+                    t["case"] = c["id"]
+                return c, False
+        due = work.due_from_items(items)
+        c = work.new_case(title, due, doc_no=work.doc_no(text), received=self.today.isoformat())
+        names = work.recipients(text)
+        if names:
+            c["_suggest"] = names
+        work.add_case(self.data, c)
+        try:
+            work.ensure_folder(self.work_root(), c)
+            work.add_doc(c, path)
+        except OSError:
+            pass
+        for t in linked:
+            t["case"] = c["id"]
+        return c, True
+
     def import_path(self, path):
         try:
-            text = gongmun.extract_text(path)
+            text = self.read_doc_text(path)
         except Exception as ex:
-            messagebox.showerror("PDF 읽기 실패", f"파일을 읽지 못했어요.\n{ex}", parent=self.root)
+            messagebox.showerror("공문 읽기 실패", f"파일을 읽지 못했어요.\n{ex}", parent=self.root)
             return
         if len(text.strip()) < 20:
             messagebox.showinfo("글자를 읽을 수 없어요",
@@ -3961,7 +4967,7 @@ class DeskCalendar:
                                 parent=self.root)
             return
         title, items = gongmun.parse(text, self.today)
-        ImportDialog(self, title, items, src_path=os.path.abspath(path))
+        ImportDialog(self, title, items, src_path=os.path.abspath(path), doc_text=text)
 
     IMG_EXT = (".png", ".jpg", ".jpeg", ".bmp", ".webp")
 
@@ -4010,27 +5016,38 @@ class DeskCalendar:
         self.root.config(cursor="")
         self._show_candidates(text, "캡처한 이미지에서 일정 만들기")
 
-    def import_dropped(self, files):
-        """끌어다 놓은 공문 PDF 를 읽어 핵심 내용만 일정으로 바로 추가한다 (실행 취소 가능)"""
+    def import_dropped(self, files, open_case=True):
+        """끌어다 놓은 파일 처리
+        - 캡처 이미지 → 글자 인식 → 확인 창
+        - 공문(PDF·한글) → 핵심 내용만 일정으로 바로 추가 + 업무 폴더 (실행 취소 가능)
+        - 그 밖의 엑셀·한글 파일 → 어느 업무의 양식/제출 파일인지 골라서 넣기"""
         imgs = [f for f in files if f.lower().endswith(self.IMG_EXT)]
-        if imgs:                                         # 캡처 이미지 → 글자 인식 → 확인 창
+        if imgs:
             self._ocr_then_show(lambda: "\n".join(ocr.read_image(p) for p in imgs[:3]))
             return
-        pdfs = [f for f in files if f.lower().endswith(".pdf")]
-        if not pdfs:
-            messagebox.showinfo("가져오기", "PDF 공문 또는 캡처 이미지(png·jpg)를 끌어다 놓을 수 있어요.", parent=self.root)
+        docs, others, texts = [], [], {}
+        for f in files:
+            if f.lower().endswith(self.DOC_EXT):
+                try:
+                    texts[f] = self.read_doc_text(f)
+                except Exception:
+                    texts[f] = ""
+                if self.looks_like_gongmun(f, texts[f]):
+                    docs.append(f)
+                    continue
+            others.append(f)
+        if others:
+            self.route_files(others)
+        if not docs:
             return
-        added, bad = [], []
-        for path in pdfs:
-            try:
-                text = gongmun.extract_text(path)
-            except Exception:
-                bad.append(os.path.basename(path))
-                continue
+        added, bad, cases_new, cases_all = [], [], [], []
+        for path in docs:
+            text = texts.get(path, "")
             if len(text.strip()) < 20:
                 bad.append(os.path.basename(path))
                 continue
             title, items = gongmun.parse(text, self.today)
+            mine = []
             for it in items:
                 d, end = it["date"], it["end"]
                 note = title
@@ -4046,18 +5063,78 @@ class DeskCalendar:
                     extra["end"] = end.isoformat()
                 item = core.new_item(it["text"], pri=it["pri"], note=note, src_path=os.path.abspath(path), **extra)
                 core.add_item(self.data, d.isoformat(), item)
-                added.append(item)
-        if added:
+                mine.append(item)
+            added += mine
+            c, new = self.case_from_doc(os.path.abspath(path), text, title, items, mine)
+            if c:
+                cases_all.append(c)
+                if new:
+                    cases_new.append(c)
+        if added or cases_new:
             self._after_todo_change()
-        msg = f"일정 {len(added)}개를 달력에 추가했어요." if added else "추가할 새 일정을 찾지 못했어요."
+        msg = f"일정 {len(added)}개를 달력에 추가했어요." if added else (
+            "이미 가져온 공문이에요. (일정·업무가 이미 있어요)" if cases_all and not cases_new else "추가할 새 일정을 찾지 못했어요.")
+        if cases_new:
+            c = cases_new[0]
+            msg += f"\n업무 폴더를 만들었어요: {c['title'][:24]}"
+            if c.get("due"):
+                msg += f" (기한 {work.fmt_date(c['due'])})"
         if bad:
             msg += f"\n읽지 못한 파일: {', '.join(bad[:3])} (스캔 이미지 PDF 는 지원하지 않아요)"
 
         def undo():
             for item in added:
                 core.delete_item(self.data, item)
+            for c in cases_new:
+                work.delete_case(self.data, c["id"])
             self._after_todo_change()
-        NotifyPopup(self, "공문 가져오기", msg, action=("실행 취소", undo) if added else None)
+            if self.workwin is not None:
+                self.workwin.sel = None
+                self.workwin.build_left()
+                self.workwin.build_right()
+        acts = []
+        if cases_all and open_case:
+            acts.append(("업무 열기", lambda: self.open_work(cases_all[0]["id"])))
+        if added or cases_new:
+            acts.append(("실행 취소", undo))
+        NotifyPopup(self, "공문 가져오기", msg, actions=acts)
+        if self.workwin is not None:
+            self.workwin.build_left()
+
+    def route_files(self, files):
+        """공문이 아닌 파일(엑셀 양식·제출 파일 등)을 어느 업무에 넣을지 고르는 메뉴"""
+        cs = work.sorted_cases(self.data)
+        names = lambda c: [t["name"] for t in c.get("targets") or []]
+        for c in cs:                                    # 파일 이름에 부서 이름이 있으면 그 업무의 제출 파일로 바로
+            if names(c) and all(work.match_target(f, names(c)) for f in files):
+                self.open_work(c["id"]).put_submissions(files)
+                return
+        m = tk.Menu(self.root, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff",
+                    bd=0, font=(self.family, 10))
+        label = os.path.basename(files[0]) + (f" 외 {len(files) - 1}개" if len(files) > 1 else "")
+        m.add_command(label=f"{label} → 어느 업무에 넣을까요?", state="disabled")
+        for c in cs[:8]:
+            sub = tk.Menu(m, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff", bd=0,
+                          font=(self.family, 10))
+            if len(files) == 1:
+                sub.add_command(label="양식으로", command=lambda c=c: self.open_work(c["id"]).put_form(files[0]))
+            sub.add_command(label="제출 파일로", command=lambda c=c: self.open_work(c["id"]).put_submissions(files))
+            n = work.dday(c, self.today)
+            m.add_cascade(label=f"{c['title'][:26]}  {work.dday_label(n)}", menu=sub)
+        m.add_separator()
+
+        def new_case():
+            c = work.add_case(self.data, work.new_case(os.path.splitext(os.path.basename(files[0]))[0], None))
+            self._after_todo_change()
+            win = self.open_work(c["id"])
+            win.put_form(files[0]) if len(files) == 1 else win.put_submissions(files)
+        m.add_command(label="새 업무 만들어 넣기", command=new_case)
+        texts = [f for f in files if f.lower().endswith(self.DOC_EXT)]
+        if texts:
+            m.add_command(label="글에서 일정 찾기", command=lambda: self._show_candidates(
+                "\n".join(self.read_doc_text(f) for f in texts[:3]), "파일에서 일정 만들기"))
+        x, y = self.root.winfo_pointerxy()
+        m.tk_popup(x, y)
 
     # ── 저장 ──
     def _commit(self):
@@ -4222,6 +5299,10 @@ class DeskCalendar:
         elif cmd == "phone":
             self.summon(popup=False)
             PhoneDialog(self)
+        elif cmd == "work":
+            self.open_work()
+        elif cmd == "report":
+            self.open_report()
         elif cmd == "settings":
             self.summon(popup=False)
             self.open_settings()
@@ -4253,6 +5334,36 @@ class DeskCalendar:
         if popup:
             self.open_cmdbar()
 
+    def _clip_watch(self):
+        """(설정에서 켠 경우) 메신저 등에서 복사한 글에 날짜·요청이 있으면 오른쪽 아래에 알려 준다"""
+        self.root.after(1500, self._clip_watch)
+        on = self.conf.get("clip_watch", False)
+        try:
+            text = self.root.clipboard_get()
+        except tk.TclError:
+            text = ""
+        if text == self._clip_last:
+            return
+        first = self._clip_last is None
+        self._clip_last = text
+        if not on or first or text == self._own_clip or not (8 <= len(text.strip()) <= 4000):
+            return
+        try:
+            items = [i for i in analyze.analyze(text, self.today) if i["date"]]
+        except Exception:
+            return
+        items = [i for i in items if not self.has_similar(i["date"], i["text"])]
+        if not items:
+            return
+        i0 = items[0]
+        body = f"{work.fmt_date(i0['date'])} {i0['text'][:28]}" + (f" 외 {len(items) - 1}개" if len(items) > 1 else "")
+        for p in list(self.popups):                       # 앞의 같은 알림은 닫고 새로
+            if getattr(p, "kind", "") == "clip":
+                p.close()
+        pop = NotifyPopup(self, "복사한 글에서 일정을 찾았어요", body, beep=False,
+                          actions=[("확인하고 추가", lambda: self._show_candidates(text, "복사한 글에서 일정 만들기"))])
+        pop.kind = "clip"
+
     def _tick(self):
         if self.glass:     # 바탕화면 그림이 바뀌었으면 유리 배경도 새로 만든다
             sig = glass.wallpaper_sig()
@@ -4272,7 +5383,7 @@ class DeskCalendar:
 
 
 def main():
-    pdfs = [a for a in sys.argv[1:] if a.lower().endswith(".pdf") and os.path.exists(a)]
+    pdfs = [a for a in sys.argv[1:] if a.lower().endswith((".pdf", ".hwp", ".hwpx")) and os.path.exists(a)]
     if IS_WIN:
         if not ensure_single_instance():     # 이미 실행 중이면 PDF 경로만 넘기고 종료
             if pdfs:

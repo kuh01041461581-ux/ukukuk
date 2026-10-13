@@ -166,7 +166,7 @@ def _rmask(w, h, r, inset=0):
 
 
 def render_bg(wp, ox, oy, W, H, panel, cells, tint=(17, 19, 27), strength=0.55, blur=20, radius=14,
-              cell_radius=9, light=False):
+              cell_radius=9, light=False, accent=None):
     """wp: 화면 크기 배경 PIL 이미지, (ox,oy): 창이 화면에서 시작하는 위치
     panel: 유리 판 사각형 (x1,y1,x2,y2), cells: 칸 사각형 목록 [(x1,y1,x2,y2,weekend)]
     반환: W x H 의 PIL RGB 이미지"""
@@ -188,21 +188,26 @@ def render_bg(wp, ox, oy, W, H, panel, cells, tint=(17, 19, 27), strength=0.55, 
         if lum > 60:                          # 밝은 바탕화면이어도 글자가 잘 읽히게 어둡게
             glass = ImageEnhance.Brightness(glass).enhance(60 / lum)
     out.paste(glass, (px1, py1), _rmask(pw, ph, radius))
-    # 칸: 판보다 아주 조금만 밝게 + 거의 안 보이는 얇은 선
-    over, a_fill, a_week = ((255, 255, 255), 0.55, 0.30) if light else ((255, 255, 255), 0.045, 0.0)
-    ring_c, ring_a = ((0, 0, 0), 0.07) if light else ((255, 255, 255), 0.085)
-    for x1, y1, x2, y2, weekend in cells:
+    # 칸: 판보다 아주 조금만 밝게 + 거의 안 보이는 얇은 선 (윈도우 11 위젯처럼 조용하게)
+    over, a_fill, a_week = ((255, 255, 255), 0.55, 0.30) if light else ((255, 255, 255), 0.05, 0.022)
+    ring_c, ring_a = ((0, 0, 0), 0.05) if light else ((255, 255, 255), 0.032)
+    for cell in cells:
+        x1, y1, x2, y2, weekend = cell[:5]
+        kind = cell[5] if len(cell) > 5 else None
         w, h = x2 - x1, y2 - y1
         if w < 4 or h < 4:
             continue
         m = _rmask(w, h, cell_radius)
         region = out.crop((x1, y1, x2, y2))
-        a = a_fill if not weekend else a_week + (0.0 if not light else 0.0)
-        if weekend and not light:
-            a = 0.0               # 주말은 칸을 칠하지 않고 선만 (조용한 대비)
-        out.paste(Image.blend(region, Image.new("RGB", (w, h), over), a), (x1, y1), m)
-        ring = ImageChops.subtract(m, _rmask(w, h, cell_radius, inset=1)).point(lambda v: int(v * ring_a * 3.2))
-        out.paste(Image.new("RGB", (w, h), ring_c), (x1, y1), ring)
+        a = a_week if weekend else a_fill
+        col, ra, rc = over, ring_a, ring_c
+        if kind == "out":                    # 이번 달이 아닌 날: 더 흐리게
+            a, ra = a * 0.35, ring_a * 0.5
+        elif kind == "today" and accent:     # 오늘: 강조색이 아주 살짝 비치게
+            col, a, ra, rc = accent, (0.16 if light else 0.13), 0.32, accent
+        out.paste(Image.blend(region, Image.new("RGB", (w, h), col), a), (x1, y1), m)
+        ring = ImageChops.subtract(m, _rmask(w, h, cell_radius, inset=1)).point(lambda v, ra=ra: int(v * ra * 3.2))
+        out.paste(Image.new("RGB", (w, h), rc), (x1, y1), ring)
     return out
 
 def wallpaper_sig():

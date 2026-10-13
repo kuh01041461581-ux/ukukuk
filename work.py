@@ -770,9 +770,9 @@ def rule_label(rule):
     if k == "nth":
         return f"매월 {['', '첫째', '둘째', '셋째', '넷째'][rule[1]]} {WD[rule[2]]}요일"
     if k == "q":
-        return f"분기 첫 달 {rule[1]}일 (1·4·7·10월)"
+        return f"1·4·7·10월 {rule[1]}일"
     if k == "h":
-        return f"반기 {rule[1]}월·{(rule[1] + 5) % 12 + 1}월 {rule[2]}일"
+        return f"{rule[1]}·{(rule[1] + 5) % 12 + 1}월 {rule[2]}일"
     if k == "y":
         return f"매년 {rule[1]}월 {rule[2]}일"
     return ""

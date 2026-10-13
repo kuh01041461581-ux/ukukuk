@@ -923,12 +923,12 @@ class NotifyPopup:
 
 
 class PhoneDialog:
-    """폰 앱과 연결(인터넷 동기화) 설정: GitHub 비공개 저장소 + 토큰 → QR 코드"""
+    """휴대폰 연결: 연결 코드를 한 번만 붙여 넣으면 QR 이 바로 나온다 (저장소는 자동으로 만든다)"""
 
     def __init__(self, app):
         self.app = app
         S = app.S
-        self.top = _dialog(app, "휴대폰 연결", S(500), S(760))
+        self.top = _dialog(app, "휴대폰 연결", S(460), S(420))
         self.build()
 
     def build(self):
@@ -939,15 +939,16 @@ class PhoneDialog:
         top.configure(bg=SURFACE)
         pad = S(24)
         cfg = app.sync_cfg()
-        tk.Label(top, text="휴대폰 연결 (어디서나 동기화)", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w"
-                 ).pack(fill="x", padx=pad, pady=(S(16), S(4)))
-        tk.Label(top, text="일정은 암호화되어 내 GitHub 비공개 저장소를 거쳐 PC와 폰이 주고받아요. "
-                 "암호 키는 QR로만 전달되고 GitHub에는 올라가지 않아요.", font=app.f_tiny, bg=SURFACE, fg=SUB,
-                 anchor="w", justify="left", wraplength=S(450)).pack(fill="x", padx=pad)
+        top.geometry(f"{S(460)}x{S(660) if cfg else S(430)}")
+        tk.Label(top, text="휴대폰과 연결", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w"
+                 ).pack(fill="x", padx=pad, pady=(S(16), S(2)))
+        tk.Label(top, text="폰 앱에서 QR 만 스캔하면 끝. 집·사무실 밖에서도 일정이 같이 맞춰져요.\n"
+                 "일정은 암호화되어 전달되고, 암호 키는 QR 로만 폰에 전해져요.", font=app.f_tiny, bg=SURFACE, fg=SUB,
+                 anchor="w", justify="left", wraplength=S(410)).pack(fill="x", padx=pad)
         foot = tk.Frame(top, bg=SURFACE)
         foot.pack(side="bottom", fill="x", padx=pad, pady=S(14))
-        Pill(foot, "닫기", top.destroy, app.f_body, fg="#ffffff", bg=ACCENT,
-             hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(22), pady=S(6)).pack(side="right")
+        Pill(foot, "닫기", top.destroy, app.f_small, fg="#ffffff", bg=ACCENT,
+             hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(20), pady=S(5)).pack(side="right")
         if cfg:
             self.build_connected(cfg, foot)
         else:
@@ -957,48 +958,39 @@ class PhoneDialog:
         app, top = self.app, self.top
         S = app.S
         pad = S(24)
-        steps = ["① 아래 버튼으로 GitHub에 비공개(Private) 저장소를 하나 만드세요. (이름 자유, 'Add a README' 체크)",
-                 "② 'GitHub 토큰 만들기'에서 Repository access = 방금 만든 저장소 1개만 선택, "
-                 "Permissions → Contents = Read and write 로 토큰을 만들고 복사하세요.",
-                 "③ 저장소 이름(내아이디/저장소)과 토큰을 아래에 붙여 넣고 [연결하기]."]
+        tk.Label(top, text="처음 한 번만 하면 돼요", font=app.f_head, bg=SURFACE, fg=SUB, anchor="w"
+                 ).pack(fill="x", padx=pad, pady=(S(16), S(4)))
+        steps = ["① 아래 [연결 코드 만들기]를 누르면 열리는 페이지에서 맨 아래 초록 버튼 'Generate token' 을 누르세요. "
+                 "(GitHub 로그인이 필요해요. 무료 계정이면 충분해요)",
+                 "② 나온 코드(ghp_로 시작)를 복사해서 아래에 붙여 넣고 [연결하기]를 누르면 QR 이 나와요."]
         for t in steps:
             tk.Label(top, text=t, font=app.f_small, bg=SURFACE, fg=TEXT, anchor="w", justify="left",
-                     wraplength=S(450)).pack(fill="x", padx=pad, pady=(S(10), 0))
-        r = tk.Frame(top, bg=SURFACE)
-        r.pack(fill="x", padx=pad, pady=S(8))
-        Pill(r, "저장소 만들기 열기", lambda: webbrowser.open("https://github.com/new"), app.f_small,
-             parent_bg=SURFACE, padx=S(12), pady=S(5)).pack(side="left", padx=(0, S(8)))
-        Pill(r, "GitHub 토큰 만들기 열기",
-             lambda: webbrowser.open("https://github.com/settings/personal-access-tokens/new"),
-             app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(5)).pack(side="left")
-
-        def entry(label, show=None):
-            f = tk.Frame(top, bg=SURFACE)
-            f.pack(fill="x", padx=pad, pady=S(5))
-            tk.Label(f, text=label, font=app.f_small, bg=SURFACE, fg=SUB, width=9, anchor="w").pack(side="left")
-            e = tk.Entry(f, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
-                         highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT, show=show)
-            e.pack(side="left", fill="x", expand=True, ipady=S(5))
-            return e
-
-        self.e_repo = entry("저장소")
-        self.e_tok = entry("토큰", show="•")
+                     wraplength=S(410)).pack(fill="x", padx=pad, pady=(S(4), 0))
+        Pill(top, "연결 코드 만들기", lambda: webbrowser.open(
+            "https://github.com/settings/tokens/new?scopes=repo&description=DeskCalendar"), app.f_small,
+             parent_bg=SURFACE, padx=S(14), pady=S(5)).pack(anchor="w", padx=pad, pady=S(10))
+        self.e_tok = tk.Entry(top, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
+                              highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT, show="•")
+        self.e_tok.pack(fill="x", padx=pad, ipady=S(6))
+        self.e_tok.focus_set()
+        self.e_tok.bind("<Return>", lambda e: self.connect())
         self.msg = tk.Label(top, text="", font=app.f_small, bg=SURFACE, fg=SUN, anchor="w", justify="left",
-                            wraplength=S(450))
+                            wraplength=S(410))
         self.msg.pack(fill="x", padx=pad, pady=S(6))
         Pill(top, "연결하기", self.connect, app.f_body, fg="#ffffff", bg=ACCENT,
-             hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(24), pady=S(7)
-             ).pack(anchor="w", padx=pad, pady=S(6))
+             hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(24), pady=S(6)
+             ).pack(anchor="w", padx=pad, pady=S(4))
 
     def connect(self):
-        repo, tok = self.e_repo.get().strip(), self.e_tok.get().strip()
-        if not re.fullmatch(r"[\w.\-]+/[\w.\-]+", repo) or not tok:
-            self.msg.config(text="저장소는 '내아이디/저장소이름' 형식으로, 토큰도 함께 입력해 주세요.")
+        tok = self.e_tok.get().strip()
+        if not tok:
+            self.msg.config(text="연결 코드를 붙여 넣어 주세요.", fg=SUN)
             return
-        self.msg.config(text="연결 확인 중…", fg=SUB)
+        self.msg.config(text="연결하는 중…", fg=SUB)
         self.top.update_idletasks()
         try:
-            cloudsync.GitHubStore(repo, tok).get()       # 저장소·토큰 확인 (파일이 아직 없어도 괜찮음)
+            repo = cloudsync.ensure_repo(tok)
+            cloudsync.GitHubStore(repo, tok).get()
         except cloudsync.SyncError as ex:
             self.msg.config(text=str(ex), fg=SUN)
             return
@@ -1011,12 +1003,11 @@ class PhoneDialog:
         app, top = self.app, self.top
         S = app.S
         pad = S(24)
-        tk.Label(top, text=f"연결됨 · {cfg['repo']}", font=app.f_body, bg=SURFACE, fg=ACCENT, anchor="w"
-                 ).pack(fill="x", padx=pad, pady=(S(12), 0))
+        tk.Label(top, text="연결됨 ✓  폰 앱의 [설정] 탭 → 'QR 스캔해서 연결' 로 아래 QR 을 스캔하세요", font=app.f_small,
+                 bg=SURFACE, fg=ACCENT, anchor="w", justify="left", wraplength=S(410)).pack(fill="x", padx=pad, pady=(S(12), 0))
         self.status = tk.Label(top, text=app.sync_status or "대기 중", font=app.f_small, bg=SURFACE, fg=SUB, anchor="w")
         self.status.pack(fill="x", padx=pad)
-        tk.Label(top, text="폰 앱에서 '연결' → QR 스캔. 이 QR에는 접속 정보와 암호 키가 들어 있어요. "
-                 "다른 사람에게 보여주지 마세요.", font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left",
+        tk.Label(top, text="이 QR 에는 연결 정보와 암호 키가 들어 있어요. 다른 사람에게 보여주지 마세요.", font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left",
                  wraplength=S(450)).pack(fill="x", padx=pad, pady=(S(10), S(6)))
         payload = json.dumps({"v": 1, "repo": cfg["repo"], "tok": cfg["token"], "key": cfg["key"],
                               "p": cfg.get("path", "deskcalendar.enc")}, separators=(",", ":"))
@@ -1041,7 +1032,7 @@ class PhoneDialog:
              ).pack(side="left", padx=S(8))
 
     def disconnect(self):
-        if messagebox.askyesno("연결 해제", "이 PC의 동기화를 끕니다. (GitHub 저장소의 데이터는 그대로 남아요)\n계속할까요?",
+        if messagebox.askyesno("연결 해제", "이 PC의 폰 연결을 끕니다. (클라우드에 암호화된 사본은 남아요)\n계속할까요?",
                                parent=self.top):
             self.app.conf.pop("sync", None)
             self.app._save_conf()
@@ -1110,8 +1101,8 @@ class SettingsDialog:
         self.app = app
         S = app.S
         self.tab = "모양"
-        self.top = _dialog(app, "설정", S(360), S(500))
-        self.top.minsize(S(300), S(280))
+        self.top = _dialog(app, "설정", S(460), S(620))
+        self.top.minsize(S(380), S(340))
         self.top.resizable(True, True)
         self.build()
 
@@ -1183,7 +1174,7 @@ class SettingsDialog:
         val.config(text=fmt(cur))
         sc = tk.Scale(self.body, from_=lo, to=hi, resolution=step, orient="horizontal", showvalue=False,
                       bg=ACCENT, fg=TEXT, troughcolor=CARD, highlightthickness=0, bd=0, sliderrelief="flat",
-                      activebackground=ACCENT, length=S(200), width=S(10), sliderlength=S(18))
+                      activebackground=ACCENT, length=S(200), width=S(12), sliderlength=S(20))
         sc.set(cur)
         sc.pack(fill="x", padx=self.pad, pady=(S(2), 0))
 
@@ -1253,9 +1244,11 @@ class SettingsDialog:
     def tab_color(self):
         app, S = self.app, self.app.S
         self.label("색상 테마 (카드 모양)")
-        r = self.row()
-        for name, th in THEMES.items():
-            self.theme_card(r, name, th)
+        names = list(THEMES.items())
+        for i in range(0, len(names), 3):                 # 3개씩 줄을 나눠 잘리지 않게
+            r = self.row()
+            for name, th in names[i:i + 3]:
+                self.theme_card(r, name, th)
         self.label("강조색")
         r = self.row()
         for col in ACCENT_PRESETS:
@@ -1297,7 +1290,7 @@ class SettingsDialog:
         self.hol_entry.pack(side="left", fill="x", expand=True, ipady=S(4), padx=(0, S(6)))
         self.pill(r, "저장", self.save_holiday_key)
         tk.Label(self.body, text=app.hol_status or "비워 두면 내장 규칙을 써요. 키는 이 PC에만 저장돼요.",
-                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(300)
+                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(400)
                  ).pack(fill="x", padx=self.pad, pady=(S(4), S(10)))
 
     def act(self, fn, *a, **kw):
@@ -1317,7 +1310,7 @@ class SettingsDialog:
 
     def theme_card(self, parent, name, th):
         S = self.app.S
-        w, h = S(84), S(58)
+        w, h = S(110), S(62)
         c = tk.Canvas(parent, width=w, height=h, bg=SURFACE, highlightthickness=0, cursor="hand2")
         cur = self.app.conf.get("theme", "그래파이트") == name
         rrect(c, 1, 1, w - 1, h - 1, S(8), fill=th["BG"], outline=ACCENT if cur else th["BORDER"],
@@ -1948,7 +1941,7 @@ class DeskCalendar:
         m.add_command(label="사용법", command=self.open_help)
         m.add_command(label="검색  (Ctrl+F)", command=self.open_search)
         m.add_separator()
-        m.add_command(label="휴대폰 연결 (동기화)…", command=lambda: PhoneDialog(self))
+        m.add_command(label="휴대폰 연결…", command=lambda: PhoneDialog(self))
         m.add_command(label="공문 PDF 가져오기…", command=self.import_pdf)
         bm = tk.Menu(m, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff",
                      bd=0, font=f)
@@ -2751,7 +2744,8 @@ class DeskCalendar:
         title_w = self.f_h2.measure(f"{mid.year}년 {mid.month}월")
         self._gbtns = []
         labels = [("보관함", lambda e: self.open_inbox()), ("공문", lambda e: self.import_pdf()),
-                  ("검색", lambda e: self.open_search()), ("설정", lambda e: self.open_settings()),
+                  ("검색", lambda e: self.open_search()), ("폰 연결", lambda e: PhoneDialog(self)),
+                  ("설정", lambda e: self.open_settings()),
                   ("☰", lambda e: self.menu.tk_popup(e.x_root, e.y_root)),
                   ("‹", lambda e: self.shift_weeks(-1)), ("오늘", lambda e: self.go_today()),
                   ("›", lambda e: self.shift_weeks(1))]

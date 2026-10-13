@@ -89,6 +89,41 @@ class GitHubStore:
         return self._req("PUT", body)["content"]["sha"]
 
 
+def _api(method, path, token, body=None):
+    req = urllib.request.Request(API + path, data=json.dumps(body).encode() if body is not None else None,
+                                 method=method, headers={
+        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "DeskCalendar"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code == 404 and method == "GET":
+            return None
+        msg = {401: "연결 코드가 올바르지 않거나 만료됐어요", 403: "연결 코드 권한이 부족해요 ('repo' 권한을 체크했는지 확인)",
+               422: "저장소를 만들 수 없어요 (이름이 이미 있거나 권한 문제)"}.get(e.code, f"서버 오류 {e.code}")
+        raise SyncError(msg)
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise SyncError("인터넷에 연결할 수 없어요")
+
+
+def ensure_repo(token, name="deskcalendar-sync"):
+    """연결 코드(토큰)만으로 내 계정에 비공개 저장소를 (없으면) 만들고 'id/이름'을 돌려준다"""
+    token = token.strip()
+    me = _api("GET", "/user", token)
+    login = (me or {}).get("login")
+    if not login:
+        raise SyncError("연결 코드를 확인할 수 없어요")
+    full = f"{login}/{name}"
+    repo = _api("GET", f"/repos/{full}", token)
+    if repo is None:
+        _api("POST", "/user/repos", token, {"name": name, "private": True, "auto_init": True,
+                                           "description": "DeskCalendar 동기화 (암호화된 데이터)"})
+    elif not repo.get("private"):
+        raise SyncError(f"'{name}' 저장소가 공개 상태예요. 비공개로 바꾸거나 삭제한 뒤 다시 시도하세요")
+    return full
+
+
 def pull(store, key_b64):
     """원격 상태 가져오기 → (state 또는 None, sha)"""
     blob, sha = store.get()

@@ -1264,7 +1264,7 @@ class ConnectPage extends StatelessWidget {
       ]),
       const Padding(
           padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Text('일정은 암호화되어 내 GitHub 비공개 저장소를 거쳐 PC와 주고받아요.\n암호 키는 이 폰과 PC에만 있어요.\n\nDeskCalendar $appVersion',
+          child: Text('일정은 암호화되어 인터넷을 거쳐 PC와 주고받아요.\n암호 키는 이 폰과 PC에만 있어요.\n\nDeskCalendar $appVersion',
               style: TextStyle(color: cDim, fontSize: 12))),
     ]);
   }

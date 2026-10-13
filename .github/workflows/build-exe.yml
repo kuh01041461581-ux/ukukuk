@@ -27,8 +27,11 @@ jobs:
         with:
           name: DeskCalendar-windows
           path: dist/DeskCalendar.exe
-      - name: Attach to release
-        if: github.event_name == 'release'
+      - name: Publish to Releases
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || 'latest-build' }}
+          name: ${{ github.event_name == 'release' && github.event.release.name || 'DeskCalendar 최신 빌드' }}
+          prerelease: ${{ github.event_name != 'release' }}
+          target_commitish: ${{ github.sha }}
           files: dist/DeskCalendar.exe

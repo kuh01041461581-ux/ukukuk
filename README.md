@@ -3,7 +3,7 @@
 바탕화면 위젯형 달력 + 할 일 / 메모. 디자인: Notion · Linear · Windows 11 풍 다크 테마.
 
 ## exe 받기 (Windows)
-GitHub **Actions → Build Windows exe → 최신 실행 → Artifacts → DeskCalendar-windows** 에서 `DeskCalendar.exe` 를 내려받아 실행합니다.
+GitHub 저장소 오른쪽 **Releases → "DeskCalendar 최신 빌드" → Assets → `DeskCalendar.exe`** 를 내려받아 실행합니다.
 (직접 빌드하려면 Windows에서 `build.bat` 실행 → `dist\DeskCalendar.exe`)
 
 ## 사용법

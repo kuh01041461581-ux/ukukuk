@@ -785,6 +785,8 @@ class DayDetail:
         tk.Label(inner, text="＋", font=app.f_body, bg=CARD, fg=ACCENT).pack(side="left", padx=(S(10), 0))
         self.entry = tk.Entry(inner, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
                               highlightthickness=0)
+        Pill(inner, "추가 ↵", self.add, app.f_small, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.25),
+             parent_bg=CARD, padx=S(12), pady=S(5)).pack(side="right", padx=(0, S(6)))
         self.entry.pack(side="left", fill="x", expand=True, ipady=S(8), padx=S(8))
         self.entry.bind("<Return>", lambda e: self.add())
         self.entry.bind("<FocusIn>", lambda e: box.config(bg=ACCENT))
@@ -2543,7 +2545,7 @@ class DeskCalendar:
     def _sel_range(self):
         if self._drag_range:
             return self._drag_range
-        if self.panel_open and self.mode == "day":
+        if getattr(self, "_hl", False) and self.mode == "day":
             return self.selected, self.sel_end or self.selected
         return None
 
@@ -3082,7 +3084,7 @@ class DeskCalendar:
                 self.open_detail(self.dates[idx])
                 return
             self._last_click = (idx, now)
-            self.select_date(self.dates[idx])
+            self.select_date(self.dates[idx], open_=False)
         else:
             self.draw_calendar()
 
@@ -3145,8 +3147,8 @@ class DeskCalendar:
         self.set_panel(True)
         self.todo_entry.focus_force()
 
-    def select_date(self, start, end=None):
-        """날짜(또는 끌어서 고른 기간)를 누르면 메모 앱처럼 작은 입력 창이 바로 뜬다"""
+    def select_date(self, start, end=None, open_=True):
+        """날짜를 한 번 누르면 선택(강조)만, 두 번 누르거나 끌어서 기간을 고르면 메모 앱 같은 입력 창이 뜬다"""
         end = end if end and end > start else None
         if self.mode != "day" and self.panel_open:
             self.set_panel(False)
@@ -3154,8 +3156,10 @@ class DeskCalendar:
         if self.glass and self.dates and not (self.dates[0] <= start <= self.dates[-1]):
             self.view_start = self._week_start(start) - dt.timedelta(days=7)
         self.selected = start
+        self._hl = True
         self._update_sub()
-        self.open_detail(start, end)
+        if open_:
+            self.open_detail(start, end)
         self.render_month()
 
     def clear_range(self):

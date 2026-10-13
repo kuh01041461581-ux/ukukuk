@@ -9,6 +9,20 @@ rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+// 일부 플러그인(receive_sharing_intent 등)의 Java/Kotlin JVM 대상이 서로 달라 생기는 오류를 막는다: 모두 17 로 맞춤
+subprojects {
+    afterEvaluate { p ->
+        if (p.plugins.hasPlugin("com.android.library")) {
+            p.android.compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
+            p.tasks.matching { it.class.name.contains("KotlinCompile") }.configureEach {
+                kotlinOptions.jvmTarget = "17"
+            }
+        }
+    }
+}
 subprojects {
     project.evaluationDependsOn(":app")
 }

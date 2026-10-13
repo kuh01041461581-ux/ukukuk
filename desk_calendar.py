@@ -331,7 +331,43 @@ def _dialog(app, title, w, h):
     x = app.root.winfo_x() + max(0, (app.root.winfo_width() - w) // 2)
     y = app.root.winfo_y() + max(0, (app.root.winfo_height() - h) // 2)
     top.geometry(f"{w}x{h}+{x}+{y}")
+    _polish_dialog(top)
     return top
+
+
+def _polish_dialog(top):
+    """창이 부드럽게 나타나고(페이드 인), 윈도우 11 둥근 모서리·어두운 제목줄을 쓴다"""
+    try:
+        top.attributes("-alpha", 0.0)
+    except tk.TclError:
+        return
+    if IS_WIN:
+        try:
+            top.update_idletasks()
+            hwnd = ctypes.windll.user32.GetParent(top.winfo_id()) or top.winfo_id()
+            dark = ctypes.c_int(1 if THEME_IS_DARK() else 0)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(dark), ctypes.sizeof(dark))
+            rnd = ctypes.c_int(2)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(rnd), ctypes.sizeof(rnd))
+        except Exception:
+            pass
+
+    def step(i=1):
+        try:
+            top.attributes("-alpha", min(1.0, i / 6))
+        except tk.TclError:
+            return
+        if i < 6:
+            top.after(18, lambda: step(i + 1))
+    top.after(10, step)
+
+
+def THEME_IS_DARK():
+    try:
+        c = BG.lstrip("#")
+        return (int(c[0:2], 16) * 299 + int(c[2:4], 16) * 587 + int(c[4:6], 16) * 114) / 1000 < 128
+    except Exception:
+        return True
 
 
 class ImportDialog:

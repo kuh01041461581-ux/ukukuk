@@ -1,0 +1,92 @@
+name: Release (정식 버전)
+
+# Actions 탭 → "Release (정식 버전)" → Run workflow → 버전 입력(예: 1.0.0)
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "버전 (예: 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build exe
+        run: |
+          python -m pip install -r requirements.txt
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --collect-all pdfminer --hidden-import gongmun --hidden-import core --hidden-import holidays_kr --hidden-import cloudsync --collect-all segno --name DeskCalendar --icon assets/app.ico desk_calendar.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exe
+          path: dist/DeskCalendar.exe
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.5"
+          channel: stable
+          cache: true
+      - name: Test + Build APK
+        working-directory: mobile
+        run: |
+          flutter pub get
+          flutter test
+          CODE=$(( ($(date -u +%s) - 1767225600) / 60 ))
+          flutter build apk --release --build-name=${{ inputs.version }} --build-number=$CODE --dart-define=APP_VERSION="${{ inputs.version }}"
+      - run: cp mobile/build/app/outputs/flutter-apk/app-release.apk DeskCalendar.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: DeskCalendar.apk
+
+  publish:
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - run: ls -la assets
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: DeskCalendar v${{ inputs.version }}
+          target_commitish: ${{ github.sha }}
+          prerelease: false
+          make_latest: true
+          files: |
+            assets/DeskCalendar.exe
+            assets/DeskCalendar.apk
+          body: |
+            ## DeskCalendar v${{ inputs.version }}
+
+            ### 받기
+            - **PC (Windows)**: `DeskCalendar.exe` — 설치 없이 실행 (처음엔 "Windows의 PC 보호" 경고 → 추가 정보 → 실행)
+            - **안드로이드**: `DeskCalendar.apk` — 폰에서 받아 설치 ("출처를 알 수 없는 앱" 허용, Play Protect 경고가 뜨면 "무시하고 설치")
+
+            ### 주요 기능
+            - 바탕화면 위젯 달력 + 할 일/메모, 날짜 클릭으로 입력, 더블클릭으로 상세 보기, 창 가장자리 크기 조절
+            - 중요도 색, 기간·반복 일정, 알림, 예정·보관함·검색, 글꼴·테마 설정
+            - 공문 PDF 가져오기 (감사·의회·훈련은 기간, 나머지는 마감일에 표시)
+            - PC ↔ 폰 동기화 (암호화, GitHub 비공개 저장소 경유)
+            - 백업·복원·.ics 내보내기, 공휴일 자동 계산
+
+            ### 업데이트
+            같은 서명 키로 빌드되므로 안드로이드는 새 APK를 기존 앱 위에 그대로 설치하면 됩니다. 사용 방법은 README 참고.

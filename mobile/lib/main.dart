@@ -21,6 +21,7 @@ const cSun = Color(0xFFFF6B81);
 const cSat = Color(0xFF5DB8FF);
 const priColors = [Color(0xFFFF5C7A), Color(0xFFFFB547), Color(0xFF8B7BFF), Color(0xFF3DDC97)];
 const priNames = ['매우 중요', '중요', '보통', '낮음'];
+const appVersion = String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
 const weekdayKo = ['월', '화', '수', '목', '금', '토', '일'];
 
 int priOf(Json t) => (((baseOf(t)['pri'] as num?)?.toInt() ?? 2)).clamp(0, 3);
@@ -871,7 +872,7 @@ class ConnectPage extends StatelessWidget {
       ]),
       const Padding(
           padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Text('일정은 암호화되어 내 GitHub 비공개 저장소를 거쳐 PC와 주고받아요.\n암호 키는 이 폰과 PC에만 있어요.',
+          child: Text('일정은 암호화되어 내 GitHub 비공개 저장소를 거쳐 PC와 주고받아요.\n암호 키는 이 폰과 PC에만 있어요.\n\nDeskCalendar $appVersion',
               style: TextStyle(color: cDim, fontSize: 12))),
     ]);
   }

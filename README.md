@@ -3,6 +3,8 @@
 바탕화면 위젯형 달력 + 할 일 / 메모. 디자인: Notion · Linear · Windows 11 풍. PC(Windows)와 안드로이드 폰이 인터넷으로 동기화됩니다.
 
 ## 내려받기 (Releases)
+**정식 버전**: 저장소 오른쪽 **Releases → 최신(Latest) 버전**의 `DeskCalendar.exe`, `DeskCalendar.apk`. 아래 "최신 빌드"는 개발 중 자동으로 갱신되는 시험용입니다.
+
 저장소 오른쪽 **Releases**
 - **DeskCalendar 최신 빌드** → `DeskCalendar.exe` (Windows, 설치 필요 없음)
 - **DeskCalendar 안드로이드 최신 빌드 (APK)** → `DeskCalendar.apk` (폰에서 받아 설치 · "출처를 알 수 없는 앱" 허용 필요)
@@ -38,3 +40,7 @@
 - PC: Windows 에서 `build.bat` → `dist\DeskCalendar.exe`
 - 폰: `cd mobile && flutter build apk --release` (Flutter 3.24.5)
 - 둘 다 GitHub Actions 가 push 마다 자동으로 빌드해서 Releases 에 올립니다.
+
+## 정식 버전 올리는 법 (관리자)
+GitHub → Actions → **Release (정식 버전)** → Run workflow → 버전 입력(예: 1.0.1) → 실행하면 exe/APK 를 빌드해 새 Release 로 올립니다.
+안드로이드 서명 키는 `mobile/android/keystore/` 에 포함된 내부 배포용 키로 고정되어 있어서 새 APK 가 기존 설치본 위에 업데이트로 설치됩니다. (스토어 출시 전에는 별도 키를 만들어 GitHub Secrets 로 옮기세요.)

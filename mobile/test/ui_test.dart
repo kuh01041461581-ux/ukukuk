@@ -21,7 +21,7 @@ void main() {
 
     await tester.tap(find.text('${today.day}').last);
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.text('새 일정 입력 (예: 14:30 회의)'), findsOneWidget);
+    expect(find.text('예) 내일 오후 3시 회의 !중요'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, '14:30 회의');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump(const Duration(milliseconds: 600));
@@ -29,7 +29,7 @@ void main() {
     await tester.tapAt(const Offset(200, 40)); // 시트 밖을 눌러 닫기
     await tester.pump(const Duration(milliseconds: 600));
 
-    await tester.tap(find.byIcon(Icons.chevron_right_rounded));
+    await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
     await tester.pump(const Duration(milliseconds: 150));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.tap(find.text('예정'));

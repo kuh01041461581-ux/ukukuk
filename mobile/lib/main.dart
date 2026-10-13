@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'core.dart';
 import 'holidays.dart';
 import 'notify.dart';
+import 'quickadd.dart';
 import 'store.dart';
 
 const cBg = Color(0xFF0F1015);
@@ -20,8 +21,9 @@ const cDim = Color(0xFF687187);
 const cAccent = Color(0xFF7C6CFF);
 const cSun = Color(0xFFF08A94);
 const cSat = Color(0xFF8FB4F2);
-const priColors = [Color(0xFFFF8F9B), Color(0xFFF2C374), Color(0xFFDFE4EE), Color(0xFF82D9A8)];
-const priNames = ['매우 중요', '중요', '보통', '낮음'];
+// 중요도는 3단계(중요/보통/낮음). 번호 0 은 예전 데이터용(= 중요)
+const priColors = [Color(0xFFFF8F9B), Color(0xFFFF8F9B), Color(0xFFDFE4EE), Color(0xFF82D9A8)];
+const priNames = ['중요', '중요', '보통', '낮음'];
 const fontFamily = 'Pretendard'; // 빌드 때 내려받아 넣으면 적용되고, 없으면 기기 기본 글꼴
 const appVersion = String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
 const kFast = Duration(milliseconds: 180);
@@ -29,8 +31,35 @@ const kMid = Duration(milliseconds: 320);
 const kCurve = Curves.easeOutCubic;
 const weekdayKo = ['월', '화', '수', '목', '금', '토', '일'];
 
-int priOf(Json t) => (((baseOf(t)['pri'] as num?)?.toInt() ?? 2)).clamp(0, 3);
+int priOf(Json t) {
+  final p = (((baseOf(t)['pri'] as num?)?.toInt() ?? 2)).clamp(0, 3);
+  return p == 0 ? 1 : p;
+}
+
+int nextPri(int p) => p <= 1 ? 3 : p - 1; // 중요 → 낮음 → 보통 → 중요 …
 Color priColor(Json t) => priColors[priOf(t)];
+/// (오늘 남은 일정, 지난 미완료, 앞으로 3일 안 미완료)
+(int, int, int) summaryCounts(AppStore store) {
+  final today = dayOnly(DateTime.now());
+  var late = 0;
+  store.data.forEach((key, v) {
+    if (nonDateKeys.contains(key) || v is! Map) return;
+    final s0 = parseDate(key);
+    if (s0 == null || !s0.isBefore(today)) return;
+    for (final t0 in (v['todos'] as List? ?? const [])) {
+      final t = t0 as Json;
+      if (t['done'] == true || t['repeat'] != null) continue;
+      if ((itemEnd(t, s0) ?? s0).isBefore(today)) late++;
+    }
+  });
+  int undone(DateTime d) => dayItems(store.data, d).where((r) => r.t['done'] != true).length;
+  var soon = 0;
+  for (var k = 1; k <= 3; k++) {
+    soon += undone(addDays(today, k));
+  }
+  return (undone(today), late, soon);
+}
+
 String dateLabel(DateTime d) => '${d.month}월 ${d.day}일 (${weekdayKo[d.weekday - 1]})';
 
 Future<void> main() async {
@@ -203,6 +232,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             month: month,
             selected: selected,
             onMonth: (m) => setState(() => month = m),
+            onAgenda: () => setState(() => tab = 1),
             onSelect: (d) => setState(() {
               selected = d;
               if (d.month != month.month) month = DateTime(d.year, d.month);
@@ -318,13 +348,15 @@ class CalendarPage extends StatefulWidget {
   final AppStore store;
   final DateTime month, selected;
   final ValueChanged<DateTime> onMonth, onSelect;
+  final VoidCallback? onAgenda;
   const CalendarPage(
       {super.key,
       required this.store,
       required this.month,
       required this.selected,
       required this.onMonth,
-      required this.onSelect});
+      required this.onSelect,
+      this.onAgenda});
   @override
   State<CalendarPage> createState() => _CalendarPageState();
 }
@@ -387,6 +419,25 @@ class _CalendarPageState extends State<CalendarPage> {
           navBtn(Icons.chevron_right_rounded, () => _go(1)),
         ]),
       ),
+      Builder(builder: (context) {
+        final (nToday, nLate, nSoon) = summaryCounts(store);
+        Widget chip(String t, Color c) => Container(
+            margin: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(14)),
+            child: Text(t, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c)));
+        return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 16, 8),
+            child: GestureDetector(
+                onTap: widget.onAgenda,
+                child: Row(children: [
+                  chip('오늘 $nToday', cText),
+                  if (nLate > 0) chip('지연 $nLate', cSun),
+                  chip('3일 내 $nSoon', nSoon > 0 ? cAccent : cDim),
+                  const Spacer(),
+                  const Icon(Icons.chevron_right_rounded, size: 18, color: cDim),
+                ])));
+      }),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(children: [
@@ -462,7 +513,8 @@ class _CalendarPageState extends State<CalendarPage> {
           if (h != null) entries.add((h, inMonth ? cSun : cDim, false, true));
           for (final r in rows) {
             final done = r.t['done'] == true;
-            entries.add((r.t['text'] as String? ?? '', done ? cDim : priColor(r.t), done, false));
+            final late = !done && d.isBefore(today) && r.t['repeat'] == null && (itemEnd(r.t, r.start) ?? d).isBefore(today);
+            entries.add((r.t['text'] as String? ?? '', done ? cDim : (late ? cSun : priColor(r.t)), done, false));
           }
           final over = entries.length > slots;
           final show = over ? slots - 1 : entries.length;
@@ -562,15 +614,17 @@ class _DaySheetState extends State<DaySheet> {
   void _add() {
     final text = entry.text.trim();
     if (text.isEmpty) return;
-    final t = newItem(text, extra: {'pri': pri});
-    final m = RegExp(r'^(\d{1,2}):(\d{2})\s+(.+)$').firstMatch(text);
-    if (m != null && int.parse(m.group(1)!) < 24 && int.parse(m.group(2)!) < 60) {
-      t['text'] = m.group(3)!.trim();
-      t['time'] = '${m.group(1)!.padLeft(2, '0')}:${m.group(2)}';
-    }
-    widget.store.add(iso(date), t);
+    final q = parseQuick(text, dayOnly(DateTime.now()));
+    final t = newItem(q.text, extra: {'pri': q.pri ?? pri});
+    if (q.time != null) t['time'] = q.time;
+    if (q.repeat != null) t['repeat'] = {'f': q.repeat, 'n': 1};
+    final target = q.date ?? date;
+    widget.store.add(iso(target), t);
     entry.clear();
     setState(() => pri = 2);
+    if (q.date != null && !sameDay(q.date!, date)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${target.month}월 ${target.day}일에 추가했어요')));
+    }
   }
 
   @override
@@ -614,16 +668,17 @@ class _DaySheetState extends State<DaySheet> {
                       autofocus: true,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _add(),
+                      onChanged: (_) => setState(() {}),
                       style: const TextStyle(fontSize: 15),
                       decoration: const InputDecoration(
-                        hintText: '새 일정 입력 (예: 14:30 회의)',
+                        hintText: '예) 내일 오후 3시 회의 !중요',
                         hintStyle: TextStyle(fontSize: 14, color: cDim),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: () => setState(() => pri = (pri + 3) % 4), // 보통 → 낮음 → … 돌려가며 선택
+                    onTap: () => setState(() => pri = nextPri(pri)), // 중요/보통/낮음을 돌려가며 선택
                     child: Container(
                         width: 28, height: 28, alignment: Alignment.center,
                         child: Container(width: 14, height: 14, decoration: BoxDecoration(color: priColors[pri], shape: BoxShape.circle))),
@@ -634,6 +689,17 @@ class _DaySheetState extends State<DaySheet> {
                       icon: const Icon(Icons.arrow_upward, size: 18)),
                 ]),
               ),
+              if (entry.text.trim().isNotEmpty)
+                Builder(builder: (context) {
+                  final q = parseQuick(entry.text.trim(), dayOnly(DateTime.now()));
+                  final d = q.describe(dayOnly(DateTime.now()));
+                  return Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+                      child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('→ ${d.isEmpty ? '이 날짜에 추가' : d}  ·  ${q.text}',
+                              maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: cAccent))));
+                }),
               Expanded(
                 child: ListView(padding: const EdgeInsets.only(top: 6, bottom: 8), children: [
                   if (rows.isEmpty)
@@ -1104,9 +1170,9 @@ class _ItemEditorState extends State<ItemEditor> {
           const SizedBox(height: 10),
           const Text('중요도', style: TextStyle(color: cSub, fontSize: 12)),
           Wrap(spacing: 8, children: [
-            for (var i = 0; i < 4; i++)
+            for (var i = 1; i < 4; i++)
               ChoiceChip(
-                  selected: pri == i,
+                  selected: priOf({'pri': pri}) == i,
                   showCheckmark: false,
                   avatar: Icon(Icons.circle, size: 12, color: priColors[i]),
                   label: Text(priNames[i], style: chipStyle),

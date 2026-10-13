@@ -161,7 +161,8 @@ class AppStore extends ChangeNotifier {
 
   void cyclePri(Json t) {
     final b = baseOf(t);
-    b['pri'] = (((b['pri'] as num?)?.toInt() ?? 2) - 1) % 4;
+    final cur = ((b['pri'] as num?)?.toInt() ?? 2);
+    b['pri'] = cur <= 1 ? 3 : cur - 1; // 중요 → 낮음 → 보통 → 중요
     touch(b);
     changed();
   }

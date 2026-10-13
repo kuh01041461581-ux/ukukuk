@@ -13,6 +13,7 @@ subprojects {
 subprojects {
     afterEvaluate { p ->
         if (p.plugins.hasPlugin("com.android.library")) {
+            p.android.compileSdk = 35
             p.android.compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17

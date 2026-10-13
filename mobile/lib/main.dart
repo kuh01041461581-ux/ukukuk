@@ -9,6 +9,9 @@ import 'core.dart';
 import 'holidays.dart';
 import 'notify.dart';
 import 'quickadd.dart';
+import 'bgsync.dart';
+import 'share_import.dart';
+import 'widget_sync.dart';
 import 'store.dart';
 
 const cBg = Color(0xFF0F1015);
@@ -38,28 +41,6 @@ int priOf(Json t) {
 
 int nextPri(int p) => p <= 1 ? 3 : p - 1; // 중요 → 낮음 → 보통 → 중요 …
 Color priColor(Json t) => priColors[priOf(t)];
-/// (오늘 남은 일정, 지난 미완료, 앞으로 3일 안 미완료)
-(int, int, int) summaryCounts(AppStore store) {
-  final today = dayOnly(DateTime.now());
-  var late = 0;
-  store.data.forEach((key, v) {
-    if (nonDateKeys.contains(key) || v is! Map) return;
-    final s0 = parseDate(key);
-    if (s0 == null || !s0.isBefore(today)) return;
-    for (final t0 in (v['todos'] as List? ?? const [])) {
-      final t = t0 as Json;
-      if (t['done'] == true || t['repeat'] != null) continue;
-      if ((itemEnd(t, s0) ?? s0).isBefore(today)) late++;
-    }
-  });
-  int undone(DateTime d) => dayItems(store.data, d).where((r) => r.t['done'] != true).length;
-  var soon = 0;
-  for (var k = 1; k <= 3; k++) {
-    soon += undone(addDays(today, k));
-  }
-  return (undone(today), late, soon);
-}
-
 String dateLabel(DateTime d) => '${d.month}월 ${d.day}일 (${weekdayKo[d.weekday - 1]})';
 
 Future<void> main() async {
@@ -70,6 +51,8 @@ Future<void> main() async {
   runApp(DeskApp(store));
   store.syncNow();
   Notifier.reschedule(store);
+  updateHomeWidget(store);
+  registerBackgroundSync();
 }
 
 class DeskApp extends StatelessWidget {
@@ -171,6 +154,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   late DateTime month = DateTime(selected.year, selected.month);
 
   Timer? _poll;
+  ShareImporter? _share;
 
   // 앱이 화면에 떠 있는 동안 30초마다 PC 의 변경을 받아온다 (내 변경은 입력 후 4초 안에 자동으로 올라감)
   void _startPoll() {
@@ -183,11 +167,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startPoll();
+    _share = ShareImporter(widget.store, () => context)..start();
   }
 
   @override
   void dispose() {
     _poll?.cancel();
+    _share?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -420,7 +406,7 @@ class _CalendarPageState extends State<CalendarPage> {
         ]),
       ),
       Builder(builder: (context) {
-        final (nToday, nLate, nSoon) = summaryCounts(store);
+        final (nToday, nLate, nSoon) = summaryCounts(store.data);
         Widget chip(String t, Color c) => Container(
             margin: const EdgeInsets.only(right: 6),
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),

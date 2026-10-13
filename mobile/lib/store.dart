@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core.dart';
 import 'notify.dart';
 import 'sync.dart';
+import 'widget_sync.dart';
 
 /// 앱 전체 상태: 일정 데이터, 동기화, 알림 설정
 class AppStore extends ChangeNotifier {
@@ -28,7 +29,7 @@ class AppStore extends ChangeNotifier {
     await _prefs.setDouble('calScale', calScale);
     notifyListeners();
   }
-  Timer? _saveTimer, _syncTimer, _notifyTimer;
+  Timer? _saveTimer, _syncTimer, _notifyTimer, _widgetTimer;
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -58,6 +59,8 @@ class AppStore extends ChangeNotifier {
     if (sync) scheduleSync();
     _notifyTimer?.cancel();
     _notifyTimer = Timer(const Duration(seconds: 2), () => Notifier.reschedule(this));
+    _widgetTimer?.cancel();
+    _widgetTimer = Timer(const Duration(milliseconds: 1200), () => updateHomeWidget(this));
   }
 
   void scheduleSync() {
@@ -123,6 +126,7 @@ class AppStore extends ChangeNotifier {
       }
       final n = DateTime.now();
       syncStatus = done ? '동기화 완료 · ${two(n.hour)}:${two(n.minute)}' : '충돌이 잦아 잠시 후 다시 시도해요';
+      updateHomeWidget(this);
     } on SyncError catch (e) {
       syncStatus = e.msg;
     } catch (_) {

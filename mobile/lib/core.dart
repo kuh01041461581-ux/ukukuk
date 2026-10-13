@@ -258,3 +258,26 @@ bool mergeState(Json data, Json remote) {
   dele.removeWhere((_, ts) => _i(ts) < cutoff);
   return changed;
 }
+
+/// (오늘 남은 일정, 지난 미완료, 앞으로 3일 안 미완료)
+(int, int, int) summaryCounts(Json data) {
+  final today = dayOnly(DateTime.now());
+  var late = 0;
+  data.forEach((key, v) {
+    if (nonDateKeys.contains(key) || v is! Map) return;
+    final s0 = parseDate(key);
+    if (s0 == null || !s0.isBefore(today)) return;
+    for (final t0 in (v['todos'] as List? ?? const [])) {
+      final t = t0 as Json;
+      if (t['done'] == true || t['repeat'] != null) continue;
+      if ((itemEnd(t, s0) ?? s0).isBefore(today)) late++;
+    }
+  });
+  int undone(DateTime d) => dayItems(data, d).where((r) => r.t['done'] != true).length;
+  var soon = 0;
+  for (var k = 1; k <= 3; k++) {
+    soon += undone(addDays(today, k));
+  }
+  return (undone(today), late, soon);
+}
+

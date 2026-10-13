@@ -45,6 +45,7 @@ jobs:
       - name: Test + Build APK
         working-directory: mobile
         run: |
+          bash tools/fetch_font.sh
           flutter pub get
           flutter test
           CODE=$(( ($(date -u +%s) - 1767225600) / 60 ))

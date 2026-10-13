@@ -9,19 +9,23 @@ import 'holidays.dart';
 import 'notify.dart';
 import 'store.dart';
 
-const cBg = Color(0xFF111218);
-const cSurface = Color(0xFF181A22);
-const cCard = Color(0xFF1D1F29);
-const cBorder = Color(0xFF2A2D3A);
-const cText = Color(0xFFECEFF5);
-const cSub = Color(0xFF98A2B3);
-const cDim = Color(0xFF6A7387);
+const cBg = Color(0xFF0F1015);
+const cSurface = Color(0xFF16171F);
+const cCard = Color(0xFF1C1E28);
+const cBorder = Color(0xFF292C3A);
+const cText = Color(0xFFF1F3F8);
+const cSub = Color(0xFF9AA4B8);
+const cDim = Color(0xFF687187);
 const cAccent = Color(0xFF7C6CFF);
 const cSun = Color(0xFFF08A94);
 const cSat = Color(0xFF8FB4F2);
 const priColors = [Color(0xFFFF8F9B), Color(0xFFF2C374), Color(0xFFDFE4EE), Color(0xFF82D9A8)];
 const priNames = ['매우 중요', '중요', '보통', '낮음'];
+const fontFamily = 'Pretendard'; // 빌드 때 내려받아 넣으면 적용되고, 없으면 기기 기본 글꼴
 const appVersion = String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
+const kFast = Duration(milliseconds: 180);
+const kMid = Duration(milliseconds: 320);
+const kCurve = Curves.easeOutCubic;
 const weekdayKo = ['월', '화', '수', '목', '금', '토', '일'];
 
 int priOf(Json t) => (((baseOf(t)['pri'] as num?)?.toInt() ?? 2)).clamp(0, 3);
@@ -59,19 +63,66 @@ class DeskApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+        fontFamily: fontFamily,
         colorScheme: scheme,
-        scaffoldBackgroundColor: cBg,
-        appBarTheme: const AppBarTheme(backgroundColor: cBg, foregroundColor: cText, elevation: 0),
+        scaffoldBackgroundColor: Colors.transparent,
+        splashFactory: InkRipple.splashFactory,
+        pageTransitionsTheme: const PageTransitionsTheme(builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        }),
+        appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.transparent,
+            foregroundColor: cText,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            centerTitle: false,
+            titleTextStyle: TextStyle(fontFamily: fontFamily, fontSize: 20, fontWeight: FontWeight.w700, color: cText)),
         navigationBarTheme: NavigationBarThemeData(
-            backgroundColor: cSurface, indicatorColor: cAccent.withOpacity(0.25)),
+            backgroundColor: Colors.transparent,
+            height: 64,
+            indicatorColor: cAccent.withOpacity(0.22),
+            indicatorShape: const StadiumBorder(),
+            labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600))),
+        cardTheme: CardTheme(
+            color: cCard,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22), side: const BorderSide(color: cBorder))),
+        dialogTheme: DialogTheme(
+            backgroundColor: cSurface, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26))),
+        bottomSheetTheme: const BottomSheetThemeData(
+            backgroundColor: cSurface,
+            modalBackgroundColor: cSurface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28)))),
+        snackBarTheme: SnackBarThemeData(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: cCard,
+            contentTextStyle: const TextStyle(color: cText, fontSize: 13.5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+        filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+                shape: const StadiumBorder(), padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12))),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+                shape: const StadiumBorder(), side: const BorderSide(color: cBorder), foregroundColor: cText)),
+        textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(shape: const StadiumBorder())),
+        chipTheme: ChipThemeData(
+            shape: const StadiumBorder(),
+            side: const BorderSide(color: cBorder),
+            backgroundColor: Colors.transparent,
+            selectedColor: cAccent.withOpacity(0.24)),
+        inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: cCard,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: cAccent, width: 1.4))),
+        sliderTheme: SliderThemeData(
+            trackHeight: 4, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9), overlayShape: SliderComponentShape.noOverlay),
         dividerColor: cBorder,
       ),
-      builder: (context, child) => ListenableBuilder(
-          listenable: store,
-          builder: (context, _) => MediaQuery(
-              data: MediaQuery.of(context)
-                  .copyWith(textScaler: TextScaler.linear(MediaQuery.textScalerOf(context).scale(1) * store.textScale)),
-              child: child!)),
       home: Home(store),
     );
   }
@@ -127,49 +178,97 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        final titles = ['달력', '예정', '보관함', '연결 · 설정'];
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(titles[tab], style: const TextStyle(fontWeight: FontWeight.w700)),
-            actions: [
-              if (store.syncing)
-                const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 14),
-                    child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
-              IconButton(icon: const Icon(Icons.search), onPressed: search),
-            ],
+        final titles = ['', '예정', '보관함', '연결 · 설정'];
+        final now = DateTime.now();
+        final pages = <Widget>[
+          CalendarPage(
+            key: const ValueKey('cal'),
+            store: store,
+            month: month,
+            selected: selected,
+            onMonth: (m) => setState(() => month = m),
+            onSelect: (d) => setState(() {
+              selected = d;
+              if (d.month != month.month) month = DateTime(d.year, d.month);
+            }),
           ),
-          body: IndexedStack(index: tab, children: [
-            CalendarPage(
-              store: store,
-              month: month,
-              selected: selected,
-              onMonth: (m) => setState(() => month = m),
-              onSelect: (d) => setState(() {
-                selected = d;
-                if (d.month != month.month) month = DateTime(d.year, d.month);
-              }),
+          AgendaPage(key: const ValueKey('agenda'), store: store, onJump: jump),
+          InboxPage(key: const ValueKey('inbox'), store: store),
+          ConnectPage(key: const ValueKey('connect'), store: store),
+        ];
+        return DecoratedBox(
+          decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                  begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF181730), cBg, cBg], stops: [0, 0.38, 1])),
+          child: Scaffold(
+            extendBody: true,
+            appBar: AppBar(
+              toolbarHeight: 56,
+              title: tab == 0
+                  ? Text('${now.month}월 ${now.day}일 ${weekdayKo[now.weekday - 1]}요일',
+                      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800))
+                  : Text(titles[tab], style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+              actions: [
+                AnimatedSwitcher(
+                    duration: kFast,
+                    child: store.syncing
+                        ? const Padding(
+                            key: ValueKey('spin'),
+                            padding: EdgeInsets.symmetric(horizontal: 14),
+                            child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+                        : const SizedBox(key: ValueKey('nospin'), width: 4)),
+                IconButton(icon: const Icon(Icons.search_rounded), onPressed: search),
+                const SizedBox(width: 4),
+              ],
             ),
-            AgendaPage(store: store, onJump: jump),
-            InboxPage(store: store),
-            ConnectPage(store: store),
-          ]),
-          floatingActionButton: tab == 2
-                  ? FloatingActionButton(
-                      backgroundColor: cAccent,
-                      foregroundColor: Colors.white,
-                      onPressed: () => showItemEditor(context, store, inbox: true),
-                      child: const Icon(Icons.add))
-                  : null,
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: tab,
-            onDestinationSelected: (i) => setState(() => tab = i),
-            destinations: const [
-              NavigationDestination(icon: Icon(Icons.calendar_month_outlined), label: '달력'),
-              NavigationDestination(icon: Icon(Icons.view_agenda_outlined), label: '예정'),
-              NavigationDestination(icon: Icon(Icons.inbox_outlined), label: '보관함'),
-              NavigationDestination(icon: Icon(Icons.sync), label: '연결'),
-            ],
+            body: AnimatedSwitcher(
+              duration: kMid,
+              switchInCurve: kCurve,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, anim) => FadeTransition(
+                  opacity: anim,
+                  child: SlideTransition(
+                      position: Tween(begin: const Offset(0, 0.03), end: Offset.zero).animate(anim), child: child)),
+              child: KeyedSubtree(key: ValueKey(tab), child: pages[tab]),
+            ),
+            floatingActionButton: tab == 2
+                ? FloatingActionButton.extended(
+                    backgroundColor: cAccent,
+                    foregroundColor: Colors.white,
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    onPressed: () => showItemEditor(context, store, inbox: true),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('새 할 일', style: TextStyle(fontWeight: FontWeight.w700)))
+                : null,
+            bottomNavigationBar: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                      color: cSurface.withOpacity(0.96),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: cBorder)),
+                  child: NavigationBar(
+                    selectedIndex: tab,
+                    animationDuration: kMid,
+                    onDestinationSelected: (i) => setState(() => tab = i),
+                    destinations: const [
+                      NavigationDestination(
+                          icon: Icon(Icons.calendar_month_outlined),
+                          selectedIcon: Icon(Icons.calendar_month_rounded),
+                          label: '달력'),
+                      NavigationDestination(
+                          icon: Icon(Icons.view_agenda_outlined), selectedIcon: Icon(Icons.view_agenda_rounded), label: '예정'),
+                      NavigationDestination(
+                          icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox_rounded), label: '보관함'),
+                      NavigationDestination(icon: Icon(Icons.tune_rounded), selectedIcon: Icon(Icons.tune_rounded), label: '설정'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         );
       },
@@ -178,7 +277,28 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 }
 
 // ───────────────────────── 달력 ─────────────────────────
-class CalendarPage extends StatelessWidget {
+class Pressable extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  const Pressable({super.key, required this.child, required this.onTap});
+  @override
+  State<Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<Pressable> {
+  bool down = false;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => down = true),
+        onTapCancel: () => setState(() => down = false),
+        onTapUp: (_) => setState(() => down = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(scale: down ? 0.94 : 1, duration: const Duration(milliseconds: 110), curve: kCurve, child: widget.child),
+      );
+}
+
+class CalendarPage extends StatefulWidget {
   final AppStore store;
   final DateTime month, selected;
   final ValueChanged<DateTime> onMonth, onSelect;
@@ -189,57 +309,115 @@ class CalendarPage extends StatelessWidget {
       required this.selected,
       required this.onMonth,
       required this.onSelect});
+  @override
+  State<CalendarPage> createState() => _CalendarPageState();
+}
+
+class _CalendarPageState extends State<CalendarPage> {
+  int dir = 1; // 달이 바뀔 때 미끄러지는 방향
+
+  AppStore get store => widget.store;
+  DateTime get month => widget.month;
+  DateTime get selected => widget.selected;
+
+  @override
+  void didUpdateWidget(CalendarPage old) {
+    super.didUpdateWidget(old);
+    if (old.month != widget.month) dir = widget.month.isAfter(old.month) ? 1 : -1;
+  }
+
+  void _go(int n) => widget.onMonth(DateTime(month.year, month.month + n));
 
   @override
   Widget build(BuildContext context) {
     final today = dayOnly(DateTime.now());
     final first = DateTime(month.year, month.month, 1);
     final gridStart = addDays(first, -(first.weekday % 7)); // 일요일 시작
+    final key = ValueKey('${month.year}-${month.month}');
+    Widget navBtn(IconData i, VoidCallback f) => Pressable(
+        onTap: f,
+        child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), shape: BoxShape.circle),
+            child: Icon(i, size: 22, color: cText)));
     return Column(children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+        padding: const EdgeInsets.fromLTRB(20, 2, 16, 8),
         child: Row(children: [
-          IconButton(onPressed: () => onMonth(DateTime(month.year, month.month - 1)), icon: const Icon(Icons.chevron_left)),
           Expanded(
-              child: Text('${month.year}년 ${month.month}월',
-                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
-          IconButton(onPressed: () => onMonth(DateTime(month.year, month.month + 1)), icon: const Icon(Icons.chevron_right)),
-          TextButton(
-              onPressed: () {
-                onMonth(DateTime(today.year, today.month));
-                onSelect(today);
+              child: AnimatedSwitcher(
+                  duration: kMid,
+                  switchInCurve: kCurve,
+                  transitionBuilder: (c, a) => FadeTransition(
+                      opacity: a,
+                      child: SlideTransition(
+                          position: Tween(begin: Offset(0, 0.25 * dir), end: Offset.zero).animate(a), child: c)),
+                  layoutBuilder: (cur, prev) => Stack(alignment: Alignment.centerLeft, children: [...prev, if (cur != null) cur]),
+                  child: Text('${month.year}년 ${month.month}월',
+                      key: key, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.5)))),
+          Pressable(
+              onTap: () {
+                widget.onMonth(DateTime(today.year, today.month));
+                widget.onSelect(today);
               },
-              child: const Text('오늘')),
+              child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(color: cAccent.withOpacity(0.18), borderRadius: BorderRadius.circular(20)),
+                  child: const Text('오늘', style: TextStyle(color: cAccent, fontWeight: FontWeight.w700, fontSize: 13)))),
+          const SizedBox(width: 8),
+          navBtn(Icons.chevron_left_rounded, () => _go(-1)),
+          const SizedBox(width: 6),
+          navBtn(Icons.chevron_right_rounded, () => _go(1)),
         ]),
       ),
-      Row(children: [
-        for (var i = 0; i < 7; i++)
-          Expanded(
-              child: Center(
-                  child: Text('일월화수목금토'[i],
-                      style: TextStyle(fontSize: 12, color: i == 0 ? cSun : (i == 6 ? cSat : cSub))))),
-      ]),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(children: [
+          for (var i = 0; i < 7; i++)
+            Expanded(
+                child: Center(
+                    child: Text('일월화수목금토'[i],
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: i == 0 ? cSun : (i == 6 ? cSat : cSub))))),
+        ]),
+      ),
+      const SizedBox(height: 4),
       Expanded(
         child: GestureDetector(
           onHorizontalDragEnd: (d) {
             final v = d.primaryVelocity ?? 0;
-            if (v < -200) onMonth(DateTime(month.year, month.month + 1));
-            if (v > 200) onMonth(DateTime(month.year, month.month - 1));
+            if (v < -200) _go(1);
+            if (v > 200) _go(-1);
           },
-          child: Column(children: [
-            for (var w = 0; w < 6; w++)
-              Expanded(
-                child: Row(children: [
-                  for (var c = 0; c < 7; c++) Expanded(child: _cell(context, addDays(gridStart, w * 7 + c), today)),
-                ]),
-              ),
-          ]),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(6, 0, 6, 92),
+            child: AnimatedSwitcher(
+              duration: kMid,
+              switchInCurve: kCurve,
+              switchOutCurve: kCurve,
+              transitionBuilder: (c, a) {
+                final incoming = c.key == key;
+                final begin = Offset(incoming ? 0.18 * dir : -0.18 * dir, 0);
+                return FadeTransition(opacity: a, child: SlideTransition(position: Tween(begin: begin, end: Offset.zero).animate(a), child: c));
+              },
+              layoutBuilder: (cur, prev) => Stack(children: [...prev, if (cur != null) cur]),
+              child: Column(key: key, children: [
+                for (var w = 0; w < 6; w++)
+                  Expanded(
+                    child: Row(children: [
+                      for (var c = 0; c < 7; c++) Expanded(child: _cell(context, addDays(gridStart, w * 7 + c), today)),
+                    ]),
+                  ),
+              ]),
+            ),
+          ),
         ),
       ),
     ]);
   }
 
   Widget _cell(BuildContext context, DateTime d, DateTime today) {
+    final k = store.calScale;
     final inMonth = d.month == month.month;
     final isToday = sameDay(d, today);
     final sel = sameDay(d, selected);
@@ -248,20 +426,22 @@ class CalendarPage extends StatelessWidget {
     final wd = d.weekday % 7; // 0=일
     Color numColor = !inMonth ? cDim : (h != null || wd == 0) ? cSun : (wd == 6 ? cSat : cText);
     if (isToday) numColor = Colors.white;
-    return GestureDetector(
+    return Pressable(
       onTap: () {
-        onSelect(d);
+        widget.onSelect(d);
         showDaySheet(context, store, d);
       },
-      child: Container(
-        margin: const EdgeInsets.all(1.5),
+      child: AnimatedContainer(
+        duration: kFast,
+        curve: kCurve,
+        margin: const EdgeInsets.all(2),
         decoration: BoxDecoration(
-          color: sel ? cAccent.withOpacity(0.14) : (inMonth ? Colors.white.withOpacity(0.035) : Colors.transparent),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: sel ? cAccent : Colors.white.withOpacity(inMonth ? 0.08 : 0.04), width: sel ? 1.4 : 1),
+          color: sel ? cAccent.withOpacity(0.16) : (inMonth ? Colors.white.withOpacity(0.045) : Colors.white.withOpacity(0.015)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: sel ? cAccent.withOpacity(0.9) : Colors.transparent, width: 1.4),
         ),
         child: LayoutBuilder(builder: (context, c) {
-          final slots = ((c.maxHeight - 24) / (11.5 * store.calScale)).floor().clamp(1, 7);
+          final slots = ((c.maxHeight - 28) / (12.5 * k)).floor().clamp(1, 8);
           final entries = <(String, Color, bool, bool)>[]; // 글자, 색, 완료, 공휴일
           if (h != null) entries.add((h, inMonth ? cSun : cDim, false, true));
           for (final r in rows) {
@@ -271,30 +451,30 @@ class CalendarPage extends StatelessWidget {
           final over = entries.length > slots;
           final show = over ? slots - 1 : entries.length;
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Center(
               child: Container(
-                width: 20,
-                height: 18,
+                width: 22,
+                height: 22,
                 alignment: Alignment.center,
-                decoration: isToday ? BoxDecoration(color: cAccent, borderRadius: BorderRadius.circular(9)) : null,
-                child: Text('${d.day}', style: TextStyle(fontSize: 11 * store.calScale, fontWeight: FontWeight.w600, color: numColor)),
+                decoration: isToday ? const BoxDecoration(color: cAccent, shape: BoxShape.circle) : null,
+                child: Text('${d.day}', style: TextStyle(fontSize: 12 * k, fontWeight: FontWeight.w700, color: numColor)),
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             for (var i = 0; i < show; i++)
               entries[i].$4
                   ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Text(entries[i].$1,
-                          maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: TextStyle(fontSize: 8 * store.calScale, color: entries[i].$2)))
+                          maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: TextStyle(fontSize: 9 * k, fontWeight: FontWeight.w600, color: entries[i].$2)))
                   : Padding(
-                      padding: const EdgeInsets.fromLTRB(3, 0, 2, 1.5),
+                      padding: const EdgeInsets.fromLTRB(4, 0, 2, 2),
                       child: Row(children: [
                         Container(
-                            width: 3.5,
-                            height: 3.5,
-                            margin: const EdgeInsets.only(right: 2),
+                            width: 4,
+                            height: 4,
+                            margin: const EdgeInsets.only(right: 3),
                             decoration: BoxDecoration(color: entries[i].$2, shape: BoxShape.circle)),
                         Expanded(
                             child: Text(entries[i].$1,
@@ -302,15 +482,15 @@ class CalendarPage extends StatelessWidget {
                                 softWrap: false,
                                 overflow: TextOverflow.clip,
                                 style: TextStyle(
-                                    fontSize: 8.5 * store.calScale,
+                                    fontSize: 9.5 * k,
                                     height: 1.1,
-                                    color: entries[i].$3 ? cDim : cText.withOpacity(0.92),
+                                    color: entries[i].$3 ? cDim : cText.withOpacity(0.94),
                                     decoration: entries[i].$3 ? TextDecoration.lineThrough : null))),
                       ])),
             if (over)
               Padding(
-                  padding: const EdgeInsets.only(left: 4, top: 0),
-                  child: Text('+${entries.length - show}', style: TextStyle(fontSize: 8.5 * store.calScale, color: cSub))),
+                  padding: const EdgeInsets.only(left: 5),
+                  child: Text('+${entries.length - show}', style: TextStyle(fontSize: 9.5 * k, fontWeight: FontWeight.w600, color: cSub))),
           ]);
         }),
       ),
@@ -324,8 +504,7 @@ void showDaySheet(BuildContext context, AppStore store, DateTime d) {
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    backgroundColor: cSurface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    sheetAnimationStyle: AnimationStyle(duration: const Duration(milliseconds: 380), reverseDuration: const Duration(milliseconds: 240), curve: kCurve),
     builder: (ctx) => DaySheet(store: store, date: d),
   );
 }
@@ -419,14 +598,10 @@ class _DaySheetState extends State<DaySheet> {
                       autofocus: true,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _add(),
-                      style: const TextStyle(fontSize: 14),
-                      decoration: InputDecoration(
+                      style: const TextStyle(fontSize: 15),
+                      decoration: const InputDecoration(
                         hintText: '새 일정 입력 (예: 14:30 회의)',
-                        hintStyle: const TextStyle(fontSize: 13, color: cDim),
-                        isDense: true,
-                        filled: true,
-                        fillColor: cCard,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        hintStyle: TextStyle(fontSize: 14, color: cDim),
                       ),
                     ),
                   ),
@@ -458,13 +633,7 @@ class _DaySheetState extends State<DaySheet> {
                       maxLines: 6,
                       onChanged: (_) => _saveMemo(),
                       style: const TextStyle(fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText: '메모',
-                        hintStyle: const TextStyle(color: cDim, fontSize: 13),
-                        filled: true,
-                        fillColor: cCard,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                      ),
+                      decoration: const InputDecoration(hintText: '메모', hintStyle: TextStyle(color: cDim, fontSize: 14)),
                     ),
                   ),
                 ]),
@@ -559,59 +728,106 @@ class ItemTile extends StatelessWidget {
     if ((t['time'] as String?)?.isNotEmpty == true && !inbox) tags.add(t['time'] as String);
     final note = (t['note'] as String?) ?? '';
     final key = ValueKey('${t['id']}-${t['_occ'] ?? ''}-${inbox ? 'i' : 'd'}');
-    return Dismissible(
-      key: key,
-      direction: DismissDirection.endToStart,
-      background: Container(
-          color: const Color(0xFF8A2A3A),
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 20),
-          child: const Icon(Icons.delete_outline)),
-      onDismissed: (_) {
-        final (ownerKey, _) = findOwner(store.data, t);
-        final base = baseOf(t);
-        store.remove(t);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('일정을 삭제했어요'),
-          action: SnackBarAction(
-              label: '실행 취소',
-              onPressed: () {
-                touch(base);
-                store.add(ownerKey ?? (inbox ? '_inbox' : iso(row.start)), base);
-              }),
-        ));
-      },
-      child: ListTile(
-        dense: true,
-        leading: GestureDetector(
-          onTap: () => store.toggle(t),
-          child: Icon(done ? Icons.check_circle : Icons.radio_button_unchecked, color: done ? cDim : col, size: 26),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: kMid,
+      curve: kCurve,
+      builder: (context, v, child) => Opacity(opacity: v, child: Transform.translate(offset: Offset(0, 10 * (1 - v)), child: child)),
+      child: Dismissible(
+        key: key,
+        direction: DismissDirection.endToStart,
+        background: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            decoration: BoxDecoration(color: const Color(0xFF7A2536), borderRadius: BorderRadius.circular(18)),
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 22),
+            child: const Icon(Icons.delete_outline_rounded)),
+        onDismissed: (_) {
+          final (ownerKey, _) = findOwner(store.data, t);
+          final base = baseOf(t);
+          store.remove(t);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: const Text('일정을 삭제했어요'),
+            action: SnackBarAction(
+                label: '실행 취소',
+                onPressed: () {
+                  touch(base);
+                  store.add(ownerKey ?? (inbox ? '_inbox' : iso(row.start)), base);
+                }),
+          ));
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+              color: cCard, borderRadius: BorderRadius.circular(18), border: Border.all(color: cBorder.withOpacity(0.7))),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => showItemEditor(context, store, item: t),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
+                child: Row(children: [
+                  Pressable(
+                    onTap: () => store.toggle(t),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: AnimatedSwitcher(
+                        duration: kFast,
+                        switchInCurve: Curves.easeOutBack,
+                        transitionBuilder: (c, a) => ScaleTransition(scale: a, child: FadeTransition(opacity: a, child: c)),
+                        child: Icon(done ? Icons.check_circle_rounded : Icons.circle_outlined,
+                            key: ValueKey(done), color: done ? cDim : col, size: 26),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      AnimatedDefaultTextStyle(
+                        duration: kMid,
+                        style: TextStyle(
+                            fontFamily: fontFamily,
+                            fontSize: 15,
+                            height: 1.35,
+                            fontWeight: FontWeight.w500,
+                            color: done ? cDim : cText,
+                            decoration: done ? TextDecoration.lineThrough : null,
+                            decorationColor: cDim),
+                        child: Text(t['text'] as String? ?? ''),
+                      ),
+                      if (tags.isNotEmpty || note.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Text([...tags, if (note.isNotEmpty) note.split('\n').first].join('  ·  '),
+                              maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: done ? cDim : cSub)),
+                        ),
+                    ]),
+                  ),
+                  if (inbox)
+                    TextButton(
+                        onPressed: () async {
+                          final d = await showDatePicker(
+                              context: context, initialDate: dayOnly(DateTime.now()), firstDate: DateTime(2020), lastDate: DateTime(2035));
+                          if (d != null) store.moveTo(t, d);
+                        },
+                        child: const Text('꺼내기'))
+                  else
+                    Pressable(
+                        onTap: () => store.cyclePri(t),
+                        child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: AnimatedContainer(
+                                duration: kMid,
+                                width: 11,
+                                height: 11,
+                                decoration: BoxDecoration(color: done ? cDim : col, shape: BoxShape.circle)))),
+                ]),
+              ),
+            ),
+          ),
         ),
-        title: Text(t['text'] as String? ?? '',
-            style: TextStyle(
-                fontSize: 14,
-                color: done ? cDim : cText,
-                decoration: done ? TextDecoration.lineThrough : null)),
-        subtitle: (tags.isEmpty && note.isEmpty)
-            ? null
-            : Text([...tags, if (note.isNotEmpty) note.split('\n').first].join('  ·  '),
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: done ? cDim : cSub)),
-        trailing: inbox
-            ? TextButton(
-                onPressed: () async {
-                  final d = await showDatePicker(
-                      context: context,
-                      initialDate: dayOnly(DateTime.now()),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2035));
-                  if (d != null) store.moveTo(t, d);
-                },
-                child: const Text('꺼내기'))
-            : GestureDetector(
-                onTap: () => store.cyclePri(t),
-                child: Container(
-                    width: 10, height: 10, decoration: BoxDecoration(color: done ? cDim : col, shape: BoxShape.circle))),
-        onTap: () => showItemEditor(context, store, item: t),
       ),
     );
   }
@@ -737,8 +953,7 @@ Future<void> showItemEditor(BuildContext context, AppStore store, {Json? item, D
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: cSurface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+    sheetAnimationStyle: AnimationStyle(duration: const Duration(milliseconds: 380), reverseDuration: const Duration(milliseconds: 240), curve: kCurve),
     builder: (ctx) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
       child: ItemEditor(store: store, item: item, date: date, inbox: inbox),

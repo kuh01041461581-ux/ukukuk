@@ -26,6 +26,8 @@ _MRANGE = re.compile(r"(?<![\d.])(\d{1,2})\s*월\s*[~∼～]\s*(\d{1,2})\s*월(?
 _TIME_COLON = re.compile(r"(?<!\d)(\d{1,2})\s*:\s*(\d{2})(?!\d)")
 _TIME_KO = re.compile(r"(오전|오후)?\s*(\d{1,2})\s*시\s*(?:(\d{1,2})\s*분)?")
 _RANGE = re.compile(r"^\s*(?:\([^)]*\))?\s*(?:\d{1,2}\s*:\s*\d{2})?\s*[~∼～\-–]\s*")
+# 마감이 아니라 '그 기간 내내' 일정인 행사 (감사·의회·훈련 등). 그 밖의 "~까지" 기간은 마감일에만 표시한다.
+_PERIOD = re.compile(r"감사|의회|회기|훈련|연수|교육|워크숍|워크샵|파견|수련|캠프")
 _URGENT = re.compile(r"기한|마감|제출|까지|회신|신청|접수")
 _ASOF = re.compile(r"^\s*\)?\s*(기준|현재)")   # "(2026. 4. 8. 기준)" 같은 기준일은 일정이 아님
 
@@ -147,6 +149,7 @@ def parse(text, today=None):
         seen.add(key)
         item_text = f"[{short}] {label}" if short and short not in label else label
         found.append({"date": d, "end": end, "time": when, "text": item_text,
+                      "period": bool(end) and bool(_PERIOD.search(body[max(0, s - 40):e + 20])),
                       "pri": 1 if _URGENT.search(body[max(0, s - 30):e + 14]) else 2})
 
     for p in paras:

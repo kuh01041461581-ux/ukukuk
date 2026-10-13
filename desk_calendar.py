@@ -328,7 +328,8 @@ class ImportDialog:
                  anchor="w").pack(fill="x", padx=S(20), pady=(S(16), 0))
         tk.Label(top, text=doc_title or "(제목 없음)", font=app.f_small, bg=SURFACE, fg=ACCENT,
                  anchor="w", wraplength=S(700), justify="left").pack(fill="x", padx=S(20))
-        msg = ("날짜가 들어 있는 항목을 찾았어요. 추가할 항목만 체크하고, 날짜(시작 ~ 종료)·내용을 고친 뒤 추가하세요."
+        msg = ("날짜가 있는 항목을 찾았어요. 추가할 것만 체크하세요. '기간'을 체크한 것(감사·의회·훈련 등)만 "
+               "여러 날 막대로, 나머지는 마감일(종료일) 하루에 표시돼요."
                if items else "날짜가 있는 항목을 찾지 못했어요. 아래 '＋ 행 추가'로 직접 넣을 수 있어요.")
         tk.Label(top, text=msg, font=app.f_tiny, bg=SURFACE, fg=SUB, anchor="w").pack(
             fill="x", padx=S(20), pady=(S(4), S(8)))
@@ -385,7 +386,11 @@ class ImportDialog:
         en = entry(11, it["end"].isoformat() if it.get("end") else "")
         t = entry(6, it.get("time", ""))
         x = entry(10, it["text"], expand=True)
-        r = {"var": var, "date": d, "end": en, "time": t, "text": x, "pri": it.get("pri", DEFAULT_PRI)}
+        per = tk.BooleanVar(value=bool(it.get("period", False)))
+        tk.Checkbutton(row, text="기간", variable=per, font=app.f_tiny, bg=SURFACE, activebackground=SURFACE,
+                       selectcolor=CARD, fg=SUB, activeforeground=TEXT, bd=0, highlightthickness=0
+                       ).pack(side="left", padx=(0, S(2)))
+        r = {"var": var, "date": d, "end": en, "per": per, "time": t, "text": x, "pri": it.get("pri", DEFAULT_PRI)}
         dot = tk.Canvas(row, width=S(16), height=S(16), bg=SURFACE, highlightthickness=0,
                         cursor="hand2")
         oval = dot.create_oval(2, 2, S(14), S(14), fill=PRIORITIES[r["pri"]][1], outline="")
@@ -431,7 +436,12 @@ class ImportDialog:
             tm = r["time"].get().strip()
             m = re.fullmatch(r"(\d{1,2}):(\d{2})", tm)
             tm = f"{int(m.group(1)):02d}:{m.group(2)}" if m else ""
+            note = ""
+            if end and end > d and not r["per"].get():   # 기간 행사가 아니면 마감일(종료일) 하루에만 표시
+                note = f"기간 {d.month}/{d.day} ~ {end.month}/{end.day}"
+                d, end = end, None
             picked.append((d, core.new_item(text, pri=r["pri"],
+                                            **({"note": note} if note else {}),
                                             **({"time": tm} if tm else {}),
                                             **({"end": end.isoformat()} if end and end > d else {}),
                                             **({"src_path": self.src_path} if self.src_path else {}))))

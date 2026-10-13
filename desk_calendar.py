@@ -28,6 +28,7 @@ import gongmun
 import holidays_api
 import holidays_kr
 import cloudsync
+import quickadd
 from core import item_end
 from holidays_kr import holiday_name
 
@@ -972,6 +973,169 @@ class DayDetail:
             pass
 
 
+class CommandBar:
+    """Ctrl+K / Ctrl+Alt+Space: 한 줄로 일정 추가('내일 오후 3시 회의 !중요') · 검색 · 명령을 한 곳에서"""
+
+    def __init__(self, app):
+        self.app = app
+        S = app.S
+        self.rows, self.sel = [], 0
+        top = self.top = tk.Toplevel(app.root)
+        top.overrideredirect(True)
+        top.attributes("-topmost", True)
+        top.configure(bg=ACCENT)
+        card = tk.Frame(top, bg=SURFACE)
+        card.pack(padx=1, pady=1)
+        self.entry = tk.Entry(card, font=app.f_h2, bg=SURFACE, fg=TEXT, insertbackground=TEXT, relief="flat",
+                              highlightthickness=0, width=34)
+        self.entry.pack(fill="x", padx=S(18), pady=(S(16), S(4)), ipady=S(4))
+        self.preview = tk.Label(card, text="일정을 그냥 적어 보세요  ·  예) 내일 오후 3시 회의 !중요", font=app.f_small,
+                                bg=SURFACE, fg=DIM, anchor="w")
+        self.preview.pack(fill="x", padx=S(20), pady=(0, S(8)))
+        tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
+        self.list = tk.Frame(card, bg=SURFACE)
+        self.list.pack(fill="x", padx=S(8), pady=S(6))
+        tk.Label(card, text="Enter 실행  ·  ↑↓ 선택  ·  Esc 닫기", font=app.f_tiny, bg=SURFACE, fg=DIM,
+                 anchor="e").pack(fill="x", padx=S(14), pady=(0, S(8)))
+        self.entry.bind("<KeyRelease>", self.refresh)
+        self.entry.bind("<Return>", lambda e: self.run())
+        self.entry.bind("<Escape>", lambda e: self.close())
+        self.entry.bind("<Down>", lambda e: self.move(1))
+        self.entry.bind("<Up>", lambda e: self.move(-1))
+        top.bind("<FocusOut>", lambda e: top.after(150, self._maybe_close))
+        top.update_idletasks()
+        w = top.winfo_reqwidth()
+        vx, vy, vw, vh = virtual_screen(app.root)
+        rx, ry = app.root.winfo_x() + app.root.winfo_width() // 2, app.root.winfo_y()
+        x = max(vx + S(10), min(rx - w // 2, vx + vw - w - S(10)))
+        y = max(vy + S(40), min(ry + S(90), vy + vh - S(420)))
+        top.geometry(f"+{x}+{y}")
+        top.after(30, self._focus)
+        self.refresh()
+
+    def _focus(self):
+        try:
+            self.top.focus_force()
+            self.entry.focus_force()
+        except tk.TclError:
+            pass
+
+    def _maybe_close(self):
+        try:
+            f = self.top.focus_get()
+        except (tk.TclError, KeyError):
+            f = None
+        if f is None:
+            self.close()
+
+    def close(self):
+        try:
+            self.top.destroy()
+        except tk.TclError:
+            pass
+        self.app.cmdbar = None
+
+    def move(self, d):
+        if self.rows:
+            self.sel = (self.sel + d) % len(self.rows)
+            self.draw()
+        return "break"
+
+    def _commands(self, q):
+        app = self.app
+        cmds = [("오늘로 이동", "달력", app.go_today), ("설정 열기", "설정", app.open_settings),
+                ("휴대폰 연결 (QR)", "폰 연결 동기화", lambda: PhoneDialog(app)),
+                ("공문 PDF 가져오기", "공문 pdf 가져오기", app.import_pdf),
+                ("보관함 열기", "보관함 인박스", app.open_inbox), ("사용법 보기", "도움말 사용법", app.open_help)]
+        q = q.lower()
+        return [(n, k, f) for n, k, f in cmds if q and (q in n.lower() or q in k.lower())]
+
+    def _hits(self, q):
+        app, out = self.app, []
+        ql = q.lower()
+        if len(ql) < 2:
+            return out
+        today = dt.date.today()
+        for key, v in app.data.items():
+            if key == "_deleted" or not isinstance(v, dict):
+                continue
+            d = core.parse_date(key) if key != "_inbox" else None
+            for t in v.get("todos", []):
+                if ql in t.get("text", "").lower() or ql in t.get("note", "").lower():
+                    out.append((abs((d - today).days) if d else 9999, d, t))
+            if d and ql in v.get("memo", "").lower():
+                out.append((abs((d - today).days), d, {"text": "✎ " + v["memo"].strip().splitlines()[0][:40]}))
+        out.sort(key=lambda x: x[0])
+        return out[:6]
+
+    def refresh(self, e=None):
+        app = self.app
+        q = self.entry.get().strip()
+        self.rows = []
+        self.parsed = None
+        if q:
+            r = self.parsed = quickadd.parse(q, dt.date.today())
+            self.preview.config(text="→ " + (quickadd.describe(r) or "날짜 없음 (선택한 날짜에 추가)") + "   ·   " + r["text"],
+                                fg=ACCENT)
+            self.rows.append(("＋  일정으로 추가", quickadd.describe(r), self.add))
+        else:
+            self.preview.config(text="일정을 그냥 적어 보세요  ·  예) 내일 오후 3시 회의 !중요  /  매주 금요일 9시 주간회의", fg=DIM)
+        for name, _, fn in self._commands(q):
+            self.rows.append(("▸  " + name, "명령", lambda fn=fn: (self.close(), fn())))
+        for _, d, t in self._hits(q):
+            when = f"{d.month}/{d.day}" if d else "보관함"
+            self.rows.append(("🔎  " + t.get("text", ""), when, lambda d=d: (self.close(), self._open_date(d))))
+        self.sel = 0
+        self.draw()
+
+    def _open_date(self, d):
+        if d is None:
+            self.app.open_inbox()
+        else:
+            self.app.select_date(d)
+
+    def draw(self):
+        app, S = self.app, self.app.S
+        for w in self.list.winfo_children():
+            w.destroy()
+        for i, (label, hint, fn) in enumerate(self.rows[:9]):
+            on = i == self.sel
+            row = tk.Frame(self.list, bg=CARD if on else SURFACE)
+            row.pack(fill="x", pady=1)
+            tk.Label(row, text=label, font=app.f_body, bg=row["bg"], fg=TEXT if on else SUB, anchor="w"
+                     ).pack(side="left", padx=S(10), pady=S(5))
+            tk.Label(row, text=hint, font=app.f_tiny, bg=row["bg"], fg=ACCENT if on else DIM, anchor="e"
+                     ).pack(side="right", padx=S(10))
+            for w in (row, *row.winfo_children()):
+                w.bind("<Button-1>", lambda e, i=i: (setattr(self, "sel", i), self.run()))
+
+    def run(self):
+        if self.rows:
+            self.rows[self.sel][2]()
+        return "break"
+
+    def add(self):
+        app, r = self.app, self.parsed
+        if not r or not r["text"]:
+            return
+        d = r["date"] or (app.selected if getattr(app, "_hl", False) else dt.date.today())
+        extra = {}
+        if r["time"]:
+            extra["time"] = r["time"]
+        if r["repeat"]:
+            extra["repeat"] = {"f": r["repeat"], "n": 1}
+        item = core.new_item(r["text"], pri=r["pri"] or DEFAULT_PRI, **extra)
+        core.add_item(app.data, d.isoformat(), item)
+        app._after_todo_change()
+        self.close()
+
+        def undo():
+            core.delete_item(app.data, item)
+            app._after_todo_change()
+        when = f"{d.month}/{d.day}({'월화수목금토일'[d.weekday()]})" + (f" {r['time']}" if r["time"] else "")
+        NotifyPopup(app, "일정 추가됨", f"{when}  {r['text']}", action=("실행 취소", undo))
+
+
 class NotifyPopup:
     """화면 오른쪽 아래에 뜨는 알림 카드"""
 
@@ -1544,6 +1708,7 @@ class DeskCalendar:
         self.hotkey_q = queue.Queue()
         self.tray_q = queue.Queue()
         self.drop_q = queue.Queue()
+        self.cmdbar = None
         self._drop_keep = {}
         self.tray = None
         self.sync_q = queue.Queue()
@@ -1577,6 +1742,8 @@ class DeskCalendar:
         self.render_month()
 
         root.bind_all("<Control-MouseWheel>", self._on_ctrl_wheel)
+        root.bind_all("<Control-k>", lambda e: self.open_cmdbar())
+        root.bind_all("<Control-K>", lambda e: self.open_cmdbar())
         root.bind_all("<ButtonRelease-1>", lambda e: root.after(40, self._bottom_soon), add="+")
         if not self.conf.get("seen_help"):
             root.after(900, self._first_help)
@@ -3929,6 +4096,16 @@ class DeskCalendar:
         elif cmd == "quit":
             self.quit()
 
+    def open_cmdbar(self):
+        if getattr(self, "cmdbar", None) is not None:
+            try:
+                self.cmdbar.top.lift()
+                self.cmdbar._focus()
+                return
+            except tk.TclError:
+                self.cmdbar = None
+        self.cmdbar = CommandBar(self)
+
     def summon(self, popup=True):
         """위젯을 맨 앞으로 불러온다. popup=True 면 오늘 날짜의 메모/입력 창도 연다"""
         self._summoned = True
@@ -3942,7 +4119,7 @@ class DeskCalendar:
             u.SetForegroundWindow(self.hwnd)
         self.root.focus_force()
         if popup:
-            self.open_detail(self.today)
+            self.open_cmdbar()
 
     def _tick(self):
         if self.glass:     # 바탕화면 그림이 바뀌었으면 유리 배경도 새로 만든다

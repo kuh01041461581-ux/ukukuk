@@ -1,0 +1,225 @@
+{
+ "today": "2026-10-13",
+ "cases": [
+  {
+   "in": "내일 오후 3시 도시재생 회의 !중요",
+   "out": {
+    "text": "도시재생 회의",
+    "date": "2026-10-14",
+    "time": "15:00",
+    "pri": 1,
+    "repeat": null
+   }
+  },
+  {
+   "in": "내일까지 보고서 제출",
+   "out": {
+    "text": "보고서 제출",
+    "date": "2026-10-14",
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "모레 14:30 감사 자료 협의",
+   "out": {
+    "text": "감사 자료 협의",
+    "date": "2026-10-15",
+    "time": "14:30",
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "금요일 9시 주간회의",
+   "out": {
+    "text": "주간회의",
+    "date": "2026-10-16",
+    "time": "09:00",
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "다음주 월요일 오전 10시 교육",
+   "out": {
+    "text": "교육",
+    "date": "2026-10-19",
+    "time": "10:00",
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "이번주 목요일 부서회식 !낮음",
+   "out": {
+    "text": "부서회식",
+    "date": "2026-10-15",
+    "time": null,
+    "pri": 3,
+    "repeat": null
+   }
+  },
+  {
+   "in": "10/27 18:00 자료 제출 !!",
+   "out": {
+    "text": "자료 제출",
+    "date": "2026-10-27",
+    "time": "18:00",
+    "pri": 1,
+    "repeat": null
+   }
+  },
+  {
+   "in": "10월 30일 설명회",
+   "out": {
+    "text": "설명회",
+    "date": "2026-10-30",
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "2026.11.3 행정사무감사 시작",
+   "out": {
+    "text": "행정사무감사 시작",
+    "date": "2026-11-03",
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "3일 뒤 회신",
+   "out": {
+    "text": "회신",
+    "date": "2026-10-16",
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "2주 후 점검",
+   "out": {
+    "text": "점검",
+    "date": "2026-10-27",
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "매주 금요일 오후 2시 팀 회의",
+   "out": {
+    "text": "팀 회의",
+    "date": "2026-10-16",
+    "time": "14:00",
+    "pri": null,
+    "repeat": "w"
+   }
+  },
+  {
+   "in": "매일 9시 메일 확인",
+   "out": {
+    "text": "메일 확인",
+    "date": "2026-10-13",
+    "time": "09:00",
+    "pri": null,
+    "repeat": "d"
+   }
+  },
+  {
+   "in": "매월 15일 급여 확인",
+   "out": {
+    "text": "급여 확인",
+    "date": "2026-10-15",
+    "time": null,
+    "pri": null,
+    "repeat": "m"
+   }
+  },
+  {
+   "in": "25일 공문 발송",
+   "out": {
+    "text": "공문 발송",
+    "date": "2026-10-25",
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "3시 반 전화",
+   "out": {
+    "text": "전화",
+    "date": null,
+    "time": "15:30",
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "저녁 7시 30분 회식",
+   "out": {
+    "text": "회식",
+    "date": null,
+    "time": "19:30",
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "월말 결산 보고",
+   "out": {
+    "text": "결산 보고",
+    "date": "2026-10-31",
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "다음달 5일 예산 회의",
+   "out": {
+    "text": "예산 회의",
+    "date": "2026-11-05",
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "그냥 메모만 적기",
+   "out": {
+    "text": "그냥 메모만 적기",
+    "date": null,
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "정오 점심 약속",
+   "out": {
+    "text": "점심 약속",
+    "date": null,
+    "time": "12:00",
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "5시 퇴근 전 보고 !긴급",
+   "out": {
+    "text": "퇴근 전 보고",
+    "date": null,
+    "time": "17:00",
+    "pri": 1,
+    "repeat": null
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@ name: Build Windows exe
 on:
   push:
     branches: [main, "claude/**"]
-    paths: [desk_calendar.py, assets/**, .github/workflows/build-exe.yml]
+    paths: [desk_calendar.py, gongmun.py, requirements.txt, assets/**, .github/workflows/build-exe.yml]
   workflow_dispatch:
   release:
     types: [published]
@@ -21,8 +21,8 @@ jobs:
           python-version: "3.12"
       - name: Build exe
         run: |
-          python -m pip install pyinstaller
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name DeskCalendar --icon assets/app.ico desk_calendar.py
+          python -m pip install -r requirements.txt
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --collect-all pdfminer --hidden-import gongmun --name DeskCalendar --icon assets/app.ico desk_calendar.py
       - uses: actions/upload-artifact@v4
         with:
           name: DeskCalendar-windows

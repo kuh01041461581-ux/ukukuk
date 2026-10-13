@@ -235,6 +235,20 @@ def virtual_screen(root):
     return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
 
 
+def work_area(root, cx=None, cy=None):
+    """창이 놓일 수 있는 화면 영역 (x, y, w, h). 주 모니터는 작업표시줄을 뺀 영역"""
+    if IS_WIN:
+        try:
+            rc = wintypes.RECT()
+            ctypes.windll.user32.SystemParametersInfoW(48, 0, ctypes.byref(rc), 0)   # SPI_GETWORKAREA
+            px, py, pw, ph = rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top
+            if cx is None or (px <= cx < px + pw and py <= cy < py + ph):
+                return px, py, pw, ph
+        except Exception:
+            pass
+    return virtual_screen(root)
+
+
 def start_hotkey_listener(q, mods, vk):
     """전역 단축키 → q 에 신호. 별도 스레드의 메시지 루프에서 처리한다."""
     def run():
@@ -1219,6 +1233,7 @@ class HelpDialog:
         ("보관함", "날짜를 정하기 전의 할 일을 적어 뒀다가 '꺼내기'로 원하는 날짜에 옮겨요."),
         ("공문 PDF", "'공문 PDF' 버튼으로 PDF를 고르면 날짜가 있는 항목을 찾아 일정으로 넣어 줘요."),
         ("창 크기", "창 가장자리나 모서리에 마우스를 가져가면 양방향 화살표가 나와요. 끌면 창 크기가 바뀌어요."),
+        ("달력 글자", "위쪽 '달력 글자 －/＋' 또는 Ctrl+마우스 휠로 달력 칸 안 글자만 키우고 줄여요. (팝업·입력창은 그대로)"),
         ("글자·색", "위쪽 'Aa' 에서 글자 크기, 글꼴, 색상 테마, 강조색, 중요도 색, 투명도를 바꿔요."),
         ("빠른 입력", "Ctrl+Alt+Space 를 누르면 어디서든 오늘 날짜 입력창이 바로 열려요."),
     ]
@@ -1286,6 +1301,7 @@ class DeskCalendar:
         self._shift = 0
         self._press_idx = None
         self._drag_range = None
+        self._summoned = False     # Ctrl+Alt+Space 로 불러낸 동안만 앞에 둔다
         self._tip, self._tip_job = None, None
         self._last_click = None
         self._move = None          # 달력에서 일정 칩을 끌어 옮기는 중: (항목, 눌렀던 날짜)
@@ -1334,6 +1350,7 @@ class DeskCalendar:
         self.render_month()
 
         root.bind_all("<Control-MouseWheel>", self._on_ctrl_wheel)
+        root.bind_all("<ButtonRelease-1>", lambda e: root.after(40, self._bottom_soon), add="+")
         if not self.conf.get("seen_help"):
             root.after(900, self._first_help)
         root.after(300, self._poll_sync)
@@ -1368,11 +1385,12 @@ class DeskCalendar:
         self.head_h = self.S(27)                                            # 날짜 숫자가 차지하는 높이
 
     def set_cal_font(self, v):
-        v = round(min(1.8, max(0.8, v)), 2)
+        v = round(min(2.4, max(0.7, v)), 2)
+        self._scale_target = v
         self.conf["cal_font"] = v
         self._save_conf()
         self._apply_fonts()
-        self.rebuild()
+        self._relayout_cal()
 
     def set_font(self, family):
         self.family = family
@@ -1405,15 +1423,22 @@ class DeskCalendar:
 
     def _on_ctrl_wheel(self, e):
         step = 0.05 if e.delta > 0 else -0.05
-        target = getattr(self, "_scale_target", self.ui) + step
-        self._scale_target = min(2.0, max(0.7, target))
+        target = getattr(self, "_scale_target", float(self.conf.get("cal_font", 1.15))) + step
+        self._scale_target = min(2.4, max(0.7, target))
         if self._scale_job:
             self.root.after_cancel(self._scale_job)
         self._scale_job = self.root.after(60, self._apply_scale_target)
 
     def _apply_scale_target(self):
         self._scale_job = None
-        self.set_ui_scale(self._scale_target)
+        self.set_cal_font(self._scale_target)
+
+    def cal_font_step(self, d):
+        self.set_cal_font(float(self.conf.get("cal_font", 1.15)) + d)
+
+    def _relayout_cal(self):
+        """달력 칸 안 글자 크기가 바뀌었을 때 달력만 다시 배치"""
+        self._on_cal_resize(type("E", (), {"width": self.cal.winfo_width(), "height": self.cal.winfo_height()})())
 
     # ── 초기 설정 ──
     def _init_autostart(self):
@@ -1432,12 +1457,20 @@ class DeskCalendar:
     def _min_size(self):
         return self.S(520), self.S(560)
 
+    def _fit_rect(self, x, y, w, h):
+        """창 전체가 화면 안에 들어오도록 크기와 위치를 맞춘다"""
+        ax, ay, aw, ah = work_area(self.root, x + w // 2, y + h // 2)
+        w, h = min(w, aw), min(h, ah)
+        return min(max(ax, x), ax + aw - w), min(max(ay, y), ay + ah - h), w, h
+
     def _geom(self, x=None, y=None):
         r = self.root
-        w = self.win_w + (self.panel_w if self.panel_open else 0)
+        pw = self.panel_w if self.panel_open else 0
         x = r.winfo_x() if x is None else x
         y = r.winfo_y() if y is None else y
-        r.geometry(f"{w}x{self.win_h}+{x}+{y}")
+        x, y, w, h = self._fit_rect(x, y, self.win_w + pw, self.win_h)
+        self.win_w, self.win_h = w - pw, h
+        r.geometry(f"{w}x{h}+{x}+{y}")
 
     def _setup_window(self):
         r = self.root
@@ -1521,6 +1554,15 @@ class DeskCalendar:
         if "n" in z:
             h = max(mh, h0 - dy)
             y = y0 + (h0 - h)
+        ax, ay, aw, ah = work_area(self.root, x + w // 2, y + h // 2)   # 화면 밖으로는 늘어나지 않게
+        if x < ax:
+            w, x = w - (ax - x), ax
+        if x + w > ax + aw:
+            w = ax + aw - x
+        if y < ay:
+            h, y = h - (ay - y), ay
+        if y + h > ay + ah:
+            h = ay + ah - y
         self.win_w, self.win_h = w - pw, h
         self.root.geometry(f"{w}x{h}+{x}+{y}")
 
@@ -1548,17 +1590,23 @@ class DeskCalendar:
             self.outer.destroy()
         S = self.S
         self.cw, self.ch, self.gap = S(78), S(80), S(5)
-        self.wd_h = S(26)
+        self.wd_h = S(22)
 
         outer = self.outer = tk.Frame(self.root, bg=BG)
         outer.pack(fill="both", expand=True, padx=S(8), pady=S(8))
 
         # 맨 위 이동 막대 (잡고 끌면 창 이동) + 설정 버튼
-        bar = tk.Frame(outer, bg=BG, height=S(24))
+        bar = tk.Frame(outer, bg=BG, height=S(20))
         bar.pack(side="top", fill="x")
         bar.pack_propagate(False)
-        grab = tk.Label(bar, text="⋯⋯⋯", font=self.f_tiny, bg=BG, fg=DIM, cursor="fleur")
-        grab.pack(expand=True)
+        grab = tk.Frame(bar, bg=BG, cursor="fleur")      # 중요도 색 안내를 겸한 이동 막대
+        grab.pack(side="left", fill="y", padx=S(8))
+        legend = []
+        for name, col in PRIORITIES:
+            legend.append(tk.Label(grab, text="●", font=self.f_tiny, bg=BG, fg=col, cursor="fleur"))
+            legend.append(tk.Label(grab, text=name, font=self.f_tiny, bg=BG, fg=SUB, cursor="fleur"))
+        for i, lb in enumerate(legend):
+            lb.pack(side="left", padx=(0, S(2)) if i % 2 == 0 else (0, S(9)))
         tools = tk.Frame(bar, bg=BG)
         tools.place(relx=1.0, x=-S(2), rely=0.5, anchor="e")
 
@@ -1573,47 +1621,35 @@ class DeskCalendar:
         tool("Aa 화면 설정", lambda e: self.open_settings())
         tool("? 사용법", lambda e: self.open_help())
         tool("⚙", lambda e: self.menu.tk_popup(e.x_root, e.y_root))
-        for w in (bar, grab):
+        for w in (bar, grab, *legend):
             self._bind_drag(w)
 
         self.right = tk.Frame(outer, bg=SURFACE, width=S(290))
         self.right.pack_propagate(False)
         self.sep = tk.Frame(outer, bg=BORDER, width=1)
-        left = self.left = tk.Frame(outer, bg=BG, padx=S(20), pady=S(4))
+        left = self.left = tk.Frame(outer, bg=BG, padx=S(8), pady=S(2))
         left.pack(side="left", fill="both", expand=True)
 
-        # 헤더
+        # 헤더 (한 줄로 줄여서 달력 칸에 공간을 더 준다)
         hdr = tk.Frame(left, bg=BG)
-        hdr.pack(fill="x", pady=(0, S(10)))
-        titles = tk.Frame(hdr, bg=BG)
-        titles.pack(side="left")
-        self.title_lbl = tk.Label(titles, font=self.f_title, bg=BG, fg=TEXT, cursor="fleur")
-        self.title_lbl.pack(anchor="w")
-        self.month_sub = tk.Label(titles, font=self.f_small, bg=BG, fg=SUB)
-        self.month_sub.pack(anchor="w")
+        hdr.pack(fill="x", pady=(0, S(4)))
+        self.title_lbl = tk.Label(hdr, font=self.f_h2, bg=BG, fg=TEXT, cursor="fleur")
+        self.title_lbl.pack(side="left")
+        self.month_sub = tk.Label(hdr, font=self.f_small, bg=BG, fg=SUB, cursor="fleur")
+        self.month_sub.pack(side="left", padx=(S(10), 0))
         nav = tk.Frame(hdr, bg=BG)
-        nav.pack(side="right", anchor="n", pady=(S(4), 0))
-        Pill(nav, "보관함", self.open_inbox, self.f_small, padx=S(11), pady=S(4)
-             ).pack(side="left", padx=(0, S(6)))
-        Pill(nav, "공문 PDF", self.import_pdf, self.f_small, padx=S(11), pady=S(4)
-             ).pack(side="left", padx=(0, S(10)))
-        Pill(nav, "‹", lambda: self.shift_month(-1), self.f_body, padx=S(11), pady=S(3)
-             ).pack(side="left")
+        nav.pack(side="right")
+        small = dict(padx=S(9), pady=S(2))
+        Pill(nav, "보관함", self.open_inbox, self.f_small, **small).pack(side="left", padx=(0, S(4)))
+        Pill(nav, "공문 PDF", self.import_pdf, self.f_small, **small).pack(side="left", padx=(0, S(10)))
+        Pill(nav, "달력 글자 －", lambda: self.cal_font_step(-0.1), self.f_tiny, **small).pack(side="left", padx=(0, S(3)))
+        Pill(nav, "＋", lambda: self.cal_font_step(0.1), self.f_tiny, **small).pack(side="left", padx=(0, S(10)))
+        Pill(nav, "‹", lambda: self.shift_month(-1), self.f_body, padx=S(10), pady=S(1)).pack(side="left")
         Pill(nav, "오늘", self.go_today, self.f_small, fg="#ffffff", bg=ACCENT,
-             hover=blend(ACCENT, "#ffffff", 0.25), padx=S(13), pady=S(4)).pack(side="left", padx=S(5))
-        Pill(nav, "›", lambda: self.shift_month(1), self.f_body, padx=S(11), pady=S(3)
-             ).pack(side="left")
-        for w in (left, hdr, titles, self.title_lbl, self.month_sub):
+             hover=blend(ACCENT, "#ffffff", 0.25), padx=S(11), pady=S(2)).pack(side="left", padx=S(4))
+        Pill(nav, "›", lambda: self.shift_month(1), self.f_body, padx=S(10), pady=S(1)).pack(side="left")
+        for w in (left, hdr, self.title_lbl, self.month_sub):
             self._bind_drag(w)
-
-        # 아래쪽 안내 (먼저 배치해 두어야 창이 작아져도 달력이 이 영역을 침범하지 않는다)
-        tk.Label(left, text="날짜 클릭: 입력창  ·  날짜 끌기: 기간 일정  ·  창 가장자리 끌기: 크기",
-                 font=self.f_tiny, bg=BG, fg=DIM).pack(side="bottom", anchor="w", pady=(S(4), S(6)))
-        leg = tk.Frame(left, bg=BG)
-        leg.pack(side="bottom", fill="x", pady=(S(8), 0))
-        for name, col in PRIORITIES:
-            tk.Label(leg, text="●", font=self.f_tiny, bg=BG, fg=col).pack(side="left")
-            tk.Label(leg, text=name, font=self.f_tiny, bg=BG, fg=SUB).pack(side="left", padx=(S(2), S(10)))
 
         # 달력 (캔버스 한 장에 직접 그린다 / 창 크기에 맞춰 칸이 늘어남)
         self.cal = tk.Canvas(left, width=1, height=1, bg=BG, highlightthickness=0, bd=0)
@@ -1907,7 +1943,7 @@ class DeskCalendar:
     def update_conf_rebuild(self, **kw):
         self.conf.update(kw)
         self._save_conf()
-        self.rebuild()
+        self._relayout_cal()
 
     def update_conf(self, **kw):
         self.conf.update(kw)
@@ -2144,7 +2180,7 @@ class DeskCalendar:
         for b in self.lay["bars"]:
             if not b["t"].get("done") and b["first"]:
                 remain += 1
-        self.month_sub.config(text=f"남은 할 일 {remain}개" if remain else "남은 할 일 없음")
+        self.month_sub.config(text=f"남은 일정 {remain}" if remain else "")
         self.draw_calendar()
 
     def _build_layout(self):
@@ -3060,6 +3096,7 @@ class DeskCalendar:
         self.todo_entry.delete(0, "end")
         self.set_panel(False)
         self.root.focus_set()
+        self._summoned = False
         self.send_to_bottom()
 
     # ── 공문 PDF ──
@@ -3115,7 +3152,10 @@ class DeskCalendar:
 
     def _drag_move(self, e):
         if self._drag:
-            self.root.geometry(f"+{e.x_root - self._drag[0]}+{e.y_root - self._drag[1]}")
+            r = self.root
+            x, y, _, _ = self._fit_rect(e.x_root - self._drag[0], e.y_root - self._drag[1],
+                                        r.winfo_width(), r.winfo_height())
+            r.geometry(f"+{x}+{y}")
 
     def _drag_end(self, e):
         if self._drag:
@@ -3180,6 +3220,12 @@ class DeskCalendar:
         except Exception:
             focused = None
         if focused is None:
+            self._summoned = False
+            self.send_to_bottom()
+
+    def _bottom_soon(self):
+        """위젯을 눌러 쓴 뒤에도 다른 창 위로 올라오지 않고 계속 뒤에 머문다"""
+        if not self._summoned:
             self.send_to_bottom()
 
     def _poll_hotkey(self):
@@ -3193,6 +3239,7 @@ class DeskCalendar:
 
     def summon(self):
         """위젯을 맨 앞으로 불러와 오늘 날짜의 입력창에 포커스"""
+        self._summoned = True
         self.go_today()
         self.set_panel(True)
         self.render_month()

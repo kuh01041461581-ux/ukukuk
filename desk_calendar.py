@@ -253,6 +253,59 @@ def work_area(root, cx=None, cy=None):
     return virtual_screen(root)
 
 
+def hook_dropfiles(hwnds, q, keep):
+    """윈도우 탐색기에서 파일을 끌어다 놓으면 경로 목록을 q 에 넣는다 (WM_DROPFILES 를 직접 받음)"""
+    from ctypes import wintypes
+    user32, shell32 = ctypes.windll.user32, ctypes.windll.shell32
+    LRESULT = ctypes.c_ssize_t
+    WNDPROC = ctypes.WINFUNCTYPE(LRESULT, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+    user32.CallWindowProcW.argtypes = [ctypes.c_void_p, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+    user32.CallWindowProcW.restype = LRESULT
+    setl = getattr(user32, "SetWindowLongPtrW", None) or user32.SetWindowLongW
+    setl.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_void_p]
+    setl.restype = ctypes.c_void_p
+    shell32.DragQueryFileW.argtypes = [wintypes.HANDLE, wintypes.UINT, wintypes.LPWSTR, wintypes.UINT]
+    shell32.DragQueryFileW.restype = wintypes.UINT
+    shell32.DragFinish.argtypes = [wintypes.HANDLE]
+    shell32.DragAcceptFiles.argtypes = [wintypes.HWND, wintypes.BOOL]
+    for msg in (0x233, 0x49):          # 관리자 권한으로 실행돼도 드롭을 받도록 허용
+        try:
+            user32.ChangeWindowMessageFilter(msg, 1)
+        except Exception:
+            pass
+    olds = keep.setdefault("olds", {})
+    for h in list(olds):                # 사라진 창 기록 정리
+        if not user32.IsWindow(h):
+            del olds[h]
+    cbs = keep.setdefault("cbs", [])
+    for h in hwnds:
+        if not h or h in olds:
+            continue
+
+        def make(h):
+            def proc(hwnd, msg, wp, lp):
+                if msg == 0x233:
+                    try:
+                        n = shell32.DragQueryFileW(wp, 0xFFFFFFFF, None, 0)
+                        files = []
+                        for i in range(n):
+                            ln = shell32.DragQueryFileW(wp, i, None, 0)
+                            buf = ctypes.create_unicode_buffer(ln + 1)
+                            shell32.DragQueryFileW(wp, i, buf, ln + 1)
+                            files.append(buf.value)
+                        shell32.DragFinish(wp)
+                        q.put(files)
+                    except Exception:
+                        pass
+                    return 0
+                return user32.CallWindowProcW(olds[h], hwnd, msg, wp, lp)
+            return WNDPROC(proc)
+        cb = make(h)
+        cbs.append(cb)
+        olds[h] = setl(h, -4, ctypes.cast(cb, ctypes.c_void_p))
+        shell32.DragAcceptFiles(h, True)
+
+
 def _tray_image():
     """트레이 아이콘 그림 (달력 모양, 앱 강조색)"""
     from PIL import Image, ImageDraw
@@ -416,6 +469,7 @@ class ImportDialog:
     def __init__(self, app, doc_title, items, src_path=None):
         self.app, S = app, app.S
         self.src_path = src_path
+        self.doc_title = doc_title
         self.rows = []
         top = self.top = _dialog(app, "공문에서 일정 가져오기", S(760), S(520))
         tk.Label(top, text="공문에서 일정 가져오기", font=app.f_h2, bg=SURFACE, fg=TEXT,
@@ -530,9 +584,9 @@ class ImportDialog:
             tm = r["time"].get().strip()
             m = re.fullmatch(r"(\d{1,2}):(\d{2})", tm)
             tm = f"{int(m.group(1)):02d}:{m.group(2)}" if m else ""
-            note = ""
+            note = self.doc_title or ""
             if end and end > d and not r["per"].get():   # 기간 행사가 아니면 마감일(종료일) 하루에만 표시
-                note = f"기간 {d.month}/{d.day} ~ {end.month}/{end.day}"
+                note = (note + " · " if note else "") + f"기간 {d.month}/{d.day} ~ {end.month}/{end.day}"
                 d, end = end, None
             picked.append((d, core.new_item(text, pri=r["pri"],
                                             **({"note": note} if note else {}),
@@ -921,7 +975,7 @@ class DayDetail:
 class NotifyPopup:
     """화면 오른쪽 아래에 뜨는 알림 카드"""
 
-    def __init__(self, app, title, body, on_snooze=None):
+    def __init__(self, app, title, body, on_snooze=None, action=None):
         self.app = app
         S = app.S
         top = self.top = tk.Toplevel(app.root)
@@ -940,6 +994,9 @@ class NotifyPopup:
              hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(16), pady=S(4)).pack(side="left")
         if on_snooze:
             Pill(row, "10분 뒤", lambda: (on_snooze(), self.close()), app.f_small, parent_bg=SURFACE,
+                 padx=S(14), pady=S(4)).pack(side="left", padx=S(8))
+        if action:
+            Pill(row, action[0], lambda: (action[1](), self.close()), app.f_small, parent_bg=SURFACE,
                  padx=S(14), pady=S(4)).pack(side="left", padx=S(8))
         top.update_idletasks()
         w, h = top.winfo_reqwidth(), top.winfo_reqheight()
@@ -1486,6 +1543,8 @@ class DeskCalendar:
         self.hwnd = None
         self.hotkey_q = queue.Queue()
         self.tray_q = queue.Queue()
+        self.drop_q = queue.Queue()
+        self._drop_keep = {}
         self.tray = None
         self.sync_q = queue.Queue()
         self._syncing, self._sync_job, self._sync_retry = False, None, 0
@@ -1591,6 +1650,7 @@ class DeskCalendar:
         self._geom()
         self.show_day(self.selected)
         self.render_month()
+        self._hook_drop()
 
     def _on_ctrl_wheel(self, e):
         step = 0.05 if e.delta > 0 else -0.05
@@ -3658,6 +3718,51 @@ class DeskCalendar:
         title, items = gongmun.parse(text, self.today)
         ImportDialog(self, title, items, src_path=os.path.abspath(path))
 
+    def import_dropped(self, files):
+        """끌어다 놓은 공문 PDF 를 읽어 핵심 내용만 일정으로 바로 추가한다 (실행 취소 가능)"""
+        pdfs = [f for f in files if f.lower().endswith(".pdf")]
+        if not pdfs:
+            messagebox.showinfo("공문 가져오기", "PDF 파일만 끌어다 놓을 수 있어요.\n(글자가 선택되는 PDF 공문)", parent=self.root)
+            return
+        added, bad = [], []
+        for path in pdfs:
+            try:
+                text = gongmun.extract_text(path)
+            except Exception:
+                bad.append(os.path.basename(path))
+                continue
+            if len(text.strip()) < 20:
+                bad.append(os.path.basename(path))
+                continue
+            title, items = gongmun.parse(text, self.today)
+            for it in items:
+                d, end = it["date"], it["end"]
+                note = title
+                if end and end > d and not it.get("period"):      # 마감형 기간은 종료일 하루에만 표시
+                    note = f"{title} · 기간 {d.month}/{d.day} ~ {end.month}/{end.day}"
+                    d, end = end, None
+                if any(t.get("text") == it["text"] for _, t, _ in core.day_items(self.data, d)):
+                    continue                                       # 같은 날 같은 내용은 건너뜀 (중복 방지)
+                extra = {}
+                if it.get("time"):
+                    extra["time"] = it["time"]
+                if end and end > d:
+                    extra["end"] = end.isoformat()
+                item = core.new_item(it["text"], pri=it["pri"], note=note, src_path=os.path.abspath(path), **extra)
+                core.add_item(self.data, d.isoformat(), item)
+                added.append(item)
+        if added:
+            self._after_todo_change()
+        msg = f"일정 {len(added)}개를 달력에 추가했어요." if added else "추가할 새 일정을 찾지 못했어요."
+        if bad:
+            msg += f"\n읽지 못한 파일: {', '.join(bad[:3])} (스캔 이미지 PDF 는 지원하지 않아요)"
+
+        def undo():
+            for item in added:
+                core.delete_item(self.data, item)
+            self._after_todo_change()
+        NotifyPopup(self, "공문 가져오기", msg, action=("실행 취소", undo) if added else None)
+
     # ── 저장 ──
     def _commit(self):
         for k in list(self.data):
@@ -3751,6 +3856,26 @@ class DeskCalendar:
             self.send_to_bottom()
         except Exception:
             pass
+        self._hook_drop()
+
+    def _hook_drop(self):
+        """창 전체(달력 포함)에 공문 PDF 를 끌어다 놓을 수 있게 한다"""
+        if not IS_WIN:
+            return
+        try:
+            hs = [self.hwnd, self.root.winfo_id()]
+            stack = [self.root]
+            while stack:
+                w = stack.pop()
+                stack.extend(w.winfo_children())
+                if w is not self.root:
+                    try:
+                        hs.append(w.winfo_id())
+                    except tk.TclError:
+                        pass
+            hook_dropfiles(hs, self.drop_q, self._drop_keep)
+        except Exception:
+            pass
 
     def send_to_bottom(self):
         if IS_WIN and self.hwnd:
@@ -3781,6 +3906,11 @@ class DeskCalendar:
         try:
             while True:
                 self._tray_cmd(self.tray_q.get_nowait())
+        except queue.Empty:
+            pass
+        try:
+            while True:
+                self.import_dropped(self.drop_q.get_nowait())
         except queue.Empty:
             pass
         self.root.after(150, self._poll_hotkey)

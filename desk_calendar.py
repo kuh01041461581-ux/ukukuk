@@ -223,6 +223,22 @@ def todo_order(todos):
                                  todos[i].get("time") or "99:99", i))
 
 
+def item_end(t, start):
+    """기간 일정의 종료일 (하루짜리면 None)"""
+    e = t.get("end")
+    if not e:
+        return None
+    try:
+        d = dt.date.fromisoformat(e)
+    except ValueError:
+        return None
+    return d if d > start else None
+
+
+def sort_key(t):
+    return (bool(t.get("done")), pri_of(t), t.get("time") or "99:99")
+
+
 class Pill(tk.Canvas):
     """둥근 알약형 버튼"""
 
@@ -263,7 +279,7 @@ class ImportDialog:
                  anchor="w").pack(fill="x", padx=S(20), pady=(S(16), 0))
         tk.Label(top, text=doc_title or "(제목 없음)", font=app.f_small, bg=SURFACE, fg=ACCENT,
                  anchor="w", wraplength=S(700), justify="left").pack(fill="x", padx=S(20))
-        msg = ("날짜가 들어 있는 항목을 찾았어요. 추가할 항목만 체크하고, 날짜·내용을 고친 뒤 추가하세요."
+        msg = ("날짜가 들어 있는 항목을 찾았어요. 추가할 항목만 체크하고, 날짜(시작 ~ 종료)·내용을 고친 뒤 추가하세요."
                if items else "날짜가 있는 항목을 찾지 못했어요. 아래 '＋ 행 추가'로 직접 넣을 수 있어요.")
         tk.Label(top, text=msg, font=app.f_tiny, bg=SURFACE, fg=SUB, anchor="w").pack(
             fill="x", padx=S(20), pady=(S(4), S(8)))
@@ -294,7 +310,7 @@ class ImportDialog:
 
     def add_row(self, it):
         app, S = self.app, self.app.S
-        it = it or {"date": app.selected, "time": "", "text": "", "pri": DEFAULT_PRI}
+        it = it or {"date": app.selected, "end": None, "time": "", "text": "", "pri": DEFAULT_PRI}
         row = tk.Frame(self.inner, bg=SURFACE)
         row.pack(fill="x", pady=S(3))
         var = tk.BooleanVar(value=True)
@@ -312,9 +328,11 @@ class ImportDialog:
             return e
 
         d = entry(11, it["date"].isoformat())
+        tk.Label(row, text="~", font=app.f_small, bg=SURFACE, fg=DIM).pack(side="left", padx=(0, S(6)))
+        en = entry(11, it["end"].isoformat() if it.get("end") else "")
         t = entry(6, it.get("time", ""))
         x = entry(10, it["text"], expand=True)
-        r = {"var": var, "date": d, "time": t, "text": x, "pri": it.get("pri", DEFAULT_PRI)}
+        r = {"var": var, "date": d, "end": en, "time": t, "text": x, "pri": it.get("pri", DEFAULT_PRI)}
         dot = tk.Canvas(row, width=S(16), height=S(16), bg=SURFACE, highlightthickness=0,
                         cursor="hand2")
         oval = dot.create_oval(2, 2, S(14), S(14), fill=PRIORITIES[r["pri"]][1], outline="")
@@ -349,11 +367,20 @@ class ImportDialog:
                 messagebox.showwarning("날짜 확인", "날짜는 2026-10-20 처럼 적어 주세요.",
                                        parent=self.top)
                 return
+            end = None
+            if r["end"].get().strip():
+                try:
+                    end = dt.date.fromisoformat(r["end"].get().strip())
+                except ValueError:
+                    messagebox.showwarning("날짜 확인", "종료일은 2026-10-24 처럼 적어 주세요. (하루 일정이면 비워 두세요)",
+                                           parent=self.top)
+                    return
             tm = r["time"].get().strip()
             m = re.fullmatch(r"(\d{1,2}):(\d{2})", tm)
             tm = f"{int(m.group(1)):02d}:{m.group(2)}" if m else ""
             picked.append((d, {"text": text, "done": False, "pri": r["pri"],
-                               **({"time": tm} if tm else {})}))
+                               **({"time": tm} if tm else {}),
+                               **({"end": end.isoformat()} if end and end > d else {})}))
         for d, item in picked:
             app._entry(d, create=True)["todos"].append(item)
         if picked:
@@ -435,6 +462,12 @@ class DeskCalendar:
         self.view_y, self.view_m = self.today.year, self.today.month
         self.selected = self.today
         self.mode = "day"          # "day" | "inbox"
+        self.panel_open = False    # 오른쪽 입력 패널 (날짜를 누르면 열림)
+        self.sel_end = None        # 기간 선택의 종료일 (시작일은 self.selected)
+        self._shift = 0
+        self._press_idx = None
+        self._drag_range = None
+        self.lay = {"bars": [], "singles": {}, "occ": {}, "hidden": {}}
         self.new_pri = DEFAULT_PRI
         self.dates = []
         self.hover_idx = None
@@ -544,7 +577,7 @@ class DeskCalendar:
         r.configure(bg=BORDER)
         r.attributes("-alpha", self.alpha.get())
         vx, vy, vw, vh = virtual_screen(r)
-        default_x = r.winfo_screenwidth() - self.S(940)
+        default_x = r.winfo_screenwidth() - self.S(700)
         x = self.conf.get("x", default_x)
         y = self.conf.get("y", self.S(40))
         x = min(max(vx, x), vx + vw - self.S(120))
@@ -557,7 +590,7 @@ class DeskCalendar:
         if self.outer is not None:
             self.outer.destroy()
         S = self.S
-        self.cw, self.ch, self.gap = S(78), S(68), S(5)
+        self.cw, self.ch, self.gap = S(78), S(80), S(5)
         self.wd_h = S(26)
 
         outer = self.outer = tk.Frame(self.root, bg=BG)
@@ -577,11 +610,10 @@ class DeskCalendar:
         for w in (bar, grab):
             self._bind_drag(w)
 
-        right = tk.Frame(outer, bg=SURFACE, width=S(290))
-        right.pack(side="right", fill="y")
-        right.pack_propagate(False)
-        tk.Frame(outer, bg=BORDER, width=1).pack(side="right", fill="y")
-        left = tk.Frame(outer, bg=BG, padx=S(20), pady=S(4))
+        self.right = tk.Frame(outer, bg=SURFACE, width=S(290))
+        self.right.pack_propagate(False)
+        self.sep = tk.Frame(outer, bg=BORDER, width=1)
+        left = self.left = tk.Frame(outer, bg=BG, padx=S(20), pady=S(4))
         left.pack(side="left", fill="both", expand=True)
 
         # 헤더
@@ -595,6 +627,8 @@ class DeskCalendar:
         self.month_sub.pack(anchor="w")
         nav = tk.Frame(hdr, bg=BG)
         nav.pack(side="right", anchor="n", pady=(S(4), 0))
+        Pill(nav, "보관함", self.open_inbox, self.f_small, padx=S(11), pady=S(4)
+             ).pack(side="left", padx=(0, S(6)))
         Pill(nav, "공문 PDF", self.import_pdf, self.f_small, padx=S(11), pady=S(4)
              ).pack(side="left", padx=(0, S(10)))
         Pill(nav, "‹", lambda: self.shift_month(-1), self.f_body, padx=S(11), pady=S(3)
@@ -603,9 +637,8 @@ class DeskCalendar:
              hover="#9185ff", padx=S(13), pady=S(4)).pack(side="left", padx=S(5))
         Pill(nav, "›", lambda: self.shift_month(1), self.f_body, padx=S(11), pady=S(3)
              ).pack(side="left")
-        for w in (outer, left, hdr, titles, self.title_lbl, self.month_sub):
-            if w is not outer:
-                self._bind_drag(w)
+        for w in (left, hdr, titles, self.title_lbl, self.month_sub):
+            self._bind_drag(w)
 
         # 달력 (캔버스 한 장에 직접 그린다)
         cw, ch, gap = self.cw, self.ch, self.gap
@@ -616,32 +649,42 @@ class DeskCalendar:
         self.cal.pack()
         self.cal.bind("<Motion>", self._cal_motion)
         self.cal.bind("<Leave>", self._cal_leave)
-        self.cal.bind("<Button-1>", self._cal_click)
+        self.cal.bind("<ButtonPress-1>", self._cal_press)
+        self.cal.bind("<B1-Motion>", self._cal_drag)
+        self.cal.bind("<ButtonRelease-1>", self._cal_release)
         self.cal.bind("<MouseWheel>", self._on_wheel_month)
 
-        # 중요도 범례
+        # 중요도 범례 + 사용 안내
         leg = tk.Frame(left, bg=BG)
         leg.pack(fill="x", pady=(S(8), 0))
         for name, col in PRIORITIES:
             tk.Label(leg, text="●", font=self.f_tiny, bg=BG, fg=col).pack(side="left")
             tk.Label(leg, text=name, font=self.f_tiny, bg=BG, fg=SUB).pack(side="left", padx=(S(2), S(10)))
-        tk.Label(left, text=f"{self.HOTKEY_LABEL}: 어디서든 빠른 입력  ·  Ctrl+휠 또는 모서리 드래그: 크기 조절",
+        tk.Label(left, text="날짜 클릭: 입력창 열기  ·  날짜 끌기: 기간 일정  ·  Ctrl+휠: 크기",
                  font=self.f_tiny, bg=BG, fg=DIM).pack(anchor="w", pady=(S(4), S(10)))
 
         # 오른쪽 상세 패널
-        inner = tk.Frame(right, bg=SURFACE, padx=S(18), pady=S(10))
+        inner = tk.Frame(self.right, bg=SURFACE, padx=S(18), pady=S(10))
         inner.pack(fill="both", expand=True)
         tabs = tk.Frame(inner, bg=SURFACE)
         tabs.pack(fill="x", pady=(0, S(10)))
         self.tab_day = self._tab(tabs, "일정", lambda: self.set_mode("day"))
         self.tab_inbox = self._tab(tabs, "보관함", lambda: self.set_mode("inbox"))
+        close = tk.Label(tabs, text="✕", font=self.f_body, bg=SURFACE, fg=DIM, cursor="hand2")
+        close.pack(side="right")
+        close.bind("<Button-1>", lambda e: self.set_panel(False))
+        close.bind("<Enter>", lambda e: close.config(fg=TEXT))
+        close.bind("<Leave>", lambda e: close.config(fg=DIM))
         self.d_title = tk.Label(inner, font=self.f_h2, bg=SURFACE, fg=TEXT, anchor="w",
                                 cursor="fleur")
         self.d_title.pack(fill="x")
         self.d_sub = tk.Label(inner, font=self.f_small, bg=SURFACE, fg=SUB, anchor="w",
                               wraplength=S(250), justify="left")
         self.d_sub.pack(fill="x", pady=(0, S(8)))
-        for w in (right, inner, tabs, self.d_title, self.d_sub):
+        self.range_lbl = tk.Label(inner, text="✕ 기간 해제 (하루 일정으로)", font=self.f_tiny,
+                                  bg=ACCENT_SOFT, fg=ACCENT, cursor="hand2", padx=S(8), pady=S(2))
+        self.range_lbl.bind("<Button-1>", lambda e: self.clear_range())
+        for w in (self.right, inner, tabs, self.d_title, self.d_sub):
             self._bind_drag(w)
 
         # 진행률
@@ -714,17 +757,18 @@ class DeskCalendar:
         self.todo_canvas.bind("<MouseWheel>", self._on_wheel_todo)
 
         # 크기 조절 모서리 (끌어서 크기 변경, 놓으면 적용)
-        grip = tk.Canvas(outer, width=S(18), height=S(18), bg=SURFACE, highlightthickness=0, bd=0,
-                         cursor="size_nw_se" if IS_WIN else "bottom_right_corner")
+        self.grip = tk.Canvas(outer, width=S(18), height=S(18), bg=BG, highlightthickness=0, bd=0,
+                              cursor="size_nw_se" if IS_WIN else "bottom_right_corner")
         for k in (5, 9, 13):
-            grip.create_line(S(17), S(k), S(k), S(17), fill=DIM, width=1)
-        grip.place(relx=1.0, rely=1.0, anchor="se")
-        grip.bind("<ButtonPress-1>", self._grip_start)
-        grip.bind("<B1-Motion>", self._grip_move)
-        grip.bind("<ButtonRelease-1>", self._grip_end)
+            self.grip.create_line(S(17), S(k), S(k), S(17), fill=DIM, width=1)
+        self.grip.place(relx=1.0, rely=1.0, anchor="se")
+        self.grip.bind("<ButtonPress-1>", self._grip_start)
+        self.grip.bind("<B1-Motion>", self._grip_move)
+        self.grip.bind("<ButtonRelease-1>", self._grip_end)
         self.size_hint = tk.Label(outer, font=self.f_body, bg=ACCENT, fg="#ffffff",
                                   padx=S(14), pady=S(6))
         self._apply_mode_layout()
+        self._apply_panel_visibility()
 
     def _tab(self, parent, text, cmd):
         lb = tk.Label(parent, text=text, font=self.f_small, padx=self.S(12), pady=self.S(3),
@@ -836,16 +880,65 @@ class DeskCalendar:
         while len(dates) < 42:
             dates.append(dates[-1] + dt.timedelta(days=1))
         self.dates = dates
+        self._build_layout()
         remain = 0
         for d in dates:
             if d.month == self.view_m:
-                remain += sum(1 for t in self.data.get(d.isoformat(), {}).get("todos", [])
-                              if not t.get("done"))
+                remain += sum(1 for t in self.lay["singles"].get(d, []) if not t.get("done"))
+        for b in self.lay["bars"]:
+            if not b["t"].get("done") and b["first"]:
+                remain += 1
         self.month_sub.config(text=f"남은 할 일 {remain}개" if remain else "남은 할 일 없음")
         self.draw_calendar()
 
+    NSLOT = 3
+
+    def _build_layout(self):
+        """보이는 6주 안의 일정을 칸(슬롯)에 배치: 기간 일정은 주마다 이어진 막대, 하루 일정은 남는 칸"""
+        dates = self.dates
+        first, last = dates[0], dates[-1]
+        singles, spans = {}, []
+        for key, v in self.data.items():
+            if key == "_inbox":
+                continue
+            try:
+                s0 = dt.date.fromisoformat(key)
+            except ValueError:
+                continue
+            for t in v.get("todos", []):
+                e0 = item_end(t, s0)
+                if e0:
+                    if s0 <= last and e0 >= first:
+                        spans.append((s0, e0, t))
+                elif first <= s0 <= last:
+                    singles.setdefault(s0, []).append(t)
+        for lst in singles.values():
+            lst.sort(key=sort_key)
+        spans.sort(key=lambda x: (x[0], -(x[1] - x[0]).days))
+        occ, hidden, bars = {}, {}, []
+        for s0, e0, t in spans:
+            i1, i2 = max(0, (s0 - first).days), min(41, (e0 - first).days)
+            i = i1
+            while i <= i2:
+                row = i // 7
+                j = min(i2, row * 7 + 6)
+                slot = next((k for k in range(self.NSLOT)
+                             if all(k not in occ.get(dates[x], ()) for x in range(i, j + 1))), None)
+                if slot is None:
+                    for x in range(i, j + 1):
+                        hidden[dates[x]] = hidden.get(dates[x], 0) + 1
+                else:
+                    for x in range(i, j + 1):
+                        occ.setdefault(dates[x], set()).add(slot)
+                    bars.append({"row": row, "c1": i % 7, "c2": j % 7, "slot": slot, "t": t,
+                                 "left": s0 >= first and i == (s0 - first).days,
+                                 "right": e0 <= last and j == (e0 - first).days,
+                                 "first": s0 >= first and i == (s0 - first).days})
+                i = j + 1
+        self.lay = {"bars": bars, "singles": singles, "occ": occ, "hidden": hidden}
+
     def draw_calendar(self):
-        c = self.cal
+        S, c = self.S, self.cal
         cw, ch, gap = self.cw, self.ch, self.gap
         c.delete("all")
         for col, name in enumerate("일월화수목금토"):
@@ -856,18 +949,66 @@ class DeskCalendar:
             x = (i % 7) * (cw + gap)
             y = self.wd_h + (i // 7) * (ch + gap)
             self._draw_cell(i, d, x, y)
+        for b in self.lay["bars"]:
+            self._draw_bar(b)
+
+    def _sel_range(self):
+        if self._drag_range:
+            return self._drag_range
+        if self.panel_open and self.mode == "day":
+            return self.selected, self.sel_end or self.selected
+        return None
+
+    def _draw_chip(self, x1, x2, yy, t, in_month):
+        S, c = self.S, self.cal
+        done = t.get("done", False)
+        col = DONE if done else pri_color(t)
+        bgc = CARD if in_month else CARD_DIM
+        rrect(c, x1, yy, x2, yy + S(14), S(4),
+              fill=blend(col, bgc, 0.10 if done else 0.20), outline="")
+        c.create_rectangle(x1, yy + S(3), x1 + S(2), yy + S(11), fill=col, outline="")
+        fnt = self.f_tiny_done if done else self.f_tiny
+        c.create_text(x1 + S(6), yy + S(7), anchor="w", font=fnt,
+                      text=self._fit(t.get("text", ""), fnt, x2 - x1 - S(10)),
+                      fill=DIM if done else blend(col, "#ffffff", 0.6))
+
+    def _draw_bar(self, b):
+        """기간 일정: 여러 날짜 칸을 가로로 이어 붙인 막대"""
+        S, c = self.S, self.cal
+        cw, ch, gap = self.cw, self.ch, self.gap
+        t = b["t"]
+        done = t.get("done", False)
+        col = DONE if done else pri_color(t)
+        fill = blend(col, CARD, 0.30 if not done else 0.14)
+        x1 = b["c1"] * (cw + gap) + S(3)
+        x2 = b["c2"] * (cw + gap) + cw - S(3)
+        y = self.wd_h + b["row"] * (ch + gap) + S(30) + b["slot"] * S(16)
+        rrect(c, x1, y, x2, y + S(14), S(4), fill=fill, outline="")
+        if not b["left"]:   # 앞 주에서 이어지는 막대는 왼쪽을 평평하게
+            c.create_rectangle(x1, y, x1 + S(6), y + S(14), fill=fill, outline="")
+        else:
+            c.create_rectangle(x1, y + S(3), x1 + S(2), y + S(11), fill=col, outline="")
+        if not b["right"]:
+            c.create_rectangle(x2 - S(6), y, x2, y + S(14), fill=fill, outline="")
+        fnt = self.f_tiny_done if done else self.f_tiny
+        c.create_text(x1 + S(6), y + S(7), anchor="w", font=fnt,
+                      text=self._fit(t.get("text", ""), fnt, x2 - x1 - S(10)),
+                      fill=DIM if done else blend(col, "#ffffff", 0.7))
 
     def _draw_cell(self, i, d, x, y):
         S, c = self.S, self.cal
         cw, ch = self.cw, self.ch
         in_month = d.month == self.view_m
-        is_today, is_sel = d == self.today, d == self.selected and self.mode == "day"
+        is_today = d == self.today
+        rng = self._sel_range()
+        in_sel = bool(rng) and rng[0] <= d <= rng[1]
         hover = i == self.hover_idx
         holiday = holiday_name(d)
         wd = (d.weekday() + 1) % 7  # 0 = 일요일
 
         fill = CARD_HOVER if hover else CARD if in_month else CARD_DIM
-        if is_sel:
+        if in_sel:
+            fill = blend(ACCENT, CARD, 0.18)
             rrect(c, x, y, x + cw, y + ch, S(10), fill=fill, outline=ACCENT, width=S(2))
         else:
             rrect(c, x, y, x + cw, y + ch, S(10), fill=fill, outline=BORDER if in_month else "")
@@ -892,16 +1033,20 @@ class DeskCalendar:
             c.create_oval(x + cw - S(11), y + S(11), x + cw - S(6), y + S(16),
                           fill=SUB if in_month else DIM, outline="")
 
-        todos = entry.get("todos", [])
+        # 막대가 차지하지 않은 칸에 공휴일 이름 / 하루 일정을 채운다
+        occ = self.lay["occ"].get(d, set())
+        free = [k for k in range(self.NSLOT) if k not in occ]
         rows = []
         if holiday:
             rows.append(("h", holiday))
-        rows += [("t", todos[k]) for k in todo_order(todos)]
-        if len(rows) > 2:
-            rows = rows[:1] + [("m", len(rows) - 1)]
-        yy = y + S(33)
-        for kind, v in rows:
-            x1, x2 = x + S(6), x + cw - S(6)
+        rows += [("t", t) for t in self.lay["singles"].get(d, [])]
+        extra = self.lay["hidden"].get(d, 0)
+        if len(rows) + extra > len(free):
+            keep = max(0, len(free) - 1)
+            rows = rows[:keep] + [("m", len(rows) - keep + extra)]
+        x1, x2 = x + S(6), x + cw - S(6)
+        for slot, (kind, v) in zip(free, rows):
+            yy = y + S(30) + slot * S(16)
             if kind == "h":
                 c.create_text(x1 + S(2), yy + S(7), anchor="w", font=self.f_tiny,
                               text=self._fit(v, self.f_tiny, x2 - x1 - S(4)),
@@ -910,17 +1055,7 @@ class DeskCalendar:
                 c.create_text(x1 + S(2), yy + S(7), anchor="w", font=self.f_tiny,
                               text=f"+{v}개 더", fill=SUB if in_month else DIM)
             else:
-                done = v.get("done", False)
-                col = DONE if done else pri_color(v)
-                bgc = CARD if in_month else CARD_DIM
-                rrect(c, x1, yy, x2, yy + S(15), S(4),
-                      fill=blend(col, bgc, 0.10 if done else 0.20), outline="")
-                c.create_rectangle(x1, yy + S(3), x1 + S(2), yy + S(12), fill=col, outline="")
-                fnt = self.f_tiny_done if done else self.f_tiny
-                c.create_text(x1 + S(6), yy + S(7.5), anchor="w", font=fnt,
-                              text=self._fit(v.get("text", ""), fnt, x2 - x1 - S(10)),
-                              fill=DIM if done else blend(col, "#ffffff", 0.6))
-            yy += S(17)
+                self._draw_chip(x1, x2, yy, v, in_month)
 
     def _cell_at(self, x, y):
         cw, ch, gap = self.cw, self.ch, self.gap
@@ -940,26 +1075,38 @@ class DeskCalendar:
             self.cal.config(cursor="hand2" if idx is not None else "")
             self.draw_calendar()
 
+    def _cal_press(self, e):
+        self._press_idx = self._cell_at(e.x, e.y)
+        self._drag_range = None
+
+    def _cal_drag(self, e):
+        if self._press_idx is None:
+            return
+        idx = self._cell_at(e.x, e.y)
+        if idx is None or idx == self._press_idx and not self._drag_range:
+            return
+        a, b = sorted((self.dates[self._press_idx], self.dates[idx]))
+        if self._drag_range != (a, b):
+            self._drag_range = (a, b)
+            self.draw_calendar()
+
     def _cal_leave(self, e):
         if self.hover_idx is not None:
             self.hover_idx = None
             self.draw_calendar()
 
-    def _cal_click(self, e):
+    def _cal_release(self, e):
         idx = self._cell_at(e.x, e.y)
-        if idx is None:
+        press, rng = self._press_idx, self._drag_range
+        self._press_idx, self._drag_range = None, None
+        if press is None:
             return
-        d = self.dates[idx]
-        if self.mode == "inbox":   # 보관함에서 날짜를 누르면 그 날짜가 '꺼낼 날짜'가 된다
-            self.selected = d
-            self._update_sub()
+        if rng and rng[0] != rng[1]:
+            self.select_date(rng[0], rng[1])
+        elif idx == press:
+            self.select_date(self.dates[idx])
         else:
-            self.show_day(d)
-        if (d.year, d.month) != (self.view_y, self.view_m):
-            self.view_y, self.view_m = d.year, d.month
-        self.render_month()
-        if self.mode == "inbox":
-            self.render_todos()
+            self.draw_calendar()
 
     def shift_month(self, delta):
         m = self.view_m - 1 + delta
@@ -971,6 +1118,7 @@ class DeskCalendar:
         self.today = dt.date.today()
         self.view_y, self.view_m = self.today.year, self.today.month
         self.mode = "day"
+        self.sel_end = None
         self._apply_mode_layout()
         self.show_day(self.today)
         self.render_month()
@@ -979,6 +1127,73 @@ class DeskCalendar:
         if e.state & 0x4:   # Ctrl+휠은 크기 조절
             return
         self.shift_month(-1 if e.delta > 0 else 1)
+
+    # ── 입력 패널 열기 / 닫기 ──
+    def _apply_panel_visibility(self):
+        if self.panel_open:
+            self.right.pack(side="right", fill="y", before=self.left)
+            self.sep.pack(side="right", fill="y", before=self.left)
+        else:
+            self.right.pack_forget()
+            self.sep.pack_forget()
+        self.grip.config(bg=SURFACE if self.panel_open else BG)
+
+    def set_panel(self, open_):
+        if open_ == self.panel_open:
+            return
+        self._flush_memo()
+        self.panel_open = open_
+        if not open_:
+            self.mode = "day"
+            self.sel_end = None
+            self._apply_mode_layout()
+            self._update_sub()
+        self._apply_panel_visibility()
+        r = self.root
+        r.update_idletasks()
+        vx, vy, vw, vh = virtual_screen(r)
+        if open_:   # 화면 오른쪽 밖으로 나가면 그만큼 왼쪽으로 밀었다가 닫을 때 되돌린다
+            over = r.winfo_x() + r.winfo_reqwidth() - (vx + vw)
+            if over > 0:
+                self._shift = over
+                r.geometry(f"+{r.winfo_x() - over}+{r.winfo_y()}")
+        elif self._shift:
+            r.geometry(f"+{r.winfo_x() + self._shift}+{r.winfo_y()}")
+            self._shift = 0
+        self.render_month()
+
+    def open_inbox(self):
+        if self.panel_open and self.mode == "inbox":
+            self.set_panel(False)
+            return
+        self.set_mode("inbox")
+        self.set_panel(True)
+        self.todo_entry.focus_force()
+
+    def select_date(self, start, end=None):
+        """날짜(또는 기간)를 고르고 입력 패널을 연다. 같은 날짜를 다시 누르면 패널을 닫는다."""
+        end = end if end and end > start else None
+        if (self.panel_open and self.mode == "day" and start == self.selected
+                and end is None and self.sel_end is None):
+            self.set_panel(False)
+            return
+        self.sel_end = end
+        if (start.year, start.month) != (self.view_y, self.view_m):
+            self.view_y, self.view_m = start.year, start.month
+        if self.mode == "inbox":      # 보관함에서는 '꺼낼 날짜'만 바뀐다
+            self.selected = start
+            self._update_sub()
+            self.render_todos()
+        else:
+            self.show_day(start)
+        self.set_panel(True)
+        self.render_month()
+        self.todo_entry.focus_force()
+
+    def clear_range(self):
+        self.sel_end = None
+        self._update_sub()
+        self.render_month()
 
     # ── 일정 / 보관함 전환 ──
     def set_mode(self, mode):
@@ -1015,9 +1230,29 @@ class DeskCalendar:
             return self.data.setdefault(key, {"memo": "", "todos": []})
         return self.data.get(key, {})
 
-    def _todos(self, create=False):
-        src = self._inbox(create) if self.mode == "inbox" else self._entry(self.selected, create)
-        return src.get("todos", [])
+    def _rows(self):
+        """(소유 리스트, 항목, 시작일) 목록. 일정 탭: 그날 항목 + 그날을 지나는 기간 일정 / 보관함 탭: 보관함"""
+        if self.mode == "inbox":
+            lst = self._inbox().get("todos", [])
+            rows = [(lst, t, None) for t in lst]
+        else:
+            lst = self._entry(self.selected).get("todos", [])
+            rows = [(lst, t, self.selected) for t in lst]
+            for key, v in self.data.items():
+                if key == "_inbox":
+                    continue
+                try:
+                    s0 = dt.date.fromisoformat(key)
+                except ValueError:
+                    continue
+                if s0 >= self.selected:
+                    continue
+                for t in v.get("todos", []):
+                    e0 = item_end(t, s0)
+                    if e0 and e0 >= self.selected:
+                        rows.append((v["todos"], t, s0))
+        rows.sort(key=lambda r: sort_key(r[1]))
+        return rows
 
     def show_day(self, d):
         self._flush_memo()
@@ -1031,19 +1266,31 @@ class DeskCalendar:
         self.todo_canvas.yview_moveto(0)
 
     def _update_sub(self):
-        d = self.selected
+        d, e = self.selected, self.sel_end
+        span = ""
+        if e:
+            span = f"{d.month}/{d.day} ~ {e.month}/{e.day}"
         if self.mode == "inbox":
             self.d_title.config(text="보관함")
-            self.d_sub.config(text=f"날짜 없이 적어 두는 곳 · '꺼내기'를 누르면 {d.month}월 {d.day}일로 옮겨요")
-            return
-        self.d_title.config(text=f"{d.month}월 {d.day}일")
-        parts = [f"{d.year}년", f"{WEEKDAY_KO[d.weekday()]}요일"]
-        if d == self.today:
-            parts.append("오늘")
-        h = holiday_name(d)
-        if h:
-            parts.append(h)
-        self.d_sub.config(text=" · ".join(parts))
+            self.d_sub.config(text="날짜 없이 적어 두는 곳 · '꺼내기'를 누르면 "
+                              + (f"{span} 기간으로 옮겨요" if e else f"{d.month}월 {d.day}일로 옮겨요"))
+        elif e:
+            tail = f"{e.day}일" if e.month == d.month else f"{e.month}월 {e.day}일"
+            self.d_title.config(text=f"{d.month}월 {d.day}일 ~ {tail}")
+            self.d_sub.config(text=f"{(e - d).days + 1}일간 · 아래에 입력하면 기간 일정으로 저장돼요")
+        else:
+            self.d_title.config(text=f"{d.month}월 {d.day}일")
+            parts = [f"{d.year}년", f"{WEEKDAY_KO[d.weekday()]}요일"]
+            if d == self.today:
+                parts.append("오늘")
+            h = holiday_name(d)
+            if h:
+                parts.append(h)
+            self.d_sub.config(text=" · ".join(parts))
+        if e:
+            self.range_lbl.pack(after=self.d_sub, anchor="w", pady=(0, self.S(8)))
+        else:
+            self.range_lbl.pack_forget()
 
     def _schedule_memo_save(self):
         if self._save_job:
@@ -1068,11 +1315,11 @@ class DeskCalendar:
         w, h = p.winfo_width(), p.winfo_height()
         if w < 4:
             return
-        todos = self._entry(self.selected).get("todos", [])
+        rows = self._rows()
         rrect(p, 0, 0, w, h, h / 2, fill=BORDER, outline="")
-        done = sum(1 for t in todos if t.get("done"))
-        if todos and done:
-            rrect(p, 0, 0, max(h, w * done / len(todos)), h, h / 2, fill=ACCENT, outline="")
+        done = sum(1 for _, t, _ in rows if t.get("done"))
+        if rows and done:
+            rrect(p, 0, 0, max(h, w * done / len(rows)), h, h / 2, fill=ACCENT, outline="")
 
     def _check_box(self, parent, done, color, cmd):
         S = self.S
@@ -1095,14 +1342,14 @@ class DeskCalendar:
         S = self.S
         for w in self.todo_inner.winfo_children():
             w.destroy()
-        todos = self._todos()
+        rows = self._rows()
         inbox = self.mode == "inbox"
         left_n = sum(1 for t in self._inbox().get("todos", []) if not t.get("done"))
         self.tab_inbox.config(text=f"보관함 {left_n}" if left_n else "보관함")
-        done_n = sum(1 for t in todos if t.get("done"))
-        self.todo_count.config(text=f"{done_n}/{len(todos)}" if todos else "")
+        done_n = sum(1 for _, t, _ in rows if t.get("done"))
+        self.todo_count.config(text=f"{done_n}/{len(rows)}" if rows else "")
         self._draw_progress()
-        if not todos:
+        if not rows:
             msg = ("보관함이 비어 있어요\n나중에 할 일을 적어 두면 여기 쌓여요" if inbox
                    else "등록된 할 일이 없어요\n위 입력창에 적고 Enter")
             lbl = tk.Label(self.todo_inner, text=msg, font=self.f_small, bg=SURFACE, fg=DIM,
@@ -1110,13 +1357,12 @@ class DeskCalendar:
             lbl.pack(fill="x", pady=S(6))
             lbl.bind("<MouseWheel>", self._on_wheel_todo)
             return
-        for idx in todo_order(todos):
-            t = todos[idx]
+        for lst, t, start in rows:
             done = t.get("done", False)
             col = pri_color(t)
             row = tk.Frame(self.todo_inner, bg=SURFACE)
             row.pack(fill="x", pady=S(3))
-            chk = self._check_box(row, done, col, lambda i=idx: self.toggle_todo(i))
+            chk = self._check_box(row, done, col, lambda t=t: self.toggle_todo(t))
             chk.pack(side="left", anchor="n", pady=S(1))
             dele = tk.Label(row, text="✕", font=self.f_tiny, bg=SURFACE, fg=DIM, cursor="hand2")
             dele.pack(side="right", anchor="n", padx=(S(4), 0), pady=S(3))
@@ -1124,10 +1370,15 @@ class DeskCalendar:
                             cursor="hand2")
             dot.create_oval(S(2), S(2), S(12), S(12), fill=DONE if done else col, outline="")
             dot.pack(side="right", anchor="n", padx=(S(4), 0), pady=S(3))
-            dot.bind("<Button-1>", lambda e, i=idx: self.cycle_pri(i))
+            dot.bind("<Button-1>", lambda e, t=t: self.cycle_pri(t))
             body = tk.Frame(row, bg=SURFACE)
             body.pack(side="left", fill="x", expand=True, padx=(S(8), 0))
-            if t.get("time") and not inbox:
+            e0 = item_end(t, start) if start else None
+            if e0:
+                tk.Label(body, text=f"기간  {start.month}/{start.day} ~ {e0.month}/{e0.day}",
+                         font=self.f_tiny, bg=SURFACE, fg=DIM if done else col, anchor="w"
+                         ).pack(fill="x")
+            elif t.get("time") and not inbox:
                 tk.Label(body, text=t["time"], font=self.f_tiny, bg=SURFACE,
                          fg=DIM if done else "#ffb547", anchor="w").pack(fill="x")
             txt = tk.Label(body, text=t.get("text", ""), font=self.f_done if done else self.f_body,
@@ -1135,18 +1386,19 @@ class DeskCalendar:
                            wraplength=S(150))
             txt.pack(fill="x")
             if inbox:
-                pull = tk.Label(body, text=f"꺼내기 → {self.selected.month}/{self.selected.day}",
-                                font=self.f_tiny, bg=ACCENT_SOFT, fg=ACCENT, cursor="hand2",
-                                padx=S(6), pady=S(1))
+                tgt = (f"{self.selected.month}/{self.selected.day}~{self.sel_end.month}/{self.sel_end.day}"
+                       if self.sel_end else f"{self.selected.month}/{self.selected.day}")
+                pull = tk.Label(body, text=f"꺼내기 → {tgt}", font=self.f_tiny, bg=ACCENT_SOFT,
+                                fg=ACCENT, cursor="hand2", padx=S(6), pady=S(1))
                 pull.pack(anchor="w", pady=(S(3), 0))
-                pull.bind("<Button-1>", lambda e, i=idx: self.pull_from_inbox(i))
-            dele.bind("<Button-1>", lambda e, i=idx: self.delete_todo(i))
+                pull.bind("<Button-1>", lambda e, t=t: self.pull_from_inbox(t))
+            dele.bind("<Button-1>", lambda e, l=lst, t=t: self.delete_todo(l, t))
             dele.bind("<Enter>", lambda e, w=dele: w.config(fg=SUN))
             dele.bind("<Leave>", lambda e, w=dele: w.config(fg=DIM))
-            txt.bind("<Double-Button-1>", lambda e, i=idx, w=txt: self._edit_todo(i, w))
+            txt.bind("<Double-Button-1>", lambda e, t=t, w=txt: self._edit_todo(t, w))
             for w in (row, body, txt, dele, dot, chk):
                 w.bind("<MouseWheel>", self._on_wheel_todo)
-                w.bind("<Button-3>", lambda e, i=idx: self._row_menu(e, i))
+                w.bind("<Button-3>", lambda e, l=lst, t=t, s0=start: self._row_menu(e, l, t, s0))
 
     # ── 할 일 조작 ──
     def add_todo(self):
@@ -1162,68 +1414,85 @@ class DeskCalendar:
         if self.mode == "inbox":
             self._inbox(create=True)["todos"].append(item)
         else:
+            if self.sel_end:
+                item["end"] = self.sel_end.isoformat()
             self._entry(self.selected, create=True)["todos"].append(item)
         self.todo_entry.delete(0, "end")
         self._pick_pri(DEFAULT_PRI)
+        if self.sel_end and self.mode == "day":   # 기간은 한 번 쓰고 풀어서 다음 입력은 하루 일정
+            self.sel_end = None
+            self._update_sub()
         self._after_todo_change()
 
-    def toggle_todo(self, i):
-        t = self._todos()[i]
+    @staticmethod
+    def _remove(lst, t):
+        for k, x in enumerate(lst):
+            if x is t:
+                del lst[k]
+                return
+
+    def toggle_todo(self, t):
         t["done"] = not t.get("done", False)
         self._after_todo_change()
 
-    def cycle_pri(self, i):
-        t = self._todos()[i]
+    def cycle_pri(self, t):
         t["pri"] = (pri_of(t) - 1) % len(PRIORITIES)
         self._after_todo_change()
 
-    def set_pri(self, i, p):
-        self._todos()[i]["pri"] = p
+    def set_pri(self, t, p):
+        t["pri"] = p
         self._after_todo_change()
 
-    def delete_todo(self, i):
-        del self._todos()[i]
+    def delete_todo(self, lst, t):
+        self._remove(lst, t)
         self._after_todo_change()
 
-    def to_inbox(self, i):
-        t = self._todos().pop(i)
+    def to_inbox(self, lst, t):
+        self._remove(lst, t)
         t.pop("time", None)
+        t.pop("end", None)
         t["done"] = False
         self._inbox(create=True)["todos"].append(t)
         self._after_todo_change()
 
-    def pull_from_inbox(self, i):
-        t = self._inbox()["todos"].pop(i)
+    def pull_from_inbox(self, t):
+        self._remove(self._inbox()["todos"], t)
+        if self.sel_end and self.sel_end > self.selected:
+            t["end"] = self.sel_end.isoformat()
         self._entry(self.selected, create=True)["todos"].append(t)
         self._after_todo_change()
 
-    def postpone(self, i):
-        t = self._todos().pop(i)
+    def postpone(self, lst, t):
+        self._remove(lst, t)
         nxt = self.selected + dt.timedelta(days=1)
         self._entry(nxt, create=True)["todos"].append(t)
         self._after_todo_change()
 
-    def _row_menu(self, e, i):
-        t = self._todos()[i]
+    def unspan(self, t):
+        t.pop("end", None)
+        self._after_todo_change()
+
+    def _row_menu(self, e, lst, t, start):
         m = tk.Menu(self.root, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT,
                     activeforeground="#ffffff", bd=0, font=self.f_small)
         if self.mode == "inbox":
-            m.add_command(label=f"{self.selected.month}월 {self.selected.day}일로 꺼내기",
-                          command=lambda: self.pull_from_inbox(i))
+            m.add_command(label="선택한 날짜로 꺼내기", command=lambda: self.pull_from_inbox(t))
         else:
-            m.add_command(label="내일로 미루기", command=lambda: self.postpone(i))
-            m.add_command(label="보관함으로 보내기", command=lambda: self.to_inbox(i))
+            if item_end(t, start):
+                m.add_command(label="하루 일정으로 바꾸기", command=lambda: self.unspan(t))
+            elif start == self.selected:
+                m.add_command(label="내일로 미루기", command=lambda: self.postpone(lst, t))
+            m.add_command(label="보관함으로 보내기", command=lambda: self.to_inbox(lst, t))
         m.add_separator()
         for p, (name, _) in enumerate(PRIORITIES):
             m.add_command(label=("✓ " if pri_of(t) == p else "    ") + f"● {name}",
-                          command=lambda p=p: self.set_pri(i, p))
+                          command=lambda p=p: self.set_pri(t, p))
         m.add_separator()
-        m.add_command(label="삭제", command=lambda: self.delete_todo(i))
+        m.add_command(label="삭제", command=lambda: self.delete_todo(lst, t))
         m.tk_popup(e.x_root, e.y_root)
         return "break"
 
-    def _edit_todo(self, i, label):
-        t = self._todos()[i]
+    def _edit_todo(self, t, label):
         e = tk.Entry(label.master, font=self.f_body, bg=CARD, fg=TEXT,
                      insertbackground=TEXT, relief="flat")
         e.insert(0, t.get("text", ""))
@@ -1261,6 +1530,7 @@ class DeskCalendar:
 
     def _escape_entry(self):
         self.todo_entry.delete(0, "end")
+        self.set_panel(False)
         self.root.focus_set()
         self.send_to_bottom()
 
@@ -1316,6 +1586,7 @@ class DeskCalendar:
     def _drag_end(self, e):
         if self._drag:
             self._drag = None
+            self._shift = 0
             self.conf["x"], self.conf["y"] = self.root.winfo_x(), self.root.winfo_y()
             self._save_conf()
 
@@ -1411,6 +1682,8 @@ class DeskCalendar:
     def summon(self):
         """위젯을 맨 앞으로 불러와 오늘 날짜의 입력창에 포커스"""
         self.go_today()
+        self.set_panel(True)
+        self.render_month()
         if IS_WIN and self.hwnd:
             u = ctypes.windll.user32
             u.SetWindowPos(self.hwnd, 0, 0, 0, 0, 0, 0x0043)  # HWND_TOP, NOSIZE|NOMOVE|SHOWWINDOW

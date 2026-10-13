@@ -1,4 +1,6 @@
 pdfminer.six
 cryptography
 segno
+pillow
+korean-lunar-calendar
 pyinstaller

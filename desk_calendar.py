@@ -23,6 +23,7 @@ import tkinter.font as tkfont
 from tkinter import colorchooser, filedialog, messagebox
 
 import core
+import glass
 import gongmun
 import cloudsync
 from core import item_end
@@ -1091,6 +1092,35 @@ class SettingsDialog:
         tk.Label(body, text="화면 설정", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
             fill="x", padx=pad, pady=(S(16), 0))
 
+        section("달력 모양")
+        r = row()
+        tk.Label(r, text="보기 방식", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+        st = app.conf.get("style", "glass")
+        pill(r, "유리(바탕화면 비침)", lambda: self.act(app.set_style, style="glass"), on=st == "glass")
+        pill(r, "카드", lambda: self.act(app.set_style, style="card"), on=st == "card")
+        r = row()
+        r.pack_configure(pady=(S(8), 0))
+        tk.Label(r, text="보이는 주", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+        for n in (4, 5, 6):
+            pill(r, f"{n}주", lambda n=n: self.act(app.set_style, weeks=n), on=app.weeks == n)
+        r = row()
+        r.pack_configure(pady=(S(8), 0))
+        tk.Label(r, text="유리 색", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+        gt = app.conf.get("glass_tint", "청록")
+        for name, rgb in glass.TINTS.items():
+            cv = tk.Canvas(r, width=S(26), height=S(26), bg=SURFACE, highlightthickness=0, cursor="hand2")
+            cv.create_oval(S(3), S(3), S(23), S(23), fill="#%02x%02x%02x" % rgb, outline=TEXT if gt == name else "",
+                           width=S(2))
+            cv.pack(side="left", padx=(0, S(4)))
+            cv.bind("<Button-1>", lambda e, n=name: self.act(app.set_style, glass_tint=n))
+        r = row()
+        r.pack_configure(pady=(S(8), 0))
+        tk.Label(r, text="유리 진하기", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+        gs = float(app.conf.get("glass_strength", 0.5))
+        pill(r, "－", lambda: self.act(app.set_style, glass_strength=round(max(0.15, gs - 0.1), 2)))
+        tk.Label(r, text=f"{int(round(gs * 100))}%", font=app.f_body, bg=SURFACE, fg=TEXT, width=5).pack(side="left")
+        pill(r, "＋", lambda: self.act(app.set_style, glass_strength=round(min(0.9, gs + 0.1), 2)))
+
         section("글자")
         r = row()
         tk.Label(r, text="크기", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
@@ -1224,7 +1254,7 @@ class SettingsDialog:
 
 class HelpDialog:
     TEXT_LINES = [
-        ("달력 보기", "평소에는 달력만 바탕화면에 떠 있어요. 달력 가운데에서 원하는 곳으로 끌어 옮길 수 있어요."),
+        ("달력 보기", "바탕화면이 비치는 유리 달력이에요. 위쪽 날짜 줄을 끌면 창이 옮겨지고, ‹ › 나 마우스 휠로 한 주씩, 왼쪽 아래 월 이름을 누르면 다음 달로 가요."),
         ("일정 입력", "날짜를 클릭하면 오른쪽에 입력창이 열려요. 쓰고 Enter. 같은 날짜를 다시 누르면 닫혀요."),
         ("시간 넣기", "'14:30 팀 회의' 처럼 앞에 시간을 쓰면 시간이 함께 저장돼요."),
         ("기간 일정", "시작 날짜에서 끝 날짜까지 끌어서 선택한 뒤 입력하면 여러 날에 걸친 일정이 돼요."),
@@ -1301,6 +1331,12 @@ class DeskCalendar:
         self._shift = 0
         self._press_idx = None
         self._drag_range = None
+        self.glass = self.conf.get("style", "glass") == "glass"   # 유리(데스크탑) / 카드
+        self.weeks = int(self.conf.get("weeks", 5))               # 유리 모양에서 보이는 주 수
+        self.view_start = self._default_view_start()
+        self._gimg, self._gkey, self._gbtns, self._gcells = None, None, [], []
+        self._ghdr, self._ghover, self._gresize_job = None, None, None
+        self.gm = {}
         self._summoned = False     # Ctrl+Alt+Space 로 불러낸 동안만 앞에 둔다
         self._tip, self._tip_job = None, None
         self._last_click = None
@@ -1504,10 +1540,30 @@ class DeskCalendar:
 
     def _zone(self, e):
         r = self.root
-        if e.widget is not r:
+        w = e.widget
+        S = self.S
+        if self.glass and w is self.cal:
+            cw_, ch_ = w.winfo_width(), w.winfo_height()
+            m, c = S(6), S(22)
+            east = not self.panel_open
+            nx = "w" if e.x < m else "e" if (east and e.x >= cw_ - m) else ""
+            ny = "n" if e.y < m else "s" if e.y >= ch_ - m else ""
+            if nx and e.y < c:
+                ny = "n"
+            if nx and e.y >= ch_ - c:
+                ny = "s"
+            if ny and e.x < c:
+                nx = "w"
+            if ny and east and e.x >= cw_ - c:
+                nx = "e"
+            return ny + nx
+        if self.glass and w is getattr(self, "east_strip", None):
+            hh = w.winfo_height()
+            return ("n" if e.y < S(22) else "s" if e.y >= hh - S(22) else "") + "e"
+        if w is not r:
             return ""
         w, h = r.winfo_width(), r.winfo_height()
-        m, c = self.S(8), self.S(22)
+        m, c = S(8), S(22)
         nx = "w" if e.x < m else "e" if e.x >= w - m else ""
         ny = "n" if e.y < m else "s" if e.y >= h - m else ""
         if nx and e.y < c:
@@ -1576,6 +1632,11 @@ class DeskCalendar:
 
     def _on_cal_resize(self, e):
         """창 크기에 맞춰 날짜 칸 크기를 다시 계산"""
+        if self.glass:    # 크기를 끄는 동안에는 잠깐 쉬었다가 한 번만 다시 그린다
+            if self._gresize_job:
+                self.root.after_cancel(self._gresize_job)
+            self._gresize_job = self.root.after(70, self.render_month)
+            return
         S, gap = self.S, self.gap
         self.cw = max(S(44), (e.width - 6 * gap - 2) // 7)
         self.ch = max(S(46), (e.height - self.wd_h - 5 * gap) // 6)
@@ -1650,6 +1711,15 @@ class DeskCalendar:
         Pill(nav, "›", lambda: self.shift_month(1), self.f_body, padx=S(10), pady=S(1)).pack(side="left")
         for w in (left, hdr, self.title_lbl, self.month_sub):
             self._bind_drag(w)
+        if self.glass:
+            bar.pack_forget()
+            hdr.pack_forget()
+            outer.pack_configure(padx=0, pady=0)
+            left.config(padx=0, pady=0)
+            self.east_strip = tk.Frame(outer, bg=BG, width=S(5), cursor=self._CURSORS_WIN["e"] if IS_WIN else self._CURSORS_X11["e"])
+            for ev, fn in (("<ButtonPress-1>", self._resize_start), ("<B1-Motion>", self._resize_move),
+                           ("<ButtonRelease-1>", self._resize_end)):
+                self.east_strip.bind(ev, fn)
 
         # 달력 (캔버스 한 장에 직접 그린다 / 창 크기에 맞춰 칸이 늘어남)
         self.cal = tk.Canvas(left, width=1, height=1, bg=BG, highlightthickness=0, bd=0)
@@ -2142,6 +2212,37 @@ class DeskCalendar:
             rest = rest[cut:].lstrip()
         return out or [""]
 
+    @staticmethod
+    def _week_start(d):
+        return d - dt.timedelta(days=(d.weekday() + 1) % 7)   # 일요일
+
+    def _default_view_start(self):
+        """지난주 · 이번 주 · 앞으로의 주들이 보이도록, 지난주 일요일부터 시작"""
+        return self._week_start(dt.date.today()) - dt.timedelta(days=7)
+
+    def shift_weeks(self, n):
+        self.view_start += dt.timedelta(weeks=n)
+        self.render_month()
+
+    def jump_next_month(self):
+        mid = self.view_start + dt.timedelta(days=(7 * self.weeks) // 2)
+        nxt = dt.date(mid.year + (mid.month == 12), mid.month % 12 + 1, 1)
+        self.view_start = self._week_start(nxt)
+        self.render_month()
+
+    def set_style(self, **kw):
+        """모양 설정(유리/카드, 주 수, 유리 색·진하기)을 바꾸고 다시 그리기"""
+        old = self.conf.get("style", "glass")
+        self.conf.update(kw)
+        self._save_conf()
+        self.glass = self.conf.get("style", "glass") == "glass"
+        self.weeks = int(self.conf.get("weeks", 5))
+        self._gkey = None
+        if self.conf.get("style", "glass") != old:
+            self.rebuild()
+        else:
+            self.render_month()
+
     def _fit(self, text, font, maxw):
         if font.measure(text) <= maxw:
             return text
@@ -2167,6 +2268,10 @@ class DeskCalendar:
 
     # ── 달력 ──
     def render_month(self):
+        if self.glass:
+            self.dates = [self.view_start + dt.timedelta(days=i) for i in range(7 * self.weeks)]
+            self.draw_calendar()
+            return
         self.title_lbl.config(text=f"{self.view_y}년 {self.view_m}월")
         dates = list(calendar.Calendar(firstweekday=6).itermonthdates(self.view_y, self.view_m))
         while len(dates) < 42:
@@ -2233,6 +2338,8 @@ class DeskCalendar:
         self.lay = {"bars": bars, "singles": singles, "occ": occ, "hidden": hidden}
 
     def draw_calendar(self):
+        if self.glass:
+            return self.draw_glass()
         self._hits = []
         S, c = self.S, self.cal
         cw, ch, gap = self.cw, self.ch, self.gap
@@ -2402,7 +2509,208 @@ class DeskCalendar:
             else:
                 self._draw_chip(x1, x2, yy, v, in_month, units=n)
 
+    # 유리(데스크탑) 모양 ─────────────────────────────────────────
+    def _glass_layout(self, W, H):
+        S = self.S
+        m, gap = S(6), S(2)
+        wk_w, hdr_h, wd_h, bot_h = S(28), S(42), S(26), S(28)
+        gx = m + wk_w + gap
+        gw = W - gx - m
+        rows = self.weeks
+        y_wd = m + hdr_h + gap
+        y0 = y_wd + wd_h + gap
+        cw = (gw - 6 * gap) / 7
+        ch = (H - y0 - m - bot_h - gap - (rows - 1) * gap) / rows
+        cells = []
+        for i in range(7 * rows):
+            c, r = i % 7, i // 7
+            x1 = gx + c * (cw + gap)
+            y1 = y0 + r * (ch + gap)
+            cells.append((int(x1), int(y1), int(x1 + cw), int(y1 + ch)))
+        bottom = int(y0 + rows * (ch + gap))
+        return {"m": m, "gap": gap, "gx": gx, "y0": y0, "cw": cw, "ch": ch, "cells": cells,
+                "hdr": (gx, m, W - m, m + hdr_h),
+                "wd": [(cells[c][0], y_wd, cells[c][2], y_wd + wd_h) for c in range(7)],
+                "wk": [(m, cells[r * 7][1], m + wk_w, cells[r * 7][3]) for r in range(rows)],
+                "month": (gx, bottom, gx + int(cw), bottom + bot_h)}
+
+    def _glass_colors(self):
+        light = self.conf.get("glass_tint", "청록") == "밝게"
+        if light:
+            return {"txt": "#10202e", "dim": "#4d6072", "shadow": None, "sun": "#b4162f", "sat": "#1f5fb0",
+                    "pri": ["#a3112c", "#8a5a00", "#10202e", "#0b6b3f"], "done": "#6b7a86",
+                    "holiday": "#b4162f", "anniv": "#8a5a00", "term": "#0b6b3f", "line": "#ffffff"}
+        return {"txt": "#ffffff", "dim": "#cfe0ea", "shadow": "#07202c", "sun": "#ffb3bd", "sat": "#a9d4ff",
+                "pri": ["#ffc2cc", "#ffe2a8", "#ffffff", "#c6f6dd"], "done": "#b4c3cc",
+                "holiday": "#ff9aa9", "anniv": "#ffd54a", "term": "#8be28f", "line": "#ffffff"}
+
+    def _gtext(self, x, y, text, font, fill, anchor="nw", shadow=None):
+        c = self.cal
+        if shadow:
+            c.create_text(x + 1, y + 1, text=text, font=font, fill=shadow, anchor=anchor)
+        return c.create_text(x, y, text=text, font=font, fill=fill, anchor=anchor)
+
+    def _glass_bg(self, W, H, L):
+        """바탕화면을 흐리게 깔고 칸마다 반투명 색을 입힌 배경 그림 (창 위치·크기가 같으면 재사용)"""
+        try:
+            from PIL import ImageTk
+        except Exception:
+            return None
+        sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+        ox, oy = self.cal.winfo_rootx(), self.cal.winfo_rooty()
+        tint_name = self.conf.get("glass_tint", "청록")
+        strength = float(self.conf.get("glass_strength", 0.5))
+        key = (W, H, ox, oy, self.weeks, tint_name, strength, self.scale)
+        if key == self._gkey and self._gimg is not None:
+            return self._gimg
+        cx, cy = ox + W // 2, oy + H // 2
+        wp = glass.wallpaper(sw, sh) if (0 <= cx < sw and 0 <= cy < sh) else None   # 보조 모니터는 기본 그라데이션
+        wp = wp or glass.fallback_wallpaper(sw, sh)
+        rects = {"bars": [L["hdr"], *L["wd"], *L["wk"], L["month"]],
+                 "cells": [(*r, (i % 7) in (0, 6)) for i, r in enumerate(L["cells"])]}
+        im = glass.render_bg(wp, ox, oy, W, H, rects, tint=glass.TINTS.get(tint_name, glass.TINTS["청록"]),
+                             strength=strength, blur=max(6, self.S(14)), white_text=tint_name != "밝게")
+        self._gimg = ImageTk.PhotoImage(im)
+        self._gkey = key
+        return self._gimg
+
+    def draw_glass(self):
+        c, S = self.cal, self.S
+        W, H = c.winfo_width(), c.winfo_height()
+        if W < 50 or H < 50:
+            return
+        self._hits = []
+        c.delete("all")
+        L = self._glass_layout(W, H)
+        self.gm = L
+        self._gcells = L["cells"]
+        col = self._glass_colors()
+        sh = col["shadow"]
+        img = self._glass_bg(W, H, L)
+        if img is not None:
+            c.create_image(0, 0, anchor="nw", image=img)
+        else:   # PIL 이 없을 때: 단색 칸
+            for r in [L["hdr"], *L["wd"], *L["wk"], L["month"], *L["cells"]]:
+                c.create_rectangle(*r, fill="#1e4a63", outline="#3a7090")
+        today = dt.date.today()
+        # 머리줄: 오늘 날짜 + (동기화 상태) + 버튼
+        hx1, hy1, hx2, hy2 = L["hdr"]
+        mid_y = (hy1 + hy2) / 2
+        self._gbtns = []
+        labels = [("보관함", lambda e: self.open_inbox()), ("공문", lambda e: self.import_pdf()),
+                  ("검색", lambda e: self.open_search()), ("글자 －", lambda e: self.cal_font_step(-0.1)),
+                  ("＋", lambda e: self.cal_font_step(0.1)), ("설정", lambda e: self.open_settings()),
+                  ("메뉴 ☰", lambda e: self.menu.tk_popup(e.x_root, e.y_root)),
+                  ("‹", lambda e: self.shift_weeks(-1)), ("오늘", lambda e: self.go_today()),
+                  ("›", lambda e: self.shift_weeks(1))]
+        x = hx2 - S(10)
+        fb = self.f_small
+        for text, fn in reversed(labels):
+            wd = fb.measure(text)
+            x1 = x - wd - S(8)
+            btn = (x1, hy1 + S(6), x, hy2 - S(6), fn, text)
+            self._gbtns.append(btn)
+            hov = self._ghover == text
+            if hov:
+                c.create_rectangle(x1, hy1 + S(6), x, hy2 - S(6), fill="#ffffff", outline="", stipple="gray25")
+            self._gtext(x1 + S(4), mid_y, text, fb, col["txt"] if text in ("오늘", "‹", "›") or hov else col["dim"],
+                        "w", sh)
+            x = x1 - S(6)
+        lun = glass.lunar_text(today)
+        title = f"오늘은 {today.year}년 {today.month}월 {today.day}일 {WEEKDAY_KO[today.weekday()]}요일 {lun}"
+        space_l, space_r = hx1 + S(10), x
+        tw = self.f_body.measure(title)
+        tx = max(space_l, (space_l + space_r) / 2 - tw / 2) if space_r - space_l > tw else space_l
+        self._gtext(tx, mid_y, title, self.f_body, col["txt"], "w", sh)
+        if self.sync_cfg() and self.sync_status and tx - space_l > S(160):
+            self._gtext(space_l, mid_y, "☁ " + self.sync_status.split(" · ")[0], self.f_tiny, col["dim"], "w", sh)
+        # 요일 줄 / 주 번호
+        for i, r in enumerate(L["wd"]):
+            fg = col["sun"] if i == 0 else col["sat"] if i == 6 else col["txt"]
+            self._gtext((r[0] + r[2]) / 2, (r[1] + r[3]) / 2, "일월화수목금토"[i] + "요일", self.f_small, fg, "center", sh)
+        for r_i, r in enumerate(L["wk"]):
+            d0 = self.dates[r_i * 7]
+            wk = (d0 + dt.timedelta(days=1)).isocalendar()[1]
+            self._gtext((r[0] + r[2]) / 2, (r[1] + r[3]) / 2, str(wk), self.f_tiny, col["dim"], "center", sh)
+        mid = self.dates[len(self.dates) // 2]
+        mr = L["month"]
+        self._gtext((mr[0] + mr[2]) / 2, (mr[1] + mr[3]) / 2, f"{mid.month}월", self.f_small, col["txt"], "center", sh)
+        self._gbtns.append((*mr, lambda e: self.jump_next_month(), "month"))
+        # 날짜 칸
+        for i, d in enumerate(self.dates):
+            self._glass_cell(i, d, L["cells"][i], today, col)
+
+    def _glass_cell(self, i, d, rect, today, col):
+        c, S = self.cal, self.S
+        x1, y1, x2, y2 = rect
+        sh = col["shadow"]
+        pad = S(5)
+        wd = (d.weekday() + 1) % 7
+        label, kind = glass.special_day(d)
+        num_fg = col["holiday"] if kind == "holiday" or wd == 0 else col["sat"] if wd == 6 else col["txt"]
+        ny = y1 + S(3)
+        self._gtext(x1 + pad, ny, str(d.day), self.f_day, num_fg, "nw", sh)
+        off = x1 + pad + self.f_day.measure(str(d.day)) + S(6)
+        if label:
+            self._gtext(off, ny + S(1), label, self.f_small, col[kind], "nw", sh)
+        else:
+            self._gtext(off, ny + S(2), glass.lunar_text(d), self.f_tiny, col["dim"], "nw", sh)
+        font, fdone = self.f_chip, self.f_chip_done
+        lh = font.metrics("linespace") + 1
+        y = ny + self.f_day.metrics("linespace") + S(4)
+        bottom = y2 - S(3)
+        maxw = x2 - x1 - 2 * pad
+        rows = [r for r in core.day_items(self.data, d)
+                if not (item_end(r[1], r[2]) and r[2] != d and d != self.dates[0])]   # 기간 일정은 시작일에만 (보이는 첫 칸 포함)
+        rows.sort(key=lambda r: sort_key(r[1]))
+        clipped = False
+        for k, (lst, t, s0) in enumerate(rows, 1):
+            done = t.get("done", False)
+            e0 = item_end(t, s0)
+            text = t.get("text", "")
+            if t.get("time"):
+                text = t["time"] + " " + text
+            if e0:
+                text += f" ~{e0.month}.{e0.day}"
+            prefix = f"{k}. "
+            pw = font.measure(prefix)
+            lines = self._wrap_lines(text, fdone if done else font, maxw - pw, 99)
+            fg = col["done"] if done else col["pri"][pri_of(t)]
+            top = y
+            for li, line in enumerate(lines):
+                if y + lh > bottom:
+                    clipped = True
+                    break
+                if li == 0:
+                    self._gtext(x1 + pad, y, prefix, font, fg, "nw", sh)
+                self._gtext(x1 + pad + pw, y, line, fdone if done else font, fg, "nw", sh)
+                y += lh
+            if y > top:
+                self._hits.append((x1 + pad, top, x2 - pad, y, t))
+            if clipped:
+                break
+        if clipped:
+            self._gtext(x2 - pad, y2 - S(3), "… 더 보기", self.f_tiny, col["dim"], "se", sh)
+        elif not rows:
+            memo = (self.data.get(d.isoformat(), {}).get("memo", "").strip().splitlines() or [""])[0]
+            if memo:
+                self._gtext(x1 + pad, y, self._fit("✎ " + memo, font, maxw), font, col["dim"], "nw", sh)
+        # 오늘 / 선택 / 마우스 올림
+        if d == today:
+            c.create_rectangle(x1, y1, x2 - 1, y2 - 1, outline="#ffffff", width=2)
+            c.create_rectangle(x1 + 3, y1 + 3, x2 - 4, y2 - 4, outline="#fff7c2", width=1)
+        rng = self._sel_range()
+        if (rng and rng[0] <= d <= rng[1]) or (self._move is not None and self._move_to == i):
+            c.create_rectangle(x1 + 1, y1 + 1, x2 - 2, y2 - 2, outline="#ffd54a", width=2)
+        elif i == self.hover_idx:
+            c.create_rectangle(x1, y1, x2 - 1, y2 - 1, outline=col["line"], width=1)
+
     def _cell_at(self, x, y):
+        if self.glass:
+            for i, (x1, y1, x2, y2) in enumerate(self._gcells):
+                if x1 <= x < x2 and y1 <= y < y2:
+                    return i
+            return None
         cw, ch, gap = self.cw, self.ch, self.gap
         if y < self.wd_h:
             return None
@@ -2414,10 +2722,29 @@ class DeskCalendar:
         return row * 7 + col
 
     def _cal_motion(self, e):
+        if self.glass:
+            z = self._zone(e)
+            cur = (self._CURSORS_WIN if IS_WIN else self._CURSORS_X11).get(z, "")
+            btn = self._gbtn_at(e.x, e.y)
+            if not cur:
+                cur = "hand2" if (btn is not None or self._cell_at(e.x, e.y) is not None) else ""
+            if self.cal.cget("cursor") != cur:
+                self.cal.config(cursor=cur)
+            hov = btn[5] if btn else None
+            if hov != self._ghover:
+                self._ghover = hov
+                self.draw_calendar()
+            if z:
+                self._tip_hide()
+                if self.hover_idx is not None:
+                    self.hover_idx = None
+                    self.draw_calendar()
+                return
         idx = self._cell_at(e.x, e.y)
         if idx != self.hover_idx:
             self.hover_idx = idx
-            self.cal.config(cursor="hand2" if idx is not None else "")
+            if not self.glass:
+                self.cal.config(cursor="hand2" if idx is not None else "")
             self.draw_calendar()
             self._tip_hide()
             if idx is not None:
@@ -2475,8 +2802,30 @@ class DeskCalendar:
         y = min(py + S(16), vy + vh - hh - S(8))
         top.geometry(f"+{x}+{y}")
 
+    def _gbtn_at(self, x, y):
+        for b in self._gbtns:
+            if b[0] <= x <= b[2] and b[1] <= y <= b[3]:
+                return b
+        return None
+
+    def _glass_press(self, e):
+        z = self._zone(e)
+        if z and not self.locked.get():
+            self._resize_start(e)
+            return True
+        btn = self._gbtn_at(e.x, e.y)
+        if btn is not None or e.y < self.gm.get("y0", 0):
+            self._ghdr = {"btn": btn}
+            if btn is None:
+                self._drag_start(e)           # 머리줄을 끌면 창 이동
+            return True
+        return False
+
     def _cal_press(self, e):
         self._tip_hide()
+        if self.glass and self._glass_press(e):
+            self._press_idx = None
+            return
         self._press_idx = self._cell_at(e.x, e.y)
         self._drag_range = None
         self._move = self._move_to = None
@@ -2488,6 +2837,14 @@ class DeskCalendar:
                     break
 
     def _cal_drag(self, e):
+        if self.glass:
+            if self._rs:
+                self._resize_move(e)
+                return
+            if self._ghdr is not None:
+                if self._ghdr["btn"] is None:
+                    self._drag_move(e)
+                return
         if self._press_idx is None:
             return
         idx = self._cell_at(e.x, e.y)
@@ -2511,6 +2868,21 @@ class DeskCalendar:
             self.draw_calendar()
 
     def _cal_release(self, e):
+        if self.glass:
+            if self._rs:
+                self._resize_end(e)
+                self._gkey = None
+                self.render_month()
+                return
+            if self._ghdr is not None:
+                h, self._ghdr = self._ghdr, None
+                if h["btn"] is None:
+                    self._drag_end(e)
+                    self._gkey = None
+                    self.draw_calendar()
+                elif self._gbtn_at(e.x, e.y) is h["btn"]:
+                    h["btn"][4](e)
+                return
         idx = self._cell_at(e.x, e.y)
         press, rng, mv, to = self._press_idx, self._drag_range, self._move, self._move_to
         self._press_idx, self._drag_range, self._move, self._move_to = None, None, None, None
@@ -2533,6 +2905,9 @@ class DeskCalendar:
             self.draw_calendar()
 
     def shift_month(self, delta):
+        if self.glass:
+            self.shift_weeks(4 * delta)
+            return
         m = self.view_m - 1 + delta
         self.view_y += m // 12
         self.view_m = m % 12 + 1
@@ -2541,6 +2916,7 @@ class DeskCalendar:
     def go_today(self):
         self.today = dt.date.today()
         self.view_y, self.view_m = self.today.year, self.today.month
+        self.view_start = self._default_view_start()
         self.mode = "day"
         self.sel_end = None
         self._apply_mode_layout()
@@ -2550,16 +2926,23 @@ class DeskCalendar:
     def _on_wheel_month(self, e):
         if e.state & 0x4:   # Ctrl+휠은 크기 조절
             return
+        if self.glass:
+            self.shift_weeks(-1 if e.delta > 0 else 1)
+            return
         self.shift_month(-1 if e.delta > 0 else 1)
 
     # ── 입력 패널 열기 / 닫기 ──
     def _apply_panel_visibility(self):
         if self.panel_open:
+            if self.glass and getattr(self, "east_strip", None) is not None:
+                self.east_strip.pack(side="right", fill="y", before=self.left)
             self.right.pack(side="right", fill="y", before=self.left)
             self.sep.pack(side="right", fill="y", before=self.left)
         else:
             self.right.pack_forget()
             self.sep.pack_forget()
+            if getattr(self, "east_strip", None) is not None:
+                self.east_strip.pack_forget()
 
     def set_panel(self, open_):
         if open_ == self.panel_open:
@@ -2612,6 +2995,8 @@ class DeskCalendar:
             self.set_panel(False)
             return
         self.sel_end = end
+        if self.glass and self.dates and not (self.dates[0] <= start <= self.dates[-1]):
+            self.view_start = self._week_start(start) - dt.timedelta(days=7)   # 선택한 날짜가 보이도록 이동
         if (start.year, start.month) != (self.view_y, self.view_m):
             self.view_y, self.view_m = start.year, start.month
         if self.mode == "inbox":      # 보관함에서는 '꺼낼 날짜'만 바뀐다
@@ -3160,6 +3545,7 @@ class DeskCalendar:
     def _drag_end(self, e):
         if self._drag:
             self._drag = None
+            self._gkey = None            # 창 위치가 바뀌면 유리 배경도 새 위치의 바탕화면으로 다시 만든다
             self._shift = 0
             self.conf["x"], self.conf["y"] = self.root.winfo_x(), self.root.winfo_y()
             self._save_conf()
@@ -3253,6 +3639,12 @@ class DeskCalendar:
         self.todo_entry.focus_force()
 
     def _tick(self):
+        if self.glass:     # 바탕화면 그림이 바뀌었으면 유리 배경도 새로 만든다
+            sig = glass.wallpaper_sig()
+            if sig != getattr(self, "_wsig", None):
+                self._wsig = sig
+                self._gkey = None
+                self.draw_calendar()
         now = dt.date.today()
         if now != self.today:  # 자정이 지나면 오늘 표시 갱신
             old, self.today = self.today, now

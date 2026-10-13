@@ -1051,12 +1051,17 @@ class FontDialog:
 
 
 class SettingsDialog:
-    """글자 크기·글꼴·색상 테마·강조색·중요도 색·투명도를 바꾸는 창 (바꾸는 즉시 적용)"""
+    """화면 설정: 작은 창 + 탭 (모양 / 글자 / 색 / 기타). 슬라이더는 움직이는 대로 바로 적용"""
+
+    TABS = ("모양", "글자", "색", "기타")
 
     def __init__(self, app):
         self.app = app
         S = app.S
-        self.top = _dialog(app, "화면 설정", S(500), S(720))
+        self.tab = "모양"
+        self.top = _dialog(app, "설정", S(360), S(500))
+        self.top.minsize(S(300), S(280))
+        self.top.resizable(True, True)
         self.build()
 
     def build(self):
@@ -1065,170 +1070,184 @@ class SettingsDialog:
         for w in top.winfo_children():
             w.destroy()
         top.configure(bg=SURFACE)
-        pad = S(22)
+        pad = S(16)
+        # 위: 탭 줄
+        bar = tk.Frame(top, bg=SURFACE)
+        bar.pack(side="top", fill="x", padx=pad, pady=(S(12), S(4)))
+        for name in self.TABS:
+            on = name == self.tab
+            Pill(bar, name, lambda n=name: self.set_tab(n), app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(4),
+                 **({"fg": "#ffffff", "bg": ACCENT, "hover": ACCENT} if on else {})).pack(side="left", padx=(0, S(4)))
+        tk.Frame(top, bg=BORDER, height=1).pack(side="top", fill="x")
+        # 아래: 닫기 / 기본값
         foot = tk.Frame(top, bg=SURFACE)
-        foot.pack(side="bottom", fill="x", padx=pad, pady=S(14))
+        foot.pack(side="bottom", fill="x", padx=pad, pady=S(10))
+        Pill(foot, "닫기", top.destroy, app.f_small, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.25),
+             parent_bg=SURFACE, padx=S(16), pady=S(4)).pack(side="right")
+        Pill(foot, "기본값", lambda: self.act(app.reset_appearance), app.f_small, parent_bg=SURFACE,
+             padx=S(12), pady=S(4)).pack(side="left")
         cv = tk.Canvas(top, bg=SURFACE, highlightthickness=0, bd=0)
-        cv.pack(fill="both", expand=True)
+        cv.pack(side="top", fill="both", expand=True)
         body = tk.Frame(cv, bg=SURFACE)
         win = cv.create_window((0, 0), window=body, anchor="nw")
         body.bind("<Configure>", lambda e: cv.configure(scrollregion=cv.bbox("all")))
         cv.bind("<Configure>", lambda e: cv.itemconfigure(win, width=e.width))
         scroll = lambda e: cv.yview_scroll(int(-e.delta / 120), "units")
         top.bind("<MouseWheel>", scroll)
+        self.body, self.pad = body, pad
+        getattr(self, "tab_" + {"모양": "look", "글자": "text", "색": "color", "기타": "misc"}[self.tab])()
+        for w in body.winfo_children():
+            w.bind("<MouseWheel>", scroll)
 
-        def section(title):
-            tk.Label(body, text=title, font=app.f_head, bg=SURFACE, fg=SUB, anchor="w").pack(
-                fill="x", padx=pad, pady=(S(14), S(6)))
+    # ── 공통 조각 ──
+    def set_tab(self, n):
+        self.tab = n
+        self.build()
 
-        def row():
-            f = tk.Frame(body, bg=SURFACE)
-            f.pack(fill="x", padx=pad)
-            return f
+    def row(self):
+        f = tk.Frame(self.body, bg=SURFACE)
+        f.pack(fill="x", padx=self.pad, pady=(self.app.S(8), 0))
+        return f
 
-        def pill(parent, text, cmd, on=False, **kw):
-            p = Pill(parent, text, cmd, app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(4),
-                     **({"fg": "#ffffff", "bg": ACCENT, "hover": ACCENT} if on else {}), **kw)
-            p.pack(side="left", padx=(0, S(6)))
-            return p
+    def pill(self, parent, text, cmd, on=False):
+        S = self.app.S
+        p = Pill(parent, text, cmd, self.app.f_small, parent_bg=SURFACE, padx=S(10), pady=S(3),
+                 **({"fg": "#ffffff", "bg": ACCENT, "hover": ACCENT} if on else {}))
+        p.pack(side="left", padx=(0, S(4)))
+        return p
 
-        tk.Label(body, text="화면 설정", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
-            fill="x", padx=pad, pady=(S(16), 0))
+    def label(self, text, sub=None):
+        app, S = self.app, self.app.S
+        f = tk.Frame(self.body, bg=SURFACE)
+        f.pack(fill="x", padx=self.pad, pady=(S(14), 0))
+        tk.Label(f, text=text, font=app.f_small, bg=SURFACE, fg=TEXT, anchor="w").pack(side="left")
+        val = tk.Label(f, text="", font=app.f_small, bg=SURFACE, fg=SUB, anchor="e")
+        val.pack(side="right")
+        return val
 
-        section("달력 모양")
-        r = row()
-        tk.Label(r, text="보기 방식", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+    def slider(self, text, lo, hi, cur, live, fmt=lambda v: f"{int(round(v))}%", release=None, step=1):
+        """text: 이름, live(v): 움직이는 동안 호출, release(v): 놓았을 때 호출"""
+        app, S = self.app, self.app.S
+        val = self.label(text)
+        val.config(text=fmt(cur))
+        sc = tk.Scale(self.body, from_=lo, to=hi, resolution=step, orient="horizontal", showvalue=False,
+                      bg=ACCENT, fg=TEXT, troughcolor=CARD, highlightthickness=0, bd=0, sliderrelief="flat",
+                      activebackground=ACCENT, length=S(200), width=S(10), sliderlength=S(18))
+        sc.set(cur)
+        sc.pack(fill="x", padx=self.pad, pady=(S(2), 0))
+
+        def on_move(v):
+            val.config(text=fmt(float(v)))
+            if live:
+                live(float(v))
+        sc.config(command=on_move)
+        if release:
+            sc.bind("<ButtonRelease-1>", lambda e: release(float(sc.get())))
+        return sc
+
+    # ── 탭 ──
+    def tab_look(self):
+        app, S = self.app, self.app.S
+        self.slider("투명도", 30, 100, int(round(app.alpha.get() * 100)), lambda v: app.set_alpha(v / 100))
+        gs = float(app.conf.get("glass_strength", 0.6))
+        self.slider("유리 진하기", 15, 95, int(round(gs * 100)),
+                    None, release=lambda v: app.set_style(glass_strength=round(v / 100, 2)))
+        self.slider("달력 칸 글자", 70, 240, int(round(float(app.conf.get("cal_font", 1.15)) * 100)),
+                    None, release=lambda v: app.set_cal_font(v / 100))
+        self.label("보기 방식")
+        r = self.row()
         st = app.conf.get("style", "glass")
-        pill(r, "유리(바탕화면 비침)", lambda: self.act(app.set_style, style="glass"), on=st == "glass")
-        pill(r, "카드", lambda: self.act(app.set_style, style="card"), on=st == "card")
-        r = row()
-        r.pack_configure(pady=(S(8), 0))
-        tk.Label(r, text="보이는 주", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+        self.pill(r, "유리", lambda: self.act(app.set_style, style="glass"), on=st == "glass")
+        self.pill(r, "카드", lambda: self.act(app.set_style, style="card"), on=st == "card")
+        self.label("보이는 주")
+        r = self.row()
         for n in (4, 5, 6):
-            pill(r, f"{n}주", lambda n=n: self.act(app.set_style, weeks=n), on=app.weeks == n)
-        r = row()
-        r.pack_configure(pady=(S(8), 0))
-        tk.Label(r, text="유리 색", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
-        gt = app.conf.get("glass_tint", "청록")
-        for name, rgb in glass.TINTS.items():
-            cv = tk.Canvas(r, width=S(26), height=S(26), bg=SURFACE, highlightthickness=0, cursor="hand2")
-            cv.create_oval(S(3), S(3), S(23), S(23), fill="#%02x%02x%02x" % rgb, outline=TEXT if gt == name else "",
-                           width=S(2))
+            self.pill(r, f"{n}주", lambda n=n: self.act(app.set_style, weeks=n), on=app.weeks == n)
+        self.label("유리 색")
+        r = self.row()
+        gt = app.conf.get("glass_tint", "그래파이트")
+        for name in glass.TINT_ORDER:
+            cv = tk.Canvas(r, width=S(24), height=S(24), bg=SURFACE, highlightthickness=0, cursor="hand2")
+            rgb = glass.TINTS[name]
+            cv.create_oval(S(3), S(3), S(21), S(21), fill="#%02x%02x%02x" % rgb, outline=TEXT if gt == name else BORDER,
+                           width=S(2) if gt == name else 1)
             cv.pack(side="left", padx=(0, S(4)))
             cv.bind("<Button-1>", lambda e, n=name: self.act(app.set_style, glass_tint=n))
-        r = row()
-        r.pack_configure(pady=(S(8), 0))
-        tk.Label(r, text="유리 진하기", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
-        gs = float(app.conf.get("glass_strength", 0.5))
-        pill(r, "－", lambda: self.act(app.set_style, glass_strength=round(max(0.15, gs - 0.1), 2)))
-        tk.Label(r, text=f"{int(round(gs * 100))}%", font=app.f_body, bg=SURFACE, fg=TEXT, width=5).pack(side="left")
-        pill(r, "＋", lambda: self.act(app.set_style, glass_strength=round(min(0.9, gs + 0.1), 2)))
+        self.label("음력 표시")
+        r = self.row()
+        lun = bool(app.conf.get("show_lunar", False))
+        self.pill(r, "끔", lambda: self.act(app.set_style, show_lunar=False), on=not lun)
+        self.pill(r, "켬", lambda: self.act(app.set_style, show_lunar=True), on=lun)
+        tk.Frame(self.body, bg=SURFACE, height=S(10)).pack()
 
-        section("글자")
-        r = row()
-        tk.Label(r, text="크기", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
-        pill(r, "－", lambda: self.act(app.set_ui_scale, app.ui - 0.1))
-        tk.Label(r, text=f"{int(round(app.ui * 100))}%", font=app.f_body, bg=SURFACE, fg=TEXT,
-                 width=5).pack(side="left")
-        pill(r, "＋", lambda: self.act(app.set_ui_scale, app.ui + 0.1))
-        pill(r, "기본", lambda: self.act(app.set_ui_scale, 1.0))
-        r = row()
-        r.pack_configure(pady=(S(8), 0))
-        tk.Label(r, text="달력 칸 글자", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
-        cal = float(app.conf.get("cal_font", 1.15))
-        pill(r, "－", lambda: self.act(app.set_cal_font, cal - 0.1))
-        tk.Label(r, text=f"{int(round(cal * 100))}%", font=app.f_body, bg=SURFACE, fg=TEXT,
-                 width=5).pack(side="left")
-        pill(r, "＋", lambda: self.act(app.set_cal_font, cal + 0.1))
-        pill(r, "기본", lambda: self.act(app.set_cal_font, 1.15))
-        r = row()
-        r.pack_configure(pady=(S(8), 0))
-        tk.Label(r, text="칸 안 줄 수", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+    def tab_text(self):
+        app, S = self.app, self.app.S
+        self.slider("전체 글자 크기", 70, 200, int(round(app.ui * 100)), None,
+                    release=lambda v: (app.set_ui_scale(v / 100), self.build()))
+        self.label("칸 안 줄 수 (카드 모양)")
+        r = self.row()
         cl = int(app.conf.get("cal_lines", 0))
-        for v, lab in ((0, "자동"), (1, "한 줄(간단)"), (2, "두 줄(자세히)")):
-            pill(r, lab, lambda v=v: self.act(app.update_conf_rebuild, cal_lines=v), on=cl == v)
-        r = row()
-        r.pack_configure(pady=(S(8), 0))
-        tk.Label(r, text="글꼴", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
-        tk.Label(r, text=app.family, font=app.f_body, bg=SURFACE, fg=ACCENT).pack(side="left", padx=(0, S(10)))
-        pill(r, "변경…", lambda: FontDialog(app, on_done=self.build))
-        r = row()
-        r.pack_configure(pady=(S(8), 0))
-        tk.Label(r, text="글자 색", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
-        self.swatch(r, TEXT, S(26))
-        pill(r, "선택…", lambda: self.pick("text_color", TEXT))
-        pill(r, "기본", lambda: self.act(app.update_appearance, text_color=None))
+        for v, lab in ((0, "자동"), (1, "한 줄"), (2, "두 줄")):
+            self.pill(r, lab, lambda v=v: self.act(app.update_conf_rebuild, cal_lines=v), on=cl == v)
+        self.label("글꼴")
+        r = self.row()
+        tk.Label(r, text=app.family, font=app.f_small, bg=SURFACE, fg=ACCENT).pack(side="left", padx=(0, S(8)))
+        self.pill(r, "변경…", lambda: FontDialog(app, on_done=self.build))
+        self.label("글자 색")
+        r = self.row()
+        self.swatch(r, TEXT, S(22))
+        self.pill(r, "선택…", lambda: self.pick("text_color", TEXT))
+        self.pill(r, "기본", lambda: self.act(app.update_appearance, text_color=None))
 
-        section("색상 테마")
-        r = row()
+    def tab_color(self):
+        app, S = self.app, self.app.S
+        self.label("색상 테마 (카드 모양)")
+        r = self.row()
         for name, th in THEMES.items():
             self.theme_card(r, name, th)
-
-        section("강조색")
-        r = row()
+        self.label("강조색")
+        r = self.row()
         for col in ACCENT_PRESETS:
-            c = tk.Canvas(r, width=S(28), height=S(28), bg=SURFACE, highlightthickness=0, cursor="hand2")
-            c.create_oval(S(3), S(3), S(25), S(25), fill=col, outline=TEXT if col == ACCENT else "",
-                          width=S(2))
-            c.pack(side="left", padx=(0, S(6)))
+            c = tk.Canvas(r, width=S(26), height=S(26), bg=SURFACE, highlightthickness=0, cursor="hand2")
+            c.create_oval(S(3), S(3), S(23), S(23), fill=col, outline=TEXT if col == ACCENT else "", width=S(2))
+            c.pack(side="left", padx=(0, S(4)))
             c.bind("<Button-1>", lambda e, col=col: self.act(app.update_appearance, accent=col))
-        pill(r, "직접 선택…", lambda: self.pick("accent", ACCENT))
-
-        section("중요도 색")
+        self.pill(r, "직접…", lambda: self.pick("accent", ACCENT))
+        self.label("중요도 색")
         for i, (name, col) in enumerate(PRIORITIES):
-            r = row()
-            r.pack_configure(pady=(0, S(4)))
-            self.swatch(r, col, S(22))
-            tk.Label(r, text=name, font=app.f_small, bg=SURFACE, fg=TEXT, width=9, anchor="w").pack(side="left")
-            pill(r, "색 변경…", lambda i=i, col=col: self.pick_pri(i, col))
+            r = self.row()
+            r.pack_configure(pady=(S(4), 0))
+            self.swatch(r, col, S(20))
+            tk.Label(r, text=name, font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+            self.pill(r, "변경…", lambda i=i, col=col: self.pick_pri(i, col))
 
-        section("알림")
+    def tab_misc(self):
+        app, S = self.app, self.app.S
+        self.label("일정 알림")
+        r = self.row()
         notify = app.conf.get("notify", True)
-        r = row()
-        pill(r, "일정 알림 켜짐" if notify else "일정 알림 꺼짐",
-             lambda: self.act(app.update_conf, notify=not notify), on=notify)
-        tk.Label(body, text="시간이 있는 일정을 미리 알려줘요 (PC가 켜져 있을 때)", font=app.f_tiny, bg=SURFACE,
-                 fg=DIM, anchor="w").pack(fill="x", padx=pad, pady=(S(4), 0))
-        r = row()
-        r.pack_configure(pady=(S(6), 0))
-        tk.Label(r, text="미리 알림", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+        self.pill(r, "켬", lambda: self.act(app.update_conf, notify=True), on=notify)
+        self.pill(r, "끔", lambda: self.act(app.update_conf, notify=False), on=not notify)
+        self.label("미리 알림")
+        r = self.row()
         lead = int(app.conf.get("lead", 10))
         for v, lab in ((0, "정시"), (5, "5분"), (10, "10분"), (30, "30분"), (60, "1시간")):
-            pill(r, lab, lambda v=v: self.act(app.update_conf, lead=v), on=lead == v)
-        r = row()
-        r.pack_configure(pady=(S(6), 0))
-        tk.Label(r, text="아침 요약", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+            self.pill(r, lab, lambda v=v: self.act(app.update_conf, lead=v), on=lead == v)
+        self.label("아침 요약")
+        r = self.row()
         brief = app.conf.get("brief", "09:00")
         for v, lab in (("", "끔"), ("08:00", "8시"), ("09:00", "9시"), ("10:00", "10시")):
-            pill(r, lab, lambda v=v: self.act(app.update_conf, brief=v), on=brief == v)
-
-        section("공휴일 (공공데이터포털 API)")
-        r = row()
+            self.pill(r, lab, lambda v=v: self.act(app.update_conf, brief=v), on=brief == v)
+        self.label("공휴일 API 키 (공공데이터포털)")
+        r = self.row()
         self.hol_entry = tk.Entry(r, font=app.f_small, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
                                   show="•", highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
         self.hol_entry.insert(0, app.conf.get("holiday_key", ""))
-        self.hol_entry.pack(side="left", fill="x", expand=True, ipady=S(5), padx=(0, S(8)))
-        pill(r, "저장 · 가져오기", self.save_holiday_key)
-        tk.Label(body, text=app.hol_status or "서비스키(일반 인증키)를 넣으면 임시공휴일·선거일·대체공휴일까지 정확히 반영돼요. "
-                 "비워 두면 내장 규칙을 써요. 키는 이 PC에만 저장돼요.", font=app.f_tiny, bg=SURFACE, fg=DIM,
-                 anchor="w", justify="left", wraplength=S(430)).pack(fill="x", padx=pad, pady=(S(4), 0))
-
-        section("투명도")
-        r = row()
-        sc = tk.Scale(r, from_=40, to=100, orient="horizontal", length=S(300), showvalue=True,
-                      bg=SURFACE, fg=TEXT, troughcolor=CARD, highlightthickness=0, bd=0,
-                      activebackground=ACCENT, command=lambda v: app.set_alpha(int(v) / 100))
-        sc.set(int(round(app.alpha.get() * 100)))
-        sc.pack(side="left")
-        tk.Frame(body, bg=SURFACE, height=S(10)).pack()
-
-        Pill(foot, "닫기", top.destroy, app.f_body, fg="#ffffff", bg=ACCENT,
-             hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(22), pady=S(6)
-             ).pack(side="right")
-        Pill(foot, "모두 기본값으로", lambda: self.act(app.reset_appearance), app.f_small,
-             parent_bg=SURFACE, padx=S(14), pady=S(6)).pack(side="left")
-        for w in body.winfo_children():
-            w.bind("<MouseWheel>", scroll)
+        self.hol_entry.pack(side="left", fill="x", expand=True, ipady=S(4), padx=(0, S(6)))
+        self.pill(r, "저장", self.save_holiday_key)
+        tk.Label(self.body, text=app.hol_status or "비워 두면 내장 규칙을 써요. 키는 이 PC에만 저장돼요.",
+                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(300)
+                 ).pack(fill="x", padx=self.pad, pady=(S(4), S(10)))
 
     def act(self, fn, *a, **kw):
         fn(*a, **kw)
@@ -2211,8 +2230,11 @@ class DeskCalendar:
         self._refresh_theme()
 
     def reset_appearance(self):
-        for k in ("theme", "accent", "text_color", "pri_colors", "font", "scale", "cal_font", "cal_lines"):
+        for k in ("theme", "accent", "text_color", "pri_colors", "font", "scale", "cal_font", "cal_lines",
+                  "glass_tint", "glass_strength", "show_lunar", "alpha"):
             self.conf.pop(k, None)
+        self.set_alpha(0.97)
+        self._gkey = None
         self.family = DEFAULT_FONT
         self.ui = 1.0
         self.scale = self.dpi_scale
@@ -2579,67 +2601,68 @@ class DeskCalendar:
             else:
                 self._draw_chip(x1, x2, yy, v, in_month, units=n)
 
-    # 유리(데스크탑) 모양 ─────────────────────────────────────────
+    # 유리(데스크탑) 모양: 아크릴 판 하나 + 얇은 선의 둥근 칸 ─────────────
     def _glass_layout(self, W, H):
         S = self.S
-        m, gap = S(6), S(2)
-        wk_w, hdr_h, wd_h, bot_h = S(28), S(42), S(26), S(28)
-        gx = m + wk_w + gap
-        gw = W - gx - m
+        m, pad, gap = S(4), S(10), S(4)
+        hdr_h, wd_h = S(44), S(22)
+        panel = (m, m, W - m, H - m)
+        gx, gw = m + pad, W - 2 * (m + pad)
         rows = self.weeks
-        y_wd = m + hdr_h + gap
-        y0 = y_wd + wd_h + gap
+        hdr = (gx, m + S(6), gx + gw, m + S(6) + hdr_h)
+        y_wd = hdr[3]
+        y0 = y_wd + wd_h + S(2)
         cw = (gw - 6 * gap) / 7
-        ch = (H - y0 - m - bot_h - gap - (rows - 1) * gap) / rows
+        ch = (H - m - pad - y0 - (rows - 1) * gap) / rows
         cells = []
         for i in range(7 * rows):
             c, r = i % 7, i // 7
             x1 = gx + c * (cw + gap)
             y1 = y0 + r * (ch + gap)
             cells.append((int(x1), int(y1), int(x1 + cw), int(y1 + ch)))
-        bottom = int(y0 + rows * (ch + gap))
-        return {"m": m, "gap": gap, "gx": gx, "y0": y0, "cw": cw, "ch": ch, "cells": cells,
-                "hdr": (gx, m, W - m, m + hdr_h),
-                "wd": [(cells[c][0], y_wd, cells[c][2], y_wd + wd_h) for c in range(7)],
-                "wk": [(m, cells[r * 7][1], m + wk_w, cells[r * 7][3]) for r in range(rows)],
-                "month": (gx, bottom, gx + int(cw), bottom + bot_h)}
+        return {"m": m, "gap": gap, "gx": gx, "y0": y0, "cw": cw, "ch": ch, "cells": cells, "panel": panel,
+                "hdr": hdr, "wd": [(cells[c][0], y_wd, cells[c][2], y_wd + wd_h) for c in range(7)]}
 
     def _glass_colors(self):
-        light = self.conf.get("glass_tint", "청록") == "밝게"
-        if light:
-            return {"txt": "#10202e", "dim": "#4d6072", "shadow": None, "sun": "#b4162f", "sat": "#1f5fb0",
-                    "pri": ["#a3112c", "#8a5a00", "#10202e", "#0b6b3f"], "done": "#6b7a86",
-                    "holiday": "#b4162f", "anniv": "#8a5a00", "term": "#0b6b3f", "line": "#ffffff"}
-        return {"txt": "#ffffff", "dim": "#cfe0ea", "shadow": "#07202c", "sun": "#ffb3bd", "sat": "#a9d4ff",
-                "pri": ["#ffc2cc", "#ffe2a8", "#ffffff", "#c6f6dd"], "done": "#b4c3cc",
-                "holiday": "#ff9aa9", "anniv": "#ffd54a", "term": "#8be28f", "line": "#ffffff"}
+        if self.conf.get("glass_tint", "그래파이트") == "밝게":
+            return {"txt": "#1c2230", "dim": "#6b7385", "sun": "#c8374a", "sat": "#2f6bd1",
+                    "pri": ["#c8374a", "#b7791f", "#2b3345", "#1f8a5b"], "done": "#9aa3b2",
+                    "holiday": "#c8374a", "anniv": "#b7791f", "term": "#1f8a5b", "line": "#7d8699", "light": True}
+        return {"txt": "#eceff5", "dim": "#8e98ab", "sun": "#f08a94", "sat": "#8fb4f2",
+                "pri": ["#ff8f9b", "#f2c374", "#dfe4ee", "#82d9a8"], "done": "#757f92",
+                "holiday": "#f08a94", "anniv": "#e5c07b", "term": "#86c9a0", "line": "#8e98ab", "light": False}
 
     def _gtext(self, x, y, text, font, fill, anchor="nw", shadow=None):
-        c = self.cal
-        if shadow:
-            c.create_text(x + 1, y + 1, text=text, font=font, fill=shadow, anchor=anchor)
-        return c.create_text(x, y, text=text, font=font, fill=fill, anchor=anchor)
+        return self.cal.create_text(x, y, text=text, font=font, fill=fill, anchor=anchor)
+
+    def _rr(self, x1, y1, x2, y2, r, **kw):
+        """둥근 사각형 (캔버스에는 없어서 부드러운 다각형으로)"""
+        r = max(1, min(r, (x2 - x1) / 2, (y2 - y1) / 2))
+        pts = [x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r, x2, y2 - r, x2, y2, x2 - r, y2, x1 + r, y2,
+               x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
+        return self.cal.create_polygon(pts, smooth=True, **kw)
 
     def _glass_bg(self, W, H, L):
-        """바탕화면을 흐리게 깔고 칸마다 반투명 색을 입힌 배경 그림 (창 위치·크기가 같으면 재사용)"""
+        """바탕화면을 흐리게 깔고 얇은 선의 칸을 얹은 배경 그림 (창 위치·크기가 같으면 재사용)"""
         try:
             from PIL import ImageTk
         except Exception:
             return None
         sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
         ox, oy = self.cal.winfo_rootx(), self.cal.winfo_rooty()
-        tint_name = self.conf.get("glass_tint", "청록")
-        strength = float(self.conf.get("glass_strength", 0.5))
+        tint_name = self.conf.get("glass_tint", "그래파이트")
+        strength = float(self.conf.get("glass_strength", 0.6))
         key = (W, H, ox, oy, self.weeks, tint_name, strength, self.scale)
         if key == self._gkey and self._gimg is not None:
             return self._gimg
         cx, cy = ox + W // 2, oy + H // 2
         wp = glass.wallpaper(sw, sh) if (0 <= cx < sw and 0 <= cy < sh) else None   # 보조 모니터는 기본 그라데이션
         wp = wp or glass.fallback_wallpaper(sw, sh)
-        rects = {"bars": [L["hdr"], *L["wd"], *L["wk"], L["month"]],
-                 "cells": [(*r, (i % 7) in (0, 6)) for i, r in enumerate(L["cells"])]}
-        im = glass.render_bg(wp, ox, oy, W, H, rects, tint=glass.TINTS.get(tint_name, glass.TINTS["청록"]),
-                             strength=strength, blur=max(6, self.S(14)), white_text=tint_name != "밝게")
+        cells = [(*r, (i % 7) in (0, 6)) for i, r in enumerate(L["cells"])]
+        im = glass.render_bg(wp, ox, oy, W, H, L["panel"], cells,
+                             tint=glass.TINTS.get(tint_name, glass.TINTS["그래파이트"]), strength=strength,
+                             blur=max(8, self.S(18)), radius=self.S(14), cell_radius=self.S(8),
+                             light=tint_name == "밝게")
         self._gimg = ImageTk.PhotoImage(im)
         self._gkey = key
         return self._gimg
@@ -2655,86 +2678,82 @@ class DeskCalendar:
         self.gm = L
         self._gcells = L["cells"]
         col = self._glass_colors()
-        sh = col["shadow"]
         img = self._glass_bg(W, H, L)
         if img is not None:
             c.create_image(0, 0, anchor="nw", image=img)
-        else:   # PIL 이 없을 때: 단색 칸
-            for r in [L["hdr"], *L["wd"], *L["wk"], L["month"], *L["cells"]]:
-                c.create_rectangle(*r, fill="#1e4a63", outline="#3a7090")
+        else:   # PIL 이 없을 때: 단색 판
+            self._rr(*L["panel"], S(14), fill="#1b1e29", outline="")
+            for r in L["cells"]:
+                self._rr(*r, S(8), fill="#232736", outline="")
         today = dt.date.today()
-        # 머리줄: 오늘 날짜 + (동기화 상태) + 버튼
+        # 머리줄: 큰 '2026년 10월' + 오른쪽 작은 버튼들
         hx1, hy1, hx2, hy2 = L["hdr"]
         mid_y = (hy1 + hy2) / 2
+        mid = self.dates[len(self.dates) // 2]
+        self._gtext(hx1 + S(4), mid_y, f"{mid.year}년 {mid.month}월", self.f_h2, col["txt"], "w")
+        title_w = self.f_h2.measure(f"{mid.year}년 {mid.month}월")
         self._gbtns = []
         labels = [("보관함", lambda e: self.open_inbox()), ("공문", lambda e: self.import_pdf()),
-                  ("검색", lambda e: self.open_search()), ("글자 －", lambda e: self.cal_font_step(-0.1)),
-                  ("＋", lambda e: self.cal_font_step(0.1)), ("설정", lambda e: self.open_settings()),
-                  ("메뉴 ☰", lambda e: self.menu.tk_popup(e.x_root, e.y_root)),
+                  ("검색", lambda e: self.open_search()), ("설정", lambda e: self.open_settings()),
+                  ("☰", lambda e: self.menu.tk_popup(e.x_root, e.y_root)),
                   ("‹", lambda e: self.shift_weeks(-1)), ("오늘", lambda e: self.go_today()),
                   ("›", lambda e: self.shift_weeks(1))]
-        x = hx2 - S(10)
+        x = hx2
         fb = self.f_small
         for text, fn in reversed(labels):
             wd = fb.measure(text)
-            x1 = x - wd - S(8)
-            btn = (x1, hy1 + S(6), x, hy2 - S(6), fn, text)
+            x1 = x - wd - S(14)
+            btn = (x1, mid_y - S(13), x, mid_y + S(13), fn, text)
             self._gbtns.append(btn)
             hov = self._ghover == text
             if hov:
-                c.create_rectangle(x1, hy1 + S(6), x, hy2 - S(6), fill="#ffffff", outline="", stipple="gray25")
-            self._gtext(x1 + S(4), mid_y, text, fb, col["txt"] if text in ("오늘", "‹", "›") or hov else col["dim"],
-                        "w", sh)
-            x = x1 - S(6)
-        lun = glass.lunar_text(today)
-        title = f"오늘은 {today.year}년 {today.month}월 {today.day}일 {WEEKDAY_KO[today.weekday()]}요일 {lun}"
-        space_l, space_r = hx1 + S(10), x
-        tw = self.f_body.measure(title)
-        tx = max(space_l, (space_l + space_r) / 2 - tw / 2) if space_r - space_l > tw else space_l
-        self._gtext(tx, mid_y, title, self.f_body, col["txt"], "w", sh)
-        if self.sync_cfg() and self.sync_status and tx - space_l > S(160):
-            self._gtext(space_l, mid_y, "☁ " + self.sync_status.split(" · ")[0], self.f_tiny, col["dim"], "w", sh)
-        # 요일 줄 / 주 번호
+                self._rr(x1, mid_y - S(13), x, mid_y + S(13), S(7), fill="#ffffff", outline="", stipple="gray12")
+            strong = text in ("오늘", "‹", "›")
+            self._gtext((x1 + x) / 2, mid_y, text, fb, col["txt"] if strong or hov else col["dim"], "center")
+            x = x1 - S(2)
+        if self.sync_cfg() and self.sync_status and x - (hx1 + title_w) > S(150):
+            self._gtext(hx1 + title_w + S(14), mid_y + S(2), "☁ " + self.sync_status.split(" · ")[0],
+                        self.f_tiny, col["dim"], "w")
         for i, r in enumerate(L["wd"]):
-            fg = col["sun"] if i == 0 else col["sat"] if i == 6 else col["txt"]
-            self._gtext((r[0] + r[2]) / 2, (r[1] + r[3]) / 2, "일월화수목금토"[i] + "요일", self.f_small, fg, "center", sh)
-        for r_i, r in enumerate(L["wk"]):
-            d0 = self.dates[r_i * 7]
-            wk = (d0 + dt.timedelta(days=1)).isocalendar()[1]
-            self._gtext((r[0] + r[2]) / 2, (r[1] + r[3]) / 2, str(wk), self.f_tiny, col["dim"], "center", sh)
-        mid = self.dates[len(self.dates) // 2]
-        mr = L["month"]
-        self._gtext((mr[0] + mr[2]) / 2, (mr[1] + mr[3]) / 2, f"{mid.month}월", self.f_small, col["txt"], "center", sh)
-        self._gbtns.append((*mr, lambda e: self.jump_next_month(), "month"))
-        # 날짜 칸
+            fg = col["sun"] if i == 0 else col["sat"] if i == 6 else col["dim"]
+            self._gtext((r[0] + r[2]) / 2, (r[1] + r[3]) / 2, "일월화수목금토"[i], self.f_small, fg, "center")
         for i, d in enumerate(self.dates):
             self._glass_cell(i, d, L["cells"][i], today, col)
 
     def _glass_cell(self, i, d, rect, today, col):
         c, S = self.cal, self.S
         x1, y1, x2, y2 = rect
-        sh = col["shadow"]
-        pad = S(5)
+        pad = S(7)
         wd = (d.weekday() + 1) % 7
         label, kind = glass.special_day(d)
+        in_cur = d.month == self.dates[len(self.dates) // 2].month
         num_fg = col["holiday"] if kind == "holiday" or wd == 0 else col["sat"] if wd == 6 else col["txt"]
-        ny = y1 + S(3)
-        self._gtext(x1 + pad, ny, str(d.day), self.f_day, num_fg, "nw", sh)
-        off = x1 + pad + self.f_day.measure(str(d.day)) + S(6)
+        if not in_cur:
+            num_fg = col["dim"]
+        ny = y1 + S(5)
+        dnum = str(d.day)
+        nw = self.f_day.measure(dnum)
+        nh = self.f_day.metrics("linespace")
+        if d == today:                                   # 오늘: 강조색 알약 + 흰 글자
+            self._rr(x1 + pad - S(5), ny - S(1), x1 + pad + nw + S(5), ny + nh + S(1), S(9), fill=ACCENT, outline="")
+            num_fg = "#ffffff"
+        self._gtext(x1 + pad, ny, dnum, self.f_day, num_fg, "nw")
+        off = x1 + pad + nw + S(10)
         if label:
-            self._gtext(off, ny + S(1), label, self.f_small, col[kind], "nw", sh)
-        else:
-            self._gtext(off, ny + S(2), glass.lunar_text(d), self.f_tiny, col["dim"], "nw", sh)
+            self._gtext(off, ny + S(2), label, self.f_tiny, col[kind], "nw")
+        elif self.conf.get("show_lunar", False):
+            self._gtext(off, ny + S(2), glass.lunar_text(d), self.f_tiny, col["dim"], "nw")
         font, fdone = self.f_chip, self.f_chip_done
-        lh = font.metrics("linespace") + 1
-        y = ny + self.f_day.metrics("linespace") + S(4)
-        bottom = y2 - S(3)
-        maxw = x2 - x1 - 2 * pad
+        lh = font.metrics("linespace") + S(2)
+        y = ny + nh + S(6)
+        bottom = y2 - S(4)
+        dot = S(5)
+        maxw = x2 - x1 - 2 * pad - dot - S(6)
         rows = [r for r in core.day_items(self.data, d)
                 if not (item_end(r[1], r[2]) and r[2] != d and d != self.dates[0])]   # 기간 일정은 시작일에만 (보이는 첫 칸 포함)
         rows.sort(key=lambda r: sort_key(r[1]))
         clipped = False
-        for k, (lst, t, s0) in enumerate(rows, 1):
+        for lst, t, s0 in rows:
             done = t.get("done", False)
             e0 = item_end(t, s0)
             text = t.get("text", "")
@@ -2742,38 +2761,37 @@ class DeskCalendar:
                 text = t["time"] + " " + text
             if e0:
                 text += f" ~{e0.month}.{e0.day}"
-            prefix = f"{k}. "
-            pw = font.measure(prefix)
-            lines = self._wrap_lines(text, fdone if done else font, maxw - pw, 99)
-            fg = col["done"] if done else col["pri"][pri_of(t)]
+            lines = self._wrap_lines(text, fdone if done else font, maxw, 99)
+            p = pri_of(t)
+            fg = col["done"] if done else (col["pri"][p] if p < 2 else col["txt"])
+            dot_c = col["done"] if done else col["pri"][p] if p != 2 else ACCENT
             top = y
             for li, line in enumerate(lines):
                 if y + lh > bottom:
                     clipped = True
                     break
                 if li == 0:
-                    self._gtext(x1 + pad, y, prefix, font, fg, "nw", sh)
-                self._gtext(x1 + pad + pw, y, line, fdone if done else font, fg, "nw", sh)
+                    c.create_oval(x1 + pad, y + lh / 2 - dot / 2 - 1, x1 + pad + dot, y + lh / 2 + dot / 2 - 1,
+                                  fill=dot_c, outline="")
+                self._gtext(x1 + pad + dot + S(6), y, line, fdone if done else font, fg, "nw")
                 y += lh
             if y > top:
                 self._hits.append((x1 + pad, top, x2 - pad, y, t))
+                y += S(2)
             if clipped:
                 break
         if clipped:
-            self._gtext(x2 - pad, y2 - S(3), "… 더 보기", self.f_tiny, col["dim"], "se", sh)
+            self._gtext(x2 - pad, y2 - S(4), "더 보기", self.f_tiny, col["dim"], "se")
         elif not rows:
             memo = (self.data.get(d.isoformat(), {}).get("memo", "").strip().splitlines() or [""])[0]
             if memo:
-                self._gtext(x1 + pad, y, self._fit("✎ " + memo, font, maxw), font, col["dim"], "nw", sh)
-        # 오늘 / 선택 / 마우스 올림
-        if d == today:
-            c.create_rectangle(x1, y1, x2 - 1, y2 - 1, outline="#ffffff", width=2)
-            c.create_rectangle(x1 + 3, y1 + 3, x2 - 4, y2 - 4, outline="#fff7c2", width=1)
+                self._gtext(x1 + pad, y, self._fit("✎ " + memo, font, x2 - x1 - 2 * pad), font, col["dim"], "nw")
+        # 선택 / 마우스 올림
         rng = self._sel_range()
         if (rng and rng[0] <= d <= rng[1]) or (self._move is not None and self._move_to == i):
-            c.create_rectangle(x1 + 1, y1 + 1, x2 - 2, y2 - 2, outline="#ffd54a", width=2)
+            self._rr(x1 + 1, y1 + 1, x2 - 2, y2 - 2, S(8), fill="", outline=ACCENT, width=2)
         elif i == self.hover_idx:
-            c.create_rectangle(x1, y1, x2 - 1, y2 - 1, outline=col["line"], width=1)
+            self._rr(x1, y1, x2 - 1, y2 - 1, S(8), fill="", outline=col["line"], width=1)
 
     def _cell_at(self, x, y):
         if self.glass:

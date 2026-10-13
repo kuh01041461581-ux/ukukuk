@@ -43,7 +43,7 @@ dependencies:
   workmanager: ^0.7.0
   receive_sharing_intent: ^1.8.1
   pdfrx: ^1.0.101
-  google_mlkit_text_recognition: ^0.15.0
+  google_mlkit_text_recognition: 0.13.1
   image_picker: ^1.1.2
 
 dev_dependencies:

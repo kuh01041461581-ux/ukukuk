@@ -9,17 +9,17 @@ import 'holidays.dart';
 import 'notify.dart';
 import 'store.dart';
 
-const cBg = Color(0xFF14151A);
-const cSurface = Color(0xFF1A1B22);
-const cCard = Color(0xFF212230);
-const cBorder = Color(0xFF2B2D3B);
-const cText = Color(0xFFECECF3);
-const cSub = Color(0xFFA1A4B8);
-const cDim = Color(0xFF5E6178);
+const cBg = Color(0xFF111218);
+const cSurface = Color(0xFF181A22);
+const cCard = Color(0xFF1D1F29);
+const cBorder = Color(0xFF2A2D3A);
+const cText = Color(0xFFECEFF5);
+const cSub = Color(0xFF98A2B3);
+const cDim = Color(0xFF6A7387);
 const cAccent = Color(0xFF7C6CFF);
-const cSun = Color(0xFFFF6B81);
-const cSat = Color(0xFF5DB8FF);
-const priColors = [Color(0xFFFF5C7A), Color(0xFFFFB547), Color(0xFF8B7BFF), Color(0xFF3DDC97)];
+const cSun = Color(0xFFF08A94);
+const cSat = Color(0xFF8FB4F2);
+const priColors = [Color(0xFFFF8F9B), Color(0xFFF2C374), Color(0xFFDFE4EE), Color(0xFF82D9A8)];
 const priNames = ['매우 중요', '중요', '보통', '낮음'];
 const appVersion = String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
 const weekdayKo = ['월', '화', '수', '목', '금', '토', '일'];
@@ -148,13 +148,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             InboxPage(store: store),
             ConnectPage(store: store),
           ]),
-          floatingActionButton: tab == 0
-              ? FloatingActionButton(
-                  backgroundColor: cAccent,
-                  foregroundColor: Colors.white,
-                  onPressed: () => showItemEditor(context, store, date: selected),
-                  child: const Icon(Icons.add))
-              : tab == 2
+          floatingActionButton: tab == 2
                   ? FloatingActionButton(
                       backgroundColor: cAccent,
                       foregroundColor: Colors.white,
@@ -202,7 +196,7 @@ class CalendarPage extends StatelessWidget {
           IconButton(onPressed: () => onMonth(DateTime(month.year, month.month - 1)), icon: const Icon(Icons.chevron_left)),
           Expanded(
               child: Text('${month.year}년 ${month.month}월',
-                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
+                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
           IconButton(onPressed: () => onMonth(DateTime(month.year, month.month + 1)), icon: const Icon(Icons.chevron_right)),
           TextButton(
               onPressed: () {
@@ -220,7 +214,6 @@ class CalendarPage extends StatelessWidget {
                       style: TextStyle(fontSize: 12, color: i == 0 ? cSun : (i == 6 ? cSat : cSub))))),
       ]),
       Expanded(
-        flex: 6,
         child: GestureDetector(
           onHorizontalDragEnd: (d) {
             final v = d.primaryVelocity ?? 0;
@@ -231,18 +224,16 @@ class CalendarPage extends StatelessWidget {
             for (var w = 0; w < 6; w++)
               Expanded(
                 child: Row(children: [
-                  for (var c = 0; c < 7; c++) Expanded(child: _cell(addDays(gridStart, w * 7 + c), today)),
+                  for (var c = 0; c < 7; c++) Expanded(child: _cell(context, addDays(gridStart, w * 7 + c), today)),
                 ]),
               ),
           ]),
         ),
       ),
-      const Divider(height: 1),
-      Expanded(flex: 4, child: DayPanel(store: store, date: selected)),
     ]);
   }
 
-  Widget _cell(DateTime d, DateTime today) {
+  Widget _cell(BuildContext context, DateTime d, DateTime today) {
     final inMonth = d.month == month.month;
     final isToday = sameDay(d, today);
     final sel = sameDay(d, selected);
@@ -252,17 +243,19 @@ class CalendarPage extends StatelessWidget {
     Color numColor = !inMonth ? cDim : (h != null || wd == 0) ? cSun : (wd == 6 ? cSat : cText);
     if (isToday) numColor = Colors.white;
     return GestureDetector(
-      onTap: () => onSelect(d),
+      onTap: () {
+        onSelect(d);
+        showDaySheet(context, store, d);
+      },
       child: Container(
         margin: const EdgeInsets.all(1.5),
         decoration: BoxDecoration(
-          color: sel ? cAccent.withOpacity(0.18) : (inMonth ? cCard : cSurface),
-          borderRadius: BorderRadius.circular(8),
-          border: sel ? Border.all(color: cAccent, width: 1.5) : null,
+          color: sel ? cAccent.withOpacity(0.14) : (inMonth ? Colors.white.withOpacity(0.035) : Colors.transparent),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: sel ? cAccent : Colors.white.withOpacity(inMonth ? 0.08 : 0.04), width: sel ? 1.4 : 1),
         ),
         child: LayoutBuilder(builder: (context, c) {
-          // 칸 높이에 맞춰 보여 줄 줄 수를 정한다: 달력만 봐도 할 일이 읽히도록 글자로 표시
-          final slots = ((c.maxHeight - 26) / 12).floor().clamp(1, 6);
+          final slots = ((c.maxHeight - 24) / 11.5).floor().clamp(1, 7);
           final entries = <(String, Color, bool, bool)>[]; // 글자, 색, 완료, 공휴일
           if (h != null) entries.add((h, inMonth ? cSun : cDim, false, true));
           for (final r in rows) {
@@ -272,43 +265,208 @@ class CalendarPage extends StatelessWidget {
           final over = entries.length > slots;
           final show = over ? slots - 1 : entries.length;
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Center(
               child: Container(
                 width: 20,
-                height: 20,
+                height: 18,
                 alignment: Alignment.center,
-                decoration: isToday ? const BoxDecoration(color: cAccent, shape: BoxShape.circle) : null,
+                decoration: isToday ? BoxDecoration(color: cAccent, borderRadius: BorderRadius.circular(9)) : null,
                 child: Text('${d.day}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: numColor)),
               ),
             ),
-            const SizedBox(height: 1),
+            const SizedBox(height: 2),
             for (var i = 0; i < show; i++)
               entries[i].$4
                   ? Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 3),
                       child: Text(entries[i].$1,
-                          maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: TextStyle(fontSize: 8.5, color: entries[i].$2)))
-                  : Container(
-                      margin: const EdgeInsets.fromLTRB(2, 0, 2, 1),
-                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0.5),
-                      decoration: BoxDecoration(color: entries[i].$2.withOpacity(0.22), borderRadius: BorderRadius.circular(3)),
-                      child: Text(entries[i].$1,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.clip,
-                          style: TextStyle(
-                              fontSize: 9,
-                              height: 1.15,
-                              color: entries[i].$3 ? cDim : Color.lerp(entries[i].$2, Colors.white, 0.45),
-                              decoration: entries[i].$3 ? TextDecoration.lineThrough : null))),
+                          maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: TextStyle(fontSize: 8, color: entries[i].$2)))
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(3, 0, 2, 1.5),
+                      child: Row(children: [
+                        Container(
+                            width: 3.5,
+                            height: 3.5,
+                            margin: const EdgeInsets.only(right: 2),
+                            decoration: BoxDecoration(color: entries[i].$2, shape: BoxShape.circle)),
+                        Expanded(
+                            child: Text(entries[i].$1,
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.clip,
+                                style: TextStyle(
+                                    fontSize: 8.5,
+                                    height: 1.1,
+                                    color: entries[i].$3 ? cDim : cText.withOpacity(0.92),
+                                    decoration: entries[i].$3 ? TextDecoration.lineThrough : null))),
+                      ])),
             if (over)
               Padding(
-                  padding: const EdgeInsets.only(left: 3, top: 1),
-                  child: Text('+${entries.length - show}', style: const TextStyle(fontSize: 9, color: cSub))),
+                  padding: const EdgeInsets.only(left: 4, top: 0),
+                  child: Text('+${entries.length - show}', style: const TextStyle(fontSize: 8.5, color: cSub))),
           ]);
         }),
       ),
+    );
+  }
+}
+
+// 날짜를 누르면 아래에서 올라오는 메모 앱 같은 시트: 입력칸이 맨 위, 일정 목록, 메모
+void showDaySheet(BuildContext context, AppStore store, DateTime d) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: cSurface,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (ctx) => DaySheet(store: store, date: d),
+  );
+}
+
+class DaySheet extends StatefulWidget {
+  final AppStore store;
+  final DateTime date;
+  const DaySheet({super.key, required this.store, required this.date});
+  @override
+  State<DaySheet> createState() => _DaySheetState();
+}
+
+class _DaySheetState extends State<DaySheet> {
+  late DateTime date = widget.date;
+  final entry = TextEditingController();
+  late final TextEditingController memo = TextEditingController(text: widget.store.memoOf(widget.date));
+  int pri = 2;
+
+  @override
+  void dispose() {
+    _saveMemo();
+    entry.dispose();
+    memo.dispose();
+    super.dispose();
+  }
+
+  void _saveMemo() {
+    if (memo.text != widget.store.memoOf(date)) widget.store.setMemo(date, memo.text);
+  }
+
+  void _go(int n) {
+    _saveMemo();
+    setState(() {
+      date = addDays(date, n);
+      memo.text = widget.store.memoOf(date);
+    });
+  }
+
+  void _add() {
+    final text = entry.text.trim();
+    if (text.isEmpty) return;
+    final t = newItem(text, extra: {'pri': pri});
+    final m = RegExp(r'^(\d{1,2}):(\d{2})\s+(.+)$').firstMatch(text);
+    if (m != null && int.parse(m.group(1)!) < 24 && int.parse(m.group(2)!) < 60) {
+      t['text'] = m.group(3)!.trim();
+      t['time'] = '${m.group(1)!.padLeft(2, '0')}:${m.group(2)}';
+    }
+    widget.store.add(iso(date), t);
+    entry.clear();
+    setState(() => pri = 2);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final kb = MediaQuery.of(context).viewInsets.bottom;
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final rows = dayItems(store.data, date);
+        final h = holidayName(date);
+        final today = dayOnly(DateTime.now());
+        return Padding(
+          padding: EdgeInsets.only(bottom: kb),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.78,
+            child: Column(children: [
+              Container(
+                  width: 36, height: 4, margin: const EdgeInsets.only(top: 8),
+                  decoration: BoxDecoration(color: cBorder, borderRadius: BorderRadius.circular(2))),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 6, 8, 0),
+                child: Row(children: [
+                  IconButton(onPressed: () => _go(-1), icon: const Icon(Icons.chevron_left)),
+                  Expanded(
+                      child: Column(children: [
+                    Text(dateLabel(date), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    if (h != null || sameDay(date, today))
+                      Text([if (sameDay(date, today)) '오늘', if (h != null) h].join(' · '),
+                          style: TextStyle(fontSize: 11, color: h != null ? cSun : cAccent)),
+                  ])),
+                  IconButton(onPressed: () => _go(1), icon: const Icon(Icons.chevron_right)),
+                ]),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: entry,
+                      autofocus: true,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _add(),
+                      style: const TextStyle(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: '새 일정 입력 (예: 14:30 회의)',
+                        hintStyle: const TextStyle(fontSize: 13, color: cDim),
+                        isDense: true,
+                        filled: true,
+                        fillColor: cCard,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => setState(() => pri = (pri + 3) % 4), // 보통 → 낮음 → … 돌려가며 선택
+                    child: Container(
+                        width: 28, height: 28, alignment: Alignment.center,
+                        child: Container(width: 14, height: 14, decoration: BoxDecoration(color: priColors[pri], shape: BoxShape.circle))),
+                  ),
+                  IconButton.filled(
+                      style: IconButton.styleFrom(backgroundColor: cAccent, minimumSize: const Size(36, 36)),
+                      onPressed: _add,
+                      icon: const Icon(Icons.arrow_upward, size: 18)),
+                ]),
+              ),
+              Expanded(
+                child: ListView(padding: const EdgeInsets.only(top: 6, bottom: 8), children: [
+                  if (rows.isEmpty)
+                    const Padding(
+                        padding: EdgeInsets.all(22),
+                        child: Center(child: Text('이 날의 일정이 없어요', style: TextStyle(color: cDim, fontSize: 13)))),
+                  for (final r in rows) ItemTile(store: store, row: r),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                    child: TextField(
+                      controller: memo,
+                      minLines: 3,
+                      maxLines: 6,
+                      onChanged: (_) => _saveMemo(),
+                      style: const TextStyle(fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: '메모',
+                        hintStyle: const TextStyle(color: cDim, fontSize: 13),
+                        filled: true,
+                        fillColor: cCard,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                      ),
+                    ),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        );
+      },
     );
   }
 }
@@ -425,7 +583,7 @@ class ItemTile extends StatelessWidget {
         ),
         title: Text(t['text'] as String? ?? '',
             style: TextStyle(
-                fontSize: 15,
+                fontSize: 14,
                 color: done ? cDim : cText,
                 decoration: done ? TextDecoration.lineThrough : null)),
         subtitle: (tags.isEmpty && note.isEmpty)

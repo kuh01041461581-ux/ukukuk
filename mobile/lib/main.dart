@@ -21,6 +21,7 @@ import 'package:image_picker/image_picker.dart';
 import 'share_import.dart';
 import 'widget_sync.dart';
 import 'store.dart';
+import 'work_page.dart';
 
 const cBg = Color(0xFF0F1015);
 const cSurface = Color(0xFF16171F);
@@ -202,7 +203,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         if (mounted) showDaySheet(context, widget.store, d);
       });
     } else if (u.host == 'tasks') {
-      setState(() => tab = 2);
+      setState(() => tab = 3);
     }
   }
 
@@ -262,7 +263,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (r is DateTime) {
       jump(r);
     } else if (r == 'inbox') {
-      setState(() => tab = 2);
+      setState(() => tab = 3);
     }
   }
 
@@ -272,7 +273,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        final titles = ['', '예정', '보관함', '연결 · 설정'];
+        final titles = ['', '예정', '업무', '보관함', '연결 · 설정'];
         final now = DateTime.now();
         final pages = <Widget>[
           CalendarPage(
@@ -288,6 +289,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             }),
           ),
           AgendaPage(key: const ValueKey('agenda'), store: store, onJump: jump),
+          WorkPage(key: const ValueKey('work'), store: store, onJump: jump),
           InboxPage(key: const ValueKey('inbox'), store: store),
           ConnectPage(key: const ValueKey('connect'), store: store),
         ];
@@ -337,7 +339,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                       position: Tween(begin: const Offset(0, 0.03), end: Offset.zero).animate(anim), child: child)),
               child: KeyedSubtree(key: ValueKey(tab), child: pages[tab]),
             ),
-            floatingActionButton: tab == 2
+            floatingActionButton: tab == 3
                 ? FloatingActionButton.extended(
                     backgroundColor: cAccent,
                     foregroundColor: Colors.white,
@@ -367,6 +369,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           label: '달력'),
                       NavigationDestination(
                           icon: Icon(Icons.view_agenda_outlined), selectedIcon: Icon(Icons.view_agenda_rounded), label: '예정'),
+                      NavigationDestination(
+                          icon: Icon(Icons.work_outline_rounded), selectedIcon: Icon(Icons.work_rounded), label: '업무'),
                       NavigationDestination(
                           icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox_rounded), label: '보관함'),
                       NavigationDestination(icon: Icon(Icons.tune_rounded), selectedIcon: Icon(Icons.tune_rounded), label: '설정'),

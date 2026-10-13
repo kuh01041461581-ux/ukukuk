@@ -14,6 +14,10 @@ void main() {
     final today = dayOnly(DateTime.now());
     store.add(iso(today), newItem('통합전수관 당직 근무 길게 길게 쓰는 일정'));
     store.add(iso(today), newItem('두번째', extra: {'pri': 0}));
+    store.data['_work'] = {
+      'c1': {'id': 'c1', 'title': '수요조사 제출 요청', 'due': iso(addDays(today, 3)), 'updated': 1, 'created': 1}
+    };
+    store.add(iso(today), newItem('설명회 참석', extra: {'case': 'c1'}));
     await tester.binding.setSurfaceSize(const Size(393, 852));
     await tester.pumpWidget(DeskApp(store));
     await tester.pump(const Duration(milliseconds: 600));
@@ -33,6 +37,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 150));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.tap(find.text('예정'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.tap(find.text('업무'));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('D-3'), findsOneWidget);
+    await tester.tap(find.text('수요조사 제출 요청'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('설명회 참석'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.task_alt_rounded));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(store.data['_work']['c1']['done'], true);
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.tap(find.text('보관함'));
     await tester.pump(const Duration(milliseconds: 600));

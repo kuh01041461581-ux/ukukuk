@@ -68,7 +68,7 @@ const repeatLabels = [
   ['mw', '매월 n째 요일'], ['q', '분기마다'], ['h', '반기마다'], ['y', '매년']
 ];
 const _nth = {1: '첫째', 2: '둘째', 3: '셋째', 4: '넷째', -1: '마지막'};
-const weekdayKo = '월화수목금토일';
+const wdKo = '월화수목금토일';
 
 int nthOf(DateTime d) {
   final k = (d.day - 1) ~/ 7 + 1;
@@ -103,7 +103,7 @@ String repeatCode(Json? rep) {
 String repeatLabel(Json rep, [DateTime? start]) {
   final code = repeatCode(rep);
   if (code == 'mw') {
-    final wd = start == null ? '' : weekdayKo[start.weekday - 1];
+    final wd = start == null ? '' : wdKo[start.weekday - 1];
     return '매월 ${_nth[(rep['k'] as num?)?.toInt() ?? 1] ?? ''} $wd요일'.replaceAll('  ', ' ');
   }
   final n = (rep['n'] as num?)?.toInt() ?? 1;

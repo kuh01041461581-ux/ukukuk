@@ -343,7 +343,6 @@ def start_tray(q):
         pystray.MenuItem("오늘 일정 추가", put("add")),
         pystray.MenuItem("클립보드 내용으로 일정 만들기", put("clip")),
         pystray.MenuItem("업무 관리", put("work")),
-        pystray.MenuItem("주간 업무 보고", put("report")),
         pystray.MenuItem("휴대폰 연결", put("phone")),
         pystray.MenuItem("설정", put("settings")),
         pystray.Menu.SEPARATOR,
@@ -628,7 +627,7 @@ class ImportDialog:
         if picked or case:
             msg = f"{len(picked)}개 일정을 추가했어요."
             if case:
-                msg += "\n업무 폴더도 만들었어요. 제출 현황·양식 취합은 '업무'에서 할 수 있어요."
+                msg += "\n업무 폴더도 만들었어요. '업무'에서 기한과 폴더를 볼 수 있어요."
             NotifyPopup(app, "가져오기 완료", msg, beep=False,
                         actions=[("업무 열기", lambda: app.open_work(case["id"]))] if case else None)
 
@@ -1089,8 +1088,7 @@ class CommandBar:
         cmds = [("오늘로 이동", "달력", app.go_today), ("설정 열기", "설정", app.open_settings),
                 ("휴대폰 연결 (QR)", "폰 연결 동기화", lambda: PhoneDialog(app)),
                 ("공문 가져오기 (PDF·한글)", "공문 pdf 한글 hwp 가져오기", app.import_pdf),
-                ("업무 관리 · 제출 현황", "업무 제출 취합 양식 독촉 폴더", app.open_work),
-                ("주간 업무 보고 만들기", "보고 주간 월간 실적 계획", app.open_report),
+                ("업무 관리 · 업무 폴더", "업무 공문 폴더 기한", app.open_work),
                 ("반복 업무 추가", "반복 정기 템플릿 매월 분기", app.open_templates),
                 ("보관함 열기", "보관함 인박스", app.open_inbox), ("사용법 보기", "도움말 사용법", app.open_help)]
         q = q.lower()
@@ -1650,8 +1648,8 @@ class SettingsDialog:
                  wraplength=S(300)).pack(side="left", fill="x", expand=True)
         self.pill(r, "변경…", self.pick_work_root)
         self.pill(r, "열기", lambda: (os.makedirs(app.work_root(), exist_ok=True), open_path(app.work_root())))
-        tk.Label(self.body, text="공문 한 건마다 '연도\\월일 제목' 폴더가 생기고 그 안에 1.공문 · 2.양식·배포 · 3.제출받은 파일 · "
-                                 "4.취합 결과 폴더가 만들어져요.", font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w",
+        tk.Label(self.body, text="공문 한 건마다 '연도\\월일 제목' 폴더가 생기고 그 안에 1.공문 · 2.작성 자료 · 3.제출본 "
+                                 "폴더가 만들어져요.", font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w",
                  justify="left", wraplength=S(400)).pack(fill="x", padx=self.pad, pady=(S(4), 0))
         self.label("공문을 넣으면 업무 폴더 만들기")
         r = self.row()
@@ -1667,16 +1665,6 @@ class SettingsDialog:
                                  "복사한 글은 이 PC 안에서만 읽고 어디에도 보내지 않아요.",
                  font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(400)
                  ).pack(fill="x", padx=self.pad, pady=(S(4), 0))
-        self.label("저장된 제출 대상 목록")
-        groups = app.conf.get("target_groups") or {}
-        if not groups:
-            tk.Label(self.body, text="업무 → 대상 편집에서 '이 목록을 이름 붙여 저장' 하면 여기 보여요.",
-                     font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=self.pad, pady=(S(4), 0))
-        for name, names in groups.items():
-            r = self.row()
-            tk.Label(r, text=f"{name}  ·  {len(names)}곳", font=app.f_small, bg=SURFACE, fg=TEXT).pack(side="left")
-            self.pill(r, "지우기", lambda n=name: self.act(app.update_conf, target_groups={
-                k: v for k, v in groups.items() if k != n}))
         tk.Frame(self.body, bg=SURFACE, height=S(10)).pack()
 
     def pick_work_root(self):
@@ -1772,11 +1760,8 @@ def dday_color(n):
     return ACCENT
 
 
-ST_COLORS = lambda: (DIM, ACCENT, "#3ddc97")        # 미제출 · 제출 · 확인
-
-
 class WorkWindow:
-    """업무 관리: 공문 한 건 = 업무 하나. 왼쪽 목록, 오른쪽에 기한·제출 현황·양식 배포·취합·연결된 일정"""
+    """업무 관리: 공문 한 건 = 업무 하나. 왼쪽 목록, 오른쪽에 기한·업무 폴더·연결된 일정·메모"""
 
     def __init__(self, app, select=None):
         self.app = app
@@ -1854,16 +1839,11 @@ class WorkWindow:
         except queue.Empty:
             pass
         c = self.case()
-        if c and c.get("folder"):                       # 제출 폴더에 직접 넣은 파일도 알아서 반영
-            try:
-                sig = tuple(sorted(os.listdir(work.sub(c, 2))))
-            except OSError:
-                sig = None
-            if sig != self._scan_sig:
-                self._scan_sig = sig
-                if work.scan(c):
-                    self.changed(c)
-                    self.build_right()
+        if c and c.get("folder"):                       # 폴더에 직접 넣은 파일도 목록에 반영
+            sig = tuple(len(work.files(c, k)) for k in range(len(work.SUBDIRS)))
+            if self._scan_sig is not None and sig != self._scan_sig:
+                self.build_right()
+            self._scan_sig = sig
         self.top.after(1500, self._poll)
 
     # ── 왼쪽: 업무 목록 ──
@@ -1891,7 +1871,7 @@ class WorkWindow:
         if not items:
             tk.Label(inner, text=("완료한 업무가 없어요" if self.show_done else
                                   "공문(PDF·한글)을 달력이나 이 창에\n끌어다 놓으면 업무가 생겨요.\n\n"
-                                  "업무마다 폴더가 만들어지고\n제출 현황·양식 배포·취합을\n한곳에서 할 수 있어요."),
+                                  "업무마다 기한과 폴더(공문·작성 자료·\n제출본)가 만들어져요."),
                      font=app.f_small, bg=BG, fg=DIM, justify="left").pack(anchor="w", padx=S(10), pady=S(16))
         for c in items:
             self._case_card(inner, c)
@@ -1916,15 +1896,6 @@ class WorkWindow:
             tk.Label(meta, text=work.dday_label(n), font=app.f_tiny, bg=bg,
                      fg=DIM if c.get("done") else dday_color(n)).pack(side="left")
             tk.Label(meta, text="  " + work.fmt_date(c["due"]), font=app.f_tiny, bg=bg, fg=SUB).pack(side="left")
-        got, tot = work.progress(c)
-        if tot:
-            pb = tk.Canvas(meta, width=S(54), height=S(6), bg=bg, highlightthickness=0)
-            pb.pack(side="right", padx=(S(6), 0))
-            rrect(pb, 0, 0, S(54), S(6), S(3), fill=blend(TEXT, bg, 0.12), outline="")
-            if got:
-                rrect(pb, 0, 0, max(S(6), S(54) * got / tot), S(6), S(3), fill="#3ddc97" if got == tot else ACCENT,
-                      outline="")
-            tk.Label(meta, text=f"{got}/{tot}", font=app.f_tiny, bg=bg, fg=SUB).pack(side="right")
         for w in (card, bar, body, *body.winfo_children(), *meta.winfo_children()):
             w.bind("<Button-1>", lambda e, cid=c["id"]: self.select(cid))
             if not on:
@@ -2031,11 +2002,10 @@ class WorkWindow:
         self.e_due.bind("<FocusOut>", lambda e: self._save_fields())
         n = work.dday(c, app.today)
         if n is not None:
-            chip = tk.Label(meta, text=f" {work.dday_label(n)} · {work.fmt_date(c['due'])} ", font=app.f_small,
-                            bg=blend(dday_color(n), SURFACE, 0.18), fg=dday_color(n))
-            chip.pack(side="left")
-            wd = core.workdays_between(app.today, core.parse_date(c["due"]), _hol)
+            tk.Label(meta, text=f" {work.dday_label(n)} · {work.fmt_date(c['due'])} ", font=app.f_small,
+                     bg=blend(dday_color(n), SURFACE, 0.18), fg=dday_color(n)).pack(side="left")
             if n > 0:
+                wd = core.workdays_between(app.today, core.parse_date(c["due"]), _hol)
                 tk.Label(meta, text=f"근무일 {wd}일 남음", font=app.f_tiny, bg=SURFACE, fg=DIM).pack(side="left", padx=S(8))
         else:
             tk.Label(meta, text="예) 2026-10-20 · 10/20 · 다음주 금요일", font=app.f_tiny, bg=SURFACE, fg=DIM
@@ -2050,60 +2020,32 @@ class WorkWindow:
                      ).pack(fill="x", padx=S(24), pady=(S(6), 0))
         acts = tk.Frame(body, bg=SURFACE)
         acts.pack(fill="x", padx=S(24), pady=(S(12), 0))
-        self.pill(acts, "폴더 열기", self.open_folder)
-        docs = self._files(c, 0)
-        if docs:
-            self.pill(acts, "공문 보기", lambda: open_path(docs[0]))
+        self.pill(acts, "폴더 열기", self.open_folder, primary=True)
         self.pill(acts, "다시 진행" if c.get("done") else "완료로 표시", self.toggle_done)
         self.pill(acts, "삭제", self.delete, side="right")
 
-        # 제출 현황
-        got, tot = work.progress(c)
-        h = self.section(body, "제출 현황", f"{got} / {tot}" if tot else "")
-        self.pill(h, "대상 편집", lambda: TargetsDialog(app, c, self.after_targets), side="right")
-        if work.missing(c):
-            self.pill(h, "독촉 메시지 복사", self.copy_reminder, side="right")
-        grid = tk.Frame(body, bg=SURFACE)
-        grid.pack(fill="x", padx=S(24))
-        if not tot:
-            tk.Label(grid, text="자료를 받을 부서·담당자를 등록하면 누가 냈는지 한눈에 보여요.\n"
-                                "받은 파일 이름에 부서 이름이 있으면 알아서 '제출'로 바뀌어요.",
-                     font=app.f_small, bg=SURFACE, fg=DIM, justify="left").pack(anchor="w")
-        else:
-            cols = 4
-            for i, t in enumerate(c["targets"]):
-                self._target_chip(grid, c, t).grid(row=i // cols, column=i % cols, sticky="ew", padx=(0, S(6)), pady=S(3))
-            for k in range(cols):
-                grid.grid_columnconfigure(k, weight=1, uniform="t")
-            tk.Label(body, text="누르면 미제출 → 제출 → 확인 순으로 바뀌어요 · 오른쪽 버튼: 받은 파일 열기",
-                     font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(24), pady=(S(4), 0))
-
-        # 양식 · 취합
-        self.section(body, "양식 배포 · 취합")
-        row = tk.Frame(body, bg=SURFACE)
-        row.pack(fill="x", padx=S(24))
-        form = work.form_path(c) if c.get("folder") else None
-        tk.Label(row, text=("양식  " + c["form"]) if form else "양식 파일(엑셀·한글)을 이 창에 끌어다 놓거나 '양식 넣기'를 누르세요",
-                 font=app.f_small, bg=SURFACE, fg=TEXT if form else DIM, anchor="w").pack(side="left")
-        btns = tk.Frame(body, bg=SURFACE)
-        btns.pack(fill="x", padx=S(24), pady=(S(8), 0))
-        self.pill(btns, "양식 넣기…", self.pick_form)
-        if form and tot:
-            self.pill(btns, f"부서별 파일 만들기 ({tot})", self.distribute)
-        self.pill(btns, "제출 파일 넣기…", self.pick_submissions)
-        subs = work.submissions(c) if c.get("folder") else []
-        if subs:
-            self.pill(btns, f"취합하기 ({len(subs)})", self.merge, primary=True)
-        results = self._files(c, 3)
-        if results:
-            last = max(results, key=os.path.getmtime)
-            tk.Label(body, text="최근 취합: " + os.path.basename(last), font=app.f_tiny, bg=SURFACE, fg=ACCENT,
-                     cursor="hand2", anchor="w").pack(fill="x", padx=S(24), pady=(S(6), 0))
-            body.winfo_children()[-1].bind("<Button-1>", lambda e: open_path(last))
-        tk.Label(body, text="엑셀: 목록형은 한 표로 이어 붙이고(제출처 열 추가), 집계형은 같은 칸끼리 더해요. "
-                            "양식에 {부서} 라고 적어 두면 부서별 파일에 이름이 채워져요. 한글 파일은 본문을 한 파일로 모아요.",
-                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(540)
-                 ).pack(fill="x", padx=S(24), pady=(S(6), 0))
+        # 업무 폴더: 공문 · 작성 자료 · 제출본
+        self.section(body, "업무 폴더")
+        tk.Label(body, text="파일을 이 창에 끌어다 놓으면 원하는 칸에 넣을 수 있어요. 파일을 누르면 열려요.",
+                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(24), pady=(0, S(6)))
+        for k, name in enumerate(work.SUBDIRS):
+            box = tk.Frame(body, bg=CARD, highlightthickness=1, highlightbackground=BORDER)
+            box.pack(fill="x", padx=S(24), pady=S(3))
+            hd = tk.Frame(box, bg=CARD)
+            hd.pack(fill="x", padx=S(12), pady=(S(8), S(4)))
+            fs = self._files(c, k)
+            tk.Label(hd, text=name, font=app.f_small, bg=CARD, fg=TEXT).pack(side="left")
+            tk.Label(hd, text=str(len(fs)) if fs else "", font=app.f_tiny, bg=CARD, fg=SUB).pack(side="left", padx=S(6))
+            Pill(hd, "파일 넣기…", lambda k=k: self.pick_files(k), app.f_tiny, parent_bg=CARD, bg=SURFACE,
+                 hover=BORDER, padx=S(8), pady=S(2)).pack(side="right")
+            for f in fs[:8]:
+                lb = tk.Label(box, text="  " + os.path.basename(f), font=app.f_small, bg=CARD, fg=ACCENT, anchor="w",
+                              cursor="hand2")
+                lb.pack(fill="x", padx=S(12))
+                lb.bind("<Button-1>", lambda e, f=f: open_path(f))
+            if len(fs) > 8:
+                tk.Label(box, text=f"  외 {len(fs) - 8}개", font=app.f_tiny, bg=CARD, fg=DIM, anchor="w").pack(fill="x", padx=S(12))
+            tk.Frame(box, bg=CARD, height=S(6)).pack()
 
         # 연결된 일정
         items = sorted(work.case_items(app.data, c["id"]), key=lambda x: x[0])
@@ -2129,61 +2071,12 @@ class WorkWindow:
         self.t_note.bind("<FocusOut>", lambda e: self._save_fields())
         _bind_wheel(body, cv)
 
-    def _target_chip(self, parent, c, t):
-        app, S = self.app, self.app.S
-        st = int(t.get("st", 0))
-        col = ST_COLORS()[st]
-        cvs = tk.Canvas(parent, height=S(34), bg=SURFACE, highlightthickness=0, cursor="hand2")
-
-        def draw(e=None, hover=False):
-            cvs.delete("all")
-            w = max(cvs.winfo_width(), S(80))
-            fill = blend(col, SURFACE, 0.16 if st else 0.0) if not hover else blend(col, SURFACE, 0.26)
-            rrect(cvs, 1, 1, w - 2, S(33), S(9), fill=fill if st or hover else CARD,
-                  outline=blend(col, SURFACE, 0.55) if st else BORDER)
-            cvs.create_oval(S(10), S(13), S(18), S(21), fill=col if st else "", outline=col, width=S(1.5))
-            cvs.create_text(S(26), S(17), text=app._fit(t["name"], app.f_small, w - S(80)), font=app.f_small,
-                            fill=TEXT, anchor="w")
-            cvs.create_text(w - S(10), S(17), text=work.ST_NAMES[st], font=app.f_tiny, fill=col if st else DIM,
-                            anchor="e")
-        cvs.bind("<Configure>", draw)
-        cvs.bind("<Enter>", lambda e: draw(hover=True))
-        cvs.bind("<Leave>", lambda e: draw())
-        cvs.bind("<Button-1>", lambda e: self.cycle(c, t))
-        cvs.bind("<Button-3>", lambda e: self.target_menu(e, c, t))
-        return cvs
-
-    def cycle(self, c, t):
-        work.set_status(c, t["name"], (int(t.get("st", 0)) + 1) % 3)
-        self.changed(c)
-        self.build_right()
-
-    def target_menu(self, e, c, t):
-        m = tk.Menu(self.top, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff", bd=0,
-                    font=(self.app.family, 10))
-        p = os.path.join(work.sub(c, 2), t["file"]) if t.get("file") and c.get("folder") else None
-        if p and os.path.exists(p):
-            m.add_command(label="받은 파일 열기", command=lambda: open_path(p))
-            m.add_separator()
-        for k, name in enumerate(work.ST_NAMES):
-            m.add_command(label=("● " if int(t.get("st", 0)) == k else "   ") + name,
-                          command=lambda k=k: (work.set_status(c, t["name"], k), self.changed(c), self.build_right()))
-        m.tk_popup(e.x_root, e.y_root)
-        return "break"
-
     # ── 동작 ──
     def _folder(self, c):
         return work.ensure_folder(self.app.work_root(), c)
 
     def _files(self, c, k):
-        if not c.get("folder"):
-            return []
-        d = work.sub(c, k)
-        try:
-            return [os.path.join(d, f) for f in sorted(os.listdir(d)) if os.path.isfile(os.path.join(d, f))
-                    and not f.startswith("~$")]
-        except OSError:
-            return []
+        return work.files(c, k)
 
     def open_folder(self):
         c = self.case()
@@ -2212,96 +2105,23 @@ class WorkWindow:
         self.changed()
         self.build_right()
 
-    def after_targets(self):
-        self.changed(self.case())
-        self.build_right()
-
-    def copy_reminder(self):
-        c = self.case()
-        self.app.copy_text(work.reminder_text(c, self.app.today))
-        NotifyPopup(self.app, "독촉 메시지를 복사했어요", "메신저 대화창에 붙여 넣기(Ctrl+V) 하세요.\n\n" +
-                    work.reminder_text(c, self.app.today), beep=False)
-
-    def pick_form(self):
-        p = filedialog.askopenfilename(parent=self.top, title="양식 파일 선택",
-                                       filetypes=[("양식 (엑셀·한글)", "*.xlsx *.xlsm *.xls *.hwp *.hwpx *.docx"),
-                                                  ("모든 파일", "*.*")])
-        if p:
-            self.put_form(p)
-
-    def put_form(self, p):
-        c = self.case()
-        try:
-            self._folder(c)
-            work.set_form(c, p)
-        except OSError as ex:
-            messagebox.showerror("양식", str(ex), parent=self.top)
-            return
-        self.changed(c, left=False)
-        self.build_right()
-
-    def pick_submissions(self):
-        ps = filedialog.askopenfilenames(parent=self.top, title="받은 제출 파일 선택 (여러 개 가능)")
+    def pick_files(self, k):
+        ps = filedialog.askopenfilenames(parent=self.top, title=f"'{work.SUBDIRS[k]}' 에 넣을 파일")
         if ps:
-            self.put_submissions(list(ps))
+            self.put_files(list(ps), k)
 
-    def put_submissions(self, ps):
+    def put_files(self, ps, k):
         c = self.case()
         try:
             self._folder(c)
-            got = work.receive(c, ps)
+            for p in ps:
+                work.copy_in(p, work.sub(c, k))
         except OSError as ex:
-            messagebox.showerror("제출 파일", str(ex), parent=self.top)
+            messagebox.showerror("파일 넣기", str(ex), parent=self.top)
             return
         self._scan_sig = None
-        self.changed(c)
+        self.changed(c, left=False)
         self.build_right()
-        unknown = [os.path.basename(p) for p, who in got if not who]
-        msg = f"{len(got)}개 파일을 '3. 제출받은 파일' 에 넣었어요."
-        known = [who for _, who in got if who]
-        if known:
-            msg += "\n제출 표시: " + ", ".join(known)
-        if unknown:
-            msg += "\n\n부서를 못 찾은 파일: " + ", ".join(unknown[:4]) + "\n(파일 이름에 부서 이름을 넣거나 직접 눌러 표시하세요)"
-        NotifyPopup(self.app, "제출 파일", msg, beep=False)
-
-    def distribute(self):
-        c = self.case()
-        try:
-            out = work.distribute(c)
-        except Exception as ex:  # noqa: BLE001
-            messagebox.showerror("부서별 파일", f"만들지 못했어요.\n{ex}", parent=self.top)
-            return
-        folder = os.path.dirname(out[0]) if out else work.sub(c, 1)
-        NotifyPopup(self.app, "부서별 파일을 만들었어요", f"{len(out)}개 파일 · 메신저로 보낼 때 그대로 첨부하세요.",
-                    action=("폴더 열기", lambda: open_path(folder)), beep=False)
-
-    def merge(self):
-        c = self.case()
-        self.top.config(cursor="watch")
-        self.top.update_idletasks()
-        try:
-            out, res = work.merge(c)
-        except Exception as ex:  # noqa: BLE001
-            self.top.config(cursor="")
-            messagebox.showerror("취합", f"취합하지 못했어요.\n{ex}", parent=self.top)
-            return
-        self.top.config(cursor="")
-        parts = []
-        if res.get("rows"):
-            parts.append(f"{res['rows']}줄을 한 표로 모았어요")
-        if res.get("sums"):
-            parts.append(f"{res['sums']}칸을 합계 냈어요")
-        if res.get("texts"):
-            parts.append(f"글 {res['texts']}개는 '글 모음' 시트에")
-        if res.get("bad"):
-            parts.append("제외: " + ", ".join(f"{w}({why})" for w, why in res["bad"][:3]))
-        miss = work.missing(c)
-        if miss:
-            parts.append("아직 안 낸 곳: " + ", ".join(miss[:6]))
-        self.build_right()
-        NotifyPopup(self.app, "취합 완료", "\n".join(parts) or "취합했어요", action=("결과 열기", lambda: open_path(out)),
-                    beep=False)
 
     def add_due_item(self):
         c = self.case()
@@ -2319,146 +2139,19 @@ class WorkWindow:
         app = self.app
         docs = [f for f in files if f.lower().endswith((".pdf", ".hwp", ".hwpx", ".docx"))]
         c = self.case()
-        if c is None or (len(files) == len(docs) and all(app.looks_like_gongmun(f) for f in docs)):
-            app.import_dropped(files, open_case=False)       # 공문이면 새 업무로
+        if c is None or (len(files) == len(docs) and all(app.looks_like_gongmun(f) for f in docs)
+                         and not any(os.path.basename(f) in map(os.path.basename, self._files(c, 0)) for f in docs)):
+            app.import_dropped(files, open_case=False)       # 새 공문이면 새 업무로
             cs = work.sorted_cases(app.data)
             if cs:
                 self.select(max(cs, key=lambda x: x.get("created", 0))["id"])
             return
-        names = [t["name"] for t in c.get("targets") or []]
-        if names and all(work.match_target(f, names) for f in files):
-            self.put_submissions(files)                       # 부서 이름이 붙은 파일 → 바로 제출 처리
-            return
         m = tk.Menu(self.top, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff", bd=0,
                     font=(app.family, 10))
-        if len(files) == 1:
-            m.add_command(label="양식으로 넣기", command=lambda: self.put_form(files[0]))
-        m.add_command(label=f"제출 파일로 넣기 ({len(files)}개)", command=lambda: self.put_submissions(files))
-        m.add_command(label="공문으로 넣기 (업무 폴더에 보관)",
-                      command=lambda: [work.add_doc(c, f) for f in files if self._folder(c)])
+        for k, name in enumerate(work.SUBDIRS):
+            m.add_command(label=f"'{name}' 에 넣기 ({len(files)}개)", command=lambda k=k: self.put_files(files, k))
         x, y = self.top.winfo_pointerxy()
         m.tk_popup(x, y)
-
-
-class TargetsDialog:
-    """제출 대상(부서·담당자) 편집: 한 줄에 하나씩. 자주 쓰는 목록은 이름을 붙여 저장해 두고 불러온다"""
-
-    def __init__(self, app, case, on_done):
-        self.app, self.case, self.on_done = app, case, on_done
-        S = app.S
-        top = self.top = _dialog(app, "제출 대상", S(420), S(560))
-        top.resizable(True, True)
-        tk.Label(top, text="제출 대상", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
-            fill="x", padx=S(20), pady=(S(16), 0))
-        tk.Label(top, text="한 줄에 하나씩 (쉼표로 이어 써도 돼요). 예) 도시재생과 / 중앙동 / 홍길동",
-                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(20), pady=(S(2), S(8)))
-        groups = app.conf.get("target_groups") or {}
-        sug = case.get("_suggest") or []
-        if groups or sug:
-            r = tk.Frame(top, bg=SURFACE)
-            r.pack(fill="x", padx=S(20), pady=(0, S(6)))
-            tk.Label(r, text="불러오기", font=app.f_tiny, bg=SURFACE, fg=SUB).pack(side="left", padx=(0, S(6)))
-            if sug:
-                Pill(r, f"공문 수신자 {len(sug)}곳", lambda: self.load(sug), app.f_tiny, parent_bg=SURFACE,
-                     padx=S(8), pady=S(2)).pack(side="left", padx=(0, S(4)))
-            for name, names in list(groups.items())[:5]:
-                Pill(r, f"{name} {len(names)}", lambda n=names: self.load(n), app.f_tiny, parent_bg=SURFACE,
-                     padx=S(8), pady=S(2)).pack(side="left", padx=(0, S(4)))
-        foot = tk.Frame(top, bg=SURFACE)
-        foot.pack(side="bottom", fill="x", padx=S(20), pady=S(14))
-        Pill(foot, "저장", self.save, app.f_body, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.2),
-             parent_bg=SURFACE, padx=S(20), pady=S(6)).pack(side="right")
-        Pill(foot, "취소", top.destroy, app.f_body, parent_bg=SURFACE, padx=S(14), pady=S(6)).pack(side="right", padx=S(8))
-        g = tk.Frame(top, bg=SURFACE)
-        g.pack(side="bottom", fill="x", padx=S(20))
-        tk.Label(g, text="이 목록을 이름 붙여 저장", font=app.f_tiny, bg=SURFACE, fg=SUB).pack(side="left")
-        self.e_group = _flat_entry(app, g, "", app.f_small, 12)
-        self.e_group.pack(side="left", padx=S(6), ipady=S(2))
-        Pill(g, "저장", self.save_group, app.f_tiny, parent_bg=SURFACE, padx=S(8), pady=S(2)).pack(side="left")
-        self.txt = tk.Text(top, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", wrap="word",
-                           padx=S(10), pady=S(8), highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
-        self.txt.insert("1.0", "\n".join(t["name"] for t in case.get("targets") or []))
-        self.txt.pack(fill="both", expand=True, padx=S(20), pady=(0, S(10)))
-        self.txt.focus_set()
-
-    def load(self, names):
-        cur = work.split_names(self.txt.get("1.0", "end"))
-        merged = cur + [n for n in names if n not in cur]
-        self.txt.delete("1.0", "end")
-        self.txt.insert("1.0", "\n".join(merged))
-
-    def save_group(self):
-        name = self.e_group.get().strip()
-        names = work.split_names(self.txt.get("1.0", "end"))
-        if not name or not names:
-            messagebox.showinfo("목록 저장", "목록 이름과 대상을 적어 주세요.", parent=self.top)
-            return
-        groups = dict(self.app.conf.get("target_groups") or {})
-        groups[name] = names
-        self.app.update_conf(target_groups=groups)
-        NotifyPopup(self.app, "목록 저장", f"'{name}' ({len(names)}곳) 을 저장했어요. 다음 업무부터 바로 불러올 수 있어요.",
-                    beep=False)
-
-    def save(self):
-        work.set_targets(self.case, work.split_names(self.txt.get("1.0", "end")))
-        self.top.destroy()
-        self.on_done()
-
-
-class ReportDialog:
-    """주간·월간 업무 보고 글을 만들어 복사 (끝낸 일 → 실적, 못 끝낸 일 → 이월, 다음 주 일정 → 계획, 진행 중 업무)"""
-
-    def __init__(self, app, kind="week"):
-        self.app = app
-        S = app.S
-        top = self.top = _dialog(app, "업무 보고 만들기", S(620), S(640))
-        top.resizable(True, True)
-        head = tk.Frame(top, bg=SURFACE)
-        head.pack(fill="x", padx=S(20), pady=(S(16), S(4)))
-        tk.Label(head, text="업무 보고 만들기", font=app.f_h2, bg=SURFACE, fg=TEXT).pack(side="left")
-        self.tabs = tk.Frame(top, bg=SURFACE)
-        self.tabs.pack(fill="x", padx=S(20), pady=(S(4), S(8)))
-        tk.Label(top, text="달력의 완료 표시를 기준으로 만들어요. 고친 뒤 복사해서 보고서·메신저에 붙여 넣으세요.",
-                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(20))
-        foot = tk.Frame(top, bg=SURFACE)
-        foot.pack(side="bottom", fill="x", padx=S(20), pady=S(14))
-        Pill(foot, "복사", self.copy, app.f_body, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.2),
-             parent_bg=SURFACE, padx=S(22), pady=S(6)).pack(side="right")
-        Pill(foot, "파일로 저장…", self.save, app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(6)).pack(side="right", padx=S(8))
-        Pill(foot, "닫기", top.destroy, app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(6)).pack(side="left")
-        self.txt = tk.Text(top, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat", wrap="word",
-                           padx=S(14), pady=S(12), spacing1=S(2), spacing3=S(2), highlightthickness=1,
-                           highlightbackground=BORDER, highlightcolor=ACCENT)
-        self.txt.pack(fill="both", expand=True, padx=S(20), pady=(S(8), 0))
-        self.set_kind(kind)
-
-    def set_kind(self, kind):
-        app, S = self.app, self.app.S
-        self.kind = kind
-        for w in self.tabs.winfo_children():
-            w.destroy()
-        for k, lab in (("week", "이번 주"), ("last", "지난 주"), ("month", "이번 달")):
-            on = k == kind
-            Pill(self.tabs, lab, lambda k=k: self.set_kind(k), app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(4),
-                 **({"fg": "#ffffff", "bg": ACCENT, "hover": ACCENT} if on else {})).pack(side="left", padx=(0, S(4)))
-        if kind == "month":
-            text = work.monthly(app.data, app.today)
-        else:
-            text = work.weekly(app.data, app.today, last=kind == "last")
-        self.txt.delete("1.0", "end")
-        self.txt.insert("1.0", text)
-
-    def copy(self):
-        self.app.copy_text(self.txt.get("1.0", "end-1c"))
-        NotifyPopup(self.app, "복사했어요", "보고서나 메신저에 붙여 넣기(Ctrl+V) 하세요.", beep=False)
-
-    def save(self):
-        p = filedialog.asksaveasfilename(parent=self.top, defaultextension=".txt",
-                                         initialfile=f"업무보고_{self.app.today:%Y%m%d}.txt",
-                                         filetypes=[("글 파일", "*.txt")])
-        if p:
-            with open(p, "w", encoding="utf-8-sig") as f:
-                f.write(self.txt.get("1.0", "end-1c"))
 
 
 class TemplateDialog:
@@ -2534,11 +2227,8 @@ class HelpDialog:
         ("완료 / 삭제", "동그라미를 누르면 완료(취소선). ✕ 는 삭제, 목록에서 우클릭하면 더 많은 메뉴가 나와요."),
         ("중요도 색", "입력창 아래 색 점으로 중요도를 고르면 달력에도 그 색으로 보여요."),
         ("보관함", "날짜를 정하기 전의 할 일을 적어 뒀다가 '꺼내기'로 원하는 날짜에 옮겨요."),
-        ("공문 → 업무", "공문(PDF·한글)을 달력에 끌어다 놓으면 일정이 추가되고, 업무 폴더(공문·양식·제출·취합)가 만들어져요."),
-        ("제출 현황", "'업무'에서 받을 부서를 등록하면 누가 냈는지 보여요. 받은 파일을 끌어다 놓으면 이름으로 알아서 '제출' 표시, "
-                    "'독촉 메시지 복사'로 메신저에 바로 붙여 넣어요."),
-        ("양식·취합", "엑셀 양식을 넣고 '부서별 파일 만들기' → 받은 파일을 넣고 '취합하기'. 목록형은 한 표로, 집계형은 칸끼리 더해요."),
-        ("업무 보고", "☰ → 주간 업무 보고: 끝낸 일정은 실적, 남은 일은 이월, 다음 주 일정은 계획으로 정리해 복사해 줘요."),
+        ("공문 → 업무", "공문(PDF·한글)을 달력에 끌어다 놓으면 일정이 추가되고, 업무 폴더(공문·작성 자료·제출본)가 만들어져요."),
+        ("업무 폴더", "'업무'에서 공문마다 기한(D-day)을 보고, 공문·작성 자료·제출본 폴더에 파일을 정리해요. 파일을 끌어다 놓으면 넣을 칸을 골라요."),
         ("근무일 계산", "Ctrl+K 에 '7근무일' 이나 '10/20부터 5근무일' 을 쓰면 주말·공휴일을 뺀 날짜를 알려 줘요."),
         ("메신저 글", "메신저 글을 복사하고 Ctrl+Shift+V. 설정 → 업무에서 '복사한 글 알림'을 켜면 복사만 해도 알려 줘요."),
         ("창 크기", "창 가장자리나 모서리에 마우스를 가져가면 양방향 화살표가 나와요. 끌면 창 크기가 바뀌어요."),
@@ -3153,8 +2843,7 @@ class DeskCalendar:
         m.add_command(label="사용법", command=self.open_help)
         m.add_command(label="검색  (Ctrl+F)", command=self.open_search)
         m.add_separator()
-        m.add_command(label="업무 관리 (제출 현황·취합)…", command=self.open_work)
-        m.add_command(label="주간 업무 보고 만들기…", command=self.open_report)
+        m.add_command(label="업무 관리 (기한·업무 폴더)…", command=self.open_work)
         m.add_command(label="반복 업무 추가 (정기 업무 모음)…", command=self.open_templates)
         m.add_separator()
         m.add_command(label="휴대폰 연결…", command=lambda: PhoneDialog(self))
@@ -3206,14 +2895,14 @@ class DeskCalendar:
         self.sync_status = "동기화 중…"
         store = cloudsync.make_store(cfg)
 
-        def work():
+        def job():
             try:
                 remote, sha = cloudsync.pull(store, cfg["key"])
                 self.sync_q.put(("pulled", remote, sha))
             except Exception as ex:
                 self.sync_q.put(("error", str(ex)))
 
-        threading.Thread(target=work, daemon=True).start()
+        threading.Thread(target=job, daemon=True).start()
 
     def _poll_sync(self):
         try:
@@ -3247,13 +2936,13 @@ class DeskCalendar:
                 continue
             started = True
 
-            def work(y=y):
+            def job(y=y):
                 try:
                     self.sync_q.put(("holidays", y, holidays_api.fetch_year(key, y), None))
                 except Exception as ex:
                     self.sync_q.put(("holidays", y, None, str(ex)))
 
-            threading.Thread(target=work, daemon=True).start()
+            threading.Thread(target=job, daemon=True).start()
         if started:
             self.hol_status = "공휴일 가져오는 중…"
 
@@ -3296,7 +2985,7 @@ class DeskCalendar:
                 return self._finish_sync("동기화 완료")
             store = cloudsync.make_store(cfg)
 
-            def work():
+            def job():
                 try:
                     cloudsync.push(store, cfg["key"], local, sha)
                     self.sync_q.put(("pushed",))
@@ -3305,7 +2994,7 @@ class DeskCalendar:
                 except Exception as ex:
                     self.sync_q.put(("error", str(ex)))
 
-            threading.Thread(target=work, daemon=True).start()
+            threading.Thread(target=job, daemon=True).start()
         elif kind == "pushed":
             self._finish_sync("동기화 완료")
         elif kind == "conflict":      # 그 사이 다른 기기가 올림 → 다시 받아서 합치기
@@ -4820,7 +4509,7 @@ class DeskCalendar:
         m.add_command(label="수정…", command=lambda: self.edit_item(t))
         cid = core.base_of(t).get("case")
         if cid and cid in (self.data.get("_work") or {}):
-            m.add_command(label="업무 열기 (제출 현황·폴더)", command=lambda: self.open_work(cid))
+            m.add_command(label="업무 열기 (기한·폴더)", command=lambda: self.open_work(cid))
         if core.base_of(t).get("src_path"):
             m.add_command(label="공문 원본 열기", command=lambda: open_path(core.base_of(t)["src_path"]))
         m.add_separator()
@@ -4923,9 +4612,6 @@ class DeskCalendar:
         self.workwin = WorkWindow(self, select)
         return self.workwin
 
-    def open_report(self, kind="week"):
-        ReportDialog(self, kind)
-
     def open_templates(self):
         TemplateDialog(self)
 
@@ -4941,9 +4627,6 @@ class DeskCalendar:
                 return c, False
         due = work.due_from_items(items)
         c = work.new_case(title, due, doc_no=work.doc_no(text), received=self.today.isoformat())
-        names = work.recipients(text)
-        if names:
-            c["_suggest"] = names
         work.add_case(self.data, c)
         try:
             work.ensure_folder(self.work_root(), c)
@@ -5102,32 +4785,24 @@ class DeskCalendar:
             self.workwin.build_left()
 
     def route_files(self, files):
-        """공문이 아닌 파일(엑셀 양식·제출 파일 등)을 어느 업무에 넣을지 고르는 메뉴"""
+        """공문이 아닌 파일(작성 중인 엑셀·한글 등)을 어느 업무 폴더에 넣을지 고르는 메뉴"""
         cs = work.sorted_cases(self.data)
-        names = lambda c: [t["name"] for t in c.get("targets") or []]
-        for c in cs:                                    # 파일 이름에 부서 이름이 있으면 그 업무의 제출 파일로 바로
-            if names(c) and all(work.match_target(f, names(c)) for f in files):
-                self.open_work(c["id"]).put_submissions(files)
-                return
-        m = tk.Menu(self.root, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff",
-                    bd=0, font=(self.family, 10))
+        menu_kw = dict(tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff", bd=0,
+                       font=(self.family, 10))
+        m = tk.Menu(self.root, **menu_kw)
         label = os.path.basename(files[0]) + (f" 외 {len(files) - 1}개" if len(files) > 1 else "")
-        m.add_command(label=f"{label} → 어느 업무에 넣을까요?", state="disabled")
+        m.add_command(label=f"{label} → 어느 업무 폴더에 넣을까요?", state="disabled")
         for c in cs[:8]:
-            sub = tk.Menu(m, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff", bd=0,
-                          font=(self.family, 10))
-            if len(files) == 1:
-                sub.add_command(label="양식으로", command=lambda c=c: self.open_work(c["id"]).put_form(files[0]))
-            sub.add_command(label="제출 파일로", command=lambda c=c: self.open_work(c["id"]).put_submissions(files))
-            n = work.dday(c, self.today)
-            m.add_cascade(label=f"{c['title'][:26]}  {work.dday_label(n)}", menu=sub)
+            sub = tk.Menu(m, **menu_kw)
+            for k, name in enumerate(work.SUBDIRS):
+                sub.add_command(label=name, command=lambda c=c, k=k: self.open_work(c["id"]).put_files(files, k))
+            m.add_cascade(label=f"{c['title'][:26]}  {work.dday_label(work.dday(c, self.today))}", menu=sub)
         m.add_separator()
 
         def new_case():
             c = work.add_case(self.data, work.new_case(os.path.splitext(os.path.basename(files[0]))[0], None))
             self._after_todo_change()
-            win = self.open_work(c["id"])
-            win.put_form(files[0]) if len(files) == 1 else win.put_submissions(files)
+            self.open_work(c["id"]).put_files(files, 1)
         m.add_command(label="새 업무 만들어 넣기", command=new_case)
         texts = [f for f in files if f.lower().endswith(self.DOC_EXT)]
         if texts:
@@ -5301,8 +4976,7 @@ class DeskCalendar:
             PhoneDialog(self)
         elif cmd == "work":
             self.open_work()
-        elif cmd == "report":
-            self.open_report()
+
         elif cmd == "settings":
             self.summon(popup=False)
             self.open_settings()

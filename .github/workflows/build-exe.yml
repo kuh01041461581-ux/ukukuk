@@ -21,7 +21,7 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: python -m pip install -r requirements.txt
-      - name: Test (업무·공문·한글 파일·취합 규칙을 윈도우에서 확인)
+      - name: Test (업무·공문·한글 파일 규칙을 윈도우에서 확인)
         env:
           PYTHONIOENCODING: utf-8
         run: |
@@ -29,7 +29,7 @@ jobs:
           python tests/test_work.py
       - name: Build exe
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --collect-all pdfminer --hidden-import gongmun --hidden-import core --hidden-import holidays_kr --hidden-import cloudsync --hidden-import glass --hidden-import holidays_api --hidden-import PIL._tkinter_finder --hidden-import analyze --hidden-import quickadd --hidden-import ocr --hidden-import work --hidden-import hwpdoc --hidden-import openpyxl --hidden-import olefile --hidden-import PIL.ImageGrab --hidden-import pystray --hidden-import pystray._win32 --collect-all korean_lunar_calendar --collect-all segno --name DeskCalendar --icon assets/app.ico desk_calendar.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --collect-all pdfminer --hidden-import gongmun --hidden-import core --hidden-import holidays_kr --hidden-import cloudsync --hidden-import glass --hidden-import holidays_api --hidden-import PIL._tkinter_finder --hidden-import analyze --hidden-import quickadd --hidden-import ocr --hidden-import work --hidden-import hwpdoc --hidden-import olefile --hidden-import PIL.ImageGrab --hidden-import pystray --hidden-import pystray._win32 --collect-all korean_lunar_calendar --collect-all segno --name DeskCalendar --icon assets/app.ico desk_calendar.py
       - uses: actions/upload-artifact@v4
         with:
           name: DeskCalendar-windows

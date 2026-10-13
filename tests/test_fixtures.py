@@ -12,7 +12,6 @@ import analyze  # noqa: E402
 import core  # noqa: E402
 import gongmun  # noqa: E402
 import quickadd  # noqa: E402
-import work  # noqa: E402
 
 
 def load(name):
@@ -64,15 +63,6 @@ def test_core():
     for c in j["workdays"]:
         s = dt.date.fromisoformat(c["start"])
         assert iso(core.add_workdays(s, c["n"], h)) == c["out"], c
-
-
-def test_work_cases():
-    j = load("work_cases.json")
-    today = dt.date.fromisoformat(j["today"])
-    for c in j["cases"]:
-        assert work.reminder_text(c["case"], today) == c["reminder"]
-        assert work.status_text(c["case"], today) == c["status"]
-    assert work.weekly(j["data"], today) == j["weekly"]
 
 
 if __name__ == "__main__":

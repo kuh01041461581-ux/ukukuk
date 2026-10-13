@@ -42,7 +42,7 @@ const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 await page.addInitScript((c) => { if (!localStorage.getItem("flutter.sync")) localStorage.setItem("flutter.sync", JSON.stringify(JSON.stringify(c))); }, cfg);
-await page.goto(SITE, { waitUntil: "networkidle" });
+await page.goto(SITE, { waitUntil: "load", timeout: 90000 });
 await page.waitForTimeout(7000);
 await page.screenshot({ path: `${OUT}/${kind}-1-calendar.png` });
 const vp = page.viewportSize();

@@ -6,7 +6,9 @@ import 'package:pdfrx/pdfrx.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import 'core.dart';
+import 'candidates.dart';
 import 'gongmun.dart';
+import 'ocr_mobile.dart';
 import 'store.dart';
 
 Future<String> pdfText(String path) async {
@@ -68,6 +70,28 @@ class ShareImporter {
   void dispose() => _sub?.cancel();
 
   Future<void> _handle(List<SharedMediaFile> files) async {
+    // 메신저·메일에서 '공유'한 글 → 분석해서 일정/할 일 후보로
+    final texts = files.where((f) => f.type == SharedMediaType.text || f.type == SharedMediaType.url).toList();
+    if (texts.isNotEmpty) {
+      await showCandidates(ctx(), store, texts.map((f) => f.path).join('\n'), heading: '공유한 내용에서 만들기');
+      return;
+    }
+    // 캡처·사진을 '공유' → 글자 인식 → 후보
+    final imgs = files.where((f) => f.type == SharedMediaType.image).toList();
+    if (imgs.isNotEmpty) {
+      final c = ctx();
+      ScaffoldMessenger.of(c).showSnackBar(const SnackBar(content: Text('이미지에서 글자를 읽는 중…'), duration: Duration(seconds: 3)));
+      try {
+        final sb = StringBuffer();
+        for (final f in imgs.take(3)) {
+          sb.writeln(await ocrImage(f.path));
+        }
+        if (c.mounted) await showCandidates(c, store, sb.toString(), heading: '캡처한 이미지에서 만들기');
+      } catch (_) {
+        if (c.mounted) ScaffoldMessenger.of(c).showSnackBar(const SnackBar(content: Text('이미지에서 글자를 읽지 못했어요')));
+      }
+      return;
+    }
     final pdfs = files.where((f) => f.path.toLowerCase().endsWith('.pdf')).toList();
     if (pdfs.isEmpty) return;
     final messenger = ScaffoldMessenger.of(ctx());

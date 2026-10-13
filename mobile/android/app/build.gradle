@@ -61,4 +61,6 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
+    // 캡처·사진 속 한국어 글자 인식 모델 (기기 안에 포함되어 인터넷 없이 동작)
+    implementation "com.google.mlkit:text-recognition-korean:16.0.0"
 }

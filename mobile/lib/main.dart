@@ -10,6 +10,10 @@ import 'holidays.dart';
 import 'notify.dart';
 import 'quickadd.dart';
 import 'bgsync.dart';
+import 'candidates.dart';
+import 'ocr_mobile.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'share_import.dart';
 import 'widget_sync.dart';
 import 'store.dart';
@@ -194,6 +198,32 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         tab = 0;
       });
 
+  /// 복사해 둔 글(메신저·메일) 또는 캡처·사진 속 글자를 분석해서 일정/할 일 후보로 만든다
+  Future<void> _smartAdd(String kind) async {
+    final store = widget.store;
+    if (kind == 'clip') {
+      final data = await Clipboard.getData('text/plain');
+      final text = data?.text ?? '';
+      if (!mounted) return;
+      if (text.trim().length < 6) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('먼저 메신저·메일의 내용을 복사해 주세요')));
+        return;
+      }
+      await showCandidates(context, store, text);
+    } else {
+      final img = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (img == null || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('이미지에서 글자를 읽는 중…'), duration: Duration(seconds: 3)));
+      try {
+        final text = await ocrImage(img.path);
+        if (!mounted) return;
+        await showCandidates(context, store, text, heading: '캡처한 이미지에서 만들기');
+      } catch (_) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('이미지에서 글자를 읽지 못했어요')));
+      }
+    }
+  }
+
   Future<void> search() async {
     final r = await showSearch<Object?>(context: context, delegate: ItemSearch(widget.store));
     if (r is DateTime) {
@@ -249,6 +279,17 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             padding: EdgeInsets.symmetric(horizontal: 14),
                             child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
                         : const SizedBox(key: ValueKey('nospin'), width: 4)),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.auto_awesome_rounded),
+                  tooltip: '복사한 글·캡처로 일정 만들기',
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  color: cSurface,
+                  onSelected: (v) => _smartAdd(v),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'clip', child: ListTile(dense: true, leading: Icon(Icons.content_paste_rounded), title: Text('복사한 글에서 만들기'))),
+                    PopupMenuItem(value: 'img', child: ListTile(dense: true, leading: Icon(Icons.image_search_rounded), title: Text('캡처·사진에서 읽기'))),
+                  ],
+                ),
                 IconButton(icon: const Icon(Icons.search_rounded), onPressed: search),
                 const SizedBox(width: 4),
               ],

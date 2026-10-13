@@ -52,6 +52,7 @@ String dateLabel(DateTime d) => '${d.month}월 ${d.day}일 (${weekdayKo[d.weekda
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (!kIsWeb) await Notifier.init(); // 웹(아이폰 홈 화면 앱)에서는 폰 알림 예약을 쓰지 않는다
+  if (kIsWeb) MobileScannerPlatform.instance.setBarcodeLibraryScriptUrl('zxing-library-0.19.1.min.js'); // QR 해석 부품을 외부 서버 대신 앱에 포함한 것으로 쓴다
   final store = AppStore();
   await store.load();
   runApp(DeskApp(store));

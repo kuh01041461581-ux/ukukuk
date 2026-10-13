@@ -253,6 +253,46 @@ def work_area(root, cx=None, cy=None):
     return virtual_screen(root)
 
 
+def _tray_image():
+    """트레이 아이콘 그림 (달력 모양, 앱 강조색)"""
+    from PIL import Image, ImageDraw
+    n = 128
+    im = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((8, 14, n - 8, n - 8), radius=22, fill=(124, 108, 255, 255))
+    d.rounded_rectangle((8, 14, n - 8, 46), radius=22, fill=(98, 82, 235, 255))
+    d.rectangle((8, 34, n - 8, 46), fill=(98, 82, 235, 255))
+    for cx in (38, 90):
+        d.rounded_rectangle((cx - 5, 4, cx + 5, 28), radius=5, fill=(236, 239, 245, 255))
+    for r in range(2):
+        for c in range(3):
+            x, y = 26 + c * 28, 62 + r * 24
+            d.rounded_rectangle((x, y, x + 18, y + 14), radius=4, fill=(255, 255, 255, 235 if (r, c) != (1, 1) else 255))
+    return im
+
+
+def start_tray(q):
+    """시스템 트레이(알림 영역) 아이콘: 왼쪽 클릭 = 열기, 오른쪽 클릭 = 메뉴. 명령은 큐로 넘겨 Tk 쪽에서 처리"""
+    try:
+        import pystray
+    except Exception:
+        return None
+    put = lambda cmd: (lambda icon=None, item=None: q.put(cmd))
+    menu = pystray.Menu(
+        pystray.MenuItem("열기", put("show"), default=True),
+        pystray.MenuItem("오늘 일정 추가", put("add")),
+        pystray.MenuItem("휴대폰 연결", put("phone")),
+        pystray.MenuItem("설정", put("settings")),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("종료", put("quit")))
+    icon = pystray.Icon("DeskCalendar", _tray_image(), "DeskCalendar", menu)
+    try:
+        icon.run_detached()
+    except Exception:
+        return None
+    return icon
+
+
 def start_hotkey_listener(q, mods, vk):
     """전역 단축키 → q 에 신호. 별도 스레드의 메시지 루프에서 처리한다."""
     def run():
@@ -1446,6 +1486,8 @@ class DeskCalendar:
         self.outer = None
         self.hwnd = None
         self.hotkey_q = queue.Queue()
+        self.tray_q = queue.Queue()
+        self.tray = None
         self.sync_q = queue.Queue()
         self._syncing, self._sync_job, self._sync_retry = False, None, 0
         self._in_sync = False
@@ -1493,6 +1535,7 @@ class DeskCalendar:
         root.after(30_000, self._tick)
         if IS_WIN:
             start_hotkey_listener(self.hotkey_q, 0x0002 | 0x0001, 0x20)  # Ctrl+Alt+Space
+            self.tray = start_tray(self.tray_q)
             root.after(150, self._poll_hotkey)
 
     def S(self, v):
@@ -3670,6 +3713,11 @@ class DeskCalendar:
     def quit(self):
         self._flush_memo()
         self._save_conf()
+        try:
+            if self.tray is not None:
+                self.tray.stop()
+        except Exception:
+            pass
         self.root.destroy()
 
     # ── 바탕화면 고정 / 빠른 입력 ──
@@ -3727,13 +3775,31 @@ class DeskCalendar:
                 self.summon()
         except queue.Empty:
             pass
+        try:
+            while True:
+                self._tray_cmd(self.tray_q.get_nowait())
+        except queue.Empty:
+            pass
         self.root.after(150, self._poll_hotkey)
 
-    def summon(self):
-        """위젯을 맨 앞으로 불러와 오늘 날짜의 입력창에 포커스"""
+    def _tray_cmd(self, cmd):
+        if cmd == "show":
+            self.summon(popup=False)
+        elif cmd == "add":
+            self.summon()
+        elif cmd == "phone":
+            self.summon(popup=False)
+            PhoneDialog(self)
+        elif cmd == "settings":
+            self.summon(popup=False)
+            self.open_settings()
+        elif cmd == "quit":
+            self.quit()
+
+    def summon(self, popup=True):
+        """위젯을 맨 앞으로 불러온다. popup=True 면 오늘 날짜의 메모/입력 창도 연다"""
         self._summoned = True
         self.go_today()
-        self.set_panel(True)
         self.render_month()
         if IS_WIN and self.hwnd:
             u = ctypes.windll.user32
@@ -3742,7 +3808,8 @@ class DeskCalendar:
             u.keybd_event(0x12, 0, 2, 0)
             u.SetForegroundWindow(self.hwnd)
         self.root.focus_force()
-        self.todo_entry.focus_force()
+        if popup:
+            self.open_detail(self.today)
 
     def _tick(self):
         if self.glass:     # 바탕화면 그림이 바뀌었으면 유리 배경도 새로 만든다

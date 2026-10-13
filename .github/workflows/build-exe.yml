@@ -22,7 +22,7 @@ jobs:
       - name: Build exe
         run: |
           python -m pip install -r requirements.txt
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --collect-all pdfminer --hidden-import gongmun --hidden-import core --hidden-import holidays_kr --hidden-import cloudsync --hidden-import glass --hidden-import holidays_api --hidden-import PIL._tkinter_finder --collect-all korean_lunar_calendar --collect-all segno --name DeskCalendar --icon assets/app.ico desk_calendar.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --collect-all pdfminer --hidden-import gongmun --hidden-import core --hidden-import holidays_kr --hidden-import cloudsync --hidden-import glass --hidden-import holidays_api --hidden-import PIL._tkinter_finder --hidden-import pystray --hidden-import pystray._win32 --collect-all korean_lunar_calendar --collect-all segno --name DeskCalendar --icon assets/app.ico desk_calendar.py
       - uses: actions/upload-artifact@v4
         with:
           name: DeskCalendar-windows

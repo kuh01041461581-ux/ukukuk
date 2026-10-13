@@ -4,3 +4,4 @@ segno
 pillow
 korean-lunar-calendar
 pyinstaller
+pystray

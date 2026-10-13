@@ -874,6 +874,15 @@ class SettingsDialog:
         pill(r, "기본", lambda: self.act(app.set_ui_scale, 1.0))
         r = row()
         r.pack_configure(pady=(S(8), 0))
+        tk.Label(r, text="달력 칸 글자", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+        cal = float(app.conf.get("cal_font", 1.15))
+        pill(r, "－", lambda: self.act(app.set_cal_font, cal - 0.1))
+        tk.Label(r, text=f"{int(round(cal * 100))}%", font=app.f_body, bg=SURFACE, fg=TEXT,
+                 width=5).pack(side="left")
+        pill(r, "＋", lambda: self.act(app.set_cal_font, cal + 0.1))
+        pill(r, "기본", lambda: self.act(app.set_cal_font, 1.15))
+        r = row()
+        r.pack_configure(pady=(S(8), 0))
         tk.Label(r, text="글꼴", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
         tk.Label(r, text=app.family, font=app.f_body, bg=SURFACE, fg=ACCENT).pack(side="left", padx=(0, S(10)))
         pill(r, "변경…", lambda: FontDialog(app, on_done=self.build))
@@ -1017,7 +1026,8 @@ class DeskCalendar:
     HOTKEY_LABEL = "Ctrl+Alt+Space"
     # (이름, 기본 pt, 굵게)
     FONT_SPEC = {"title": (17, True), "h2": (14, True), "head": (9, True), "day": (10, True),
-                 "tiny": (8, False), "small": (9, False), "body": (10, False)}
+                 "tiny": (8, False), "small": (9, False), "body": (10, False),
+                 "chip": (9, False)}
 
     def __init__(self, root, open_pdfs=None):
         self.root = root
@@ -1034,8 +1044,8 @@ class DeskCalendar:
         self.ui = min(2.0, max(0.7, float(self.conf.get("scale", 1.0))))
         self.scale = self.dpi_scale * self.ui
         self.panel_w = self.S(290) + 1
-        self.win_w = int(self.conf.get("w", self.S(660)))   # 입력 패널을 뺀 창 너비
-        self.win_h = int(self.conf.get("h", self.S(720)))
+        self.win_w = int(self.conf.get("w", self.S(980)))   # 입력 패널을 뺀 창 너비
+        self.win_h = int(self.conf.get("h", min(self.S(860), root.winfo_screenheight() - self.S(90))))
         self.nslot = 3
         self.menu = None
         installed = set(tkfont.families())
@@ -1051,6 +1061,7 @@ class DeskCalendar:
         self._shift = 0
         self._press_idx = None
         self._drag_range = None
+        self._tip, self._tip_job = None, None
         self._move = None          # 달력에서 일정 칩을 끌어 옮기는 중: (항목, 눌렀던 날짜)
         self._move_to = None
         self._hits = []
@@ -1083,7 +1094,9 @@ class DeskCalendar:
                                         weight="bold" if bold else "normal")
         self.f_done = tkfont.Font(family=self.family, size=-1, overstrike=True)
         self.f_tiny_done = tkfont.Font(family=self.family, size=-1, overstrike=True)
+        self.f_chip_done = tkfont.Font(family=self.family, size=-1, overstrike=True)
         self._apply_fonts()
+        self.f_chip = self.fonts["chip"]
         self.f_title, self.f_h2, self.f_head = self.fonts["title"], self.fonts["h2"], self.fonts["head"]
         self.f_day, self.f_tiny = self.fonts["day"], self.fonts["tiny"]
         self.f_small, self.f_body = self.fonts["small"], self.fonts["body"]
@@ -1115,10 +1128,23 @@ class DeskCalendar:
 
     # ── 글꼴 / 크기 ──
     def _apply_fonts(self):
+        cal = float(self.conf.get("cal_font", 1.15))   # 달력 칸 글자 배율
         for k, (pt, _) in self.FONT_SPEC.items():
-            self.fonts[k].configure(family=self.family, size=-max(8, round(pt * 4 / 3 * self.scale)))
+            f = cal if k == "chip" else 1.0
+            self.fonts[k].configure(family=self.family, size=-max(8, round(pt * f * 4 / 3 * self.scale)))
         self.f_done.configure(family=self.family, size=-max(8, round(10 * 4 / 3 * self.scale)))
         self.f_tiny_done.configure(family=self.family, size=-max(8, round(8 * 4 / 3 * self.scale)))
+        self.f_chip_done.configure(family=self.family, size=-max(8, round(9 * cal * 4 / 3 * self.scale)))
+        self.chip_h = self.fonts["chip"].metrics("linespace") + self.S(4)   # 일정 칩 한 줄 높이
+        self.pitch = self.chip_h + self.S(2)
+        self.head_h = self.S(27)                                            # 날짜 숫자가 차지하는 높이
+
+    def set_cal_font(self, v):
+        v = round(min(1.8, max(0.8, v)), 2)
+        self.conf["cal_font"] = v
+        self._save_conf()
+        self._apply_fonts()
+        self.rebuild()
 
     def set_font(self, family):
         self.family = family
@@ -1283,7 +1309,7 @@ class DeskCalendar:
         S, gap = self.S, self.gap
         self.cw = max(S(44), (e.width - 6 * gap - 2) // 7)
         self.ch = max(S(46), (e.height - self.wd_h - 5 * gap) // 6)
-        self.nslot = max(1, min(6, (self.ch - S(32)) // S(16)))
+        self.nslot = max(1, min(8, (self.ch - self.head_h - S(3)) // self.pitch))
         self.render_month()
 
     # ── UI 구성 ──
@@ -1743,7 +1769,7 @@ class DeskCalendar:
         self._refresh_theme()
 
     def reset_appearance(self):
-        for k in ("theme", "accent", "text_color", "pri_colors", "font", "scale"):
+        for k in ("theme", "accent", "text_color", "pri_colors", "font", "scale", "cal_font"):
             self.conf.pop(k, None)
         self.family = DEFAULT_FONT
         self.ui = 1.0
@@ -1906,23 +1932,23 @@ class DeskCalendar:
             return self.selected, self.sel_end or self.selected
         return None
 
-    def _draw_chip(self, x1, x2, yy, t, in_month):
-        S, c = self.S, self.cal
+    def _draw_chip(self, x1, x2, yy, t, in_month, more=0):
+        S, c, h = self.S, self.cal, self.chip_h
         done = t.get("done", False)
         col = DONE if done else pri_color(t)
         bgc = CARD if in_month else CARD_DIM
-        rrect(c, x1, yy, x2, yy + S(14), S(4),
-              fill=blend(col, bgc, 0.10 if done else 0.20), outline="")
-        c.create_rectangle(x1, yy + S(3), x1 + S(2), yy + S(11), fill=col, outline="")
-        self._hits.append((x1, yy, x2, yy + S(14), t))
-        fnt = self.f_tiny_done if done else self.f_tiny
-        c.create_text(x1 + S(6), yy + S(7), anchor="w", font=fnt,
-                      text=self._fit(t.get("text", ""), fnt, x2 - x1 - S(10)),
+        rrect(c, x1, yy, x2, yy + h, S(4), fill=blend(col, bgc, 0.10 if done else 0.22), outline="")
+        c.create_rectangle(x1, yy + S(3), x1 + S(3), yy + h - S(3), fill=col, outline="")
+        self._hits.append((x1, yy, x2, yy + h, t))
+        fnt = self.f_chip_done if done else self.f_chip
+        label = (t["time"] + " " if t.get("time") else "") + t.get("text", "") + (f"   +{more}" if more else "")
+        c.create_text(x1 + S(8), yy + h / 2, anchor="w", font=fnt,
+                      text=self._fit(label, fnt, x2 - x1 - S(12)),
                       fill=DIM if done else blend(col, CHIP_MIX, 0.55 if CHIP_MIX == "#000000" else 0.6))
 
     def _draw_bar(self, b):
         """기간 일정: 여러 날짜 칸을 가로로 이어 붙인 막대"""
-        S, c = self.S, self.cal
+        S, c, h = self.S, self.cal, self.chip_h
         cw, ch, gap = self.cw, self.ch, self.gap
         t = b["t"]
         done = t.get("done", False)
@@ -1930,18 +1956,18 @@ class DeskCalendar:
         fill = blend(col, CARD, 0.30 if not done else 0.14)
         x1 = b["c1"] * (cw + gap) + S(3)
         x2 = b["c2"] * (cw + gap) + cw - S(3)
-        y = self.wd_h + b["row"] * (ch + gap) + S(30) + b["slot"] * S(16)
-        rrect(c, x1, y, x2, y + S(14), S(4), fill=fill, outline="")
-        self._hits.append((x1, y, x2, y + S(14), t))
+        y = self.wd_h + b["row"] * (ch + gap) + self.head_h + b["slot"] * self.pitch
+        rrect(c, x1, y, x2, y + h, S(4), fill=fill, outline="")
+        self._hits.append((x1, y, x2, y + h, t))
         if not b["left"]:   # 앞 주에서 이어지는 막대는 왼쪽을 평평하게
-            c.create_rectangle(x1, y, x1 + S(6), y + S(14), fill=fill, outline="")
+            c.create_rectangle(x1, y, x1 + S(6), y + h, fill=fill, outline="")
         else:
-            c.create_rectangle(x1, y + S(3), x1 + S(2), y + S(11), fill=col, outline="")
+            c.create_rectangle(x1, y + S(3), x1 + S(3), y + h - S(3), fill=col, outline="")
         if not b["right"]:
-            c.create_rectangle(x2 - S(6), y, x2, y + S(14), fill=fill, outline="")
-        fnt = self.f_tiny_done if done else self.f_tiny
-        c.create_text(x1 + S(6), y + S(7), anchor="w", font=fnt,
-                      text=self._fit(t.get("text", ""), fnt, x2 - x1 - S(10)),
+            c.create_rectangle(x2 - S(6), y, x2, y + h, fill=fill, outline="")
+        fnt = self.f_chip_done if done else self.f_chip
+        c.create_text(x1 + S(8), y + h / 2, anchor="w", font=fnt,
+                      text=self._fit(t.get("text", ""), fnt, x2 - x1 - S(12)),
                       fill=DIM if done else blend(col, CHIP_MIX, 0.6 if CHIP_MIX == "#000000" else 0.7))
 
     def _draw_cell(self, i, d, x, y):
@@ -1991,18 +2017,35 @@ class DeskCalendar:
         rows += [("t", t) for t in self.lay["singles"].get(d, [])]
         extra = self.lay["hidden"].get(d, 0)
         if len(rows) + extra > len(free):
-            keep = max(0, len(free) - 1)
-            rows = rows[:keep] + [("m", len(rows) - keep + extra)]
+            total = len(rows) + extra
+            first = next((v for k, v in rows if k == "t"), None)
+            if len(free) == 1 and first is not None:   # 칸이 하나뿐이어도 가장 중요한 일정은 보이게
+                rows = [("tm", (first, total - 1))]
+            else:
+                keep = max(0, len(free) - 1)
+                rows = rows[:keep] + [("m", total - keep)]
+        else:   # 자리가 남으면 그날 메모 첫 줄을 보여 준다
+            memo = (entry.get("memo", "").strip().splitlines() or [""])[0]
+            if memo and len(rows) + extra < len(free):
+                rows.append(("n", memo))
         x1, x2 = x + S(6), x + cw - S(6)
         for slot, (kind, v) in zip(free, rows):
-            yy = y + S(30) + slot * S(16)
+            yy = y + self.head_h + slot * self.pitch
+            mid = yy + self.chip_h / 2
             if kind == "h":
-                c.create_text(x1 + S(2), yy + S(7), anchor="w", font=self.f_tiny,
-                              text=self._fit(v, self.f_tiny, x2 - x1 - S(4)),
+                c.create_text(x1 + S(2), mid, anchor="w", font=self.f_chip,
+                              text=self._fit(v, self.f_chip, x2 - x1 - S(4)),
                               fill=SUN if in_month else DIM)
             elif kind == "m":
-                c.create_text(x1 + S(2), yy + S(7), anchor="w", font=self.f_tiny,
-                              text=f"+{v}개 더", fill=SUB if in_month else DIM)
+                c.create_text(x1 + S(2), mid, anchor="w", font=self.f_chip,
+                              text=f"+{v}개 더 (마우스를 올려 보세요)" if cw > S(130) else f"+{v}개 더",
+                              fill=SUB if in_month else DIM)
+            elif kind == "n":
+                c.create_text(x1 + S(2), mid, anchor="w", font=self.f_chip,
+                              text=self._fit("✎ " + v, self.f_chip, x2 - x1 - S(4)),
+                              fill=SUB if in_month else DIM)
+            elif kind == "tm":
+                self._draw_chip(x1, x2, yy, v[0], in_month, more=v[1])
             else:
                 self._draw_chip(x1, x2, yy, v, in_month)
 
@@ -2023,8 +2066,64 @@ class DeskCalendar:
             self.hover_idx = idx
             self.cal.config(cursor="hand2" if idx is not None else "")
             self.draw_calendar()
+            self._tip_hide()
+            if idx is not None:
+                self._tip_job = self.root.after(450, lambda i=idx: self._tip_show(i))
+
+    def _tip_hide(self):
+        if self._tip_job:
+            self.root.after_cancel(self._tip_job)
+            self._tip_job = None
+        if self._tip:
+            try:
+                self._tip.destroy()
+            except Exception:
+                pass
+            self._tip = None
+
+    def _tip_show(self, idx):
+        """칸에 다 안 들어가는 내용까지 보여 주는 말풍선"""
+        self._tip_job = None
+        if idx != self.hover_idx or self._press_idx is not None or not (0 <= idx < len(self.dates)):
+            return
+        d = self.dates[idx]
+        rows = core.day_items(self.data, d)
+        rows.sort(key=lambda r: sort_key(r[1]))
+        memo = self.data.get(d.isoformat(), {}).get("memo", "").strip()
+        h = holiday_name(d)
+        if not rows and not memo and not h:
+            return
+        S = self.S
+        top = self._tip = tk.Toplevel(self.root)
+        top.overrideredirect(True)
+        top.attributes("-topmost", True)
+        top.configure(bg=BORDER)
+        card = tk.Frame(top, bg=SURFACE, padx=S(12), pady=S(10))
+        card.pack(padx=1, pady=1)
+        tk.Label(card, text=f"{d.month}월 {d.day}일 ({WEEKDAY_KO[d.weekday()]})" + (f" · {h}" if h else ""),
+                 font=self.f_head, bg=SURFACE, fg=ACCENT if d == self.today else TEXT, anchor="w").pack(fill="x")
+        for lst, t, s0 in rows[:14]:
+            done = t.get("done", False)
+            e0 = item_end(t, s0)
+            tag = (f"{t['time']} " if t.get("time") else "") + (f"[{s0.month}/{s0.day}~{e0.month}/{e0.day}] " if e0 else "")
+            tk.Label(card, text=("✔ " if done else "● ") + tag + t.get("text", ""),
+                     font=self.f_done if done else self.f_body, bg=SURFACE, fg=DONE if done else pri_color(t),
+                     anchor="w", justify="left", wraplength=S(320)).pack(fill="x", pady=(S(3), 0))
+        if len(rows) > 14:
+            tk.Label(card, text=f"…외 {len(rows) - 14}개", font=self.f_small, bg=SURFACE, fg=SUB, anchor="w").pack(fill="x")
+        if memo:
+            tk.Label(card, text="✎ " + memo[:200], font=self.f_small, bg=SURFACE, fg=SUB, anchor="w",
+                     justify="left", wraplength=S(320)).pack(fill="x", pady=(S(6), 0))
+        top.update_idletasks()
+        px, py = self.root.winfo_pointerxy()
+        vx, vy, vw, vh = virtual_screen(self.root)
+        w, hh = top.winfo_reqwidth(), top.winfo_reqheight()
+        x = min(px + S(16), vx + vw - w - S(8))
+        y = min(py + S(16), vy + vh - hh - S(8))
+        top.geometry(f"+{x}+{y}")
 
     def _cal_press(self, e):
+        self._tip_hide()
         self._press_idx = self._cell_at(e.x, e.y)
         self._drag_range = None
         self._move = self._move_to = None
@@ -2053,6 +2152,7 @@ class DeskCalendar:
             self.draw_calendar()
 
     def _cal_leave(self, e):
+        self._tip_hide()
         if self.hover_idx is not None:
             self.hover_idx = None
             self.draw_calendar()

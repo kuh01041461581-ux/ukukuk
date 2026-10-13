@@ -219,7 +219,7 @@ class CalendarPage extends StatelessWidget {
                       style: TextStyle(fontSize: 12, color: i == 0 ? cSun : (i == 6 ? cSat : cSub))))),
       ]),
       Expanded(
-        flex: 5,
+        flex: 6,
         child: GestureDetector(
           onHorizontalDragEnd: (d) {
             final v = d.primaryVelocity ?? 0;
@@ -237,7 +237,7 @@ class CalendarPage extends StatelessWidget {
         ),
       ),
       const Divider(height: 1),
-      Expanded(flex: 5, child: DayPanel(store: store, date: selected)),
+      Expanded(flex: 4, child: DayPanel(store: store, date: selected)),
     ]);
   }
 
@@ -259,32 +259,54 @@ class CalendarPage extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: sel ? Border.all(color: cAccent, width: 1.5) : null,
         ),
-        child: Column(children: [
-          const SizedBox(height: 3),
-          Container(
-            width: 22,
-            height: 22,
-            alignment: Alignment.center,
-            decoration: isToday ? const BoxDecoration(color: cAccent, shape: BoxShape.circle) : null,
-            child: Text('${d.day}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: numColor)),
-          ),
-          if (h != null)
-            Text(h.length > 4 ? h.substring(0, 4) : h,
-                maxLines: 1, style: TextStyle(fontSize: 8, color: inMonth ? cSun : cDim)),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Wrap(spacing: 2, runSpacing: 2, alignment: WrapAlignment.center, children: [
-              for (final r in rows.take(4))
-                Container(
-                    width: 5,
-                    height: 5,
-                    decoration: BoxDecoration(
-                        color: r.t['done'] == true ? cDim : priColor(r.t), shape: BoxShape.circle)),
-              if (rows.length > 4) const Text('+', style: TextStyle(fontSize: 8, color: cSub)),
-            ]),
-          ),
-        ]),
+        child: LayoutBuilder(builder: (context, c) {
+          // 칸 높이에 맞춰 보여 줄 줄 수를 정한다: 달력만 봐도 할 일이 읽히도록 글자로 표시
+          final slots = ((c.maxHeight - 26) / 12).floor().clamp(1, 6);
+          final entries = <(String, Color, bool, bool)>[]; // 글자, 색, 완료, 공휴일
+          if (h != null) entries.add((h, inMonth ? cSun : cDim, false, true));
+          for (final r in rows) {
+            final done = r.t['done'] == true;
+            entries.add((r.t['text'] as String? ?? '', done ? cDim : priColor(r.t), done, false));
+          }
+          final over = entries.length > slots;
+          final show = over ? slots - 1 : entries.length;
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const SizedBox(height: 2),
+            Center(
+              child: Container(
+                width: 20,
+                height: 20,
+                alignment: Alignment.center,
+                decoration: isToday ? const BoxDecoration(color: cAccent, shape: BoxShape.circle) : null,
+                child: Text('${d.day}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: numColor)),
+              ),
+            ),
+            const SizedBox(height: 1),
+            for (var i = 0; i < show; i++)
+              entries[i].$4
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: Text(entries[i].$1,
+                          maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: TextStyle(fontSize: 8.5, color: entries[i].$2)))
+                  : Container(
+                      margin: const EdgeInsets.fromLTRB(2, 0, 2, 1),
+                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0.5),
+                      decoration: BoxDecoration(color: entries[i].$2.withOpacity(0.22), borderRadius: BorderRadius.circular(3)),
+                      child: Text(entries[i].$1,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.clip,
+                          style: TextStyle(
+                              fontSize: 9,
+                              height: 1.15,
+                              color: entries[i].$3 ? cDim : Color.lerp(entries[i].$2, Colors.white, 0.45),
+                              decoration: entries[i].$3 ? TextDecoration.lineThrough : null))),
+            if (over)
+              Padding(
+                  padding: const EdgeInsets.only(left: 3, top: 1),
+                  child: Text('+${entries.length - show}', style: const TextStyle(fontSize: 9, color: cSub))),
+          ]);
+        }),
       ),
     );
   }

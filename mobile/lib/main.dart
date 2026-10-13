@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -140,21 +141,36 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   DateTime selected = dayOnly(DateTime.now());
   late DateTime month = DateTime(selected.year, selected.month);
 
+  Timer? _poll;
+
+  // 앱이 화면에 떠 있는 동안 30초마다 PC 의 변경을 받아온다 (내 변경은 입력 후 4초 안에 자동으로 올라감)
+  void _startPoll() {
+    _poll?.cancel();
+    _poll = Timer.periodic(const Duration(seconds: 30), (_) => widget.store.syncNow());
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _startPoll();
   }
 
   @override
   void dispose() {
+    _poll?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
-    if (s == AppLifecycleState.resumed) widget.store.syncNow();
+    if (s == AppLifecycleState.resumed) {
+      widget.store.syncNow();
+      _startPoll();
+    } else if (s == AppLifecycleState.paused) {
+      _poll?.cancel();
+    }
   }
 
   void jump(DateTime d) => setState(() {

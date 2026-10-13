@@ -1584,7 +1584,7 @@ class DeskCalendar:
         root.after(6000, self.refresh_holidays)
         root.after(300, self._poll_sync)
         root.after(3000, self.sync_now)
-        root.after(5 * 60 * 1000, self._sync_tick)
+        root.after(30 * 1000, self._sync_tick)
         root.after(8000, self._check_reminders)
         root.after(1000, self._poll_requests)
         if open_pdfs:
@@ -2080,7 +2080,7 @@ class DeskCalendar:
 
     def _sync_tick(self):
         self.sync_now()
-        self.root.after(5 * 60 * 1000, self._sync_tick)
+        self.root.after(30 * 1000, self._sync_tick)
 
     def sync_now(self):
         self._sync_job = None

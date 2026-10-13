@@ -145,6 +145,9 @@ String _tidy(String t) {
   return t;
 }
 
+/// 다른 파일(붙여넣기 분석)에서도 쓰는 문장 정리
+String tidyText(String t) => _tidy(t);
+
 bool _meaningful(String t) => t.replaceAll(RegExp(r'[^0-9A-Za-z가-힣]'), '').length >= 2;
 
 class _Span {

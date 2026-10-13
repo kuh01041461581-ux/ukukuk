@@ -28,6 +28,8 @@ import gongmun
 import holidays_api
 import holidays_kr
 import cloudsync
+import analyze
+import ocr
 import quickadd
 from core import item_end
 from holidays_kr import holiday_name
@@ -336,6 +338,7 @@ def start_tray(q):
     menu = pystray.Menu(
         pystray.MenuItem("열기", put("show"), default=True),
         pystray.MenuItem("오늘 일정 추가", put("add")),
+        pystray.MenuItem("클립보드 내용으로 일정 만들기", put("clip")),
         pystray.MenuItem("휴대폰 연결", put("phone")),
         pystray.MenuItem("설정", put("settings")),
         pystray.Menu.SEPARATOR,
@@ -475,18 +478,19 @@ def THEME_IS_DARK():
 class ImportDialog:
     """공문 PDF 에서 찾은 일정 후보를 확인하고 추가하는 창"""
 
-    def __init__(self, app, doc_title, items, src_path=None):
+    def __init__(self, app, doc_title, items, src_path=None, heading="공문에서 일정 가져오기"):
         self.app, S = app, app.S
         self.src_path = src_path
         self.doc_title = doc_title
         self.rows = []
-        top = self.top = _dialog(app, "공문에서 일정 가져오기", S(760), S(520))
-        tk.Label(top, text="공문에서 일정 가져오기", font=app.f_h2, bg=SURFACE, fg=TEXT,
+        top = self.top = _dialog(app, heading, S(760), S(520))
+        tk.Label(top, text=heading, font=app.f_h2, bg=SURFACE, fg=TEXT,
                  anchor="w").pack(fill="x", padx=S(20), pady=(S(16), 0))
-        tk.Label(top, text=doc_title or "(제목 없음)", font=app.f_small, bg=SURFACE, fg=ACCENT,
-                 anchor="w", wraplength=S(700), justify="left").pack(fill="x", padx=S(20))
-        msg = ("날짜가 있는 항목을 찾았어요. 추가할 것만 체크하세요. '기간'을 체크한 것(감사·의회·훈련 등)만 "
-               "여러 날 막대로, 나머지는 마감일(종료일) 하루에 표시돼요."
+        if doc_title:
+            tk.Label(top, text=doc_title, font=app.f_small, bg=SURFACE, fg=ACCENT,
+                     anchor="w", wraplength=S(700), justify="left").pack(fill="x", padx=S(20))
+        msg = ("날짜가 있는 항목을 찾았어요. 추가할 것만 체크하세요. 날짜를 비워 두면 보관함(할 일)으로 들어가요. "
+               "'기간'을 체크한 것(감사·의회·훈련 등)만 여러 날 막대로, 나머지는 마감일(종료일) 하루에 표시돼요."
                if items else "날짜가 있는 항목을 찾지 못했어요. 아래 '＋ 행 추가'로 직접 넣을 수 있어요.")
         tk.Label(top, text=msg, font=app.f_tiny, bg=SURFACE, fg=SUB, anchor="w").pack(
             fill="x", padx=S(20), pady=(S(4), S(8)))
@@ -520,7 +524,7 @@ class ImportDialog:
         it = it or {"date": app.selected, "end": None, "time": "", "text": "", "pri": DEFAULT_PRI}
         row = tk.Frame(self.inner, bg=SURFACE)
         row.pack(fill="x", pady=S(3))
-        dup = bool(it["text"]) and app.has_similar(it["date"], it["text"])
+        dup = bool(it["text"]) and it["date"] is not None and app.has_similar(it["date"], it["text"])
         var = tk.BooleanVar(value=not dup)
         tk.Checkbutton(row, variable=var, bg=SURFACE, activebackground=SURFACE, selectcolor=CARD,
                        fg=TEXT, command=self.refresh_count, bd=0, highlightthickness=0
@@ -538,7 +542,7 @@ class ImportDialog:
                    ipady=S(4))
             return e
 
-        d = entry(11, it["date"].isoformat())
+        d = entry(11, it["date"].isoformat() if it["date"] else "")
         tk.Label(row, text="~", font=app.f_small, bg=SURFACE, fg=DIM).pack(side="left", padx=(0, S(6)))
         en = entry(11, it["end"].isoformat() if it.get("end") else "")
         t = entry(6, it.get("time", ""))
@@ -576,10 +580,13 @@ class ImportDialog:
             text = r["text"].get().strip()
             if not text:
                 continue
+            if not r["date"].get().strip():                       # 날짜가 없으면 보관함(할 일)으로
+                picked.append((None, core.new_item(text, pri=r["pri"])))
+                continue
             try:
                 d = dt.date.fromisoformat(r["date"].get().strip())
             except ValueError:
-                messagebox.showwarning("날짜 확인", "날짜는 2026-10-20 처럼 적어 주세요.",
+                messagebox.showwarning("날짜 확인", "날짜는 2026-10-20 처럼 적어 주세요. (비워 두면 보관함으로 들어가요)",
                                        parent=self.top)
                 return
             end = None
@@ -603,7 +610,7 @@ class ImportDialog:
                                             **({"end": end.isoformat()} if end and end > d else {}),
                                             **({"src_path": self.src_path} if self.src_path else {}))))
         for d, item in picked:
-            core.add_item(app.data, d.isoformat(), item)
+            core.add_item(app.data, d.isoformat() if d else "_inbox", item)
         if picked:
             app._after_todo_change()
         self.top.destroy()
@@ -1090,6 +1097,12 @@ class CommandBar:
             self.rows.append(("＋  일정으로 추가", quickadd.describe(r), self.add))
         else:
             self.preview.config(text="일정을 그냥 적어 보세요  ·  예) 내일 오후 3시 회의 !중요  /  매주 금요일 9시 주간회의", fg=DIM)
+        try:
+            clip_ok = len(self.app.root.clipboard_get().strip()) >= 6
+        except tk.TclError:
+            clip_ok = IS_WIN            # 이미지를 복사한 경우도 있을 수 있어 윈도우에서는 항상 보여 줌
+        if clip_ok and (not q or len(q) < 3):
+            self.rows.append(("📋  클립보드 내용으로 일정 만들기", "복사한 글·캡처", lambda: (self.close(), self.app.analyze_clipboard())))
         for name, _, fn in self._commands(q):
             self.rows.append(("▸  " + name, "명령", lambda fn=fn: (self.close(), fn())))
         for _, d, t in self._hits(q):
@@ -1756,6 +1769,8 @@ class DeskCalendar:
 
         root.bind_all("<Control-MouseWheel>", self._on_ctrl_wheel)
         root.bind_all("<Control-k>", lambda e: self.open_cmdbar())
+        root.bind_all("<Control-Shift-V>", lambda e: self.analyze_clipboard())
+        root.bind_all("<Control-Shift-v>", lambda e: self.analyze_clipboard())
         root.bind_all("<Control-K>", lambda e: self.open_cmdbar())
         root.bind_all("<ButtonRelease-1>", lambda e: root.after(40, self._bottom_soon), add="+")
         if not self.conf.get("seen_help"):
@@ -2226,6 +2241,7 @@ class DeskCalendar:
         m.add_separator()
         m.add_command(label="휴대폰 연결…", command=lambda: PhoneDialog(self))
         m.add_command(label="공문 PDF 가져오기…", command=self.import_pdf)
+        m.add_command(label="클립보드 내용으로 일정 만들기  (Ctrl+Shift+V)", command=self.analyze_clipboard)
         bm = tk.Menu(m, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT, activeforeground="#ffffff",
                      bd=0, font=f)
         bm.add_command(label="백업 파일 저장…", command=self.backup_save)
@@ -3935,11 +3951,62 @@ class DeskCalendar:
         title, items = gongmun.parse(text, self.today)
         ImportDialog(self, title, items, src_path=os.path.abspath(path))
 
+    IMG_EXT = (".png", ".jpg", ".jpeg", ".bmp", ".webp")
+
+    def _show_candidates(self, text, heading="붙여넣은 내용에서 일정 만들기"):
+        """글 → 일정/할 일 후보 → 확인 창"""
+        items = analyze.analyze(text, self.today)
+        if not items:
+            messagebox.showinfo("분석 결과", "일정이나 할 일로 보이는 내용을 찾지 못했어요.\n"
+                                "(날짜나 '제출·회신·확인' 같은 요청이 들어 있어야 해요)", parent=self.root)
+            return
+        ImportDialog(self, "", items, heading=heading)
+
+    def analyze_clipboard(self):
+        """복사해 둔 글·캡처 이미지·PDF 파일을 분석해서 일정 후보로 만든다"""
+        self.root.update_idletasks()
+        try:
+            from PIL import ImageGrab
+            clip = ImageGrab.grabclipboard() if IS_WIN else None
+        except Exception:
+            clip = None
+        if isinstance(clip, list):                       # 탐색기에서 파일을 복사한 경우
+            self.import_dropped([str(f) for f in clip])
+            return
+        if clip is not None:                             # 캡처 이미지
+            self._ocr_then_show(lambda: ocr.read_pil(clip))
+            return
+        try:
+            text = self.root.clipboard_get()
+        except tk.TclError:
+            text = ""
+        if len(text.strip()) < 6:
+            messagebox.showinfo("클립보드가 비어 있어요", "메신저·메일의 내용을 복사(Ctrl+C)하거나\n화면을 캡처(Win+Shift+S)한 뒤 다시 눌러 주세요.",
+                                parent=self.root)
+            return
+        self._show_candidates(text)
+
+    def _ocr_then_show(self, reader):
+        self.root.config(cursor="watch")
+        self.root.update_idletasks()
+        try:
+            text = reader()
+        except ocr.OcrError as ex:
+            self.root.config(cursor="")
+            messagebox.showinfo("글자 인식", str(ex), parent=self.root)
+            return
+        self.root.config(cursor="")
+        self._show_candidates(text, "캡처한 이미지에서 일정 만들기")
+
     def import_dropped(self, files):
         """끌어다 놓은 공문 PDF 를 읽어 핵심 내용만 일정으로 바로 추가한다 (실행 취소 가능)"""
+        imgs = [f for f in files if f.lower().endswith(self.IMG_EXT)]
+        if imgs:                                         # 캡처 이미지 → 글자 인식 → 확인 창
+            self._ocr_then_show(lambda: "\n".join(ocr.read_image(p) for p in imgs[:3]))
+            return
         pdfs = [f for f in files if f.lower().endswith(".pdf")]
         if not pdfs:
-            messagebox.showinfo("공문 가져오기", "PDF 파일만 끌어다 놓을 수 있어요.\n(글자가 선택되는 PDF 공문)", parent=self.root)
+            messagebox.showinfo("가져오기", "PDF 공문 또는 캡처 이미지(png·jpg)를 끌어다 놓을 수 있어요.", parent=self.root)
             return
         added, bad = [], []
         for path in pdfs:
@@ -4137,6 +4204,9 @@ class DeskCalendar:
             self.summon(popup=False)
         elif cmd == "add":
             self.summon()
+        elif cmd == "clip":
+            self.summon(popup=False)
+            self.analyze_clipboard()
         elif cmd == "phone":
             self.summon(popup=False)
             PhoneDialog(self)

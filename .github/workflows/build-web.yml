@@ -3,7 +3,7 @@ name: Build Web (아이폰 홈 화면 앱)
 on:
   push:
     branches: [main, "claude/**"]
-    paths: [mobile/**, .github/workflows/build-web.yml]
+    paths: [mobile/**, tools/**, relay/**, .github/workflows/build-web.yml]
   workflow_dispatch:
 
 permissions:

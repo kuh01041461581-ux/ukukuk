@@ -31,6 +31,7 @@ void main() {
     final y = dayOnly(DateTime.now()).year;
     expect(store.data.keys.any((k) => k.startsWith('$y-') || k.startsWith('${y + 1}-')), true);
     expect((store.data['_inbox'] as Map?)?['todos'] ?? [], isEmpty);
+    await tester.pump(const Duration(seconds: 6)); // 저장·동기화 예약 타이머가 끝나도록
     expect(tester.takeException(), isNull);
   });
 }

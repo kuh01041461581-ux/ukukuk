@@ -48,6 +48,10 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: mobile/build/web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: mobile/build/web
 
   deploy:
     needs: build
@@ -58,3 +62,40 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # 아이폰이 없어도 사파리와 같은 엔진(WebKit)으로 자동 확인한다: 아이폰 크기 화면에서 PC 일정이 오가는지 + 화면 캡처를 릴리스에 올린다
+  safari-test:
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: site/${{ github.event.repository.name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Playwright (WebKit = 사파리 엔진) 설치
+        run: |
+          npm install --no-save playwright
+          npx playwright install webkit chromium
+      - name: 아이폰 화면(사파리 엔진)에서 끝까지 시험
+        run: |
+          python3 -m http.server 8080 --directory site &
+          node tools/relay_dev_server.mjs &
+          sleep 3
+          RESULT=0
+          for B in webkit chromium; do
+            BROWSER=$B SITE="http://localhost:8080/${{ github.event.repository.name }}/" OUT=shots node tools/web_e2e.mjs || RESULT=1
+          done
+          exit $RESULT
+      - name: 화면 캡처를 릴리스에 올리기
+        if: always()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-web-safari
+          name: 웹앱 사파리 엔진 시험 화면 (자동 생성)
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          files: shots/*.png

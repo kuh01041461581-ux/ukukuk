@@ -625,13 +625,23 @@ class EditDialog:
 class DayDetail:
     """날짜 하나의 모든 일정과 메모를 크게 보여 주고 바로 고칠 수 있는 창 (달력 날짜 더블클릭)"""
 
-    def __init__(self, app, d):
-        self.app, self.d = app, d
+    def __init__(self, app, d, end=None):
+        self.app, self.d, self.end = app, d, end
         self.pri = DEFAULT_PRI
         S = app.S
-        self.top = _dialog(app, "상세 보기", S(680), S(780))
+        self.top = _dialog(app, "메모", S(400), S(520))
+        self.top.minsize(S(320), S(360))
         self.top.protocol("WM_DELETE_WINDOW", self.close)
+        self.top.bind("<Escape>", lambda e: self.close())
         self.build()
+        self.top.after(60, self._focus)
+
+    def _focus(self):
+        try:
+            self.top.focus_force()
+            self.entry.focus_force()
+        except tk.TclError:
+            pass
 
     def close(self):
         self.save_memo()
@@ -656,6 +666,7 @@ class DayDetail:
     def go(self, delta):
         self.save_memo()
         self.d = self.d + dt.timedelta(days=delta) if delta else dt.date.today()
+        self.end = None
         self.build()
 
     def build(self):
@@ -672,12 +683,14 @@ class DayDetail:
         hd = tk.Frame(top, bg=SURFACE)
         hd.pack(fill="x", padx=pad, pady=(S(16), S(4)))
         Pill(hd, "‹", lambda: self.go(-1), app.f_body, parent_bg=SURFACE, padx=S(11), pady=S(3)).pack(side="left")
-        tk.Label(hd, text=f"{d.year}년 {d.month}월 {d.day}일 ({WEEKDAY_KO[d.weekday()]})", font=app.f_title,
-                 bg=SURFACE, fg=TEXT).pack(side="left", padx=S(12))
+        tk.Label(hd, text=f"{d.year}년 {d.month}월 {d.day}일 ({WEEKDAY_KO[d.weekday()]})", font=app.f_h2,
+                 bg=SURFACE, fg=TEXT).pack(side="left", padx=S(10))
         Pill(hd, "›", lambda: self.go(1), app.f_body, parent_bg=SURFACE, padx=S(11), pady=S(3)).pack(side="left")
         Pill(hd, "오늘", lambda: self.go(0), app.f_small, fg="#ffffff", bg=ACCENT,
              hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(12), pady=S(4)).pack(side="left", padx=S(8))
         sub = []
+        if self.end and self.end > d:
+            sub.append(f"기간 {d.month}/{d.day} ~ {self.end.month}/{self.end.day} 로 추가돼요")
         if d == app.today:
             sub.append("오늘")
         if h:
@@ -688,7 +701,7 @@ class DayDetail:
 
         # 아래쪽: 추가 입력
         foot = tk.Frame(top, bg=SURFACE)
-        foot.pack(side="bottom", fill="x", padx=pad, pady=S(14))
+        foot.pack(side="bottom", fill="x", padx=pad, pady=S(10))
         box = tk.Frame(foot, bg=BORDER, padx=1, pady=1)
         box.pack(fill="x")
         inner = tk.Frame(box, bg=CARD)
@@ -780,10 +793,10 @@ class DayDetail:
         tk.Label(body, text="  ·  ".join(tags), font=app.f_tiny, bg=CARD, fg=DIM if done else col,
                  anchor="w").pack(fill="x")
         tk.Label(body, text=t.get("text", ""), font=app.f_done if done else app.f_body, bg=CARD,
-                 fg=DONE if done else TEXT, anchor="w", justify="left", wraplength=S(430)).pack(fill="x")
+                 fg=DONE if done else TEXT, anchor="w", justify="left", wraplength=S(260)).pack(fill="x")
         if t.get("note"):
             tk.Label(body, text=t["note"], font=app.f_small, bg=CARD, fg=SUB, anchor="w", justify="left",
-                     wraplength=S(430)).pack(fill="x", pady=(S(4), 0))
+                     wraplength=S(260)).pack(fill="x", pady=(S(4), 0))
         btns = tk.Frame(inner, bg=CARD)
         btns.pack(side="right", anchor="n")
         Pill(btns, "수정", lambda t=t: app.edit_item(t), app.f_tiny, parent_bg=CARD, bg=SURFACE, hover=BORDER,
@@ -813,6 +826,8 @@ class DayDetail:
         if not text:
             return
         item = core.new_item(text, pri=self.pri)
+        if self.end and self.end > self.d:
+            item["end"] = self.end.isoformat()
         m = TIME_RE.match(text)
         if m and int(m.group(1)) < 24 and int(m.group(2)) < 60:
             item.update(text=m.group(3).strip(), time=f"{int(m.group(1)):02d}:{m.group(2)}")
@@ -1328,9 +1343,9 @@ class HelpDialog:
 class DeskCalendar:
     HOTKEY_LABEL = "Ctrl+Alt+Space"
     # (이름, 기본 pt, 굵게)
-    FONT_SPEC = {"title": (17, True), "h2": (14, True), "head": (9, True), "day": (10, True),
-                 "tiny": (8, False), "small": (9, False), "body": (10, False),
-                 "chip": (9, False)}
+    FONT_SPEC = {"title": (14, True), "h2": (12, True), "head": (8, True), "day": (9, True),
+                 "tiny": (7, False), "small": (8, False), "body": (9, False),
+                 "chip": (8, False)}
 
     def __init__(self, root, open_pdfs=None):
         self.root = root
@@ -1346,7 +1361,7 @@ class DeskCalendar:
         self._hol_cache = {}
         apply_conf_theme(self.conf)
         self.dpi_scale = max(1.0, root.winfo_fpixels("1i") / 96.0)
-        self.ui = min(2.0, max(0.7, float(self.conf.get("scale", 1.0))))
+        self.ui = min(2.0, max(0.7, float(self.conf.get("scale", 0.9))))
         self.scale = self.dpi_scale * self.ui
         self.panel_w = self.S(290) + 1
         if self.conf.get("size_v", 1) < 2:            # 예전 버전에서 저장된 작은 창 크기는 버린다
@@ -1454,8 +1469,8 @@ class DeskCalendar:
         for k, (pt, _) in self.FONT_SPEC.items():
             f = cal if k == "chip" else 1.0
             self.fonts[k].configure(family=self.family, size=-max(8, round(pt * f * 4 / 3 * self.scale)))
-        self.f_done.configure(family=self.family, size=-max(8, round(10 * 4 / 3 * self.scale)))
-        self.f_tiny_done.configure(family=self.family, size=-max(8, round(8 * 4 / 3 * self.scale)))
+        self.f_done.configure(family=self.family, size=-max(8, round(9 * 4 / 3 * self.scale)))
+        self.f_tiny_done.configure(family=self.family, size=-max(8, round(7 * 4 / 3 * self.scale)))
         self.f_chip_done.configure(family=self.family, size=-max(8, round(9 * cal * 4 / 3 * self.scale)))
         self.unit = self.fonts["chip"].metrics("linespace") + self.S(5)     # 칸 안 한 줄이 차지하는 높이
         self.chip_h = self.unit - self.S(2)
@@ -1544,7 +1559,7 @@ class DeskCalendar:
 
     def _geom(self, x=None, y=None):
         r = self.root
-        pw = self.panel_w if self.panel_open else 0
+        pw = 0
         x = r.winfo_x() if x is None else x
         y = r.winfo_y() if y is None else y
         x, y, w, h = self._fit_rect(x, y, self.win_w + pw, self.win_h)
@@ -1588,7 +1603,7 @@ class DeskCalendar:
         if self.glass and w is self.cal:
             cw_, ch_ = w.winfo_width(), w.winfo_height()
             m, c = S(6), S(22)
-            east = not self.panel_open
+            east = True
             nx = "w" if e.x < m else "e" if (east and e.x >= cw_ - m) else ""
             ny = "n" if e.y < m else "s" if e.y >= ch_ - m else ""
             if nx and e.y < c:
@@ -1639,7 +1654,7 @@ class DeskCalendar:
             return
         z, x0, y0, rx, ry, w0, h0 = self._rs
         dx, dy = e.x_root - rx, e.y_root - ry
-        pw = self.panel_w if self.panel_open else 0
+        pw = 0
         mw, mh = self._min_size()
         minw = mw + pw
         x, y, w, h = x0, y0, w0, h0
@@ -2171,14 +2186,14 @@ class DeskCalendar:
         n = norm(text)
         return any(norm(t.get("text", "")) == n for t in self.data.get(d.isoformat(), {}).get("todos", []))
 
-    def open_detail(self, d):
+    def open_detail(self, d, end=None):
         self._tip_hide()
         if self.detail is not None:
             try:
                 self.detail.top.destroy()
             except Exception:
                 pass
-        self.detail = DayDetail(self, d)
+        self.detail = DayDetail(self, d, end)
 
     def _refresh_detail(self):
         dd = self.detail
@@ -2195,7 +2210,7 @@ class DeskCalendar:
         """창을 화면 가득 크게"""
         r = self.root
         sw, sh = r.winfo_screenwidth(), r.winfo_screenheight()
-        self.win_w = sw - self.S(40) - (self.panel_w if self.panel_open else 0)
+        self.win_w = sw - self.S(40) - (0)
         self.win_h = sh - self.S(80)
         self._geom(self.S(20), self.S(20))
         self.conf.update(w=self.win_w, h=self.win_h, x=self.S(20), y=self.S(20))
@@ -2236,8 +2251,8 @@ class DeskCalendar:
         self.set_alpha(0.97)
         self._gkey = None
         self.family = DEFAULT_FONT
-        self.ui = 1.0
-        self.scale = self.dpi_scale
+        self.ui = 0.9
+        self.scale = self.dpi_scale * 0.9
         self.panel_w = self.S(290) + 1
         self._apply_fonts()
         self._save_conf()
@@ -3021,16 +3036,14 @@ class DeskCalendar:
 
     # ── 입력 패널 열기 / 닫기 ──
     def _apply_panel_visibility(self):
+        """보관함·일정목록·검색 패널: 달력 위 오른쪽에 겹쳐 띄운다 (창이 커지거나 움직이지 않음)"""
         if self.panel_open:
-            if self.glass and getattr(self, "east_strip", None) is not None:
-                self.east_strip.pack(side="right", fill="y", before=self.left)
-            self.right.pack(side="right", fill="y", before=self.left)
-            self.sep.pack(side="right", fill="y", before=self.left)
+            pw = self.panel_w
+            self.right.place(in_=self.left.master, relx=1.0, x=-self.S(6), y=self.S(8), anchor="ne", width=pw,
+                             relheight=1.0, height=-self.S(16))
+            self.right.lift()
         else:
-            self.right.pack_forget()
-            self.sep.pack_forget()
-            if getattr(self, "east_strip", None) is not None:
-                self.east_strip.pack_forget()
+            self.right.place_forget()
 
     def set_panel(self, open_):
         if open_ == self.panel_open:
@@ -3043,25 +3056,6 @@ class DeskCalendar:
             self._apply_mode_layout()
             self._update_sub()
         self._apply_panel_visibility()
-        r = self.root
-        vx, vy, vw, vh = virtual_screen(r)
-        x = r.winfo_x()
-        if open_ and self.win_w + self.panel_w > vw - self.S(20):    # 화면보다 넓으면 달력 폭을 잠시 줄임
-            self._saved_w = self.win_w
-            self.win_w = vw - self.S(20) - self.panel_w
-            x = vx + self.S(10)
-        elif not open_ and getattr(self, "_saved_w", None):
-            self.win_w, self._saved_w = self._saved_w, None
-        w = self.win_w + (self.panel_w if open_ else 0)
-        if open_:   # 화면 오른쪽 밖으로 나가면 그만큼 왼쪽으로 밀었다가 닫을 때 되돌린다
-            over = x + w - (vx + vw)
-            if over > 0:
-                self._shift = over
-                x -= over
-        elif self._shift:
-            x += self._shift
-            self._shift = 0
-        self._geom(x, r.winfo_y())
         self.render_month()
 
     def open_inbox(self):
@@ -3073,29 +3067,17 @@ class DeskCalendar:
         self.todo_entry.focus_force()
 
     def select_date(self, start, end=None):
-        """날짜(또는 기간)를 고르고 입력 패널을 연다. 같은 날짜를 다시 누르면 패널을 닫는다."""
+        """날짜(또는 끌어서 고른 기간)를 누르면 메모 앱처럼 작은 입력 창이 바로 뜬다"""
         end = end if end and end > start else None
-        if self.mode in ("agenda", "search"):
-            self.set_mode("day")
-            self.selected = start - dt.timedelta(days=1)   # 같은 날짜여도 패널이 닫히지 않게
-        if (self.panel_open and self.mode == "day" and start == self.selected
-                and end is None and self.sel_end is None):
+        if self.mode != "day" and self.panel_open:
             self.set_panel(False)
-            return
         self.sel_end = end
         if self.glass and self.dates and not (self.dates[0] <= start <= self.dates[-1]):
-            self.view_start = self._week_start(start) - dt.timedelta(days=7)   # 선택한 날짜가 보이도록 이동
-        if (start.year, start.month) != (self.view_y, self.view_m):
-            self.view_y, self.view_m = start.year, start.month
-        if self.mode == "inbox":      # 보관함에서는 '꺼낼 날짜'만 바뀐다
-            self.selected = start
-            self._update_sub()
-            self.render_todos()
-        else:
-            self.show_day(start)
-        self.set_panel(True)
+            self.view_start = self._week_start(start) - dt.timedelta(days=7)
+        self.selected = start
+        self._update_sub()
+        self.open_detail(start, end)
         self.render_month()
-        self.todo_entry.focus_force()
 
     def clear_range(self):
         self.sel_end = None

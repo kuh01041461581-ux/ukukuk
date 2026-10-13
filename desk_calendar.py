@@ -18,7 +18,7 @@ import sys
 import threading
 import tkinter as tk
 import tkinter.font as tkfont
-from tkinter import filedialog, messagebox
+from tkinter import colorchooser, filedialog, messagebox
 
 import gongmun
 
@@ -59,6 +59,32 @@ SAT = "#5db8ff"         # 스카이
 # 중요도 (인덱스 = 저장값 "pri", 기본 2 = 보통)
 PRIORITIES = [("매우 중요", "#ff5c7a"), ("중요", "#ffb547"), ("보통", "#8b7bff"), ("낮음", "#3ddc97")]
 DEFAULT_PRI = 2
+PRIORITIES_DEFAULT = list(PRIORITIES)
+CHIP_MIX = "#ffffff"    # 칩 글자색을 섞을 색 (밝은 테마에서는 검정)
+
+THEMES = {
+    "그래파이트": dict(BG="#14151a", SURFACE="#1a1b22", CARD="#212230", CARD_DIM="#191a22",
+                    CARD_HOVER="#2a2c3d", BORDER="#2b2d3b", TEXT="#ececf3", SUB="#a1a4b8",
+                    DIM="#5e6178", ACCENT="#7c6cff", ACCENT_SOFT="#2c2850", DONE="#5e6178",
+                    SUN="#ff6b81", SAT="#5db8ff", CHIP_MIX="#ffffff"),
+    "미드나잇": dict(BG="#0d1424", SURFACE="#121b30", CARD="#192540", CARD_DIM="#111a2e",
+                  CARD_HOVER="#223256", BORDER="#233153", TEXT="#e8eefc", SUB="#9fb0d4",
+                  DIM="#586a90", ACCENT="#4cc9f0", ACCENT_SOFT="#16384d", DONE="#586a90",
+                  SUN="#ff6b81", SAT="#7ab8ff", CHIP_MIX="#ffffff"),
+    "포레스트": dict(BG="#0f1713", SURFACE="#14201a", CARD="#1a2b22", CARD_DIM="#121e18",
+                  CARD_HOVER="#223a2d", BORDER="#223629", TEXT="#e8f3ec", SUB="#9bb8a6",
+                  DIM="#587064", ACCENT="#3ddc97", ACCENT_SOFT="#16402f", DONE="#587064",
+                  SUN="#ff7a8a", SAT="#5db8ff", CHIP_MIX="#ffffff"),
+    "로즈": dict(BG="#191216", SURFACE="#20171c", CARD="#2a1e25", CARD_DIM="#1d151a",
+              CARD_HOVER="#38272f", BORDER="#37262f", TEXT="#f6eaf0", SUB="#c3a6b4",
+              DIM="#76596a", ACCENT="#ff6b9d", ACCENT_SOFT="#45202f", DONE="#76596a",
+              SUN="#ff6b81", SAT="#7fb4ff", CHIP_MIX="#ffffff"),
+    "라이트": dict(BG="#f4f4f8", SURFACE="#ffffff", CARD="#ffffff", CARD_DIM="#ececf2",
+                CARD_HOVER="#eae7fb", BORDER="#dcdce6", TEXT="#1f2030", SUB="#5d6075",
+                DIM="#9a9db0", ACCENT="#6c5ce7", ACCENT_SOFT="#e6e3fb", DONE="#9a9db0",
+                SUN="#e5484d", SAT="#2f7de1", CHIP_MIX="#000000"),
+}
+ACCENT_PRESETS = ["#7c6cff", "#4cc9f0", "#3ddc97", "#ff6b9d", "#ffb547", "#ff5c7a"]
 
 # 양력 고정 공휴일
 FIXED_HOLIDAYS = {
@@ -75,6 +101,19 @@ EXTRA_HOLIDAYS = {
 }
 WEEKDAY_KO = "월화수목금토일"
 TIME_RE = re.compile(r"^\s*(\d{1,2}):(\d{2})\s+(.+)$")
+
+
+def apply_conf_theme(conf):
+    """설정(테마·강조색·글자색·중요도 색)을 모듈 전역 색상에 반영"""
+    g = globals()
+    g.update(THEMES.get(conf.get("theme"), THEMES["그래파이트"]))
+    if conf.get("accent"):
+        g["ACCENT"] = conf["accent"]
+        g["ACCENT_SOFT"] = blend(conf["accent"], g["BG"], 0.22)
+    if conf.get("text_color"):
+        g["TEXT"] = conf["text_color"]
+    pc = conf.get("pri_colors") or []
+    g["PRIORITIES"] = [(n, pc[i] if i < len(pc) else c) for i, (n, c) in enumerate(PRIORITIES_DEFAULT)]
 
 
 def holiday_name(d):
@@ -242,8 +281,10 @@ def sort_key(t):
 class Pill(tk.Canvas):
     """둥근 알약형 버튼"""
 
-    def __init__(self, parent, text, cmd, font, fg=TEXT, bg=CARD, hover=CARD_HOVER,
-                 parent_bg=BG, padx=12, pady=5, r=8):
+    def __init__(self, parent, text, cmd, font, fg=None, bg=None, hover=None,
+                 parent_bg=None, padx=12, pady=5, r=8):
+        fg, bg = fg or TEXT, bg or CARD
+        hover, parent_bg = hover or CARD_HOVER, parent_bg or BG
         w = font.measure(text) + 2 * padx
         h = font.metrics("linespace") + 2 * pady
         super().__init__(parent, width=w, height=h, bg=parent_bg, highlightthickness=0,
@@ -288,7 +329,7 @@ class ImportDialog:
         foot.pack(side="bottom", fill="x", padx=S(20), pady=S(14))
         self.count = tk.Label(foot, font=app.f_small, bg=SURFACE, fg=SUB)
         self.count.pack(side="left")
-        Pill(foot, "추가", self.confirm, app.f_body, fg="#ffffff", bg=ACCENT, hover="#9185ff",
+        Pill(foot, "추가", self.confirm, app.f_body, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.25),
              parent_bg=SURFACE, padx=S(20), pady=S(6)).pack(side="right")
         Pill(foot, "취소", top.destroy, app.f_body, parent_bg=SURFACE, padx=S(16),
              pady=S(6)).pack(side="right", padx=S(8))
@@ -393,8 +434,9 @@ class ImportDialog:
 class FontDialog:
     """모든 설치된 글꼴을 검색해서 고르는 창"""
 
-    def __init__(self, app):
+    def __init__(self, app, on_done=None):
         self.app, S = app, app.S
+        self.on_done = on_done
         top = self.top = _dialog(app, "글꼴 선택", S(420), S(500))
         tk.Label(top, text="글꼴 선택", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
             fill="x", padx=S(20), pady=(S(16), S(8)))
@@ -407,7 +449,7 @@ class FontDialog:
         self.preview = tk.Label(top, text="가나다라마바사 오늘의 일정 ABC abc 123", bg=CARD, fg=TEXT,
                                 height=3, wraplength=S(360))
         self.preview.pack(side="bottom", fill="x", padx=S(20), pady=(S(8), S(14)))
-        Pill(top, "적용", self.apply, app.f_body, fg="#ffffff", bg=ACCENT, hover="#9185ff",
+        Pill(top, "적용", self.apply, app.f_body, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.25),
              parent_bg=SURFACE, padx=S(24), pady=S(6)).pack(side="bottom", pady=(S(8), 0))
         self.lb = tk.Listbox(top, bg=CARD, fg=TEXT, selectbackground=ACCENT, relief="flat",
                              highlightthickness=0, font=app.f_body, activestyle="none")
@@ -438,6 +480,169 @@ class FontDialog:
         if n:
             self.app.set_font(n)
             self.top.destroy()
+            if self.on_done:
+                self.on_done()
+
+
+class SettingsDialog:
+    """글자 크기·글꼴·색상 테마·강조색·중요도 색·투명도를 바꾸는 창 (바꾸는 즉시 적용)"""
+
+    def __init__(self, app):
+        self.app = app
+        S = app.S
+        self.top = _dialog(app, "화면 설정", S(500), S(720))
+        self.build()
+
+    def build(self):
+        app, top = self.app, self.top
+        S = app.S
+        for w in top.winfo_children():
+            w.destroy()
+        top.configure(bg=SURFACE)
+        pad = S(22)
+
+        def section(title):
+            tk.Label(top, text=title, font=app.f_head, bg=SURFACE, fg=SUB, anchor="w").pack(
+                fill="x", padx=pad, pady=(S(14), S(6)))
+
+        def row():
+            f = tk.Frame(top, bg=SURFACE)
+            f.pack(fill="x", padx=pad)
+            return f
+
+        def pill(parent, text, cmd, **kw):
+            p = Pill(parent, text, cmd, app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(4), **kw)
+            p.pack(side="left", padx=(0, S(6)))
+            return p
+
+        tk.Label(top, text="화면 설정", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
+            fill="x", padx=pad, pady=(S(16), 0))
+
+        section("글자")
+        r = row()
+        tk.Label(r, text="크기", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+        pill(r, "－", lambda: self.act(app.set_ui_scale, app.ui - 0.1))
+        tk.Label(r, text=f"{int(round(app.ui * 100))}%", font=app.f_body, bg=SURFACE, fg=TEXT,
+                 width=5).pack(side="left")
+        pill(r, "＋", lambda: self.act(app.set_ui_scale, app.ui + 0.1))
+        pill(r, "기본", lambda: self.act(app.set_ui_scale, 1.0))
+        r = row()
+        r.pack_configure(pady=(S(8), 0))
+        tk.Label(r, text="글꼴", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+        tk.Label(r, text=app.family, font=app.f_body, bg=SURFACE, fg=ACCENT).pack(side="left", padx=(0, S(10)))
+        pill(r, "변경…", lambda: FontDialog(app, on_done=self.build))
+        r = row()
+        r.pack_configure(pady=(S(8), 0))
+        tk.Label(r, text="글자 색", font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+        self.swatch(r, TEXT, S(26))
+        pill(r, "선택…", lambda: self.pick("text_color", TEXT))
+        pill(r, "기본", lambda: self.act(app.update_appearance, text_color=None))
+
+        section("색상 테마")
+        r = row()
+        for name, th in THEMES.items():
+            self.theme_card(r, name, th)
+
+        section("강조색")
+        r = row()
+        for col in ACCENT_PRESETS:
+            c = tk.Canvas(r, width=S(28), height=S(28), bg=SURFACE, highlightthickness=0, cursor="hand2")
+            c.create_oval(S(3), S(3), S(25), S(25), fill=col, outline=TEXT if col == ACCENT else "",
+                          width=S(2))
+            c.pack(side="left", padx=(0, S(6)))
+            c.bind("<Button-1>", lambda e, col=col: self.act(app.update_appearance, accent=col))
+        pill(r, "직접 선택…", lambda: self.pick("accent", ACCENT))
+
+        section("중요도 색")
+        for i, (name, col) in enumerate(PRIORITIES):
+            r = row()
+            r.pack_configure(pady=(0, S(4)))
+            self.swatch(r, col, S(22))
+            tk.Label(r, text=name, font=app.f_small, bg=SURFACE, fg=TEXT, width=9, anchor="w").pack(side="left")
+            pill(r, "색 변경…", lambda i=i, col=col: self.pick_pri(i, col))
+
+        section("투명도")
+        r = row()
+        sc = tk.Scale(r, from_=40, to=100, orient="horizontal", length=S(300), showvalue=True,
+                      bg=SURFACE, fg=TEXT, troughcolor=CARD, highlightthickness=0, bd=0,
+                      activebackground=ACCENT, command=lambda v: app.set_alpha(int(v) / 100))
+        sc.set(int(round(app.alpha.get() * 100)))
+        sc.pack(side="left")
+
+        foot = tk.Frame(top, bg=SURFACE)
+        foot.pack(side="bottom", fill="x", padx=pad, pady=S(16))
+        Pill(foot, "닫기", top.destroy, app.f_body, fg="#ffffff", bg=ACCENT,
+             hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(22), pady=S(6)
+             ).pack(side="right")
+        Pill(foot, "모두 기본값으로", lambda: self.act(app.reset_appearance), app.f_small,
+             parent_bg=SURFACE, padx=S(14), pady=S(6)).pack(side="left")
+
+    def act(self, fn, *a, **kw):
+        fn(*a, **kw)
+        self.build()
+
+    def swatch(self, parent, col, size):
+        c = tk.Canvas(parent, width=size, height=size, bg=SURFACE, highlightthickness=0)
+        rrect(c, 1, 1, size - 1, size - 1, self.app.S(6), fill=col, outline=BORDER)
+        c.pack(side="left", padx=(0, self.app.S(10)))
+
+    def theme_card(self, parent, name, th):
+        S = self.app.S
+        w, h = S(84), S(58)
+        c = tk.Canvas(parent, width=w, height=h, bg=SURFACE, highlightthickness=0, cursor="hand2")
+        cur = self.app.conf.get("theme", "그래파이트") == name
+        rrect(c, 1, 1, w - 1, h - 1, S(8), fill=th["BG"], outline=ACCENT if cur else th["BORDER"],
+              width=S(2) if cur else 1)
+        rrect(c, S(8), S(8), w - S(8), S(30), S(5), fill=th["CARD"], outline="")
+        c.create_oval(S(12), S(14), S(20), S(22), fill=th["ACCENT"], outline="")
+        c.create_text(w / 2, h - S(14), text=name, font=self.app.f_tiny, fill=th["TEXT"])
+        c.pack(side="left", padx=(0, S(6)))
+        c.bind("<Button-1>", lambda e: self.act(self.app.update_appearance, theme=name,
+                                                accent=None, text_color=None))
+
+    def pick(self, key, cur):
+        _, hexv = colorchooser.askcolor(color=cur, parent=self.top, title="색 선택")
+        if hexv:
+            self.act(self.app.update_appearance, **{key: hexv})
+
+    def pick_pri(self, i, cur):
+        _, hexv = colorchooser.askcolor(color=cur, parent=self.top, title="중요도 색 선택")
+        if hexv:
+            cols = [c for _, c in PRIORITIES]
+            cols[i] = hexv
+            self.act(self.app.update_appearance, pri_colors=cols)
+
+
+class HelpDialog:
+    TEXT_LINES = [
+        ("달력 보기", "평소에는 달력만 바탕화면에 떠 있어요. 달력 가운데에서 원하는 곳으로 끌어 옮길 수 있어요."),
+        ("일정 입력", "날짜를 클릭하면 오른쪽에 입력창이 열려요. 쓰고 Enter. 같은 날짜를 다시 누르면 닫혀요."),
+        ("시간 넣기", "'14:30 팀 회의' 처럼 앞에 시간을 쓰면 시간이 함께 저장돼요."),
+        ("기간 일정", "시작 날짜에서 끝 날짜까지 끌어서 선택한 뒤 입력하면 여러 날에 걸친 일정이 돼요."),
+        ("완료 / 삭제", "동그라미를 누르면 완료(취소선). ✕ 는 삭제, 목록에서 우클릭하면 더 많은 메뉴가 나와요."),
+        ("중요도 색", "입력창 아래 색 점으로 중요도를 고르면 달력에도 그 색으로 보여요."),
+        ("보관함", "날짜를 정하기 전의 할 일을 적어 뒀다가 '꺼내기'로 원하는 날짜에 옮겨요."),
+        ("공문 PDF", "'공문 PDF' 버튼으로 PDF를 고르면 날짜가 있는 항목을 찾아 일정으로 넣어 줘요."),
+        ("창 크기", "창 가장자리나 모서리에 마우스를 가져가면 양방향 화살표가 나와요. 끌면 창 크기가 바뀌어요."),
+        ("글자·색", "위쪽 'Aa' 에서 글자 크기, 글꼴, 색상 테마, 강조색, 중요도 색, 투명도를 바꿔요."),
+        ("빠른 입력", "Ctrl+Alt+Space 를 누르면 어디서든 오늘 날짜 입력창이 바로 열려요."),
+    ]
+
+    def __init__(self, app):
+        S = app.S
+        top = _dialog(app, "사용법", S(520), S(640))
+        tk.Label(top, text="사용법", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
+            fill="x", padx=S(24), pady=(S(18), S(8)))
+        for head, body in self.TEXT_LINES:
+            f = tk.Frame(top, bg=SURFACE)
+            f.pack(fill="x", padx=S(24), pady=S(4))
+            tk.Label(f, text=head, font=app.f_head, bg=SURFACE, fg=ACCENT, width=9, anchor="nw"
+                     ).pack(side="left", anchor="n")
+            tk.Label(f, text=body, font=app.f_small, bg=SURFACE, fg=TEXT, anchor="w",
+                     justify="left", wraplength=S(380)).pack(side="left", fill="x")
+        Pill(top, "확인", top.destroy, app.f_body, fg="#ffffff", bg=ACCENT,
+             hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(26), pady=S(6)
+             ).pack(side="bottom", pady=S(18))
 
 
 # ── 앱 ──────────────────────────────────────────────────
@@ -451,9 +656,15 @@ class DeskCalendar:
         self.root = root
         self.data = load_json(DATA_FILE, {})
         self.conf = load_json(CONF_FILE, {})
+        apply_conf_theme(self.conf)
         self.dpi_scale = max(1.0, root.winfo_fpixels("1i") / 96.0)
         self.ui = min(2.0, max(0.7, float(self.conf.get("scale", 1.0))))
         self.scale = self.dpi_scale * self.ui
+        self.panel_w = self.S(290) + 1
+        self.win_w = int(self.conf.get("w", self.S(660)))   # 입력 패널을 뺀 창 너비
+        self.win_h = int(self.conf.get("h", self.S(720)))
+        self.nslot = 3
+        self.menu = None
         installed = set(tkfont.families())
         fam = self.conf.get("font", DEFAULT_FONT)
         self.family = fam if fam in installed else DEFAULT_FONT
@@ -475,7 +686,7 @@ class DeskCalendar:
         self._save_job = None
         self._scale_job = None
         self._drag = None
-        self._grip = None
+        self._rs = None            # 창 크기 조절 상태
         self.outer = None
         self.hwnd = None
         self.hotkey_q = queue.Queue()
@@ -503,6 +714,8 @@ class DeskCalendar:
         self.render_month()
 
         root.bind_all("<Control-MouseWheel>", self._on_ctrl_wheel)
+        if not self.conf.get("seen_help"):
+            root.after(900, self._first_help)
         root.after(300, self._apply_desktop_mode)
         root.after(30_000, self._tick)
         if IS_WIN:
@@ -540,7 +753,11 @@ class DeskCalendar:
     def rebuild(self):
         self._flush_memo()
         self.hover_idx = None
+        self.panel_w = self.S(290) + 1
+        mw, mh = self._min_size()
+        self.win_w, self.win_h = max(mw, self.win_w), max(mh, self.win_h)
         self._build_ui()
+        self._geom()
         self.show_day(self.selected)
         self.render_month()
 
@@ -570,20 +787,116 @@ class DeskCalendar:
         except Exception:
             pass
 
+    def _min_size(self):
+        return self.S(520), self.S(560)
+
+    def _geom(self, x=None, y=None):
+        r = self.root
+        w = self.win_w + (self.panel_w if self.panel_open else 0)
+        x = r.winfo_x() if x is None else x
+        y = r.winfo_y() if y is None else y
+        r.geometry(f"{w}x{self.win_h}+{x}+{y}")
+
     def _setup_window(self):
         r = self.root
         r.title(APP_NAME)
         r.overrideredirect(True)
-        r.configure(bg=BORDER)
+        r.configure(bg=BG)
         r.attributes("-alpha", self.alpha.get())
         vx, vy, vw, vh = virtual_screen(r)
-        default_x = r.winfo_screenwidth() - self.S(700)
+        mw, mh = self._min_size()
+        self.win_w, self.win_h = max(mw, self.win_w), max(mh, self.win_h)
+        default_x = r.winfo_screenwidth() - self.win_w - self.S(40)
         x = self.conf.get("x", default_x)
         y = self.conf.get("y", self.S(40))
         x = min(max(vx, x), vx + vw - self.S(120))
         y = min(max(vy, y), vy + vh - self.S(120))
-        r.geometry(f"+{x}+{y}")
+        self._geom(x, y)
         r.bind("<FocusOut>", lambda e: r.after(150, self._bottom_if_inactive), add="+")
+        # 창 가장자리(바깥 여백)에서 크기 조절
+        r.bind("<Motion>", self._on_root_motion, add="+")
+        r.bind("<ButtonPress-1>", self._resize_start, add="+")
+        r.bind("<B1-Motion>", self._resize_move, add="+")
+        r.bind("<ButtonRelease-1>", self._resize_end, add="+")
+
+    # ── 창 크기 조절 (윈도우 창처럼 가장자리·모서리를 끌기) ──
+    _CURSORS_WIN = {"n": "size_ns", "s": "size_ns", "e": "size_we", "w": "size_we",
+                    "ne": "size_ne_sw", "sw": "size_ne_sw", "nw": "size_nw_se", "se": "size_nw_se"}
+    _CURSORS_X11 = {"n": "sb_v_double_arrow", "s": "sb_v_double_arrow",
+                    "e": "sb_h_double_arrow", "w": "sb_h_double_arrow",
+                    "ne": "top_right_corner", "sw": "bottom_left_corner",
+                    "nw": "top_left_corner", "se": "bottom_right_corner"}
+
+    def _zone(self, e):
+        r = self.root
+        if e.widget is not r:
+            return ""
+        w, h = r.winfo_width(), r.winfo_height()
+        m, c = self.S(8), self.S(22)
+        nx = "w" if e.x < m else "e" if e.x >= w - m else ""
+        ny = "n" if e.y < m else "s" if e.y >= h - m else ""
+        if nx and e.y < c:
+            ny = "n"
+        if nx and e.y >= h - c:
+            ny = "s"
+        if ny and e.x < c:
+            nx = "w"
+        if ny and e.x >= w - c:
+            nx = "e"
+        return ny + nx
+
+    def _on_root_motion(self, e):
+        if self._rs:
+            return
+        z = self._zone(e)
+        cur = (self._CURSORS_WIN if IS_WIN else self._CURSORS_X11).get(z, "")
+        if self.root.cget("cursor") != cur:
+            self.root.config(cursor=cur)
+
+    def _resize_start(self, e):
+        z = self._zone(e)
+        if not z or self.locked.get():
+            return
+        r = self.root
+        self._rs = (z, r.winfo_x(), r.winfo_y(), e.x_root, e.y_root, r.winfo_width(), r.winfo_height())
+
+    def _resize_move(self, e):
+        if not self._rs:
+            return
+        z, x0, y0, rx, ry, w0, h0 = self._rs
+        dx, dy = e.x_root - rx, e.y_root - ry
+        pw = self.panel_w if self.panel_open else 0
+        mw, mh = self._min_size()
+        minw = mw + pw
+        x, y, w, h = x0, y0, w0, h0
+        if "e" in z:
+            w = max(minw, w0 + dx)
+        if "s" in z:
+            h = max(mh, h0 + dy)
+        if "w" in z:
+            w = max(minw, w0 - dx)
+            x = x0 + (w0 - w)
+        if "n" in z:
+            h = max(mh, h0 - dy)
+            y = y0 + (h0 - h)
+        self.win_w, self.win_h = w - pw, h
+        self.root.geometry(f"{w}x{h}+{x}+{y}")
+
+    def _resize_end(self, e):
+        if not self._rs:
+            return
+        self._rs = None
+        self._shift = 0
+        self.conf.update(w=self.win_w, h=self.win_h, x=self.root.winfo_x(), y=self.root.winfo_y())
+        self._save_conf()
+
+    def _on_cal_resize(self, e):
+        """창 크기에 맞춰 날짜 칸 크기를 다시 계산"""
+        S, gap = self.S, self.gap
+        self.cw = max(S(44), (e.width - 6 * gap - 2) // 7)
+        self.ch = max(S(46), (e.height - self.wd_h - 5 * gap) // 6)
+        self.nslot = max(1, min(6, (self.ch - S(32)) // S(16)))
+        self.render_month()
 
     # ── UI 구성 ──
     def _build_ui(self):
@@ -594,19 +907,28 @@ class DeskCalendar:
         self.wd_h = S(26)
 
         outer = self.outer = tk.Frame(self.root, bg=BG)
-        outer.pack(fill="both", expand=True, padx=1, pady=1)
+        outer.pack(fill="both", expand=True, padx=S(8), pady=S(8))
 
         # 맨 위 이동 막대 (잡고 끌면 창 이동) + 설정 버튼
-        bar = tk.Frame(outer, bg=BG, height=S(18))
+        bar = tk.Frame(outer, bg=BG, height=S(24))
         bar.pack(side="top", fill="x")
         bar.pack_propagate(False)
         grab = tk.Label(bar, text="⋯⋯⋯", font=self.f_tiny, bg=BG, fg=DIM, cursor="fleur")
         grab.pack(expand=True)
-        gear = tk.Label(bar, text="⚙", font=self.f_small, bg=BG, fg=DIM, cursor="hand2")
-        gear.place(relx=1.0, x=-S(10), rely=0.5, anchor="e")
-        gear.bind("<Button-1>", lambda e: self.menu.tk_popup(e.x_root, e.y_root))
-        gear.bind("<Enter>", lambda e: gear.config(fg=TEXT))
-        gear.bind("<Leave>", lambda e: gear.config(fg=DIM))
+        tools = tk.Frame(bar, bg=BG)
+        tools.place(relx=1.0, x=-S(2), rely=0.5, anchor="e")
+
+        def tool(text, cmd):
+            lb = tk.Label(tools, text=text, font=self.f_tiny, bg=BG, fg=SUB, cursor="hand2",
+                          padx=S(7))
+            lb.pack(side="left")
+            lb.bind("<Button-1>", cmd)
+            lb.bind("<Enter>", lambda e: lb.config(fg=ACCENT))
+            lb.bind("<Leave>", lambda e: lb.config(fg=SUB))
+
+        tool("Aa 화면 설정", lambda e: self.open_settings())
+        tool("? 사용법", lambda e: self.open_help())
+        tool("⚙", lambda e: self.menu.tk_popup(e.x_root, e.y_root))
         for w in (bar, grab):
             self._bind_drag(w)
 
@@ -634,34 +956,31 @@ class DeskCalendar:
         Pill(nav, "‹", lambda: self.shift_month(-1), self.f_body, padx=S(11), pady=S(3)
              ).pack(side="left")
         Pill(nav, "오늘", self.go_today, self.f_small, fg="#ffffff", bg=ACCENT,
-             hover="#9185ff", padx=S(13), pady=S(4)).pack(side="left", padx=S(5))
+             hover=blend(ACCENT, "#ffffff", 0.25), padx=S(13), pady=S(4)).pack(side="left", padx=S(5))
         Pill(nav, "›", lambda: self.shift_month(1), self.f_body, padx=S(11), pady=S(3)
              ).pack(side="left")
         for w in (left, hdr, titles, self.title_lbl, self.month_sub):
             self._bind_drag(w)
 
-        # 달력 (캔버스 한 장에 직접 그린다)
-        cw, ch, gap = self.cw, self.ch, self.gap
-        self.cal_w = 7 * cw + 6 * gap + 2
-        self.cal_h = self.wd_h + 6 * ch + 5 * gap
-        self.cal = tk.Canvas(left, width=self.cal_w, height=self.cal_h, bg=BG,
-                             highlightthickness=0, bd=0)
-        self.cal.pack()
+        # 아래쪽 안내 (먼저 배치해 두어야 창이 작아져도 달력이 이 영역을 침범하지 않는다)
+        tk.Label(left, text="날짜 클릭: 입력창  ·  날짜 끌기: 기간 일정  ·  창 가장자리 끌기: 크기",
+                 font=self.f_tiny, bg=BG, fg=DIM).pack(side="bottom", anchor="w", pady=(S(4), S(6)))
+        leg = tk.Frame(left, bg=BG)
+        leg.pack(side="bottom", fill="x", pady=(S(8), 0))
+        for name, col in PRIORITIES:
+            tk.Label(leg, text="●", font=self.f_tiny, bg=BG, fg=col).pack(side="left")
+            tk.Label(leg, text=name, font=self.f_tiny, bg=BG, fg=SUB).pack(side="left", padx=(S(2), S(10)))
+
+        # 달력 (캔버스 한 장에 직접 그린다 / 창 크기에 맞춰 칸이 늘어남)
+        self.cal = tk.Canvas(left, width=1, height=1, bg=BG, highlightthickness=0, bd=0)
+        self.cal.pack(fill="both", expand=True)
+        self.cal.bind("<Configure>", self._on_cal_resize)
         self.cal.bind("<Motion>", self._cal_motion)
         self.cal.bind("<Leave>", self._cal_leave)
         self.cal.bind("<ButtonPress-1>", self._cal_press)
         self.cal.bind("<B1-Motion>", self._cal_drag)
         self.cal.bind("<ButtonRelease-1>", self._cal_release)
         self.cal.bind("<MouseWheel>", self._on_wheel_month)
-
-        # 중요도 범례 + 사용 안내
-        leg = tk.Frame(left, bg=BG)
-        leg.pack(fill="x", pady=(S(8), 0))
-        for name, col in PRIORITIES:
-            tk.Label(leg, text="●", font=self.f_tiny, bg=BG, fg=col).pack(side="left")
-            tk.Label(leg, text=name, font=self.f_tiny, bg=BG, fg=SUB).pack(side="left", padx=(S(2), S(10)))
-        tk.Label(left, text="날짜 클릭: 입력창 열기  ·  날짜 끌기: 기간 일정  ·  Ctrl+휠: 크기",
-                 font=self.f_tiny, bg=BG, fg=DIM).pack(anchor="w", pady=(S(4), S(10)))
 
         # 오른쪽 상세 패널
         inner = tk.Frame(self.right, bg=SURFACE, padx=S(18), pady=S(10))
@@ -756,17 +1075,6 @@ class DeskCalendar:
             win, width=e.width))
         self.todo_canvas.bind("<MouseWheel>", self._on_wheel_todo)
 
-        # 크기 조절 모서리 (끌어서 크기 변경, 놓으면 적용)
-        self.grip = tk.Canvas(outer, width=S(18), height=S(18), bg=BG, highlightthickness=0, bd=0,
-                              cursor="size_nw_se" if IS_WIN else "bottom_right_corner")
-        for k in (5, 9, 13):
-            self.grip.create_line(S(17), S(k), S(k), S(17), fill=DIM, width=1)
-        self.grip.place(relx=1.0, rely=1.0, anchor="se")
-        self.grip.bind("<ButtonPress-1>", self._grip_start)
-        self.grip.bind("<B1-Motion>", self._grip_move)
-        self.grip.bind("<ButtonRelease-1>", self._grip_end)
-        self.size_hint = tk.Label(outer, font=self.f_body, bg=ACCENT, fg="#ffffff",
-                                  padx=S(14), pady=S(6))
         self._apply_mode_layout()
         self._apply_panel_visibility()
 
@@ -778,36 +1086,19 @@ class DeskCalendar:
         return lb
 
     def _build_menu(self):
+        if self.menu is not None:
+            self.menu.destroy()
+        f = (self.family, 10)
         m = self.menu = tk.Menu(self.root, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT,
-                                activeforeground="#ffffff", bd=0, font=("Malgun Gothic" if IS_WIN else "NanumGothic", 10))
-        mk = lambda: tk.Menu(m, tearoff=0, bg=CARD, fg=TEXT, activebackground=ACCENT,
-                             activeforeground="#ffffff", bd=0, font=m.cget("font"))
+                                activeforeground="#ffffff", bd=0, font=f)
+        m.add_command(label="화면 설정 (글자·색상)…", command=self.open_settings)
+        m.add_command(label="사용법", command=self.open_help)
+        m.add_separator()
         m.add_command(label="공문 PDF 가져오기…", command=self.import_pdf)
         m.add_command(label="오늘로 이동", command=self.go_today)
         m.add_command(label=f"빠른 입력  ({self.HOTKEY_LABEL})", command=self.summon)
         m.add_separator()
-        sz = mk()
-        self.size_var = tk.DoubleVar(value=self.ui)
-        for label, v in (("작게 (80%)", 0.8), ("조금 작게 (90%)", 0.9), ("보통 (100%)", 1.0),
-                         ("조금 크게 (125%)", 1.25), ("크게 (150%)", 1.5), ("아주 크게 (180%)", 1.8)):
-            sz.add_command(label=label, command=lambda v=v: self.set_ui_scale(v))
-        m.add_cascade(label="크기", menu=sz)
-        fm = mk()
-        installed = set(tkfont.families())
-        self.font_var = tk.StringVar(value=self.family)
-        for f in FONT_CHOICES:
-            if f in installed:
-                fm.add_radiobutton(label=f, variable=self.font_var, value=f, font=(f, 10),
-                                   command=lambda f=f: self.set_font(f))
-        fm.add_separator()
-        fm.add_command(label="다른 글꼴 찾기…", command=lambda: FontDialog(self))
-        m.add_cascade(label="글꼴", menu=fm)
-        al = mk()
-        for v in (1.0, 0.97, 0.9, 0.8, 0.7, 0.6):
-            al.add_radiobutton(label=f"{int(v * 100)}%", variable=self.alpha, value=v,
-                               command=self._apply_alpha)
-        m.add_cascade(label="투명도", menu=al)
-        m.add_checkbutton(label="위치 고정", variable=self.locked, command=self._save_conf)
+        m.add_checkbutton(label="위치·크기 고정", variable=self.locked, command=self._save_conf)
         if IS_WIN:
             m.add_checkbutton(label="Windows 시작 시 자동 실행", variable=self.autostart,
                               command=self._toggle_autostart)
@@ -815,6 +1106,48 @@ class DeskCalendar:
         m.add_separator()
         m.add_command(label="종료", command=self.quit)
         self.root.bind_all("<Button-3>", lambda e: m.tk_popup(e.x_root, e.y_root))
+
+    def open_settings(self):
+        SettingsDialog(self)
+
+    def open_help(self):
+        HelpDialog(self)
+
+    def _first_help(self):
+        self.conf["seen_help"] = True
+        self._save_conf()
+        HelpDialog(self)
+
+    def set_alpha(self, v):
+        self.alpha.set(v)
+        self.root.attributes("-alpha", v)
+        self._save_conf()
+
+    def update_appearance(self, **kw):
+        for k, v in kw.items():
+            if v is None:
+                self.conf.pop(k, None)
+            else:
+                self.conf[k] = v
+        self._save_conf()
+        self._refresh_theme()
+
+    def reset_appearance(self):
+        for k in ("theme", "accent", "text_color", "pri_colors", "font", "scale"):
+            self.conf.pop(k, None)
+        self.family = DEFAULT_FONT
+        self.ui = 1.0
+        self.scale = self.dpi_scale
+        self.panel_w = self.S(290) + 1
+        self._apply_fonts()
+        self._save_conf()
+        self._refresh_theme()
+
+    def _refresh_theme(self):
+        apply_conf_theme(self.conf)
+        self.root.configure(bg=BG)
+        self._build_menu()
+        self.rebuild()
 
     # ── 작은 위젯 헬퍼 ──
     def _placeholder(self, entry, text):
@@ -891,8 +1224,6 @@ class DeskCalendar:
         self.month_sub.config(text=f"남은 할 일 {remain}개" if remain else "남은 할 일 없음")
         self.draw_calendar()
 
-    NSLOT = 3
-
     def _build_layout(self):
         """보이는 6주 안의 일정을 칸(슬롯)에 배치: 기간 일정은 주마다 이어진 막대, 하루 일정은 남는 칸"""
         dates = self.dates
@@ -922,7 +1253,7 @@ class DeskCalendar:
             while i <= i2:
                 row = i // 7
                 j = min(i2, row * 7 + 6)
-                slot = next((k for k in range(self.NSLOT)
+                slot = next((k for k in range(self.nslot)
                              if all(k not in occ.get(dates[x], ()) for x in range(i, j + 1))), None)
                 if slot is None:
                     for x in range(i, j + 1):
@@ -970,7 +1301,7 @@ class DeskCalendar:
         fnt = self.f_tiny_done if done else self.f_tiny
         c.create_text(x1 + S(6), yy + S(7), anchor="w", font=fnt,
                       text=self._fit(t.get("text", ""), fnt, x2 - x1 - S(10)),
-                      fill=DIM if done else blend(col, "#ffffff", 0.6))
+                      fill=DIM if done else blend(col, CHIP_MIX, 0.55 if CHIP_MIX == "#000000" else 0.6))
 
     def _draw_bar(self, b):
         """기간 일정: 여러 날짜 칸을 가로로 이어 붙인 막대"""
@@ -993,7 +1324,7 @@ class DeskCalendar:
         fnt = self.f_tiny_done if done else self.f_tiny
         c.create_text(x1 + S(6), y + S(7), anchor="w", font=fnt,
                       text=self._fit(t.get("text", ""), fnt, x2 - x1 - S(10)),
-                      fill=DIM if done else blend(col, "#ffffff", 0.7))
+                      fill=DIM if done else blend(col, CHIP_MIX, 0.6 if CHIP_MIX == "#000000" else 0.7))
 
     def _draw_cell(self, i, d, x, y):
         S, c = self.S, self.cal
@@ -1035,7 +1366,7 @@ class DeskCalendar:
 
         # 막대가 차지하지 않은 칸에 공휴일 이름 / 하루 일정을 채운다
         occ = self.lay["occ"].get(d, set())
-        free = [k for k in range(self.NSLOT) if k not in occ]
+        free = [k for k in range(self.nslot) if k not in occ]
         rows = []
         if holiday:
             rows.append(("h", holiday))
@@ -1136,7 +1467,6 @@ class DeskCalendar:
         else:
             self.right.pack_forget()
             self.sep.pack_forget()
-        self.grip.config(bg=SURFACE if self.panel_open else BG)
 
     def set_panel(self, open_):
         if open_ == self.panel_open:
@@ -1150,16 +1480,18 @@ class DeskCalendar:
             self._update_sub()
         self._apply_panel_visibility()
         r = self.root
-        r.update_idletasks()
         vx, vy, vw, vh = virtual_screen(r)
+        x = r.winfo_x()
+        w = self.win_w + (self.panel_w if open_ else 0)
         if open_:   # 화면 오른쪽 밖으로 나가면 그만큼 왼쪽으로 밀었다가 닫을 때 되돌린다
-            over = r.winfo_x() + r.winfo_reqwidth() - (vx + vw)
+            over = x + w - (vx + vw)
             if over > 0:
                 self._shift = over
-                r.geometry(f"+{r.winfo_x() - over}+{r.winfo_y()}")
+                x -= over
         elif self._shift:
-            r.geometry(f"+{r.winfo_x() + self._shift}+{r.winfo_y()}")
+            x += self._shift
             self._shift = 0
+        self._geom(x, r.winfo_y())
         self.render_month()
 
     def open_inbox(self):
@@ -1380,7 +1712,7 @@ class DeskCalendar:
                          ).pack(fill="x")
             elif t.get("time") and not inbox:
                 tk.Label(body, text=t["time"], font=self.f_tiny, bg=SURFACE,
-                         fg=DIM if done else "#ffb547", anchor="w").pack(fill="x")
+                         fg=DIM if done else PRIORITIES[1][1], anchor="w").pack(fill="x")
             txt = tk.Label(body, text=t.get("text", ""), font=self.f_done if done else self.f_body,
                            bg=SURFACE, fg=DONE if done else TEXT, anchor="w", justify="left",
                            wraplength=S(150))
@@ -1589,28 +1921,6 @@ class DeskCalendar:
             self._shift = 0
             self.conf["x"], self.conf["y"] = self.root.winfo_x(), self.root.winfo_y()
             self._save_conf()
-
-    def _grip_start(self, e):
-        self._grip = (e.x_root, e.y_root, self.outer.winfo_width(), self.outer.winfo_height(),
-                      self.ui)
-
-    def _grip_target(self, e):
-        x0, y0, w0, h0, ui0 = self._grip
-        f = 1 + ((e.x_root - x0) / w0 + (e.y_root - y0) / h0) / 2
-        return round(min(2.0, max(0.7, ui0 * f)), 2)
-
-    def _grip_move(self, e):
-        if self._grip:
-            self.size_hint.config(text=f"크기 {int(self._grip_target(e) * 100)}%")
-            self.size_hint.place(relx=0.5, rely=0.5, anchor="center")
-
-    def _grip_end(self, e):
-        if not self._grip:
-            return
-        target = self._grip_target(e)
-        self._grip = None
-        self.size_hint.place_forget()
-        self.root.after_idle(lambda: self.set_ui_scale(target))
 
     def _apply_alpha(self):
         self.root.attributes("-alpha", self.alpha.get())

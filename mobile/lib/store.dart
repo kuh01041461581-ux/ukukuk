@@ -18,6 +18,16 @@ class AppStore extends ChangeNotifier {
   int lead = 10;
   String brief = '09:00';
   late SharedPreferences _prefs;
+  double textScale = 1.0; // 앱 전체 글자 배율
+  double calScale = 1.0; // 달력 칸 안 글자 배율
+
+  Future<void> setScales({double? text, double? cal}) async {
+    if (text != null) textScale = text;
+    if (cal != null) calScale = cal;
+    await _prefs.setDouble('textScale', textScale);
+    await _prefs.setDouble('calScale', calScale);
+    notifyListeners();
+  }
   Timer? _saveTimer, _syncTimer, _notifyTimer;
 
   Future<void> load() async {
@@ -31,6 +41,8 @@ class AppStore extends ChangeNotifier {
     ensureIds(data);
     final c = _prefs.getString('sync');
     if (c != null) syncCfg = jsonDecode(c) as Map<String, dynamic>;
+    textScale = _prefs.getDouble('textScale') ?? 1.0;
+    calScale = _prefs.getDouble('calScale') ?? 1.0;
     notify = _prefs.getBool('notify') ?? true;
     lead = _prefs.getInt('lead') ?? 10;
     brief = _prefs.getString('brief') ?? '09:00';

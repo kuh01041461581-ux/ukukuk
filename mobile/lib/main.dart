@@ -66,6 +66,12 @@ class DeskApp extends StatelessWidget {
             backgroundColor: cSurface, indicatorColor: cAccent.withOpacity(0.25)),
         dividerColor: cBorder,
       ),
+      builder: (context, child) => ListenableBuilder(
+          listenable: store,
+          builder: (context, _) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(MediaQuery.textScalerOf(context).scale(1) * store.textScale)),
+              child: child!)),
       home: Home(store),
     );
   }
@@ -255,7 +261,7 @@ class CalendarPage extends StatelessWidget {
           border: Border.all(color: sel ? cAccent : Colors.white.withOpacity(inMonth ? 0.08 : 0.04), width: sel ? 1.4 : 1),
         ),
         child: LayoutBuilder(builder: (context, c) {
-          final slots = ((c.maxHeight - 24) / 11.5).floor().clamp(1, 7);
+          final slots = ((c.maxHeight - 24) / (11.5 * store.calScale)).floor().clamp(1, 7);
           final entries = <(String, Color, bool, bool)>[]; // 글자, 색, 완료, 공휴일
           if (h != null) entries.add((h, inMonth ? cSun : cDim, false, true));
           for (final r in rows) {
@@ -272,7 +278,7 @@ class CalendarPage extends StatelessWidget {
                 height: 18,
                 alignment: Alignment.center,
                 decoration: isToday ? BoxDecoration(color: cAccent, borderRadius: BorderRadius.circular(9)) : null,
-                child: Text('${d.day}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: numColor)),
+                child: Text('${d.day}', style: TextStyle(fontSize: 11 * store.calScale, fontWeight: FontWeight.w600, color: numColor)),
               ),
             ),
             const SizedBox(height: 2),
@@ -281,7 +287,7 @@ class CalendarPage extends StatelessWidget {
                   ? Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 3),
                       child: Text(entries[i].$1,
-                          maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: TextStyle(fontSize: 8, color: entries[i].$2)))
+                          maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: TextStyle(fontSize: 8 * store.calScale, color: entries[i].$2)))
                   : Padding(
                       padding: const EdgeInsets.fromLTRB(3, 0, 2, 1.5),
                       child: Row(children: [
@@ -296,7 +302,7 @@ class CalendarPage extends StatelessWidget {
                                 softWrap: false,
                                 overflow: TextOverflow.clip,
                                 style: TextStyle(
-                                    fontSize: 8.5,
+                                    fontSize: 8.5 * store.calScale,
                                     height: 1.1,
                                     color: entries[i].$3 ? cDim : cText.withOpacity(0.92),
                                     decoration: entries[i].$3 ? TextDecoration.lineThrough : null))),
@@ -304,7 +310,7 @@ class CalendarPage extends StatelessWidget {
             if (over)
               Padding(
                   padding: const EdgeInsets.only(left: 4, top: 0),
-                  child: Text('+${entries.length - show}', style: const TextStyle(fontSize: 8.5, color: cSub))),
+                  child: Text('+${entries.length - show}', style: TextStyle(fontSize: 8.5 * store.calScale, color: cSub))),
           ]);
         }),
       ),
@@ -939,7 +945,20 @@ class ConnectPage extends StatelessWidget {
         color: cCard,
         margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
         child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children)));
+    Widget slider(String label, double v, double lo, double hi, void Function(double) on) => Row(children: [
+          SizedBox(width: 88, child: Text(label, style: const TextStyle(fontSize: 13))),
+          Expanded(child: Slider(value: v, min: lo, max: hi, divisions: ((hi - lo) / 0.05).round(), onChanged: on)),
+          SizedBox(width: 40, child: Text('${(v * 100).round()}%', style: const TextStyle(fontSize: 12, color: cSub))),
+        ]);
     return ListView(children: [
+      card([
+        const Text('화면 크기', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        slider('전체 글자', store.textScale, 0.8, 1.4, (v) => store.setScales(text: v)),
+        slider('달력 칸 글자', store.calScale, 0.8, 1.6, (v) => store.setScales(cal: v)),
+        Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(onPressed: () => store.setScales(text: 1.0, cal: 1.0), child: const Text('기본값'))),
+      ]),
       card([
         const Text('PC와 연결', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),

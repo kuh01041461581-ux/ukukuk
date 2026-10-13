@@ -1359,6 +1359,12 @@ class DeskCalendar:
         auto_backup()
         self.hol_status = ""
         self._hol_cache = {}
+        if self.conf.get("look_v", 0) < 3:     # 새 디자인: 예전에 저장된 글자 크기·모양 값은 한 번 초기화
+            for k in ("scale", "cal_font", "cal_lines", "style", "weeks", "glass_tint", "glass_strength",
+                      "w", "h", "x", "y", "alpha"):
+                self.conf.pop(k, None)
+            self.conf["look_v"] = 3
+            save_json(CONF_FILE, self.conf)
         apply_conf_theme(self.conf)
         self.dpi_scale = max(1.0, root.winfo_fpixels("1i") / 96.0)
         self.ui = min(2.0, max(0.7, float(self.conf.get("scale", 0.9))))

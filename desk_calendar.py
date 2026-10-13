@@ -674,10 +674,15 @@ class EditDialog:
         f = tk.Frame(top, bg=SURFACE)
         f.pack(fill="x", padx=pad, pady=S(4))
         tk.Label(f, text="반복", font=app.f_small, bg=SURFACE, fg=SUB, width=8, anchor="w").pack(side="left")
-        self.rep = (self.t.get("repeat") or {}).get("f", "")
+        self.rep = core.repeat_code(self.t.get("repeat"))
         self.rep_btns = {}
-        for code, label in core.REPEAT_LABELS:
-            b = tk.Label(f, text=label, font=app.f_tiny, padx=S(8), pady=S(3), cursor="hand2")
+        rows = tk.Frame(f, bg=SURFACE)
+        rows.pack(side="left", fill="x")
+        for k, (code, label) in enumerate(core.REPEAT_LABELS):
+            if k % 5 == 0:
+                line = tk.Frame(rows, bg=SURFACE)
+                line.pack(fill="x", pady=(0, S(4)))
+            b = tk.Label(line, text=label, font=app.f_tiny, padx=S(8), pady=S(3), cursor="hand2")
             b.pack(side="left", padx=(0, S(4)))
             b.bind("<Button-1>", lambda e, c=code: self.set_rep(c))
             self.rep_btns[code] = b
@@ -757,7 +762,7 @@ class EditDialog:
             else:
                 t.pop(k, None)
         if self.rep:
-            t["repeat"] = {"f": self.rep, "n": 1, **({"until": until} if until else {})}
+            t["repeat"] = core.repeat_from_code(self.rep, d, until or None)
         else:
             t.pop("repeat", None)
             t.pop("done_dates", None)
@@ -935,7 +940,7 @@ class DayDetail:
         e0 = item_end(t, s0)
         tags = []
         if t.get("repeat"):
-            tags.append("반복 " + dict(core.REPEAT_LABELS).get(t["repeat"].get("f"), ""))
+            tags.append("반복 " + core.repeat_label(t["repeat"], s0))
         elif e0:
             tags.append(f"기간 {s0.month}/{s0.day} ~ {e0.month}/{e0.day}")
         if t.get("time"):
@@ -3650,7 +3655,7 @@ class DeskCalendar:
             tk.Label(body, text=date_text, font=self.f_tiny, bg=SURFACE, fg=SUB, anchor="w").pack(fill="x")
         e0 = item_end(t, start) if start else None
         if t.get("repeat"):
-            lab = dict(core.REPEAT_LABELS).get(t["repeat"].get("f"), "")
+            lab = core.repeat_label(t["repeat"], start)
             tk.Label(body, text=f"반복  {lab}" + (f"  {t['time']}" if t.get("time") else ""),
                      font=self.f_tiny, bg=SURFACE, fg=DIM if done else col, anchor="w").pack(fill="x")
         elif e0:
@@ -4058,7 +4063,7 @@ class DeskCalendar:
     def _commit(self):
         for k in list(self.data):
             v = self.data[k]
-            if k == "_deleted":
+            if k in ("_deleted", "_work"):
                 continue
             if not v.get("memo", "").strip() and not v.get("todos"):
                 del self.data[k]

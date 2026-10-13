@@ -220,6 +220,26 @@
     "pri": 1,
     "repeat": null
    }
+  },
+  {
+   "in": "다음주 월요일까지 예산 현황 작성",
+   "out": {
+    "text": "예산 현황 작성",
+    "date": "2026-10-19",
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "이번주 금요일에 출장 정산",
+   "out": {
+    "text": "출장 정산",
+    "date": "2026-10-16",
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
   }
  ]
 }

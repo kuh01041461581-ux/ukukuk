@@ -862,7 +862,7 @@ class ItemTile extends StatelessWidget {
     final tags = <String>[];
     final rep = t['repeat'] as Json?;
     if (rep != null) {
-      tags.add('반복 ${repeatLabels.firstWhere((e) => e[0] == rep['f'], orElse: () => ['', ''])[1]}');
+      tags.add('반복 ${repeatLabel(rep, row.start)}');
     } else {
       final e = inbox ? null : itemEnd(t, row.start);
       if (e != null) tags.add('기간 ${row.start.month}/${row.start.day} ~ ${e.month}/${e.day}');
@@ -1135,7 +1135,7 @@ class _ItemEditorState extends State<ItemEditor> {
       time = (it['time'] as String?)?.isNotEmpty == true ? it['time'] as String : null;
       pri = ((it['pri'] as num?)?.toInt() ?? 2).clamp(0, 3);
       final r = it['repeat'] as Json?;
-      rep = (r?['f'] as String?) ?? '';
+      rep = repeatCode(r);
       until = parseDate(r?['until'] as String?);
     } else {
       start = widget.inbox ? null : (widget.date ?? dayOnly(DateTime.now()));
@@ -1167,7 +1167,7 @@ class _ItemEditorState extends State<ItemEditor> {
     setOrRemove('end', (start != null && end != null && end!.isAfter(start!) && rep.isEmpty) ? iso(end!) : null);
     setOrRemove('note', note.text.trim());
     if (rep.isNotEmpty) {
-      t['repeat'] = {'f': rep, 'n': 1, if (until != null) 'until': iso(until!)};
+      t['repeat'] = repeatFromCode(rep, start, until == null ? null : iso(until!));
     } else {
       t.remove('repeat');
       t.remove('done_dates');

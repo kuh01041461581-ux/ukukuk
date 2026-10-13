@@ -5,7 +5,7 @@ import datetime as dt
 import time
 import uuid
 
-NON_DATE_KEYS = ("_inbox", "_deleted")
+NON_DATE_KEYS = ("_inbox", "_deleted", "_work")   # _work: 업무(공문·제출 현황) 묶음
 
 
 # ── 항목 ──
@@ -32,7 +32,7 @@ def ensure_ids(data):
     """예전 data.json 의 항목에 id / updated 를 채운다. 바뀐 게 있으면 True"""
     changed = False
     for key, v in data.items():
-        if key == "_deleted":
+        if key in ("_deleted", "_work"):
             continue
         for t in v.get("todos", []):
             if not t.get("id"):
@@ -63,7 +63,54 @@ def item_end(t, start):
 
 
 # ── 반복 ──
-REPEAT_LABELS = [("", "없음"), ("d", "매일"), ("wd", "평일"), ("w", "매주"), ("m", "매월"), ("y", "매년")]
+# 고르는 이름(code) → 저장 모양. 분기·반기는 '매월'의 간격(n)으로 저장해서 예전 버전과도 맞는다.
+REPEAT_LABELS = [("", "없음"), ("d", "매일"), ("wd", "평일"), ("w", "매주"), ("m", "매월"), ("ml", "매월 말일"),
+                 ("mw", "매월 n째 요일"), ("q", "분기마다"), ("h", "반기마다"), ("y", "매년")]
+_NTH = {1: "첫째", 2: "둘째", 3: "셋째", 4: "넷째", -1: "마지막"}
+
+
+def nth_of(d):
+    """d 가 그 달의 몇째 요일인가 (다섯째는 '마지막'으로)"""
+    k = (d.day - 1) // 7 + 1
+    return -1 if k >= 5 else k
+
+
+def repeat_from_code(code, start=None, until=None):
+    if not code:
+        return None
+    if code == "q":
+        rep = {"f": "m", "n": 3}
+    elif code == "h":
+        rep = {"f": "m", "n": 6}
+    elif code == "mw":
+        rep = {"f": "mw", "n": 1, "k": nth_of(start) if start else 1}
+    else:
+        rep = {"f": code, "n": 1}
+    if until:
+        rep["until"] = until
+    return rep
+
+
+def repeat_code(rep):
+    if not rep:
+        return ""
+    f, n = rep.get("f", ""), int(rep.get("n", 1) or 1)
+    if f == "m" and n == 3:
+        return "q"
+    if f == "m" and n == 6:
+        return "h"
+    return f
+
+
+def repeat_label(rep, start=None):
+    """'매월 둘째 화요일' 처럼 사람이 읽는 반복 이름"""
+    code = repeat_code(rep)
+    if code == "mw":
+        wd = "월화수목금토일"[start.weekday()] if start else ""
+        return f"매월 {_NTH.get(int(rep.get('k', 1)), '')} {wd}요일".replace("  ", " ")
+    if code == "m" and int(rep.get("n", 1) or 1) > 1:
+        return f"{rep['n']}개월마다"
+    return dict(REPEAT_LABELS).get(code, "")
 
 
 def repeat_hit(rep, start, d):
@@ -81,11 +128,18 @@ def repeat_hit(rep, start, d):
         return d.weekday() < 5
     if f == "w":
         return (d - start).days % (7 * n) == 0
-    if f == "m":
+    if f in ("m", "ml", "mw"):
         months = (d.year - start.year) * 12 + d.month - start.month
         if months % n:
             return False
         last = calendar.monthrange(d.year, d.month)[1]
+        if f == "ml":
+            return d.day == last
+        if f == "mw":
+            if d.weekday() != start.weekday():
+                return False
+            k = int(rep.get("k", 1) or 1)
+            return d.day + 7 > last if k < 0 else (d.day - 1) // 7 + 1 == k
         return d.day == min(start.day, last)
     if f == "y":
         if (d.year - start.year) % n:
@@ -94,6 +148,41 @@ def repeat_hit(rep, start, d):
             return d.month == 2 and d.day == min(29, calendar.monthrange(d.year, 2)[1])
         return d.month == start.month and d.day == start.day
     return False
+
+
+def first_hit(rep, start, limit=400):
+    """반복 일정이 실제로 처음 나오는 날 (매월 말일처럼 시작일과 다를 수 있다)"""
+    for k in range(limit):
+        d = start + dt.timedelta(days=k)
+        if repeat_hit(rep, start, d):
+            return d
+    return None
+
+
+# ── 근무일 (주말·공휴일 빼고 세기) ──
+def is_workday(d, holiday=None):
+    return d.weekday() < 5 and not (holiday and holiday(d))
+
+
+def add_workdays(start, n, holiday=None):
+    """start 다음 날부터 근무일로 n 일째 되는 날 (n=0 이면 start 가 쉬는 날일 때 다음 근무일)"""
+    d = start
+    if n <= 0:
+        while not is_workday(d, holiday):
+            d += dt.timedelta(days=1)
+        return d
+    while n:
+        d += dt.timedelta(days=1)
+        if is_workday(d, holiday):
+            n -= 1
+    return d
+
+
+def workdays_between(a, b, holiday=None):
+    """a 다음 날부터 b 까지 근무일 수 (b 가 앞이면 음수)"""
+    if b < a:
+        return -workdays_between(b, a, holiday)
+    return sum(1 for k in range(1, (b - a).days + 1) if is_workday(a + dt.timedelta(days=k), holiday))
 
 
 def occurrence(t, d):
@@ -134,7 +223,7 @@ def find_owner(data, t):
     """항목이 들어 있는 (키, 리스트)"""
     t = base_of(t)
     for key, v in data.items():
-        if key == "_deleted":
+        if key in ("_deleted", "_work"):
             continue
         for x in v.get("todos", []):
             if x is t:
@@ -169,7 +258,7 @@ def add_item(data, key, t):
 def export_state(data):
     items, memos = [], {}
     for key, v in data.items():
-        if key == "_deleted":
+        if key in ("_deleted", "_work"):
             continue
         for t in v.get("todos", []):
             if not t.get("id"):
@@ -179,7 +268,8 @@ def export_state(data):
             items.append(r)
         if key != "_inbox" and v.get("memo", "").strip():
             memos[key] = {"memo": v["memo"], "ts": v.get("memo_ts", 0)}
-    return {"items": items, "memos": memos, "deleted": dict(data.get("_deleted", {}))}
+    work = {i: {k: val for k, val in c.items() if not k.startswith("_")} for i, c in (data.get("_work") or {}).items()}
+    return {"items": items, "memos": memos, "deleted": dict(data.get("_deleted", {})), "work": work}
 
 
 def merge_state(data, remote):
@@ -192,7 +282,7 @@ def merge_state(data, remote):
             changed = True
     idx = {}
     for key, v in data.items():
-        if key == "_deleted":
+        if key in ("_deleted", "_work"):
             continue
         for t in v.get("todos", []):
             if t.get("id"):
@@ -223,6 +313,18 @@ def merge_state(data, remote):
             e = data.setdefault(d, {"memo": "", "todos": []})
             e["memo"], e["memo_ts"] = m.get("memo", ""), m["ts"]
             changed = True
+    work = data.get("_work") or {}                        # 업무 묶음: 통째로, 더 늦게 고친 쪽이 이김
+    for i in [i for i, c in work.items() if dele.get(i, 0) >= c.get("updated", 0)]:
+        del work[i]
+        changed = True
+    for i, c in (remote.get("work") or {}).items():
+        if dele.get(i, 0) >= c.get("updated", 0):
+            continue
+        if c.get("updated", 0) > work.get(i, {}).get("updated", -1):
+            work[i] = dict(c)
+            changed = True
+    if work:
+        data["_work"] = work
     cutoff = now_ms() - 90 * 86400 * 1000                 # 오래된 삭제 기록 정리
     for i in [i for i, ts in dele.items() if ts < cutoff]:
         del dele[i]
@@ -259,7 +361,9 @@ def build_ics(data):
             if rep:
                 f = rep.get("f")
                 rule = {"d": "FREQ=DAILY", "w": "FREQ=WEEKLY", "m": "FREQ=MONTHLY", "y": "FREQ=YEARLY",
-                        "wd": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"}.get(f)
+                        "wd": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", "ml": "FREQ=MONTHLY;BYMONTHDAY=-1"}.get(f)
+                if f == "mw":
+                    rule = f"FREQ=MONTHLY;BYDAY={int(rep.get('k', 1))}{['MO','TU','WE','TH','FR','SA','SU'][s.weekday()]}"
                 if rule:
                     if rep.get("n", 1) and rep.get("n", 1) > 1 and f != "wd":
                         rule += f";INTERVAL={rep['n']}"

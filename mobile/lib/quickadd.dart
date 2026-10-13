@@ -120,7 +120,7 @@ QuickResult parseQuick(String text, DateTime today) {
     if (m != null) d = _addDays(today, int.parse(m.group(1)!) * (m.group(2) == '주' ? 7 : 1));
   }
   if (d == null) {
-    m = cut(r'(다다음\s*주|다음\s*주|담주|이번\s*주)\s*(월|화|수|목|금|토|일)\s*(?:요일)?(?![가-힣])');
+    m = cut(r'(다다음\s*주|다음\s*주|담주|이번\s*주)\s*(월|화|수|목|금|토|일)\s*(?:요일|(?![가-힣]))');
     if (m != null) {
       final g = m.group(1)!;
       final shift = g.startsWith('다다음') ? 2 : (g.startsWith('다음') || g == '담주') ? 1 : 0;

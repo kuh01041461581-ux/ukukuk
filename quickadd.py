@@ -94,7 +94,7 @@ def parse(text, today=None):
         if m:
             d = today + dt.timedelta(days=int(m.group(1)) * (7 if m.group(2) == "주" else 1))
     if d is None:
-        m = cut(r"(다다음\s*주|다음\s*주|담주|이번\s*주)\s*(월|화|수|목|금|토|일)\s*(?:요일)?(?![가-힣])")
+        m = cut(r"(다다음\s*주|다음\s*주|담주|이번\s*주)\s*(월|화|수|목|금|토|일)\s*(?:요일|(?![가-힣]))")
         if m:
             shift = 2 if m.group(1).startswith("다다음") else 1 if (m.group(1).startswith("다음") or m.group(1) == "담주") else 0
             d = _next_weekday(today, WD[m.group(2)], shift)

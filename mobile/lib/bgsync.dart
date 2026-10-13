@@ -1,6 +1,7 @@
 // 백그라운드 동기화: 앱이 꺼져 있어도 약 15분마다 PC 의 변경을 받아 알림·위젯을 갱신한다 (안드로이드)
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -29,7 +30,7 @@ void callbackDispatcher() {
 }
 
 Future<void> registerBackgroundSync() async {
-  if (!Platform.isAndroid) return;
+  if (kIsWeb || !Platform.isAndroid) return;
   try {
     await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
     await Workmanager().registerPeriodicTask(_taskName, _taskName,

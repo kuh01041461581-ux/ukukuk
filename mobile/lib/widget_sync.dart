@@ -1,6 +1,7 @@
 // 안드로이드 홈 화면 위젯: 오늘과 가까운 일정의 '내용'을 보여 준다 (점이 아니라 글자로)
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:home_widget/home_widget.dart';
 
 import 'core.dart';
@@ -15,7 +16,7 @@ String _line(Json t, {String prefix = ''}) {
 }
 
 Future<void> updateHomeWidget(AppStore store) async {
-  if (!Platform.isAndroid) return;
+  if (kIsWeb || !Platform.isAndroid) return;
   try {
     final today = dayOnly(DateTime.now());
     final (nToday, nLate, _) = summaryCounts(store.data);

@@ -1,6 +1,7 @@
 // 폰에서 공문 PDF 를 '공유'하거나 '열기'로 보내면 일정으로 자동 추가한다
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
@@ -58,6 +59,7 @@ class ShareImporter {
   ShareImporter(this.store, this.ctx);
 
   void start() {
+    if (kIsWeb) return;
     try {
       ReceiveSharingIntent.instance.getInitialMedia().then((m) {
         _handle(m);

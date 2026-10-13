@@ -9,6 +9,7 @@ DeskCalendar - 바탕화면 위젯 달력 + 날짜별 메모 / 할 일
 """
 import calendar
 import datetime as dt
+import base64
 import json
 import os
 import queue
@@ -1309,6 +1310,12 @@ class PhoneDialog:
             c.pack(pady=S(6))
         except Exception as ex:
             tk.Label(top, text=f"QR 만들기 실패: {ex}", font=app.f_small, bg=SURFACE, fg=SUN).pack()
+        def copy_code():
+            code = "DC1:" + base64.b64encode(payload.encode("utf-8")).decode()
+            self.top.clipboard_clear()
+            self.top.clipboard_append(code)
+            messagebox.showinfo("연결 코드 복사됨", "연결 코드를 복사했어요.\n폰이나 웹앱의 [설정] → '연결 코드로' 칸에 붙여 넣으세요.\n(이 코드는 비밀번호처럼 다른 사람에게 보내지 마세요)", parent=self.top)
+        Pill(foot, "연결 코드 복사", copy_code, app.f_small, parent_bg=SURFACE, padx=S(14), pady=S(6)).pack(side="left")
         Pill(foot, "지금 동기화", lambda: (app.sync_now(), self.top.after(1500, self.build)), app.f_small,
              parent_bg=SURFACE, padx=S(14), pady=S(6)).pack(side="left")
         Pill(foot, "연결 해제", self.disconnect, app.f_small, parent_bg=SURFACE, padx=S(14), pady=S(6)

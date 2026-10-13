@@ -1,0 +1,60 @@
+name: Build Web (아이폰 홈 화면 앱)
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths: [mobile/**, .github/workflows/build-web.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: web-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.5"
+          channel: stable
+          cache: true
+      - name: Test
+        working-directory: mobile
+        run: |
+          flutter pub get
+          flutter test
+      - name: Build web
+        working-directory: mobile
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          flutter build web --release --web-renderer html --base-href "/${REPO_NAME}/" --dart-define=APP_VERSION="web ${GITHUB_SHA::7}"
+      - name: Zip
+        run: cd mobile/build/web && zip -qr "$GITHUB_WORKSPACE/DeskCalendar-web.zip" .
+      - name: Publish zip to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-web
+          name: DeskCalendar 웹앱 최신 빌드 (아이폰·브라우저용)
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          files: DeskCalendar-web.zip
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: mobile/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

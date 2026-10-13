@@ -6,12 +6,20 @@
 const MAX_BYTES = 2 * 1024 * 1024;
 const ID_RE = /^[A-Za-z0-9_-]{22,64}$/;
 
+// 웹앱(아이폰 홈 화면 앱)이 브라우저에서 직접 접속할 수 있도록 CORS 를 허용한다
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, PUT, OPTIONS",
+  "access-control-allow-headers": "content-type, if-match",
+  "access-control-expose-headers": "X-Version",
+};
 const json = (obj, status = 200, extra = {}) =>
-  new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json", ...extra } });
+  new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json", ...CORS, ...extra } });
 
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+    if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     if (url.pathname === "/" || url.pathname === "/health") return json({ ok: true, service: "deskcalendar-relay" });
     const m = url.pathname.match(/^\/v1\/([^/]+)$/);
     if (!m || !ID_RE.test(m[1])) return json({ error: "bad id" }, 400);
@@ -21,7 +29,7 @@ export default {
     if (req.method === "GET") {
       const { value, metadata } = await env.KV.getWithMetadata(key, "arrayBuffer");
       if (value === null) return json({ error: "not found" }, 404);
-      return new Response(value, { headers: { "content-type": "application/octet-stream", "X-Version": String(metadata?.v ?? 0) } });
+      return new Response(value, { headers: { "content-type": "application/octet-stream", "X-Version": String(metadata?.v ?? 0), ...CORS } });
     }
     if (req.method === "PUT") {
       const len = Number(req.headers.get("content-length") || 0);

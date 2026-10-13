@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -8,6 +9,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'core.dart';
 import 'holidays.dart';
 import 'notify.dart';
+import 'pairing.dart';
 import 'quickadd.dart';
 import 'bgsync.dart';
 import 'candidates.dart';
@@ -49,7 +51,7 @@ String dateLabel(DateTime d) => '${d.month}월 ${d.day}일 (${weekdayKo[d.weekda
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Notifier.init();
+  if (!kIsWeb) await Notifier.init(); // 웹(아이폰 홈 화면 앱)에서는 폰 알림 예약을 쓰지 않는다
   final store = AppStore();
   await store.load();
   runApp(DeskApp(store));
@@ -285,9 +287,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                   color: cSurface,
                   onSelected: (v) => _smartAdd(v),
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'clip', child: ListTile(dense: true, leading: Icon(Icons.content_paste_rounded), title: Text('복사한 글에서 만들기'))),
-                    PopupMenuItem(value: 'img', child: ListTile(dense: true, leading: Icon(Icons.image_search_rounded), title: Text('캡처·사진에서 읽기'))),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'clip', child: ListTile(dense: true, leading: Icon(Icons.content_paste_rounded), title: Text('복사한 글에서 만들기'))),
+                    if (!kIsWeb) const PopupMenuItem(value: 'img', child: ListTile(dense: true, leading: Icon(Icons.image_search_rounded), title: Text('캡처·사진에서 읽기'))),
                   ],
                 ),
                 IconButton(icon: const Icon(Icons.search_rounded), onPressed: search),
@@ -1291,6 +1293,8 @@ class ConnectPage extends StatelessWidget {
               style: TextStyle(color: cSub, fontSize: 13)),
           const SizedBox(height: 12),
           FilledButton.icon(onPressed: () => _scan(context), icon: const Icon(Icons.qr_code_scanner), label: const Text('QR 스캔해서 연결')),
+          const SizedBox(height: 14),
+          PasteConnect(store: store),
         ] else ...[
           const Text('PC와 연결됨 ✓', style: TextStyle(color: cAccent, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
@@ -1317,6 +1321,7 @@ class ConnectPage extends StatelessWidget {
           ]),
         ],
       ]),
+      if (!kIsWeb) // 웹앱(아이폰)에서는 폰 알림 예약을 쓰지 않는다
       card([
         const Text('알림', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         SwitchListTile(
@@ -1373,8 +1378,45 @@ class ConnectPage extends StatelessWidget {
       ]),
       const Padding(
           padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Text('일정은 암호화되어 인터넷을 거쳐 PC와 주고받아요.\n암호 키는 이 폰과 PC에만 있어요.\n\nDeskCalendar $appVersion',
+          child: Text('일정은 암호화되어 인터넷을 거쳐 PC와 주고받아요.\n암호 키는 이 기기와 PC에만 있어요.\n\nDeskCalendar $appVersion',
               style: TextStyle(color: cDim, fontSize: 12))),
+    ]);
+  }
+}
+
+/// QR 대신 PC 의 [연결 코드 복사] 로 복사한 코드를 붙여 넣어 연결한다 (아이폰 웹앱 등)
+class PasteConnect extends StatefulWidget {
+  final AppStore store;
+  const PasteConnect({super.key, required this.store});
+  @override
+  State<PasteConnect> createState() => _PasteConnectState();
+}
+
+class _PasteConnectState extends State<PasteConnect> {
+  final c = TextEditingController();
+  String msg = '';
+
+  Future<void> _go() async {
+    final cfg = parsePairing(c.text);
+    if (cfg == null) {
+      setState(() => msg = '올바른 연결 코드가 아니에요. PC 의 [휴대폰 연결]에서 [연결 코드 복사]를 눌러 복사해 주세요.');
+      return;
+    }
+    await widget.store.connect(cfg);
+    if (mounted) setState(() => msg = '');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('QR 이 어렵다면 연결 코드로', style: TextStyle(fontSize: 12.5, color: cSub)),
+      const SizedBox(height: 6),
+      Row(children: [
+        Expanded(child: TextField(controller: c, style: const TextStyle(fontSize: 13), decoration: const InputDecoration(hintText: 'PC 에서 복사한 연결 코드 붙여넣기', isDense: true))),
+        const SizedBox(width: 8),
+        FilledButton.tonal(onPressed: _go, child: const Text('연결')),
+      ]),
+      if (msg.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(msg, style: const TextStyle(fontSize: 12, color: cSun))),
     ]);
   }
 }

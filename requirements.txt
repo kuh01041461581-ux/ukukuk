@@ -1,2 +1,4 @@
 pdfminer.six
+cryptography
+segno
 pyinstaller

@@ -51,6 +51,7 @@ android {
         release {
             // 고정된 서명 키: 새 버전을 기존 설치본 위에 그대로 업데이트할 수 있다
             signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }

@@ -1000,43 +1000,36 @@ class PhoneDialog:
         app, top = self.app, self.top
         S = app.S
         pad = S(24)
-        tk.Label(top, text="처음 한 번만 하면 돼요", font=app.f_head, bg=SURFACE, fg=SUB, anchor="w"
-                 ).pack(fill="x", padx=pad, pady=(S(16), S(4)))
-        steps = ["① 아래 [연결 코드 만들기]를 누르면 열리는 페이지에서 맨 아래 초록 버튼 'Generate token' 을 누르세요. "
-                 "(GitHub 로그인이 필요해요. 무료 계정이면 충분해요)",
-                 "② 나온 코드(ghp_로 시작)를 복사해서 아래에 붙여 넣고 [연결하기]를 누르면 QR 이 나와요."]
-        for t in steps:
-            tk.Label(top, text=t, font=app.f_small, bg=SURFACE, fg=TEXT, anchor="w", justify="left",
-                     wraplength=S(410)).pack(fill="x", padx=pad, pady=(S(4), 0))
-        Pill(top, "연결 코드 만들기", lambda: webbrowser.open(
-            "https://github.com/settings/tokens/new?scopes=repo&description=DeskCalendar"), app.f_small,
-             parent_bg=SURFACE, padx=S(14), pady=S(5)).pack(anchor="w", padx=pad, pady=S(10))
-        self.e_tok = tk.Entry(top, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
-                              highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT, show="•")
-        self.e_tok.pack(fill="x", padx=pad, ipady=S(6))
-        self.e_tok.focus_set()
-        self.e_tok.bind("<Return>", lambda e: self.connect())
+        tk.Label(top, text="아래 버튼을 누르면 QR 코드가 만들어져요.\n폰 앱의 [설정] 탭 → 'QR 스캔해서 연결' 로 스캔하면 끝!",
+                 font=app.f_body, bg=SURFACE, fg=TEXT, anchor="w", justify="left", wraplength=S(410)
+                 ).pack(fill="x", padx=pad, pady=(S(20), S(12)))
+        Pill(top, "QR 코드 만들기", self.connect, app.f_body, fg="#ffffff", bg=ACCENT,
+             hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(26), pady=S(8)
+             ).pack(anchor="w", padx=pad, pady=S(4))
         self.msg = tk.Label(top, text="", font=app.f_small, bg=SURFACE, fg=SUN, anchor="w", justify="left",
                             wraplength=S(410))
-        self.msg.pack(fill="x", padx=pad, pady=S(6))
-        Pill(top, "연결하기", self.connect, app.f_body, fg="#ffffff", bg=ACCENT,
-             hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(24), pady=S(6)
-             ).pack(anchor="w", padx=pad, pady=S(4))
+        self.msg.pack(fill="x", padx=pad, pady=S(8))
+        tk.Label(top, text="서버 주소 (보통 바꾸지 않아요)", font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w"
+                 ).pack(fill="x", padx=pad, pady=(S(18), 0))
+        self.e_url = tk.Entry(top, font=app.f_small, bg=CARD, fg=SUB, insertbackground=TEXT, relief="flat",
+                              highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        self.e_url.insert(0, cloudsync.DEFAULT_RELAY)
+        self.e_url.pack(fill="x", padx=pad, ipady=S(4))
 
     def connect(self):
-        tok = self.e_tok.get().strip()
-        if not tok:
-            self.msg.config(text="연결 코드를 붙여 넣어 주세요.", fg=SUN)
+        url = self.e_url.get().strip().rstrip("/")
+        if not url.startswith("http"):
+            self.msg.config(text="서버 주소가 올바르지 않아요.", fg=SUN)
             return
         self.msg.config(text="연결하는 중…", fg=SUB)
         self.top.update_idletasks()
+        cfg = {"relay": url, "id": cloudsync.new_id(), "key": cloudsync.new_key()}
         try:
-            repo = cloudsync.ensure_repo(tok)
-            cloudsync.GitHubStore(repo, tok).get()
+            cloudsync.make_store(cfg).get()                  # 서버가 응답하는지 확인
         except cloudsync.SyncError as ex:
             self.msg.config(text=str(ex), fg=SUN)
             return
-        self.app.conf["sync"] = {"repo": repo, "token": tok, "key": cloudsync.new_key(), "path": "deskcalendar.enc"}
+        self.app.conf["sync"] = cfg
         self.app._save_conf()
         self.app.sync_now()
         self.build()
@@ -1051,8 +1044,12 @@ class PhoneDialog:
         self.status.pack(fill="x", padx=pad)
         tk.Label(top, text="이 QR 에는 연결 정보와 암호 키가 들어 있어요. 다른 사람에게 보여주지 마세요.", font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left",
                  wraplength=S(450)).pack(fill="x", padx=pad, pady=(S(10), S(6)))
-        payload = json.dumps({"v": 1, "repo": cfg["repo"], "tok": cfg["token"], "key": cfg["key"],
-                              "p": cfg.get("path", "deskcalendar.enc")}, separators=(",", ":"))
+        if cfg.get("relay"):
+            payload = json.dumps({"v": 2, "relay": cfg["relay"], "id": cfg["id"], "key": cfg["key"]},
+                                 separators=(",", ":"))
+        else:
+            payload = json.dumps({"v": 1, "repo": cfg["repo"], "tok": cfg["token"], "key": cfg["key"],
+                                  "p": cfg.get("path", "deskcalendar.enc")}, separators=(",", ":"))
         try:
             import segno
             m = [list(row) for row in segno.make(payload, error="m").matrix]
@@ -1074,7 +1071,7 @@ class PhoneDialog:
              ).pack(side="left", padx=S(8))
 
     def disconnect(self):
-        if messagebox.askyesno("연결 해제", "이 PC의 폰 연결을 끕니다. (클라우드에 암호화된 사본은 남아요)\n계속할까요?",
+        if messagebox.askyesno("연결 해제", "이 PC의 폰 연결을 끕니다. (서버에 암호화된 사본은 남아요)\n계속할까요?",
                                parent=self.top):
             self.app.conf.pop("sync", None)
             self.app._save_conf()
@@ -2010,7 +2007,9 @@ class DeskCalendar:
     # ── 인터넷 동기화 (백그라운드 스레드는 네트워크만, 데이터 합치기는 이 스레드에서) ──
     def sync_cfg(self):
         c = self.conf.get("sync")
-        return c if c and c.get("repo") and c.get("token") and c.get("key") else None
+        if not c or not c.get("key"):
+            return None
+        return c if (c.get("relay") and c.get("id")) or (c.get("repo") and c.get("token")) else None
 
     def _schedule_sync(self):
         if not self.sync_cfg():
@@ -2030,7 +2029,7 @@ class DeskCalendar:
             return
         self._syncing = True
         self.sync_status = "동기화 중…"
-        store = cloudsync.GitHubStore(cfg["repo"], cfg["token"], cfg.get("path", "deskcalendar.enc"))
+        store = cloudsync.make_store(cfg)
 
         def work():
             try:
@@ -2120,7 +2119,7 @@ class DeskCalendar:
             local = core.export_state(self.data)
             if remote is not None and cloudsync.canonical(local) == cloudsync.canonical(remote):
                 return self._finish_sync("동기화 완료")
-            store = cloudsync.GitHubStore(cfg["repo"], cfg["token"], cfg.get("path", "deskcalendar.enc"))
+            store = cloudsync.make_store(cfg)
 
             def work():
                 try:

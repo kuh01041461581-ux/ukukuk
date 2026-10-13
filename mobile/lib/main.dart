@@ -1178,12 +1178,12 @@ class ConnectPage extends StatelessWidget {
         const Text('PC와 연결', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
         if (cfg == null) ...[
-          const Text('PC 프로그램의 [휴대폰 연결] 화면에 나오는 QR 코드를 스캔하세요.\n집·사무실 밖에서도 인터넷만 되면 동기화돼요.',
+          const Text('PC 프로그램에서 [폰 연결] → [QR 코드 만들기]를 누르고, 나온 QR 코드를 스캔하세요.\n집·사무실 밖에서도 인터넷만 되면 동기화돼요.',
               style: TextStyle(color: cSub, fontSize: 13)),
           const SizedBox(height: 12),
           FilledButton.icon(onPressed: () => _scan(context), icon: const Icon(Icons.qr_code_scanner), label: const Text('QR 스캔해서 연결')),
         ] else ...[
-          Text('연결됨 · ${cfg['repo']}', style: const TextStyle(color: cAccent)),
+          const Text('PC와 연결됨 ✓', style: TextStyle(color: cAccent, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text(store.syncStatus.isEmpty ? '대기 중' : store.syncStatus, style: const TextStyle(color: cSub, fontSize: 13)),
           const SizedBox(height: 12),
@@ -1291,7 +1291,7 @@ class _ScanPageState extends State<ScanPage> {
             if (raw == null) continue;
             try {
               final j = jsonDecode(raw) as Map<String, dynamic>;
-              if (j['repo'] != null && j['tok'] != null && j['key'] != null) {
+              if (j['key'] != null && ((j['relay'] != null && j['id'] != null) || (j['repo'] != null && j['tok'] != null))) {
                 _done = true;
                 Navigator.pop(context, j);
                 return;

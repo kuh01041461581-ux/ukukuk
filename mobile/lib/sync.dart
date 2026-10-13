@@ -57,6 +57,44 @@ String canon(Json s) {
   return jsonEncode(_sortKeys({'items': items, 'memos': s['memos'] ?? {}, 'deleted': s['deleted'] ?? {}}));
 }
 
+/// 중계 서버(relay/worker.js) 저장소: GitHubStore 와 같은 get/put 모양. 버전은 서버가 붙인 숫자.
+class RelayStore {
+  final String url, id;
+  RelayStore(this.url, this.id);
+
+  Uri get _url => Uri.parse('${url.replaceAll(RegExp(r"/+\$"), "")}/v1/$id');
+
+  Future<(Uint8List?, String?)> get() async {
+    try {
+      final r = await http.get(_url, headers: {'User-Agent': 'DeskCalendar'}).timeout(const Duration(seconds: 20));
+      if (r.statusCode == 404) return (null, null);
+      if (r.statusCode != 200) throw SyncError(r.statusCode == 400 ? '연결 정보가 올바르지 않아요 (QR로 다시 연결)' : '서버 오류 ${r.statusCode}');
+      return (r.bodyBytes, r.headers['x-version']);
+    } on SyncError {
+      rethrow;
+    } catch (_) {
+      throw SyncError('인터넷에 연결할 수 없어요');
+    }
+  }
+
+  Future<String> put(Uint8List blob, String? ver) async {
+    try {
+      final r = await http
+          .put(_url, headers: {'Content-Type': 'application/octet-stream', 'If-Match': ver ?? '0', 'User-Agent': 'DeskCalendar'}, body: blob)
+          .timeout(const Duration(seconds: 30));
+      if (r.statusCode == 409) throw SyncConflict();
+      if (r.statusCode != 200) throw SyncError(r.statusCode == 413 ? '데이터가 너무 커요' : '서버 오류 ${r.statusCode}');
+      return '${(jsonDecode(r.body) as Map)['v']}';
+    } on SyncError {
+      rethrow;
+    } on SyncConflict {
+      rethrow;
+    } catch (_) {
+      throw SyncError('인터넷에 연결할 수 없어요');
+    }
+  }
+}
+
 class GitHubStore {
   final String repo, token, path;
   GitHubStore(this.repo, this.token, [this.path = 'deskcalendar.enc']);

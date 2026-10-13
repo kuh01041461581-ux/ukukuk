@@ -95,7 +95,9 @@ class AppStore extends ChangeNotifier {
     syncStatus = '동기화 중…';
     notifyListeners();
     try {
-      final store = GitHubStore(cfg['repo'] as String, cfg['tok'] as String, (cfg['p'] as String?) ?? 'deskcalendar.enc');
+      final dynamic store = cfg['relay'] != null
+          ? RelayStore(cfg['relay'] as String, cfg['id'] as String)
+          : GitHubStore(cfg['repo'] as String, cfg['tok'] as String, (cfg['p'] as String?) ?? 'deskcalendar.enc');
       final key = cfg['key'] as String;
       var done = false;
       for (var i = 0; i < 4 && !done; i++) {

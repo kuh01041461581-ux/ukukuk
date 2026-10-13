@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 MAGIC = b"DC1"
 API = "https://api.github.com"
+DEFAULT_RELAY = "https://deskcalender-relay.label-api.workers.dev"   # 무료 중계 서버 (relay/README.md)
 
 
 class Conflict(Exception):
@@ -87,6 +88,47 @@ class GitHubStore:
         if sha:
             body["sha"] = sha
         return self._req("PUT", body)["content"]["sha"]
+
+
+class RelayStore:
+    """중계 서버(relay/worker.js)에 암호화된 덩어리를 올리고 내려받는다. GitHubStore 와 같은 get/put 모양"""
+
+    def __init__(self, url, rid):
+        self.url, self.rid = url.strip().rstrip("/"), rid.strip()
+
+    def _call(self, method, data=None, headers=None):
+        req = urllib.request.Request(f"{self.url}/v1/{self.rid}", data=data, method=method,
+                                     headers={"User-Agent": "DeskCalendar", **(headers or {})})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                return r.status, r.read(), r.headers.get("X-Version")
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and method == "GET":
+                return 404, b"", None
+            if e.code == 409:
+                raise Conflict()
+            raise SyncError({400: "연결 정보가 올바르지 않아요 (QR 로 다시 연결)", 413: "데이터가 너무 커요"}.get(
+                e.code, f"서버 오류 {e.code}"))
+        except (urllib.error.URLError, TimeoutError, OSError):
+            raise SyncError("인터넷에 연결할 수 없어요")
+
+    def get(self):
+        st, body, ver = self._call("GET")
+        return (None, None) if st == 404 else (body, ver)
+
+    def put(self, blob, ver):
+        _, body, _ = self._call("PUT", blob, {"Content-Type": "application/octet-stream", "If-Match": str(ver or 0)})
+        return str(json.loads(body.decode("utf-8"))["v"])
+
+
+def new_id():
+    return base64.urlsafe_b64encode(os.urandom(24)).decode().rstrip("=")      # 32자, 추측할 수 없는 주소
+
+
+def make_store(cfg):
+    if cfg.get("relay"):
+        return RelayStore(cfg["relay"], cfg["id"])
+    return GitHubStore(cfg["repo"], cfg["token"], cfg.get("path", "deskcalendar.enc"))
 
 
 def _api(method, path, token, body=None):

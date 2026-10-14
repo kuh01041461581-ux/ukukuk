@@ -1447,8 +1447,11 @@ class SettingsDialog:
         self.app = app
         S = app.S
         self.tab = "모양"
-        self.top = _dialog(app, "설정", S(460), S(620))
-        self.top.minsize(S(380), S(340))
+        self.f_val = tkfont.Font(family=app.family, size=-round(11 * 4 / 3 * app.scale))      # 설정 창은 읽기 편하게 따로 키운 글자
+        self.f_hint = tkfont.Font(family=app.family, size=-round(9.5 * 4 / 3 * app.scale))
+        self.f_lab = tkfont.Font(family=app.family, size=-round(12 * 4 / 3 * app.scale), weight="bold")
+        self.top = _dialog(app, "설정", S(580), S(720))
+        self.top.minsize(S(440), S(380))
         self.top.resizable(True, True)
         self.build()
 
@@ -1464,15 +1467,15 @@ class SettingsDialog:
         bar.pack(side="top", fill="x", padx=pad, pady=(S(12), S(4)))
         for name in self.TABS:
             on = name == self.tab
-            Pill(bar, name, lambda n=name: self.set_tab(n), app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(4),
+            Pill(bar, name, lambda n=name: self.set_tab(n), self.f_val, parent_bg=SURFACE, padx=S(12), pady=S(4),
                  **({"fg": "#ffffff", "bg": ACCENT, "hover": ACCENT} if on else {})).pack(side="left", padx=(0, S(4)))
         tk.Frame(top, bg=BORDER, height=1).pack(side="top", fill="x")
         # 아래: 닫기 / 기본값
         foot = tk.Frame(top, bg=SURFACE)
         foot.pack(side="bottom", fill="x", padx=pad, pady=S(10))
-        Pill(foot, "닫기", top.destroy, app.f_small, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.25),
+        Pill(foot, "닫기", top.destroy, self.f_val, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.25),
              parent_bg=SURFACE, padx=S(16), pady=S(4)).pack(side="right")
-        Pill(foot, "기본값", lambda: self.act(app.reset_appearance), app.f_small, parent_bg=SURFACE,
+        Pill(foot, "기본값", lambda: self.act(app.reset_appearance), self.f_val, parent_bg=SURFACE,
              padx=S(12), pady=S(4)).pack(side="left")
         cv = tk.Canvas(top, bg=SURFACE, highlightthickness=0, bd=0)
         cv.pack(side="top", fill="both", expand=True)
@@ -1499,17 +1502,17 @@ class SettingsDialog:
 
     def pill(self, parent, text, cmd, on=False):
         S = self.app.S
-        p = Pill(parent, text, cmd, self.app.f_small, parent_bg=SURFACE, padx=S(10), pady=S(3),
+        p = Pill(parent, text, cmd, self.f_val, parent_bg=SURFACE, padx=S(14), pady=S(5),
                  **({"fg": "#ffffff", "bg": ACCENT, "hover": ACCENT} if on else {}))
-        p.pack(side="left", padx=(0, S(4)))
+        p.pack(side="left", padx=(0, S(6)))
         return p
 
     def label(self, text, sub=None):
         app, S = self.app, self.app.S
         f = tk.Frame(self.body, bg=SURFACE)
         f.pack(fill="x", padx=self.pad, pady=(S(14), 0))
-        tk.Label(f, text=text, font=app.f_small, bg=SURFACE, fg=TEXT, anchor="w").pack(side="left")
-        val = tk.Label(f, text="", font=app.f_small, bg=SURFACE, fg=SUB, anchor="e")
+        tk.Label(f, text=text, font=self.f_lab, bg=SURFACE, fg=TEXT, anchor="w").pack(side="left")
+        val = tk.Label(f, text="", font=self.f_val, bg=SURFACE, fg=SUB, anchor="e")
         val.pack(side="right")
         return val
 
@@ -1520,7 +1523,7 @@ class SettingsDialog:
         val.config(text=fmt(cur))
         sc = tk.Scale(self.body, from_=lo, to=hi, resolution=step, orient="horizontal", showvalue=False,
                       bg=ACCENT, fg=TEXT, troughcolor=CARD, highlightthickness=0, bd=0, sliderrelief="flat",
-                      activebackground=ACCENT, length=S(200), width=S(12), sliderlength=S(20))
+                      activebackground=ACCENT, length=S(240), width=S(16), sliderlength=S(26))
         sc.set(cur)
         sc.pack(fill="x", padx=self.pad, pady=(S(2), 0))
 
@@ -1574,7 +1577,7 @@ class SettingsDialog:
             self.pill(r, lab, lambda v=v: self.act(app.update_conf_rebuild, cal_lines=v), on=cl == v)
         self.label("글꼴")
         r = self.row()
-        tk.Label(r, text=app.family, font=app.f_small, bg=SURFACE, fg=ACCENT).pack(side="left", padx=(0, S(8)))
+        tk.Label(r, text=app.family, font=self.f_val, bg=SURFACE, fg=ACCENT).pack(side="left", padx=(0, S(8)))
         self.pill(r, "변경…", lambda: FontDialog(app, on_done=self.build))
         self.label("글자 색")
         r = self.row()
@@ -1584,7 +1587,7 @@ class SettingsDialog:
 
     def tab_color(self):
         app, S = self.app, self.app.S
-        tk.Label(self.body, text="자주 바꾸지 않는 꾸미기 설정이에요. 기본값으로 충분해요.", font=app.f_tiny, bg=SURFACE, fg=DIM,
+        tk.Label(self.body, text="자주 바꾸지 않는 꾸미기 설정이에요. 기본값으로 충분해요.", font=self.f_hint, bg=SURFACE, fg=DIM,
                  anchor="w").pack(fill="x", padx=self.pad, pady=(S(10), 0))
         self.label("보기 방식")
         r = self.row()
@@ -1610,7 +1613,7 @@ class SettingsDialog:
             r = self.row()
             r.pack_configure(pady=(S(4), 0))
             self.swatch(r, col, S(20))
-            tk.Label(r, text=name, font=app.f_small, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
+            tk.Label(r, text=name, font=self.f_val, bg=SURFACE, fg=TEXT, width=8, anchor="w").pack(side="left")
             self.pill(r, "변경…", lambda i=i, col=col: self.pick_pri(i, col))
 
     def tab_misc(self):
@@ -1632,26 +1635,26 @@ class SettingsDialog:
             self.pill(r, lab, lambda v=v: self.act(app.update_conf, brief=v), on=brief == v)
         self.label("공휴일 API 키 (공공데이터포털)")
         r = self.row()
-        self.hol_entry = tk.Entry(r, font=app.f_small, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
+        self.hol_entry = tk.Entry(r, font=self.f_val, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
                                   show="•", highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
         self.hol_entry.insert(0, app.conf.get("holiday_key", ""))
         self.hol_entry.pack(side="left", fill="x", expand=True, ipady=S(4), padx=(0, S(6)))
         self.pill(r, "저장", self.save_holiday_key)
         tk.Label(self.body, text=app.hol_status or "비워 두면 내장 규칙을 써요. 키는 이 PC에만 저장돼요.",
-                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(400)
+                 font=self.f_hint, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(500)
                  ).pack(fill="x", padx=self.pad, pady=(S(4), S(10)))
 
     def tab_work(self):
         app, S = self.app, self.app.S
         self.label("업무 폴더 위치")
         r = self.row()
-        tk.Label(r, text=app.work_root(), font=app.f_tiny, bg=SURFACE, fg=ACCENT, anchor="w", justify="left",
+        tk.Label(r, text=app.work_root(), font=self.f_hint, bg=SURFACE, fg=ACCENT, anchor="w", justify="left",
                  wraplength=S(300)).pack(side="left", fill="x", expand=True)
         self.pill(r, "변경…", self.pick_work_root)
         self.pill(r, "열기", lambda: (os.makedirs(app.work_root(), exist_ok=True), open_path(app.work_root())))
         tk.Label(self.body, text="공문 한 건마다 '연도\\월일 제목' 폴더가 생기고 그 안에 1.공문 · 2.작성 자료 · 3.제출본 "
-                                 "폴더가 만들어져요.", font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w",
-                 justify="left", wraplength=S(400)).pack(fill="x", padx=self.pad, pady=(S(4), 0))
+                                 "폴더가 만들어져요.", font=self.f_hint, bg=SURFACE, fg=DIM, anchor="w",
+                 justify="left", wraplength=S(500)).pack(fill="x", padx=self.pad, pady=(S(4), 0))
         self.label("공문을 넣으면 업무 폴더 만들기")
         r = self.row()
         on = app.conf.get("auto_case", True)
@@ -1664,7 +1667,7 @@ class SettingsDialog:
         self.pill(r, "끔", lambda: self.act(app.update_conf, clip_watch=False), on=not on)
         tk.Label(self.body, text="메신저에서 Ctrl+C 로 복사하면 오른쪽 아래에 '일정 n개를 찾았어요' 알림이 떠요. "
                                  "복사한 글은 이 PC 안에서만 읽고 어디에도 보내지 않아요.",
-                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(400)
+                 font=self.f_hint, bg=SURFACE, fg=DIM, anchor="w", justify="left", wraplength=S(500)
                  ).pack(fill="x", padx=self.pad, pady=(S(4), 0))
         tk.Frame(self.body, bg=SURFACE, height=S(10)).pack()
 
@@ -1697,7 +1700,7 @@ class SettingsDialog:
               width=S(2) if cur else 1)
         rrect(c, S(8), S(8), w - S(8), S(30), S(5), fill=th["CARD"], outline="")
         c.create_oval(S(12), S(14), S(20), S(22), fill=th["ACCENT"], outline="")
-        c.create_text(w / 2, h - S(14), text=name, font=self.app.f_tiny, fill=th["TEXT"])
+        c.create_text(w / 2, h - S(14), text=name, font=self.f_hint, fill=th["TEXT"])
         c.pack(side="left", padx=(0, S(6)))
         c.bind("<Button-1>", lambda e: self.act(self.app.update_appearance, theme=name,
                                                 accent=None, text_color=None))
@@ -1855,7 +1858,7 @@ class WorkWindow:
         head = tk.Frame(self.left, bg=BG)
         head.pack(fill="x", padx=S(16), pady=(S(16), S(6)))
         tk.Label(head, text="업무", font=app.f_title, bg=BG, fg=TEXT).pack(side="left")
-        Pill(head, "＋ 새 업무", self.new_case, app.f_small, fg="#ffffff", bg=ACCENT,
+        Pill(head, "＋ 새 업무", self.new_case, self.f_val, fg="#ffffff", bg=ACCENT,
              hover=blend(ACCENT, "#ffffff", 0.2), parent_bg=BG, padx=S(12), pady=S(4)).pack(side="right")
         tabs = tk.Frame(self.left, bg=BG)
         tabs.pack(fill="x", padx=S(14), pady=(0, S(6)))
@@ -1863,7 +1866,7 @@ class WorkWindow:
         n_on = sum(1 for c in allc if not c.get("done"))
         for lab, val in ((f"진행 중 {n_on}", False), (f"완료 {len(allc) - n_on}", True)):
             on = self.show_done == val
-            Pill(tabs, lab, lambda v=val: self.set_filter(v), app.f_small, parent_bg=BG, padx=S(10), pady=S(3),
+            Pill(tabs, lab, lambda v=val: self.set_filter(v), self.f_val, parent_bg=BG, padx=S(10), pady=S(3),
                  **({"fg": TEXT, "bg": CARD_HOVER, "hover": CARD_HOVER} if on else {"fg": SUB, "bg": BG, "hover": CARD})
                  ).pack(side="left", padx=(0, S(4)))
         cv, inner = _scroll_area(self.left, BG)
@@ -1873,7 +1876,7 @@ class WorkWindow:
             tk.Label(inner, text=("완료한 업무가 없어요" if self.show_done else
                                   "공문(PDF·한글)을 달력이나 이 창에\n끌어다 놓으면 업무가 생겨요.\n\n"
                                   "업무마다 기한과 폴더(공문·작성 자료·\n제출본)가 만들어져요."),
-                     font=app.f_small, bg=BG, fg=DIM, justify="left").pack(anchor="w", padx=S(10), pady=S(16))
+                     font=self.f_val, bg=BG, fg=DIM, justify="left").pack(anchor="w", padx=S(10), pady=S(16))
         for c in items:
             self._case_card(inner, c)
         _bind_wheel(inner, cv)
@@ -1894,9 +1897,9 @@ class WorkWindow:
         meta.pack(fill="x", pady=(S(3), 0))
         n = work.dday(c, app.today)
         if n is not None:
-            tk.Label(meta, text=work.dday_label(n), font=app.f_tiny, bg=bg,
+            tk.Label(meta, text=work.dday_label(n), font=self.f_hint, bg=bg,
                      fg=DIM if c.get("done") else dday_color(n)).pack(side="left")
-            tk.Label(meta, text="  " + work.fmt_date(c["due"]), font=app.f_tiny, bg=bg, fg=SUB).pack(side="left")
+            tk.Label(meta, text="  " + work.fmt_date(c["due"]), font=self.f_hint, bg=bg, fg=SUB).pack(side="left")
         for w in (card, bar, body, *body.winfo_children(), *meta.winfo_children()):
             w.bind("<Button-1>", lambda e, cid=c["id"]: self.select(cid))
             if not on:
@@ -1962,12 +1965,12 @@ class WorkWindow:
         f.pack(fill="x", padx=S(24), pady=(S(18), S(6)))
         tk.Label(f, text=title, font=app.f_head, bg=SURFACE, fg=TEXT).pack(side="left")
         if right:
-            tk.Label(f, text=right, font=app.f_small, bg=SURFACE, fg=SUB).pack(side="left", padx=S(8))
+            tk.Label(f, text=right, font=self.f_val, bg=SURFACE, fg=SUB).pack(side="left", padx=S(8))
         return f
 
     def pill(self, parent, text, cmd, primary=False, side="left"):
         S = self.app.S
-        p = Pill(parent, text, cmd, self.app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(4),
+        p = Pill(parent, text, cmd, self.f_val, parent_bg=SURFACE, padx=S(12), pady=S(4),
                  **({"fg": "#ffffff", "bg": ACCENT, "hover": blend(ACCENT, "#ffffff", 0.2)} if primary else {}))
         p.pack(side=side, padx=(0, S(6)) if side == "left" else (S(6), 0))
         return p
@@ -1983,7 +1986,7 @@ class WorkWindow:
             box.place(relx=0.5, rely=0.45, anchor="center")
             tk.Label(box, text="업무를 고르거나 새로 만들어 주세요", font=app.f_h2, bg=SURFACE, fg=SUB).pack()
             tk.Label(box, text="공문 PDF·한글 파일을 끌어다 놓으면 일정과 업무 폴더가 함께 만들어져요",
-                     font=app.f_small, bg=SURFACE, fg=DIM).pack(pady=(S(6), 0))
+                     font=self.f_val, bg=SURFACE, fg=DIM).pack(pady=(S(6), 0))
             return
         cv, body = _scroll_area(self.right, SURFACE)
         cv.pack(fill="both", expand=True)
@@ -1996,20 +1999,20 @@ class WorkWindow:
         self.e_title.bind("<FocusOut>", lambda e: self._save_fields())
         meta = tk.Frame(body, bg=SURFACE)
         meta.pack(fill="x", padx=S(24), pady=(S(4), 0))
-        tk.Label(meta, text="기한", font=app.f_small, bg=SURFACE, fg=SUB).pack(side="left")
-        self.e_due = _flat_entry(app, meta, c.get("due") or "", app.f_small, 11)
+        tk.Label(meta, text="기한", font=self.f_val, bg=SURFACE, fg=SUB).pack(side="left")
+        self.e_due = _flat_entry(app, meta, c.get("due") or "", self.f_val, 11)
         self.e_due.pack(side="left", padx=(S(8), S(6)), ipady=S(3))
         self.e_due.bind("<Return>", lambda e: (self._save_fields(), self.build_right()))
         self.e_due.bind("<FocusOut>", lambda e: self._save_fields())
         n = work.dday(c, app.today)
         if n is not None:
-            tk.Label(meta, text=f" {work.dday_label(n)} · {work.fmt_date(c['due'])} ", font=app.f_small,
+            tk.Label(meta, text=f" {work.dday_label(n)} · {work.fmt_date(c['due'])} ", font=self.f_val,
                      bg=blend(dday_color(n), SURFACE, 0.18), fg=dday_color(n)).pack(side="left")
             if n > 0:
                 wd = core.workdays_between(app.today, core.parse_date(c["due"]), _hol)
-                tk.Label(meta, text=f"근무일 {wd}일 남음", font=app.f_tiny, bg=SURFACE, fg=DIM).pack(side="left", padx=S(8))
+                tk.Label(meta, text=f"근무일 {wd}일 남음", font=self.f_hint, bg=SURFACE, fg=DIM).pack(side="left", padx=S(8))
         else:
-            tk.Label(meta, text="예) 2026-10-20 · 10/20 · 다음주 금요일", font=app.f_tiny, bg=SURFACE, fg=DIM
+            tk.Label(meta, text="예) 2026-10-20 · 10/20 · 다음주 금요일", font=self.f_hint, bg=SURFACE, fg=DIM
                      ).pack(side="left")
         info = []
         if c.get("doc_no"):
@@ -2017,7 +2020,7 @@ class WorkWindow:
         if c.get("received"):
             info.append(f"받은 날 {work.fmt_date(c['received'])}")
         if info:
-            tk.Label(body, text="  ·  ".join(info), font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w"
+            tk.Label(body, text="  ·  ".join(info), font=self.f_hint, bg=SURFACE, fg=DIM, anchor="w"
                      ).pack(fill="x", padx=S(24), pady=(S(6), 0))
         acts = tk.Frame(body, bg=SURFACE)
         acts.pack(fill="x", padx=S(24), pady=(S(12), 0))
@@ -2028,24 +2031,24 @@ class WorkWindow:
         # 업무 폴더: 공문 · 작성 자료 · 제출본
         self.section(body, "업무 폴더")
         tk.Label(body, text="파일을 이 창에 끌어다 놓으면 원하는 칸에 넣을 수 있어요. 파일을 누르면 열려요.",
-                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(24), pady=(0, S(6)))
+                 font=self.f_hint, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(24), pady=(0, S(6)))
         for k, name in enumerate(work.SUBDIRS):
             box = tk.Frame(body, bg=CARD, highlightthickness=1, highlightbackground=BORDER)
             box.pack(fill="x", padx=S(24), pady=S(3))
             hd = tk.Frame(box, bg=CARD)
             hd.pack(fill="x", padx=S(12), pady=(S(8), S(4)))
             fs = self._files(c, k)
-            tk.Label(hd, text=name, font=app.f_small, bg=CARD, fg=TEXT).pack(side="left")
-            tk.Label(hd, text=str(len(fs)) if fs else "", font=app.f_tiny, bg=CARD, fg=SUB).pack(side="left", padx=S(6))
-            Pill(hd, "파일 넣기…", lambda k=k: self.pick_files(k), app.f_tiny, parent_bg=CARD, bg=SURFACE,
+            tk.Label(hd, text=name, font=self.f_val, bg=CARD, fg=TEXT).pack(side="left")
+            tk.Label(hd, text=str(len(fs)) if fs else "", font=self.f_hint, bg=CARD, fg=SUB).pack(side="left", padx=S(6))
+            Pill(hd, "파일 넣기…", lambda k=k: self.pick_files(k), self.f_hint, parent_bg=CARD, bg=SURFACE,
                  hover=BORDER, padx=S(8), pady=S(2)).pack(side="right")
             for f in fs[:8]:
-                lb = tk.Label(box, text="  " + os.path.basename(f), font=app.f_small, bg=CARD, fg=ACCENT, anchor="w",
+                lb = tk.Label(box, text="  " + os.path.basename(f), font=self.f_val, bg=CARD, fg=ACCENT, anchor="w",
                               cursor="hand2")
                 lb.pack(fill="x", padx=S(12))
                 lb.bind("<Button-1>", lambda e, f=f: open_path(f))
             if len(fs) > 8:
-                tk.Label(box, text=f"  외 {len(fs) - 8}개", font=app.f_tiny, bg=CARD, fg=DIM, anchor="w").pack(fill="x", padx=S(12))
+                tk.Label(box, text=f"  외 {len(fs) - 8}개", font=self.f_hint, bg=CARD, fg=DIM, anchor="w").pack(fill="x", padx=S(12))
             tk.Frame(box, bg=CARD, height=S(6)).pack()
 
         # 연결된 일정
@@ -2056,7 +2059,7 @@ class WorkWindow:
             d = core.parse_date(key)
             r = tk.Frame(body, bg=SURFACE, cursor="hand2")
             r.pack(fill="x", padx=S(24), pady=S(1))
-            tk.Label(r, text=work.fmt_date(d) if d else "보관함", font=app.f_small, bg=SURFACE, fg=SUB, width=10,
+            tk.Label(r, text=work.fmt_date(d) if d else "보관함", font=self.f_val, bg=SURFACE, fg=SUB, width=10,
                      anchor="w").pack(side="left")
             tk.Label(r, text=t.get("text", ""), font=app.f_body, bg=SURFACE,
                      fg=DIM if t.get("done") else TEXT, anchor="w").pack(side="left", fill="x", expand=True)
@@ -2166,7 +2169,7 @@ class TemplateDialog:
         tk.Label(top, text="반복 업무 추가", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
             fill="x", padx=S(20), pady=(S(16), 0))
         tk.Label(top, text="공무원이 자주 챙기는 정기 업무 예시예요. 필요한 것만 체크하고, 이름과 첫 날짜는 우리 기관에 맞게 고치세요.",
-                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", wraplength=S(590), justify="left").pack(
+                 font=self.f_hint, bg=SURFACE, fg=DIM, anchor="w", wraplength=S(590), justify="left").pack(
             fill="x", padx=S(20), pady=(S(2), S(8)))
         foot = tk.Frame(top, bg=SURFACE)
         foot.pack(side="bottom", fill="x", padx=S(20), pady=S(14))
@@ -2191,11 +2194,11 @@ class TemplateDialog:
             var = tk.BooleanVar(value=False)
             tk.Checkbutton(r, variable=var, bg=SURFACE, activebackground=SURFACE, selectcolor=CARD, bd=0,
                            highlightthickness=0, state="disabled" if have else "normal").pack(side="left")
-            e = _flat_entry(app, r, text, app.f_small)
+            e = _flat_entry(app, r, text, self.f_val)
             e.pack(side="left", fill="x", expand=True, ipady=S(3), padx=(0, S(6)))
-            de = _flat_entry(app, r, d.isoformat(), app.f_small, 11)
+            de = _flat_entry(app, r, d.isoformat(), self.f_val, 11)
             de.pack(side="left", ipady=S(3), padx=(0, S(6)))
-            tk.Label(r, text="추가됨" if have else work.rule_label(rule), font=app.f_tiny, bg=SURFACE,
+            tk.Label(r, text="추가됨" if have else work.rule_label(rule), font=self.f_hint, bg=SURFACE,
                      fg=ACCENT if have else DIM, width=16, anchor="w").pack(side="left")
             self.rows.append((var, e, de, code))
         _bind_wheel(inner, cv)

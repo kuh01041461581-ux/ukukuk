@@ -1307,13 +1307,13 @@ class ConnectPage extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
         child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children)));
     Widget slider(String label, double v, double lo, double hi, void Function(double) on) => Row(children: [
-          SizedBox(width: 88, child: Text(label, style: const TextStyle(fontSize: 13))),
+          SizedBox(width: 104, child: Text(label, style: const TextStyle(fontSize: 15.5))),
           Expanded(child: Slider(value: v, min: lo, max: hi, divisions: ((hi - lo) / 0.05).round(), onChanged: on)),
-          SizedBox(width: 40, child: Text('${(v * 100).round()}%', style: const TextStyle(fontSize: 12, color: cSub))),
+          SizedBox(width: 48, child: Text('${(v * 100).round()}%', style: const TextStyle(fontSize: 14.5, color: cSub))),
         ]);
     return ListView(children: [
       card([
-        const Text('화면 크기', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const Text('화면 크기', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         slider('전체 글자', store.textScale, 0.8, 1.4, (v) => store.setScales(text: v)),
         slider('달력 칸 글자', store.calScale, 0.8, 1.6, (v) => store.setScales(cal: v)),
         Align(
@@ -1321,11 +1321,11 @@ class ConnectPage extends StatelessWidget {
             child: TextButton(onPressed: () => store.setScales(text: 1.0, cal: 1.0), child: const Text('기본값'))),
       ]),
       card([
-        const Text('PC와 연결', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const Text('PC와 연결', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
         if (cfg == null) ...[
           const Text('PC 프로그램에서 [폰 연결] → [QR 코드 만들기]를 누르고, 나온 QR 코드를 스캔하세요.\n집·사무실 밖에서도 인터넷만 되면 동기화돼요.',
-              style: TextStyle(color: cSub, fontSize: 13)),
+              style: TextStyle(color: cSub, fontSize: 15, height: 1.45)),
           const SizedBox(height: 12),
           FilledButton.icon(onPressed: () => _scan(context), icon: const Icon(Icons.qr_code_scanner), label: const Text('QR 스캔해서 연결')),
           const SizedBox(height: 14),
@@ -1333,7 +1333,7 @@ class ConnectPage extends StatelessWidget {
         ] else ...[
           const Text('PC와 연결됨 ✓', style: TextStyle(color: cAccent, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text(store.syncStatus.isEmpty ? '대기 중' : store.syncStatus, style: const TextStyle(color: cSub, fontSize: 13)),
+          Text(store.syncStatus.isEmpty ? '대기 중' : store.syncStatus, style: const TextStyle(color: cSub, fontSize: 15, height: 1.45)),
           const SizedBox(height: 12),
           Row(children: [
             FilledButton.tonal(onPressed: store.syncing ? null : store.syncNow, child: const Text('지금 동기화')),
@@ -1358,7 +1358,7 @@ class ConnectPage extends StatelessWidget {
       ]),
       if (!kIsWeb) // 웹앱(아이폰)에서는 폰 알림 예약을 쓰지 않는다
       card([
-        const Text('알림', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const Text('알림', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('일정 알림'),
@@ -1414,7 +1414,7 @@ class ConnectPage extends StatelessWidget {
       const Padding(
           padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Text('일정은 암호화되어 인터넷을 거쳐 PC와 주고받아요.\n암호 키는 이 기기와 PC에만 있어요.\n\nDeskCalendar $appVersion',
-              style: TextStyle(color: cDim, fontSize: 12))),
+              style: TextStyle(color: cDim, fontSize: 14, height: 1.4))),
     ]);
   }
 }

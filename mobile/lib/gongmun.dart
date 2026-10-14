@@ -27,9 +27,10 @@ class GongmunItem {
   final DateTime date;
   final DateTime? end;
   final String time, text, doc;
+  final String detail; // 일정 이름은 짧게('공유재산 실태조사 제출기한'), 원래 문장은 메모로
   final bool period;
   final int pri;
-  GongmunItem(this.date, this.end, this.time, this.text, this.doc, this.period, this.pri);
+  GongmunItem(this.date, this.end, this.time, this.text, this.doc, this.period, this.pri, {this.detail = ''});
 }
 
 String _clean(String raw) => raw.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -183,6 +184,23 @@ String _iso(DateTime d) => '${d.year}-${_two(d.month)}-${_two(d.day)}';
 final _titleTail = RegExp(r'\s*(?:\([^)]*\)|\[[^\]]*\]|추진\s*계획|시행\s*계획|계획\(?안?\)?|알림|안내|통보|공고|제출\s*요청|협조\s*요청|'
     r'회신\s*요청|요청|협조|보고|\s*등)\s*$');
 
+final _kindCollect = RegExp('취합');
+final _kindSubmit = RegExp('제출|회신|송부|보고|입력|등록');
+final _kindApply = RegExp('신청|접수');
+final _kindEvent = RegExp('설명회|간담회|워크숍|워크샵|연수|교육|훈련|회의|점검|감사|심사|발표|행사|면담|협의');
+
+/// 일정 한 줄의 성격을 짧은 말로: 긴 설명 문장 → '제출기한' · '취합기한' · '신청기한' · '설명회' …
+String kindOf(String core) {
+  final c = core.trim();
+  if (_kindCollect.hasMatch(c)) return '취합기한';
+  if (_kindSubmit.hasMatch(c)) return '제출기한';
+  if (_kindApply.hasMatch(c)) return '신청기한';
+  if (c.length <= 12) return c;
+  final m = _kindEvent.firstMatch(c);
+  if (m != null) return m.group(0)!;
+  return '${_stripChars(c.substring(0, 12), ' ')}…';
+}
+
 /// 공문 제목에서 '무엇에 관한 건지' 만 남긴 짧은 이름: '2026년 공유재산 실태조사 추진계획' → '공유재산 실태조사'
 String topicOf(String title) {
   var t = title.replaceAll(RegExp('[「」『』“”"\'‘’]'), '').trim();
@@ -272,8 +290,13 @@ String topicOf(String title) {
       if (!seen.add(key)) continue;
       final ctx = body.substring(s.start - 30 < 0 ? 0 : s.start - 30, s.stop + 14 > body.length ? body.length : s.stop + 14);
       final pa = body.substring(s.start - 40 < 0 ? 0 : s.start - 40, s.stop + 20 > body.length ? body.length : s.stop + 20);
-      final label = (topic.isNotEmpty && !core.contains(topic)) ? (topic.contains(core) ? topic : '[$topic] $core') : core;
-      found.add(GongmunItem(s.d, s.end, s.when, label, title, s.end != null && _period.hasMatch(pa), _urgent.hasMatch(ctx) ? 1 : 2));
+      var label = core;
+      if (topic.isNotEmpty) {
+        final kind = kindOf(core);
+        label = topic.contains(kind) ? topic : (kind.contains(topic) ? kind : '$topic $kind');
+      }
+      found.add(GongmunItem(s.d, s.end, s.when, label, title, s.end != null && _period.hasMatch(pa), _urgent.hasMatch(ctx) ? 1 : 2,
+          detail: core));
     }
   }
   // 안정 정렬: 날짜 → 시간(없으면 맨 뒤) → 원래 순서

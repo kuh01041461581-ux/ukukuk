@@ -100,7 +100,7 @@ def analyze(text, today=None):
     if is_document(text):
         _, items = gongmun.parse(text, today)
         out = [{"date": i["date"], "end": i["end"], "time": i["time"], "text": i["text"], "pri": i["pri"],
-                "kind": "event", "period": i["period"]} for i in items]
+                "kind": "event", "period": i["period"], "detail": i.get("detail", "")} for i in items]
         return out
     lines = _lines(text, today)
     # 1) 날짜가 글자로 적힌 줄: 공문 규칙(줄마다 한 문단)으로 읽는다

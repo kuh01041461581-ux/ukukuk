@@ -34,9 +34,9 @@ List<Json> importGongmunText(AppStore store, String text, {String? srcName}) {
   for (final it in items) {
     var d = it.date;
     DateTime? end = it.end;
-    var note = title;
+    var note = [if (it.detail.isNotEmpty && it.detail != it.text) it.detail, title].join('\n');
     if (end != null && end.isAfter(d) && !it.period) {
-      note = '$title · 기간 ${d.month}/${d.day} ~ ${end.month}/${end.day}';
+      note = '$note · 기간 ${d.month}/${d.day} ~ ${end.month}/${end.day}';
       d = end;
       end = null;
     }

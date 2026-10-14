@@ -7,7 +7,8 @@ class AnalyzedItem {
   final String time, text, kind; // kind: event | todo
   final int pri;
   final bool period;
-  AnalyzedItem(this.date, this.end, this.time, this.text, this.pri, this.kind, this.period);
+  final String detail;
+  AnalyzedItem(this.date, this.end, this.time, this.text, this.pri, this.kind, this.period, {this.detail = ''});
 }
 
 final _chatPrefix = RegExp(r'^\s*\[[^\]]{1,20}\]\s*\[(?:오전|오후)\s*\d{1,2}:\d{2}\]\s*');
@@ -93,7 +94,7 @@ List<AnalyzedItem> analyzeText(String text, DateTime today) {
   today = DateTime(today.year, today.month, today.day);
   if (isDocument(text)) {
     final (_, items) = parseGongmun(text, today);
-    return [for (final i in items) AnalyzedItem(i.date, i.end, i.time, i.text, i.pri, 'event', i.period)];
+    return [for (final i in items) AnalyzedItem(i.date, i.end, i.time, i.text, i.pri, 'event', i.period, detail: i.detail)];
   }
   final lines = _lines(text, today);
   final numbered = lines.map((l) => '1. ${l.$1.replaceFirst(_speaker, '')}').join('\n');

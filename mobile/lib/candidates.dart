@@ -74,9 +74,9 @@ class _CandidateSheetState extends State<_CandidateSheet> {
       if (text.isEmpty) continue;
       var d = it.date;
       DateTime? end = it.end;
-      String? note;
+      String? note = (it.detail.isNotEmpty && it.detail != text) ? it.detail : null; // 짧은 이름 뒤의 원래 문장
       if (d != null && end != null && end.isAfter(d) && !it.period) {
-        note = '기간 ${d.month}/${d.day} ~ ${end.month}/${end.day}'; // 마감형 기간은 종료일 하루에만
+        note = [if (note != null) note, '기간 ${d.month}/${d.day} ~ ${end.month}/${end.day}'].join(' · '); // 마감형 기간은 종료일 하루에만
         d = end;
         end = null;
       }

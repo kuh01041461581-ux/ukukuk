@@ -557,7 +557,8 @@ class ImportDialog:
         tk.Checkbutton(row, text="기간", variable=per, font=app.f_tiny, bg=SURFACE, activebackground=SURFACE,
                        selectcolor=CARD, fg=SUB, activeforeground=TEXT, bd=0, highlightthickness=0
                        ).pack(side="left", padx=(0, S(2)))
-        r = {"var": var, "date": d, "end": en, "per": per, "time": t, "text": x, "pri": it.get("pri", DEFAULT_PRI)}
+        r = {"var": var, "date": d, "end": en, "per": per, "time": t, "text": x, "pri": it.get("pri", DEFAULT_PRI),
+             "detail": it.get("detail", "")}
         dot = tk.Canvas(row, width=S(16), height=S(16), bg=SURFACE, highlightthickness=0,
                         cursor="hand2")
         oval = dot.create_oval(2, 2, S(14), S(14), fill=PRIORITIES[r["pri"]][1], outline="")
@@ -606,7 +607,7 @@ class ImportDialog:
             tm = r["time"].get().strip()
             m = re.fullmatch(r"(\d{1,2}):(\d{2})", tm)
             tm = f"{int(m.group(1)):02d}:{m.group(2)}" if m else ""
-            note = self.doc_title or ""
+            note = "\n".join(x for x in (r.get("detail") if r.get("detail") != text else "", self.doc_title or "") if x)
             if end and end > d and not r["per"].get():   # 기간 행사가 아니면 마감일(종료일) 하루에만 표시
                 note = (note + " · " if note else "") + f"기간 {d.month}/{d.day} ~ {end.month}/{end.day}"
                 d, end = end, None
@@ -4748,9 +4749,9 @@ class DeskCalendar:
             mine = []
             for it in items:
                 d, end = it["date"], it["end"]
-                note = title
+                note = "\n".join(x for x in (it.get("detail") if it.get("detail") != it["text"] else "", title) if x)
                 if end and end > d and not it.get("period"):      # 마감형 기간은 종료일 하루에만 표시
-                    note = f"{title} · 기간 {d.month}/{d.day} ~ {end.month}/{end.day}"
+                    note += f" · 기간 {d.month}/{d.day} ~ {end.month}/{end.day}"
                     d, end = end, None
                 if any(t.get("text") == it["text"] for _, t, _ in core.day_items(self.data, d)):
                     continue                                       # 같은 날 같은 내용은 건너뜀 (중복 방지)

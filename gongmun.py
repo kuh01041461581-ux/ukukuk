@@ -192,6 +192,29 @@ def topic_of(title):
     return t
 
 
+_KIND_COLLECT = re.compile(r"취합")
+_KIND_SUBMIT = re.compile(r"제출|회신|송부|보고|입력|등록")
+_KIND_APPLY = re.compile(r"신청|접수")
+_KIND_EVENT = re.compile(r"설명회|간담회|워크숍|워크샵|연수|교육|훈련|회의|점검|감사|심사|발표|행사|면담|협의")
+
+
+def kind_of(core):
+    """일정 한 줄의 성격을 짧은 말로: 긴 설명 문장 → '제출기한' · '취합기한' · '신청기한' · '설명회' …"""
+    c = core.strip()
+    if _KIND_COLLECT.search(c):
+        return "취합기한"
+    if _KIND_SUBMIT.search(c):
+        return "제출기한"
+    if _KIND_APPLY.search(c):
+        return "신청기한"
+    if len(c) <= 12:
+        return c
+    m = _KIND_EVENT.search(c)
+    if m:
+        return m.group(0)
+    return c[:12].rstrip() + "…"
+
+
 def parse(text, today=None, with_topic=True):
     """반환: (제목, [{"date": date, "end": date|None, "time": "HH:MM"|"", "text": str, "pri": 0~3}, ...])
     with_topic: 일정 이름 앞에 공문 주제를 붙인다 ('[공유재산 실태조사] 조사 기간') — 무엇에 관한 일정인지 알 수 있게"""
@@ -259,9 +282,10 @@ def parse(text, today=None, with_topic=True):
             seen.add(key)
             ctx = body[max(0, s0 - 30):e0 + 14]
             label = core
-            if topic and topic not in core:
-                label = topic if core in topic else f"[{topic}] {core}"
-            found.append({"date": d, "end": end, "time": when, "text": label, "doc": title,
+            if topic:                                  # '공유재산 실태조사 제출기한' — 무엇의 어떤 일정인지 한눈에, 긴 설명은 detail(메모)로
+                kind = kind_of(core)
+                label = topic if kind in topic else (kind if topic in kind else f"{topic} {kind}")
+            found.append({"date": d, "end": end, "time": when, "text": label, "detail": core, "doc": title,
                           "period": bool(end) and bool(_PERIOD.search(body[max(0, s0 - 40):e0 + 20])),
                           "pri": 1 if _URGENT.search(ctx) else 2})
     found.sort(key=lambda x: (x["date"], x["time"] or "99:99"))

@@ -32,6 +32,7 @@ import cloudsync
 import analyze
 import ocr
 import quickadd
+import sticky
 import work
 import hwpdoc
 from core import item_end
@@ -2287,24 +2288,38 @@ class HelpDialog:
         ("창 크기", "창 가장자리나 모서리에 마우스를 가져가면 양방향 화살표가 나와요. 끌면 창 크기가 바뀌어요."),
         ("달력 글자", "위쪽 '달력 글자 －/＋' 또는 Ctrl+마우스 휠로 달력 칸 안 글자만 키우고 줄여요. (팝업·입력창은 그대로)"),
         ("글자·색", "위쪽 'Aa' 에서 글자 크기, 글꼴, 색상 테마, 강조색, 중요도 색, 투명도를 바꿔요."),
+        ("스티커 메모", "'스티커' 버튼(또는 ☰ 메뉴)으로 바탕화면에 스티커를 붙여요. 그날의 일정과 메모가 한 장에 보여요. 제목줄을 끌면 옮겨지고(화면 끝·다른 스티커에 달라붙어요), 두 번 누르거나 ▴ 로 접어요. ● 에서 색·투명도, '고정'은 항상 위, ‹ › 로 날짜를 넘겨요. 메모는 달력의 그날 메모와 같아서 어디서 고쳐도 같이 바뀌어요."),
         ("빠른 입력", "Ctrl+Alt+Space 를 누르면 어디서든 오늘 날짜 입력창이 바로 열려요."),
     ]
 
     def __init__(self, app):
         S = app.S
-        top = _dialog(app, "사용법", S(520), S(640))
-        tk.Label(top, text="사용법", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
-            fill="x", padx=S(24), pady=(S(18), S(8)))
-        for head, body in self.TEXT_LINES:
-            f = tk.Frame(top, bg=SURFACE)
-            f.pack(fill="x", padx=S(24), pady=S(4))
-            tk.Label(f, text=head, font=app.f_head, bg=SURFACE, fg=ACCENT, width=9, anchor="nw"
-                     ).pack(side="left", anchor="n")
-            tk.Label(f, text=body, font=app.f_small, bg=SURFACE, fg=TEXT, anchor="w",
-                     justify="left", wraplength=S(380)).pack(side="left", fill="x")
+        top = _dialog(app, "사용법", S(560), S(680))
+        top.minsize(S(420), S(360))
         Pill(top, "확인", top.destroy, app.f_body, fg="#ffffff", bg=ACCENT,
              hover=blend(ACCENT, "#ffffff", 0.25), parent_bg=SURFACE, padx=S(26), pady=S(6)
-             ).pack(side="bottom", pady=S(18))
+             ).pack(side="bottom", pady=S(14))
+        tk.Label(top, text="사용법", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
+            side="top", fill="x", padx=S(24), pady=(S(18), S(8)))
+        cv, inner = _scroll_area(top, SURFACE)       # 내용이 길면 스크롤: 글씨가 잘리지 않는다
+        cv.pack(side="top", fill="both", expand=True, padx=(S(24), S(8)))
+        labels = []
+        for head, body in self.TEXT_LINES:
+            f = tk.Frame(inner, bg=SURFACE)
+            f.pack(fill="x", pady=S(5))
+            tk.Label(f, text=head, font=app.f_head, bg=SURFACE, fg=ACCENT, width=12, anchor="nw"
+                     ).pack(side="left", anchor="n", padx=(0, S(6)))
+            lb = tk.Label(f, text=body, font=app.f_small, bg=SURFACE, fg=TEXT, anchor="w", justify="left")
+            lb.pack(side="left", fill="x", expand=True)
+            labels.append(lb)
+
+        def fit(e=None):                             # 창 너비에 맞춰 줄바꿈
+            w = max(S(200), cv.winfo_width() - S(170))
+            for lb in labels:
+                lb.config(wraplength=w)
+        cv.bind("<Configure>", lambda e: (cv.itemconfigure(cv.find_all()[0], width=e.width), fit()))
+        _bind_wheel(inner, cv)
+        top.bind("<MouseWheel>", cv._wheel)
 
 
 # ── 앱 ──────────────────────────────────────────────────
@@ -2440,6 +2455,8 @@ class DeskCalendar:
         if open_pdfs:
             root.after(1500, lambda: self.import_path(open_pdfs[0]))
         root.after(300, self._apply_desktop_mode)
+        self.stickers = sticky.StickyManager(self, sys.modules[__name__])
+        root.after(500, self.stickers.restore)
         root.after(30_000, self._tick)
         root.after(2000, self._clip_watch)
         if IS_WIN:
@@ -2498,6 +2515,8 @@ class DeskCalendar:
         mw, mh = self._min_size()
         self.win_w, self.win_h = max(mw, self.win_w), max(mh, self.win_h)
         self._build_ui()
+        if getattr(self, "stickers", None) is not None:
+            self.stickers.reopen()
         self._geom()
         self.show_day(self.selected)
         self.render_month()
@@ -2892,6 +2911,9 @@ class DeskCalendar:
         m.add_command(label="사용법", command=self.open_help)
         m.add_command(label="검색  (Ctrl+F)", command=self.open_search)
         m.add_separator()
+        m.add_command(label="스티커 메모 만들기 (오늘)", command=lambda: self.stickers.add())
+        m.add_command(label="선택한 날짜를 스티커로", command=lambda: self.stickers.add(self.selected))
+        m.add_separator()
         m.add_command(label="업무 관리 (기한·업무 폴더)…", command=self.open_work)
         m.add_command(label="반복 업무 추가 (정기 업무 모음)…", command=self.open_templates)
         m.add_separator()
@@ -2915,7 +2937,8 @@ class DeskCalendar:
             m.add_command(label="데이터 폴더 열기", command=lambda: os.startfile(DATA_DIR))
         m.add_separator()
         m.add_command(label="종료", command=self.quit)
-        self.root.bind_all("<Button-3>", lambda e: m.tk_popup(e.x_root, e.y_root))
+        self.root.bind_all("<Button-3>", lambda e: None if getattr(e.widget.winfo_toplevel(), "_sticky", False)
+                           else m.tk_popup(e.x_root, e.y_root))
 
     # ── 인터넷 동기화 (백그라운드 스레드는 네트워크만, 데이터 합치기는 이 스레드에서) ──
     def sync_cfg(self):
@@ -3749,6 +3772,7 @@ class DeskCalendar:
         sum_end = sx
         n_case = sum(1 for c in (self.data.get("_work") or {}).values() if not c.get("done"))
         labels = [(f"업무 {n_case}" if n_case else "업무", lambda e: self.open_work()),
+                  ("스티커", lambda e: self.stickers.add(self.selected if self.selected != self.today else None)),
                   ("보관함", lambda e: self.open_inbox()), ("공문", lambda e: self.import_pdf()),
                   ("검색", lambda e: self.open_search()), ("폰 연결", lambda e: PhoneDialog(self)),
                   ("설정", lambda e: self.open_settings()),
@@ -4951,6 +4975,9 @@ class DeskCalendar:
             pass
         if not self._in_sync:
             self._schedule_sync()
+        st = getattr(self, "stickers", None)
+        if st is not None:
+            st.refresh()
 
     def _save_conf(self):
         self.conf["locked"] = self.locked.get()
@@ -4994,7 +5021,7 @@ class DeskCalendar:
 
     def quit(self):
         self._flush_memo()
-        self._save_conf()
+        self.stickers.save()
         try:
             if self.tray is not None:
                 self.tray.stop()

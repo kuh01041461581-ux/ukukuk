@@ -3413,18 +3413,25 @@ class DeskCalendar:
         return None
 
     def _draw_chip(self, x1, x2, yy, t, in_month, more=0, units=1):
+        """일정 한 줄: 유리형처럼 칠한 상자 없이 왼쪽 색 막대 + 글자 (시간은 흐린 색)"""
         S, c = self.S, self.cal
         h = units * self.unit - S(2)
         done = t.get("done", False)
         col = DONE if done else pri_color(t)
         bgc = CARD if in_month else CARD_DIM
-        rrect(c, x1, yy, x2, yy + h, S(4), fill=blend(col, bgc, 0.10 if done else 0.22), outline="")
-        c.create_rectangle(x1, yy + S(3), x1 + S(3), yy + h - S(3), fill=col, outline="")
+        rrect(c, x1, yy + S(3), x1 + S(3), yy + h - S(3), S(2), fill=col, outline="")
         self._hits.append((x1, yy, x2, yy + h, t))
         fnt = self.f_chip_done if done else self.f_chip
-        c.create_text(x1 + S(8), yy + h / 2, anchor="w", font=fnt,
-                      text="\n".join(self._wrap_lines(self._label(t, more), fnt, x2 - x1 - S(12), units)),
-                      fill=DIM if done else blend(col, CHIP_MIX, 0.55 if CHIP_MIX == "#000000" else 0.6))
+        fg = DIM if done else (TEXT if pri_of(t) >= 2 else blend(col, CHIP_MIX, 0.55 if CHIP_MIX == "#000000" else 0.6))
+        tx = x1 + S(9)
+        tm = t.get("time")
+        label = self._label(t, more)
+        if tm and not done and units == 1 and label.startswith(tm):
+            c.create_text(tx, yy + h / 2, anchor="w", font=fnt, text=tm, fill=DIM)
+            tx += fnt.measure(tm + " ")
+            label = label[len(tm):].lstrip()
+        c.create_text(tx, yy + h / 2, anchor="w", font=fnt,
+                      text="\n".join(self._wrap_lines(label, fnt, x2 - tx - S(4), units)), fill=fg)
 
     @staticmethod
     def _label(t, more=0):
@@ -3469,8 +3476,11 @@ class DeskCalendar:
         if in_sel:
             fill = blend(ACCENT, CARD, 0.18)
             rrect(c, x, y, x + cw, y + ch, S(10), fill=fill, outline=ACCENT, width=S(2))
-        else:
-            rrect(c, x, y, x + cw, y + ch, S(10), fill=fill, outline=BORDER if in_month else "")
+        elif is_today:                                   # 오늘 칸: 강조색이 살짝 비치게
+            rrect(c, x, y, x + cw, y + ch, S(10), fill=blend(ACCENT, CARD, 0.13),
+                  outline=blend(ACCENT, CARD, 0.45))
+        else:                                            # 테두리는 거의 안 보일 만큼만
+            rrect(c, x, y, x + cw, y + ch, S(10), fill=fill, outline=blend(BORDER, fill, 0.5) if in_month else "")
 
         cx, cy = x + S(17), y + S(16)
         if not in_month:

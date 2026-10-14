@@ -38,7 +38,18 @@
   if(window.ResizeObserver) new ResizeObserver(schedule).observe(document.body);
   if(window.MutationObserver) new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true, attributes:true, characterData:true});
 
-  /* ---- 공용 설정(API 키) ---- */
+  /* ---- 셸 단축키(Ctrl+K, Alt+숫자)는 도구 화면 안에서 눌러도 동작 ---- */
+  document.addEventListener('keydown', function(e){
+    try{ if(window.parent.__suiteKey) window.parent.__suiteKey(e); }catch(err){}
+  });
+
+  /* ---- 공용 설정(API 키, 기본 정보) ---- */
+  window.suiteInfo = function(name){
+    try{
+      var o = JSON.parse(localStorage.getItem('suite.info') || '{}');
+      return (o && o[name]) || '';
+    }catch(e){ return ''; }
+  };
   window.suiteKey = function(name){
     try{
       var o = JSON.parse(localStorage.getItem('suite.keys') || '{}');

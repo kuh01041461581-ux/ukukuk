@@ -15,6 +15,7 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE / "서무업무자동화.html"
+APP_COPY = HERE / "app" / "index.html"   # exe 런처가 품고 들어갈 복사본(저장소에는 올리지 않음)
 
 # 셸 목록(shell.html 의 TOOLS)과 같은 순서/이름
 TOOL_IDS = ["travel", "outstation", "meal", "utility", "blur"]
@@ -25,6 +26,9 @@ def read(p):
 
 
 def version():
+    import os
+    if os.environ.get("SUITE_VERSION"):
+        return os.environ["SUITE_VERSION"]
     try:
         sha = subprocess.check_output(["git", "-C", str(HERE), "rev-parse", "--short", "HEAD"],
                                       stderr=subprocess.DEVNULL, text=True).strip()
@@ -57,6 +61,8 @@ def main():
     out = out.replace("<!--SUITE:TOOLS-->", "\n".join(blocks))
     out = out.replace("__VERSION__", version())
     OUT.write_text(out, encoding="utf-8")
+    APP_COPY.parent.mkdir(exist_ok=True)
+    APP_COPY.write_text(out, encoding="utf-8")
     print(f"{OUT.name}: {len(out.encode('utf-8')) / 1024:.0f} KB")
 
 

@@ -12,13 +12,21 @@
 
 바탕화면 달력(DeskCalendar, Windows/Android)은 별도 프로그램이라 홈 화면에 내려받기 카드로만 연결했습니다.
 
+## exe 로 쓰기 (Windows)
+
+GitHub Actions 가 `SeomuSuite.exe` 를 만들어 **Releases → 서무 업무 자동화 최신 빌드** 에 올립니다. 내려받아 더블클릭하면 설치 없이 앱 창으로 열립니다.
+- 실제로는 `suite/app/seomu_suite.py` 런처가 화면 파일을 `%APPDATA%\SeomuSuite` 에 풀고 Microsoft Edge(없으면 Chrome)를 **앱 창 모드**로 띄우는 방식입니다. 부서원 명단 같은 작업 데이터도 `%APPDATA%\SeomuSuite\profile` 에 따로 저장됩니다.
+- 서명되지 않은 프로그램이라 처음에 'Windows의 PC 보호' 창이 뜨면 **추가 정보 → 실행** 을 누르세요.
+- 로컬에서 직접 만들려면: `python suite/build.py` → `pyinstaller --onefile --windowed --name SeomuSuite --icon suite/app/suite.ico --add-data "suite/app/index.html;." suite/app/seomu_suite.py`
+
 ## 구조
 
 - `shell.html` : 껍데기(사이드바·상단바·홈·설정·다크 모드)
 - `theme.css` : **공통 디자인** — 색·글꼴·모서리·버튼·입력·표·모달을 여기서 한 번에 바꿉니다
 - `bridge.js` : 도구 ↔ 셸 연결(높이 맞춤, 다크 모드, 모달 위치, 공용 API 키)
 - `tools/*.html` : 도구 본문. 각 도구는 iframe 안에서 돌아 서로 충돌하지 않습니다
-- `build.py` : 위를 합쳐 `서무업무자동화.html` 생성
+- `build.py` : 위를 합쳐 `서무업무자동화.html` 생성 (exe 용 복사본 `app/index.html` 도 함께)
+- `app/` : exe 런처(`seomu_suite.py`)와 아이콘(`suite.ico`, `make_icon.py` 로 생성)
 
 ```
 python3 suite/build.py
@@ -31,4 +39,4 @@ python3 suite/build.py
 
 ## API 키
 
-소스에 키를 적지 않습니다. 왼쪽 메뉴 **설정**에서 카카오·오피넷·Gemini·Claude 키를 입력하면 이 브라우저(localStorage)에만 저장되고 각 도구가 가져다 씁니다.
+소스에 키를 적지 않습니다. 왼쪽 메뉴 **설정**에서 담당자 이름·부서명도 함께 정할 수 있고, 부서원 명단·출장 내역은 백업 파일로 저장/복원할 수 있습니다. API 키는 카카오·오피넷·Gemini·Claude 키를 입력하면 이 브라우저(localStorage)에만 저장되고 각 도구가 가져다 씁니다.

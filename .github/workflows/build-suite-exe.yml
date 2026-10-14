@@ -1,0 +1,53 @@
+name: Build 서무 업무 자동화 exe
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths: ["suite/**", ".github/workflows/build-suite-exe.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install pyinstaller
+      - name: 화면(HTML) 묶기
+        env:
+          PYTHONIOENCODING: utf-8
+          SUITE_VERSION: v1.0.${{ github.run_number }}
+        run: python suite/build.py
+      - name: Build exe (파일 하나짜리)
+        run: >
+          python -m PyInstaller --noconfirm --clean --onefile --windowed
+          --name SeomuSuite --icon suite/app/suite.ico
+          --add-data "suite/app/index.html;."
+          --exclude-module tkinter --exclude-module unittest --exclude-module pydoc
+          suite/app/seomu_suite.py
+      - name: 점검 (브라우저·화면 파일을 찾는지)
+        run: |
+          dist\SeomuSuite.exe --selftest | Tee-Object -Variable out
+          if ($LASTEXITCODE -ne 0) { throw "Edge/Chrome 을 찾지 못했습니다" }
+          Get-ChildItem dist | Format-Table Name, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SeomuSuite-windows
+          path: dist/SeomuSuite.exe
+      - name: Publish to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-suite
+          name: 서무 업무 자동화 최신 빌드 (SeomuSuite.exe)
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          body: |
+            **SeomuSuite.exe** 를 내려받아 실행하세요. 설치 필요 없음 · Windows 10/11 (Microsoft Edge 또는 Chrome 필요).
+            처음 실행할 때 "Windows의 PC 보호" 창이 뜨면 **추가 정보 → 실행** 을 누르세요(서명되지 않은 프로그램이라 나오는 안내입니다).
+          files: dist/SeomuSuite.exe

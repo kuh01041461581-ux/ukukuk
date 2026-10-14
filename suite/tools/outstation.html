@@ -662,7 +662,7 @@ function renderStaffTable(){
 function updStaff(i,field,val){ staffDB[i][field]=val; saveStaff(); }
 function delStaff(i){ staffDB.splice(i,1); saveStaff(); renderStaffTable(); }
 function addStaffRow(){
-  staffDB.push({name:'',dept:'문화유산과',position:'',bankCode:'',bankName:'',account:''});
+  staffDB.push({name:'',dept:defaultDept(),position:'',bankCode:'',bankName:'',account:''});
   saveStaff(); renderStaffTable();
 }
 function clearStaff(){
@@ -688,7 +688,7 @@ function handleStaffFile(file){
       const bankCode = bank.includes(':') ? bank.split(':')[0] : '';
       const bankName = bank.includes(':') ? bank.split(':')[1] : bank;
       staffDB.push({
-        name: r[0], position:'', dept:'문화유산과',
+        name: r[0], position:'', dept:defaultDept(),
         bankCode, bankName, account: r[7]||''
       });
       added++;
@@ -753,7 +753,7 @@ function openTripModal(id){
     document.querySelectorAll('input[name=m_carRole]').forEach(r=>r.checked=(r.value===(t.carRole||'driver')));
   } else {
     ['m_name','m_position','m_dest','m_purpose','m_notes'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('m_dept').value='문화유산과';
+    document.getElementById('m_dept').value=defaultDept();
     document.getElementById('m_grade').value='제2호';
     document.getElementById('m_transport').value='공무용차량';
     document.getElementById('m_distance').value=0;
@@ -791,7 +791,7 @@ function onStaffPick(){
   const s = staffDB[i];
   document.getElementById('m_name').value = s.name;
   document.getElementById('m_position').value = s.position||'';
-  document.getElementById('m_dept').value = s.dept||'문화유산과';
+  document.getElementById('m_dept').value = s.dept||defaultDept();
 }
 function toggleTransportFields(){
   const v = document.getElementById('m_transport').value;
@@ -948,7 +948,7 @@ function makeTripRecord(f){
   return {
     id: uid(), name: f.name,
     position: f.position || s.position || '',
-    dept: f.dept || s.dept || '문화유산과',
+    dept: f.dept || s.dept || defaultDept(),
     start: f.start||'', end: f.end||'', dest: f.dest||'', purpose: f.purpose||'',
     grade: f.grade || '제2호',
     transport: f.transport || '자차',
@@ -1337,6 +1337,8 @@ function findAccount(name){
       화면의 "API 키" 입력칸에 넣어도 동일하게 동작합니다(입력칸이 우선 적용).
 ============================================================ */
 const MAP_API_KEY = '';   // 키는 코드에 적지 않습니다 → 셸의 '설정'에서 입력 (이 브라우저에만 저장)
+/* 부서 기본값: 셸 '설정'의 부서명 → 없으면 문화유산과 */
+function defaultDept(){ return (window.suiteInfo && suiteInfo('dept')) || '문화유산과'; }
 const DEFAULT_ORIGIN_ADDR = '전북특별자치도 익산시 익산시청';   // 출발지를 따로 입력하지 않으면 이 주소로 고정
 let lastDistCalc = null;
 

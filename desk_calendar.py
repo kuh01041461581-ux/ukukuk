@@ -3682,9 +3682,11 @@ class DeskCalendar:
         soon = sum(undone(today + dt.timedelta(days=k)) for k in (1, 2, 3))
         return undone(today), late, soon
 
-    def _glass_colors(self):
-        if self.conf.get("glass_tint", "그래파이트") == "밝게":
-            return {"txt": "#1c2230", "dim": "#6b7385", "sun": "#c8374a", "sat": "#2f6bd1",
+    def _glass_colors(self, light=None):
+        if light is None:
+            light = self.conf.get("glass_tint", "그래파이트") == "밝게"
+        if light:
+            return {"txt": "#1c2230", "dim": "#46506a", "sun": "#c8374a", "sat": "#2f6bd1",
                     "pri": ["#c8374a", "#b7791f", "#2b3345", "#1f8a5b"], "done": "#9aa3b2",
                     "holiday": "#c8374a", "anniv": "#b7791f", "term": "#1f8a5b", "line": "#7d8699", "light": True}
         return {"txt": "#eceff5", "dim": "#8e98ab", "sun": "#f08a94", "sat": "#8fb4f2",
@@ -3692,6 +3694,8 @@ class DeskCalendar:
                 "holiday": "#f08a94", "anniv": "#e5c07b", "term": "#86c9a0", "line": "#8e98ab", "light": False}
 
     def _gtext(self, x, y, text, font, fill, anchor="nw", shadow=None):
+        if shadow:        # 판 없이 바탕화면 위에 바로 놓이는 글자: 1px 그림자로 어떤 바탕에서도 읽히게
+            self.cal.create_text(x + 1, y + 1, text=text, font=font, fill=shadow, anchor=anchor)
         return self.cal.create_text(x, y, text=text, font=font, fill=fill, anchor=anchor)
 
     def _rr(self, x1, y1, x2, y2, r, **kw):
@@ -3725,6 +3729,12 @@ class DeskCalendar:
                              tint=glass.TINTS.get(tint_name, glass.TINTS["그래파이트"]), strength=strength,
                              blur=max(8, self.S(18)), radius=self.S(14), cell_radius=self.S(10),
                              light=tint_name == "밝게", accent=tuple(int(ACCENT[i:i + 2], 16) for i in (1, 3, 5)))
+        try:        # 머리 줄 뒤 바탕화면이 밝으면 머리 줄 글자를 어둡게 (판이 없어서 바탕에 맞춰야 읽힌다)
+            from PIL import ImageStat
+            x1, y1, x2, y2 = L["panel"]
+            self._hdr_light = ImageStat.Stat(im.crop((x1, y1, x2, y2)).convert("L")).mean[0] > 135
+        except Exception:
+            self._hdr_light = False
         self._gimg = ImageTk.PhotoImage(im)
         self._gkey = key
         return self._gimg
@@ -3748,24 +3758,28 @@ class DeskCalendar:
             for r in L["cells"]:
                 self._rr(*r, S(8), fill="#232736", outline="")
         today = dt.date.today()
+        hcol = self._glass_colors(light=bool(getattr(self, "_hdr_light", False)))
         # 머리줄: 큰 '2026년 10월' + 오른쪽 작은 버튼들
         hx1, hy1, hx2, hy2 = L["hdr"]
         mid_y = (hy1 + hy2) / 2
         mid = self.dates[len(self.dates) // 2]
-        self._gtext(hx1 + S(4), mid_y, f"{mid.year}년 {mid.month}월", self.f_h2, col["txt"], "w")
+        sh = "#f2f4f8" if hcol.get("light") else "#0b0d12"
+        self._gtext(hx1 + S(4), mid_y, f"{mid.year}년 {mid.month}월", self.f_h2, hcol["txt"], "w", shadow=sh)
         title_w = self.f_h2.measure(f"{mid.year}년 {mid.month}월")
         self._gbtns = []
         # 요약 줄: 오늘 N · 지연 N · 3일 내 N (눌러서 '예정' 보기)
         n_today, n_late, n_soon = self._summary_counts()
         sx = hx1 + title_w + S(22)
-        chips = [(f"오늘 {n_today}", col["txt"])]
+        chips = [(f"오늘 {n_today}", hcol["txt"])]
         if n_late:
-            chips.append((f"지연 {n_late}", col["sun"]))
-        chips.append((f"3일 내 {n_soon}", col["dim"] if not n_soon else ACCENT))
+            chips.append((f"지연 {n_late}", hcol["sun"]))
+        chips.append((f"3일 내 {n_soon}", hcol["dim"] if not n_soon else (blend(ACCENT, "#000000", 0.6) if hcol.get("light") else ACCENT)))
         for text, fg in (chips if hx2 - hx1 > S(560) else []):      # 좁으면 요약 칩은 숨긴다
             wch = self.f_small.measure(text) + S(18)
-            self._rr(sx, mid_y - S(11), sx + wch, mid_y + S(11), S(11), fill="#e2e6ef" if col.get("light") else "#2c303b", outline="")
-            self._gtext(sx + wch / 2, mid_y, text, self.f_small, fg, "center")
+            if self._ghover == "sum:" + text:
+                self._rr(sx, mid_y - S(11), sx + wch, mid_y + S(11), S(11),
+                         fill="#e2e6ef" if hcol.get("light") else "#2c303b", outline="")
+            self._gtext(sx + wch / 2, mid_y, text, self.f_small, fg, "center", shadow=sh)
             self._gbtns.append((sx, mid_y - S(11), sx + wch, mid_y + S(11),
                                 lambda e: (self.set_mode("agenda"), self.set_panel(True)), "sum:" + text))
             sx += wch + S(6)
@@ -3794,21 +3808,21 @@ class DeskCalendar:
             hov = self._ghover == text
             down = bool(self._ghdr) and self._ghdr.get("btn") is not None and self._ghdr["btn"][5] == text
             if hov or down:                                  # 둥근 알약 모양 + 누르면 조금 어둡게
-                base = "#dde2ec" if col.get("light") else "#383d4a"
+                base = "#dde2ec" if hcol.get("light") else "#383d4a"
                 self._rr(x1, mid_y - S(13), x, mid_y + S(13), S(13),
                          fill=blend("#000000", base, 0.14) if down else base, outline="")
             strong = text in ("오늘", "‹", "›")
-            fg = col["txt"] if strong or hov else col["dim"]
+            fg = hcol["txt"] if strong or hov else hcol["dim"]
             if text.startswith("업무 ") and not hov:          # 진행 중인 업무가 있으면 강조색
-                fg = ACCENT if not col.get("light") else blend(ACCENT, "#000000", 0.85)
-            self._gtext((x1 + x) / 2, mid_y, text, fb, fg, "center")
+                fg = ACCENT if not hcol.get("light") else blend(ACCENT, "#000000", 0.85)
+            self._gtext((x1 + x) / 2, mid_y, text, fb, fg, "center", shadow=None if hov or down else sh)
             x = x1 - S(2)
         if self.sync_cfg() and self.sync_status and x - sum_end > S(150):
             self._gtext(sum_end + S(8), mid_y + S(2), "☁ " + self.sync_status.split(" · ")[0],
-                        self.f_tiny, col["dim"], "w")
+                        self.f_tiny, hcol["dim"], "w", shadow=sh)
         for i, r in enumerate(L["wd"]):
-            fg = col["sun"] if i == 0 else col["sat"] if i == 6 else col["dim"]
-            self._gtext((r[0] + r[2]) / 2, (r[1] + r[3]) / 2, "일월화수목금토"[i], self.f_small, fg, "center")
+            fg = hcol["sun"] if i == 0 else hcol["sat"] if i == 6 else hcol["dim"]
+            self._gtext((r[0] + r[2]) / 2, (r[1] + r[3]) / 2, "일월화수목금토"[i], self.f_small, fg, "center", shadow=sh)
         for i, d in enumerate(self.dates):
             self._glass_cell(i, d, L["cells"][i], today, col)
 

@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 BASE="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/public/static/alternative"
 mkdir -p assets/fonts
 ok=1
-for w in Regular Medium SemiBold Bold ExtraBold; do
+for w in Regular SemiBold ExtraBold; do   # 용량을 줄이려고 3가지 굵기만 (나머지는 가장 가까운 굵기로 표시됨)
   curl -fsSL --retry 3 --max-time 120 -o "assets/fonts/Pretendard-$w.ttf" "$BASE/Pretendard-$w.ttf" || ok=0
 done
 if [ "$ok" = 1 ] && ! grep -q "family: Pretendard" pubspec.yaml; then
@@ -15,12 +15,8 @@ block = """\nflutter:\n  fonts:
     - family: Pretendard
       fonts:
         - asset: assets/fonts/Pretendard-Regular.ttf
-        - asset: assets/fonts/Pretendard-Medium.ttf
-          weight: 500
         - asset: assets/fonts/Pretendard-SemiBold.ttf
           weight: 600
-        - asset: assets/fonts/Pretendard-Bold.ttf
-          weight: 700
         - asset: assets/fonts/Pretendard-ExtraBold.ttf
           weight: 800
 """

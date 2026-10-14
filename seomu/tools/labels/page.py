@@ -490,7 +490,7 @@ class LabelsPage(QWidget):
         self.page_lb = QLabel("1 / 1 쪽")
         self.page_lb.setMinimumWidth(62)
         self.page_lb.setAlignment(Qt.AlignCenter)
-        zo, zi = Button("−", "ghost", size="sm"), Button("+", "ghost", size="sm")
+        zo, zi = Button("축소", "ghost", size="sm"), Button("확대", "ghost", size="sm")
         zo.clicked.connect(lambda: self.view.zoom_step(1 / 1.2))
         zi.clicked.connect(lambda: self.view.zoom_step(1.2))
         fit = Button("가로 맞춤", "ghost", size="sm")

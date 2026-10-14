@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'core.dart';
+import 'main.dart' show Pressable;
 import 'store.dart';
 import 'work.dart';
 
@@ -87,15 +88,14 @@ class _CaseCard extends StatelessWidget {
     final col = done ? _dim : ddayColor(n);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: _card,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
+      child: Pressable(
+        onTap: onTap,
+        child: Material(
+          color: _card,
+          borderRadius: BorderRadius.circular(22),
           child: Container(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: _border)),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(22), border: Border.all(color: _border)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(

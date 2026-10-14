@@ -231,7 +231,7 @@ class FormGrid(QWidget):
             self._i += self.cols - col
             col = 0
         row = self._i // self.cols
-        self.g.addWidget(w, row, col, 1, span)
+        self.g.addWidget(w, row, col, 1, span, Qt.AlignTop)
         self._i += span
         return w
 

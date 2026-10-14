@@ -84,6 +84,12 @@ QComboBox::drop-down {{ border: 0; width: 26px; }}
 QComboBox::down-arrow {{ image: url({chev}); width: 12px; height: 12px; }}
 QComboBox QAbstractItemView {{ background: {c['surface']}; border: 1px solid {c['border_strong']}; border-radius: 8px; padding: 4px;
   selection-background-color: {c['primary_tint']}; selection-color: {c['primary']}; outline: 0; }}
+QAbstractSpinBox {{ padding: 0 12px; }}
+QAbstractSpinBox QLineEdit {{ background: transparent; border: 0; padding: 0; min-height: 0; }}
+QListWidget, QListView {{ background: {c['surface']}; border: 1px solid {c['border_strong']}; border-radius: {T.R_INPUT}px; padding: 4px; outline: 0; }}
+QListWidget::item, QListView::item {{ padding: 7px 10px; border-radius: 6px; color: {c['text']}; }}
+QListWidget::item:hover, QListView::item:hover {{ background: {c['surface3']}; }}
+QListWidget::item:selected, QListView::item:selected {{ background: {c['primary_tint']}; color: {c['primary']}; }}
 QSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{ width: 0; border: 0; }}
 
 QPushButton {{ border-radius: {T.R_BTN}px; min-height: 38px; padding: 0 16px; font-weight: 600; border: 1px solid transparent; }}

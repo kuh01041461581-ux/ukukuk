@@ -15,6 +15,7 @@ from ...core.worker import run_async
 from ...ui.theme import theme
 from ...ui.widgets import (Button, DataTable, DropZone, Field, FormGrid, Note, RangeField, Segmented, StepCard, ask_save, label,
                            open_folder)
+from ..base import ToolPage
 from . import logic as L
 from . import render as R
 from .sheetview import SheetView
@@ -119,9 +120,13 @@ class LabelsPage(QWidget):
 
     # ══════════════ 화면 짓기 ══════════════
     def _build(self):
-        root = QHBoxLayout(self)
-        root.setContentsMargins(24, 18, 24, 20)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(29, 20, 29, 20)
+        outer.setSpacing(14)
+        outer.addLayout(ToolPage._header(self))
+        root = QHBoxLayout()
         root.setSpacing(16)
+        outer.addLayout(root, 1)
         # ── 왼쪽 ──
         left = QWidget()
         left.setFixedWidth(PANEL_W)
@@ -493,11 +498,11 @@ class LabelsPage(QWidget):
         zo, zi = Button("축소", "ghost", size="sm"), Button("확대", "ghost", size="sm")
         zo.clicked.connect(lambda: self.view.zoom_step(1 / 1.2))
         zi.clicked.connect(lambda: self.view.zoom_step(1.2))
-        fit = Button("가로 맞춤", "ghost", size="sm")
+        fit = Button("너비에 맞춤", "ghost", size="sm")
         fit.clicked.connect(lambda: self.view.set_zoom(None))
         fit1 = Button("한 쪽", "ghost", size="sm")
         fit1.clicked.connect(lambda: self.view.set_zoom("page"))
-        self.zoom_lb = QLabel("가로 맞춤")
+        self.zoom_lb = QLabel("너비 맞춤")
         self.zoom_lb.setMinimumWidth(62)
         self.zoom_lb.setAlignment(Qt.AlignCenter)
         self.status_lb = label("", "small")

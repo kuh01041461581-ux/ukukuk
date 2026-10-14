@@ -917,14 +917,6 @@ class MainWindow(QMainWindow):
             self.topbar.set_crumb(info.group, info.title)
         else:
             self.topbar.set_crumb("기타" if key == "settings" else "홈", "설정" if key == "settings" else "서무 업무 자동화")
-        # 전체 화면 편집 도구는 사이드바를 자동으로 접는다
-        if info and info.fill:
-            if not self.sidebar.collapsed:
-                self.sidebar.set_collapsed(True)
-                self._auto_collapsed = True
-        elif self._auto_collapsed:
-            self.sidebar.set_collapsed(False)
-            self._auto_collapsed = False
         if hasattr(w, "on_show"):
             w.on_show()
         self.current = key

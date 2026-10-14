@@ -90,6 +90,9 @@ class DeskApp extends StatelessWidget {
         colorScheme: scheme,
         scaffoldBackgroundColor: Colors.transparent,
         splashFactory: InkRipple.splashFactory,
+        highlightColor: cAccent.withOpacity(0.06),
+        splashColor: cAccent.withOpacity(0.12),
+        hoverColor: cAccent.withOpacity(0.07),
         pageTransitionsTheme: const PageTransitionsTheme(builders: {
           TargetPlatform.android: CupertinoPageTransitionsBuilder(),
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
@@ -132,6 +135,7 @@ class DeskApp extends StatelessWidget {
         chipTheme: ChipThemeData(
             shape: const StadiumBorder(),
             side: const BorderSide(color: cBorder),
+            pressElevation: 0,
             backgroundColor: Colors.transparent,
             selectedColor: cAccent.withOpacity(0.24)),
         inputDecorationTheme: InputDecorationTheme(
@@ -361,7 +365,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                   child: NavigationBar(
                     selectedIndex: tab,
                     animationDuration: kMid,
-                    onDestinationSelected: (i) => setState(() => tab = i),
+                    onDestinationSelected: (i) {
+                      if (i != tab) HapticFeedback.selectionClick();
+                      setState(() => tab = i);
+                    },
                     destinations: const [
                       NavigationDestination(
                           icon: Icon(Icons.calendar_month_outlined),
@@ -403,7 +410,10 @@ class _PressableState extends State<Pressable> {
         onTapDown: (_) => setState(() => down = true),
         onTapCancel: () => setState(() => down = false),
         onTapUp: (_) => setState(() => down = false),
-        onTap: widget.onTap,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          widget.onTap();
+        },
         child: AnimatedScale(scale: down ? 0.94 : 1, duration: const Duration(milliseconds: 110), curve: kCurve, child: widget.child),
       );
 }
@@ -1240,7 +1250,10 @@ class _ItemEditorState extends State<ItemEditor> {
                   showCheckmark: false,
                   avatar: Icon(Icons.circle, size: 12, color: priColors[i]),
                   label: Text(priNames[i], style: chipStyle),
-                  onSelected: (_) => setState(() => pri = i)),
+                  onSelected: (_) {
+                    HapticFeedback.selectionClick();
+                    setState(() => pri = i);
+                  }),
           ]),
           const SizedBox(height: 6),
           const Text('반복', style: TextStyle(color: cSub, fontSize: 12)),
@@ -1250,7 +1263,10 @@ class _ItemEditorState extends State<ItemEditor> {
                   selected: rep == r[0],
                   showCheckmark: false,
                   label: Text(r[1], style: chipStyle),
-                  onSelected: (_) => setState(() => rep = r[0])),
+                  onSelected: (_) {
+                    HapticFeedback.selectionClick();
+                    setState(() => rep = r[0]);
+                  }),
           ]),
           if (rep.isNotEmpty)
             Align(

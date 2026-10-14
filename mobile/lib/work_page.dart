@@ -1,5 +1,6 @@
 // 폰의 '업무' 탭: PC 에서 만든 업무(공문)의 기한(D-day)과 연결된 일정을 보고 완료 표시를 한다
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'core.dart';
 import 'store.dart';
@@ -46,7 +47,10 @@ class _WorkPageState extends State<WorkPage> {
                   label: Text(lab, style: const TextStyle(fontSize: 13)),
                   selected: showDone == v,
                   showCheckmark: false,
-                  onSelected: (_) => setState(() => showDone = v)),
+                  onSelected: (_) {
+                    HapticFeedback.selectionClick();
+                    setState(() => showDone = v);
+                  }),
             ),
         ]),
         const SizedBox(height: 6),

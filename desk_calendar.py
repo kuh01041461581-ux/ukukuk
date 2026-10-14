@@ -413,21 +413,70 @@ def sort_key(t):
 
 
 class Pill(tk.Canvas):
-    """둥근 알약형 버튼"""
+    """둥근 알약형 버튼: 마우스를 올리면 색이 부드럽게 바뀌고, 누르면 살짝 들어갔다가 손을 떼면 실행된다"""
+
+    STEPS = 5
 
     def __init__(self, parent, text, cmd, font, fg=None, bg=None, hover=None,
-                 parent_bg=None, padx=12, pady=5, r=8):
+                 parent_bg=None, padx=12, pady=5, r=None):
         fg, bg = fg or TEXT, bg or CARD
         hover, parent_bg = hover or CARD_HOVER, parent_bg or BG
         w = font.measure(text) + 2 * padx
         h = font.metrics("linespace") + 2 * pady
         super().__init__(parent, width=w, height=h, bg=parent_bg, highlightthickness=0,
                          bd=0, cursor="hand2")
-        shape = rrect(self, 1, 1, w - 1, h - 1, r, fill=bg)
-        self.create_text(w / 2, h / 2, text=text, font=font, fill=fg)
-        self.bind("<Enter>", lambda e: self.itemconfig(shape, fill=hover))
-        self.bind("<Leave>", lambda e: self.itemconfig(shape, fill=bg))
-        self.bind("<Button-1>", lambda e: cmd())
+        self._pw, self._ph, self._cmd = w, h, cmd
+        self._bg, self._hover = bg, hover
+        self._press = blend("#000000", bg, 0.16)         # 눌렀을 때: 조금 어둡게
+        self._k, self._goal, self._down, self._job = 0, 0, False, None
+        self._shape = rrect(self, 1, 1, w - 1, h - 1, h / 2 if r is None else r, fill=bg)   # 완전히 둥글게
+        self._label = self.create_text(w / 2, h / 2, text=text, font=font, fill=fg)
+        self.bind("<Enter>", lambda e: self._to(self.STEPS))
+        self.bind("<Leave>", lambda e: (setattr(self, "_down", False), self._to(0), self._nudge(0)))
+        self.bind("<ButtonPress-1>", self._on_press)
+        self.bind("<ButtonRelease-1>", self._on_release)
+
+    def _paint(self):
+        col = blend(self._hover, self._bg, self._k / self.STEPS) if self._k else self._bg
+        if self._down:
+            col = self._press if self._hover != self._bg else col
+        self.itemconfig(self._shape, fill=col)
+
+    def _to(self, goal):
+        self._goal = goal
+        if self._job is None:
+            self._step()
+
+    def _step(self):
+        self._job = None
+        if self._k == self._goal:
+            self._paint()
+            return
+        self._k += 1 if self._goal > self._k else -1
+        self._paint()
+        try:
+            self._job = self.after(14, self._step)
+        except tk.TclError:
+            self._job = None
+
+    def _nudge(self, dy):
+        """눌린 느낌: 글자를 1px 아래로"""
+        try:
+            self.coords(self._label, self._pw / 2, self._ph / 2 + dy)
+        except tk.TclError:
+            pass
+
+    def _on_press(self, e):
+        self._down = True
+        self._paint()
+        self._nudge(1)
+
+    def _on_release(self, e):
+        was, self._down = self._down, False
+        self._paint()
+        self._nudge(0)
+        if was and 0 <= e.x < self._pw and 0 <= e.y < self._ph:
+            self._cmd()
 
 
 # ── 대화상자 ────────────────────────────────────────────
@@ -1858,7 +1907,7 @@ class WorkWindow:
         head = tk.Frame(self.left, bg=BG)
         head.pack(fill="x", padx=S(16), pady=(S(16), S(6)))
         tk.Label(head, text="업무", font=app.f_title, bg=BG, fg=TEXT).pack(side="left")
-        Pill(head, "＋ 새 업무", self.new_case, self.f_val, fg="#ffffff", bg=ACCENT,
+        Pill(head, "＋ 새 업무", self.new_case, app.f_small, fg="#ffffff", bg=ACCENT,
              hover=blend(ACCENT, "#ffffff", 0.2), parent_bg=BG, padx=S(12), pady=S(4)).pack(side="right")
         tabs = tk.Frame(self.left, bg=BG)
         tabs.pack(fill="x", padx=S(14), pady=(0, S(6)))
@@ -1866,7 +1915,7 @@ class WorkWindow:
         n_on = sum(1 for c in allc if not c.get("done"))
         for lab, val in ((f"진행 중 {n_on}", False), (f"완료 {len(allc) - n_on}", True)):
             on = self.show_done == val
-            Pill(tabs, lab, lambda v=val: self.set_filter(v), self.f_val, parent_bg=BG, padx=S(10), pady=S(3),
+            Pill(tabs, lab, lambda v=val: self.set_filter(v), app.f_small, parent_bg=BG, padx=S(10), pady=S(3),
                  **({"fg": TEXT, "bg": CARD_HOVER, "hover": CARD_HOVER} if on else {"fg": SUB, "bg": BG, "hover": CARD})
                  ).pack(side="left", padx=(0, S(4)))
         cv, inner = _scroll_area(self.left, BG)
@@ -1876,7 +1925,7 @@ class WorkWindow:
             tk.Label(inner, text=("완료한 업무가 없어요" if self.show_done else
                                   "공문(PDF·한글)을 달력이나 이 창에\n끌어다 놓으면 업무가 생겨요.\n\n"
                                   "업무마다 기한과 폴더(공문·작성 자료·\n제출본)가 만들어져요."),
-                     font=self.f_val, bg=BG, fg=DIM, justify="left").pack(anchor="w", padx=S(10), pady=S(16))
+                     font=app.f_small, bg=BG, fg=DIM, justify="left").pack(anchor="w", padx=S(10), pady=S(16))
         for c in items:
             self._case_card(inner, c)
         _bind_wheel(inner, cv)
@@ -1897,9 +1946,9 @@ class WorkWindow:
         meta.pack(fill="x", pady=(S(3), 0))
         n = work.dday(c, app.today)
         if n is not None:
-            tk.Label(meta, text=work.dday_label(n), font=self.f_hint, bg=bg,
+            tk.Label(meta, text=work.dday_label(n), font=app.f_tiny, bg=bg,
                      fg=DIM if c.get("done") else dday_color(n)).pack(side="left")
-            tk.Label(meta, text="  " + work.fmt_date(c["due"]), font=self.f_hint, bg=bg, fg=SUB).pack(side="left")
+            tk.Label(meta, text="  " + work.fmt_date(c["due"]), font=app.f_tiny, bg=bg, fg=SUB).pack(side="left")
         for w in (card, bar, body, *body.winfo_children(), *meta.winfo_children()):
             w.bind("<Button-1>", lambda e, cid=c["id"]: self.select(cid))
             if not on:
@@ -1965,12 +2014,12 @@ class WorkWindow:
         f.pack(fill="x", padx=S(24), pady=(S(18), S(6)))
         tk.Label(f, text=title, font=app.f_head, bg=SURFACE, fg=TEXT).pack(side="left")
         if right:
-            tk.Label(f, text=right, font=self.f_val, bg=SURFACE, fg=SUB).pack(side="left", padx=S(8))
+            tk.Label(f, text=right, font=app.f_small, bg=SURFACE, fg=SUB).pack(side="left", padx=S(8))
         return f
 
     def pill(self, parent, text, cmd, primary=False, side="left"):
         S = self.app.S
-        p = Pill(parent, text, cmd, self.f_val, parent_bg=SURFACE, padx=S(12), pady=S(4),
+        p = Pill(parent, text, cmd, self.app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(4),
                  **({"fg": "#ffffff", "bg": ACCENT, "hover": blend(ACCENT, "#ffffff", 0.2)} if primary else {}))
         p.pack(side=side, padx=(0, S(6)) if side == "left" else (S(6), 0))
         return p
@@ -1986,7 +2035,7 @@ class WorkWindow:
             box.place(relx=0.5, rely=0.45, anchor="center")
             tk.Label(box, text="업무를 고르거나 새로 만들어 주세요", font=app.f_h2, bg=SURFACE, fg=SUB).pack()
             tk.Label(box, text="공문 PDF·한글 파일을 끌어다 놓으면 일정과 업무 폴더가 함께 만들어져요",
-                     font=self.f_val, bg=SURFACE, fg=DIM).pack(pady=(S(6), 0))
+                     font=app.f_small, bg=SURFACE, fg=DIM).pack(pady=(S(6), 0))
             return
         cv, body = _scroll_area(self.right, SURFACE)
         cv.pack(fill="both", expand=True)
@@ -1999,20 +2048,20 @@ class WorkWindow:
         self.e_title.bind("<FocusOut>", lambda e: self._save_fields())
         meta = tk.Frame(body, bg=SURFACE)
         meta.pack(fill="x", padx=S(24), pady=(S(4), 0))
-        tk.Label(meta, text="기한", font=self.f_val, bg=SURFACE, fg=SUB).pack(side="left")
-        self.e_due = _flat_entry(app, meta, c.get("due") or "", self.f_val, 11)
+        tk.Label(meta, text="기한", font=app.f_small, bg=SURFACE, fg=SUB).pack(side="left")
+        self.e_due = _flat_entry(app, meta, c.get("due") or "", app.f_small, 11)
         self.e_due.pack(side="left", padx=(S(8), S(6)), ipady=S(3))
         self.e_due.bind("<Return>", lambda e: (self._save_fields(), self.build_right()))
         self.e_due.bind("<FocusOut>", lambda e: self._save_fields())
         n = work.dday(c, app.today)
         if n is not None:
-            tk.Label(meta, text=f" {work.dday_label(n)} · {work.fmt_date(c['due'])} ", font=self.f_val,
+            tk.Label(meta, text=f" {work.dday_label(n)} · {work.fmt_date(c['due'])} ", font=app.f_small,
                      bg=blend(dday_color(n), SURFACE, 0.18), fg=dday_color(n)).pack(side="left")
             if n > 0:
                 wd = core.workdays_between(app.today, core.parse_date(c["due"]), _hol)
-                tk.Label(meta, text=f"근무일 {wd}일 남음", font=self.f_hint, bg=SURFACE, fg=DIM).pack(side="left", padx=S(8))
+                tk.Label(meta, text=f"근무일 {wd}일 남음", font=app.f_tiny, bg=SURFACE, fg=DIM).pack(side="left", padx=S(8))
         else:
-            tk.Label(meta, text="예) 2026-10-20 · 10/20 · 다음주 금요일", font=self.f_hint, bg=SURFACE, fg=DIM
+            tk.Label(meta, text="예) 2026-10-20 · 10/20 · 다음주 금요일", font=app.f_tiny, bg=SURFACE, fg=DIM
                      ).pack(side="left")
         info = []
         if c.get("doc_no"):
@@ -2020,7 +2069,7 @@ class WorkWindow:
         if c.get("received"):
             info.append(f"받은 날 {work.fmt_date(c['received'])}")
         if info:
-            tk.Label(body, text="  ·  ".join(info), font=self.f_hint, bg=SURFACE, fg=DIM, anchor="w"
+            tk.Label(body, text="  ·  ".join(info), font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w"
                      ).pack(fill="x", padx=S(24), pady=(S(6), 0))
         acts = tk.Frame(body, bg=SURFACE)
         acts.pack(fill="x", padx=S(24), pady=(S(12), 0))
@@ -2031,24 +2080,24 @@ class WorkWindow:
         # 업무 폴더: 공문 · 작성 자료 · 제출본
         self.section(body, "업무 폴더")
         tk.Label(body, text="파일을 이 창에 끌어다 놓으면 원하는 칸에 넣을 수 있어요. 파일을 누르면 열려요.",
-                 font=self.f_hint, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(24), pady=(0, S(6)))
+                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w").pack(fill="x", padx=S(24), pady=(0, S(6)))
         for k, name in enumerate(work.SUBDIRS):
             box = tk.Frame(body, bg=CARD, highlightthickness=1, highlightbackground=BORDER)
             box.pack(fill="x", padx=S(24), pady=S(3))
             hd = tk.Frame(box, bg=CARD)
             hd.pack(fill="x", padx=S(12), pady=(S(8), S(4)))
             fs = self._files(c, k)
-            tk.Label(hd, text=name, font=self.f_val, bg=CARD, fg=TEXT).pack(side="left")
-            tk.Label(hd, text=str(len(fs)) if fs else "", font=self.f_hint, bg=CARD, fg=SUB).pack(side="left", padx=S(6))
-            Pill(hd, "파일 넣기…", lambda k=k: self.pick_files(k), self.f_hint, parent_bg=CARD, bg=SURFACE,
+            tk.Label(hd, text=name, font=app.f_small, bg=CARD, fg=TEXT).pack(side="left")
+            tk.Label(hd, text=str(len(fs)) if fs else "", font=app.f_tiny, bg=CARD, fg=SUB).pack(side="left", padx=S(6))
+            Pill(hd, "파일 넣기…", lambda k=k: self.pick_files(k), app.f_tiny, parent_bg=CARD, bg=SURFACE,
                  hover=BORDER, padx=S(8), pady=S(2)).pack(side="right")
             for f in fs[:8]:
-                lb = tk.Label(box, text="  " + os.path.basename(f), font=self.f_val, bg=CARD, fg=ACCENT, anchor="w",
+                lb = tk.Label(box, text="  " + os.path.basename(f), font=app.f_small, bg=CARD, fg=ACCENT, anchor="w",
                               cursor="hand2")
                 lb.pack(fill="x", padx=S(12))
                 lb.bind("<Button-1>", lambda e, f=f: open_path(f))
             if len(fs) > 8:
-                tk.Label(box, text=f"  외 {len(fs) - 8}개", font=self.f_hint, bg=CARD, fg=DIM, anchor="w").pack(fill="x", padx=S(12))
+                tk.Label(box, text=f"  외 {len(fs) - 8}개", font=app.f_tiny, bg=CARD, fg=DIM, anchor="w").pack(fill="x", padx=S(12))
             tk.Frame(box, bg=CARD, height=S(6)).pack()
 
         # 연결된 일정
@@ -2059,7 +2108,7 @@ class WorkWindow:
             d = core.parse_date(key)
             r = tk.Frame(body, bg=SURFACE, cursor="hand2")
             r.pack(fill="x", padx=S(24), pady=S(1))
-            tk.Label(r, text=work.fmt_date(d) if d else "보관함", font=self.f_val, bg=SURFACE, fg=SUB, width=10,
+            tk.Label(r, text=work.fmt_date(d) if d else "보관함", font=app.f_small, bg=SURFACE, fg=SUB, width=10,
                      anchor="w").pack(side="left")
             tk.Label(r, text=t.get("text", ""), font=app.f_body, bg=SURFACE,
                      fg=DIM if t.get("done") else TEXT, anchor="w").pack(side="left", fill="x", expand=True)
@@ -2169,7 +2218,7 @@ class TemplateDialog:
         tk.Label(top, text="반복 업무 추가", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
             fill="x", padx=S(20), pady=(S(16), 0))
         tk.Label(top, text="공무원이 자주 챙기는 정기 업무 예시예요. 필요한 것만 체크하고, 이름과 첫 날짜는 우리 기관에 맞게 고치세요.",
-                 font=self.f_hint, bg=SURFACE, fg=DIM, anchor="w", wraplength=S(590), justify="left").pack(
+                 font=app.f_tiny, bg=SURFACE, fg=DIM, anchor="w", wraplength=S(590), justify="left").pack(
             fill="x", padx=S(20), pady=(S(2), S(8)))
         foot = tk.Frame(top, bg=SURFACE)
         foot.pack(side="bottom", fill="x", padx=S(20), pady=S(14))
@@ -2194,11 +2243,11 @@ class TemplateDialog:
             var = tk.BooleanVar(value=False)
             tk.Checkbutton(r, variable=var, bg=SURFACE, activebackground=SURFACE, selectcolor=CARD, bd=0,
                            highlightthickness=0, state="disabled" if have else "normal").pack(side="left")
-            e = _flat_entry(app, r, text, self.f_val)
+            e = _flat_entry(app, r, text, app.f_small)
             e.pack(side="left", fill="x", expand=True, ipady=S(3), padx=(0, S(6)))
-            de = _flat_entry(app, r, d.isoformat(), self.f_val, 11)
+            de = _flat_entry(app, r, d.isoformat(), app.f_small, 11)
             de.pack(side="left", ipady=S(3), padx=(0, S(6)))
-            tk.Label(r, text="추가됨" if have else work.rule_label(rule), font=self.f_hint, bg=SURFACE,
+            tk.Label(r, text="추가됨" if have else work.rule_label(rule), font=app.f_tiny, bg=SURFACE,
                      fg=ACCENT if have else DIM, width=16, anchor="w").pack(side="left")
             self.rows.append((var, e, de, code))
         _bind_wheel(inner, cv)
@@ -2669,17 +2718,13 @@ class DeskCalendar:
         tools.place(relx=1.0, x=-S(2), rely=0.5, anchor="e")
 
         def tool(text, cmd):
-            lb = tk.Label(tools, text=text, font=self.f_tiny, bg=BG, fg=SUB, cursor="hand2",
-                          padx=S(7))
-            lb.pack(side="left")
-            lb.bind("<Button-1>", cmd)
-            lb.bind("<Enter>", lambda e: lb.config(fg=ACCENT))
-            lb.bind("<Leave>", lambda e: lb.config(fg=SUB))
+            Pill(tools, text, cmd, self.f_tiny, fg=SUB, bg=BG, hover=CARD_HOVER, parent_bg=BG,
+                 padx=S(10), pady=S(4)).pack(side="left", padx=S(1))
 
-        tool("업무", lambda e: self.open_work())
-        tool("Aa 화면 설정", lambda e: self.open_settings())
-        tool("? 사용법", lambda e: self.open_help())
-        tool("⚙", lambda e: self.menu.tk_popup(e.x_root, e.y_root))
+        tool("업무", self.open_work)
+        tool("Aa 화면 설정", self.open_settings)
+        tool("? 사용법", self.open_help)
+        tool("⚙", lambda: self.menu.tk_popup(*self.root.winfo_pointerxy()))
         for w in (bar, grab, *legend):
             self._bind_drag(w)
 
@@ -3723,8 +3768,11 @@ class DeskCalendar:
             btn = (x1, mid_y - S(13), x, mid_y + S(13), fn, text)
             self._gbtns.append(btn)
             hov = self._ghover == text
-            if hov:
-                self._rr(x1, mid_y - S(13), x, mid_y + S(13), S(7), fill="#dde2ec" if col.get("light") else "#383d4a", outline="")
+            down = bool(self._ghdr) and self._ghdr.get("btn") is not None and self._ghdr["btn"][5] == text
+            if hov or down:                                  # 둥근 알약 모양 + 누르면 조금 어둡게
+                base = "#dde2ec" if col.get("light") else "#383d4a"
+                self._rr(x1, mid_y - S(13), x, mid_y + S(13), S(13),
+                         fill=blend("#000000", base, 0.14) if down else base, outline="")
             strong = text in ("오늘", "‹", "›")
             fg = col["txt"] if strong or hov else col["dim"]
             if text.startswith("업무 ") and not hov:          # 진행 중인 업무가 있으면 강조색
@@ -3740,9 +3788,59 @@ class DeskCalendar:
         for i, d in enumerate(self.dates):
             self._glass_cell(i, d, L["cells"][i], today, col)
 
+    def _glow_img(self, w, h, level):
+        """칸 위에 얹는 반투명 하이라이트(마우스를 올렸을 때). 크기·세기별로 한 번만 만든다"""
+        key = (w, h, level, self.conf.get("glass_tint"))
+        cache = self.__dict__.setdefault("_glow_cache", {})
+        if key not in cache:
+            try:
+                from PIL import Image, ImageTk
+                dark_ink = self.conf.get("glass_tint") == "밝게"
+                im = Image.new("RGBA", (w, h), (0, 0, 0, 0) if dark_ink else (255, 255, 255, 0))
+                im.putalpha(glass._rmask(w, h, self.S(10)).point(lambda v, a=level * 7: v * a // 255))
+                if dark_ink:
+                    im = Image.merge("RGBA", (Image.new("L", (w, h), 0),) * 3 + (im.getchannel("A"),))
+                cache[key] = ImageTk.PhotoImage(im)
+            except Exception:
+                cache[key] = None
+        return cache[key]
+
+    def _glow_to(self, idx):
+        """마우스가 올라간 칸은 서서히 밝아지고, 벗어난 칸은 서서히 원래대로"""
+        gl = self.__dict__.setdefault("_glow", {})
+        self._glow_goal = idx
+        if getattr(self, "_glow_job", None) is None:
+            self._glow_tick()
+
+    def _glow_tick(self):
+        self._glow_job = None
+        gl = self._glow
+        changed = False
+        for k in list(gl):
+            if k != self._glow_goal:
+                gl[k] -= 1
+                changed = True
+                if gl[k] <= 0:
+                    del gl[k]
+        g = self._glow_goal
+        if g is not None and gl.get(g, 0) < 4:
+            gl[g] = gl.get(g, 0) + 1
+            changed = True
+        if changed:
+            self.draw_calendar()
+            try:
+                self._glow_job = self.root.after(18, self._glow_tick)
+            except tk.TclError:
+                self._glow_job = None
+
     def _glass_cell(self, i, d, rect, today, col):
         c, S = self.cal, self.S
         x1, y1, x2, y2 = rect
+        lvl = getattr(self, "_glow", {}).get(i, 0)
+        if lvl:
+            im = self._glow_img(x2 - x1, y2 - y1, lvl)
+            if im is not None:
+                c.create_image(x1, y1, anchor="nw", image=im)
         pad = S(7)
         wd = (d.weekday() + 1) % 7
         label, kind = glass.special_day(d)
@@ -3854,14 +3952,16 @@ class DeskCalendar:
                 self._tip_hide()
                 if self.hover_idx is not None:
                     self.hover_idx = None
-                    self.draw_calendar()
+                    self._glow_to(None)
                 return
         idx = self._cell_at(e.x, e.y)
         if idx != self.hover_idx:
             self.hover_idx = idx
             if not self.glass:
                 self.cal.config(cursor="hand2" if idx is not None else "")
-            self.draw_calendar()
+                self.draw_calendar()
+            else:
+                self._glow_to(idx)
             self._tip_hide()
             if idx is not None:
                 self._tip_job = self.root.after(450, lambda i=idx: self._tip_show(i))
@@ -3932,6 +4032,8 @@ class DeskCalendar:
         btn = self._gbtn_at(e.x, e.y)
         if btn is not None or e.y < self.gm.get("y0", 0):
             self._ghdr = {"btn": btn}
+            if btn is not None:
+                self.draw_calendar()                          # 누른 모양을 바로 보여 준다
             if btn is None:
                 self._drag_start(e)           # 머리줄을 끌면 창 이동
             return True
@@ -3981,7 +4083,10 @@ class DeskCalendar:
         self._tip_hide()
         if self.hover_idx is not None:
             self.hover_idx = None
-            self.draw_calendar()
+            if self.glass:
+                self._glow_to(None)
+            else:
+                self.draw_calendar()
 
     def _cal_release(self, e):
         if self.glass:
@@ -3996,8 +4101,10 @@ class DeskCalendar:
                     self._drag_end(e)
                     self._gkey = None
                     self.draw_calendar()
-                elif self._gbtn_at(e.x, e.y) is h["btn"]:
-                    h["btn"][4](e)
+                else:
+                    self.draw_calendar()
+                    if (self._gbtn_at(e.x, e.y) or (0,) * 6)[5:] == h["btn"][5:]:
+                        h["btn"][4](e)
                 return
         idx = self._cell_at(e.x, e.y)
         press, rng, mv, to = self._press_idx, self._drag_range, self._move, self._move_to

@@ -1,0 +1,321 @@
+/* ==========================================================================
+   서무 업무 자동화 — 공통 디자인 시스템
+   셸(index)과 모든 도구 페이지가 이 파일 하나를 공유합니다.
+   · 색/글꼴/모서리는 아래 토큰(:root)만 바꾸면 전체가 함께 바뀝니다.
+   · 도구마다 다르게 부르던 클래스 이름(.btn-primary / .run / .btn.outline …)도
+     여기서 한 모양으로 묶습니다. 도구 CSS 뒤에 불러오므로 같은 점수면 이 파일이 이깁니다.
+   ========================================================================== */
+
+/* ---------- 1. 토큰 ---------- */
+:root{
+  --bg:#F8FAFC;
+  --surface:#FFFFFF;
+  --surface-2:#F8FAFC;
+  --surface-3:#EEF1F5;
+  --hover:#F3F4F6;
+  --border:#E5E7EB;
+  --border-strong:#D5D9E0;
+
+  --text:#111827;
+  --text-2:#6B7280;
+  --text-3:#9CA3AF;
+
+  --primary:#2563EB;
+  --primary-hover:#1D4ED8;
+  --primary-tint:#EFF4FE;
+  --primary-tint-strong:#E1EAFD;
+  --primary-border:#C7D9FC;
+
+  --success:#16A34A;
+  --success-tint:#EAFBF2;
+  --warning:#D97706;
+  --warning-tint:#FDF1DE;
+  --danger:#DC2626;
+  --danger-hover:#B91C1C;
+  --danger-tint:#FDEEEE;
+
+  --radius-sm:8px;
+  --radius-btn:10px;
+  --radius-input:10px;
+  --radius-card:16px;
+  --radius-modal:20px;
+
+  --shadow-card:0 1px 2px rgba(17,24,39,.04), 0 1px 1px rgba(17,24,39,.03);
+  --shadow-pop:0 16px 40px rgba(17,24,39,.16), 0 2px 8px rgba(17,24,39,.06);
+
+  --font:'Noto Sans KR','Pretendard Variable','Segoe UI','Malgun Gothic','Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --mono:'Cascadia Mono','SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+
+  /* 보고 있는 화면 영역(iframe 안에서 모달·토스트 위치를 잡을 때 셸이 갱신) */
+  --vp-top:0px;
+  --vp-h:100vh;
+
+  color-scheme:light;
+}
+html.dark{
+  --bg:#111418;
+  --surface:#181C22;
+  --surface-2:#1C2128;
+  --surface-3:#242A33;
+  --hover:#20242B;
+  --border:#262B33;
+  --border-strong:#343B46;
+
+  --text:#E8EAED;
+  --text-2:#9AA2AD;
+  --text-3:#6B7280;
+
+  --primary:#3B82F6;
+  --primary-hover:#60A5FA;
+  --primary-tint:#152238;
+  --primary-tint-strong:#1B2B47;
+  --primary-border:#27406B;
+
+  --success:#22C55E;
+  --success-tint:#0F2A1D;
+  --warning:#F59E0B;
+  --warning-tint:#2E2410;
+  --danger:#EF4444;
+  --danger-hover:#F87171;
+  --danger-tint:#301616;
+
+  --shadow-card:0 1px 2px rgba(0,0,0,.4);
+  --shadow-pop:0 16px 40px rgba(0,0,0,.55);
+  color-scheme:dark;
+}
+
+/* ---------- 2. 바탕 ---------- */
+*,*::before,*::after{box-sizing:border-box;}
+html{-webkit-font-smoothing:antialiased;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font);
+  font-size:14px;
+  line-height:1.55;
+}
+::selection{background:var(--primary-tint-strong);color:var(--text);}
+a{color:var(--primary);}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+svg{display:block;}
+hr{border:none;border-top:1px solid var(--border);}
+code{font-family:var(--mono);font-size:.92em;background:var(--surface-3);padding:1px 5px;border-radius:5px;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:999px;border:2px solid transparent;background-clip:content-box;}
+::-webkit-scrollbar-thumb:hover{background:var(--text-3);background-clip:content-box;border:2px solid transparent;}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;}
+}
+
+/* 도구 페이지 공통 틀: 셸이 제목을 보여 주므로 도구는 본문만 가진다 */
+body.tool{background:transparent;padding:0 0 40px;}
+body.tool .wrap,
+body.tool .page{max-width:none;margin:0;padding:0;}
+
+/* ---------- 3. 카드 / 패널 ---------- */
+body .card,
+body .panel,
+body .step{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-card);
+  box-shadow:var(--shadow-card);
+  padding:22px 24px;
+  margin-bottom:16px;
+}
+body .card h2,
+body .panel h2{
+  font-size:15px;font-weight:700;letter-spacing:-.01em;
+  text-transform:none;color:var(--text);margin:0 0 6px;
+}
+body .card .sub,
+body .panel .sub,
+body .section-sub,
+body .step-desc{color:var(--text-2);font-size:13px;line-height:1.65;}
+body .card .sub{margin-bottom:16px;}
+
+/* ---------- 4. 버튼 ---------- */
+body .btn,
+body .btn-primary,
+body .btn-secondary,
+body .btn-outline,
+body .btn-ghost,
+body .btn-export,
+body button.run{
+  --b-bg:var(--primary);--b-fg:#fff;--b-bd:var(--primary);--b-bg-h:var(--primary-hover);--b-bd-h:var(--primary-hover);
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-height:40px;padding:0 16px;
+  font-family:inherit;font-size:13.5px;font-weight:600;line-height:1.2;white-space:nowrap;
+  border-radius:var(--radius-btn);
+  background:var(--b-bg);color:var(--b-fg);border:1px solid var(--b-bd);
+  box-shadow:none;text-decoration:none;cursor:pointer;
+  transition:background .15s ease,border-color .15s ease,color .15s ease,transform 60ms ease;
+}
+body .btn:hover:not(:disabled):not(.disabled),
+body .btn-primary:hover:not(:disabled),
+body .btn-secondary:hover:not(:disabled),
+body .btn-outline:hover:not(:disabled),
+body .btn-ghost:hover:not(:disabled),
+body .btn-export:hover:not(:disabled),
+body button.run:hover:not(:disabled){background:var(--b-bg-h);border-color:var(--b-bd-h);color:var(--b-fg-h,var(--b-fg));box-shadow:none;}
+body .btn:active:not(:disabled),
+body .btn-primary:active:not(:disabled),
+body button.run:active:not(:disabled){transform:translateY(1px);}
+body .btn:disabled,body .btn[disabled],body .btn.disabled,
+body .btn-primary:disabled,body .btn-secondary:disabled,body .btn-outline:disabled,
+body .btn-ghost:disabled,body .btn-export:disabled,body button.run:disabled{
+  opacity:.5;cursor:not-allowed;
+}
+/* 보조(연한 파랑) */
+body .btn.outline,
+body .btn-secondary,
+body .btn-outline{--b-bg:var(--primary-tint);--b-fg:var(--primary);--b-bd:transparent;--b-bg-h:var(--primary-tint-strong);--b-bd-h:transparent;}
+/* 낮은 우선순위(테두리) */
+body .btn.ghost,
+body .btn-ghost{--b-bg:var(--surface);--b-fg:var(--text-2);--b-bd:var(--border-strong);--b-bg-h:var(--hover);--b-bd-h:var(--border-strong);--b-fg-h:var(--text);}
+/* 되돌릴 수 없는 동작 */
+body .btn.danger{--b-bg:var(--surface);--b-fg:var(--danger);--b-bd:var(--danger);--b-bg-h:var(--danger-tint);--b-bd-h:var(--danger);}
+/* 내려받기 완료형(초록) */
+body .btn-export{--b-bg:var(--success);--b-fg:#fff;--b-bd:var(--success);--b-bg-h:var(--success);--b-bd-h:var(--success);}
+body .btn-export:hover:not(:disabled){filter:brightness(.93);}
+/* 크기 */
+body .btn.sm{min-height:32px;padding:0 11px;font-size:12.5px;gap:5px;}
+body .btn-lg,body button.run{min-height:46px;font-size:14.5px;}
+body button.run{width:100%;}
+body .btn svg,body button.run svg{flex:none;}
+
+/* 아이콘 단추 */
+body .icon-btn,
+body .btn-icon{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  width:32px;height:32px;min-height:0;padding:0;
+  border-radius:var(--radius-sm);border:1px solid transparent;
+  background:transparent;color:var(--text-2);cursor:pointer;box-shadow:none;
+  transition:background .15s ease,color .15s ease;
+}
+body .icon-btn:hover,body .btn-icon:hover{background:var(--hover);color:var(--text);}
+body .icon-btn.danger:hover{background:var(--danger-tint);color:var(--danger);}
+
+/* ---------- 5. 입력 ---------- */
+body input[type=text],
+body input[type=number],
+body input[type=password],
+body input[type=search],
+body input[type=date],
+body input[type=time],
+body input[type=month],
+body input[type=email],
+body input[type=tel],
+body input:not([type]),
+body select,
+body textarea{
+  font-family:inherit;font-size:13.5px;color:var(--text);
+  background-color:var(--surface);
+  border:1px solid var(--border-strong);
+  border-radius:var(--radius-input);
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+body input::placeholder,body textarea::placeholder{color:var(--text-3);}
+body input:hover:not(:focus):not([readonly]),body select:hover:not(:focus),body textarea:hover:not(:focus){border-color:var(--text-3);}
+body input:focus,body select:focus,body textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint-strong);}
+body input[readonly]{background-color:var(--surface-2);color:var(--text-2);}
+body select{
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat:no-repeat;background-position:right 10px center;background-size:16px;
+  padding-right:32px !important;cursor:pointer;
+}
+body input[type=file]{display:none;}
+body input[type=checkbox],body input[type=radio]{accent-color:var(--primary);}
+body label{color:inherit;}
+
+/* ---------- 6. 표 ---------- */
+body table{border-collapse:collapse;font-variant-numeric:tabular-nums;}
+body th{
+  background:var(--surface-2);color:var(--text-2);
+  font-weight:600;font-size:12px;
+  border-bottom:1px solid var(--border-strong);
+}
+body td{border-color:var(--border);}
+body tbody tr:hover{background:var(--hover);}
+body .tablewrap,
+body .table-scroll,
+body .preview-wrap{
+  border:1px solid var(--border);border-radius:var(--radius-input);background:var(--surface);
+}
+body td input,body td select{background-color:transparent;}
+body td input:focus,body td select:focus{background-color:var(--surface);}
+
+/* ---------- 7. 업로드 영역 ---------- */
+body .dropzone,
+body .drop-zone,
+body .opt-dropzone{
+  border:1.5px dashed var(--border-strong);
+  border-radius:var(--radius-card);
+  background:var(--surface-2);
+  color:var(--text);
+  transition:border-color .15s ease,background .15s ease;
+}
+body .dropzone:hover,body .drop-zone:hover,body .opt-dropzone:hover,
+body .dropzone.drag,body .dropzone.dragover,body .dropzone.active,body .dropzone.hover,
+body .drop-zone.drag,body .drop-zone.dragover,body .opt-dropzone.drag{
+  border-color:var(--primary);background:var(--primary-tint);box-shadow:none;
+}
+
+/* ---------- 8. 안내 / 칩 / 배지 ---------- */
+body .hint,
+body .callout,
+body .note,
+body .tpl-status,
+body .rules-note{
+  background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);
+  border-radius:var(--radius-input);
+}
+body .hint-warn{background:var(--warning-tint);border-color:transparent;color:var(--warning);}
+body .caption,body .small{color:var(--text-3);}
+body .pill,body .opt-badge,body .step-badge,body .step-no{border-radius:999px;}
+body .step-badge,body .step-no{background:var(--primary);color:#fff;}
+body .opt-badge{background:var(--surface-3);color:var(--text-2);}
+body .summary-box,body .summary-card{
+  background:var(--primary-tint);border:1px solid transparent;border-radius:var(--radius-input);
+}
+body .summary-box .label,body .summary-card .lbl{color:var(--text-2);}
+body .summary-box .val,body .summary-card .num{color:var(--primary);}
+body .summary-card.highlight{background:var(--primary);}
+body .summary-card.highlight .num,body .summary-card.highlight .lbl{color:#fff;}
+
+/* ---------- 9. 분할 버튼(세그먼트) ---------- */
+body .typetabs,
+body .segmented{
+  background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-btn);padding:3px;
+}
+body .typebtn,
+body .segmented-option span{color:var(--text-2);border-radius:8px;}
+body .typebtn:hover{background:var(--hover);color:var(--text);}
+body .typebtn.active,
+body .segmented-option input:checked + span{background:var(--surface);color:var(--primary);box-shadow:var(--shadow-card);font-weight:600;}
+
+/* ---------- 10. 모달 · 토스트 · 확대 보기 ----------
+   iframe이 내용 높이만큼 길어지므로, 중앙 정렬을 "보고 있는 화면 영역" 기준으로 잡는다. */
+body .modal-bg,
+body .lightbox{
+  position:fixed;left:0;right:0;inset-inline:0;
+  top:var(--vp-top);bottom:auto;height:var(--vp-h);
+  background:rgba(10,12,18,.5);backdrop-filter:blur(2px);
+}
+body .modal{
+  max-height:calc(var(--vp-h) - 48px);
+  background:var(--surface);color:var(--text);
+  border-radius:var(--radius-modal);box-shadow:var(--shadow-pop);
+}
+body .modal h3{border-bottom:1px solid var(--border);}
+body .modal-actions{border-top:1px solid var(--border);}
+body .toast{
+  top:calc(var(--vp-top) + var(--vp-h) - 76px);bottom:auto;
+  background:var(--text);color:var(--bg);border-radius:var(--radius-btn);box-shadow:var(--shadow-pop);
+}
+
+/* ---------- 11. 진행 표시 ---------- */
+body .progress-track{background:var(--border);border-radius:999px;}
+body .progress-fill{background:var(--primary);}

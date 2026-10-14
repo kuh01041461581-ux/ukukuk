@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>급식비(매식비) 정산 엑셀 생성기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--accent:var(--primary);--accent-hover:var(--primary-hover);--accent-tint:var(--primary-tint);--accent-tint-strong:var(--primary-tint-strong);--ok:var(--success);--ok-tint:var(--success-tint);--warn:var(--danger);--warn-tint:var(--danger-tint);--sun:var(--danger);--sat:var(--primary);--radius-md:var(--radius-btn);--radius-lg:var(--radius-card);--shadow-sm:var(--shadow-card);--shadow-md:var(--shadow-card);--shadow-lg:var(--shadow-card);}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{
+  max-width:900px; margin:0 auto; padding:24px 28px 90px;
+}
+#summarySection{position:relative;}
+.result-placeholder{
+  background:var(--surface-2); border:1.5px dashed var(--border-strong); border-radius:var(--radius-lg);
+  padding:60px 24px; text-align:center; color:var(--text-3); font-size:13.5px;
+}
+#summarySection:not(.hidden) ~ .result-placeholder,
+#step4:not(.hidden) ~ .result-placeholder{display:none;}
+
+header.app-header{
+  /* 상위 셸(AppShell)의 topbar가 동일한 제목/설명 영역을 이미 표시하므로 중복을 없애기 위해 숨김 처리.
+     (JS는 이 요소를 참조하지 않으므로 순수 시각적 변경) */
+  display:none;
+}
+header.app-header .app-icon{
+  flex-shrink:0; width:40px; height:40px; border-radius:11px;
+  background:var(--accent-tint); color:var(--accent);
+  display:flex; align-items:center; justify-content:center;
+}
+header.app-header h1{margin:0 0 6px; font-size:18px; font-weight:700; letter-spacing:-0.01em; color:var(--text);}
+header.app-header p{margin:0; color:var(--text-2); font-size:13.5px; line-height:1.65;}
+header.app-header p b{color:var(--text); font-weight:600;}
+
+.step{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+  padding:24px 26px; margin-bottom:16px; box-shadow:var(--shadow-sm);
+  transition:border-color .15s;
+}
+.step-title{
+  display:flex; align-items:center; gap:11px; font-size:18px; font-weight:700;
+  color:var(--text); margin-bottom:6px; letter-spacing:-0.01em;
+}
+.step-badge{
+  width:24px; height:24px; border-radius:7px; background:var(--accent-tint); color:var(--accent);
+  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0;
+  font-variant-numeric:tabular-nums;
+}
+.step-desc{color:var(--text-2); font-size:13px; margin-bottom:16px; line-height:1.65;}
+.step-desc b{color:var(--text); font-weight:600;}
+
+.drop-zone{
+  border:1.5px dashed var(--border-strong); border-radius:var(--radius-input); padding:24px; text-align:center;
+  background:var(--surface-2); cursor:pointer; transition:.15s ease;
+}
+.drop-zone:hover{background:var(--accent-tint); border-color:var(--accent);}
+.drop-zone.dragover{background:var(--accent-tint-strong); border-color:var(--accent);}
+.drop-zone input{display:none;}
+.drop-zone .dz-title{font-weight:600; color:var(--text); margin-bottom:4px; font-size:13.5px; display:flex; align-items:center; justify-content:center; gap:7px;}
+.drop-zone .dz-sub{font-size:12px; color:var(--text-3);}
+.file-chip{
+  display:inline-flex; align-items:center; gap:7px; background:var(--accent-tint);
+  color:var(--accent-hover); padding:6px 13px; border-radius:20px; font-size:12.5px; font-weight:600; margin-top:12px;
+}
+
+.summary-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:16px;}
+.summary-card{
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-input); padding:14px 16px; text-align:center;
+}
+.summary-card .num{font-size:18px; font-weight:700; color:var(--text); letter-spacing:-0.01em; font-variant-numeric:tabular-nums;}
+.summary-card .lbl{font-size:11px; color:var(--text-3); margin-top:3px;}
+.summary-card.highlight{background:var(--accent-tint); border-color:var(--accent-tint-strong);}
+.summary-card.highlight .num{color:var(--accent);}
+
+table.vendor-table{width:100%; min-width:460px; border-collapse:collapse; margin-top:14px; font-size:13px;}
+table.vendor-table th{
+  color:var(--text-3); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.02em;
+  padding:0 8px 8px; text-align:center; border-bottom:1px solid var(--border);
+}
+table.vendor-table td{padding:6px 6px; border-bottom:1px solid var(--border); text-align:center;}
+table.vendor-table tr:last-child td{border-bottom:none;}
+table.vendor-table input[type=text], table.vendor-table input[type=number]{
+  width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-input); font-size:13px;
+  text-align:center; font-family:inherit; background:var(--surface); transition:border-color .15s ease, box-shadow .15s ease;
+}
+table.vendor-table input[type=text]{text-align:left;}
+table.vendor-table input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint);}
+.row-actions button{
+  border:none; background:none; color:var(--text-3); cursor:pointer; font-size:15px; font-weight:600;
+  width:26px; height:26px; border-radius:7px; transition:.15s ease;
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.row-actions button:hover{color:var(--warn); background:var(--warn-tint);}
+
+.btn{
+  border:1px solid transparent; border-radius:var(--radius-md); padding:0 16px; height:40px; font-size:13.5px; font-weight:600;
+  cursor:pointer; transition:.15s ease; font-family:inherit;
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+}
+.btn-primary{background:var(--accent); color:#fff;}
+.btn-primary:hover{background:var(--accent-hover);}
+.btn-primary:disabled{background:var(--text-3); cursor:not-allowed; box-shadow:none;}
+.btn-outline{background:var(--surface); border-color:var(--border-strong); color:var(--text);}
+.btn-outline:hover{background:var(--surface-2); border-color:var(--text-3);}
+.btn-ghost{background:none; color:var(--text-2); border-color:var(--border);}
+.btn-lg{width:100%; padding:13px; font-size:14.5px; border-radius:var(--radius-md);}
+.toolbar{display:flex; justify-content:space-between; align-items:center; margin-top:14px; gap:10px;}
+
+.total-bar{
+  display:flex; justify-content:space-between; align-items:center; margin-top:14px; flex-wrap:wrap; gap:6px;
+  padding:12px 16px; border-radius:var(--radius-sm); background:var(--surface-2); font-size:13px; font-weight:500;
+  border:1px solid var(--border); color:var(--text-2);
+}
+.total-bar b{color:var(--text); font-weight:700;}
+.total-bar.over{background:var(--warn-tint); border-color:#f6cfcf; color:var(--warn);}
+.total-bar.over b{color:var(--warn);}
+.total-bar.ok{background:var(--ok-tint); border-color:#c9ecd9; color:var(--ok);}
+.total-bar.ok b{color:var(--ok);}
+
+.field-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px;}
+.field{display:flex; flex-direction:column; gap:6px;}
+.field label{font-size:12px; color:var(--text-2); font-weight:600;}
+.field input{
+  padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-input); font-size:13.5px;
+  font-family:inherit; background:var(--surface); transition:border-color .15s ease, box-shadow .15s ease;
+}
+.field input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint);}
+
+.note{font-size:12px; color:var(--text-3); margin-top:10px; line-height:1.7;}
+.note b{color:var(--text-2);}
+.hidden{display:none !important;}
+
+.preview-toggle{
+  color:var(--accent); font-size:12.5px; font-weight:600; cursor:pointer; margin-top:14px; display:inline-block;
+  transition:color .15s ease;
+}
+.preview-toggle:hover{color:var(--accent-hover);}
+.preview-wrap{overflow-x:auto; margin-top:12px; border:1px solid var(--border); border-radius:var(--radius-md); max-height:420px;}
+table.preview-table{border-collapse:collapse; font-size:11px; white-space:nowrap; width:100%;}
+table.preview-table th, table.preview-table td{border-bottom:1px solid var(--border); border-right:1px solid var(--border); padding:5px 7px; text-align:center;}
+table.preview-table th{background:var(--surface-2); color:var(--text-2); position:sticky; top:0; font-weight:600;}
+table.preview-table td.o-mark{color:var(--accent); font-weight:700;}
+table.preview-table th.sun{color:var(--sun);}
+table.preview-table th.sat{color:var(--sat);}
+
+.status-msg{font-size:13px; padding:10px 14px; border-radius:var(--radius-sm); margin-top:12px; border:1px solid transparent; display:flex; align-items:center; gap:8px;}
+.status-msg.error{background:var(--warn-tint); color:var(--warn); border-color:#f6cfcf;}
+.status-msg.success{background:var(--ok-tint); color:var(--ok); border-color:#c9ecd9;}
+
+footer{text-align:center; color:var(--text-3); font-size:11.5px; margin-top:34px;}
+
+@media (max-width:640px){
+  .summary-grid{grid-template-columns:repeat(2,1fr);}
+  .field-grid{grid-template-columns:1fr;}
+  .step{padding:20px 18px;}
+}
+
+
+/* 통합 셸: 제목은 셸 상단에 있으므로 도구 자체 머리말은 숨김 */
+.app-header{display:none;}
+</style>
+<meta name="tool-id" content="meal">
+<!--SUITE:THEME-->
+</head>
+
+<body>
+<div class="wrap">
+
+  <header class="app-header">
+    <div class="app-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v7a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V2"></path><path d="M9 12v10"></path><path d="M17 2c-1.7 0-3 2-3 5s1.3 5 3 5v10"></path></svg></div>
+    <div>
+      <h1>급식비(매식비) 정산 엑셀 생성기</h1>
+      <p>인사랑 프로그램에서 내려받은 <b>초과근무 내역</b> 엑셀을 넣으면, 평일 20시 이후 야간근무자를 자동으로 뽑아
+      <b>급식확인서 · 급식지급 상세내역 · 초과근무내역</b> 3개 시트가 담긴 정산 엑셀을 만들어 드립니다.
+      기존에 쓰던 정산 양식 파일을 함께 올리면 직원 명단과 순서를 그대로 이어받고, 급식처에 입력한 실제 급식인원 수에 맞춰 O표시를 날짜별로 적당히 나눠 배분합니다.</p>
+    </div>
+  </header>
+
+  <!-- STEP 1 : template upload (optional) -->
+  <div class="step" id="stepTemplate">
+    <div class="step-title"><span class="step-badge">1</span>기존양식 파일 업로드 <span style="font-size:12.5px;color:var(--text-3);font-weight:500;">(선택)</span></div>
+    <div class="step-desc">이전 달에 쓰던 <b>급식비 지급내역</b> 정산 엑셀(.xls / .xlsx)을 올리면 "급식지급 상세내역" 시트의 <b>직원 명단과 순서</b>를 그대로 이어받습니다. 올리지 않으면 아래 초과근무 내역에서 발견되는 순서대로 직원 명단이 작성됩니다.</div>
+    <div class="drop-zone" id="dropZoneTemplate">
+      <input type="file" id="fileInputTemplate" accept=".xls,.xlsx">
+      <div class="dz-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.9A5 5 0 0 1 7 6a5.5 5.5 0 0 1 10.3-1.5A4.5 4.5 0 0 1 18 13"></path><path d="M12 12v9"></path><path d="M9 16l3-3 3 3"></path></svg> 클릭하거나 파일을 여기로 끌어다 놓으세요</div>
+      <div class="dz-sub">.xls / .xlsx 파일 지원 · 선택 사항</div>
+      <div id="fileChipTemplate"></div>
+    </div>
+    <div id="templateStatus"></div>
+  </div>
+
+  <!-- STEP 2 : upload -->
+  <div class="step" id="stepUpload">
+    <div class="step-title"><span class="step-badge">2</span>초과근무 내역 엑셀 업로드</div>
+    <div class="step-desc">인사랑에서 다운로드한 "초과근무 내역" 엑셀 파일(.xls / .xlsx)을 올려주세요. No, 근무일자, 부서, 직급, 성명, 휴일구분, 출근(실제), 퇴근(실제), 총초과(분), 근무내역 컬럼을 자동으로 찾아 분석합니다.</div>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".xls,.xlsx">
+      <div class="dz-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.9A5 5 0 0 1 7 6a5.5 5.5 0 0 1 10.3-1.5A4.5 4.5 0 0 1 18 13"></path><path d="M12 12v9"></path><path d="M9 16l3-3 3 3"></path></svg> 클릭하거나 파일을 여기로 끌어다 놓으세요</div>
+      <div class="dz-sub">.xls / .xlsx 파일 지원</div>
+      <div id="fileChip"></div>
+    </div>
+    <div id="uploadStatus"></div>
+  </div>
+
+  <!-- 결과: 인식 요약 · 미리보기 (파일 업로드 후 표시) -->
+  <div id="summarySection" class="hidden step result-step">
+    <div class="step-title"><span class="step-badge">✓</span>인식 결과</div>
+    <div class="summary-grid">
+      <div class="summary-card"><div class="num" id="sumYm">-</div><div class="lbl">대상 연월</div></div>
+      <div class="summary-card"><div class="num" id="sumRecords">-</div><div class="lbl">총 초과근무 기록</div></div>
+      <div class="summary-card"><div class="num" id="sumEmployees">-</div><div class="lbl">전체 직원 수</div></div>
+      <div class="summary-card highlight"><div class="num" id="sumMax">-</div><div class="lbl">최대 급식 가능 인원(끼)</div></div>
+    </div>
+    <div class="note">최대 급식 가능 인원은 <b>휴일구분 = 평일</b> 이면서 <b>퇴근(실제)가 20:00 이후</b>인 날의 (직원×일자) 조합 수입니다. 실제로 O표시가 들어가는 인원은 급식처별로 입력한 <b>급식인원 합계</b>만큼만, 날짜별로 적당히 나눠 배분됩니다.</div>
+    <span class="preview-toggle" id="togglePreview">▸ 급식지급 상세내역 미리보기 열기</span>
+    <div class="note" id="previewNote"></div>
+    <div class="preview-wrap hidden" id="previewWrap"></div>
+  </div>
+
+  <!-- STEP 3 : vendors -->
+  <div class="step hidden" id="step2">
+    <div class="step-title"><span class="step-badge">3</span>급식처 · 급식인원 입력</div>
+    <div class="step-desc">식사를 제공한 급식처(식당)와 인원을 나눠서 입력하세요. 지급액은 인원 × 9,000원으로 자동 계산됩니다. 여기에 입력한 <b>급식인원 합계</b>만큼만 급식지급 상세내역 시트에 O표시가 들어가며, 최대 가능 인원을 모두 채우지 않고 날짜별로 적당히 나눠서 배분됩니다.</div>
+    <div style="overflow-x:auto;">
+    <table class="vendor-table">
+      <thead><tr><th style="width:44px;">연번</th><th>급식처</th><th style="width:110px;">급식인원</th><th style="width:90px;">단가</th><th style="width:120px;">지급액</th><th style="width:50px;"></th></tr></thead>
+      <tbody id="vendorBody"></tbody>
+    </table>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-outline" id="addVendorBtn">+ 급식처 추가</button>
+      <div style="font-size:13px;color:var(--text-3);">단가: 9,000원 (고정)</div>
+    </div>
+    <div class="total-bar" id="totalBar"></div>
+  </div>
+
+  <!-- STEP 3 : signer -->
+  <div class="step hidden" id="step3">
+    <div class="step-title"><span class="step-badge">4</span>확인자 정보 (선택)</div>
+    <div class="step-desc">급식확인서 하단에 표시될 확인자 직급/성명입니다. 비워두면 공란으로 출력됩니다.</div>
+    <div class="field-grid">
+      <div class="field"><label>확인자 직급</label><input type="text" id="officerRank" placeholder="예) 행정6급"></div>
+      <div class="field"><label>확인자 성명</label><input type="text" id="officerName" placeholder="예) 홍 길 동"></div>
+    </div>
+  </div>
+
+  <!-- STEP 4 : generate -->
+  <div class="step hidden result-step" id="step4">
+    <div class="step-title"><span class="step-badge">5</span>정산 엑셀 생성</div>
+    <div class="step-desc">아래 버튼을 누르면 <b>급식확인서 / 급식지급 상세내역 / 초과근무내역</b> 3개 시트가 포함된 엑셀 파일이 다운로드됩니다.</div>
+    <button class="btn btn-primary btn-lg" id="generateBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg> 정산 엑셀 다운로드</button>
+    <div id="generateStatus"></div>
+  </div>
+
+  <div class="result-placeholder">엑셀 파일을 업로드하면 여기에 인식 결과와 다운로드 버튼이 표시됩니다.</div>
+
+  <footer>업로드한 파일은 브라우저 안에서만 처리되며 서버로 전송되지 않습니다.</footer>
+</div>
+
+<script>
+/* ============================================================
+   상태
+============================================================ */
+const state = {
+  records: [], allEmployees: [], mealQualify: {}, rawHolidaySet: new Set(),
+  year: null, month: null, daysInMonth: null, maxMealCount: 0,
+  vendors: [],
+  templateEmployees: null, // 기존양식 파일에서 읽어온 직원 명단(순서 포함), 없으면 null
+  masterEmployees: [],     // 시트2에 실제로 출력할 직원 명단(순서 포함)
+};
+
+/* ============================================================
+   1) 업로드 & 파싱
+============================================================ */
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+['dragover','dragleave','drop'].forEach(evt=>{
+  dropZone.addEventListener(evt, e=>{
+    e.preventDefault();
+    if(evt==='dragover') dropZone.classList.add('dragover');
+    else dropZone.classList.remove('dragover');
+  });
+});
+dropZone.addEventListener('drop', e=>{
+  if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e=>{
+  if(e.target.files.length) handleFile(e.target.files[0]);
+});
+
+function showStatus(elId, msg, type){
+  const el = document.getElementById(elId);
+  el.innerHTML = `<div class="status-msg ${type}">${msg}</div>`;
+}
+
+function handleFile(file){
+  document.getElementById('fileChip').innerHTML = `<span class="file-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> ${file.name}</span>`;
+  document.getElementById('uploadStatus').innerHTML = '';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array', cellDates:true});
+      parseOvertimeWorkbook(wb);
+    }catch(err){
+      console.error(err);
+      showStatus('uploadStatus', '파일을 읽는 중 오류가 발생했습니다: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ------------------------------------------------------------
+   기존양식 파일 업로드 (선택) : 직원 명단/순서 추출
+------------------------------------------------------------ */
+const dropZoneTemplate = document.getElementById('dropZoneTemplate');
+const fileInputTemplate = document.getElementById('fileInputTemplate');
+
+dropZoneTemplate.addEventListener('click', () => fileInputTemplate.click());
+['dragover','dragleave','drop'].forEach(evt=>{
+  dropZoneTemplate.addEventListener(evt, e=>{
+    e.preventDefault();
+    if(evt==='dragover') dropZoneTemplate.classList.add('dragover');
+    else dropZoneTemplate.classList.remove('dragover');
+  });
+});
+dropZoneTemplate.addEventListener('drop', e=>{
+  if(e.dataTransfer.files.length) handleTemplateFile(e.dataTransfer.files[0]);
+});
+fileInputTemplate.addEventListener('change', e=>{
+  if(e.target.files.length) handleTemplateFile(e.target.files[0]);
+});
+
+function handleTemplateFile(file){
+  document.getElementById('fileChipTemplate').innerHTML = `<span class="file-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> ${file.name}</span>`;
+  document.getElementById('templateStatus').innerHTML = '';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array', cellDates:true});
+      const names = parseTemplateWorkbook(wb);
+      if (!names || names.length === 0){
+        state.templateEmployees = null;
+        showStatus('templateStatus', '기존양식에서 "급식지급 상세내역" 시트의 직원 명단을 찾지 못했습니다. 초과근무 내역 기준 순서로 작성됩니다.', 'error');
+      } else {
+        state.templateEmployees = names;
+        showStatus('templateStatus', `기존양식에서 직원 ${names.length}명의 명단/순서를 불러왔습니다.`, 'success');
+      }
+      updateMasterEmployees();
+    }catch(err){
+      console.error(err);
+      state.templateEmployees = null;
+      showStatus('templateStatus', '기존양식 파일을 읽는 중 오류가 발생했습니다: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseTemplateWorkbook(wb){
+  const sheetName = wb.SheetNames.find(n => n.includes('급식지급')) ||
+                     wb.SheetNames.find(n => n.includes('상세내역')) ||
+                     wb.SheetNames[1] || wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return null;
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+
+  let headerRowIdx = -1;
+  for (let i=0;i<Math.min(15,rows.length);i++){
+    if (rows[i].some(c => String(c).trim()==='성명')) { headerRowIdx = i; break; }
+  }
+  if (headerRowIdx === -1) return null;
+  const header = rows[headerRowIdx].map(c=>String(c).trim());
+  const nameCol = header.indexOf('성명');
+  if (nameCol === -1) return null;
+
+  const names = [];
+  const seen = new Set();
+  for (let i=headerRowIdx+1;i<rows.length;i++){
+    const r = rows[i];
+    if (!r) continue;
+    const sn = r[0];
+    const snNum = parseFloat(sn);
+    const nm = String(r[nameCol]||'').trim();
+    // 연번(첫 칸)이 숫자이고 성명이 있는 행만 실제 직원 데이터로 인정 (계/합계 행은 건너뜀)
+    if (!isNaN(snNum) && nm && !seen.has(nm)){
+      names.push(nm);
+      seen.add(nm);
+    }
+  }
+  return names;
+}
+
+/* masterEmployees(시트2 출력용 직원 명단) 갱신 : 기존양식 명단을 우선하고,
+   초과근무 내역에만 있는 직원은 뒤에 이어붙인다 */
+function updateMasterEmployees(){
+  if (!state.allEmployees || state.allEmployees.length === 0){
+    state.masterEmployees = state.templateEmployees ? state.templateEmployees.slice() : [];
+    return;
+  }
+  let master;
+  if (state.templateEmployees && state.templateEmployees.length){
+    master = state.templateEmployees.slice();
+    state.allEmployees.forEach(n => { if (!master.includes(n)) master.push(n); });
+  } else {
+    master = state.allEmployees.slice();
+  }
+  state.masterEmployees = master;
+  if (state.year){ renderSummary(); refreshPreviewLive(); }
+}
+
+function parseOvertimeWorkbook(wb){
+  const sheetName = wb.SheetNames.find(n => n.includes('초과근무')) || wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+
+  let headerRowIdx = -1;
+  for (let i=0;i<Math.min(10,rows.length);i++){
+    if (rows[i].some(c => String(c).trim()==='근무일자')) { headerRowIdx = i; break; }
+  }
+  if (headerRowIdx === -1){
+    showStatus('uploadStatus', '"근무일자" 컬럼을 찾을 수 없습니다. 인사랑에서 내려받은 초과근무 내역 엑셀이 맞는지 확인해주세요.', 'error');
+    return;
+  }
+  const header = rows[headerRowIdx].map(c=>String(c).trim());
+  const findCol = (name) => header.indexOf(name);
+  const col = {
+    no: findCol('No.'), date: findCol('근무일자'), dept: findCol('부서'), rank: findCol('직급'),
+    name: findCol('성명'), holiday: findCol('휴일구분'), checkin: findCol('출근(실제)'),
+    checkout: findCol('퇴근(실제)'), otmin: findCol('총초과(분)'), detail: findCol('근무내역'),
+  };
+  const required = ['date','name','holiday','checkout'];
+  const missing = required.filter(k => col[k] === -1);
+  if (missing.length){
+    showStatus('uploadStatus', '필수 컬럼이 누락되었습니다: ' + missing.join(', '), 'error');
+    return;
+  }
+
+  function parseDate(v){
+    if (v instanceof Date) return {y:v.getFullYear(), m:v.getMonth()+1, d:v.getDate()};
+    const s = String(v).trim();
+    let mm = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (mm) return {y:+mm[1], m:+mm[2], d:+mm[3]};
+    mm = s.match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})/);
+    if (mm) return {y:+mm[1], m:+mm[2], d:+mm[3]};
+    return null;
+  }
+  function parseTimeMinutes(v){
+    if (v instanceof Date) return v.getHours()*60 + v.getMinutes();
+    if (typeof v === 'number'){ const frac = v % 1; return Math.round(frac*24*60); }
+    const s = String(v).trim();
+    const mm = s.match(/^(\d{1,2}):(\d{2})/);
+    if (mm) return (+mm[1])*60 + (+mm[2]);
+    return null;
+  }
+
+  const records = [];
+  for (let i=headerRowIdx+1;i<rows.length;i++){
+    const r = rows[i];
+    if (!r || r.length===0) continue;
+    const nameV = r[col.name], dateV = r[col.date];
+    if (!nameV || !dateV) continue;
+    const d = parseDate(dateV);
+    if (!d) continue;
+    records.push({
+      no: r[col.no], y:d.y, m:d.m, d:d.d,
+      dateStr: `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`,
+      dept: col.dept>-1 ? r[col.dept] : '', rank: col.rank>-1 ? r[col.rank] : '',
+      name: String(nameV).trim(), holiday: String(r[col.holiday]).trim(),
+      checkin: col.checkin>-1 ? r[col.checkin] : '', checkout: r[col.checkout],
+      checkoutMin: parseTimeMinutes(r[col.checkout]),
+      otmin: col.otmin>-1 ? r[col.otmin] : '', detail: col.detail>-1 ? r[col.detail] : '',
+    });
+  }
+  if (records.length === 0){
+    showStatus('uploadStatus', '유효한 데이터 행을 찾지 못했습니다.', 'error');
+    return;
+  }
+
+  // 연/월 감지 (가장 많이 등장하는 연-월)
+  const freq = {};
+  records.forEach(rec=>{ const k = `${rec.y}-${rec.m}`; freq[k]=(freq[k]||0)+1; });
+  const [ym] = Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+  const [year, month] = ym[0].split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  // 급식 대상 판정: 휴일구분=평일 & 퇴근(실제)>=20:00
+  const mealQualify = {};
+  records.forEach(rec=>{
+    if (rec.holiday === '평일' && rec.checkoutMin !== null && rec.checkoutMin >= 20*60){
+      if (!mealQualify[rec.name]) mealQualify[rec.name] = new Set();
+      mealQualify[rec.name].add(rec.dateStr);
+    }
+  });
+
+  const allEmployees = [];
+  const seen = new Set();
+  records.forEach(rec=>{ if(!seen.has(rec.name)){ seen.add(rec.name); allEmployees.push(rec.name); } });
+
+  const rawHolidaySet = new Set();
+  records.forEach(rec=>{ if (rec.holiday === '휴일') rawHolidaySet.add(rec.dateStr); });
+
+  let maxMealCount = 0;
+  Object.values(mealQualify).forEach(s=> maxMealCount += s.size);
+
+  // 상태 저장
+  state.records = records;
+  state.allEmployees = allEmployees;
+  state.mealQualify = mealQualify;
+  state.rawHolidaySet = rawHolidaySet;
+  state.year = year; state.month = month; state.daysInMonth = daysInMonth;
+  state.maxMealCount = maxMealCount;
+  state.vendors = [{name:'', count:0}];
+  updateMasterEmployees();
+
+  renderSummary();
+  renderPreview();
+  renderVendors();
+  document.getElementById('summarySection').classList.remove('hidden');
+  document.getElementById('step2').classList.remove('hidden');
+  document.getElementById('step3').classList.remove('hidden');
+  document.getElementById('step4').classList.remove('hidden');
+  showStatus('uploadStatus', `분석 완료: ${records.length}건 중 ${maxMealCount}건이 급식 지급 대상입니다.`, 'success');
+}
+
+function renderSummary(){
+  document.getElementById('sumYm').textContent = `${state.year}.${state.month}`;
+  document.getElementById('sumRecords').textContent = state.records.length + '건';
+  document.getElementById('sumEmployees').textContent = (state.masterEmployees.length || state.allEmployees.length) + '명';
+  document.getElementById('sumMax').textContent = state.maxMealCount + '끼';
+}
+
+/* ============================================================
+   미리보기 (상세내역 매트릭스)
+============================================================ */
+function weekday(y,m,d){ return new Date(Date.UTC(y,m-1,d)).getUTCDay(); }
+function isRedDay(day){
+  const wd = weekday(state.year, state.month, day);
+  const dateStr = `${state.year}-${String(state.month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  return wd===0 || (wd!==6 && state.rawHolidaySet.has(dateStr));
+}
+function isBlueDay(day){
+  return weekday(state.year, state.month, day) === 6;
+}
+
+document.getElementById('togglePreview').addEventListener('click', ()=>{
+  const wrap = document.getElementById('previewWrap');
+  const toggle = document.getElementById('togglePreview');
+  wrap.classList.toggle('hidden');
+  toggle.textContent = wrap.classList.contains('hidden') ? '▸ 급식지급 상세내역 미리보기 열기' : '▾ 미리보기 닫기';
+});
+
+/* ============================================================
+   급식인원 날짜별 배분
+   - mealQualify(휴일구분=평일 & 20시 이후 퇴근)로 "가능한" 인원 슬롯을 모은 뒤,
+   - 급식처에 입력한 급식인원 합계(target)만큼만 골라서 O 표시한다.
+   - 날짜별 가능 인원수에 비례해서(최대잔여법) 나누고, 같은 사람에게 몰리지 않도록
+     "지금까지 가장 적게 배정된 사람"을 우선 선택해 최대한 여러 명에게 고르게 나눈다.
+============================================================ */
+function allocateMealSlots(target){
+  const dateMap = {}; // dateStr -> [name, ...] (그 날짜에 급식 가능한 직원들)
+  Object.entries(state.mealQualify).forEach(([name, set])=>{
+    set.forEach(dateStr=>{
+      if (!dateMap[dateStr]) dateMap[dateStr] = [];
+      dateMap[dateStr].push(name);
+    });
+  });
+  const dates = Object.keys(dateMap).sort();
+  const totalCapacity = dates.reduce((a,d)=>a+dateMap[d].length, 0);
+  const goal = Math.max(0, Math.min(target||0, totalCapacity));
+
+  const plan = dates.map(d => ({date:d, cap:dateMap[d].length, alloc:0, frac:0}));
+  if (goal > 0 && totalCapacity > 0){
+    plan.forEach(p=>{
+      const exact = goal * p.cap / totalCapacity;
+      p.alloc = Math.floor(exact);
+      p.frac = exact - p.alloc;
+    });
+    let remainder = goal - plan.reduce((a,p)=>a+p.alloc, 0);
+    const byFrac = [...plan].sort((a,b)=> b.frac - a.frac);
+    let guard = 0;
+    while (remainder > 0 && guard < byFrac.length*4 + 20){
+      const p = byFrac[guard % byFrac.length];
+      if (p.alloc < p.cap){ p.alloc++; remainder--; }
+      guard++;
+    }
+  }
+
+  const order = state.masterEmployees && state.masterEmployees.length ? state.masterEmployees : state.allEmployees;
+  const rankOf = {};
+  order.forEach((n,i)=>{ rankOf[n] = i; });
+
+  // 날짜가 이른 순으로 처리하면서, 그때까지 배정 횟수가 가장 적은 사람부터 뽑는다.
+  // -> 특정 한두 명에게 몰리지 않고 최대한 많은 인원에게 고르게 분산되며,
+  //    같은 사람이 여러 날짜에 겹치더라도 자연스럽게 최소한으로 억제된다.
+  const usageCount = {}; // name -> 지금까지 배정된 날짜 수
+  const selected = {};   // name -> Set(dateStr)
+  plan.forEach(p=>{
+    if (p.alloc <= 0) return;
+    const candidates = dateMap[p.date].slice().sort((a,b)=>{
+      const ua = usageCount[a]||0, ub = usageCount[b]||0;
+      if (ua !== ub) return ua - ub;                 // 적게 배정된 사람 우선
+      return (rankOf[a]??999999) - (rankOf[b]??999999); // 동률이면 명단 순서로 결정
+    });
+    candidates.slice(0, p.alloc).forEach(n=>{
+      if (!selected[n]) selected[n] = new Set();
+      selected[n].add(p.date);
+      usageCount[n] = (usageCount[n]||0) + 1;
+    });
+  });
+  return selected;
+}
+
+function currentVendorTotal(){
+  return state.vendors.reduce((a,v)=>a+(v.count||0), 0);
+}
+
+function refreshPreviewLive(){
+  if (!state.year) return;
+  renderPreview();
+}
+
+function renderPreview(){
+  const days = state.daysInMonth;
+  const target = currentVendorTotal();
+  const finalQualify = allocateMealSlots(target);
+  const employees = state.masterEmployees && state.masterEmployees.length ? state.masterEmployees : state.allEmployees;
+
+  let html = '<table class="preview-table"><thead><tr><th>연번</th><th>성명</th><th>계</th>';
+  for(let d=1; d<=days; d++){
+    const cls = isRedDay(d) ? 'sun' : (isBlueDay(d) ? 'sat' : '');
+    html += `<th class="${cls}">${d}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+  employees.forEach((emp, idx)=>{
+    const qualSet = finalQualify[emp] || new Set();
+    html += `<tr><td>${idx+1}</td><td>${emp}</td><td>${qualSet.size}</td>`;
+    for(let d=1; d<=days; d++){
+      const dateStr = `${state.year}-${String(state.month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      html += qualSet.has(dateStr) ? '<td class="o-mark">O</td>' : '<td></td>';
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('previewWrap').innerHTML = html;
+
+  const noteTarget = target > 0 ? `현재 입력된 급식인원 합계 <b>${target}명</b> 기준으로 배분된 미리보기입니다.` : `급식처 단계에서 급식인원을 입력하면 그 인원수만큼 날짜별로 배분된 O표시를 미리 볼 수 있습니다.`;
+  const prevNote = document.getElementById('previewNote');
+  if (prevNote) prevNote.innerHTML = noteTarget;
+}
+
+/* ============================================================
+   2) 급식처 입력
+============================================================ */
+function renderVendors(){
+  const body = document.getElementById('vendorBody');
+  body.innerHTML = '';
+  state.vendors.forEach((v, idx)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${idx+1}</td>
+      <td><input type="text" data-idx="${idx}" class="vendor-name" placeholder="예) 원광반점" value="${v.name||''}"></td>
+      <td><input type="number" min="0" data-idx="${idx}" class="vendor-count" value="${v.count||''}"></td>
+      <td>9,000원</td>
+      <td class="vendor-amount">${((v.count||0)*9000).toLocaleString()}원</td>
+      <td class="row-actions">${state.vendors.length>1 ? `<button data-idx="${idx}" class="removeVendor"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>` : ''}</td>
+    `;
+    body.appendChild(tr);
+  });
+  body.querySelectorAll('.vendor-name').forEach(inp=>{
+    inp.addEventListener('input', e=>{ state.vendors[+e.target.dataset.idx].name = e.target.value; updateTotalBar(); });
+  });
+  body.querySelectorAll('.vendor-count').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const idx = +e.target.dataset.idx;
+      state.vendors[idx].count = Math.max(0, parseInt(e.target.value)||0);
+      const tr = body.children[idx];
+      if (tr){
+        const amountCell = tr.querySelector('.vendor-amount');
+        if (amountCell) amountCell.textContent = (state.vendors[idx].count*9000).toLocaleString()+'원';
+      }
+      updateTotalBar();
+    });
+  });
+  body.querySelectorAll('.removeVendor').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      state.vendors.splice(+e.target.dataset.idx, 1);
+      renderVendors();
+    });
+  });
+  updateTotalBar();
+}
+
+document.getElementById('addVendorBtn').addEventListener('click', ()=>{
+  state.vendors.push({name:'', count:0});
+  renderVendors();
+});
+
+function updateTotalBar(){
+  const totalCount = state.vendors.reduce((a,v)=>a+(v.count||0),0);
+  const totalAmount = totalCount*9000;
+  const bar = document.getElementById('totalBar');
+  const diff = state.maxMealCount - totalCount;
+  let msg = `입력한 급식인원 합계: <b>${totalCount}명</b> · 지급액 합계: <b>${totalAmount.toLocaleString()}원</b> · 최대 가능: ${state.maxMealCount}명`;
+  if (diff < 0){
+    bar.className = 'total-bar over';
+    msg += ` &nbsp;최대치보다 <b>${-diff}명</b> 초과했습니다.`;
+  } else {
+    bar.className = 'total-bar ok';
+    msg += ` &nbsp;(남음 ${diff}명)`;
+  }
+  bar.innerHTML = msg;
+  schedulePreviewRefresh();
+}
+
+let previewDebounceTimer = null;
+function schedulePreviewRefresh(){
+  if (previewDebounceTimer) clearTimeout(previewDebounceTimer);
+  previewDebounceTimer = setTimeout(refreshPreviewLive, 250);
+}
+
+/* ============================================================
+   4) 엑셀 생성
+============================================================ */
+function colLetter(n){
+  let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s;
+}
+
+document.getElementById('generateBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('generateBtn');
+  const vendors = state.vendors.filter(v => v.name && v.count > 0);
+  if (vendors.length === 0){
+    showStatus('generateStatus', '급식처와 인원을 최소 1건 이상 입력해주세요.', 'error');
+    return;
+  }
+  btn.disabled = true; btn.textContent = '생성 중...';
+  try{
+    const buf = await buildWorkbook(vendors);
+    const blob = new Blob([buf], {type:'application/octet-stream'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.year}. ${state.month}월 급식비 지급내역.xlsx`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showStatus('generateStatus', '엑셀 파일이 다운로드되었습니다.', 'success');
+  }catch(err){
+    console.error(err);
+    showStatus('generateStatus', '엑셀 생성 중 오류: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false; btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg> 정산 엑셀 다운로드';
+  }
+});
+
+async function buildWorkbook(vendors){
+  const { year, month, daysInMonth, records } = state;
+  const vendorTotal = vendors.reduce((a,v)=>a+(v.count||0), 0);
+  const mealQualify = allocateMealSlots(vendorTotal); // 실제 지급 인원수만큼 날짜별로 배분된 O표시
+  const allEmployees = state.masterEmployees && state.masterEmployees.length ? state.masterEmployees : state.allEmployees;
+  const wb = new ExcelJS.Workbook();
+  wb.creator = '급식비 정산 생성기';
+
+  /* ---------- Sheet1 : 급식확인서 ---------- */
+  const ws1 = wb.addWorksheet('급식확인서', {views:[{showGridLines:false, view:'pageBreakPreview'}]});
+  ws1.columns = [{width:5.11},{width:20.34},{width:20.52},{width:9.99},{width:5.99},{width:14.87},{width:15.99},{width:0.76}];
+  ws1.getRow(1).height = 4.5;
+
+  ws1.mergeCells('A2:G2');
+  const t1 = ws1.getCell('A2');
+  t1.value = `${year}년 ${month}월 급식확인서`;
+  t1.font = {name:'맑은 고딕', size:20, bold:true};
+  t1.alignment = {horizontal:'center', vertical:'center'};
+  ws1.getRow(2).height = 28.5;
+
+  ws1.getCell('G3').value = '(단위 : 명/원)';
+  ws1.getCell('G3').font = {name:'맑은 고딕', size:12};
+  ws1.getCell('G3').alignment = {horizontal:'right', vertical:'center'};
+  ws1.getRow(3).height = 27;
+
+  const headers1 = ['연번','기간','급식처','급식인원','단가','지급액','비고'];
+  const hRow = ws1.getRow(4);
+  headers1.forEach((h,i)=>{
+    const c = hRow.getCell(i+1);
+    c.value = h;
+    c.font = {name:'맑은 고딕', size:12, bold:true};
+    c.alignment = {horizontal:'center', vertical:'center'};
+    c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFFFF99'}};
+    c.border = {top:{style:'medium'}, bottom:{style:'double'}, left:{style:i===0?'medium':'thin'}, right:{style:i===6?'medium':'thin'}};
+  });
+  hRow.height = 35.1;
+
+  const vendorCount = vendors.length;
+  const lastDataRow = 5 + vendorCount;
+  const tRow = ws1.getRow(5);
+  const totalsVals = ['','계',{f:`COUNTA(C6:C${lastDataRow})`},{f:`SUM(D6:D${lastDataRow})`},'',{f:`SUM(F6:F${lastDataRow})`},''];
+  totalsVals.forEach((v,i)=>{
+    const c = tRow.getCell(i+1);
+    c.value = (v && v.f) ? {formula:v.f} : v;
+    c.font = {name:'맑은 고딕', size:12, bold:true};
+    c.alignment = {horizontal: i===5?'right':'center', vertical:'center'};
+    c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFCCFFFF'}};
+    c.border = {top:{style:'double'}, bottom:{style:'medium'}, left:{style:i===0?'medium':'thin'}, right:{style:i===6?'medium':'thin'}};
+  });
+  tRow.height = 35.1;
+
+  vendors.forEach((v, idx)=>{
+    const r = 6+idx;
+    const row = ws1.getRow(r);
+    const vals = [idx+1, `${year}.${month}.`, v.name, v.count, 9000, {f:`D${r}*9000`}, ''];
+    vals.forEach((val,i)=>{
+      const c = row.getCell(i+1);
+      c.value = (val && val.f) ? {formula:val.f} : val;
+      c.font = {name:'맑은 고딕', size:12};
+      c.alignment = {horizontal: i===5?'right':'center', vertical:'center'};
+      const isLast = idx === vendorCount-1;
+      c.border = {top:{style:'thin'}, bottom:{style: isLast?'medium':'thin'}, left:{style:i===0?'medium':'thin'}, right:{style:i===6?'medium':'thin'}};
+    });
+    row.height = 35.1;
+  });
+
+  let r = 6+vendorCount;
+  const noteRow = r+1;
+  ws1.mergeCells(`A${noteRow}:G${noteRow}`);
+  const noteCell = ws1.getCell(`A${noteRow}`);
+  noteCell.value = '상기와 같이 식사를 제공하였음을 확인함.';
+  noteCell.font = {name:'맑은 고딕', size:14};
+  noteCell.alignment = {horizontal:'right', vertical:'center'};
+  ws1.getRow(noteRow).height = 24.75;
+
+  const dateRow = noteRow+2;
+  ws1.mergeCells(`B${dateRow}:G${dateRow}`);
+  ws1.getCell(`B${dateRow}`).value = `${year}.  ${month}.     .`;
+  ws1.getCell(`B${dateRow}`).font = {name:'맑은 고딕', size:14};
+  ws1.getCell(`B${dateRow}`).alignment = {horizontal:'center', vertical:'center'};
+  ws1.getRow(dateRow).height = 24.75;
+
+  const confirmerRow = dateRow+1;
+  ws1.mergeCells(`B${confirmerRow}:G${confirmerRow}`);
+  ws1.getCell(`B${confirmerRow}`).value = '확인자 : 일상경비출납원';
+  ws1.getCell(`B${confirmerRow}`).font = {name:'맑은 고딕', size:14};
+  ws1.getCell(`B${confirmerRow}`).alignment = {horizontal:'right', vertical:'center'};
+  ws1.getRow(confirmerRow).height = 29.25;
+
+  const officerRank = document.getElementById('officerRank').value.trim();
+  const officerName = document.getElementById('officerName').value.trim();
+  const signRow = confirmerRow+1;
+  ws1.mergeCells(`B${signRow}:G${signRow}`);
+  ws1.getCell(`B${signRow}`).value = ` ${officerRank} ${officerName} (인)`;
+  ws1.getCell(`B${signRow}`).font = {name:'맑은 고딕', size:14};
+  ws1.getCell(`B${signRow}`).alignment = {horizontal:'right', vertical:'center'};
+  ws1.getRow(signRow).height = 31.5;
+
+  /* ---------- Sheet2 : 급식지급 상세내역 ---------- */
+  const ws2 = wb.addWorksheet('급식지급 상세내역', {views:[{showGridLines:false, view:'pageBreakPreview'}]});
+  const firstDayCol = 4, lastDayCol = firstDayCol + daysInMonth - 1;
+  const totalCol = lastDayCol + 1, checkCol = totalCol + 1;
+
+  ws2.getColumn(1).width = 3.76;
+  ws2.getColumn(2).width = 8.5;
+  ws2.getColumn(3).width = 5.2;
+  for (let c=firstDayCol; c<=lastDayCol; c++) ws2.getColumn(c).width = 3.3;
+  ws2.getColumn(totalCol).width = 5.2;
+  ws2.getColumn(checkCol).width = 9;
+
+  ws2.mergeCells(1,1,2,lastDayCol);
+  const t2 = ws2.getCell(1,1);
+  t2.value = `${year}년 ${month}월 급식지급 상세내역`;
+  t2.font = {name:'맑은 고딕', size:16, bold:true};
+  t2.alignment = {horizontal:'center', vertical:'center'};
+  ws2.getRow(1).height = 26.25;
+  ws2.getRow(2).height = 14.25;
+
+  const row3 = ws2.getRow(3);
+  row3.height = 39;
+  row3.getCell(1).value = '연번';
+  row3.getCell(2).value = '성명';
+  row3.getCell(3).value = '일자\n계';
+  for (let day=1; day<=daysInMonth; day++){
+    const cell = row3.getCell(firstDayCol+day-1);
+    cell.value = day;
+    let color = null;
+    if (isRedDay(day)) color = 'FFFF0000';
+    else if (isBlueDay(day)) color = 'FF0000FF';
+    cell.font = {name:'맑은 고딕', size:9, bold:true, color: color?{argb:color}:undefined};
+  }
+  for (let c=1; c<=lastDayCol; c++){
+    const cell = row3.getCell(c);
+    if (!cell.font) cell.font = {name:'맑은 고딕', size:9, bold:true};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFCCFFFF'}};
+    cell.alignment = {horizontal:'center', vertical:'center', wrapText: c===3};
+    cell.border = {top:{style:'medium'}, bottom:{style:'double'}, left:{style:c===1?'medium':'thin'}, right:{style:'thin'}};
+  }
+
+  const employees = allEmployees;
+  const lastEmployeeRow = 4 + employees.length;
+  const row4 = ws2.getRow(4);
+  row4.height = 27.75;
+  row4.getCell(1).value = '';
+  row4.getCell(2).value = {formula:`COUNTA(B5:B${lastEmployeeRow})&"명"`};
+  row4.getCell(3).value = {formula:`SUM(C5:C${lastEmployeeRow})`};
+  for (let day=1; day<=daysInMonth; day++){
+    const c = firstDayCol+day-1;
+    const L = colLetter(c);
+    row4.getCell(c).value = {formula:`COUNTIF(${L}5:${L}${lastEmployeeRow},"O")`};
+  }
+  for (let c=1; c<=lastDayCol; c++){
+    const cell = row4.getCell(c);
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFFFF99'}};
+    cell.font = {name:'맑은 고딕', size:9, bold:true};
+    cell.alignment = {horizontal:'center', vertical:'center'};
+    cell.border = {top:{style:'double'}, bottom:{style:'medium'}, left:{style:c===1?'medium':'thin'}, right:{style:'thin'}};
+  }
+  const lastDayColLetter = colLetter(lastDayCol);
+  const totalColLetter = colLetter(totalCol);
+  row4.getCell(totalCol).value = {formula:`SUM(D4:${lastDayColLetter}4)`};
+  row4.getCell(checkCol).value = {formula:`IF(${totalColLetter}4=C4,"Ok","안맞아요")`};
+  row4.getCell(checkCol).font = {name:'맑은 고딕', size:9, bold:true, color:{argb:'FF0000FF'}};
+  row4.getCell(checkCol).alignment = {horizontal:'center', vertical:'center'};
+
+  employees.forEach((emp, idx)=>{
+    const rr = 5+idx;
+    const row = ws2.getRow(rr);
+    row.height = 20;
+    row.getCell(1).value = idx+1;
+    row.getCell(1).alignment = {horizontal:'center', vertical:'center'};
+    row.getCell(1).border = {top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'medium'}, right:{style:'thin'}};
+    row.getCell(2).value = emp;
+    row.getCell(2).alignment = {horizontal:'center', vertical:'center'};
+    row.getCell(2).border = {top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'}};
+    row.getCell(3).value = {formula:`COUNTIF(D${rr}:${lastDayColLetter}${rr},"O")`};
+    row.getCell(3).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFCCFFFF'}};
+    row.getCell(3).alignment = {horizontal:'center', vertical:'center'};
+    row.getCell(3).border = {top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'}};
+    const qualSet = mealQualify[emp] || new Set();
+    for (let day=1; day<=daysInMonth; day++){
+      const c = firstDayCol+day-1;
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const cell = row.getCell(c);
+      cell.value = qualSet.has(dateStr) ? 'O' : '';
+      cell.font = {name:'맑은 고딕', size:9, bold:true, color:{argb:'FF2F6FED'}};
+      cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFFFFFF'}};
+      cell.alignment = {horizontal:'center', vertical:'center'};
+      cell.border = {top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style: c===lastDayCol?'medium':'thin'}};
+    }
+  });
+
+  /* ---------- Sheet3 : 초과근무내역 ---------- */
+  const ws3 = wb.addWorksheet('초과근무내역', {views:[{showGridLines:false, view:'pageBreakPreview'}]});
+  ws3.columns = [
+    {width:6.5}, {width:12}, {width:14}, {width:20}, {width:10},
+    {width:8}, {width:9}, {width:9}, {width:10}, {width:32}
+  ];
+  ws3.mergeCells('A1:J1');
+  const t3 = ws3.getCell('A1');
+  t3.value = `초과근무 내역(${year}. ${month}.)`;
+  t3.font = {name:'맑은 고딕', size:18, bold:true};
+  t3.alignment = {horizontal:'center', vertical:'center'};
+  ws3.getRow(1).height = 44.25;
+
+  const headers3 = ['No.','근무일자','부서','직급','성명','휴일구분','출근(실제)','퇴근(실제)','총초과(분)','근무내역'];
+  const hRow3 = ws3.getRow(2);
+  headers3.forEach((h,i)=>{
+    const c = hRow3.getCell(i+1);
+    c.value = h;
+    c.font = {name:'맑은 고딕', size:11, bold:true};
+    c.alignment = {horizontal:'center', vertical:'center'};
+    c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFFFFCC'}};
+    c.border = {top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'}};
+  });
+  hRow3.height = 24;
+
+  const sortedRecords = records.slice().sort((a,b)=>{
+    if (a.dateStr < b.dateStr) return -1;
+    if (a.dateStr > b.dateStr) return 1;
+    return 0;
+  });
+  sortedRecords.forEach((rec, idx)=>{
+    const rr = idx+3;
+    const row = ws3.getRow(rr);
+    row.height = 22.5;
+    const vals = [idx+1, rec.dateStr, rec.dept, rec.rank, rec.name, rec.holiday, rec.checkin, rec.checkout, rec.otmin, rec.detail];
+    const aligns = ['center','center','left','left','left','center','center','center','right','left'];
+    vals.forEach((val,i)=>{
+      const c = row.getCell(i+1);
+      c.value = val;
+      c.font = {name:'맑은 고딕', size:10};
+      c.alignment = {horizontal:aligns[i], vertical:'center'};
+      c.border = {bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'}};
+    });
+  });
+
+  return await wb.xlsx.writeBuffer();
+}
+</script>
+
+
+
+<!--SUITE:BRIDGE-->
+</body>
+
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>서무 업무 자동화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+/* 첫 화면이 깜빡이지 않도록 다크 모드를 가장 먼저 적용 */
+try{
+  var t = localStorage.getItem('suite.theme');
+  if(t === 'dark' || (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)){
+    document.documentElement.classList.add('dark');
+  }
+}catch(e){}
+</script>
+<style>
+/*SUITE:THEME_CSS*/
+</style>
+<style>
+/* ==========================================================================
+   셸(껍데기) 전용 스타일 — 색·모서리·글꼴은 모두 위 공통 토큰을 씁니다.
+   ========================================================================== */
+:root{ --sidebar-w:232px; --topbar-h:60px; }
+svg.ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+svg.ic.sm{width:15px;height:15px;}
+svg.ic.lg{width:22px;height:22px;}
+
+.app-shell{display:flex;align-items:flex-start;min-height:100vh;}
+
+/* ---------- 사이드바 ---------- */
+.sidebar{
+  width:var(--sidebar-w);flex:none;position:sticky;top:0;height:100vh;
+  display:flex;flex-direction:column;padding:20px 14px 16px;overflow-y:auto;
+  background:var(--surface);border-right:1px solid var(--border);z-index:30;
+}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 20px;text-decoration:none;color:inherit;}
+.brand .mark{width:34px;height:34px;border-radius:10px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;}
+.brand .mark svg{stroke:#fff;}
+.brand strong{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;line-height:1.3;}
+.brand span{display:block;font-size:11px;color:var(--text-3);margin-top:1px;letter-spacing:.02em;}
+.nav{display:flex;flex-direction:column;gap:2px;}
+.nav-label{font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.06em;padding:16px 10px 6px;}
+.nav-btn{
+  appearance:none;border:none;background:transparent;cursor:pointer;text-align:left;width:100%;
+  display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border-radius:var(--radius-btn);
+  font:inherit;font-size:14px;font-weight:500;color:var(--text-2);text-decoration:none;
+  transition:background .15s ease,color .15s ease;
+}
+.nav-btn:hover{background:var(--hover);color:var(--text);}
+.nav-btn.active{background:var(--primary-tint);color:var(--primary);font-weight:700;}
+.nav-btn .badge{margin-left:auto;font-size:10px;font-weight:700;color:var(--text-3);background:var(--surface-3);border-radius:6px;padding:2px 6px;}
+.side-foot{margin-top:auto;padding:14px 10px 0;font-size:11px;color:var(--text-3);line-height:1.6;}
+
+/* ---------- 본문 ---------- */
+.main-col{flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{
+  height:var(--topbar-h);flex:none;position:sticky;top:0;z-index:20;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 28px;
+  background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.crumb{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-3);min-width:0;}
+.crumb b{color:var(--text);font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.top-actions{display:flex;align-items:center;gap:6px;}
+.top-actions .icon-btn,.crumb .icon-btn{flex:none;}
+body .menu-btn{display:none;}
+.user-chip{
+  display:flex;align-items:center;gap:8px;margin-left:6px;padding:5px 12px 5px 6px;
+  border-radius:999px;border:1px solid var(--border);color:var(--text-2);font-size:12.5px;font-weight:500;
+}
+.user-chip .avatar{width:24px;height:24px;border-radius:50%;background:var(--primary-tint);color:var(--primary);display:flex;align-items:center;justify-content:center;}
+.user-chip .avatar svg{width:14px;height:14px;}
+
+main.content{padding:28px 32px 40px;max-width:1240px;width:100%;margin:0 auto;}
+.page{display:none;}
+.page.active{display:block;animation:rise .18s ease;}
+@keyframes rise{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+.page-head{margin-bottom:20px;}
+.page-head .eyebrow{font-size:12px;font-weight:700;color:var(--primary);letter-spacing:.02em;margin-bottom:6px;}
+.page-head h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-.015em;}
+.page-head p{margin:6px 0 0;color:var(--text-2);font-size:14px;max-width:720px;line-height:1.65;}
+iframe.tool-frame{display:block;width:100%;height:520px;border:0;background:transparent;}
+.frame-loading{display:flex;align-items:center;gap:10px;color:var(--text-3);font-size:13px;padding:26px 4px;position:absolute;}
+.page{position:relative;}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--border-strong);border-top-color:var(--primary);animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ---------- 홈 ---------- */
+.home-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+.home-group{font-size:12px;font-weight:700;color:var(--text-3);letter-spacing:.06em;margin:28px 0 12px;}
+.home-group:first-of-type{margin-top:8px;}
+.tool-card{
+  display:flex;flex-direction:column;gap:12px;text-align:left;cursor:pointer;font:inherit;color:inherit;text-decoration:none;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);padding:20px;box-shadow:var(--shadow-card);
+  transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease;
+}
+.tool-card:hover{border-color:var(--primary-border);box-shadow:0 6px 20px rgba(37,99,235,.10);transform:translateY(-1px);}
+.tool-card .ico{width:40px;height:40px;border-radius:11px;background:var(--primary-tint);color:var(--primary);display:flex;align-items:center;justify-content:center;}
+.tool-card h3{margin:0;font-size:15.5px;font-weight:700;letter-spacing:-.01em;}
+.tool-card p{margin:0;font-size:13px;color:var(--text-2);line-height:1.6;flex:1;}
+.tool-card .tags{display:flex;gap:6px;flex-wrap:wrap;}
+.tool-card .tags span{font-size:11px;font-weight:600;color:var(--text-2);background:var(--surface-3);border-radius:999px;padding:3px 9px;}
+.tool-card .go{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:700;color:var(--primary);}
+.tool-card.ext .ico{background:var(--surface-3);color:var(--text-2);}
+.privacy{display:flex;gap:12px;align-items:flex-start;margin-top:28px;padding:16px 18px;border-radius:var(--radius-card);background:var(--primary-tint);border:1px solid var(--primary-border);color:var(--text-2);font-size:13px;line-height:1.65;}
+.privacy svg{color:var(--primary);margin-top:2px;}
+.privacy b{color:var(--text);}
+
+/* ---------- 설정 ---------- */
+.settings-card{max-width:720px;}
+.settings-card h2{font-size:15px;margin:0 0 4px;}
+.settings-card .desc{font-size:13px;color:var(--text-2);margin:0 0 18px;line-height:1.65;}
+.key-row{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:start;margin-bottom:14px;}
+.key-row label{font-size:13px;font-weight:600;padding-top:10px;}
+.key-row label small{display:block;font-weight:400;font-size:11.5px;color:var(--text-3);margin-top:2px;}
+.key-row input{width:100%;height:40px;padding:0 12px;}
+.key-actions{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;}
+.saved-note{font-size:12.5px;color:var(--success);opacity:0;transition:opacity .2s ease;}
+.saved-note.show{opacity:1;}
+.warn-box{margin-top:18px;font-size:12.5px;line-height:1.65;color:var(--warning);background:var(--warning-tint);border-radius:var(--radius-input);padding:12px 14px;}
+
+.scrim{display:none;}
+@media (max-width:1024px){
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);transition:transform .2s ease;box-shadow:var(--shadow-pop);}
+  body.nav-open .sidebar{transform:none;}
+  body.nav-open .scrim{display:block;position:fixed;inset:0;background:rgba(10,12,18,.45);z-index:25;}
+  body .menu-btn{display:inline-flex;}
+  .topbar{padding:0 14px;}
+  main.content{padding:20px 16px 32px;}
+  .user-chip span:last-child{display:none;}
+  .user-chip{padding:5px;}
+}
+@media (max-width:600px){
+  .key-row{grid-template-columns:1fr;gap:4px;}
+  .key-row label{padding-top:0;}
+  .page-head h1{font-size:20px;}
+}
+</style>
+</head>
+<body>
+
+<!-- 아이콘 모음 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V10"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 6v12M18 6v12"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></symbol>
+    <symbol id="i-fork" viewBox="0 0 24 24"><path d="M6 2v7a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V2"/><path d="M9 12v10"/><path d="M17 2c-1.7 0-3 2-3 5s1.3 5 3 5v10"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></symbol>
+    <symbol id="i-face" viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="9" cy="10" r=".8" fill="currentColor"/><circle cx="15" cy="10" r=".8" fill="currentColor"/><path d="M9 15c1 1 2 1.4 3 1.4s2-.4 3-1.4"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4 10 14"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.1 7.5 9.5 4.4-1.4 7.5-4.9 7.5-9.5V6L12 3z"/><path d="m9 12 2.2 2.2L15.5 10"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  </defs>
+</svg>
+
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="#home">
+      <div class="mark"><svg class="ic"><use href="#i-grid"/></svg></div>
+      <div><strong>서무 업무 자동화</strong><span>General Affairs Suite</span></div>
+    </a>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">모든 처리는 이 브라우저 안에서만<br>이뤄지며 서버로 전송되지 않습니다.<br><span id="verText"></span></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main-col">
+    <header class="topbar">
+      <div class="crumb">
+        <button class="icon-btn menu-btn" id="menuBtn" title="메뉴" aria-label="메뉴"><svg class="ic"><use href="#i-menu"/></svg></button>
+        <span id="crumbGroup">홈</span><span>/</span><b id="crumbTitle">서무 업무 자동화</b>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" id="themeBtn" title="다크 모드" aria-label="다크 모드"><svg class="ic"><use href="#i-moon"/></svg></button>
+        <div class="user-chip"><span class="avatar"><svg class="ic"><use href="#i-user"/></svg></span><span>서무 담당자</span></div>
+      </div>
+    </header>
+
+    <main class="content" id="content">
+      <section class="page" id="page-home"></section>
+      <section class="page" id="page-settings"></section>
+    </main>
+  </div>
+</div>
+
+<!--SUITE:TOOLS-->
+
+<script>
+(function(){
+  'use strict';
+  var VERSION = '__VERSION__';
+
+  /* ------------------------------------------------------------------
+     도구 목록 — 새 도구를 붙일 때는 tools/ 에 html을 넣고 여기에 한 줄만 추가하면 됩니다.
+     ------------------------------------------------------------------ */
+  var TOOLS = [
+    {id:'travel',     group:'여비', label:'관내여비',   icon:'wallet', title:'관내여비 지급명세서',
+     desc:'출장 원본 집계표(엑셀)를 올리면 인원별 산정 규칙에 따라 지급액을 자동 계산하고, 지급명세서 양식으로 바로 내려받을 수 있습니다.',
+     tags:['엑셀 입력','엑셀 출력']},
+    {id:'outstation', group:'여비', label:'관외출장',   icon:'route',  title:'관외출장 여비지출결의서',
+     desc:'부서원 계좌와 출장 내역을 입력하면 여비를 계산하고, 여비지출결의서(.hwpx)와 지급·상세입력 엑셀 양식을 만들어 줍니다.',
+     tags:['엑셀·PDF 입력','HWPX 출력','거리 계산']},
+    {id:'meal',       group:'정산', label:'급식비',     icon:'fork',   title:'급식비(매식비) 정산',
+     desc:'인사랑 초과근무 내역 엑셀에서 평일 20시 이후 야간근무자를 뽑아 급식확인서·급식지급 상세내역·초과근무내역 정산 엑셀을 만듭니다.',
+     tags:['엑셀 입력','엑셀 출력']},
+    {id:'utility',    group:'정산', label:'공과금 고지서', icon:'bolt', title:'공과금 고지서 인식',
+     desc:'전기·상하수도·통신요금 고지서(이미지/PDF)를 AI로 읽어 거래처입력 양식 엑셀로 만들어 줍니다.',
+     tags:['이미지·PDF 입력','AI 인식','엑셀 출력']},
+    {id:'blur',       group:'문서', label:'얼굴 블러',   icon:'face',   title:'HWPX 얼굴 자동 블러',
+     desc:'HWPX 문서 안의 사진에서 얼굴을 자동으로 찾아 모자이크·블러 처리한 새 HWPX 파일을 만들어 줍니다.',
+     tags:['HWPX 입력','HWPX 출력','기기 안 처리']}
+  ];
+  var GROUPS = ['여비','정산','문서'];
+  var RELEASE_URL = 'https://github.com/kuh01041461581-ux/ukukuk/releases/latest';
+
+  var $ = function(s, r){ return (r||document).querySelector(s); };
+  function icon(id, cls){ return '<svg class="ic '+(cls||'')+'"><use href="#i-'+id+'"/></svg>'; }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function byId(id){ for(var i=0;i<TOOLS.length;i++) if(TOOLS[i].id===id) return TOOLS[i]; return null; }
+  function store(k, v){ try{ if(v===undefined) return localStorage.getItem(k); if(v===null) localStorage.removeItem(k); else localStorage.setItem(k, v); }catch(e){} return null; }
+
+  $('#verText').textContent = VERSION;
+
+  /* ---------- 사이드바 ---------- */
+  var nav = $('#nav'), html = '';
+  html += '<a class="nav-btn" data-go="home" href="#home">'+icon('home')+'홈</a>';
+  GROUPS.forEach(function(g){
+    html += '<div class="nav-label">'+g+'</div>';
+    TOOLS.filter(function(t){ return t.group===g; }).forEach(function(t){
+      html += '<a class="nav-btn" data-go="'+t.id+'" href="#'+t.id+'">'+icon(t.icon)+esc(t.label)+'</a>';
+    });
+  });
+  html += '<div class="nav-label">기타</div>';
+  html += '<a class="nav-btn" data-go="settings" href="#settings">'+icon('gear')+'설정</a>';
+  nav.innerHTML = html;
+
+  /* ---------- 홈 ---------- */
+  function cardHtml(t){
+    return '<a class="tool-card" href="#'+t.id+'"><div class="ico">'+icon(t.icon,'lg')+'</div>'+
+      '<h3>'+esc(t.title)+'</h3><p>'+esc(t.desc)+'</p>'+
+      '<div class="tags">'+t.tags.map(function(x){ return '<span>'+esc(x)+'</span>'; }).join('')+'</div>'+
+      '<div class="go">열기 '+icon('arrow','sm')+'</div></a>';
+  }
+  var home = '<div class="page-head"><div class="eyebrow">GENERAL AFFAIRS SUITE</div><h1>서무 업무 자동화</h1>'+
+    '<p>자주 하는 서무 업무를 한 곳에 모았습니다. 왼쪽 메뉴나 아래 카드에서 업무를 골라 파일을 올리면 됩니다.</p></div>';
+  GROUPS.forEach(function(g){
+    home += '<div class="home-group">'+g+'</div><div class="home-grid">'+
+      TOOLS.filter(function(t){ return t.group===g; }).map(cardHtml).join('')+'</div>';
+  });
+  home += '<div class="home-group">데스크톱 프로그램</div><div class="home-grid">'+
+    '<a class="tool-card ext" href="'+RELEASE_URL+'" target="_blank" rel="noopener"><div class="ico">'+icon('calendar','lg')+'</div>'+
+    '<h3>DeskCalendar (바탕화면 달력)</h3>'+
+    '<p>바탕화면에 떠 있는 달력 + 할 일 · 메모. 공문 PDF에서 일정을 뽑아 넣을 수 있습니다. Windows 프로그램이라 이 화면 안에는 넣지 못하고 별도로 설치해 씁니다.</p>'+
+    '<div class="tags"><span>Windows</span><span>Android</span></div>'+
+    '<div class="go">내려받기 '+icon('ext','sm')+'</div></a></div>';
+  home += '<div class="privacy">'+icon('shield')+'<div><b>개인정보는 밖으로 나가지 않습니다.</b> 엑셀·HWPX·고지서 처리는 모두 이 브라우저 안에서 이뤄집니다. '+
+    '단, 공과금 고지서 인식은 사용자가 입력한 AI 키로 이미지를 Google(Gemini) 또는 Anthropic(Claude)에 보내 글자를 읽는 기능이므로, 개인정보가 많은 문서에는 주의하세요.</div></div>';
+  $('#page-home').innerHTML = home;
+
+  /* ---------- 설정 ---------- */
+  var KEYS = [
+    {k:'kakao',  label:'카카오 REST API 키', sub:'관외출장 · 주소검색/거리계산'},
+    {k:'opinet', label:'오피넷 인증키',      sub:'관외출장 · 전국 평균 유가 조회'},
+    {k:'gemini', label:'Gemini API 키',      sub:'공과금 고지서 · 기본 AI'},
+    {k:'claude', label:'Claude API 키',      sub:'공과금 고지서 · 선택 AI'}
+  ];
+  var s = '<div class="page-head"><div class="eyebrow">설정</div><h1>API 키 관리</h1>'+
+    '<p>도구들이 함께 쓰는 키를 한 곳에서 관리합니다. 비워 두면 해당 기능은 키 없이 가능한 범위(추정 거리 등)로만 동작합니다.</p></div>'+
+    '<div class="card settings-card"><h2>이 컴퓨터(브라우저)에 저장</h2>'+
+    '<p class="desc">입력한 키는 이 브라우저의 저장소에만 보관되고, 각 도구가 필요할 때 자동으로 가져다 씁니다. 파일이나 서버에는 기록되지 않습니다.</p>';
+  KEYS.forEach(function(x){
+    s += '<div class="key-row"><label for="key-'+x.k+'">'+x.label+'<small>'+x.sub+'</small></label>'+
+      '<input type="password" id="key-'+x.k+'" autocomplete="off" placeholder="입력하지 않으면 사용 안 함"></div>';
+  });
+  s += '<div class="key-actions"><button class="btn" id="keySave">저장</button><button class="btn ghost" id="keyClear">모두 지우기</button><span class="saved-note" id="keyNote">저장했습니다</span></div>'+
+    '<div class="warn-box">공용 PC나 다른 사람이 쓰는 계정에서는 키를 저장하지 마세요. 저장된 키는 이 브라우저를 쓰는 누구나 볼 수 있습니다. 필요하면 사용 후 &lsquo;모두 지우기&rsquo;를 누르세요.</div></div>';
+  $('#page-settings').innerHTML = s;
+
+  function loadKeys(){ try{ return JSON.parse(store('suite.keys') || '{}') || {}; }catch(e){ return {}; } }
+  function fillKeys(){ var o = loadKeys(); KEYS.forEach(function(x){ $('#key-'+x.k).value = o[x.k] || ''; }); }
+  function flash(msg){ var n = $('#keyNote'); n.textContent = msg; n.classList.add('show'); setTimeout(function(){ n.classList.remove('show'); }, 1800); }
+  $('#keySave').addEventListener('click', function(){
+    var o = {}; KEYS.forEach(function(x){ var v = $('#key-'+x.k).value.trim(); if(v) o[x.k] = v; });
+    store('suite.keys', JSON.stringify(o)); flash('저장했습니다');
+  });
+  $('#keyClear').addEventListener('click', function(){
+    if(!confirm('저장된 API 키를 모두 지울까요?')) return;
+    store('suite.keys', null); fillKeys(); flash('지웠습니다');
+  });
+  fillKeys();
+
+  /* ---------- 도구 iframe (처음 열 때 한 번만 불러오고 이후엔 상태 유지) ---------- */
+  var frames = {};
+  function ensureFrame(t){
+    if(frames[t.id]) return frames[t.id];
+    var page = document.createElement('section');
+    page.className = 'page'; page.id = 'page-'+t.id;
+    page.innerHTML = '<div class="page-head"><div class="eyebrow">'+esc(t.group)+'</div><h1>'+esc(t.title)+'</h1><p>'+esc(t.desc)+'</p></div>'+
+      '<div class="frame-loading"><span class="spin"></span>불러오는 중…</div>';
+    var f = document.createElement('iframe');
+    f.className = 'tool-frame'; f.title = t.title;
+    page.appendChild(f);
+    $('#content').appendChild(page);
+    var data = document.getElementById('tool-data-'+t.id);
+    f.srcdoc = JSON.parse(data.textContent);
+    frames[t.id] = {page:page, frame:f};
+    return frames[t.id];
+  }
+
+  window.addEventListener('message', function(e){
+    var d = e.data;
+    if(!d || !d.__tabId) return;
+    var rec = frames[d.__tabId];
+    if(!rec || e.source !== rec.frame.contentWindow) return;
+    if(d.__tabHeight){
+      rec.frame.style.height = Math.max(320, d.__tabHeight + 8) + 'px';
+      var ld = rec.page.querySelector('.frame-loading'); if(ld) ld.remove();
+      sendViewport();
+    }
+    if(d.__ready) pushState(rec.frame);
+  });
+
+  /* 셸 → 도구: 다크 모드, 보고 있는 화면 영역 */
+  function pushState(f){
+    try{
+      f.contentWindow.postMessage({__theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light'}, '*');
+    }catch(e){}
+    sendViewport(f);
+  }
+  var vpQueued = false;
+  function sendViewport(only){
+    if(vpQueued && !only) return;
+    vpQueued = true;
+    requestAnimationFrame(function(){
+      vpQueued = false;
+      var list = only ? [only] : Object.keys(frames).map(function(k){ return frames[k].frame; });
+      list.forEach(function(f){
+        if(f.offsetParent === null) return;
+        var r = f.getBoundingClientRect();
+        var top = Math.max(0, -r.top);
+        var bottom = Math.min(r.bottom, window.innerHeight);
+        var topVis = Math.max(r.top, 0);
+        var h = Math.max(200, bottom - topVis);
+        try{ f.contentWindow.postMessage({__viewport:{top:top, height:h}}, '*'); }catch(e){}
+      });
+    });
+  }
+  window.addEventListener('scroll', function(){ sendViewport(); }, {passive:true});
+  window.addEventListener('resize', function(){ sendViewport(); });
+
+  /* ---------- 다크 모드 ---------- */
+  function paintThemeBtn(){
+    var dark = document.documentElement.classList.contains('dark');
+    $('#themeBtn').innerHTML = icon(dark ? 'sun' : 'moon');
+    $('#themeBtn').title = dark ? '라이트 모드' : '다크 모드';
+  }
+  $('#themeBtn').addEventListener('click', function(){
+    var dark = document.documentElement.classList.toggle('dark');
+    store('suite.theme', dark ? 'dark' : 'light');
+    paintThemeBtn();
+    Object.keys(frames).forEach(function(k){ pushState(frames[k].frame); });
+  });
+  paintThemeBtn();
+
+  /* ---------- 화면 전환 ---------- */
+  var current = null;
+  function show(id){
+    var t = byId(id);
+    if(!t && id !== 'settings') id = 'home';
+    if(id === current) return;
+    current = id;
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-go') === id); });
+    var group = '홈', title = '서무 업무 자동화';
+    if(t){ ensureFrame(t).page.classList.add('active'); group = t.group; title = t.title; }
+    else if(id === 'settings'){ $('#page-settings').classList.add('active'); group = '기타'; title = '설정'; }
+    else { $('#page-home').classList.add('active'); }
+    $('#crumbGroup').textContent = group; $('#crumbTitle').textContent = title;
+    document.title = (id === 'home' ? '' : title + ' · ') + '서무 업무 자동화';
+    document.body.classList.remove('nav-open');
+    window.scrollTo(0, 0);
+    sendViewport();
+  }
+  function route(){ show((location.hash || '#home').slice(1)); }
+  window.addEventListener('hashchange', route);
+  route();
+
+  /* ---------- 모바일 메뉴 ---------- */
+  $('#menuBtn').addEventListener('click', function(){ document.body.classList.toggle('nav-open'); });
+  $('#scrim').addEventListener('click', function(){ document.body.classList.remove('nav-open'); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>관내여비 지급명세서 생성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+:root{--card:var(--surface);--ok:var(--success);--ok-tint:var(--success-tint);--warn:var(--danger);--warn-tint:var(--danger-tint);--amber:var(--warning);--amber-tint:var(--warning-tint);}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  line-height:1.55;
+  padding:0 0 80px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{
+  max-width:900px;margin:0 auto;padding:24px 28px 0;
+}
+
+/* ---------- Header ---------- */
+header.top{
+  /* 이 도구가 셸(AppShell)의 탭 안에 들어갈 때는 탑바에 이미 같은 제목이 떠 있으므로,
+     중복되는 자체 헤더 카드는 숨겨서 급식비 탭과 톤을 맞추고 세로 길이를 줄인다.
+     (JS/기능에는 영향 없음 — 표시 여부만 CSS로 제어) */
+  display:none;
+}
+.top-inner{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+.title-block .eyebrow{display:none;}
+h1{
+  font-weight:700;
+  font-size:18px;
+  margin:0 0 6px;
+  letter-spacing:-0.01em;
+  color:var(--text);
+}
+.title-block p{margin:0;color:var(--text-2);font-size:13.5px;line-height:1.65;max-width:640px;}
+.seal{
+  width:40px;height:40px;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--primary);
+  background:var(--primary-tint);
+  flex-shrink:0;
+}
+.seal svg{width:20px;height:20px;}
+.seal b,.seal span{display:none;}
+
+/* ---------- Sections ---------- */
+section{margin-top:32px;}
+.section-head{display:flex;align-items:center;gap:11px;margin-bottom:14px;}
+.step-no{
+  width:24px;height:24px;border-radius:7px;flex-shrink:0;
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:12px;color:var(--primary);background:var(--primary-tint);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-variant-numeric:tabular-nums;
+}
+.section-head h2{font-size:18px;font-weight:700;margin:0;color:var(--text);}
+.section-sub{color:var(--text-2);font-size:13px;margin:0 0 14px;}
+
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius-card);
+  box-shadow:var(--shadow-card);
+  padding:24px;
+}
+
+/* ---------- Upload ---------- */
+.dropzone{
+  border:1.5px dashed var(--border);
+  border-radius:var(--radius-input);
+  padding:32px 24px;
+  text-align:center;
+  cursor:pointer;
+  transition:all .15s ease;
+  background:var(--hover);
+}
+.dropzone.drag{border-color:var(--primary);background:var(--primary-tint);}
+.dropzone:hover{border-color:var(--primary);}
+.dropzone b{display:block;font-size:14.5px;color:var(--text);margin-bottom:4px;font-weight:600;}
+.dropzone span{font-size:12.5px;color:var(--text-3);}
+input[type=file]{display:none;}
+.file-chip{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--primary-tint);border:1px solid var(--primary-tint-strong);border-radius:20px;
+  padding:6px 14px;font-size:13px;color:var(--primary);margin-top:12px;font-weight:500;
+}
+.file-chip button{
+  border:none;background:none;color:var(--warn);cursor:pointer;font-size:13px;font-weight:600;
+}
+
+/* ---------- Rules panel ---------- */
+details.rules{margin-top:18px;border-top:1px solid var(--border);padding-top:14px;}
+summary{cursor:pointer;font-size:13.5px;color:var(--text);font-weight:600;}
+summary::marker{color:var(--primary);}
+.rules-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:14px;margin-top:14px;
+}
+.rule-field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:5px;font-weight:500;}
+.rule-field input{
+  width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-input);
+  font-family:'Noto Sans KR',sans-serif;font-size:13px;background:var(--card);
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.rule-field input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+.rules-note{
+  margin-top:14px;font-size:12px;color:var(--text-2);background:var(--hover);
+  border:1px solid var(--border);border-radius:var(--radius-input);padding:12px 14px;line-height:1.7;
+}
+
+/* ---------- Optional items (compact, de-emphasized) ---------- */
+.opt-group{margin-top:18px;}
+.opt-group-label{
+  font-size:11px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;
+  margin:0 0 8px 2px;font-weight:700;
+}
+details.opt{
+  border:1px solid var(--border);border-radius:var(--radius-input);background:var(--hover);
+  padding:9px 14px;margin-top:7px;transition:background .15s ease;
+}
+details.opt[open]{background:var(--card);}
+details.opt summary{
+  font-size:12.5px;color:var(--text-2);font-weight:600;list-style:none;cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+}
+details.opt summary::-webkit-details-marker{display:none;}
+details.opt summary::before{
+  content:'\25B8';color:var(--primary);font-size:10px;display:inline-block;
+  transition:transform .15s ease;width:9px;
+}
+details.opt[open] summary::before{transform:rotate(90deg);}
+details.opt .opt-badge{
+  font-size:10px;color:var(--text-3);background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:1px 7px;font-weight:600;margin-left:auto;letter-spacing:.02em;
+}
+details.opt .opt-desc{font-size:11.5px;color:var(--text-3);margin:9px 0 10px;line-height:1.6;}
+details.opt .opt-dropzone{
+  border:1.5px dashed var(--border);border-radius:var(--radius-input);padding:13px 12px;
+  text-align:center;cursor:pointer;background:var(--card);transition:all .15s ease;
+}
+details.opt[open]{padding-bottom:12px;}
+details.opt .opt-dropzone:hover,details.opt .opt-dropzone.drag{border-color:var(--primary);background:var(--primary-tint);}
+details.opt .opt-dropzone b{display:block;font-size:12px;color:var(--text);margin-bottom:2px;font-weight:600;}
+details.opt .opt-dropzone span{font-size:10.5px;color:var(--text-3);}
+details.opt .file-chip{margin-top:10px;padding:5px 12px;font-size:12px;}
+
+/* ---------- Stat cards ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;margin-top:18px;}
+@media (max-width:1280px){.stats{grid-template-columns:repeat(2,1fr);}}
+.stat{
+  background:var(--hover);border:1px solid var(--border);border-radius:var(--radius-input);
+  padding:14px 16px;
+}
+.stat .num{font-size:20px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
+.stat .lbl{font-size:12px;color:var(--text-3);margin-top:2px;}
+.stat.warn .num{color:var(--warn);}
+.stat.ok .num{color:var(--ok);}
+
+/* ---------- Employee table ---------- */
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+.toolbar .left{display:flex;align-items:center;gap:10px;}
+.toolbar input[type=search]{
+  padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-input);font-size:13px;width:220px;
+  background:var(--card);transition:border-color .15s ease, box-shadow .15s ease;
+}
+.toolbar input[type=search]:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+.btn{
+  font-family:'Noto Sans KR',sans-serif;
+  border:1px solid var(--primary);background:var(--primary);color:#fff;
+  height:40px;padding:0 16px;border-radius:var(--radius-btn);font-size:13.5px;font-weight:600;cursor:pointer;
+  transition:background .15s ease, border-color .15s ease, opacity .15s ease;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+}
+.btn:hover{background:#1d4ed8;border-color:#1d4ed8;}
+.btn.ghost{background:var(--card);color:var(--text);border-color:var(--border);}
+.btn.ghost:hover{background:var(--hover);border-color:var(--text-3);}
+.btn.gold{background:var(--primary);border-color:var(--primary);}
+.btn.gold:hover{background:#1d4ed8;border-color:#1d4ed8;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+
+table.datagrid{width:100%;border-collapse:collapse;font-size:13px;}
+table.datagrid th{
+  background:var(--hover);color:var(--text-2);text-align:left;
+  padding:10px 10px;font-weight:600;font-size:12px;letter-spacing:.01em;
+  position:sticky;top:0;border-bottom:1px solid var(--border);
+}
+table.datagrid td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+table.datagrid tbody tr:hover{background:var(--hover);}
+table.datagrid tbody tr.excluded{opacity:.4;}
+table.datagrid input[type=text]{
+  width:100%;min-width:64px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;
+  font-family:'Noto Sans KR',sans-serif;background:var(--card);box-sizing:border-box;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+table.datagrid input[type=text]:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+table.datagrid td.name-cell{
+  min-width:64px;white-space:normal;word-break:keep-all;overflow-wrap:break-word;
+}
+.num-cell{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.table-scroll{max-height:520px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-input);}
+.badge{
+  display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;
+  background:var(--primary-tint);color:var(--primary);font-weight:600;
+}
+.badge.zero{background:var(--warn-tint);color:var(--warn);}
+.badge.cap{background:var(--amber-tint);color:var(--amber);}
+
+/* ---------- Preview (ledger look) ---------- */
+.ledger-meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.ledger-meta .field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:5px;font-weight:500;}
+.ledger-meta .field input{
+  width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-input);font-size:13px;
+  background:var(--card);transition:border-color .15s ease, box-shadow .15s ease;
+}
+.ledger-meta .field input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+.ledger{
+  border:1px solid var(--border);border-radius:var(--radius-input);overflow:hidden;
+}
+.ledger-table-scroll{overflow-x:auto;}
+.ledger-table-scroll table.ledger-table{min-width:760px;}
+.ledger-title{
+  text-align:center;font-weight:700;font-size:19px;
+  padding:18px 10px 6px;color:var(--text);
+}
+.ledger-sub{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 22px 18px;font-size:13.5px;color:var(--text);
+}
+.ledger-sub .approver{font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--text-2);text-align:right;}
+.ledger-sub .approver b{color:var(--text);}
+table.ledger-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.ledger-table th{
+  background:var(--hover);border:1px solid var(--border);padding:9px 6px;font-weight:700;color:var(--text-2);
+}
+table.ledger-table td{border:1px solid var(--border);padding:8px 6px;text-align:center;word-break:keep-all;overflow-wrap:break-word;}
+table.ledger-table td.name{font-weight:600;white-space:normal;}
+table.ledger-table td.amt{text-align:right;padding-right:12px;font-variant-numeric:tabular-nums;}
+table.ledger-table tr.total-row td{background:var(--primary-tint);font-weight:700;color:var(--primary);}
+table.ledger-table td.purpose,table.ledger-table td.days{text-align:left;font-size:11.5px;color:var(--text-2);}
+
+.empty-state{
+  text-align:center;color:var(--text-3);padding:50px 10px;font-size:13.5px;
+}
+.hidden{display:none !important;}
+
+footer.note{
+  max-width:1480px;margin:44px auto 0;padding:0 28px 40px;color:var(--text-3);font-size:12px;
+}
+footer.note ul{margin:6px 0 0;padding-left:18px;}
+
+</style>
+<meta name="tool-id" content="travel">
+<!--SUITE:THEME-->
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-inner">
+    <div class="title-block">
+      <div class="eyebrow">국내(관내) 여비 · 자동 산정</div>
+      <h1>관내여비 지급명세서 생성기</h1>
+      <p>출장 원본 집계표(엑셀)를 올리면 인원별 산정 규칙에 따라 지급액을 자동 계산하고, 지급명세서 양식으로 바로 내려받을 수 있습니다.</p>
+    </div>
+    <div class="seal"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- STEP 1: 업로드 -->
+  <section>
+    <div class="section-head"><span class="step-no">1</span><h2>출장 원본 파일 업로드</h2></div>
+    <p class="section-sub">"출장 월별집계" 형태의 원본 엑셀(예: 7월_출장_여비.xlsx)을 올려주세요. 사람별 출장기록이 자동으로 인식됩니다.</p>
+    <div class="card">
+      <div class="dropzone" id="dropzone">
+        <b>여기에 파일을 놓거나 클릭해서 선택하세요</b>
+        <span>.xlsx 파일 · 클라이언트(브라우저) 내에서만 처리되며 서버로 전송되지 않습니다</span>
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+      </div>
+      <div id="fileChipWrap"></div>
+
+      <details class="rules">
+        <summary>지급 산정 규칙 설정 (기본값: 요청하신 기준)</summary>
+        <div class="rules-grid">
+          <div class="rule-field"><label>1인 월 최대 지급액 (원, 300,000원 초과 불가)</label><input type="number" id="ruleMonthlyCap" value="140000" step="10000" max="300000" min="0"></div>
+          <div class="rule-field"><label>1일 최대 지급액 (원)</label><input type="number" id="ruleDailyCap" value="20000" step="10000"></div>
+          <div class="rule-field"><label>단일(통) 출장 인정 최소시간 (시간)</label><input type="number" id="ruleFullHours" value="4" step="0.5"></div>
+          <div class="rule-field"><label>분할 출장 1건당 인정 최소시간 (시간)</label><input type="number" id="ruleSplitHours" value="1" step="0.5"></div>
+          <div class="rule-field"><label>차량 운행일 1일 감액액 (원)</label><input type="number" id="ruleVehicleDeduction" value="10000" step="1000"></div>
+          <div class="rule-field"><label>관외(타지역) 판정 키워드 (쉼표로 구분)</label><input type="text" id="ruleOutsideKeywords" value="관외"></div>
+        </div>
+        <div class="rules-note">
+          계산 로직 &nbsp;·&nbsp;
+          같은 날 출장기록이 <b>1건</b>이고 시간이 단일인정기준(기본 4시간) 이상이면 → 1일 최대액(기본 2만원) 전액. 분할인정기준(기본 1시간) 이상이면 → 1일 최대액의 절반(기본 1만원). 그 미만이면 → 0원.
+          같은 날 출장기록이 <b>2건 이상</b>이면: 각 건별로 시간이 분할인정기준(기본 1시간) 이상인 건만 건당 1일 최대액의 절반(기본 1만원)씩 지급하며, 합산액은 1일 최대액(기본 2만원)을 넘지 않도록 상한을 둡니다.
+          <b>차량 감액</b>: 출장기록의 "공무용차량 사용" 표시 여부와 무관하게, <b>차량배차 현황 파일에 실제 배차(운행) 기록이 있는 날짜만</b> 해당 일자 산정액에서 차량 감액액(기본 1만원)을 차감합니다. 단, <b>차량배차 현황의 목적지가 관외(타지역)로 표시된 건은 감액하지 않습니다</b> — 관내 출장에 한해서만 차량 사용이 여비에 영향을 줍니다. 목적지 정보가 없거나 위 키워드에 해당하지 않으면 관내로 간주해 감액합니다. 배차 파일을 올리지 않으면 이 감액은 적용되지 않습니다.
+          <b>월 한도 적용</b>: 날짜 오름차순으로 채우다 중간에 끊지 않고, 금액이 큰 날부터 우선 채운 뒤 남는 한도를 반액짜리 날로 메워 월 최대 지급액을 최대한 꽉 채웁니다.
+        </div>
+      </details>
+    </div>
+
+    <div class="opt-group">
+      <div class="opt-group-label">선택 항목</div>
+
+      <details class="opt" id="orderDetails">
+        <summary>지급대상자 목록<span class="opt-badge">선택</span></summary>
+        <p class="opt-desc">성명·은행명·계좌번호가 있는 지급대상자 목록 엑셀(연번 순서 포함)을 올리면 그 순서대로 정렬되고, 목록에 있는 사람만 자동 선택되며 은행명·계좌번호도 채워집니다. 올리지 않으면 원본 집계표에 처음 등장하는 순서를 사용합니다.</p>
+        <div class="opt-dropzone" id="orderDropzone">
+          <b>여기에 놓거나 클릭해서 선택</b>
+          <span>.xlsx/.xls · 연번/성명/은행명/계좌번호 열이 있는 형식</span>
+          <input type="file" id="orderFileInput" accept=".xlsx,.xls">
+        </div>
+        <div id="orderFileChipWrap"></div>
+      </details>
+
+      <details class="opt" id="vehicleDetails">
+        <summary>차량배차 현황<span class="opt-badge">선택</span></summary>
+        <p class="opt-desc">공무용차량 배차대장을 올리면, 실제로 배차·운행된 날짜 중 <b>목적지가 관내인 건</b>에 한해 해당 일자 여비에서 차량 감액액을 자동으로 차감합니다(관외 출장은 영향 없음). .csv(CP949/EUC-KR)와 .xlsx/.xls를 모두 지원합니다.</p>
+        <div class="opt-dropzone" id="vehicleDropzone">
+          <b>여기에 놓거나 클릭해서 선택</b>
+          <span>.csv/.xlsx/.xls · 배차대장(사용일시/사용자/목적지 등)</span>
+          <input type="file" id="vehicleFileInput" accept=".csv,.xlsx,.xls">
+        </div>
+        <div id="vehicleFileChipWrap"></div>
+      </details>
+
+      <details class="opt" id="ehojoDetails">
+        <summary>e호조 지출폼 원본 양식<span class="opt-badge">선택</span></summary>
+        <p class="opt-desc">기존에 쓰시던 e호조 관내여비 지출폼 원본을 올리면, 다른 시트(은행 코드표 등)와 데이터 유효성 검사(드롭다운)는 그대로 두고 "거래처입력" 시트 값만 채워서 내려받습니다. 올리지 않으면 서식을 새로 만들어 내려받습니다.</p>
+        <div class="opt-dropzone" id="ehojoDropzone">
+          <b>여기에 놓거나 클릭해서 선택</b>
+          <span>.xlsx · e호조 관내여비 지출폼 원본</span>
+          <input type="file" id="ehojoFileInput" accept=".xlsx">
+        </div>
+        <div id="ehojoFileChipWrap"></div>
+      </details>
+    </div>
+  </section>
+
+  <!-- STEP 2: 대상자 -->
+  <section id="step2" class="hidden">
+    <div class="section-head"><span class="step-no">2</span><h2>대상자 선택 및 확인</h2></div>
+    <p class="section-sub">인식된 인원 목록입니다. 지급명세서에 포함할 사람만 체크하고, 필요한 항목(은행/계좌/출장목적)을 직접 채워주세요.</p>
+    <div class="card">
+      <div class="stats" id="statsRow"></div>
+
+      <div class="toolbar" style="margin-top:20px;">
+        <div class="left">
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="toggleAll" checked> 전체 선택
+          </label>
+          <input type="search" id="searchBox" placeholder="이름으로 검색">
+        </div>
+        <div>
+          <button class="btn ghost" id="btnRecalc">다시 계산</button>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="datagrid">
+          <thead>
+            <tr>
+              <th style="width:34px;"></th>
+              <th style="width:34px;">No</th>
+              <th style="width:76px;">성명</th>
+              <th>소속/직급</th>
+              <th style="width:70px;">전체건수</th>
+              <th style="width:90px;">지급일수</th>
+              <th style="width:100px;">산정금액</th>
+              <th>은행명</th>
+              <th>계좌번호</th>
+              <th>예금주명</th>
+              <th>출장목적</th>
+            </tr>
+          </thead>
+          <tbody id="empTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3: 미리보기/출력 -->
+  <section id="step3" class="hidden">
+    <div class="section-head"><span class="step-no">3</span><h2>지급명세서 미리보기 &amp; 출력</h2></div>
+    <p class="section-sub">아래 표가 실제 다운로드될 지급명세서 내용입니다. 상단 정보를 입력한 뒤 엑셀로 내려받으세요.</p>
+    <div class="card">
+      <div class="ledger-meta">
+        <div class="field"><label>문서 제목 (연/월)</label><input type="text" id="metaTitleYM" value="2026년 7월"></div>
+        <div class="field"><label>부서명</label><input type="text" id="metaDept" value="문화유산과"></div>
+        <div class="field"><label>대조자 직급</label><input type="text" id="metaApproverRank" value=""></div>
+        <div class="field"><label>대조자 성명</label><input type="text" id="metaApproverName" value=""></div>
+      </div>
+
+      <div class="ledger">
+        <div class="ledger-title" id="ledgerTitle">2026년 7월 국내여비 지급 명세서</div>
+        <div class="ledger-sub">
+          <span>지 출 명 세 서</span>
+          <span class="approver">출장명령부 대조자 &nbsp;·&nbsp; 직급: <b id="apRankOut">-</b> &nbsp;·&nbsp; 성명: <b id="apNameOut">-</b> &nbsp;(인)</span>
+        </div>
+        <div class="ledger-table-scroll">
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th style="width:40px;">연번</th>
+              <th style="width:88px;">성명</th>
+              <th style="width:90px;">금액(원)</th>
+              <th style="width:90px;">은행명</th>
+              <th style="width:130px;">계좌번호</th>
+              <th style="width:150px;">출장기간(일)</th>
+              <th>출장목적</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerBody"></tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="toolbar" style="margin-top:18px;">
+        <div class="left" style="font-size:12.5px;color:#758392;" id="previewFootnote"></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn ghost" id="btnDownloadEhojo">e호조 관내여비 지출폼(.xlsx) 다운로드</button>
+          <button class="btn gold" id="btnDownload">지급명세서(총괄 서식) 엑셀(.xlsx)로 다운로드</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="emptyState" class="empty-state">파일을 업로드하면 여기에 결과가 표시됩니다.</div>
+
+</div>
+
+<footer class="note">
+  <b>참고 사항</b>
+  <ul>
+    <li>이 프로그램은 브라우저(클라이언트)에서만 동작하며, 업로드한 파일은 외부 서버로 전송되지 않습니다.</li>
+    <li>은행명/계좌번호/출장목적은 원본 파일에 없는 경우가 많아 자동 채움 값(추정)이며, 다운로드 전 반드시 직접 확인·수정해 주세요.</li>
+    <li>월 한도는 날짜 오름차순으로 채우다 중간에 끊지 않고, 금액이 큰 날부터 우선 채운 뒤 남는 한도를 반액짜리 날로 메워 월 최대 지급액을 최대한 꽉 채우는 방식으로 계산합니다. 실제 규정과 다르면 위 "지급 산정 규칙 설정"에서 값을 바꿔 다시 계산할 수 있습니다.</li>
+    <li>"지급대상자 목록"을 올리면 그 파일의 <b>가장 오른쪽(최신) 시트</b>를 기준으로, 그 시트에 있는 사람만 자동 선택되고(연번 순서로 정렬), 은행명·계좌번호도 그 시트 값으로 자동 채워집니다. 올리지 않으면 원본 집계표에 처음 등장하는 순서를 사용하고 은행/계좌는 직접 입력해야 합니다.</li>
+    <li>차량 감액은 <b>목적지가 관내인 배차 기록에만</b> 적용됩니다. 목적지가 관외(타지역)로 표시된 배차는 관내여비 계산에 영향을 주지 않습니다.</li>
+    <li>1인 월 최대 지급액은 산정 규칙에서 값을 바꾸더라도 <b>300,000원을 넘지 않도록</b> 항상 상한이 적용되며, 기본값은 140,000원입니다.</li>
+    <li>지급명세서의 "출장기간(일)" 칸에는 <b>금액이 반영되지 않은 날짜를 포함해</b> 원본 자료에 등장하는 모든 출장 일자가 표시됩니다. 실제 지급액 산정에 반영된 일수는 STEP 2 표의 "지급일수"에서 별도로 확인할 수 있습니다.</li>
+    <li>e호조 관내여비 지출폼 원본 양식을 올리면, 그 파일의 다른 시트(예: 3번째 시트 은행 코드표)와 데이터 유효성 검사(드롭다운 등)를 그대로 유지한 채 "거래처입력" 시트 값만 채워서 내려받습니다.</li>
+  </ul>
+</footer>
+
+<script>
+(function(){
+  let allRows = [];
+  let employees = {};   // id -> {id,name,dept,purposeCounts:{},records:[{date,hours}], allCount}
+  let empOrder = [];    // ids in first-appearance order
+  let results = {};     // id -> {total, includedDates:[]}
+  let selection = {};   // id -> boolean
+  let overrides = {};   // id -> {bank,account,purpose}
+  let orderList = null; // 지급대상자 목록 참고 파일의 최신 시트에서 읽은 성명 배열 (없으면 null)
+  let refBankMap = {};  // 성명 -> {bank, account}  (참고 파일 최신 시트에서 추출)
+  let refNameSet = null; // 참고 파일에 있는 성명 집합 (있으면 이 사람만 선택)
+  let ehojoTemplateBuffer = null; // e호조 관내여비 지출폼 원본 양식(.xlsx) ArrayBuffer (있으면 이 양식의 다른 시트/유효성검사를 그대로 유지)
+  let vehicleUsageMap = new Map(); // "성명|YYYY-M-D" -> [목적지 텍스트, ...] 형태로, 실제 차량이 배차(운행)된 날짜와 그 목적지를 기록.
+  let vehicleFileLoaded = false;   // 차량배차 파일이 올라왔는지 여부(감액 적용 여부 판단용)
+
+  const $ = (id)=>document.getElementById(id);
+
+  const ABSOLUTE_MONTHLY_CAP = 300000; // 1인 월 최대 지급액은 규칙 설정값과 무관하게 이 값을 넘을 수 없음
+
+  function getRules(){
+    const rawMonthlyCap = Number($('ruleMonthlyCap').value) || ABSOLUTE_MONTHLY_CAP;
+    const outsideKeywords = ($('ruleOutsideKeywords').value||'')
+      .split(',').map(s=>s.trim()).filter(Boolean);
+    return {
+      monthlyCap: Math.min(rawMonthlyCap, ABSOLUTE_MONTHLY_CAP),
+      dailyCap: Number($('ruleDailyCap').value) || 20000,
+      fullHours: Number($('ruleFullHours').value) || 4,
+      splitHours: Number($('ruleSplitHours').value) || 1,
+      vehicleDeduction: Number($('ruleVehicleDeduction').value) || 0,
+      outsideKeywords: outsideKeywords.length ? outsideKeywords : ['관외']
+    };
+  }
+
+  // ---------- File handling ----------
+  const dropzone = $('dropzone');
+  const fileInput = $('fileInput');
+  dropzone.addEventListener('click', ()=>fileInput.click());
+  dropzone.addEventListener('dragover', e=>{e.preventDefault(); dropzone.classList.add('drag');});
+  dropzone.addEventListener('dragleave', ()=>dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', e=>{
+    e.preventDefault(); dropzone.classList.remove('drag');
+    if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e=>{
+    if(e.target.files.length) handleFile(e.target.files[0]);
+  });
+
+  const orderDropzone = $('orderDropzone');
+  const orderFileInput = $('orderFileInput');
+  orderDropzone.addEventListener('click', ()=>orderFileInput.click());
+  orderDropzone.addEventListener('dragover', e=>{e.preventDefault(); orderDropzone.classList.add('drag');});
+  orderDropzone.addEventListener('dragleave', ()=>orderDropzone.classList.remove('drag'));
+  orderDropzone.addEventListener('drop', e=>{
+    e.preventDefault(); orderDropzone.classList.remove('drag');
+    if(e.dataTransfer.files.length) handleOrderFile(e.dataTransfer.files[0]);
+  });
+  orderFileInput.addEventListener('change', e=>{
+    if(e.target.files.length) handleOrderFile(e.target.files[0]);
+  });
+
+  const vehicleDropzone = $('vehicleDropzone');
+  const vehicleFileInput = $('vehicleFileInput');
+  vehicleDropzone.addEventListener('click', ()=>vehicleFileInput.click());
+  vehicleDropzone.addEventListener('dragover', e=>{e.preventDefault(); vehicleDropzone.classList.add('drag');});
+  vehicleDropzone.addEventListener('dragleave', ()=>vehicleDropzone.classList.remove('drag'));
+  vehicleDropzone.addEventListener('drop', e=>{
+    e.preventDefault(); vehicleDropzone.classList.remove('drag');
+    if(e.dataTransfer.files.length) handleVehicleFile(e.dataTransfer.files[0]);
+  });
+  vehicleFileInput.addEventListener('change', e=>{
+    if(e.target.files.length) handleVehicleFile(e.target.files[0]);
+  });
+
+  const ehojoDropzone = $('ehojoDropzone');
+  const ehojoFileInput = $('ehojoFileInput');
+  ehojoDropzone.addEventListener('click', ()=>ehojoFileInput.click());
+  ehojoDropzone.addEventListener('dragover', e=>{e.preventDefault(); ehojoDropzone.classList.add('drag');});
+  ehojoDropzone.addEventListener('dragleave', ()=>ehojoDropzone.classList.remove('drag'));
+  ehojoDropzone.addEventListener('drop', e=>{
+    e.preventDefault(); ehojoDropzone.classList.remove('drag');
+    if(e.dataTransfer.files.length) handleEhojoTemplateFile(e.dataTransfer.files[0]);
+  });
+  ehojoFileInput.addEventListener('change', e=>{
+    if(e.target.files.length) handleEhojoTemplateFile(e.target.files[0]);
+  });
+
+  function handleEhojoTemplateFile(file){
+    $('ehojoFileChipWrap').innerHTML =
+      '<div class="file-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> '+escapeHtml(file.name)+' &nbsp;<button id="clearEhojoFileBtn">제거</button></div>';
+    $('clearEhojoFileBtn').onclick = ()=>{
+      ehojoTemplateBuffer = null;
+      $('ehojoFileChipWrap').innerHTML = '';
+    };
+
+    const reader = new FileReader();
+    reader.onload = function(e){
+      ehojoTemplateBuffer = e.target.result; // ArrayBuffer 그대로 보관 (다운로드 시마다 새로 로드해서 원본을 훼손하지 않음)
+    };
+    reader.onerror = function(){
+      alert('e호조 양식 파일을 읽는 중 오류가 발생했습니다.');
+      ehojoTemplateBuffer = null;
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function handleOrderFile(file){
+    $('orderFileChipWrap').innerHTML =
+      '<div class="file-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> '+escapeHtml(file.name)+' &nbsp;<button id="clearOrderFileBtn">제거</button></div>';
+    $('clearOrderFileBtn').onclick = ()=>{
+      orderList = null;
+      refBankMap = {};
+      refNameSet = null;
+      empOrder.forEach(id=>{ selection[id] = true; }); // 필터 해제 시 전체 선택으로 복원
+      $('orderFileChipWrap').innerHTML = '';
+      if(empOrder.length) renderAll();
+    };
+
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        // 지급대상자 목록 파일은 월별 시트로 구성되어 있을 수 있으므로,
+        // 가장 오른쪽(=시트 목록의 마지막, 가장 최신 달)의 시트를 참고한다.
+        const lastSheetName = wb.SheetNames[wb.SheetNames.length - 1];
+        const sheet = wb.Sheets[lastSheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:null, raw:false});
+        const parsed = parseOrderFile(rows);
+        if(!parsed){
+          alert('이 파일(가장 최신 시트: "'+lastSheetName+'")에서 "연번"/"성명" 열을 찾지 못했습니다. 지급대상자 목록 형식의 파일인지 확인해주세요.');
+          orderList = null; refBankMap = {}; refNameSet = null;
+          return;
+        }
+        orderList = parsed.names;
+        refBankMap = parsed.bankMap;
+        refNameSet = new Set(parsed.names);
+        if(empOrder.length){ applyReferenceFile(); renderStats(); renderEmpTable(); renderPreview(); }
+      }catch(err){
+        alert('참고 파일을 읽는 중 오류가 발생했습니다: '+err.message);
+        console.error(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // 지급대상자 목록 최신 시트에서 '연번'/'성명' 헤더를 찾아
+  // 그 아래 성명들을 등장 순서대로, 그리고 같은 행의 은행명·계좌번호를 함께 추출
+  function parseOrderFile(rows){
+    const cleanLabel = v => v==null ? '' : String(v).trim().replace(/[\r\n]/g,'');
+    let headerRow = -1, nameIdx = -1, bankIdx = -1, accIdx = -1;
+    for(let r=0; r<rows.length; r++){
+      const row = rows[r];
+      if(!row) continue;
+      const nIdx = row.findIndex(v=>cleanLabel(v)==='성명');
+      if(nIdx === -1) continue;
+      const noIdx = row.findIndex(v=>cleanLabel(v)==='연번');
+      if(noIdx === -1) continue;
+      headerRow = r; nameIdx = nIdx;
+      bankIdx = row.findIndex(v=>cleanLabel(v)==='은행명');
+      accIdx = row.findIndex(v=>cleanLabel(v)==='계좌번호');
+      break;
+    }
+    if(headerRow === -1) return null;
+    const names = [];
+    const bankMap = {};
+    for(let r=headerRow+1; r<rows.length; r++){
+      const row = rows[r];
+      if(!row) continue;
+      const cell = row[nameIdx];
+      if(cell == null) continue;
+      const name = String(cell).trim();
+      if(!name || name === '계') continue;
+      names.push(name);
+      const bank = (bankIdx>=0 && row[bankIdx]!=null) ? String(row[bankIdx]).trim() : '';
+      const account = (accIdx>=0 && row[accIdx]!=null) ? String(row[accIdx]).trim() : '';
+      if(bank || account){
+        bankMap[name] = {bank, account};
+      }
+    }
+    return names.length ? {names, bankMap} : null;
+  }
+
+  function handleVehicleFile(file){
+    $('vehicleFileChipWrap').innerHTML =
+      '<div class="file-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> '+escapeHtml(file.name)+' &nbsp;<button id="clearVehicleFileBtn">제거</button></div>';
+    $('clearVehicleFileBtn').onclick = ()=>{
+      vehicleUsageMap = new Map();
+      vehicleFileLoaded = false;
+      $('vehicleFileChipWrap').innerHTML = '';
+      if(empOrder.length){ computeAll(); renderStats(); renderEmpTable(); renderPreview(); }
+    };
+
+    const isCsv = /\.csv$/i.test(file.name);
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        let rows;
+        if(isCsv){
+          // 배차대장 CSV는 보통 CP949/EUC-KR(윈도우 엑셀 "CSV" 내보내기)로 인코딩되어 있어
+          // UTF-8로 그대로 읽으면 한글이 깨진다. EUC-KR로 우선 시도하고, 깨짐이 심하면 UTF-8로 재시도.
+          const buf = e.target.result;
+          let text;
+          try{
+            text = new TextDecoder('euc-kr').decode(buf);
+          }catch(_e){
+            text = new TextDecoder('utf-8').decode(buf);
+          }
+          if((text.match(/\uFFFD/g)||[]).length > 3){ // 대체문자(�)가 많으면 잘못된 인코딩으로 판단, UTF-8로 재시도
+            text = new TextDecoder('utf-8').decode(buf);
+          }
+          const wbCsv = XLSX.read(text, {type:'string'});
+          rows = XLSX.utils.sheet_to_json(wbCsv.Sheets[wbCsv.SheetNames[0]], {header:1, defval:null, raw:false});
+        } else {
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, {type:'array'});
+          // 월별 시트로 구성되어 있을 수 있으므로, 가장 오른쪽(=최신) 시트를 우선 사용.
+          const lastSheetName = wb.SheetNames[wb.SheetNames.length - 1];
+          rows = XLSX.utils.sheet_to_json(wb.Sheets[lastSheetName], {header:1, defval:null, raw:false});
+        }
+        const parsed = parseVehicleFile(rows);
+        if(!parsed || !parsed.size){
+          alert('이 파일에서 사용일시/사용자 등 배차대장 열을 찾지 못했거나 유효한 배차 기록이 없습니다. 차량배차 현황 파일 형식을 확인해주세요.');
+          vehicleUsageMap = new Map(); vehicleFileLoaded = false;
+          return;
+        }
+        vehicleUsageMap = parsed;
+        vehicleFileLoaded = true;
+        if(empOrder.length){ computeAll(); renderStats(); renderEmpTable(); renderPreview(); }
+      }catch(err){
+        alert('차량배차 파일을 읽는 중 오류가 발생했습니다: '+err.message);
+        console.error(err);
+      }
+    };
+    if(isCsv) reader.readAsArrayBuffer(file);
+    else reader.readAsArrayBuffer(file);
+  }
+
+  // 배차대장(예: 새올 차량배차 현황) 형식을 우선 지원:
+  // 순번,신청일자,사용일시,차량등록번호,차명,차량사용부서,차량관리부서,사용자,운전자,신청자,
+  // 배차여부,운행상황,반납시간,운행일지,목적지,용무,동승자 수,동승자,배차신청결재,배차승인결재,비고
+  // "사용일시"에서 실제 이용 기간(날짜)을 뽑고, "사용자"+"운전자"+"동승자"에 포함된 모든 사람에게
+  // 그 날짜(들)의 차량 이용과 그때의 "목적지" 텍스트를 함께 기록한다(관내/관외 판정은 계산 시점에 수행).
+  // 다만 배차여부/운행상황이 취소·미운행 등으로 보이면 제외.
+  function parseVehicleFile(rows){
+    const cleanLabel = v => v==null ? '' : String(v).trim().replace(/[\r\n]/g,'');
+    const DATE_LABELS = ['사용일시','배차일자','운행일자','사용일자','출장일자','배차일','운행일','사용일','날짜','일자','배차기간','운행기간'];
+    const NAME_LABELS = ['사용자','성명','신청자','신청인','운전자','이름'];
+
+    let headerRow = -1, dateIdx = -1, nameIdx = -1, driverIdx = -1, companionIdx = -1, statusIdx = -1, assignIdx = -1, destIdx = -1;
+    for(let r=0; r<rows.length; r++){
+      const row = rows[r];
+      if(!row) continue;
+      let dIdx = -1;
+      for(const label of DATE_LABELS){ dIdx = row.findIndex(v=>cleanLabel(v)===label); if(dIdx!==-1) break; }
+      if(dIdx === -1) continue;
+      let nIdx = -1;
+      for(const label of NAME_LABELS){ nIdx = row.findIndex(v=>cleanLabel(v)===label); if(nIdx!==-1) break; }
+      if(nIdx === -1) continue;
+      headerRow = r; dateIdx = dIdx; nameIdx = nIdx;
+      driverIdx = row.findIndex(v=>cleanLabel(v)==='운전자');
+      companionIdx = row.findIndex(v=>cleanLabel(v)==='동승자');
+      statusIdx = row.findIndex(v=>cleanLabel(v)==='운행상황');
+      assignIdx = row.findIndex(v=>cleanLabel(v)==='배차여부');
+      destIdx = row.findIndex(v=>cleanLabel(v)==='목적지');
+      break;
+    }
+    if(headerRow === -1) return null;
+
+    const usageMap = new Map(); // key("성명|YYYY-MM-DD") -> [목적지 텍스트, ...]
+    for(let r=headerRow+1; r<rows.length; r++){
+      const row = rows[r];
+      if(!row) continue;
+      const dateCell = row[dateIdx];
+      if(dateCell == null || String(dateCell).trim()==='') continue;
+
+      if(!isActuallyDriven(assignIdx>=0?row[assignIdx]:null, statusIdx>=0?row[statusIdx]:null)) continue;
+
+      const names = new Set();
+      const addFrom = (cell)=>{ splitPeopleNames(cell).forEach(n=>names.add(n)); };
+      addFrom(row[nameIdx]);
+      if(driverIdx >= 0) addFrom(row[driverIdx]);
+      if(companionIdx >= 0) addFrom(row[companionIdx]);
+      if(!names.size) continue;
+
+      const destText = (destIdx >= 0 && row[destIdx] != null) ? String(row[destIdx]).trim() : '';
+      const dateKeys = parseVehicleDates(dateCell);
+      if(!dateKeys.length) continue;
+      names.forEach(name=>{
+        dateKeys.forEach(dk=>{
+          const key = name+'|'+dk;
+          if(!usageMap.has(key)) usageMap.set(key, []);
+          usageMap.get(key).push(destText);
+        });
+      });
+    }
+    return usageMap;
+  }
+
+  // 목적지 텍스트가 "관외(타지역)"에 해당하는지 판정. 키워드(기본 "관외")를 포함하면 관외로 본다.
+  function isOutsideDestination(destText, outsideKeywords){
+    if(!destText) return false;
+    return outsideKeywords.some(k=>k && destText.includes(k));
+  }
+
+  // 해당 성명·날짜에 "관내" 배차(운행) 기록이 하나라도 있는지 확인.
+  // 목적지 정보가 아예 없는 배차 기록(destText === '')은 관내로 간주한다(기존 동작 유지).
+  function hasInJurisdictionVehicleUsage(name, dateKey, rules){
+    const dests = vehicleUsageMap.get(name+'|'+dateKey);
+    if(!dests) return false;
+    return dests.some(destText => !isOutsideDestination(destText, rules.outsideKeywords));
+  }
+
+  // 배차여부/운행상황 값으로 볼 때 "실제로 운행"된 건인지 판단.
+  // 명시적으로 취소·미운행을 나타내는 표현이 있으면 false, 그 외(정보 없음 포함)에는 true로 간주.
+  function isActuallyDriven(assignCell, statusCell){
+    const s1 = String(assignCell==null?'':assignCell).trim();
+    const s2 = String(statusCell==null?'':statusCell).trim();
+    const NEGATIVE = ['취소','반려','미승인','미배차','불가','미운행','운행전','대기중','철회'];
+    if(NEGATIVE.some(k=>s1.includes(k))) return false;
+    if(NEGATIVE.some(k=>s2.includes(k))) return false;
+    return true;
+  }
+
+  // "박성일-조상미", "조선영- 조상미" 처럼 한 칸에 여러 명이 하이픈 등으로 이어져 있는 경우를
+  // 개별 이름으로 분리한다. 값이 없거나 "없음" 등 자리표시 텍스트면 빈 배열 반환.
+  function splitPeopleNames(cell){
+    if(cell == null) return [];
+    const raw = String(cell).replace(/[\r\n]/g,' ').trim();
+    if(!raw) return [];
+    const PLACEHOLDER = ['없음','해당없음','-','.',''];
+    return raw.split(/[-,·\/、;]+/)
+      .map(s=>{
+        const t = s.trim();
+        const withId = parseName(t);
+        return withId ? withId.name : t;
+      })
+      .filter(n=>n && !PLACEHOLDER.includes(n));
+  }
+
+  // 사용일시 칸이 단일 날짜("2026-07-01"), 기간("2026-07-01 09:00 ~ 2026-07-01 18:00" 등
+  // 여러 날에 걸친 기간 포함), 점(.)/슬래시(/) 구분자 등 다양한 형식일 수 있으므로 유연하게 파싱.
+  // 기간으로 되어 있으면 그 사이의 모든 날짜를 각각 반환(해당 기간 내 어느 날이든 감액 대상).
+  function parseVehicleDates(cell){
+    const raw = String(cell).replace(/\r/g,' ').replace(/\n/g,' ').trim();
+    if(!raw) return [];
+    const parts = raw.indexOf('~') !== -1 ? raw.split('~') : [raw];
+    const toYMD = (s)=>{
+      const m = String(s).trim().match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+      if(!m) return null;
+      return {y:+m[1], mo:+m[2], d:+m[3]};
+    };
+    const start = toYMD(parts[0]);
+    if(!start) return [];
+    const end = parts.length > 1 ? (toYMD(parts[1]) || start) : start;
+    const startDate = new Date(start.y, start.mo-1, start.d);
+    const endDate = new Date(end.y, end.mo-1, end.d);
+    const keys = [];
+    if(isNaN(startDate) || isNaN(endDate) || endDate < startDate){
+      keys.push(start.y+'-'+String(start.mo).padStart(2,'0')+'-'+String(start.d).padStart(2,'0'));
+      return keys;
+    }
+    // 과도하게 긴 기간(파싱 오류 등) 방지용 안전장치
+    let cur = new Date(startDate);
+    let guard = 0;
+    while(cur <= endDate && guard < 62){
+      keys.push(cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0'));
+      cur.setDate(cur.getDate()+1);
+      guard++;
+    }
+    return keys;
+  }
+
+  // 참고 파일(orderList/refBankMap/refNameSet)을 employees/selection/overrides에 반영
+  function applyReferenceFile(){
+    if(!refNameSet && !Object.keys(refBankMap).length) return;
+    empOrder.forEach(id=>{
+      const emp = employees[id];
+      if(refNameSet){
+        selection[id] = refNameSet.has(emp.name); // 참고 파일에 있는 사람만 선택(체크)
+      }
+      const ref = refBankMap[emp.name];
+      if(ref){
+        if(!overrides[id]) overrides[id] = {bank:'', account:'', holder:emp.name, purpose:mostCommonPurpose(emp)};
+        if(ref.bank) overrides[id].bank = ref.bank;
+        if(ref.account) overrides[id].account = ref.account;
+      }
+    });
+  }
+
+  // 참고 파일이 있으면 그 순서를, 없으면 원본 등장 순서를 반환
+  function getDisplayOrder(){
+    if(!orderList || !orderList.length) return empOrder;
+    const rank = {};
+    orderList.forEach((n, i)=>{ if(!(n in rank)) rank[n] = i; });
+    return [...empOrder].sort((a,b)=>{
+      const ra = (employees[a].name in rank) ? rank[employees[a].name] : Infinity;
+      const rb = (employees[b].name in rank) ? rank[employees[b].name] : Infinity;
+      if(ra !== rb) return ra - rb;
+      return empOrder.indexOf(a) - empOrder.indexOf(b);
+    });
+  }
+
+  function handleFile(file){
+    $('fileChipWrap').innerHTML =
+      '<div class="file-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> '+escapeHtml(file.name)+' &nbsp;<button id="clearFileBtn">제거</button></div>';
+    $('clearFileBtn').onclick = ()=>{ location.reload(); };
+
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        allRows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:null, raw:false});
+        parseEmployees();
+        computeAll();
+        renderAll();
+      }catch(err){
+        alert('파일을 읽는 중 오류가 발생했습니다: '+err.message);
+        console.error(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // ---------- Parsing ----------
+  function parseName(cell){
+    if(!cell) return null;
+    const m = String(cell).trim().match(/^(.+?)\(([^)]+)\)\s*$/);
+    if(!m) return null;
+    return {name:m[1].trim(), id:m[2].trim()};
+  }
+
+  function parsePeriod(cell){
+    if(!cell) return null;
+    const clean = String(cell).replace(/\r/g,' ').replace(/\n/g,' ').trim();
+    if(clean.indexOf('~') === -1) return null;
+    const parts = clean.split('~');
+    if(parts.length !== 2) return null;
+    const sd = parseDT(parts[0].trim());
+    const ed = parseDT(parts[1].trim());
+    if(!sd || !ed) return null;
+    return {start:sd, end:ed};
+  }
+
+  function parseDT(s){
+    const m = s.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+    if(!m) return null;
+    return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
+  }
+
+  // 헤더 행을 찾아 '성명','출장기간','소속/직급','출장목적' 컬럼의 실제 위치를 동적으로 감지.
+  // (엑셀마다 사용범위 시작열이 A열/B열 등으로 달라질 수 있어 고정 인덱스는 어긋나기 쉬움)
+  function detectColumns(rows){
+    const cleanLabel = v => v==null ? '' : String(v).trim().replace(/[\r\n]/g,'');
+    for(let r=0; r<rows.length; r++){
+      const row = rows[r];
+      if(!row) continue;
+      const nameIdx = row.findIndex(v=>cleanLabel(v)==='성명');
+      if(nameIdx === -1) continue;
+      const periodIdx = row.findIndex(v=>cleanLabel(v)==='출장기간');
+      if(periodIdx === -1) continue; // 진짜 헤더행인지 재확인
+      const findIdx = (label)=> row.findIndex(v=>cleanLabel(v)===label);
+      return {
+        name: nameIdx,
+        period: periodIdx,
+        dept: findIdx('소속/직급'),
+        purpose: findIdx('출장목적'),
+        headerRow: r
+      };
+    }
+    return null;
+  }
+
+  function parseEmployees(){
+    employees = {}; empOrder = [];
+    const cols = detectColumns(allRows);
+    if(!cols){
+      alert('엑셀에서 "성명"/"출장기간" 헤더를 찾을 수 없습니다. 파일 형식을 확인해주세요.');
+      return;
+    }
+    for(const row of allRows){
+      if(!row) continue;
+      const nameCell = row[cols.name];
+      const periodCell = row[cols.period];
+      const deptCell = cols.dept >= 0 ? row[cols.dept] : null;
+      const purposeCell = cols.purpose >= 0 ? row[cols.purpose] : null;
+      const parsedName = parseName(nameCell);
+      if(!parsedName) continue;
+      const period = parsePeriod(periodCell);
+      if(!period) continue;
+
+      const dur = (period.end - period.start) / 3600000; // hours
+      if(!(dur >= 0)) continue;
+
+      const y = period.start.getFullYear(), mo = period.start.getMonth()+1, d = period.start.getDate();
+      const dateKey = y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+
+      if(!employees[parsedName.id]){
+        employees[parsedName.id] = {
+          id: parsedName.id, name: parsedName.name,
+          dept: (deptCell? String(deptCell).replace(/_x000D_/g,' ').replace(/[\r\n]+/g,' ').trim() : ''),
+          purposeCounts: {}, records: [], allCount: 0
+        };
+        empOrder.push(parsedName.id);
+      }
+      const emp = employees[parsedName.id];
+      emp.allCount++;
+      emp.records.push({date:dateKey, day:d, hours:dur});
+      if(purposeCell){
+        const p = String(purposeCell).replace(/_x000D_/g,' ').replace(/[\r\n]+/g,' ').trim();
+        if(p){ emp.purposeCounts[p] = (emp.purposeCounts[p]||0)+1; }
+      }
+    }
+  }
+
+  function mostCommonPurpose(emp){
+    let best=null, bestN=-1;
+    for(const p in emp.purposeCounts){
+      if(emp.purposeCounts[p] > bestN){ best=p; bestN = emp.purposeCounts[p]; }
+    }
+    return best || '';
+  }
+
+  // ---------- Fee computation ----------
+  function computeForEmployee(emp, rules){
+    const byDate = {};
+    emp.records.forEach(r=>{
+      (byDate[r.date] = byDate[r.date] || []).push(r);
+    });
+    const dates = Object.keys(byDate).sort();
+
+    // 1) 날짜별 산정액 계산
+    //    같은 날 기록이 2건 이상이어도, 그 중 한 건이라도 단독으로
+    //    "단일 출장 인정 기준(fullHours)"을 넘으면 그날은 무조건 1일 최대액 전액을 인정한다.
+    //    (예: 하루 중 한 건이 4시간 이상이면 다른 짧은 건이 섞여 있어도 절반으로 깎지 않음)
+    const dayFeesAll = dates.map(d=>{
+      const dayRecs = byDate[d];
+      let fee = 0;
+      if(dayRecs.length === 1){
+        // 하루에 출장이 1건뿐인 경우: 4시간(단일인정기준) 이상이면 전액, 1시간(분할인정기준) 이상이면 절반
+        const h = dayRecs[0].hours;
+        if(h >= rules.fullHours) fee = rules.dailyCap;
+        else if(h >= rules.splitHours) fee = rules.dailyCap/2;
+        else fee = 0;
+      } else {
+        // 하루에 출장이 2건 이상인 경우: 각 건이 1시간(분할인정기준)을 넘으면 건당 절반씩,
+        // 합산액은 1일 최대액을 넘지 않도록 상한
+        dayRecs.forEach(r=>{
+          if(r.hours >= rules.splitHours) fee += rules.dailyCap/2;
+        });
+        fee = Math.min(fee, rules.dailyCap);
+      }
+      // 차량 감액: 출장기록의 "공무용차량 사용" 표시와 무관하게, 차량배차 현황 파일에
+      // 실제 배차(운행) 기록이 있고 그 목적지가 관내인 날짜만 감액한다
+      // (목적지가 관외로 표시된 배차는 관내여비 계산에 영향을 주지 않음. 파일을 올리지 않았으면 적용 안 함).
+      let vehicleDeducted = false, vehicleDeductAmount = 0;
+      if(vehicleFileLoaded && rules.vehicleDeduction > 0 && fee > 0 && hasInJurisdictionVehicleUsage(emp.name, d, rules)){
+        const before = fee;
+        fee = Math.max(0, fee - rules.vehicleDeduction);
+        vehicleDeducted = true;
+        vehicleDeductAmount = before - fee;
+      }
+      return {date:d, day:dayRecs[0].day, fee, vehicleDeducted, vehicleDeductAmount};
+    });
+    // 계산(월한도 배분)에는 실제 지급액이 0원보다 큰 날짜만 사용
+    const dayFees = dayFeesAll.filter(x=>x.fee > 0);
+
+    // 2) 월 한도 내에서 합계가 최대한(가능하면 한도까지 꽉) 채워지도록 선택.
+    //    날짜 오름차순으로 채우다 중간에 끊는 방식이 아니라,
+    //    금액이 큰 날(전액)부터 먼저 채우고 남는 한도를 반액짜리로 메워
+    //    월 한도를 최대한 소진시킨다. (날짜 순서는 최종 합계 산정에 영향 없음)
+    const sortedByFeeDesc = [...dayFees].sort((a,b)=> b.fee - a.fee || (a.date < b.date ? -1 : 1));
+    let total = 0;
+    const includedSet = new Set();
+    let anySkipped = false;
+    sortedByFeeDesc.forEach(item=>{
+      if(total + item.fee <= rules.monthlyCap){
+        total += item.fee;
+        includedSet.add(item.date);
+      } else {
+        anySkipped = true;
+      }
+    });
+
+    // 표시는 다시 날짜 오름차순으로 정렬
+    const includedDays = dayFees
+      .filter(x=>includedSet.has(x.date))
+      .map(x=>x.day);
+
+    // 금액이 반영되지 않은 날짜(0원 처리되었거나 월 한도 초과로 제외된 날짜)까지 포함해서,
+    // 원본 자료에 등장하는 모든 출장 일자를 오름차순으로 뽑는다. (지급명세서 "출장기간(일)"란에 사용)
+    const allDays = dates.map(d=>byDate[d][0].day);
+
+    // 차량 운행으로 감액이 적용된 날짜들(검증용 표시). 감액으로 0원이 되어 월 집계에서
+    // 제외된 날짜도 "감액되었다"는 사실 자체는 사용자가 확인할 수 있도록 모두 포함한다.
+    const deductedItems = dayFeesAll.filter(x=>x.vehicleDeducted);
+    const vehicleDeductedDays = deductedItems.map(x=>x.day);
+    const vehicleDeductionTotal = deductedItems.reduce((s,x)=>s+x.vehicleDeductAmount, 0);
+
+    return {total, includedDays, allDays, capped: anySkipped, vehicleDeductedDays, vehicleDeductionTotal};
+  }
+
+  function computeAll(){
+    const rules = getRules();
+    results = {};
+    empOrder.forEach(id=>{
+      results[id] = computeForEmployee(employees[id], rules);
+      if(!(id in selection)) selection[id] = true;
+      if(!overrides[id]){
+        overrides[id] = {
+          bank: '', account: '', holder: employees[id].name,
+          purpose: mostCommonPurpose(employees[id])
+        };
+      }
+    });
+    applyReferenceFile(); // 지급대상자 목록 참고 파일이 먼저 올라와 있으면 선택/은행/계좌에 반영
+  }
+
+  // ---------- Rendering ----------
+  function renderAll(){
+    $('emptyState').classList.add('hidden');
+    $('step2').classList.remove('hidden');
+    $('step3').classList.remove('hidden');
+    renderStats();
+    renderEmpTable();
+    renderPreview();
+  }
+
+  function renderStats(){
+    const totalRecords = empOrder.reduce((s,id)=>s+employees[id].allCount,0);
+    const selectedIds = getDisplayOrder().filter(id=>selection[id]);
+    const totalAmount = selectedIds.reduce((s,id)=>s+results[id].total,0);
+    const cappedCount = selectedIds.filter(id=>results[id].capped).length;
+    const vehicleDeductionTotal = selectedIds.reduce((s,id)=>s+(results[id].vehicleDeductionTotal||0),0);
+    const vehicleStatHtml = vehicleFileLoaded
+      ? `<div class="stat"><div class="num">${vehicleDeductionTotal.toLocaleString()}원</div><div class="lbl">차량 운행 감액 총액</div></div>`
+      : '';
+    $('statsRow').innerHTML = `
+      <div class="stat"><div class="num">${totalRecords.toLocaleString()}건</div><div class="lbl">인식된 전체 출장 기록</div></div>
+      <div class="stat"><div class="num">${empOrder.length}명</div><div class="lbl">인식된 인원 수</div></div>
+      <div class="stat ok"><div class="num">${selectedIds.length}명</div><div class="lbl">선택된 지급 대상자</div></div>
+      <div class="stat warn"><div class="num">${totalAmount.toLocaleString()}원</div><div class="lbl">선택 대상 합계 지급액 · 한도도달 ${cappedCount}명</div></div>
+      ${vehicleStatHtml}
+    `;
+  }
+
+  function renderEmpTable(){
+    const q = ($('searchBox').value||'').trim();
+    const tbody = $('empTableBody');
+    tbody.innerHTML = '';
+    getDisplayOrder().forEach((id, idx)=>{
+      const emp = employees[id];
+      if(q && emp.name.indexOf(q) === -1) return;
+      const res = results[id];
+      const ov = overrides[id];
+      const tr = document.createElement('tr');
+      if(!selection[id]) tr.classList.add('excluded');
+
+      const dayBadge = res.total <= 0
+        ? '<span class="badge zero">0일</span>'
+        : `<span class="badge ${res.capped?'cap':''}">${res.includedDays.length}일${res.capped?' (한도)':''}</span>`;
+
+      const vehicleBadge = (res.vehicleDeductedDays && res.vehicleDeductedDays.length)
+        ? `<span class="badge" title="차량 운행으로 감액된 날짜: ${res.vehicleDeductedDays.join(',')}일 (건당 ${getRules().vehicleDeduction.toLocaleString()}원 차감)" style="margin-left:4px;background:#eef2ff;color:#33417a;">차량 -${res.vehicleDeductedDays.length}</span>`
+        : '';
+
+      tr.innerHTML = `
+        <td><input type="checkbox" data-id="${id}" class="chkSel" ${selection[id]?'checked':''}></td>
+        <td>${idx+1}</td>
+        <td class="name-cell"><b>${escapeHtml(emp.name)}</b></td>
+        <td style="font-size:11.5px;color:#5a6672;">${escapeHtml(emp.dept)}</td>
+        <td class="num-cell">${emp.allCount}</td>
+        <td>${dayBadge}${vehicleBadge}</td>
+        <td class="num-cell">${res.total.toLocaleString()}</td>
+        <td><input type="text" class="fldBank" data-id="${id}" value="${escapeHtml(ov.bank)}" placeholder="은행명"></td>
+        <td><input type="text" class="fldAccount" data-id="${id}" value="${escapeHtml(ov.account)}" placeholder="계좌번호"></td>
+        <td><input type="text" class="fldHolder" data-id="${id}" value="${escapeHtml(ov.holder)}" placeholder="예금주명"></td>
+        <td><input type="text" class="fldPurpose" data-id="${id}" value="${escapeHtml(ov.purpose)}" placeholder="출장목적"></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('.chkSel').forEach(el=>{
+      el.addEventListener('change', e=>{
+        selection[e.target.dataset.id] = e.target.checked;
+        renderStats(); renderEmpTable(); renderPreview();
+      });
+    });
+    tbody.querySelectorAll('.fldBank').forEach(el=>{
+      el.addEventListener('input', e=>{ overrides[e.target.dataset.id].bank = e.target.value; renderPreview(); });
+    });
+    tbody.querySelectorAll('.fldAccount').forEach(el=>{
+      el.addEventListener('input', e=>{ overrides[e.target.dataset.id].account = e.target.value; renderPreview(); });
+    });
+    tbody.querySelectorAll('.fldHolder').forEach(el=>{
+      el.addEventListener('input', e=>{ overrides[e.target.dataset.id].holder = e.target.value; renderPreview(); });
+    });
+    tbody.querySelectorAll('.fldPurpose').forEach(el=>{
+      el.addEventListener('input', e=>{ overrides[e.target.dataset.id].purpose = e.target.value; renderPreview(); });
+    });
+  }
+
+  function renderPreview(){
+    const ym = $('metaTitleYM').value || '';
+    $('ledgerTitle').textContent = (ym+' 국내여비 지급 명세서').trim();
+    $('apRankOut').textContent = $('metaApproverRank').value || '-';
+    $('apNameOut').textContent = $('metaApproverName').value || '-';
+
+    const selectedIds = getDisplayOrder().filter(id=>selection[id]);
+    const body = $('ledgerBody');
+    body.innerHTML = '';
+
+    const totalRow = document.createElement('tr');
+    totalRow.className = 'total-row';
+    const grandTotal = selectedIds.reduce((s,id)=>s+results[id].total,0);
+    totalRow.innerHTML = `<td colspan="2">계</td><td class="amt">${grandTotal.toLocaleString()}</td><td colspan="4"></td>`;
+    body.appendChild(totalRow);
+
+    selectedIds.forEach((id, idx)=>{
+      const emp = employees[id];
+      const res = results[id];
+      const ov = overrides[id];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${idx+1}</td>
+        <td class="name">${escapeHtml(emp.name)}</td>
+        <td class="amt">${res.total.toLocaleString()}</td>
+        <td>${escapeHtml(ov.bank)}</td>
+        <td>${escapeHtml(ov.account)}</td>
+        <td class="days">${res.allDays.join(',')}</td>
+        <td class="purpose">${escapeHtml(ov.purpose)}</td>
+      `;
+      body.appendChild(tr);
+    });
+
+    $('previewFootnote').textContent =
+      `대상 ${selectedIds.length}명 · 합계 ${grandTotal.toLocaleString()}원 · 생성 규칙: 월한도 ${getRules().monthlyCap.toLocaleString()}원 / 일한도 ${getRules().dailyCap.toLocaleString()}원`;
+  }
+
+  function escapeHtml(s){
+    return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- Controls ----------
+  $('toggleAll').addEventListener('change', e=>{
+    empOrder.forEach(id=>selection[id]=e.target.checked);
+    renderStats(); renderEmpTable(); renderPreview();
+  });
+  $('searchBox').addEventListener('input', renderEmpTable);
+  $('btnRecalc').addEventListener('click', ()=>{
+    computeAll(); renderStats(); renderEmpTable(); renderPreview();
+  });
+  ['metaTitleYM','metaDept','metaApproverRank','metaApproverName'].forEach(id=>{
+    $(id).addEventListener('input', renderPreview);
+  });
+  ['ruleMonthlyCap','ruleDailyCap','ruleFullHours','ruleSplitHours','ruleVehicleDeduction','ruleOutsideKeywords'].forEach(id=>{
+    $(id).addEventListener('change', ()=>{
+      if(empOrder.length){ computeAll(); renderStats(); renderEmpTable(); renderPreview(); }
+    });
+  });
+
+  // ---------- 은행코드 매핑 (e호조 관내여비지출폼 기준) ----------
+  const BANK_CODES = [
+    '001:한국은행','002:산업은행','003:기업은행','004:국민은행','007:수협은행','008:수출입은행',
+    '011:농협은행','012:지역 농축협','020:우리은행','023:SC제일은행','027:한국씨티은행','031:대구은행',
+    '032:부산은행','034:광주은행','035:제주은행','037:전북은행','039:경남은행','045:새마을금고중앙회',
+    '048:신협','050:상호저축은행','071:우체국','081:KEB하나은행','088:신한은행','089:케이뱅크',
+    '090:카카오뱅크','092:토스뱅크','093:한국주택금융공사','094:서울보증보험'
+  ];
+  function bankToCode(freeText){
+    const t = String(freeText||'').trim();
+    if(!t) return '';
+    // 이미 "코드:은행명" 형식이면 그대로 사용
+    if(/^\d{3}:/.test(t)) return t;
+    const norm = s=>s.replace(/은행|중앙회|\s/g,'');
+    const target = norm(t);
+    if(!target) return '';
+    let best = null;
+    for(const entry of BANK_CODES){
+      const name = norm(entry.split(':')[1]);
+      if(name === target){ best = entry; break; }
+      if(!best && (name.indexOf(target)!==-1 || target.indexOf(name)!==-1)) best = entry;
+    }
+    return best || t; // 매칭 실패 시 사용자가 입력한 원문을 그대로 기재(수기 확인 필요)
+  }
+
+  // ---------- 스타일 헬퍼 (ExcelJS) ----------
+  const THIN = {style:'thin'};
+  const MEDIUM = {style:'medium'};
+  function borderAll(style){ return {top:style, bottom:style, left:style, right:style}; }
+  function applyOuterBorder(ws, r1, c1, r2, c2){
+    for(let r=r1; r<=r2; r++){
+      for(let c=c1; c<=c2; c++){
+        const cell = ws.getCell(r,c);
+        const b = Object.assign({top:THIN,bottom:THIN,left:THIN,right:THIN}, cell.border||{});
+        if(r===r1) b.top = MEDIUM;
+        if(r===r2) b.bottom = MEDIUM;
+        if(c===c1) b.left = MEDIUM;
+        if(c===c2) b.right = MEDIUM;
+        cell.border = b;
+      }
+    }
+  }
+
+  // ---------- STEP3 버튼1: 지급명세서(총괄 서식) 다운로드 ----------
+  $('btnDownload').addEventListener('click', async ()=>{
+    const selectedIds = getDisplayOrder().filter(id=>selection[id]);
+    if(selectedIds.length === 0){ alert('선택된 대상자가 없습니다.'); return; }
+
+    const ym = $('metaTitleYM').value || '';
+    const title = (ym+' 국내여비 지급 명세서').trim();
+    const apRank = $('metaApproverRank').value || '';
+    const apName = $('metaApproverName').value || '';
+    const grandTotal = selectedIds.reduce((s,id)=>s+results[id].total,0);
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('지급명세서', {views:[{showGridLines:false, view:'pageBreakPreview'}]});
+
+    // 열 너비 (총괄 서식 원본 기준 + 연번/은행명/금액 칸을 좀 더 넓게 조정)
+    ws.columns = [
+      {width:7},{width:8.43},{width:13},{width:14},{width:15.77},{width:37.88},{width:18.66},{width:5.32}
+    ];
+
+    // 병합된 범위를 기록해두고, 나중에 병합 내부 경계선(칸이 둘로 나뉜 것처럼 보이는 선)을 지우는 데 사용한다.
+    const merges = [];
+    const mergeTrack = (r1,c1,r2,c2)=>{ ws.mergeCells(r1,c1,r2,c2); merges.push({r1,c1,r2,c2}); };
+
+    const lastRow = 5 + selectedIds.length; // 5=header row, data starts row 6... (계 row is row6)
+    const dataStartRow = 7;
+    const dataEndRow = 6 + selectedIds.length;
+
+    // 행1: 제목
+    mergeTrack(1,1,1,8);
+    ws.getRow(1).height = 55.5;
+    const c1 = ws.getCell(1,1);
+    c1.value = title;
+    c1.font = {name:'굴림체', size:22, bold:true};
+    c1.alignment = {horizontal:'center', vertical:'middle'};
+
+    // 행2~4: 지출명세서 박스 / 대조자 정보
+    mergeTrack(2,1,4,5); // A2:E4 "지 출 명 세 서"
+    mergeTrack(2,6,4,6); // F2:F4 "출장명령부 대조자"
+    mergeTrack(2,7,3,7); // G2:G3 "직급 : ..."
+    mergeTrack(2,8,4,8); // H2:H4 "(인)"
+    ws.getRow(2).height = 13.5;
+    ws.getRow(3).height = 13.5;
+    ws.getRow(4).height = 22.5;
+
+    const fillCyan = {type:'pattern', pattern:'solid', fgColor:{argb:'FFCCFFFF'}};
+    const boxCell = (r,c,val,opt)=>{
+      const cell = ws.getCell(r,c);
+      cell.value = val;
+      cell.font = Object.assign({name:'맑은 고딕', size:14, bold:true}, opt&&opt.font);
+      cell.alignment = Object.assign({horizontal:'center', vertical:'middle', wrapText:true}, opt&&opt.alignment);
+      cell.fill = fillCyan;
+      return cell;
+    };
+    boxCell(2,1,'지 출 명 세 서');
+    boxCell(2,6,'출장명령부\n대조자');
+    boxCell(2,7,'직급 : '+apRank, {alignment:{horizontal:'left', vertical:'middle', wrapText:false}});
+    boxCell(2,8,'(인)', {font:{name:'돋움', size:14, bold:true}});
+    boxCell(4,7,'성명 : '+apName, {alignment:{horizontal:'left', vertical:'middle', wrapText:false}});
+
+    // 행5: 헤더
+    mergeTrack(5,7,5,8); // G5:H5 출장목적
+    ws.getRow(5).height = 30.75;
+    ['연번','성명','금액(원)','은행명','계좌번호','출장기간(일)','출장목적'].forEach((h,i)=>{
+      // 연번 칸은 좁아서 자동 줄바꿈이 걸리면 글자가 세로로 쪼개져 보이므로 줄바꿈을 꺼둔다.
+      const opt = (i===0) ? {alignment:{wrapText:false}} : undefined;
+      boxCell(5, i+1, h, opt);
+    });
+
+    // 행6: 계
+    ws.getRow(6).height = 39;
+    const b6 = ws.getCell(6,2); b6.value='계'; b6.font={name:'맑은 고딕', size:11, bold:true}; b6.alignment={horizontal:'center', vertical:'middle'};
+    const c6 = ws.getCell(6,3); c6.value = grandTotal; c6.font={name:'굴림체', size:11, bold:true}; c6.alignment={horizontal:'center', vertical:'middle'}; c6.numFmt = '_-* #,##0_-;-* #,##0_-;_-* "-"_-;_-@_-';
+
+    // 데이터 행
+    selectedIds.forEach((id, idx)=>{
+      const r = dataStartRow + idx;
+      const emp = employees[id]; const res = results[id]; const ov = overrides[id];
+      ws.getRow(r).height = 39;
+
+      const a = ws.getCell(r,1); a.value = idx+1; a.font={name:'돋움', size:11, bold:true}; a.alignment={horizontal:'center', vertical:'middle'};
+      const b = ws.getCell(r,2); b.value = emp.name; b.font={name:'맑은 고딕', size:11}; b.alignment={horizontal:'center', vertical:'middle'};
+      const c = ws.getCell(r,3); c.value = res.total; c.font={name:'돋움', size:11}; c.alignment={horizontal:'right', vertical:'middle'}; c.numFmt = '_-* #,##0_-;-* #,##0_-;_-* "-"_-;_-@_-';
+      const d = ws.getCell(r,4); d.value = ov.bank; d.font={name:'맑은 고딕', size:11}; d.alignment={horizontal:'center', vertical:'middle'};
+      const e = ws.getCell(r,5); e.value = ov.account; e.font={name:'돋움', size:10}; e.alignment={horizontal:'center', vertical:'middle'};
+      const f = ws.getCell(r,6); f.value = res.allDays.join(','); f.font={name:'돋움', size:11}; f.alignment={horizontal:'center', vertical:'middle', wrapText:true};
+      mergeTrack(r,7,r,8);
+      const g = ws.getCell(r,7); g.value = ov.purpose; g.font={name:'맑은 고딕', size:11}; g.alignment={horizontal:'center', vertical:'middle', wrapText:true};
+    });
+
+    // 금액(원) 컬럼(C열) 자동 너비 조정 - 값이 길어 ### 로 표시되는 것 방지
+    {
+      const amountValues = [grandTotal, ...selectedIds.map(id=>results[id].total)];
+      const maxAmountLen = Math.max(...amountValues.map(v=>Number(v||0).toLocaleString('ko-KR').length));
+      const neededWidth = maxAmountLen + 4; // 천단위 콤마/여백 버퍼
+      if(neededWidth > ws.getColumn(3).width) ws.getColumn(3).width = neededWidth;
+    }
+
+    // 테두리: 전체 얇은선 + 표 바깥 굵은선
+    applyOuterBorder(ws, 1, 1, dataEndRow, 8);
+    for(let r=2; r<=dataEndRow; r++){
+      for(let c=1; c<=8; c++){
+        const cell = ws.getCell(r,c);
+        const b = Object.assign({top:THIN,bottom:THIN,left:THIN,right:THIN}, cell.border||{});
+        // 병합된 칸(출장목적 등) 내부에 걸리는 경계선은 지운다.
+        // 이걸 안 지우면 병합된 칸인데도 안쪽에 선이 남아서 마치 칸이 둘로 나뉜 것처럼 보인다.
+        merges.forEach(m=>{
+          if(r<m.r1||r>m.r2||c<m.c1||c>m.c2) return;
+          if(c>m.c1) b.left = null;
+          if(c<m.c2) b.right = null;
+          if(r>m.r1) b.top = null;
+          if(r<m.r2) b.bottom = null;
+        });
+        cell.border = b;
+      }
+    }
+    applyOuterBorder(ws, 1, 1, dataEndRow, 8);
+
+    ws.pageSetup = {orientation:'portrait', paperSize:9, fitToPage:true, fitToWidth:1, fitToHeight:1};
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type:'application/octet-stream'});
+    const safeYm = ym.replace(/[^0-9a-zA-Z가-힣]/g,'');
+    downloadBlob(blob, `출장여비_지급명세서_${safeYm||'결과'}.xlsx`);
+  });
+
+  // ---------- STEP3 버튼2: e호조 관내여비 지출폼 다운로드 ----------
+  const EHOJO_HEADERS = [
+    '거래처명\n(100자리이하)\n(필수입력)','거래처구분\n(필수입력)','사업자등록번호\n(10자리)','생년월일\n(8자리)',
+    '입금유형\n(선택)','은행\n(선택)','예금주명\n(100자리이하)','계좌번호\n(30자리이하)',
+    '공급가액\n(17자리이하)\n(필수입력)','부가세액\n(17자리이하)','공제액\n(금액 0원으로 고정)','지출액\n(17자리이하)',
+    '지로번호\n(19자리이하)','CMS번호\n(20자리이하)','대표채주\n(Y/N)','대표자명\n(100자리)','우편번호\n(5자리)',
+    '기본주소\n(75자이하)','상세주소\n(75자이하)','전화번호\n(30자리이하)','휴대폰번호\n(20자리이하)','입금명세(100자리)'
+  ];
+  const EHOJO_WIDTHS = [22.625,21.25,22.75,21.625,16.25,22.625,20.625,26.5,17.75,17.75,23.75,19.25,21.625,8.43,15.25,16.125,15.75,25.625,20.625,20.625,8.43,25.625];
+
+  $('btnDownloadEhojo').addEventListener('click', async ()=>{
+    const selectedIds = getDisplayOrder().filter(id=>selection[id]);
+    if(selectedIds.length === 0){ alert('선택된 대상자가 없습니다.'); return; }
+
+    const missingAccount = selectedIds.filter(id=>!overrides[id].account);
+    if(missingAccount.length){
+      const names = missingAccount.map(id=>employees[id].name).join(', ');
+      if(!confirm(`계좌번호가 비어있는 대상자가 있습니다: ${names}\n그대로 진행할까요?`)) return;
+    }
+
+    let wb = null, ws = null, usingTemplate = false;
+
+    // 원본 e호조 양식(.xlsx)이 업로드되어 있으면, 그 파일을 그대로 불러와서
+    // "거래처입력" 시트의 값만 채우고 나머지 시트(예: 3번째 시트 은행 코드표)와
+    // 데이터 유효성 검사(드롭다운 등)는 원본 그대로 보존한다.
+    if(ehojoTemplateBuffer){
+      try{
+        const tmpWb = new ExcelJS.Workbook();
+        await tmpWb.xlsx.load(ehojoTemplateBuffer.slice(0));
+        const targetWs = tmpWb.worksheets.find(s=>/거래처/.test(s.name)) || tmpWb.worksheets[0];
+        if(!targetWs) throw new Error('입력할 시트를 찾을 수 없습니다.');
+        // 기존에 남아있던 데이터 행의 값만 비운다 (서식·데이터 유효성은 그대로 유지)
+        const lastRow = Math.max(targetWs.actualRowCount||0, targetWs.rowCount||0, 1);
+        for(let r=2; r<=lastRow; r++){
+          for(let c=1; c<=22; c++){
+            targetWs.getRow(r).getCell(c).value = null;
+          }
+        }
+        wb = tmpWb;
+        ws = targetWs;
+        usingTemplate = true;
+        ws.views = [Object.assign({}, (ws.views&&ws.views[0])||{}, {view:'pageBreakPreview'})];
+      }catch(err){
+        alert('업로드한 e호조 양식 파일을 열지 못했습니다: '+err.message+'\n기본 서식으로 새로 생성합니다.');
+        wb = null;
+      }
+    }
+
+    if(!wb){
+      wb = new ExcelJS.Workbook();
+      ws = wb.addWorksheet('거래처입력', {views:[{showGridLines:false, view:'pageBreakPreview'}]});
+      ws.columns = EHOJO_WIDTHS.map(w=>({width:w}));
+      ws.getRow(1).height = 45.75;
+
+      const headerFill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFD9D9D9'}};
+      EHOJO_HEADERS.forEach((h,i)=>{
+        const cell = ws.getCell(1, i+1);
+        cell.value = h;
+        cell.font = {name:'돋움', size:12};
+        cell.alignment = {horizontal:'center', vertical:'middle', wrapText:true};
+        cell.fill = headerFill;
+        cell.border = borderAll(THIN);
+      });
+    }
+
+    selectedIds.forEach((id, idx)=>{
+      const r = idx+2;
+      const emp = employees[id]; const res = results[id]; const ov = overrides[id];
+      if(!usingTemplate) ws.getRow(r).height = 16.5;
+
+      const setCell = (col, val, opt)=>{
+        const cell = ws.getCell(r, col);
+        cell.value = val;
+        if(!usingTemplate){
+          // 새로 만드는 경우에만 서식을 직접 지정한다. 원본 양식을 쓸 때는
+          // 그 시트에 이미 있는 서식/데이터 유효성을 건드리지 않고 값만 채운다.
+          cell.font = Object.assign({name:'맑은 고딕', size:11}, opt&&opt.font);
+          cell.alignment = Object.assign({horizontal:'center', vertical:'middle'}, opt&&opt.alignment);
+          cell.border = borderAll(THIN);
+        }
+        if(opt&&opt.numFmt) cell.numFmt = opt.numFmt;
+        return cell;
+      };
+      setCell(1, emp.name);                                   // A 거래처명
+      setCell(2, '30:개인');                                   // B 거래처구분
+      setCell(5, '10:계좌이체');                                // E 입금유형
+      setCell(6, bankToCode(ov.bank));                         // F 은행
+      setCell(7, ov.holder || emp.name);                       // G 예금주명
+      setCell(8, ov.account, {font:{name:'돋움', size:10}});    // H 계좌번호
+      setCell(9, res.total, {alignment:{horizontal:'right'}, numFmt:'_-* #,##0_-;-* #,##0_-;_-* "-"_-;_-@_-'}); // I 공급가액
+      setCell(11, 0, {alignment:{horizontal:'right'}, numFmt:'_-* #,##0_-;-* #,##0_-;_-* "-"_-;_-@_-'});        // K 공제액(0원 고정)
+      // 새로 만드는 경우에만: 나머지 컬럼(C,D,J,L~V)은 빈 셀이지만 테두리는 맞춰준다
+      if(!usingTemplate){
+        for(let c=1; c<=22; c++){
+          if(![1,2,5,6,7,8,9,11].includes(c)){
+            const cell = ws.getCell(r,c);
+            cell.border = borderAll(THIN);
+          }
+        }
+      }
+    });
+
+    if(!usingTemplate){
+      ws.pageSetup = {orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0};
+
+      // 공급가액(I열) 자동 너비 조정 - 값이 길어 ### 로 표시되는 것 방지
+      const supplyValues = selectedIds.map(id=>results[id].total);
+      if(supplyValues.length){
+        const maxLen = Math.max(...supplyValues.map(v=>Number(v||0).toLocaleString('ko-KR').length));
+        const neededWidth = maxLen + 4;
+        if(neededWidth > ws.getColumn(9).width) ws.getColumn(9).width = neededWidth;
+      }
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type:'application/octet-stream'});
+    const ym = $('metaTitleYM').value || '';
+    const safeYm = ym.replace(/[^0-9a-zA-Z가-힣]/g,'');
+    downloadBlob(blob, `e호조_관내여비지출폼_${safeYm||'결과'}.xlsx`);
+  });
+
+  function downloadBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }
+
+})();
+</script>
+
+
+
+<!--SUITE:BRIDGE-->
+</body>
+
+</html>

@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HWPX 얼굴 자동 블러 도구</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<style>
+/* ==========================================================================
+   1. Design Tokens
+   ========================================================================== */
+:root{--surface-hover:var(--hover);--surface-sunken:var(--surface-2);--text-secondary:var(--text-2);--text-tertiary:var(--text-3);--primary-dim:var(--primary-tint);--success-dim:var(--success-tint);--warning-dim:var(--warning-tint);--danger-dim:var(--danger-tint);--shadow-sm:var(--shadow-card);--seal:var(--danger);--ink:var(--text);--pine:var(--primary);--paper:var(--bg);}
+
+/* ==========================================================================
+   2. Reset
+   ========================================================================== */
+*, *::before, *::after{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font);
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,p{ margin:0; }
+button{ font-family:inherit; }
+input, select{ font-family:inherit; }
+.icon{ width:18px; height:18px; flex:none; }
+.icon-sm{ width:14px; height:14px; flex:none; }
+.icon-lg{ width:34px; height:34px; flex:none; }
+svg.icon, svg.icon-sm, svg.icon-lg{
+  fill:none; stroke:currentColor; stroke-width:1.7;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+
+/* ==========================================================================
+   3. Layout
+   ========================================================================== */
+.app{
+  display:flex;
+  min-height:100vh;
+}
+.main{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+}
+.content{
+  padding:28px 36px 60px;
+  max-width:1180px;
+  width:100%;
+  margin:0 auto;
+}
+.grid-2col{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  align-items:start;
+}
+.stack{ display:flex; flex-direction:column; gap:16px; }
+.section-gap{ margin-top:16px; }
+
+/* ==========================================================================
+   4. Sidebar
+   ========================================================================== */
+.sidebar{
+  width:var(--sidebar-w);
+  flex:none;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  padding:18px 14px;
+  position:sticky;
+  top:0;
+  height:100vh;
+}
+.sidebar-brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:4px 8px 18px;
+}
+.brand-mark{
+  width:32px; height:32px;
+  border-radius:8px;
+  background:var(--primary);
+  color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:13px;
+  flex:none;
+  letter-spacing:.01em;
+}
+.brand-text{ min-width:0; }
+.brand-name{
+  font-size:13.5px; font-weight:600; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.brand-version{
+  font-size:11px; color:var(--text-tertiary); margin-top:1px;
+}
+.sidebar-nav{
+  display:flex; flex-direction:column; gap:2px;
+  margin-top:4px;
+}
+.nav-item{
+  display:flex; align-items:center; gap:10px;
+  border:none; background:none; cursor:pointer;
+  width:100%; text-align:left;
+  padding:9px 10px;
+  border-radius:7px;
+  font-size:13.5px; color:var(--text-secondary);
+  transition:background .12s, color .12s;
+}
+.nav-item .icon{ color:var(--text-tertiary); }
+.nav-item:hover{ background:var(--surface-hover); color:var(--text); }
+.nav-item.active{
+  background:var(--primary-dim);
+  color:var(--primary);
+  font-weight:600;
+}
+.nav-item.active .icon{ color:var(--primary); }
+.sidebar-spacer{ flex:1; }
+.sidebar-footer{
+  display:flex; flex-direction:column; gap:12px;
+  padding-top:12px;
+}
+.status-dot{
+  width:8px; height:8px; border-radius:50%;
+  background:var(--text-tertiary);
+  flex:none;
+  transition:background .2s;
+}
+.status-dot.active{ background:var(--primary); animation:pulseDot 1.4s ease-in-out infinite; }
+.status-dot.done{ background:var(--success); }
+.status-dot.error{ background:var(--danger); }
+@keyframes pulseDot{
+  0%,100%{ opacity:1; }
+  50%{ opacity:.35; }
+}
+.status-card{
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface-sunken);
+  padding:11px 12px;
+}
+.status-card-head{
+  display:flex; align-items:center; gap:8px;
+  font-size:12.5px; font-weight:600; color:var(--text);
+}
+.status-card-body{
+  font-size:12px; color:var(--text-secondary);
+  margin-top:5px; padding-left:16px;
+}
+.sidebar-note{
+  font-size:11px; color:var(--text-tertiary);
+  line-height:1.5; padding:0 2px;
+}
+
+/* ==========================================================================
+   5. Header
+   ========================================================================== */
+.topbar{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:16px;
+  padding:26px 36px 0;
+  max-width:1180px; width:100%; margin:0 auto;
+}
+.breadcrumb{
+  font-size:12px; color:var(--text-tertiary);
+  margin-bottom:8px;
+}
+.page-title{
+  font-size:26px; font-weight:700; letter-spacing:-.01em; color:var(--text);
+}
+.page-desc{
+  font-size:13.5px; color:var(--text-secondary);
+  margin-top:6px;
+  max-width:560px;
+}
+.btn-ghost{
+  display:flex; align-items:center; gap:6px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  color:var(--text-secondary);
+  font-size:13px; font-weight:500;
+  padding:8px 13px;
+  border-radius:var(--radius-btn);
+  cursor:pointer;
+  flex:none;
+  transition:background .12s, border-color .12s;
+}
+.btn-ghost:hover{ background:var(--surface-hover); border-color:var(--border-strong); color:var(--text); }
+.guide-panel{
+  display:none;
+  max-width:1180px; width:100%; margin:14px auto 0;
+  padding:0 36px;
+}
+.guide-panel.open{ display:block; }
+.guide-panel-inner{
+  background:var(--primary-dim);
+  border:1px solid var(--primary-border);
+  border-radius:var(--radius-card);
+  padding:16px 18px;
+}
+.guide-panel-inner h3{
+  font-size:13px; font-weight:700; color:var(--text); margin-bottom:10px;
+}
+.guide-steps{
+  display:flex; flex-wrap:wrap; gap:8px 4px; align-items:center;
+  font-size:12.5px; color:var(--text-secondary);
+}
+.guide-steps span.step{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:5px 11px;
+  color:var(--text);
+  white-space:nowrap;
+}
+.guide-steps span.arrow{ color:var(--text-tertiary); }
+
+/* ==========================================================================
+   6. Cards
+   ========================================================================== */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-card);
+  box-shadow:var(--shadow-card);
+  padding:20px;
+}
+.card-title{
+  font-size:13.5px; font-weight:700; color:var(--text);
+  margin-bottom:14px;
+}
+.card-subtitle{
+  font-size:12.5px; color:var(--text-secondary);
+  margin-top:-8px; margin-bottom:14px; line-height:1.6;
+}
+.divider{
+  border:none; border-top:1px solid var(--border);
+  margin:16px 0;
+}
+
+/* ==========================================================================
+   7. Upload
+   ========================================================================== */
+.dropzone{
+  border:1.5px dashed var(--border-strong);
+  border-radius:10px;
+  background:var(--surface-sunken);
+  padding:36px 20px;
+  text-align:center;
+  cursor:pointer;
+  transition:border-color .15s, background .15s;
+}
+.dropzone.hover{ border-color:var(--primary); background:var(--primary-dim); }
+.dropzone-icon{
+  width:52px; height:52px;
+  margin:0 auto 14px;
+  border-radius:50%;
+  background:var(--primary-dim);
+  color:var(--primary);
+  display:flex; align-items:center; justify-content:center;
+}
+.dropzone-title{ font-size:14.5px; font-weight:600; color:var(--text); }
+.dropzone-sub{ font-size:12.5px; color:var(--text-secondary); margin-top:4px; }
+.dropzone .btn-secondary{ margin-top:16px; }
+.dropzone-hint{ font-size:11.5px; color:var(--text-tertiary); margin-top:12px; }
+#fileInput{ display:none; }
+
+.file-card{
+  display:none;
+  margin-top:14px;
+  align-items:center;
+  gap:10px;
+  border:1px solid var(--border);
+  background:var(--surface-sunken);
+  border-radius:10px;
+  padding:12px 12px;
+}
+.file-card-icon{
+  width:34px; height:34px; flex:none;
+  border-radius:8px;
+  background:var(--primary-dim);
+  color:var(--primary);
+  display:flex; align-items:center; justify-content:center;
+}
+.file-card-info{ flex:1; min-width:0; }
+.file-card-name{
+  font-size:12.5px; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.file-card-remove{
+  display:flex; align-items:center; gap:5px;
+  background:none; border:1px solid var(--border);
+  color:var(--text-secondary);
+  font-size:12px;
+  padding:6px 10px;
+  border-radius:7px;
+  cursor:pointer;
+  flex:none;
+  transition:background .12s, color .12s, border-color .12s;
+}
+.file-card-remove:hover{ background:var(--danger-dim); border-color:#f3c6c6; color:var(--danger); }
+
+/* ==========================================================================
+   8. Controls
+   ========================================================================== */
+.control-group{ margin-bottom:16px; }
+.control-group:last-child{ margin-bottom:0; }
+.control-label{
+  display:block;
+  font-size:12.5px; font-weight:600; color:var(--text);
+  margin-bottom:8px;
+}
+.select{
+  width:100%;
+  font-size:13px; color:var(--text);
+  padding:9px 11px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-input);
+  background:var(--surface) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>') no-repeat right 10px center;
+  background-size:16px;
+  appearance:none;
+  -webkit-appearance:none;
+  cursor:pointer;
+  transition:border-color .12s;
+}
+.select:hover{ border-color:var(--border-strong); }
+.select:focus{ outline:none; border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-dim); }
+
+.segmented{
+  display:flex;
+  border:1px solid var(--border);
+  border-radius:var(--radius-input);
+  padding:3px;
+  background:var(--surface-sunken);
+  gap:3px;
+}
+.segmented-option{
+  flex:1;
+  position:relative;
+  text-align:center;
+  cursor:pointer;
+}
+.segmented-option input{
+  position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;
+}
+.segmented-option span{
+  display:block;
+  padding:8px 6px;
+  border-radius:6px;
+  font-size:13px;
+  color:var(--text-secondary);
+  transition:background .12s, color .12s, box-shadow .12s;
+}
+.segmented-option input:checked + span{
+  background:var(--surface);
+  color:var(--primary);
+  font-weight:600;
+  box-shadow:var(--shadow-sm);
+}
+.segmented-option input:focus-visible + span{
+  outline:2px solid var(--primary);
+  outline-offset:1px;
+}
+
+/* Model engine list */
+.model-list{ display:flex; flex-direction:column; gap:2px; }
+.model-row{
+  display:flex; align-items:center; gap:10px;
+  padding:9px 4px;
+  border-bottom:1px solid var(--border);
+  font-size:13px;
+}
+.model-row:last-child{ border-bottom:none; }
+.model-order{
+  font-size:11px; color:var(--text-tertiary);
+  width:18px; flex:none;
+}
+.model-name{ color:var(--text); flex:1; }
+.model-state{ font-size:12px; color:var(--text-tertiary); flex:none; }
+.model-state.done{ color:var(--success); }
+.model-state.active{ color:var(--primary); }
+.model-state.error{ color:var(--warning); }
+.model-note{
+  font-size:12px; color:var(--text-secondary); line-height:1.6;
+  margin-top:12px;
+}
+
+/* ==========================================================================
+   9. Buttons
+   ========================================================================== */
+button.run{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  width:100%;
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  padding:12px;
+  font-size:14px;
+  font-weight:600;
+  border-radius:var(--radius-btn);
+  cursor:pointer;
+  font-family:inherit;
+  transition:background .12s;
+}
+button.run:hover:not(:disabled){ background:var(--primary-hover); }
+button.run:disabled{ background:var(--border-strong); color:var(--text-tertiary); cursor:not-allowed; }
+
+.btn-secondary{
+  background:var(--surface);
+  border:1px solid var(--border);
+  color:var(--text);
+  font-size:13px; font-weight:600;
+  padding:9px 16px;
+  border-radius:var(--radius-btn);
+  cursor:pointer;
+  transition:background .12s, border-color .12s;
+}
+.btn-secondary:hover{ background:var(--surface-hover); border-color:var(--border-strong); }
+
+/* ==========================================================================
+   10. Progress
+   ========================================================================== */
+.progress-wrap{
+  display:none;
+  margin-top:16px;
+}
+.progress-track{
+  height:7px;
+  background:var(--border);
+  border-radius:999px;
+  overflow:hidden;
+}
+.progress-fill{
+  height:100%; width:0%;
+  background:var(--primary);
+  border-radius:999px;
+  transition:width .25s ease;
+}
+.progress-meta{
+  display:flex; justify-content:space-between;
+  font-size:11.5px; color:var(--text-tertiary);
+  margin-top:7px;
+}
+
+/* ==========================================================================
+   11. Logs
+   ========================================================================== */
+.log-panel{
+  font-family:var(--mono);
+  font-size:11.5px;
+  line-height:1.85;
+  color:var(--text-secondary);
+  background:var(--surface-sunken);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:12px 14px;
+  max-height:230px;
+  overflow-y:auto;
+  white-space:pre-wrap;
+  margin-top:14px;
+}
+.log-panel > div{ padding-left:15px; position:relative; }
+.log-panel > div::before{
+  content:'';
+  position:absolute; left:0; top:8px;
+  width:5px; height:5px; border-radius:50%;
+  background:var(--text-tertiary);
+}
+.log-panel > div.ok{ color:var(--success); }
+.log-panel > div.ok::before{ background:var(--success); }
+.log-panel > div.warn{ color:var(--warning); }
+.log-panel > div.warn::before{ background:var(--warning); }
+.log-panel > div.err{ color:var(--danger); }
+.log-panel > div.err::before{ background:var(--danger); }
+
+/* ==========================================================================
+   12. Review
+   ========================================================================== */
+.reviewItem{
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:14px;
+  margin-bottom:12px;
+  background:var(--surface-sunken);
+}
+.reviewItem .fname{
+  font-size:12px; color:var(--text-secondary);
+  display:flex; justify-content:space-between; margin-bottom:10px;
+}
+.reviewItem .fname span.cnt{ color:var(--primary); font-weight:700; }
+.reviewItem canvas{
+  display:block; max-width:100%;
+  border:1px solid var(--border);
+  border-radius:8px;
+  cursor:crosshair; background:var(--surface-hover);
+  touch-action:none;
+}
+.review-hint{
+  font-size:12.5px; color:var(--text-secondary); line-height:1.7;
+  margin:-6px 0 16px;
+}
+
+/* ==========================================================================
+   13. Result
+   ========================================================================== */
+#downloadArea p, #downloadArea a{ font-family:var(--mono) !important; }
+#downloadArea > p:first-child{
+  font-family:var(--font) !important;
+  font-size:12.5px !important;
+  color:var(--text-secondary) !important;
+  background:var(--primary-dim);
+  border:1px solid var(--primary-border);
+  border-radius:8px;
+  padding:10px 12px;
+  margin:0 0 16px !important;
+  line-height:1.6;
+}
+#resultPreview img{
+  max-height:420px; object-fit:contain;
+  border:1px solid var(--border) !important;
+  border-radius:8px;
+}
+#downloadArea p{
+  font-size:11.5px !important;
+  color:var(--text-tertiary) !important;
+}
+#openNewTabBtn{
+  background:var(--surface) !important;
+  border:1px solid var(--border) !important;
+  color:var(--text-secondary) !important;
+  border-radius:7px !important;
+  padding:8px 12px !important;
+  font-family:var(--font) !important;
+}
+#openNewTabBtn:hover{ background:var(--surface-hover) !important; }
+.result-summary{
+  display:flex; flex-direction:column; gap:6px;
+  margin-bottom:16px;
+}
+.result-summary-row{
+  display:flex; align-items:center; gap:8px;
+  font-size:13px; color:var(--text);
+}
+.result-summary-row .icon{ color:var(--success); }
+
+/* ==========================================================================
+   14. Responsive
+   ========================================================================== */
+@media (max-width:1280px){
+  .content{ padding:24px 24px 50px; }
+  .topbar{ padding:24px 24px 0; }
+  .guide-panel{ padding:0 24px; }
+}
+@media (max-width:980px){
+  .grid-2col{ grid-template-columns:1fr; }
+  .sidebar{ width:76px; padding:16px 10px; }
+  .brand-text, .nav-item span.nav-label, .sidebar-note, .status-card{ display:none; }
+  .nav-item{ justify-content:center; padding:10px; }
+  .sidebar-brand{ justify-content:center; padding:4px 0 18px; }
+  .sidebar-footer{ align-items:center; }
+}
+@media (max-width:640px){
+  .topbar{ flex-direction:column; }
+  .page-title{ font-size:21px; }
+}
+
+/* 통합 셸: 좌측 사이드바·큰 제목은 숨기고 '사용 안내' 버튼만 남김 */
+.sidebar{display:none;}
+.app,.main{display:block;min-height:0;}
+.topbar{padding:0 0 12px;max-width:none;justify-content:flex-end;}
+.topbar > div:first-child{display:none;}
+.guide-panel{padding:0;max-width:none;margin:0 0 14px;}
+.content{padding:0;max-width:none;}
+</style>
+<meta name="tool-id" content="blur">
+<!--SUITE:THEME-->
+</head>
+<body>
+<div class="app">
+
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="breadcrumb">파일 처리 / HWPX 얼굴 자동 블러</div>
+        <h1 class="page-title">HWPX 얼굴 자동 블러 도구</h1>
+        <p class="page-desc">HWPX 문서 안의 얼굴을 자동으로 탐지하고 개인정보 보호를 위해 블러 처리합니다.</p>
+      </div>
+      <button type="button" class="btn-ghost" id="guideBtn">
+        <svg class="icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.3 9.2a2.7 2.7 0 0 1 5.2.9c0 1.8-2.5 2.1-2.5 3.9"/><path d="M12 17.2h.01"/></svg>
+        사용 안내
+      </button>
+    </header>
+
+    <div class="guide-panel" id="guidePanel">
+      <div class="guide-panel-inner">
+        <h3>사용 순서</h3>
+        <div class="guide-steps">
+          <span class="step">① HWPX 선택</span><span class="arrow">→</span>
+          <span class="step">② 블러 옵션 확인</span><span class="arrow">→</span>
+          <span class="step">③ 얼굴 자동 인식 시작</span><span class="arrow">→</span>
+          <span class="step">④ 진행 상태 확인</span><span class="arrow">→</span>
+          <span class="step">⑤ 검출 결과 확인</span><span class="arrow">→</span>
+          <span class="step">⑥ 필요 시 보정</span><span class="arrow">→</span>
+          <span class="step">⑦ HWPX 다운로드</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="grid-2col">
+        <section class="card">
+          <div class="card-title">파일 선택</div>
+          <div id="drop" class="dropzone">
+            <div class="dropzone-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg>
+            </div>
+            <p class="dropzone-title">HWPX 파일을 여기에 놓으세요</p>
+            <p class="dropzone-sub">또는 파일을 선택하여 업로드하세요</p>
+            <button type="button" class="btn-secondary">파일 선택</button>
+            <p class="dropzone-hint">.hwpx 파일만 지원됩니다 · 서버로 업로드되지 않음</p>
+            <input type="file" id="fileInput" accept=".hwpx">
+          </div>
+          <div class="file-card" id="fileTag">
+            <div class="file-card-icon">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
+            </div>
+            <div class="file-card-info">
+              <div class="file-card-name" id="fileTagName"></div>
+            </div>
+            <button type="button" class="file-card-remove" id="clearFile">
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              제거
+            </button>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-title">처리 옵션</div>
+          <div class="control-group">
+            <label class="control-label">블러 방식</label>
+            <div class="segmented">
+              <label class="segmented-option">
+                <input type="radio" name="mode" value="pixelate" checked>
+                <span>모자이크</span>
+              </label>
+              <label class="segmented-option">
+                <input type="radio" name="mode" value="blur">
+                <span>가우시안 블러</span>
+              </label>
+            </div>
+          </div>
+          <div class="control-group">
+            <label class="control-label" for="padSel">여백 배율</label>
+            <select id="padSel" class="select">
+              <option value="0.15">좁게</option>
+              <option value="0.3" selected>보통</option>
+              <option value="0.5">넓게</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label class="control-label" for="sensSel">민감도</label>
+            <select id="sensSel" class="select">
+              <option value="0.7">낮음 — 확실한 얼굴만</option>
+              <option value="0.5" selected>보통</option>
+              <option value="0.3">높음 — 작은 얼굴도 검출</option>
+            </select>
+          </div>
+        </section>
+      </div>
+
+      <section class="card section-gap">
+        <div class="card-title">얼굴 인식 엔진</div>
+        <div class="model-list">
+          <div class="model-row" data-model="ssd">
+            <span class="status-dot" data-dot></span>
+            <span class="model-order">01</span>
+            <span class="model-name">SSD Mobilenet v1</span>
+            <span class="model-state" data-state>대기 중</span>
+          </div>
+          <div class="model-row" data-model="mediapipe">
+            <span class="status-dot" data-dot></span>
+            <span class="model-order">02</span>
+            <span class="model-name">MediaPipe BlazeFace</span>
+            <span class="model-state" data-state>대기 중</span>
+          </div>
+        </div>
+        <p class="model-note">두 모델을 순서대로 적용해 검출 결과를 합칩니다. SSD Mobilenet v1이 정면·일반 얼굴을 폭넓게 잡고, MediaPipe BlazeFace가 작은 얼굴·측면 얼굴 등 놓친 부분을 빠르게 보완합니다. 정확도 손실을 최소화하면서 로딩·처리 속도를 크게 개선했습니다. 처리는 여전히 이 브라우저 안에서만 이루어집니다.</p>
+      </section>
+
+      <section class="card section-gap">
+        <button type="button" class="run" id="runBtn" disabled>
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>
+          모델 로딩 중…
+        </button>
+        <div class="progress-wrap" id="progressBar">
+          <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+          <div class="progress-meta">
+            <span id="progressPercent">0%</span>
+            <span id="progressCount"></span>
+          </div>
+        </div>
+        <div id="log" class="log-panel" style="display:none;"></div>
+      </section>
+
+      <section class="card section-gap" id="downloadPanel" style="display:none;">
+        <div class="card-title">처리 결과</div>
+        <div id="downloadArea"></div>
+      </section>
+
+      <section class="card section-gap" id="reviewPanel" style="display:none;">
+        <div class="card-title">검출 결과 확인</div>
+        <p class="review-hint">
+          자동으로 검출된 얼굴에는 이미 블러가 적용되어 위에서 바로 다운로드할 수 있습니다. 놓친 얼굴이 있거나 잘못 잡힌 박스가 있다면 여기서 보정한 뒤 다시 생성하세요.<br>
+          박스를 클릭하면 삭제 · 빈 공간을 드래그하면 박스 추가<br>
+          자동 검출이 되지 않은 사진도 목록에 표시되며, 드래그로 직접 영역을 지정할 수 있습니다.
+        </p>
+        <div id="reviewList"></div>
+        <button type="button" class="run" id="applyBtn" style="margin-top:6px;">보정 반영하여 다시 생성</button>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const dropEl = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const fileTag = document.getElementById('fileTag');
+const fileTagName = document.getElementById('fileTagName');
+const clearFileBtn = document.getElementById('clearFile');
+const runBtn = document.getElementById('runBtn');
+const applyBtn = document.getElementById('applyBtn');
+const logEl = document.getElementById('log');
+const progressBar = document.getElementById('progressBar');
+const progressFill = document.getElementById('progressFill');
+const reviewPanel = document.getElementById('reviewPanel');
+const reviewList = document.getElementById('reviewList');
+const downloadPanel = document.getElementById('downloadPanel');
+const downloadArea = document.getElementById('downloadArea');
+
+let currentFile = null;
+let currentZip = null;
+let modelsLoaded = { ssd:false, mediapipe:false };
+let mediapipeDetector = null;
+let mediapipeConfidence = null;
+let images = []; // {name, origCanvas, boxes:[{x,y,w,h}], displayCanvas, scale}
+
+function log(msg, cls){
+  logEl.style.display = 'block';
+  const line = document.createElement('div');
+  if(cls) line.className = cls;
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function boxIoU(a, b){
+  const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
+  const x2 = Math.min(a.x + a.w, b.x + b.w), y2 = Math.min(a.y + a.h, b.y + b.h);
+  const iw = Math.max(0, x2 - x1), ih = Math.max(0, y2 - y1);
+  const inter = iw * ih;
+  const union = a.w * a.h + b.w * b.h - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+// 1차(SSD) 박스를 기준으로 2차(MediaPipe)가 새로 찾은 얼굴만 추가하고,
+// 서로 겹치는 얼굴은 더 정밀한 MediaPipe 좌표로 교체합니다.
+function mergeBoxes(ssdBoxes, mpBoxes, iouThresh = 0.3){
+  const merged = [];
+  const usedMp = new Set();
+  ssdBoxes.forEach(sb => {
+    let bestIdx = -1, bestIou = 0;
+    mpBoxes.forEach((mb, i) => {
+      if(usedMp.has(i)) return;
+      const iou = boxIoU(sb, mb);
+      if(iou > bestIou){ bestIou = iou; bestIdx = i; }
+    });
+    if(bestIdx >= 0 && bestIou > iouThresh){
+      merged.push(mpBoxes[bestIdx]);
+      usedMp.add(bestIdx);
+    } else {
+      merged.push(sb);
+    }
+  });
+  mpBoxes.forEach((mb, i) => { if(!usedMp.has(i)) merged.push(mb); });
+  return merged;
+}
+
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model';
+
+const MEDIAPIPE_VERSION = '0.10.20';
+const MEDIAPIPE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/1/blaze_face_full_range.tflite';
+
+async function ensureModelsLoaded(sensitivity){
+  if(!modelsLoaded.ssd){
+    log('1차 모델(SSD Mobilenet v1) 로딩 중… (용량이 커서 시간이 조금 걸립니다)');
+    await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+    modelsLoaded.ssd = true;
+    log('1차 모델 로딩 완료.', 'ok');
+  }
+  if(!mediapipeDetector || mediapipeConfidence !== sensitivity){
+    log('2차 모델(MediaPipe BlazeFace) 로딩 중… (최초 1회, 용량이 있어 시간이 걸릴 수 있습니다)');
+    const visionModule = await import(
+      `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/vision_bundle.mjs`
+    );
+    const { FaceDetector, FilesetResolver } = visionModule;
+    const filesetResolver = await FilesetResolver.forVisionTasks(
+      `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`
+    );
+    const baseConfig = {
+      baseOptions: { modelAssetPath: MEDIAPIPE_MODEL_URL },
+      runningMode: 'IMAGE',
+      minDetectionConfidence: sensitivity
+    };
+    try{
+      mediapipeDetector = await FaceDetector.createFromOptions(filesetResolver, {
+        ...baseConfig,
+        baseOptions: { ...baseConfig.baseOptions, delegate: 'GPU' }
+      });
+    }catch(e){
+      log('  → GPU 가속 사용 불가, CPU로 재시도합니다.', 'warn');
+      mediapipeDetector = await FaceDetector.createFromOptions(filesetResolver, {
+        ...baseConfig,
+        baseOptions: { ...baseConfig.baseOptions, delegate: 'CPU' }
+      });
+    }
+    mediapipeConfidence = sensitivity;
+    modelsLoaded.mediapipe = true;
+    log('2차 모델 로딩 완료.', 'ok');
+  }
+}
+
+runBtn.disabled = false;
+runBtn.textContent = '얼굴 자동 인식 시작';
+
+function updateRunButton(){
+  if(currentFile){
+    runBtn.disabled = false;
+    runBtn.textContent = '얼굴 자동 인식 시작';
+  } else {
+    runBtn.disabled = true;
+    runBtn.textContent = '파일을 먼저 업로드하세요';
+  }
+}
+
+// ---- File selection ----
+dropEl.addEventListener('click', () => fileInput.click());
+dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.classList.add('hover'); });
+dropEl.addEventListener('dragleave', () => dropEl.classList.remove('hover'));
+dropEl.addEventListener('drop', e => {
+  e.preventDefault();
+  dropEl.classList.remove('hover');
+  if(e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if(e.target.files.length) setFile(e.target.files[0]);
+});
+clearFileBtn.addEventListener('click', () => {
+  currentFile = null;
+  fileTag.style.display = 'none';
+  fileInput.value = '';
+  updateRunButton();
+});
+
+function setFile(f){
+  if(!f.name.toLowerCase().endsWith('.hwpx')){
+    log('.hwpx 파일만 지원합니다. (.hwp 구형 파일은 지원되지 않습니다)', 'err');
+    return;
+  }
+  currentFile = f;
+  fileTagName.textContent = f.name + '  (' + (f.size/1024).toFixed(1) + ' KB)';
+  fileTag.style.display = 'flex';
+  updateRunButton();
+}
+
+// ---- Phase 1: detect faces, build review UI ----
+runBtn.addEventListener('click', async () => {
+  if(!currentFile) return;
+  runBtn.disabled = true;
+  reviewPanel.style.display = 'none';
+  downloadPanel.style.display = 'none';
+  reviewList.innerHTML = '';
+  logEl.innerHTML = '';
+  images = [];
+  progressBar.style.display = 'block';
+  progressFill.style.width = '0%';
+
+  const sensitivity = parseFloat(document.getElementById('sensSel').value);
+
+  try{
+    await ensureModelsLoaded(sensitivity);
+
+    log('HWPX 압축 해제 중…');
+    currentZip = await JSZip.loadAsync(currentFile);
+
+    const imgExt = /\.(png|jpe?g|bmp|gif)$/i;
+    const imageEntries = Object.keys(currentZip.files).filter(name =>
+      /BinData\//i.test(name) && imgExt.test(name) && !currentZip.files[name].dir
+    );
+
+    if(imageEntries.length === 0){
+      log('BinData 폴더 안에서 이미지 파일을 찾지 못했습니다.', 'warn');
+    } else {
+      log(`이미지 ${imageEntries.length}개 발견.`, 'ok');
+    }
+
+    const ssdOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: sensitivity });
+
+    let totalFaces = 0;
+
+    for(let i = 0; i < imageEntries.length; i++){
+      const name = imageEntries[i];
+      progressFill.style.width = Math.round(((i)/imageEntries.length)*100) + '%';
+      log(`[${i+1}/${imageEntries.length}] ${name.split('/').pop()} 분석 중…`);
+
+      const blob = await currentZip.files[name].async('blob');
+      const bitmap = await createImageBitmapSafe(blob);
+      if(!bitmap){
+        log('  → 이미지 디코딩 실패, 건너뜀', 'warn');
+        continue;
+      }
+
+      const origCanvas = document.createElement('canvas');
+      origCanvas.width = bitmap.width;
+      origCanvas.height = bitmap.height;
+      origCanvas.getContext('2d').drawImage(bitmap, 0, 0);
+
+      // 1차: 정확한 모델(SSD Mobilenet v1)
+      let ssdBoxes = [];
+      try{
+        const detections = await faceapi.detectAllFaces(origCanvas, ssdOptions);
+        ssdBoxes = detections.map(d => ({
+          x: Math.max(0, d.box.x), y: Math.max(0, d.box.y),
+          w: d.box.width, h: d.box.height
+        }));
+      }catch(e){
+        log('  → 1차(SSD) 인식 오류: ' + e.message, 'err');
+      }
+
+      // 2차: 초정밀 모델(MediaPipe) — 1차 결과와 합쳐 누락을 보완
+      let mpBoxes = [];
+      try{
+        const result = mediapipeDetector.detect(origCanvas);
+        mpBoxes = (result.detections || []).map(d => ({
+          x: Math.max(0, d.boundingBox.originX), y: Math.max(0, d.boundingBox.originY),
+          w: d.boundingBox.width, h: d.boundingBox.height
+        }));
+      }catch(e){
+        log('  → 2차(MediaPipe) 인식 오류: ' + e.message, 'err');
+      }
+
+      const boxes = mergeBoxes(ssdBoxes, mpBoxes);
+      totalFaces += boxes.length;
+      log(boxes.length > 0
+        ? `  → 얼굴 ${boxes.length}개 검출 (SSD ${ssdBoxes.length} + MediaPipe ${mpBoxes.length}, 중복 제거 병합)`
+        : '  → 얼굴 미검출');
+
+      images.push({ name, origCanvas, boxes });
+    }
+
+    progressFill.style.width = '100%';
+    log(`자동 인식 완료 (총 ${totalFaces}개). 블러를 적용해 결과를 생성합니다…`, 'ok');
+
+    buildReviewUI();
+
+    await applyAndDownload();
+    downloadPanel.scrollIntoView({ behavior:'smooth', block:'start' });
+
+  }catch(e){
+    console.error(e);
+    log('처리 중 오류 발생: ' + e.message, 'err');
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = '다시 인식하기';
+  }
+});
+
+// ---- Review UI: click box to delete, drag empty area to add ----
+// 모든 사진을 노출한다. 자동 검출이 0개여도 드래그로 직접 영역을 지정할 수 있다.
+function buildReviewUI(){
+  reviewList.innerHTML = '';
+
+  // 검출 개수와 무관하게 모든 사진을 노출한다. (미검출 사진에도 수동으로 영역을 추가할 수 있어야 함)
+  if(images.length === 0){
+    reviewPanel.style.display = 'none';
+    return;
+  }
+  reviewPanel.style.display = 'block';
+
+  images.forEach((img, idx) => {
+
+    const item = document.createElement('div');
+    item.className = 'reviewItem';
+
+    const fname = document.createElement('div');
+    fname.className = 'fname';
+    fname.innerHTML = `<span>${img.name.split('/').pop()}</span><span class="cnt" id="cnt-${idx}">${img.boxes.length}개 검출됨</span>`;
+    item.appendChild(fname);
+
+    const displayW = Math.min(420, img.origCanvas.width);
+    const scale = displayW / img.origCanvas.width;
+    const displayH = Math.round(img.origCanvas.height * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = displayW;
+    canvas.height = displayH;
+    item.appendChild(canvas);
+    reviewList.appendChild(item);
+
+    img.displayCanvas = canvas;
+    img.scale = scale;
+    redrawReview(idx);
+    attachEditHandlers(idx);
+  });
+}
+
+function redrawReview(idx){
+  const img = images[idx];
+  const ctx = img.displayCanvas.getContext('2d');
+  ctx.clearRect(0,0,img.displayCanvas.width, img.displayCanvas.height);
+  ctx.drawImage(img.origCanvas, 0, 0, img.displayCanvas.width, img.displayCanvas.height);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#8c2f2f';
+  ctx.fillStyle = 'rgba(140,47,47,0.12)';
+  img.boxes.forEach(b => {
+    const x = b.x * img.scale, y = b.y * img.scale, w = b.w * img.scale, h = b.h * img.scale;
+    ctx.fillRect(x,y,w,h);
+    ctx.strokeRect(x,y,w,h);
+  });
+  const cnt = document.getElementById('cnt-'+idx);
+  if(cnt) cnt.textContent = img.boxes.length + '개 검출됨';
+}
+
+function attachEditHandlers(idx){
+  const img = images[idx];
+  const canvas = img.displayCanvas;
+  let dragStart = null;
+  let dragging = false;
+
+  function getPos(e){
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    return { x: cx * (canvas.width/rect.width), y: cy * (canvas.height/rect.height) };
+  }
+
+  function hitBox(pos){
+    for(let i = img.boxes.length-1; i >= 0; i--){
+      const b = img.boxes[i];
+      const x = b.x*img.scale, y = b.y*img.scale, w = b.w*img.scale, h = b.h*img.scale;
+      if(pos.x >= x && pos.x <= x+w && pos.y >= y && pos.y <= y+h) return i;
+    }
+    return -1;
+  }
+
+  function down(e){
+    e.preventDefault();
+    dragStart = getPos(e);
+    dragging = false;
+  }
+  function move(e){
+    if(!dragStart) return;
+    const pos = getPos(e);
+    if(Math.abs(pos.x-dragStart.x) > 4 || Math.abs(pos.y-dragStart.y) > 4){
+      dragging = true;
+      redrawReview(idx);
+      const ctx = canvas.getContext('2d');
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#2f4a3d';
+      ctx.setLineDash([5,3]);
+      ctx.strokeRect(
+        Math.min(dragStart.x,pos.x), Math.min(dragStart.y,pos.y),
+        Math.abs(pos.x-dragStart.x), Math.abs(pos.y-dragStart.y)
+      );
+      ctx.setLineDash([]);
+    }
+  }
+  function up(e){
+    if(!dragStart) return;
+    const pos = getPos(e);
+    if(dragging){
+      const x = Math.min(dragStart.x,pos.x)/img.scale;
+      const y = Math.min(dragStart.y,pos.y)/img.scale;
+      const w = Math.abs(pos.x-dragStart.x)/img.scale;
+      const h = Math.abs(pos.y-dragStart.y)/img.scale;
+      if(w > 6 && h > 6){
+        img.boxes.push({x,y,w,h});
+      }
+    } else {
+      const hitIdx = hitBox(dragStart);
+      if(hitIdx >= 0) img.boxes.splice(hitIdx, 1);
+    }
+    dragStart = null; dragging = false;
+    redrawReview(idx);
+  }
+
+  canvas.addEventListener('mousedown', down);
+  canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  canvas.addEventListener('touchstart', down, {passive:false});
+  canvas.addEventListener('touchmove', move, {passive:false});
+  canvas.addEventListener('touchend', up);
+}
+
+// ---- Phase 2: apply blur to confirmed boxes, repackage hwpx ----
+// NOTE: this always works from a fresh copy of img.origCanvas (which is
+// never mutated), so it can be called again after the user removes/adds
+// boxes in the review panel without permanently baking in earlier blurs.
+async function applyAndDownload(){
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  const padRatio = parseFloat(document.getElementById('padSel').value);
+
+  let totalApplied = 0;
+  for(const img of images){
+    const canvas = document.createElement('canvas');
+    canvas.width = img.origCanvas.width;
+    canvas.height = img.origCanvas.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img.origCanvas, 0, 0);
+
+    img.boxes.forEach(b => {
+      const padX = b.w * padRatio;
+      const padY = b.h * padRatio;
+      const x = Math.max(0, b.x - padX);
+      const y = Math.max(0, b.y - padY);
+      const w = Math.min(canvas.width - x, b.w + padX*2);
+      const h = Math.min(canvas.height - y, b.h + padY*2);
+      if(mode === 'pixelate') pixelateRegion(ctx, x, y, w, h);
+      else blurRegion(ctx, x, y, w, h);
+      totalApplied++;
+    });
+
+    img.resultCanvas = canvas;
+
+    const outMime = /\.png$/i.test(img.name) ? 'image/png' : 'image/jpeg';
+    const outBlob = await new Promise(res => canvas.toBlob(res, outMime, 0.92));
+    if(!outBlob){
+      throw new Error(`${img.name.split('/').pop()} 이미지를 저장 가능한 형식으로 변환하지 못했습니다.`);
+    }
+    const arrBuf = await outBlob.arrayBuffer();
+    currentZip.file(img.name, arrBuf, { binary: true });
+  }
+
+  log(`블러 처리 완료: 총 ${totalApplied}개 영역. HWPX 재압축 중…`, 'ok');
+
+  if(typeof JSZip === 'undefined' || !currentZip){
+    throw new Error('ZIP 라이브러리 또는 원본 파일 데이터가 준비되지 않았습니다. 새로고침 후 파일을 다시 업로드해 주세요.');
+  }
+
+  const outZipBlob = await currentZip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.hancom.hwpx',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 }
+  });
+
+  if(!outZipBlob || outZipBlob.size === 0){
+    throw new Error('HWPX 재압축 결과가 비어 있습니다.');
+  }
+
+  const outName = currentFile.name.replace(/\.hwpx$/i, '') + '_blurred.hwpx';
+  log(`재압축 완료 (${(outZipBlob.size/1024).toFixed(1)} KB). 다운로드를 준비합니다…`, 'ok');
+
+  renderDownload(outZipBlob, outName);
+  downloadPanel.style.display = 'block';
+}
+
+applyBtn.addEventListener('click', async () => {
+  applyBtn.disabled = true;
+  applyBtn.textContent = '처리 중…';
+
+  try{
+    await applyAndDownload();
+    downloadPanel.scrollIntoView({ behavior:'smooth', block:'start' });
+    log('보정 반영 완료. 파일이 다시 생성되었습니다.', 'ok');
+  }catch(e){
+    console.error(e);
+    log('블러 적용 중 오류 발생: ' + (e && e.message ? e.message : e), 'err');
+    downloadArea.innerHTML = `<p style="color:#8c2f2f; font-family:var(--mono); font-size:12px;">오류로 다운로드 파일을 만들지 못했습니다: ${(e && e.message) ? e.message : e}</p>`;
+    downloadPanel.style.display = 'block';
+  } finally {
+    applyBtn.disabled = false;
+    applyBtn.textContent = '보정 반영하여 다시 생성';
+  }
+});
+
+// ---- Show an expanded result preview + an explicit download button.
+// Nothing downloads automatically: the user reviews the blurred result
+// first, and only clicking the button saves the file. (A "새 탭에서 열기"
+// fallback is kept since some embedded/preview iframes sandbox blob
+// downloads — opening in a new tab, outside that sandbox, still lets the
+// browser save the file normally.)
+function renderDownload(blob, outName){
+  const url = URL.createObjectURL(blob);
+
+  const previewItems = images.map(img => {
+    const isPng = /\.png$/i.test(img.name);
+    const srcCanvas = img.resultCanvas || img.origCanvas;
+    const dataUrl = srcCanvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', 0.9);
+    return `
+      <div style="margin-bottom:14px;">
+        <img src="${dataUrl}" style="max-width:100%; display:block; border:1px solid #ccc;">
+        <p style="font-family:var(--mono); font-size:10.5px; color:#999; margin:4px 0 0;">${img.name.split('/').pop()}</p>
+      </div>`;
+  }).join('');
+
+  downloadArea.innerHTML = `
+    <div id="resultPreview">
+      <p style="font-family:var(--mono); font-size:11.5px; color:#777; margin:-2px 0 12px;">
+        미리보기 — 자동 검출된 얼굴에 블러를 적용한 결과입니다. 놓친 얼굴이 있다면 아래 [검출 결과 확인]에서 박스를 삭제/추가한 뒤 [보정 반영하여 다시 생성]을 눌러 주세요.
+        <button type="button" id="goReviewBtn" style="margin-left:8px;background:none;border:1px solid #999;color:#444;padding:3px 8px;font-size:11px;cursor:pointer;border-radius:6px;">영역 직접 수정하러 가기 ↓</button>
+      </p>
+      ${previewItems}
+    </div>
+    <a id="hwpxDownloadLink" href="${url}" download="${outName}" style="display:none;"></a>
+    <button type="button" class="run" id="hwpxDownloadBtn">완성된 HWPX 다운로드</button>
+    <p>${outName} · ${(blob.size/1024).toFixed(1)} KB · 이미지 외 원본 서식·글꼴은 변경되지 않았습니다</p>
+    <p>
+      <button type="button" id="openNewTabBtn" style="background:none;border:1px solid #999;color:#444;padding:6px 10px;font-family:var(--mono);font-size:11px;cursor:pointer;">
+        다운로드가 안 되면 → 새 탭에서 열어 저장하기
+      </button>
+    </p>
+    <p style="font-family:var(--mono); font-size:10.5px; color:#999;">
+      ※ 이 페이지가 채팅창 미리보기(샌드박스) 안에서 열려 있다면 다운로드가 막힐 수 있습니다.
+      이 HTML 파일을 저장한 뒤 브라우저(Chrome 등)에서 직접 열어 실행하면 정상적으로 저장됩니다.
+    </p>
+  `;
+
+  const linkEl = document.getElementById('hwpxDownloadLink');
+  const downloadBtn = document.getElementById('hwpxDownloadBtn');
+  const newTabBtn = document.getElementById('openNewTabBtn');
+
+  downloadBtn.addEventListener('click', () => {
+    linkEl.click();
+  });
+
+  const goReviewBtn = document.getElementById('goReviewBtn');
+  if(goReviewBtn){
+    goReviewBtn.addEventListener('click', () => {
+      reviewPanel.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
+  }
+
+  newTabBtn.addEventListener('click', () => {
+    window.open(url, '_blank');
+  });
+}
+
+async function createImageBitmapSafe(blob){
+  try{
+    return await createImageBitmap(blob);
+  }catch(e){
+    return null;
+  }
+}
+
+function pixelateRegion(ctx, x, y, w, h){
+  x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+  if(w <= 0 || h <= 0) return;
+  const blockSize = Math.max(4, Math.round(Math.min(w,h) / 10));
+  const imgData = ctx.getImageData(x, y, w, h);
+  const data = imgData.data;
+  for(let by = 0; by < h; by += blockSize){
+    for(let bx = 0; bx < w; bx += blockSize){
+      let r=0,g=0,b=0,a=0,count=0;
+      for(let dy=0; dy<blockSize && by+dy<h; dy++){
+        for(let dx=0; dx<blockSize && bx+dx<w; dx++){
+          const idx = ((by+dy)*w + (bx+dx)) * 4;
+          r += data[idx]; g += data[idx+1]; b += data[idx+2]; a += data[idx+3];
+          count++;
+        }
+      }
+      r = r/count; g = g/count; b = b/count; a = a/count;
+      for(let dy=0; dy<blockSize && by+dy<h; dy++){
+        for(let dx=0; dx<blockSize && bx+dx<w; dx++){
+          const idx = ((by+dy)*w + (bx+dx)) * 4;
+          data[idx] = r; data[idx+1] = g; data[idx+2] = b; data[idx+3] = a;
+        }
+      }
+    }
+  }
+  ctx.putImageData(imgData, x, y);
+}
+
+function blurRegion(ctx, x, y, w, h){
+  x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+  if(w <= 0 || h <= 0) return;
+  const canvas = ctx.canvas;
+  const blurPx = Math.max(8, Math.round(Math.min(w,h)/5));
+
+  // Sample a padded ("bleed") region around the box so the blur filter
+  // isn't starved of pixels at the crop edge (avoids dark/soft edge halos).
+  const bleed = blurPx * 2;
+  const sx = Math.max(0, x - bleed);
+  const sy = Math.max(0, y - bleed);
+  const ex = Math.min(canvas.width, x + w + bleed);
+  const ey = Math.min(canvas.height, y + h + bleed);
+  const sw = ex - sx, sh = ey - sy;
+
+  const temp = document.createElement('canvas');
+  temp.width = sw; temp.height = sh;
+  const tctx = temp.getContext('2d');
+  tctx.filter = 'blur(' + blurPx + 'px)';
+  tctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+  // Crop the blurred patch back down to the box size.
+  const patch = document.createElement('canvas');
+  patch.width = w; patch.height = h;
+  const pctx = patch.getContext('2d');
+  pctx.drawImage(temp, x - sx, y - sy, w, h, 0, 0, w, h);
+
+  // Feather the patch into a soft ellipse (opaque center, fading to
+  // transparent near the edges) so it blends into the surrounding skin/
+  // hair instead of leaving a hard rectangle.
+  pctx.globalCompositeOperation = 'destination-in';
+  pctx.save();
+  const cx = w / 2, cy = h / 2, rx = w / 2, ry = h / 2;
+  pctx.translate(cx, cy);
+  pctx.scale(rx, ry);
+  const grad = pctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  grad.addColorStop(0, 'rgba(0,0,0,1)');
+  grad.addColorStop(0.62, 'rgba(0,0,0,1)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  pctx.fillStyle = grad;
+  pctx.fillRect(-1, -1, 2, 2);
+  pctx.restore();
+  pctx.globalCompositeOperation = 'source-over';
+
+  // Draw over the (untouched) original — the feathered alpha does the blending.
+  ctx.drawImage(patch, x, y);
+}
+</script>
+<script>
+// ---------------------------------------------------------------------
+// UI polish layer only. Purely additive: reads DOM/log state produced by
+// the original processing logic above and reflects it visually. Never
+// calls into or alters the detection / HWPX pipeline.
+// ---------------------------------------------------------------------
+(function(){
+  var guideBtn = document.getElementById('guideBtn');
+  var guidePanel = document.getElementById('guidePanel');
+  if(guideBtn && guidePanel){
+    guideBtn.addEventListener('click', function(){
+      guidePanel.classList.toggle('open');
+    });
+  }
+
+  // Sidebar nav is a single-page tool; clicking just gives visual feedback.
+  document.querySelectorAll('.nav-item').forEach(function(item){
+    item.addEventListener('click', function(){
+      document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+      item.classList.add('active');
+      if(item.getAttribute('data-nav') === 'guide' && guidePanel){
+        guidePanel.classList.add('open');
+      }
+    });
+  });
+
+  var modelRows = {
+    ssd: document.querySelector('.model-row[data-model="ssd"]'),
+    mediapipe: document.querySelector('.model-row[data-model="mediapipe"]')
+  };
+  var sidebarDot = document.getElementById('modelStatusDot');
+  var sidebarText = document.getElementById('modelStatusText');
+
+  function setModel(key, state, label){
+    var row = modelRows[key];
+    if(!row) return;
+    var dot = row.querySelector('[data-dot]');
+    var st = row.querySelector('[data-state]');
+    dot.className = 'status-dot' + (state ? ' ' + state : '');
+    st.className = 'model-state' + (state ? ' ' + state : '');
+    st.textContent = label;
+  }
+
+  function resetModels(){
+    Object.keys(modelRows).forEach(function(key){ setModel(key, '', '대기 중'); });
+    if(sidebarDot) sidebarDot.className = 'status-dot active';
+    if(sidebarText) sidebarText.textContent = '모델 로딩 중…';
+  }
+
+  var progressPercent = document.getElementById('progressPercent');
+  var progressCount = document.getElementById('progressCount');
+  var progressFillEl = document.getElementById('progressFill');
+
+  if(progressFillEl && window.MutationObserver){
+    var pObs = new MutationObserver(function(){
+      var w = progressFillEl.style.width || '0%';
+      if(progressPercent) progressPercent.textContent = w;
+    });
+    pObs.observe(progressFillEl, { attributes:true, attributeFilter:['style'] });
+  }
+
+  var logEl = document.getElementById('log');
+  if(logEl && window.MutationObserver){
+    var lObs = new MutationObserver(function(mutations){
+      mutations.forEach(function(m){
+        m.addedNodes.forEach(function(node){
+          var text = node.textContent || '';
+
+          if(/1차 모델\(SSD Mobilenet v1\) 로딩 중/.test(text)) setModel('ssd','active','로딩 중');
+          else if(/^1차 모델 로딩 완료/.test(text)) setModel('ssd','done','준비 완료');
+          else if(/2차 모델\(MediaPipe BlazeFace\) 로딩 중/.test(text)) setModel('mediapipe','active','로딩 중');
+          else if(/^2차 모델 로딩 완료/.test(text)) setModel('mediapipe','done','준비 완료');
+
+          if(/^자동 인식 완료/.test(text)){
+            if(sidebarDot) sidebarDot.className = 'status-dot done';
+            if(sidebarText) sidebarText.textContent = '모델 로드 완료 · 정상 작동 중';
+          }
+          if(/처리 중 오류 발생/.test(text)){
+            if(sidebarDot) sidebarDot.className = 'status-dot error';
+            if(sidebarText) sidebarText.textContent = '오류가 발생했습니다';
+          }
+
+          var progMatch = /^\[(\d+)\/(\d+)\]/.exec(text);
+          if(progMatch && progressCount){
+            progressCount.textContent = progMatch[2] + '개 이미지 중 ' + progMatch[1] + '개 처리';
+          }
+        });
+      });
+    });
+    lObs.observe(logEl, { childList:true });
+  }
+
+  var runBtn = document.getElementById('runBtn');
+  if(runBtn){
+    runBtn.addEventListener('click', function(){
+      if(!document.getElementById('fileTagName') || !document.getElementById('fileTagName').textContent) return;
+      resetModels();
+      if(progressPercent) progressPercent.textContent = '0%';
+      if(progressCount) progressCount.textContent = '';
+    });
+  }
+})();
+</script>
+
+
+<!--SUITE:BRIDGE-->
+</body>
+</html>

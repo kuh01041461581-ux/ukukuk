@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>공과금 고지서 인식 → 거래처입력 양식 (전기요금 · 상하수도요금 · 통신요금)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{--text-secondary:var(--text-2);--text-tertiary:var(--text-3);--surface-hover:var(--hover);--accent:var(--primary);--accent-hover:var(--primary-hover);--accent-soft:var(--primary-tint);--accent-text:var(--primary);--success-bg:var(--success-tint);--warning-bg:var(--warning-tint);--danger-bg:var(--danger-tint);--radius-md:var(--radius-btn);--radius-lg:var(--radius-card);--shadow-xs:var(--shadow-card);--shadow-sm:var(--shadow-card);--shadow-md:var(--shadow-pop);--font-sans:var(--font);--font-mono:var(--mono);}
+  *{box-sizing:border-box;}
+  ::selection{background:var(--accent-soft);color:var(--accent-text);}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--font-sans); -webkit-font-smoothing:antialiased;
+  }
+  .page{max-width:1280px;margin:0 auto;padding:32px 24px 100px;}
+  @media (max-width:720px){ .page{padding:20px 14px 90px;} }
+
+  @keyframes scanmove{0%{transform:translateY(-100%);}100%{transform:translateY(220%);}}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+  .spin{display:inline-block;animation:spin .9s linear infinite;}
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;}
+  }
+
+  a{color:var(--accent-text);}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
+
+  /* ---------- 상단 헤더 ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:20;margin:-32px -24px 28px;padding:16px 24px;
+    background:rgba(246,246,248,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+  }
+  @media (max-width:720px){ .topbar{margin:-20px -14px 22px;padding:14px;} }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{
+    width:32px;height:32px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(155deg,var(--accent),#8B8EF5);box-shadow:var(--shadow-xs);
+  }
+  .brand-name{font-size:13.5px;font-weight:700;color:var(--text);line-height:1.2;}
+  .brand-sub{font-size:11.5px;color:var(--text-tertiary);}
+
+  header.hero{margin-bottom:22px;}
+  .eyebrow{font-size:12px;font-weight:600;color:var(--accent-text);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+  h1{font-size:26px;font-weight:800;margin:0 0 8px;letter-spacing:-.02em;color:var(--text);}
+  .sub{font-size:14px;color:var(--text-secondary);max-width:660px;line-height:1.65;margin:0;}
+
+  /* ---------- 카드/패널 ---------- */
+  .panel{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:20px 22px;margin-bottom:16px;box-shadow:var(--shadow-xs);
+  }
+  .panel h2{font-size:12.5px;margin:0 0 14px;color:var(--text-secondary);letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
+
+  /* ---------- 고지서 종류: segmented control ---------- */
+  .typetabs{display:flex;gap:6px;padding:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;}
+  .typebtn{
+    flex:1 1 auto;min-width:150px;padding:10px 14px;border-radius:9px;border:none;background:transparent;
+    color:var(--text-secondary);font-weight:600;font-size:13.5px;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;gap:8px;transition:background .15s ease,color .15s ease,box-shadow .15s ease;
+  }
+  .typebtn:hover{background:var(--surface-hover);color:var(--text);}
+  .typebtn svg{flex-shrink:0;opacity:.75;}
+  .typebtn .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--surface-hover);color:var(--text-tertiary);}
+  .typebtn.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm);}
+  .typebtn.active svg{opacity:1;color:var(--accent);}
+  .typebtn.active .tag{background:var(--accent-soft);color:var(--accent-text);}
+  .type-hint{font-size:12px;color:var(--text-tertiary);margin-top:10px;}
+
+  /* ---------- AI 설정 ---------- */
+  .field-row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:12px;font-weight:600;color:var(--text-secondary);}
+  select, input[type=password], input[type=text], input[type=number]{
+    font:inherit;font-size:13.5px;padding:9px 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+    background:var(--surface);color:var(--text);transition:border-color .15s ease,box-shadow .15s ease;
+  }
+  select:hover, input:hover{border-color:#C7C7D1;}
+  select:focus, input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:none;}
+  input[type=password]{min-width:260px;}
+  input[type=number]{width:76px;}
+
+  .checkline{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;user-select:none;}
+  .checkline input[type=checkbox]{
+    appearance:none;-webkit-appearance:none;width:18px;height:18px;border-radius:5px;border:1.5px solid var(--border-strong);
+    background:var(--surface);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+    transition:background .15s ease,border-color .15s ease;position:relative;
+  }
+  .checkline input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent);}
+  .checkline input[type=checkbox]:checked::after{
+    content:"";position:absolute;left:5px;top:1.5px;width:4px;height:8px;
+    border:solid #fff;border-width:0 2px 2px 0;transform:rotate(40deg);
+  }
+  .caption{font-size:11.5px;color:var(--text-tertiary);line-height:1.5;margin-top:3px;}
+
+  details.advanced{margin-top:14px;border-top:1px solid var(--border);padding-top:12px;}
+  details.advanced summary{
+    cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text-secondary);list-style:none;
+    display:flex;align-items:center;gap:6px;
+  }
+  details.advanced summary::before{content:"▸";font-size:10px;color:var(--text-tertiary);transition:transform .15s ease;}
+  details.advanced[open] summary::before{transform:rotate(90deg);}
+  details.advanced summary::-webkit-details-marker{display:none;}
+  .advanced-body{display:flex;flex-direction:column;gap:14px;margin-top:14px;}
+  .advanced-row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;}
+  .advanced-item{display:flex;flex-direction:column;gap:4px;min-width:220px;}
+
+  .callout{
+    display:flex;gap:10px;padding:12px 14px;background:var(--accent-soft);border:1px solid #DEDFFC;
+    border-radius:var(--radius-md);font-size:12.5px;color:var(--accent-text);line-height:1.55;margin-top:14px;
+  }
+  .callout svg{flex-shrink:0;margin-top:1px;}
+  .callout b{color:var(--accent-text);}
+
+  /* ---------- 드롭존 ---------- */
+  .dropzone{
+    position:relative;overflow:hidden;border:1.5px dashed var(--border-strong);border-radius:var(--radius-lg);
+    background:var(--surface);padding:38px 20px;text-align:center;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:8px;transition:border-color .15s,background .15s,box-shadow .15s;
+  }
+  .dropzone:hover{border-color:var(--accent);box-shadow:var(--shadow-sm);}
+  .dropzone.active{border-color:var(--accent);background:var(--accent-soft);}
+  .drop-icon{
+    width:52px;height:52px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;margin-bottom:4px;transition:transform .15s ease;
+  }
+  .dropzone:hover .drop-icon{transform:translateY(-2px);}
+  .scantrack{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+  .scanline{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:scanmove 1.1s linear infinite;}
+  .droptext{font-size:14.5px;font-weight:600;color:var(--text);margin-top:2px;}
+  .dropsub{font-size:12.5px;color:var(--text-tertiary);}
+
+  /* ---------- 툴바 ---------- */
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin:18px 0 12px;flex-wrap:wrap;gap:12px;}
+  .stats{display:flex;gap:8px;font-size:12.5px;font-weight:600;flex-wrap:wrap;}
+  .badge{padding:5px 11px;background:var(--surface-hover);border-radius:20px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:6px;}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .toolbtns{display:flex;gap:8px;flex-wrap:wrap;}
+
+  button{cursor:pointer;font:inherit;border:none;border-radius:var(--radius-sm);padding:9px 16px;font-size:13px;
+    font-weight:600;display:inline-flex;align-items:center;gap:7px;transition:background .15s ease,box-shadow .15s ease,transform .05s ease;}
+  button:active{transform:translateY(1px);}
+  button:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:var(--shadow-xs);}
+  .btn-primary:hover:not(:disabled){background:var(--accent-hover);}
+  .btn-export{background:var(--success);color:#fff;box-shadow:var(--shadow-xs);}
+  .btn-export:hover:not(:disabled){background:#0E6B4C;}
+  .btn-ghost{background:transparent;color:var(--text-secondary);border:1px solid var(--border-strong);}
+  .btn-ghost:hover:not(:disabled){background:var(--surface-hover);color:var(--text);}
+  .btn-icon{width:28px;height:28px;padding:0;justify-content:center;background:var(--surface-hover);color:var(--text-secondary);border-radius:var(--radius-sm);}
+  .btn-icon:hover{background:var(--border);color:var(--text);}
+
+  /* ---------- 표 ---------- */
+  .tablewrap{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:auto;background:var(--surface);max-height:640px;box-shadow:var(--shadow-xs);}
+  table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12.5px;}
+  th{
+    position:sticky;top:0;background:var(--surface-2);text-align:left;padding:11px 10px;border-bottom:1px solid var(--border);
+    font-weight:700;color:var(--text-secondary);font-size:10.5px;letter-spacing:.03em;white-space:nowrap;z-index:1;text-transform:uppercase;
+  }
+  td{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tbody tr{transition:background .1s ease;}
+  tbody tr:hover td{background:var(--surface-2);}
+  tr.row-err td{background:var(--danger-bg);}
+  .cellinput{border:1px solid transparent;background:transparent;font:inherit;color:inherit;outline:none;width:100%;min-width:90px;
+    padding:4px 6px;border-radius:5px;transition:background .1s ease,border-color .1s ease;}
+  .cellinput:hover{background:var(--surface-hover);}
+  .cellinput:focus{background:var(--surface);border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  input.cellinput[data-key="account"],input.cellinput[data-key="bizno"],input.cellinput[data-key="tel"],
+  input.cellinput[data-key="mobile"],input.cellinput[data-key="giro"],input.cellinput[data-key="cms"],
+  input.cellinput[data-key="zip"],input.cellinput[data-key="birth"]{font-family:var(--font-mono);font-size:12px;letter-spacing:.01em;}
+  .thumb{width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:block;cursor:zoom-in;transition:transform .1s ease;}
+  .thumb:hover{transform:scale(1.08);}
+  .memo-col{max-width:220px;color:var(--text-tertiary);font-size:11.5px;}
+
+  .statusbadge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;white-space:nowrap;}
+  .statusbadge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+  .st-대기{color:var(--text-tertiary);background:var(--surface-hover);}
+  .st-인식중{color:var(--warning);background:var(--warning-bg);}
+  .st-완료{color:var(--success);background:var(--success-bg);}
+  .st-확인필요{color:var(--warning);background:var(--warning-bg);}
+  .st-오류{color:var(--danger);background:var(--danger-bg);}
+
+  .empty{margin-top:56px;display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--text-tertiary);font-size:13.5px;text-align:center;}
+  .empty .empty-icon{width:56px;height:56px;border-radius:16px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;}
+  #fatalError{white-space:pre-wrap;background:var(--danger-bg);color:var(--danger);border:1px solid #F3C7BE;border-radius:var(--radius-md);padding:12px 14px;margin-bottom:14px;font-size:13px;font-weight:600;position:sticky;top:0;z-index:50;}
+
+  .lightbox{position:fixed;inset:0;background:rgba(20,20,26,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:100;padding:24px;cursor:zoom-out;}
+  .lightbox img{max-width:92vw;max-height:92vh;border-radius:var(--radius-md);box-shadow:var(--shadow-md);}
+
+/* 통합 셸: 도구 자체 상단바·큰 제목은 숨기고 설명만 남김 */
+.topbar,header.hero .eyebrow,header.hero h1{display:none;}
+header.hero{margin-bottom:16px;}
+header.hero .sub{margin:0;}
+</style>
+<meta name="tool-id" content="utility">
+<!--SUITE:THEME-->
+</head>
+<body>
+<div class="page">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">고지서 인식기</div>
+        <div class="brand-sub">AI OCR → 거래처입력 양식</div>
+      </div>
+    </div>
+  </div>
+
+  <header class="hero">
+    <div class="eyebrow" id="eyebrowText">익산시 상·하수도 요금 고지서 인식 · AI OCR → 거래처입력 양식</div>
+    <h1 id="titleText">상하수도요금 고지서 자동 인식기</h1>
+    <p class="sub" id="subText"></p>
+  </header>
+
+  <div class="panel">
+    <h2>고지서 종류</h2>
+    <div class="typetabs" id="typeTabs"></div>
+    <div class="type-hint">종류를 바꾸면 표에 담긴 인식 결과가 초기화돼요. 먼저 필요한 종류를 고른 뒤 고지서를 올려주세요.</div>
+  </div>
+
+  <div class="panel">
+    <h2>AI 인식 설정</h2>
+    <div class="field-row">
+      <div class="field">
+        <label for="provider">AI 공급자</label>
+        <select id="provider">
+          <option value="gemini" selected>Google Gemini</option>
+          <option value="claude">Claude (Anthropic)</option>
+        </select>
+      </div>
+      <div class="field" id="geminiModelWrap">
+        <label for="geminiModel">Gemini 모델</label>
+        <select id="geminiModel">
+          <option value="gemini-3.6-flash" selected>gemini-3.6-flash (권장, 최신)</option>
+          <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (무료 한도 가장 넉넉함)</option>
+          <option value="gemini-2.5-flash">gemini-2.5-flash (2026-10 종료 예정)</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1 1 260px;">
+        <label for="apikey">API 키</label>
+        <input type="password" id="apikey" placeholder="여기에 API 키를 붙여넣으세요">
+      </div>
+    </div>
+    <div class="caption">
+      키는 서버로 보내지 않아요. 왼쪽 메뉴 <b>설정</b>에 저장해 두면 자동으로 채워지고, 저장하지 않으면 새로고침할 때 다시 입력해야 합니다.
+      <b>Gemini 키는 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a></b>, <b>Claude 키는 <a href="https://platform.claude.com" target="_blank" rel="noopener">Claude 개발자 콘솔</a></b>에서 발급받을 수 있어요.
+    </div>
+
+    <details class="advanced" id="advancedDetails">
+      <summary>고급 설정 — 요청 간격 · 토큰 절약 · 정밀 확대 인식</summary>
+      <div class="advanced-body">
+        <div class="advanced-row">
+          <div class="advanced-item">
+            <label for="pacing" style="font-size:12px;font-weight:600;color:var(--text-secondary);">요청 간격(초)</label>
+            <input type="number" id="pacing" min="0.5" step="0.5" value="7">
+            <div class="caption">Gemini 무료 등급은 분당 요청 수(RPM) 제한이 있어요. 간격을 늘릴수록 429 오류가 줄어듭니다.</div>
+          </div>
+          <div class="advanced-item">
+            <label class="checkline"><input type="checkbox" id="tokenSaver">토큰 절약 모드</label>
+            <div class="caption">전체 페이지 이미지 해상도를 낮추고 확대 크롭도 줄여서, Gemini 무료 등급 사용량을 아껴요.</div>
+          </div>
+          <div class="advanced-item">
+            <label class="checkline"><input type="checkbox" id="useCrops" checked>정밀 확대 인식 사용</label>
+            <div class="caption">계좌·금액 부분을 잘라 확대한 이미지를 함께 보내 숫자 인식 정확도를 높여요.</div>
+          </div>
+          <div class="advanced-item">
+            <label class="checkline"><input type="checkbox" id="verifyAcct">계좌번호 2단계 재확인 (전기요금 · 장당 API 호출 +1회)</label>
+            <div class="caption">기본은 꺼짐(호출 1회). 켜면 계좌 부분만 고해상도로 한 번 더 읽어 비교합니다.</div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div class="callout">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span id="accountNotice"></span>
+    </div>
+  </div>
+
+  <div id="dropzone" class="dropzone">
+    <div class="scantrack" id="scantrack"></div>
+    <div class="drop-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+    </div>
+    <div class="droptext" id="dropText">상하수도요금 고지서 이미지 또는 PDF를 끌어다 놓거나 클릭해서 선택하세요</div>
+    <div class="dropsub" id="dropSub">여러 장 모은 PDF는 페이지별로 자동 분리됩니다 · JPG, PNG, PDF</div>
+    <input type="file" id="fileInput" accept="image/*,application/pdf" multiple style="display:none">
+  </div>
+  <div class="caption" id="pdfStatus" style="display:none;margin-top:8px;"></div>
+
+  <div class="toolbar" id="toolbar" style="display:none;">
+    <div class="stats" id="stats"></div>
+    <div class="toolbtns">
+      <button class="btn-ghost" id="clearBtn">전체 지우기</button>
+      <button class="btn-primary" id="processBtn">일괄 인식 시작</button>
+      <button class="btn-export" id="exportBtn">엑셀 내보내기 (거래처입력 양식)</button>
+    </div>
+  </div>
+
+  <div class="tablewrap" id="tablewrap" style="display:none;">
+    <table>
+      <thead>
+        <tr id="headRow"></tr>
+      </thead>
+      <tbody id="bodyRows"></tbody>
+    </table>
+  </div>
+
+  <div class="empty" id="emptyState">
+    <div class="empty-icon">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+    </div>
+    <p>아직 올라온 고지서가 없어요. 위 영역에 이미지나 PDF를 올려보세요.</p>
+  </div>
+
+</div>
+
+<div class="lightbox" id="lightbox"><img id="lightboxImg" src=""></div>
+
+<script>
+// ===================== 거래처입력 헤더 (원본 양식과 100% 동일, 시트 구조 유지) =====================
+// 예금주명 10자 제한 (e호조 등 회계 시스템 호환용) ------------------------------------
+// 상하수도·전기·통신요금 모두 공통으로 적용: 기호를 포함해 10자를 넘는 예금주명은
+// 그대로 두면 회계 시스템에 넘어갈 때 잘리거나 반려될 수 있으므로, 이 도구 안에서 미리 10자 이내로 맞춘다.
+const HOLDER_MAX_LEN = 10;
+function clampHolder(name){
+  const s = (name ?? "").toString();
+  return s.length > HOLDER_MAX_LEN ? s.slice(0, HOLDER_MAX_LEN) : s;
+}
+// "한전(기관명)" 형태는 기관명 길이가 들쭉날쭉해서 통째로 자르면 괄호가 깨질 수 있다.
+// 그래서 괄호는 항상 보존하고, 안쪽 기관명만 남는 자리만큼 줄인다.
+// e호조에 실제로 입력되는 예금주명은 "한전(익산시청  )"처럼 괄호 앞에서 항상 정확히 10자를 채운다.
+// (예: 익산시청=4자 → 뒤에 공백 2개, 익산시=3자 → 뒤에 공백 3개) 기관명이 짧으면 남는 자리를
+// 공백으로 채워서 항상 총 10자를 맞추고, 길면 지금처럼 자르기만 한다. 이 값을 그대로 엑셀에 쓰므로
+// 엑셀 출력에도 공백이 그대로 반영된다.
+function buildKepcoHolder(agency){
+  const prefix = "한전(", suffix = ")";
+  const trimmedAgencyBudget = HOLDER_MAX_LEN - prefix.length - suffix.length;
+  if (!agency) return clampHolder("한국전력공사");
+  const agencyStr = agency.toString();
+  const trimmedAgency = agencyStr.length > trimmedAgencyBudget
+    ? agencyStr.slice(0, trimmedAgencyBudget)
+    : agencyStr.padEnd(trimmedAgencyBudget, " "); // 짧으면 공백으로 채워 괄호 앞까지 항상 10자를 맞춘다
+  return `${prefix}${trimmedAgency}${suffix}`;
+}
+
+const HEADERS = [
+  "거래처명\n(100자리이하)\n(필수입력)",
+  "거래처구분\n(필수입력)",
+  "사업자등록번호\n(10자리)",
+  "생년월일\n(8자리)",
+  "입금유형\n(선택)",
+  "은행\n(선택)",
+  "예금주명\n(100자리이하)",
+  "계좌번호\n(30자리이하)",
+  "공급가액\n(17자리이하)\n(필수입력)",
+  "부가세액\n(17자리이하)",
+  "공제액\n(금액 0원으로 고정)",
+  "지출액\n(17자리이하)",
+  "지로번호\n(19자리이하)",
+  "CMS번호\n(20자리이하)",
+  "대표채주\n(Y/N)",
+  "대표자명\n(100자리)",
+  "우편번호\n(5자리)",
+  "기본주소\n(75자이하)",
+  "상세주소\n(75자이하)",
+  "전화번호\n(30자리이하)",
+  "휴대폰번호\n(20자리이하)",
+  "입금명세(100자리)"
+];
+// 내부 필드 키 (HEADERS와 같은 순서)
+const FIELD_KEYS = ["name","type","bizno","birth","paytype","bank","holder","account","supply","vat","deduct","payout","giro","cms","repFlag","repName","zip","addr1","addr2","tel","mobile","memo"];
+const FIELD_WIDTH = { name:130, type:90, bizno:100, birth:80, paytype:90, bank:130, holder:110, account:150, supply:90, vat:80, deduct:70, payout:90, giro:90, cms:90, repFlag:60, repName:90, zip:70, addr1:130, addr2:130, tel:100, mobile:100, memo:150 };
+
+// ===================== 은행코드 참고자료 (원본 시트와 동일) =====================
+const BANK_CODES = [
+"001:한국은행","002:산업은행","003:기업은행","004:국민은행","007:수협은행","008:수출입은행",
+"011:농협은행","012:지역 농축협","020:우리은행","023:SC제일은행","027:한국씨티은행","031:대구은행",
+"032:부산은행","034:광주은행","035:제주은행","037:전북은행","039:경남은행","045:새마을금고중앙회",
+"048:신협","050:상호저축은행","051:기타 외국계은행(중국 교통은행 등)","052:모간스탠리은행","054:HSBC은행",
+"055:도이치은행","057:제이피모간체이스은행","058:미즈호은행","059:미쓰비시도쿄UFJ은행","060:BOA은행",
+"061:비엔피파리바은행","062:중국공상은행","063:중국은행","064:산림조합중앙회","065:대화은행","067:중국건설은행",
+"071:우체국","076:신용보증기금","077:기술보증기금","081:KEB하나은행","088:신한은행","089:케이뱅크",
+"090:카카오뱅크","092:토스뱅크","093:한국주택금융공사","094:서울보증보험","209:유안타증권","218:KB증권",
+"221:상상인증권","223:리딩투자증권","224:BNK투자증권","225:IBK투자증권","226:KB증권","227:KTB투자증권",
+"238:미래에셋증권","240:삼성증권","243:한국투자증권","247:NH투자증권","261:교보증권","262:하이투자증권",
+"263:현대차투자증권","264:키움증권","265:이베스트투자증권","266:SK증권","267:대신증권","268:메리츠종합금융증권",
+"269:한화투자증권","270:하나금융투자","271:토스증권","278:신한금융투자","279:DB금융투자","280:유진투자증권",
+"287:메리츠종합금융증권","288:카카오페이증권","289:NH투자증권","290:부국증권","291:신영증권","292:케이프투자증권",
+"294:한국포스증권"
+];
+
+// ===================== 거래처입력설명 시트 (원본과 동일) =====================
+const DESC_ROWS = [
+  [null, "거래처입력 엑셀 설명", null, null, null, null, null, "ver2.0"],
+  [null, "1. 입력폼을 기준으로 입력하십시요. (거래처입력 Sheet)\n2. 1줄이상의 자료를 입력시 2번째줄의 입력폼을 복사하셔야 합니다.\n3. 입금유형은 10:계좌이체 처럼 숫자:입금유형  으로 이루어지며 직접 입력하게 될 경우 숫자코드부분은 필히 입력이 되어야 합니다.\n4. 은행정보는 011:농협(중앙회) 처럼 숫자:은행명  으로 이루어지며 직접 입력하게 될 경우 숫자 세자리 코드부분은 필히 입력이 되어야 합니다.\n5. 사업자번호란에 주민등록번호를 입력할경우에 오류가 발생하며 주민등록번호자리수는 13자리를 초과할 수 없습니다.\n6. 금액입력란에 -이 입력될 경우에 오류가 발생하게 되므로 회계서식으로 셀서식 변경 하셨을 경우에  -으로 표시된 부분은 금액을 삭제하여야 합니다.\n7. 입금명세가 추가되었으며 거래처별로 입금명세를 입력하실 수 있으며 입력하지 않으셨을 경우에는 지출결의에 입력된 입금명세가 일괄적용됩니다.\n8. 우편번호 점검 자리수가 6자리에서 5자리로 변경되었습니다.(ver1.6 -> ver1.7)\n9. 거래처구분, 사업자등록번호, 생년월일 컬럼의 자리가 조정되었습니다.(ver1.7 -> ver1.8)\n10. 차세대 적용으로 버전이 변경되었습니다.(ver1.8->ver2.0)"],
+  [null, ...HEADERS]
+];
+
+// ===================== 고지서 종류별 설정 =====================
+// 각 고지서 종류는: 화면 문구, 회계상 고정값(거래처명/사업자번호/은행 등),
+// AI 인식 프롬프트, 그리고 AI 응답을 표의 열에 매핑하는 함수를 갖는다.
+// 세 시트(거래처입력 / 거래처입력설명 / 은행코드_참고자료)의 서식은 두 종류 모두 동일하다.
+
+const WATER_PROMPT = `너는 전북 익산시가 발행하는 "상·하수도 요금 고지서"(상·하수도 사용료 및 음식물수수료 납입영수증 포함)를 읽고, 회계 프로그램 "거래처입력" 양식에 넣을 값을 정확히 추출하는 전문 OCR 보정 엔진이다.
+
+한 장의 고지서 안에는 같은 내용이 위쪽(고지서 본문)과 아래쪽(납부자보관용 영수증 / 수납은행보관용 영수증)에 중복 인쇄되어 있을 수 있다. 아래 정보를 찾아라.
+
+- 수전번호 (예: 134-1597, 140-1443 처럼 세 자리-네 자리 형식)
+- 수용가 정보의 성명 (개인/기관/시설명)
+- 사용기간 (예: 06/16~07/15)
+- "가상계좌[농협]"(또는 "가상계좌[농 협]")이라고 표시된 줄의 계좌번호 — 같은 표에 "가상계좌[전북은행]" 줄도 나란히 있는데, 그건 사용하지 말고 반드시 농협 줄만 추출해라.
+- 총납부금액 — "수납은행보관용" 표의 "총납부금액" 값. 이 값은 "납부금액" 표의 "합계"란 중 "납기내" 금액과 같아야 한다. (당월+체납) 고지서처럼 체납액이 섞여 있어도 이 총납부금액(합계, 납기내 기준) 한 값만 추출하면 된다. "납기후" 금액은 사용하지 마라.
+
+가장 중요한 규칙: 이 고지서는 전북은행 가상계좌와 농협 가상계좌가 나란히 인쇄되어 있다. 반드시 "농협"이라고 표기된 줄의 가상계좌번호만 추출하고, 전북은행 번호는 절대 다른 항목에 넣지 마라.
+
+아래 키를 모두 포함한 JSON 객체 하나만 출력해라. 다른 설명, 마크다운, 코드블록 표시(\`\`\`json 등)는 절대 포함하지 마라.
+
+{
+  "수전번호": "고지서의 수전번호. 원문 표기 그대로 (예: 134-1597)",
+  "수용가명": "수용가 정보의 성명. 못 찾으면 빈 문자열",
+  "은행별계좌": [{"은행":"표에 인쇄된 은행명 글자 그대로 (예: 농 협, 기업은행)","계좌번호":"그 은행명 바로 옆 계좌번호, 하이픈 표기 원문 그대로"}],
+  "농협계좌번호": "가상계좌[농협] 표에 적힌 계좌번호만. 하이픈 표기 원문 그대로. 표에 농협 줄이 아예 없으면 빈 문자열",
+  "총납부금액": "수납은행보관용 표의 총납부금액(=합계, 납기내 기준) 숫자만. 콤마와 '원' 글자는 제거",
+  "사용기간": "사용기간 원문 그대로 (예: 06/16~07/15)",
+  "비고": "인식이 불확실한 항목, 농협 계좌를 못 찾은 경우, 이 문서가 상하수도 고지서가 아닌 경우 등을 짧게 메모. 문제 없으면 빈 문자열"
+}
+
+규칙:
+- 확실하지 않으면 값을 지어내지 말고 빈 문자열로 두고 비고에 이유를 남겨라.
+- 계좌번호와 금액은 특히 정확하게, 숫자를 두 번 확인하는 마음으로 읽어라. 숫자 0과 O, 1과 7 등을 혼동하지 마라.
+- 이 이미지는 여러 장을 스캔한 PDF의 한 페이지일 수 있다. 표지, 안내문 등 고지서 본문이 아닌 페이지라면 모든 필드를 빈 문자열로 두고 비고에 "고지서 본문 아님"이라고 적어라.
+- 한 페이지 안에 같은 내용이 위/아래로 중복 인쇄되어 있어도 값은 한 번만 뽑으면 된다 (둘 다 같은 값이어야 정상).
+- [숫자 6과 8 구분] 6과 8을 자주 혼동한다. 8은 위·아래 두 개의 동그라미(고리)가 모두 완전히 닫혀 있고 가운데에서 잘록하게 만난다. 6은 아래쪽 고리만 닫혀 있고 위쪽은 오른쪽 위가 열린 채 굽어 내려오는 획이다. 0은 하나의 큰 타원이고, 3은 왼쪽이 열려 있다. 계좌번호의 6과 8은 위쪽 고리가 닫혀 있는지를 보고 한 자리씩 다시 확인해라. 5·6·8·0·3은 특히 두 번 확인해라.
+- "은행별계좌"에는 표에 보이는 모든 은행 줄(농협 포함, 기업은행 포함)을 은행명·계좌번호 쌍으로 빠짐없이 적어라. 프로그램이 이 목록에서 농협 줄만 골라 쓴다.
+- 출력은 반드시 위 키를 모두 포함한 JSON 객체 하나뿐이어야 한다.`;
+
+const ACCOUNT_VERIFY_PROMPT = `이 이미지는 고지서에서 은행별 가상계좌번호 표 부분을 확대해 잘라낸 것이다. 여러 은행 줄이 보일 수 있다.
+"농협"(또는 "농 협", "농협은행") 표기가 있는 줄의 계좌번호만 읽어라. 농협 줄이 보이지 않으면 빈 문자열을 반환해라.
+농협 줄 바로 위나 아래에 "기업은행" 줄이 붙어 있는 경우가 많고 둘을 자주 혼동한다. 먼저 각 줄의 은행명을 읽고, 계좌번호는 자기 은행명 바로 옆에 붙은 것만 짝지어라. "기업은행" 줄의 번호는 "기업은행계좌번호"에 따로 적고, 절대 "계좌번호"(농협)에 넣지 마라. 계좌번호의 은행명 글자에 "농"이 직접 보이지 않으면 계좌번호는 빈 문자열로 둬라.
+숫자는 반드시 한 자리씩 끊어서 읽어라. 특히 5와 6을 조심해라: 5는 윗변이 평평하고 아래쪽 배가 열린 모양, 6은 아래쪽에 닫힌 고리가 있는 모양이다. 또 6과 8도 조심해라: 8은 위·아래 두 고리가 모두 닫혀 있고, 6은 아래 고리만 닫히고 위쪽은 열린 획이다. 0·3·5·6·8은 위쪽 고리와 아래쪽 배가 닫혔는지 한 자리씩 확인해라.
+아래 JSON 객체 하나만 출력해라. 다른 설명이나 코드블록 표시는 넣지 마라.
+{"자리별":"각 자릿수를 쉼표로 구분 (예: 3,0,1,-,1,2,...)","계좌번호":"농협 줄의 번호, 하이픈 표기 원문 그대로","은행표기":"계좌번호 바로 옆에 인쇄된 은행명 글자 그대로","기업은행계좌번호":"기업은행 줄의 번호. 없으면 빈 문자열"}`;
+
+const KEPCO_PROMPT = `너는 한국전력공사(한전)가 발행하는 전기요금 청구서를 읽고, 회계 프로그램 "거래처입력" 양식에 넣을 값을 정확히 추출하는 전문 OCR 보정 엔진이다.
+
+이 문서는 한전 전기요금 청구서/영수증이다. 고지서 중앙에는 "전기요금청구 및 영수증" 박스가 있고, 그 안에 아래와 같은 정보가 있다.
+- 고객 번호 (예: 12 0691 7576)
+- 청구 금액 / 납기일
+- 사용 기간
+- "고객전용지정계좌 (예금주: 한국전력공사)" 표 — 우리은행, 신한은행, 국민은행, 농협(농 협으로 띄어 쓴 경우도 있음), 하나은행, 기업은행, 우체국, 전북은행, 광주은행 등 여러 은행의 가상계좌번호가 한 줄씩 나란히 적혀 있다.
+
+가장 중요한 규칙: 이 여러 은행 중에서 반드시 "농협" 줄(농협, 농협은행, NH농협 등으로 표기됨. "농 협"처럼 사이에 공백이 있어도 농협이다)에 적힌 가상계좌번호만 추출해라. 우리은행·신한은행·국민은행·하나은행·기업은행·우체국·전북은행·광주은행 번호는 다른 항목에도 절대 사용하지 마라.
+
+[기업은행과 농협을 혼동하지 마라] 표에서 농협 줄과 기업은행 줄은 바로 붙어 있어 자주 헷갈린다. 반드시 아래 순서로 읽어라.
+1) 표의 모든 은행 줄을 위에서 아래로(또는 왼쪽에서 오른쪽으로) 은행명과 계좌번호를 짝지어 먼저 훑는다.
+2) 은행명 글자가 "기업" 또는 "IBK"인 줄의 번호는 "기업은행계좌번호"에 따로 적는다. 이 번호는 절대 농협계좌번호가 될 수 없다.
+3) 은행명 글자가 "농협"(또는 "농 협", "농협은행", "NH")인 줄의 번호만 "농협계좌번호"에 적는다. "농" 글자가 직접 확인되지 않으면 농협계좌번호는 빈 문자열이다.
+4) 농협계좌번호와 기업은행계좌번호는 서로 다른 번호여야 정상이다. 같다면 둘 중 하나를 잘못 읽은 것이니 은행명을 다시 확인해라.
+계좌번호는 자기 은행명 바로 옆(같은 칸)에 붙어 있는 것이 그 은행의 번호다. 위·아래 이웃 줄의 번호를 가져오지 마라.
+
+문서 최상단에는 "OO시청 귀하" 또는 "OO시장 귀하"처럼 청구서를 받는 기관명이 적혀 있다(반송처 주소 아래, "귀하" 앞부분). 이 기관명도 함께 읽어라.
+
+아래 키를 모두 포함한 JSON 객체 하나만 출력해라. 다른 설명, 마크다운, 코드블록 표시(\`\`\`json 등)는 절대 포함하지 마라.
+
+{
+  "수신기관": "청구서 상단의 받는사람 기관명. '귀하' 바로 앞 글자만 (예: 익산시청, 익산시장, 전주시청). 못 찾으면 빈 문자열",
+  "고객번호": "청구서의 고객 번호. 원문 표기(띄어쓰기 포함) 그대로",
+  "은행별계좌": [{"은행":"표에 인쇄된 은행명 글자 그대로 (예: 농 협, 기업은행)","계좌번호":"그 은행명 바로 옆 계좌번호, 하이픈 표기 원문 그대로"}],
+  "농협계좌번호": "고객전용지정계좌 표에서 '농협' 줄의 가상계좌번호만. 하이픈 표기 원문 그대로. 표에 농협 줄이 아예 없으면 빈 문자열",
+  "농협_은행표기": "농협계좌번호 바로 옆에 실제로 인쇄된 은행명 글자 그대로 (예: 농 협). 확인 못하면 빈 문자열",
+  "기업은행계좌번호": "표에서 '기업은행' 줄의 가상계좌번호. 하이픈 표기 원문 그대로. 기업은행 줄이 없으면 빈 문자열",
+  "농협계좌_자리별": "계좌번호를 한 자리씩 쉼표로 끊어 적어라 (예: 3,0,1,-,5,6,...). 5와 6은 모양을 확인하고 적어라",
+  "농협계좌_위치": {"x":0.0,"y":0.0,"w":0.0,"h":0.0},
+  "청구금액": "이번 달 청구금액(당월요금계 / 청구금액). 숫자만 입력, 콤마와 '원' 글자는 제거",
+  "사용기간": "사용기간 원문 그대로 (예: 2026년 06월 12일 ~ 2026년 07월 11일)",
+  "비고": "인식이 불확실한 항목, 농협 계좌를 못 찾은 경우, 이 문서가 한전 고지서가 아닌 경우 등을 짧게 메모. 문제 없으면 빈 문자열"
+}
+
+규칙:
+- 확실하지 않으면 값을 지어내지 말고 빈 문자열로 두고 비고에 이유를 남겨라.
+- 계좌번호와 금액은 특히 정확하게, 숫자를 두 번 확인하는 마음으로 읽어라. 숫자 0과 O, 1과 7 등을 혼동하지 마라.
+- 특히 숫자 5와 6을 자주 틀린다. 5는 윗변이 가로로 평평하고 아래쪽 배가 열린 모양이고, 6은 왼쪽 위에서 굽어 내려와 아래쪽에 닫힌 동그라미(고리)가 있는 모양이다. 계좌번호는 한 자리씩 끊어서 읽고, 5와 6이 나오면 한 번 더 모양을 확인해라.
+- "농협계좌_위치"에는 전체 이미지 기준(왼쪽 위가 0,0, 오른쪽 아래가 1,1)으로 농협 줄의 계좌번호 글자가 차지하는 사각형을 x,y,w,h(0~1 비율)로 적어라. 위치를 모르면 모두 0으로 둬라.
+- 이 이미지는 여러 장을 스캔한 PDF의 한 페이지일 수 있다. 표지, 봉투, 안내문, 이용약관 등 청구서 본문이 아닌 페이지라면 모든 필드를 빈 문자열로 두고 비고에 "고지서 본문 아님"이라고 적어라.
+- [숫자 6과 8 구분] 6과 8을 자주 혼동한다. 8은 위·아래 두 개의 동그라미(고리)가 모두 완전히 닫혀 있고 가운데에서 잘록하게 만난다. 6은 아래쪽 고리만 닫혀 있고 위쪽은 오른쪽 위가 열린 채 굽어 내려오는 획이다. 0은 하나의 큰 타원이고, 3은 왼쪽이 열려 있다. 계좌번호의 6과 8은 위쪽 고리가 닫혀 있는지를 보고 한 자리씩 다시 확인해라. 5·6·8·0·3은 특히 두 번 확인해라.
+- "은행별계좌"에는 표에 보이는 모든 은행 줄(농협 포함, 기업은행 포함)을 은행명·계좌번호 쌍으로 빠짐없이 적어라. 프로그램이 이 목록에서 농협 줄만 골라 쓴다.
+- 출력은 반드시 위 키를 모두 포함한 JSON 객체 하나뿐이어야 한다.`;
+
+const TELECOM_PROMPT = `너는 SK텔레콤(SK Telecom) 또는 KT(케이티)가 발행하는 통신요금 청구서를 읽고, 회계 프로그램 "거래처입력" 양식에 넣을 값을 정확히 추출하는 전문 OCR 보정 엔진이다.
+
+이 문서는 아래 두 가지 템플릿 중 하나다.
+1) SK Telecom 요금안내서: 상단에 파란색 "T" 로고와 "SK telecom" 글자가 있고, "이번 달 납부하실 금액은 총 OOO원 입니다"라는 문구가 있으며, 왼쪽 아래쪽 "입금전용계좌" 표에 농협/카카오뱅크/신한은행/국민은행 계좌번호가 순서대로 나열된다.
+2) KT 명세서: 상단에 빨간 "KT" 로고가 있고, "O월 납부하실 금액은 OOO원 입니다"라는 빨간 테두리 박스가 있으며, 왼쪽의 "01 전용 입금계좌" 표에 케이뱅크/농협은행/신한은행/국민은행/카카오뱅크 계좌번호가 순서대로 나열된다.
+
+각 문서에는 확대된 참고 이미지가 추가로 제공될 수 있다("SK 요금안내서인 경우"/"KT 명세서인 경우"라고 이름이 붙어 있음). 실제 문서가 둘 중 어느 쪽인지 먼저 판단한 다음, 해당하는 확대 이미지만 참고해서 값을 읽고 관련 없는 쪽의 확대 이미지는 무시해라.
+
+가장 중요한 규칙: 계좌 목록 중 반드시 "농협" 또는 "농협은행"이라고 표기된 줄의 계좌번호만 추출해라. 케이뱅크·카카오뱅크·신한은행·국민은행·우리은행 계좌번호는 절대 다른 항목에 넣지 마라.
+
+아래 키를 모두 포함한 JSON 객체 하나만 출력해라. 다른 설명, 마크다운, 코드블록 표시(\`\`\`json 등)는 절대 포함하지 마라.
+
+{
+  "발행사": "이 문서가 SK Telecom 청구서면 \\"SK\\", KT 청구서면 \\"KT\\". 둘 다 아니거나 확실하지 않으면 빈 문자열",
+  "대표상품명": "대표상품명 또는 대표서비스명 원문 그대로 (예: 인터넷 에센스, 일반전화, IoT 55(원격관제기타), LTE 베이직 등). 못 찾으면 빈 문자열",
+  "은행별계좌": [{"은행":"표에 인쇄된 은행명 글자 그대로 (예: 농 협, 기업은행)","계좌번호":"그 은행명 바로 옆 계좌번호, 하이픈 표기 원문 그대로"}],
+  "농협계좌번호": "위 규칙에 따라 찾은 농협 계좌번호만. 하이픈 표기 원문 그대로. 못 찾으면 빈 문자열",
+  "납부금액": "이번 달(해당월) 납부하실 금액. 숫자만, 콤마와 '원' 글자는 제거",
+  "이용기간": "이용기간 원문 그대로 (예: 6월 1일 ~ 6월 30일 또는 26.6.1.~26.6.30.)",
+  "명세서번호": "명세서번호 또는 청구서 고유 식별번호 원문 그대로. 못 찾으면 빈 문자열",
+  "비고": "인식이 불확실한 항목, 농협 계좌를 못 찾은 경우, 이 문서가 통신요금 청구서 요약면이 아닌 경우(예: 통합금액 상세내역·이용상세내역·할인상세내역·서비스별 이용량 표 같은 상세 페이지) 등을 짧게 메모. 문제 없으면 빈 문자열"
+}
+
+규칙:
+- 확실하지 않으면 값을 지어내지 말고 빈 문자열로 두고 비고에 이유를 남겨라.
+- 계좌번호와 금액은 특히 정확하게, 숫자를 두 번 확인하는 마음으로 읽어라. 숫자 0과 O, 1과 7 등을 혼동하지 마라.
+- 이 이미지는 여러 장을 스캔한 PDF의 한 페이지일 수 있다. 계좌·금액 요약이 없는 상세 내역 페이지(통합금액 상세내역, 이용상세내역, 할인상세내역, 서비스별 지난달 이용량 표 등)라면 모든 필드를 빈 문자열로 두고 비고에 "고지서 요약 페이지 아님(상세내역)"이라고 적어라.
+- [숫자 6과 8 구분] 6과 8을 자주 혼동한다. 8은 위·아래 두 개의 동그라미(고리)가 모두 완전히 닫혀 있고 가운데에서 잘록하게 만난다. 6은 아래쪽 고리만 닫혀 있고 위쪽은 오른쪽 위가 열린 채 굽어 내려오는 획이다. 0은 하나의 큰 타원이고, 3은 왼쪽이 열려 있다. 계좌번호의 6과 8은 위쪽 고리가 닫혀 있는지를 보고 한 자리씩 다시 확인해라. 5·6·8·0·3은 특히 두 번 확인해라.
+- "은행별계좌"에는 표에 보이는 모든 은행 줄(농협 포함, 기업은행 포함)을 은행명·계좌번호 쌍으로 빠짐없이 적어라. 프로그램이 이 목록에서 농협 줄만 골라 쓴다.
+- 출력은 반드시 위 키를 모두 포함한 JSON 객체 하나뿐이어야 한다.`;
+
+// 통신사(발행사)별 고정 회계 정보 — 청구서에서 SK/KT를 판별하면 이 값으로 거래처명/사업자번호/예금주명을 채운다.
+const TELECOM_ISSUER_INFO = {
+  SK: { name: "SK", bizno: "104-81-37225", holder: "SKT 익산시청" },
+  KT: { name: "KT", bizno: "102-81-42945", holder: "익산시청(KT)" }
+};
+
+const BILL_TYPES = {
+  water: {
+    id: "water",
+    label: "상하수도요금",
+    tag: "익산시",
+    eyebrow: "익산시 상·하수도 요금 고지서 인식 · AI OCR → 거래처입력 양식",
+    title: "상하수도요금 고지서 자동 인식기",
+    subHtml: `익산시 상·하수도 요금 고지서 PDF/이미지를 올리면 각 장의 <b>농협 가상계좌번호</b>와 <b>총납부금액(합계)</b>을 읽어서
+      회계 프로그램 "거래처입력" 양식(은행코드 참고자료 포함 3개 시트 그대로)에 맞춰 표로 정리합니다.<br>
+      여러 장을 모은 PDF 하나를 올려도 페이지별로 자동 분리해서 각각 인식합니다. 표에서 값은 언제든 직접 수정할 수 있습니다.`,
+    accountNoticeHtml: `고지서마다 <b>전북은행</b>과 <b>농협</b> 가상계좌가 나란히 표시되는데, 이 도구는 그중 <b>농협 계좌번호만</b> 자동으로 골라 추출하도록 설계되어 있습니다.`,
+    dropText: "상하수도요금 고지서 이미지 또는 PDF를 끌어다 놓거나 클릭해서 선택하세요",
+    dropSub: "여러 장 모은 PDF는 페이지별로 자동 분리됩니다 · JPG, PNG, PDF",
+    prompt: WATER_PROMPT,
+    // 실제 고지서 샘플로 좌표를 측정해서 캘리브레이션한 확대 영역.
+    // "가상계좌[농협]" 셀과 "총납부금액" 셀 위치는 익산시 상하수도 고지서 양식에서 고정되어 있다.
+    focusRegions: [
+      { x: 0,    y: 0.63, w: 0.68, h: 0.05, label: "지로번호·가상계좌 표 (농협 계좌번호가 오른쪽 칸에 있음)" },
+      { x: 0.62, y: 0.78, w: 0.38, h: 0.07, label: "수납은행보관용 표의 총납부금액" }
+    ],
+    defaults: {
+      name: "상수도문화유산과",
+      type: "10:법인사업자",
+      bizno: "403-83-00013",
+      paytype: "10:계좌이체",
+      bank: "011:농협은행",
+      holder: "상수도문화유산과",
+      deduct: "0",
+      repFlag: "N"
+    },
+    mapResult(row, result){
+      // 예금주명은 고지서에서 인식한 수용가명(성명)을 그대로 쓰되, e호조 10자 제한에 맞춰 자른다.
+      // 수용가명을 못 찾은 경우에만 기본값("상수도문화유산과")을 유지한다.
+      const holderName = (result.수용가명 || "").toString().trim();
+      row.data.holder = clampHolder(holderName || row.data.holder);
+      row.data.account = (result.농협계좌번호 || "").toString().trim();
+      row.data.supply = (result.총납부금액 || "").toString().replace(/[^0-9.-]/g, "");
+      row.data.memo = result.사용기간 ? `상하수도요금(${result.사용기간})` : "상하수도요금";
+      const memoBits = [];
+      if (result.수전번호) memoBits.push(`수전번호 ${result.수전번호}`);
+      if (result.수용가명) memoBits.push(result.수용가명);
+      if (result.비고) memoBits.push(result.비고);
+      row.aiMemo = memoBits.join(" · ");
+      return {
+        checks: [
+          { ok: !!row.data.account, msg: "농협 가상계좌번호를 찾지 못했습니다. 표를 직접 확인해 입력하거나 재인식하세요." },
+          { ok: !!row.data.supply, msg: "총납부금액을 찾지 못했습니다. 직접 입력하거나 재인식하세요." },
+          { ok: !!holderName, msg: "수용가명(예금주명)을 찾지 못해 기본값을 사용했습니다. 표를 직접 확인해 입력하세요." }
+        ]
+      };
+    },
+    exportPrefix: "거래처입력_상하수도요금"
+  },
+  kepco: {
+    id: "kepco",
+    label: "전기요금",
+    tag: "한전",
+    eyebrow: "한국전력공사 전기요금 고지서 인식 · AI OCR → 거래처입력 양식",
+    title: "전기요금 고지서 자동 인식기",
+    subHtml: `한전 전기요금 청구서 PDF/이미지를 올리면 각 장의 <b>농협 가상계좌번호</b>와 <b>청구금액</b>을 읽어서
+      회계 프로그램 "거래처입력" 양식(은행코드 참고자료 포함 3개 시트 그대로)에 맞춰 표로 정리합니다.<br>
+      여러 장을 모은 PDF 하나를 올려도 페이지별로 자동 분리해서 각각 인식합니다. 표에서 값은 언제든 직접 수정할 수 있습니다.`,
+    accountNoticeHtml: `고지서마다 우리·신한·국민·농협·하나·기업·우체국·전북·광주은행 가상계좌가 나란히 표시되는데, 이 도구는 그중 <b>농협 계좌번호만</b> 자동으로 골라 추출하도록 설계되어 있습니다.`,
+    dropText: "전기요금 고지서 이미지 또는 PDF를 끌어다 놓거나 클릭해서 선택하세요",
+    dropSub: "여러 장 모은 PDF는 페이지별로 자동 분리됩니다 · JPG, PNG, PDF",
+    prompt: KEPCO_PROMPT,
+    verifyAccount: true, // 농협 계좌번호를 확대 크롭으로 한 번 더 읽어 교차 검증
+    defaults: {
+      name: "한국전력공사",
+      type: "10:법인사업자",
+      bizno: "4038202334",
+      paytype: "10:계좌이체",
+      bank: "011:농협은행",
+      deduct: "0",
+      repFlag: "N"
+    },
+    mapResult(row, result){
+      // e호조(회계 시스템)는 예금주명을 기호 포함 최대 10자까지만 인식하므로,
+      // "한전(기관명)" 형태를 조합할 때 괄호가 잘리지 않도록 기관명 쪽을 먼저 줄인다.
+      row.data.holder = buildKepcoHolder(result.수신기관);
+      row.data.account = (result.농협계좌번호 || "").toString().trim();
+      // 기업은행 줄을 농협으로 잘못 읽은 경우 방어: 같은 번호이거나 은행표기에 '농'이 없으면 비운다
+      const dgt = v => (v || "").toString().replace(/\D/g, "");
+      const ibkDigits = dgt(result.기업은행계좌번호);
+      const lbl = (result.농협_은행표기 || "").toString();
+      const mixedUp = !!row.data.account && (
+        (ibkDigits && dgt(row.data.account) === ibkDigits) ||
+        (lbl && !/농|NH/i.test(lbl)));
+      if (mixedUp) row.data.account = "";
+      row.data.supply = (result.청구금액 || "").toString().replace(/[^0-9.-]/g, "");
+      row.data.memo = result.사용기간 ? `전기요금(${result.사용기간})` : "전기요금";
+      const memoBits = [];
+      if (result.비고) memoBits.push(result.비고);
+      if (result.고객번호) memoBits.push(`고객번호 ${result.고객번호}`);
+      row.aiMemo = memoBits.join(" · ");
+      return {
+        checks: [
+          { ok: !mixedUp, msg: "기업은행 줄을 농협으로 잘못 읽은 것 같아 계좌번호를 비웠습니다. 고지서의 농협 줄을 직접 확인해 입력하거나 재인식하세요." },
+          { ok: !!row.data.account, msg: "농협 가상계좌번호를 찾지 못했습니다. 표를 직접 확인해 입력하거나 재인식하세요." },
+          { ok: !!row.data.supply, msg: "청구금액을 찾지 못했습니다. 직접 입력하거나 재인식하세요." }
+        ]
+      };
+    },
+    exportPrefix: "거래처입력_전기요금"
+  },
+  telecom: {
+    id: "telecom",
+    label: "통신요금",
+    tag: "SK·KT",
+    eyebrow: "SK텔레콤 · KT 통신요금 고지서 인식 · AI OCR → 거래처입력 양식",
+    title: "통신요금 고지서 자동 인식기",
+    subHtml: `SK Telecom 요금안내서와 KT 명세서를 모두 올릴 수 있습니다. 각 장의 <b>발행사(SK/KT)</b>를 자동으로 구분해서
+      <b>농협 계좌번호</b>와 <b>이번 달 납부금액</b>을 읽어온 뒤, 회계 프로그램 "거래처입력" 양식(은행코드 참고자료 포함 3개 시트 그대로)에 맞춰 표로 정리합니다.<br>
+      여러 장을 모은 PDF 하나를 올려도 페이지별로 자동 분리해서 각각 인식합니다. 표에서 값은 언제든 직접 수정할 수 있습니다.`,
+    accountNoticeHtml: `고지서마다 케이뱅크·농협·신한·국민·카카오뱅크 등 여러 은행 계좌가 나란히 표시되는데, 이 도구는 그중 <b>농협(농협은행) 계좌번호만</b> 자동으로 골라 추출하도록 설계되어 있습니다. 같은 배치 안에 SK 요금안내서와 KT 명세서가 섞여 있어도 각 장마다 자동으로 구분해서 처리합니다.`,
+    dropText: "SK Telecom 요금안내서 또는 KT 명세서 이미지·PDF를 끌어다 놓거나 클릭해서 선택하세요",
+    dropSub: "여러 장 모은 PDF는 페이지별로 자동 분리됩니다 · JPG, PNG, PDF",
+    prompt: TELECOM_PROMPT,
+    // SK와 KT는 계좌 표 위치가 서로 다르므로 두 템플릿의 영역을 모두 잘라서 함께 제공한다.
+    // AI가 실제 어느 쪽 문서인지 먼저 판단한 뒤 해당하는 확대 영역만 참고하도록 프롬프트에 안내되어 있다.
+    focusRegions: [
+      { x: 0,    y: 0.72, w: 0.30, h: 0.16, label: "SK 요금안내서인 경우: 입금전용계좌 박스 (농협 줄 포함)" },
+      { x: 0,    y: 0.44, w: 0.60, h: 0.10, label: "SK 요금안내서인 경우: 이번 달 납부하실 금액 박스" },
+      { x: 0,    y: 0.34, w: 0.30, h: 0.16, label: "KT 명세서인 경우: 전용 입금계좌 박스 (농협은행 줄 포함)" },
+      { x: 0.25, y: 0.30, w: 0.75, h: 0.16, label: "KT 명세서인 경우: 이번 달 납부하실 금액 박스" }
+    ],
+    defaults: {
+      // 거래처명·사업자번호·예금주명은 SK/KT 판별 결과에 따라 mapResult에서 동적으로 채운다.
+      type: "10:법인사업자",
+      paytype: "10:계좌이체",
+      bank: "011:농협은행",
+      deduct: "0",
+      repFlag: "N"
+    },
+    mapResult(row, result){
+      const issuerRaw = (result.발행사 || "").toString().trim().toUpperCase();
+      const issuerKey = TELECOM_ISSUER_INFO[issuerRaw]
+        ? issuerRaw
+        : (issuerRaw.includes("SK") ? "SK" : (issuerRaw.includes("KT") ? "KT" : ""));
+      const info = TELECOM_ISSUER_INFO[issuerKey] || null;
+      if (info){
+        row.data.name = info.name;
+        row.data.bizno = info.bizno;
+        row.data.holder = info.holder;
+      }
+      row.data.account = (result.농협계좌번호 || "").toString().trim();
+      row.data.supply = (result.납부금액 || "").toString().replace(/[^0-9.-]/g, "");
+      const productBit = result.대표상품명 || "";
+      const periodBit = result.이용기간 || "";
+      row.data.memo = productBit || periodBit
+        ? `통신요금(${[productBit, periodBit].filter(Boolean).join(" · ")})`
+        : "통신요금";
+      const memoBits = [];
+      if (result.명세서번호) memoBits.push(`명세서번호 ${result.명세서번호}`);
+      if (result.비고) memoBits.push(result.비고);
+      row.aiMemo = memoBits.join(" · ");
+      return {
+        checks: [
+          { ok: !!info, msg: "발행사(SK/KT)를 판별하지 못했습니다. 거래처명·사업자번호·예금주명을 직접 확인해 입력하세요." },
+          { ok: !!row.data.account, msg: "농협 계좌번호를 찾지 못했습니다. 표를 직접 확인해 입력하거나 재인식하세요." },
+          { ok: !!row.data.supply, msg: "납부금액을 찾지 못했습니다. 직접 입력하거나 재인식하세요." }
+        ]
+      };
+    },
+    exportPrefix: "거래처입력_통신요금"
+  }
+};
+const TYPE_ORDER = ["water", "kepco", "telecom"];
+
+// ===================== 상태 =====================
+let rows = [];
+let idSeq = 0;
+let currentTypeId = "water";
+function currentType(){ return BILL_TYPES[currentTypeId]; }
+
+const $ = (sel) => document.querySelector(sel);
+
+window.addEventListener("error", (e) => {
+  showFatalError(`스크립트 오류: ${e.message}`);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  showFatalError(`처리 중 오류: ${e.reason && e.reason.message ? e.reason.message : e.reason}`);
+});
+function showFatalError(msg){
+  let el = document.getElementById("fatalError");
+  if (!el){
+    el = document.createElement("div");
+    el.id = "fatalError";
+    el.style.cssText = "position:sticky;top:0;z-index:50;background:#F5E2DB;color:#B5482F;border:1px solid #B5482F;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600;white-space:pre-wrap;";
+    document.querySelector(".page").prepend(el);
+  }
+  el.textContent = "⚠ " + msg;
+}
+const dropzone = $("#dropzone");
+const fileInput = $("#fileInput");
+const scantrack = $("#scantrack");
+const toolbar = $("#toolbar");
+const tablewrap = $("#tablewrap");
+const emptyState = $("#emptyState");
+const headRow = $("#headRow");
+const bodyRows = $("#bodyRows");
+const statsEl = $("#stats");
+const providerSel = $("#provider");
+const geminiModelWrap = $("#geminiModelWrap");
+const geminiModelSelect = $("#geminiModel");
+const pacingInput = $("#pacing");
+const tokenSaverCheckbox = $("#tokenSaver");
+const useCropsCheckbox = $("#useCrops");
+let pacingTouchedByUser = false;
+let tokenSaverTouchedByUser = false;
+let cropsTouchedByUser = false;
+pacingInput.addEventListener("input", () => { pacingTouchedByUser = true; });
+tokenSaverCheckbox.addEventListener("change", () => {
+  tokenSaverTouchedByUser = true;
+  // 절약모드를 켜면 확대 크롭도 기본적으로 끄고(비용 최소화), 끄면 다시 켜서 정확도를 우선한다.
+  // 단, 사용자가 "정밀 확대 인식"을 직접 건드린 적이 있으면 그 선택을 존중한다.
+  if (!cropsTouchedByUser) useCropsCheckbox.checked = !tokenSaverCheckbox.checked;
+});
+useCropsCheckbox.addEventListener("change", () => { cropsTouchedByUser = true; });
+const lightbox = $("#lightbox");
+const lightboxImg = $("#lightboxImg");
+const typeTabs = $("#typeTabs");
+
+function syncProviderUI(){
+  geminiModelWrap.style.display = providerSel.value === "gemini" ? "inline-flex" : "none";
+  const isGemini = providerSel.value === "gemini";
+
+  // 공급자별로 무료/기본 등급에서 안전한 요청 간격을 추천값으로 채워준다.
+  // Gemini는 모델에 따라서도 무료 한도(RPM)가 달라서 모델까지 반영한다.
+  // 사용자가 직접 값을 건드린 적이 있으면 자동으로 덮어쓰지 않는다.
+  if (!pacingTouchedByUser){
+    if (isGemini){
+      pacingInput.value = geminiModelSelect.value.includes("flash-lite") ? "4.5" : "7";
+    } else {
+      pacingInput.value = "1";
+    }
+  }
+  // 토큰 절약 모드는 Gemini를 쓸 때만 의미가 있으므로 Gemini 선택 시 기본 ON, Claude는 기본 OFF.
+  if (!tokenSaverTouchedByUser){
+    tokenSaverCheckbox.checked = isGemini;
+    if (!cropsTouchedByUser) useCropsCheckbox.checked = !tokenSaverCheckbox.checked;
+  }
+}
+providerSel.addEventListener("change", syncProviderUI);
+geminiModelSelect.addEventListener("change", syncProviderUI);
+syncProviderUI();
+
+lightbox.addEventListener("click", () => { lightbox.style.display = "none"; });
+
+// ---- 고지서 종류 탭 ----
+// 종류별 세그먼트 컨트롤에 쓰는 간단한 모노라인 아이콘 (물방울 / 번개 / 신호 막대)
+const TYPE_ICONS = {
+  water: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-4 4.6-7 8.4-7 12a7 7 0 0 0 14 0c0-3.6-3-7.4-7-12z"/></svg>`,
+  kepco: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 10-12h-7l1-8z"/></svg>`,
+  telecom: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h2M6 9v6M10 6v12M14 3v18M18 9v6M22 12h-2"/></svg>`
+};
+
+function buildTypeTabs(){
+  typeTabs.innerHTML = TYPE_ORDER.map(id => {
+    const t = BILL_TYPES[id];
+    return `<button type="button" class="typebtn${id===currentTypeId?" active":""}" data-type="${id}">
+      ${TYPE_ICONS[id] || ""}${t.label}<span class="tag">${t.tag}</span>
+    </button>`;
+  }).join("");
+}
+function applyTypeUI(){
+  const t = currentType();
+  $("#eyebrowText").textContent = t.eyebrow;
+  $("#titleText").textContent = t.title;
+  $("#subText").innerHTML = t.subHtml;
+  const zoomNote = (t.focusRegions && t.focusRegions.length)
+    ? ` 이 종류는 인식할 때 <b>계좌·금액 부분을 자동으로 잘라 확대한 이미지</b>를 함께 분석에 사용해서 작은 숫자도 더 정확히 읽도록 되어 있습니다.`
+    : "";
+  $("#accountNotice").innerHTML = t.accountNoticeHtml + zoomNote;
+  $("#dropText").textContent = t.dropText;
+  $("#dropSub").textContent = t.dropSub;
+  document.title = `${t.title} → 거래처입력 양식`;
+  buildTypeTabs();
+}
+typeTabs.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-type]");
+  if (!btn) return;
+  const newType = btn.dataset.type;
+  if (newType === currentTypeId) return;
+  if (rows.length > 0){
+    const ok = window.confirm("문서 종류를 바꾸면 지금까지 인식한 표 내용이 모두 지워집니다. 계속할까요?");
+    if (!ok) return;
+  }
+  currentTypeId = newType;
+  rows = [];
+  applyTypeUI();
+  render();
+});
+
+// ---- 헤더 렌더 ----
+function buildHeader(){
+  let html = `<th style="width:44px">미리보기</th><th style="width:64px">상태</th>`;
+  FIELD_KEYS.forEach((k,i)=>{
+    html += `<th style="width:${FIELD_WIDTH[k]}px">${HEADERS[i].split("\n")[0]}</th>`;
+  });
+  html += `<th style="width:190px">AI 비고 (검토용)</th><th style="width:56px"></th>`;
+  headRow.innerHTML = html;
+}
+buildHeader();
+applyTypeUI();
+
+// ---- 드롭존 ----
+["dragover"].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add("active"); scantrack.innerHTML = '<div class="scanline"></div>'; }));
+["dragleave","drop"].forEach(ev => dropzone.addEventListener(ev, () => { dropzone.classList.remove("active"); scantrack.innerHTML = ""; }));
+dropzone.addEventListener("drop", e => { e.preventDefault(); addFiles(e.dataTransfer.files); });
+dropzone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
+
+const pdfStatusEl = $("#pdfStatus");
+
+function addFiles(fileList){
+  const files = Array.from(fileList);
+  const images = files.filter(f => f.type.startsWith("image/"));
+  const pdfs = files.filter(f => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+
+  images.forEach(file => {
+    idSeq += 1;
+    rows.push({
+      id: idSeq,
+      fileName: file.name,
+      kind: "image",
+      file,
+      thumb: URL.createObjectURL(file),
+      status: "대기",
+      error: "",
+      data: defaultRowData(),
+      aiMemo: ""
+    });
+  });
+  if (images.length) render();
+
+  pdfs.forEach(file => addPdfFile(file));
+}
+
+// 스캔본 화질을 조금 더 높여 계좌번호·금액 같은 작은 숫자의 인식률을 올린다.
+function canvasToResizedBase64(canvas, maxDim = 1600, quality = 0.90){
+  let { width, height } = canvas;
+  let src = canvas;
+  if (width > maxDim || height > maxDim){
+    const scale = maxDim / Math.max(width, height);
+    const w2 = Math.round(width * scale), h2 = Math.round(height * scale);
+    const c2 = document.createElement("canvas");
+    c2.width = w2; c2.height = h2;
+    c2.getContext("2d").drawImage(canvas, 0, 0, w2, h2);
+    src = c2;
+  }
+  return src.toDataURL("image/jpeg", quality).split(",")[1];
+}
+
+async function addPdfFile(file){
+  if (typeof pdfjsLib === "undefined"){
+    pdfStatusEl.style.display = "block";
+    pdfStatusEl.textContent = `PDF 처리 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 후 다시 시도해주세요. (${file.name})`;
+    return;
+  }
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+  pdfStatusEl.style.display = "block";
+  pdfStatusEl.textContent = `${file.name} 페이지 분리 중…`;
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    for (let p = 1; p <= pdf.numPages; p++){
+      pdfStatusEl.textContent = `${file.name} — ${p}/${pdf.numPages}쪽 변환 중…`;
+      const page = await pdf.getPage(p);
+      const viewport = page.getViewport({ scale: 2.5 });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      const base64 = canvasToResizedBase64(canvas, 1600, 0.90);
+      const hiBase64 = canvasToResizedBase64(canvas, 3200, 0.92); // 계좌 재확인용 고해상도
+      idSeq += 1;
+      rows.push({
+        id: idSeq,
+        fileName: `${file.name} (${p}/${pdf.numPages}쪽)`,
+        kind: "pdfpage",
+        base64,
+        hiBase64,
+        thumb: canvas.toDataURL("image/jpeg", 0.6),
+        status: "대기",
+        error: "",
+        data: defaultRowData(),
+        aiMemo: ""
+      });
+      render();
+    }
+  } catch (err){
+    pdfStatusEl.textContent = `${file.name} 처리 실패: ${err.message}`;
+    return;
+  }
+  pdfStatusEl.style.display = "none";
+}
+
+function defaultRowData(){
+  const d = {};
+  FIELD_KEYS.forEach(k => d[k] = "");
+  Object.assign(d, currentType().defaults);
+  if (d.holder) d.holder = clampHolder(d.holder);
+  return d;
+}
+
+// ---- 은행코드 매칭 (수동 수정 드롭다운에서 다른 은행으로 바꿀 때 참고용) ----
+function matchBankCode(raw){
+  if (!raw) return "";
+  const clean = raw.replace(/은행|주식회사|\(주\)|\s/g, "").trim();
+  if (clean.length < 2) return "";
+  for (const entry of BANK_CODES){
+    const nm = entry.split(":")[1].replace(/은행|\s/g, "");
+    if (nm.length >= 2 && (nm.includes(clean) || clean.includes(nm))) return entry;
+  }
+  return "";
+}
+
+// ---- 이미지 리사이즈 → base64 ----
+function fileToResizedBase64(file, maxDim = 1600, quality = 0.90){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = e => {
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim){
+          const scale = maxDim / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0,0,width,height);
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality).split(",")[1]);
+      };
+      img.onerror = () => reject(new Error("이미지 디코딩 실패"));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error("파일 읽기 실패"));
+    reader.readAsDataURL(file);
+  });
+}
+
+// ---- 영역 자동 확대 크롭 ----
+// 고지서 종류별로 미리 측정해둔 좌표(focusRegions, 0~1 비율)를 기준으로
+// 원본 이미지에서 "농협 계좌" · "금액" 부분만 잘라내 확대한 이미지를 만든다.
+// AI에게 전체 이미지와 함께 이 확대 이미지를 같이 보여주면 작은 숫자(계좌번호·금액)를
+// 훨씬 정확하게 읽어내므로, 별도의 "AI 보정" 단계 없이 한 번의 인식 호출로 정확도를 높일 수 있다.
+function loadImageFromBase64(base64){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("영역 확대를 위한 이미지 로드 실패"));
+    img.src = "data:image/jpeg;base64," + base64;
+  });
+}
+
+async function cropFocusRegions(base64, regions, maxDim = 900, quality = 0.94){
+  if (!regions || !regions.length) return [];
+  let img;
+  try {
+    img = await loadImageFromBase64(base64);
+  } catch {
+    return []; // 크롭 실패해도 전체 이미지 인식은 계속 진행
+  }
+  const results = [];
+  for (const r of regions){
+    const sx = Math.round(r.x * img.naturalWidth);
+    const sy = Math.round(r.y * img.naturalHeight);
+    const sw = Math.max(1, Math.round(r.w * img.naturalWidth));
+    const sh = Math.max(1, Math.round(r.h * img.naturalHeight));
+    // 잘라낸 부분이 너무 작으면 숫자를 읽기 어려우니 어느 정도 확대는 하되,
+    // 토큰 사용량을 아끼기 위해 확대 배율과 최종 크기에 상한(maxDim)을 둔다.
+    const scale = Math.min(3, maxDim / Math.max(sw, sh));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(sw * scale));
+    canvas.height = Math.max(1, Math.round(sh * scale));
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    results.push({ label: r.label || "확대 영역", base64: canvas.toDataURL("image/jpeg", quality).split(",")[1] });
+  }
+  return results;
+}
+
+// ---- API 전송 직전 추가 축소(토큰 절약 모드) ----
+// 화면 표시·재인식용 원본(최대 1600px)은 그대로 두고, 실제 AI에 보낼 "전체 페이지" 이미지만
+// 필요시 한 번 더 작게 줄인다. 계좌·금액처럼 정밀도가 중요한 부분은 어차피 원본에서 잘라낸
+// 확대 크롭 이미지가 따로 전달되므로, 전체 페이지 이미지는 해상도를 낮춰도 정확도 손해가 적다.
+async function shrinkForApi(base64, maxDim, quality){
+  let img;
+  try {
+    img = await loadImageFromBase64(base64);
+  } catch {
+    return base64; // 실패하면 원본 그대로 사용
+  }
+  if (Math.max(img.naturalWidth, img.naturalHeight) <= maxDim) return base64; // 이미 충분히 작으면 재인코딩하지 않음
+  const scale = maxDim / Math.max(img.naturalWidth, img.naturalHeight);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.naturalWidth * scale);
+  canvas.height = Math.round(img.naturalHeight * scale);
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", quality).split(",")[1];
+}
+
+// 현재 선택된 공급자·모델·절약모드 설정에 맞는 이미지 예산(해상도)을 계산한다.
+function getImageBudget(){
+  const isGemini = providerSel.value === "gemini";
+  const saving = isGemini && tokenSaverCheckbox && tokenSaverCheckbox.checked;
+  return saving
+    ? { mainMaxDim: 1024, mainQuality: 0.85, cropMaxDim: 720, cropQuality: 0.90 }
+    : { mainMaxDim: 1600, mainQuality: 0.90, cropMaxDim: 900, cropQuality: 0.94 };
+}
+
+function extractJson(text){
+  const cleaned = text.replace(/```json|```/g, "").trim();
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("응답에서 JSON을 찾을 수 없음: " + cleaned.slice(0, 200));
+  return JSON.parse(match[0]);
+}
+
+// 429(요청 한도 초과) 오류를 구분해서 자동 재시도할 수 있도록 별도 에러 타입을 둔다.
+class RateLimitError extends Error {
+  constructor(message, retryAfterMs){
+    super(message);
+    this.isRateLimit = true;
+    this.retryAfterMs = retryAfterMs || null;
+  }
+}
+
+function parseRetryAfterMs(res){
+  const header = res.headers && res.headers.get ? res.headers.get("retry-after") : null;
+  if (header){
+    const sec = Number(header);
+    if (Number.isFinite(sec)) return sec * 1000;
+  }
+  return null;
+}
+
+// Gemini는 종종 Retry-After 헤더 대신 에러 본문 안에 "retryDelay":"20s" 형태로 대기 시간을 알려준다.
+function extractRetryDelayFromMessage(msg){
+  if (!msg) return null;
+  const m = String(msg).match(/retryDelay"?\s*:\s*"?(\d+(?:\.\d+)?)s/i);
+  return m ? Math.ceil(parseFloat(m[1]) * 1000) : null;
+}
+
+async function readErrorBody(res){
+  try {
+    const j = await res.json();
+    return j?.error?.message || j?.error || JSON.stringify(j).slice(0, 300);
+  } catch {
+    try { return (await res.text()).slice(0, 300); } catch { return ""; }
+  }
+}
+
+async function callClaude(base64, apiKey, systemPrompt, crops = []){
+  const content = [
+    { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } }
+  ];
+  crops.forEach(c => {
+    content.push({ type: "text", text: `[확대 영역: ${c.label}]` });
+    content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: c.base64 } });
+  });
+  content.push({
+    type: "text",
+    text: crops.length
+      ? "이 고지서를 인식해서 JSON으로 출력해줘. 위에 제공된 확대 영역 이미지들도 함께 참고해서 계좌번호와 금액 숫자를 정확히 확인해라."
+      : "이 고지서를 인식해서 JSON으로 출력해줘."
+  });
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: "user", content }]
+      })
+    });
+  } catch (networkErr){
+    throw new Error(`Claude API 요청 실패(네트워크/CORS): ${networkErr.message}`);
+  }
+  if (!res.ok){
+    const msg = await readErrorBody(res);
+    if (res.status === 429){
+      throw new RateLimitError(`Claude API 요청 한도 초과 (429) ${msg}`, parseRetryAfterMs(res));
+    }
+    throw new Error(`Claude API 오류 (${res.status}) ${msg}`);
+  }
+  const data = await res.json();
+  const textBlock = (data.content || []).find(b => b.type === "text");
+  if (!textBlock) throw new Error("Claude 응답에 텍스트가 없습니다.");
+  return extractJson(textBlock.text);
+}
+
+async function callGemini(base64, apiKey, systemPrompt, crops = []){
+  const model = $("#geminiModel").value || "gemini-3.6-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const introText = crops.length
+    ? systemPrompt + "\n\n아래에 전체 이미지에 이어서 계좌·금액 부분을 확대한 참고 이미지들도 함께 제공된다. 함께 참고해서 계좌번호와 금액 숫자를 정확히 확인한 뒤, 이 고지서를 인식해서 JSON으로 출력해줘."
+    : systemPrompt + "\n\n이 고지서를 인식해서 JSON으로 출력해줘.";
+  const parts = [
+    { text: introText },
+    { inline_data: { mime_type: "image/jpeg", data: base64 } }
+  ];
+  crops.forEach(c => {
+    parts.push({ text: `[확대 영역: ${c.label}]` });
+    parts.push({ inline_data: { mime_type: "image/jpeg", data: c.base64 } });
+  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+      })
+    });
+  } catch (networkErr){
+    throw new Error(`Gemini API 요청 실패(네트워크): ${networkErr.message}`);
+  }
+  if (!res.ok){
+    const msg = await readErrorBody(res);
+    if (res.status === 429){
+      throw new RateLimitError(`Gemini API 요청 한도 초과 (429) ${msg}`, parseRetryAfterMs(res) || extractRetryDelayFromMessage(msg));
+    }
+    throw new Error(`Gemini API 오류 (${res.status}) ${msg}`);
+  }
+  const data = await res.json();
+  const cand = data?.candidates?.[0];
+  if (cand?.finishReason && cand.finishReason !== "STOP"){
+    throw new Error(`Gemini 응답이 완료되지 않음 (${cand.finishReason})`);
+  }
+  const text = cand?.content?.parts?.map(p => p.text || "").join("") || "";
+  if (!text) throw new Error("Gemini 응답에 텍스트가 없습니다. (안전 필터에 걸렸을 수 있음)");
+  return extractJson(text);
+}
+
+async function recognizeBill(base64, systemPrompt, crops = []){
+  const provider = providerSel.value;
+  const apiKey = $("#apikey").value.trim();
+  if (!apiKey) throw new Error(`API 키를 먼저 입력하세요 (${provider === "gemini" ? "Google AI Studio" : "Anthropic Console"})`);
+  return provider === "gemini" ? callGemini(base64, apiKey, systemPrompt, crops) : callClaude(base64, apiKey, systemPrompt, crops);
+}
+
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+// ---- 인식 처리 ----
+async function getRowBase64(row){
+  return row.kind === "pdfpage" ? row.base64 : fileToResizedBase64(row.file);
+}
+
+// 429(요청 한도 초과)를 만나면 곧바로 실패 처리하지 않고, 안내된 대기시간(또는 지수 백오프)만큼
+// 기다렸다가 같은 장을 다시 시도한다. 화면에는 "N초 후 재시도 중…"으로 진행 상황을 보여준다.
+async function recognizeWithRetry(row, base64, prompt, crops, maxRetries = 4){
+  let attempt = 0;
+  while (true){
+    try {
+      return await recognizeBill(base64, prompt, crops);
+    } catch (err){
+      if (err.isRateLimit && attempt < maxRetries){
+        attempt += 1;
+        const waitMs = Math.min(60000, err.retryAfterMs || 4000 * Math.pow(2, attempt));
+        row.status = "인식중";
+        row.error = `요청 한도(429) 초과 — ${Math.ceil(waitMs / 1000)}초 후 자동 재시도 (${attempt}/${maxRetries})`;
+        render();
+        await sleep(waitMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+// 원본보다 훨씬 큰 해상도(최대 3200px)의 이미지. 계좌번호 정밀 재확인용 확대 크롭은 이 이미지에서 잘라낸다.
+// (기본 1600px 이미지를 3배 확대해봐야 새 디테일이 생기지 않아 5/6 구분이 개선되지 않는다.)
+async function getRowHiBase64(row){
+  if (row.kind === "pdfpage") return row.hiBase64 || row.base64;
+  return fileToResizedBase64(row.file, 3200, 0.92);
+}
+
+// 1차 결과의 농협 계좌 위치를 고해상도 원본에서 잘라 확대한 뒤, 그 부분만 다시 읽어 교차 검증한다.
+// 반환: { account, note, mismatch } 또는 null(재확인 불가 → 1차 결과 유지)
+async function verifyAccountByCrop(row, result, prompt){
+  const b = result && result.농협계좌_위치;
+  const first = (result.농협계좌번호 || "").toString().trim();
+  if (!first || !b || !(b.w > 0) || !(b.h > 0)) return null;
+  const hi = await getRowHiBase64(row);
+  let img;
+  try { img = await loadImageFromBase64(hi); } catch { return null; }
+  // 위치 추정 오차와 은행명 줄 포함을 위해 좌우·상하를 넉넉히 확장
+  const clamp = v => Math.min(1, Math.max(0, v));
+  const x0 = clamp(b.x - 0.22), x1 = clamp(b.x + b.w + 0.08);
+  const y0 = clamp(b.y - b.h * 0.7), y1 = clamp(b.y + b.h * 1.7); // 이웃 은행 줄(기업은행 등)이 덜 섞이도록 상하 범위 축소
+  const sx = Math.round(x0 * img.naturalWidth), sy = Math.round(y0 * img.naturalHeight);
+  const sw = Math.max(1, Math.round((x1 - x0) * img.naturalWidth));
+  const sh = Math.max(1, Math.round((y1 - y0) * img.naturalHeight));
+  const scale = Math.min(3, 1400 / Math.max(sw, sh));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(sw * scale)); c.height = Math.max(1, Math.round(sh * scale));
+  const ctx = c.getContext("2d");
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  const cropB64 = c.toDataURL("image/jpeg", 0.95).split(",")[1];
+  const r2 = await recognizeWithRetry(row, cropB64, ACCOUNT_VERIFY_PROMPT, []);
+  const second = (r2.계좌번호 || "").toString().trim();
+  const label = (r2.은행표기 || "").toString();
+  const dg = v => (v || "").toString().replace(/\D/g, "");
+  const d1 = dg(first), d2 = dg(second);
+  const ibk = dg(r2.기업은행계좌번호) || dg(result.기업은행계좌번호);
+  // 재확인 값이 기업은행 번호이거나, 옆 은행명에 "농"이 없으면 채택하지 않는다
+  const secondBad = !second || (ibk && d2 === ibk) || (label && !/농|NH/i.test(label));
+  const firstBad = ibk && d1 === ibk;
+  if (secondBad){
+    if (firstBad) return { account: "", mismatch: true,
+      note: "농협 줄로 읽은 번호가 기업은행 번호와 같아 비웠습니다. 고지서에서 농협 줄을 직접 확인해 입력하세요." };
+    return null; // 1차 결과 유지
+  }
+  if (d1 === d2) return { account: first, note: "", mismatch: false };
+  return { account: second, mismatch: true,
+           note: `계좌번호 재확인 불일치: 1차 ${first} → 확대 재판독 ${second} (5/6/8 등 숫자 직접 확인 권장)` };
+}
+
+// 은행별 목록 중 은행명이 농협인 줄만 선택한다 (기업은행·전북은행 등 다른 줄은 절대 채택하지 않음).
+function applyNonghyupOnly(result){
+  const list = Array.isArray(result && result.은행별계좌) ? result.은행별계좌 : null;
+  if (!list || !list.length) return; // 목록이 없으면 기존 인식값 유지(아래 은행표기 검증이 방어)
+  const isNH = name => {
+    const n = (name || "").toString().replace(/\s/g, "");
+    return /농협|NH/i.test(n) && !/증권|투자|캐피탈|생명|손해|카드/.test(n);
+  };
+  const digits = v => (v || "").toString().replace(/\D/g, "");
+  const nh = list.filter(it => it && isNH(it.은행) && digits(it.계좌번호));
+  const others = new Set(list.filter(it => it && !isNH(it.은행)).map(it => digits(it.계좌번호)).filter(Boolean));
+  const pick = nh.find(it => !others.has(digits(it.계좌번호)));
+  result.농협계좌번호 = pick ? pick.계좌번호.toString().trim() : "";
+  const ibk = list.find(it => it && /기업|IBK/i.test((it.은행 || "").toString()));
+  if (ibk) result.기업은행계좌번호 = ibk.계좌번호;
+  if (!pick) result.농협_은행표기 = "";
+}
+
+async function processOne(row){
+  row.status = "인식중"; row.error = ""; render();
+  const t = currentType();
+  const useCrops = !useCropsCheckbox || useCropsCheckbox.checked;
+  try {
+    const base64 = await getRowBase64(row); // 표시·재인식용 원본 (최대 1600px, 크롭도 이 원본에서 잘라냄)
+    const budget = getImageBudget();
+    const cropSrc = (useCrops && t.focusRegions && t.focusRegions.length) ? await getRowHiBase64(row) : base64;
+    const crops = useCrops ? await cropFocusRegions(cropSrc, t.focusRegions, budget.cropMaxDim, budget.cropQuality) : [];
+    const apiBase64 = await shrinkForApi(base64, budget.mainMaxDim, budget.mainQuality); // 실제 전송용은 절약모드에서 더 축소
+    const result = await recognizeWithRetry(row, apiBase64, t.prompt, crops);
+    applyNonghyupOnly(result); // 은행별 목록에서 농협 줄만 코드로 선택
+
+    // 계좌번호 2단계 재확인 (고해상도 확대 크롭으로 다시 읽어 1차 결과와 비교)
+    let verifyNote = "", verifyMismatch = false;
+    if (t.verifyAccount && $("#verifyAcct") && $("#verifyAcct").checked){
+      try {
+        const v = await verifyAccountByCrop(row, result, t.prompt);
+        if (v){ result.농협계좌번호 = v.account; verifyNote = v.note; verifyMismatch = v.mismatch; }
+      } catch (e){ /* 재확인 실패해도 1차 결과로 계속 진행 */ }
+    }
+
+    // 고지서 종류별 고정값은 항상 유지
+    Object.assign(row.data, t.defaults);
+
+    const { checks } = t.mapResult(row, result);
+    row.data.holder = clampHolder(row.data.holder); // 종류에 상관없이 예금주명 10자 제한을 최종적으로 한 번 더 보장
+    if (verifyNote) row.aiMemo = [verifyNote, row.aiMemo].filter(Boolean).join(" · ");
+    const failed = (checks || []).find(c => !c.ok) ||
+      (verifyMismatch ? { msg: "계좌번호를 두 번 읽은 결과가 달라요. 5/6/8 등 숫자를 원본과 대조해 확인하세요." } : null);
+
+    if (failed){
+      row.status = "확인필요";
+      row.error = failed.msg;
+    } else {
+      row.status = "완료";
+    }
+  } catch (err){
+    row.status = "오류"; row.error = err.message;
+  }
+  render();
+}
+
+async function processAll(){
+  const btn = $("#processBtn");
+  btn.disabled = true;
+  const targets = rows.filter(r => r.status === "대기" || r.status === "오류" || r.status === "확인필요");
+  const pacingMs = Math.max(300, Math.round((parseFloat(pacingInput.value) || 7) * 1000));
+  for (const row of targets){
+    // eslint-disable-next-line no-await-in-loop
+    await processOne(row);
+    await sleep(pacingMs); // 연속 호출 시 API 속도 제한(429) 방지용 지연 — "요청 간격" 설정값 사용
+  }
+  btn.disabled = false;
+}
+
+// ---- 렌더 ----
+function render(){
+  const has = rows.length > 0;
+  toolbar.style.display = has ? "flex" : "none";
+  tablewrap.style.display = has ? "block" : "none";
+  emptyState.style.display = has ? "none" : "flex";
+  if (!has) return;
+
+  const done = rows.filter(r => r.status === "완료").length;
+  const warn = rows.filter(r => r.status === "확인필요").length;
+  const err = rows.filter(r => r.status === "오류").length;
+  statsEl.innerHTML = `<span class="badge">전체 ${rows.length}</span>` +
+    `<span class="badge" style="color:var(--teal)">완료 ${done}</span>` +
+    (warn ? `<span class="badge" style="color:#B5842F">확인필요 ${warn}</span>` : "") +
+    (err ? `<span class="badge" style="color:var(--rust)">오류 ${err}</span>` : "");
+
+  bodyRows.innerHTML = rows.map(r => {
+    const cells = FIELD_KEYS.map(k => {
+      if (k === "bank") {
+        const options = BANK_CODES.map(b => `<option value="${b}" ${r.data.bank===b?"selected":""}>${b}</option>`).join("");
+        return `<td><select class="cellinput" data-id="${r.id}" data-key="bank" style="min-width:120px">
+          <option value="">${r.data.bank && !BANK_CODES.includes(r.data.bank) ? esc(r.data.bank) : "선택"}</option>
+          ${options}
+        </select></td>`;
+      }
+      const extraAttrs = k === "holder" ? ` maxlength="${HOLDER_MAX_LEN}" title="예금주명은 e호조 등 회계 시스템 호환을 위해 기호 포함 최대 ${HOLDER_MAX_LEN}자까지만 입력됩니다."` : "";
+      return `<td><input class="cellinput" data-id="${r.id}" data-key="${k}" value="${esc(r.data[k])}"${extraAttrs}></td>`;
+    }).join("");
+    const trCls = (r.status === "오류" || r.status === "확인필요") ? ' class="row-err"' : "";
+    return `<tr${trCls}>
+      <td><img class="thumb" data-id="${r.id}" src="${r.thumb}"></td>
+      <td><span class="statusbadge st-${r.status}" title="${esc(r.error)}">${r.status}</span></td>
+      ${cells}
+      <td class="memo-col" title="${esc(r.aiMemo)}">${esc(r.aiMemo)}</td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <button class="btn-icon" data-act="retry" data-id="${r.id}" title="재인식">↻</button>
+          <button class="btn-icon" data-act="del" data-id="${r.id}" title="삭제">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function esc(s){
+  return (s ?? "").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ---- 셀 편집 / 액션 위임 ----
+bodyRows.addEventListener("input", e => {
+  const el = e.target;
+  if (!el.dataset.id) return;
+  const row = rows.find(r => r.id == el.dataset.id);
+  if (!row) return;
+  let value = el.value;
+  if (el.dataset.key === "holder" && value.length > HOLDER_MAX_LEN){
+    value = clampHolder(value);
+    el.value = value; // 붙여넣기 등으로 10자를 넘기면 입력창에서도 바로 잘라서 보여준다
+  }
+  row.data[el.dataset.key] = value;
+});
+bodyRows.addEventListener("change", e => {
+  const el = e.target;
+  if (el.tagName === "SELECT" && el.dataset.id){
+    const row = rows.find(r => r.id == el.dataset.id);
+    if (row) row.data.bank = el.value;
+  }
+});
+bodyRows.addEventListener("click", e => {
+  const thumb = e.target.closest("img.thumb");
+  if (thumb){
+    lightboxImg.src = thumb.src;
+    lightbox.style.display = "flex";
+    return;
+  }
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const row = rows.find(r => r.id == btn.dataset.id);
+  if (!row) return;
+  if (btn.dataset.act === "retry") processOne(row);
+  if (btn.dataset.act === "del") { rows = rows.filter(r => r.id !== row.id); render(); }
+});
+
+$("#clearBtn").addEventListener("click", () => { rows = []; render(); });
+$("#processBtn").addEventListener("click", processAll);
+
+// 금액 관련 열(공급가액/부가세액/공제액/지출액)은 엑셀에서 텍스트가 아니라
+// 실제 숫자로 들어가야 SUM 등으로 합계 계산이 가능하고, 천단위 콤마(회계 표시형식)로 보인다.
+const NUMERIC_KEYS = ["supply", "vat", "deduct", "payout"];
+function toNumericCell(rawValue){
+  if (rawValue === "" || rawValue === null || rawValue === undefined) return "";
+  const n = Number(String(rawValue).replace(/,/g, "").trim());
+  return Number.isFinite(n) ? n : rawValue; // 숫자로 못 바꾸면 원래 값(문자) 그대로 둠
+}
+
+// ---- 엑셀 내보내기 (원본과 동일한 3개 시트: 거래처입력 / 거래처입력설명 / 은행코드_참고자료) ----
+$("#exportBtn").addEventListener("click", () => {
+  if (rows.length === 0) return;
+
+  // 1. 거래처입력
+  const dataRows = rows.map(r => FIELD_KEYS.map(k => {
+    const raw = r.data[k] || "";
+    return NUMERIC_KEYS.includes(k) ? toNumericCell(raw) : raw;
+  }));
+  const ws1 = XLSX.utils.aoa_to_sheet([HEADERS, ...dataRows]);
+  ws1["!cols"] = FIELD_KEYS.map(k => ({ wch: Math.max(12, Math.round((FIELD_WIDTH[k]||100)/7)) }));
+
+  // 금액 열은 셀 표시형식을 "#,##0" (회계/숫자, 천단위 콤마)로 지정해서
+  // 엑셀에서 열자마자 숫자로 보이고 합계(SUM)도 바로 계산되게 한다.
+  NUMERIC_KEYS.forEach(k => {
+    const colIdx = FIELD_KEYS.indexOf(k);
+    if (colIdx === -1) return;
+    for (let r = 1; r <= dataRows.length; r++){
+      const addr = XLSX.utils.encode_cell({ r, c: colIdx });
+      const cell = ws1[addr];
+      if (cell && cell.t === "n"){
+        cell.z = "#,##0";
+      }
+    }
+  });
+
+  // 2. 거래처입력설명
+  const ws2 = XLSX.utils.aoa_to_sheet(DESC_ROWS.map(row => row.map(c => c === undefined ? null : c)));
+
+  // 3. 은행코드_참고자료
+  const ws3 = XLSX.utils.aoa_to_sheet([["은행코드"], ...BANK_CODES.map(b => [b])]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, "거래처입력");
+  XLSX.utils.book_append_sheet(wb, ws2, "거래처입력설명");
+  XLSX.utils.book_append_sheet(wb, ws3, "은행코드_참고자료");
+
+  const today = new Date();
+  const stamp = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+  XLSX.writeFile(wb, `${currentType().exportPrefix}_${stamp}.xlsx`);
+});
+</script>
+<script>
+/* 셸 '설정'에 저장해 둔 AI 키가 있으면 자동으로 채운다 */
+(function(){
+  var prov=document.getElementById('provider'), key=document.getElementById('apikey');
+  function fill(){
+    if(!prov||!key||!window.suiteKey) return;
+    var k=window.suiteKey(prov.value==='gemini'?'gemini':'claude');
+    key.value=k||'';
+  }
+  window.addEventListener('load', fill);
+  if(prov) prov.addEventListener('change', fill);
+})();
+</script>
+
+<!--SUITE:BRIDGE-->
+</body>
+</html>

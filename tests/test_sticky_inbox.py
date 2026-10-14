@@ -1,7 +1,15 @@
 """스티커: 날짜 없는 칸 스티커, 켤 때 펼쳐서 제자리 복원 (Tk 필요). 실행: python tests/test_sticky_inbox.py"""
+import json
 import os
 import sys
+import tempfile
 import time
+
+# 내 진짜 데이터(%APPDATA%)를 건드리지 않도록 임시 폴더를 쓴다
+_tmp = tempfile.mkdtemp(prefix="dc_sticky_")
+os.environ["APPDATA"] = os.environ["HOME"] = _tmp
+os.makedirs(os.path.join(_tmp, "DeskCalendar"), exist_ok=True)
+json.dump({"seen_help": True}, open(os.path.join(_tmp, "DeskCalendar", "config.json"), "w"))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import tkinter as tk
 import desk_calendar as dc

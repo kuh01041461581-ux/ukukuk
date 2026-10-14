@@ -29,12 +29,14 @@ jobs:
           python tests/test_work.py
       - name: Build exe (파일 하나짜리)
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed $env:PYI_ARGS --name DeskCalendar --icon assets/app.ico desk_calendar.py
+          $pyi = $env:PYI_ARGS -split ' '
+          python -m PyInstaller --noconfirm --clean --onefile --windowed @pyi --name DeskCalendar --icon assets/app.ico desk_calendar.py
         env:
           PYI_ARGS: --collect-all pdfminer --hidden-import gongmun --hidden-import core --hidden-import holidays_kr --hidden-import cloudsync --hidden-import glass --hidden-import holidays_api --hidden-import PIL._tkinter_finder --hidden-import analyze --hidden-import quickadd --hidden-import ocr --hidden-import work --hidden-import hwpdoc --hidden-import olefile --hidden-import PIL.ImageGrab --hidden-import pystray --hidden-import pystray._win32 --collect-all korean_lunar_calendar --collect-all segno --exclude-module unittest --exclude-module pydoc --exclude-module doctest --exclude-module test --exclude-module distutils --exclude-module setuptools --exclude-module pip --exclude-module lib2to3 --exclude-module sqlite3 --exclude-module curses --exclude-module xmlrpc --exclude-module pdb --exclude-module tkinter.test --exclude-module PIL.ImageQt --exclude-module pydoc_data --exclude-module turtle --exclude-module idlelib --exclude-module ensurepip --exclude-module bz2
       - name: Build 설치 파일 (폴더형 → Inno Setup)
         run: |
-          python -m PyInstaller --noconfirm --clean --onedir --windowed $env:PYI_ARGS --name DeskCalendar --icon assets/app.ico --distpath dist --workpath build_dir desk_calendar.py
+          $pyi = $env:PYI_ARGS -split ' '
+          python -m PyInstaller --noconfirm --clean --onedir --windowed @pyi --name DeskCalendar --icon assets/app.ico --distpath dist --workpath build_dir desk_calendar.py
           choco install innosetup -y --no-progress
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=1.0.${{ github.run_number }}" installer\DeskCalendar.iss
           Get-ChildItem dist | Format-Table Name, Length

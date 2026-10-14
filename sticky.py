@@ -194,6 +194,10 @@ class MemoFormat:
         self.on_change()
 
 
+def S_(note, v):
+    return note.app.S(v)
+
+
 class StickyManager:
     def __init__(self, app, ui):
         self.app, self.ui = app, ui
@@ -288,6 +292,8 @@ class Sticky:
         self._memo_job = None
         self._anim = None
         self._dragging = False
+        self._mode = None            # 'postit'(일정 없음: 메모만) / 'full'
+        self.show_entry = False
         self.top = top = tk.Toplevel(self.app.root)
         top._sticky = True
         top.overrideredirect(True)
@@ -333,7 +339,7 @@ class Sticky:
         c["sc"] = self.app.scale
         if abs(k - 1) > .01:
             c["w"], c["h"] = round(c.get("w", S(280)) * k), round(c.get("h", S(340)) * k)
-        c["w"] = max(S(230), int(c.get("w", S(280))))
+        c["w"] = max(S(250), int(c.get("w", S(280))))
         c["h"] = max(S(180), int(c.get("h", S(340))))
         x = min(max(vx, int(c.get("x", vx + 40))), vx + vw - S(120))
         y = min(max(vy, int(c.get("y", vy + 60))), vy + vh - S(60))
@@ -356,6 +362,7 @@ class Sticky:
         app, ui, c = self.app, self.ui, self.conf
         S = app.S
         top = self.top
+        self._mode = None
         for w in top.winfo_children():
             w.destroy()
         base = c.get("color", COLORS[0][1])
@@ -378,6 +385,7 @@ class Sticky:
         pill(hd, "●", self.menu, "right")
         self.pin_btn = pill(hd, "고정", self.toggle_top, "right")
         self.pin_set()
+        pill(hd, "＋", lambda: self.mgr.add(inbox=self.is_inbox()), "left")
         self.prev_btn = pill(hd, "‹", lambda: self.go(-1), "left")
         self.title = tk.Label(hd, font=app.f_body, bg=bar, fg=INK, anchor="w", cursor="fleur")
         self.title.pack(side="left", padx=(S(8), S(2)))
@@ -392,7 +400,7 @@ class Sticky:
 
         self.body = tk.Frame(self.frame, bg=base)
         # 아래: 일정 추가 줄 → 메모 → 일정 목록(남는 자리)
-        foot = tk.Frame(self.body, bg=base)
+        foot = self.foot = tk.Frame(self.body, bg=base)
         foot.pack(side="bottom", fill="x", padx=S(10), pady=(0, S(10)))
         field = _mix(base, "#ffffff", 0.55)
         self.entry = tk.Entry(foot, font=app.f_small, bg=field, fg=INK, insertbackground=INK, relief="flat",
@@ -406,11 +414,12 @@ class Sticky:
         self._placeholder()
         self.entry.bind("<FocusIn>", self._ph_off)
         self.entry.bind("<FocusOut>", lambda e: self._placeholder())
-        mf = tk.Frame(self.body, bg=base)
+        mf = self.mf = tk.Frame(self.body, bg=base)
         mf.pack(side="bottom", fill="both", expand=True, padx=S(10), pady=(S(4), S(8)))
         bar_f = tk.Frame(mf, bg=base)
         bar_f.pack(fill="x", pady=(0, S(2)))
-        tk.Label(bar_f, text="메모", font=app.f_tiny, bg=base, fg=INK_SUB, anchor="w").pack(side="left")
+        self.memo_lab = tk.Label(bar_f, text="메모", font=app.f_tiny, bg=base, fg=INK_SUB, anchor="w")
+        self.memo_lab.pack(side="left")
         tool_bg = _mix(base, "#000000", 0.07)
 
         def tb(text, cmd, fg=INK_SUB):
@@ -418,11 +427,13 @@ class Sticky:
                         parent_bg=base, padx=S(6), pady=S(1))
             p.pack(side="right", padx=(S(2), 0))
             return p
+        self.field = field
         self.memo = tk.Text(mf, height=3, font=app.f_small, bg=field, fg=INK, insertbackground=INK, relief="flat",
                             wrap="word", padx=S(6), pady=S(4), undo=True, highlightthickness=1,
                             highlightbackground=_mix(base, "#000000", 0.1),
                             highlightcolor=_mix(base, "#000000", 0.35))
         self.fmt = MemoFormat(self.memo, app, self._memo_changed)
+        self.add_btn = tb("＋일정", self.open_entry)
         tb("☑", lambda: self.fmt.prefix("check"))
         tb("1.", lambda: self.fmt.prefix("num"))
         tb("•", lambda: self.fmt.prefix("bul"))
@@ -433,7 +444,7 @@ class Sticky:
         self.memo.bind("<KeyRelease>", lambda e: (self.fmt.render(), self._memo_changed()))
         self.memo.bind("<Button-1>", lambda e: self.memo.focus_force(), add="+")
         self.memo.bind("<FocusOut>", lambda e: self._save_memo())
-        wrap = tk.Frame(self.body, bg=base)
+        wrap = self.wrap = tk.Frame(self.body, bg=base)
         wrap.pack(side="top", fill="x", padx=S(10), pady=(S(8), 0))
         self.cv = tk.Canvas(wrap, bg=base, highlightthickness=0, bd=0, height=S(60))
         self.cv.pack(fill="x")
@@ -493,11 +504,12 @@ class Sticky:
             rows = core.day_items(app.data, d)
             rows.sort(key=lambda r: self.ui.sort_key(r[1]))
             memo = app._entry(d).get("memo", "")
-        sig = (inbox, d, memo, tuple((t.get("text"), t.get("time"), bool(t.get("done")), t.get("note"), self.ui.pri_of(t))
+        sig = (inbox, d, self.show_entry, memo, tuple((t.get("text"), t.get("time"), bool(t.get("done")), t.get("note"), self.ui.pri_of(t))
                                      for _, t, _ in rows))
         if sig == self.sig and not force:
             return
         self.sig = sig
+        self.layout(not rows and not (None if inbox else self.ui.holiday_name(d)) and not self.show_entry)
         hol = None if inbox else self.ui.holiday_name(d)
         for b, ch in ((self.prev_btn, ""if inbox else "‹"), (self.next_btn, "" if inbox else "›")):
             b.itemconfig(b._label, text=ch)
@@ -530,6 +542,32 @@ class Sticky:
         for lst, t, s0 in rows:
             self._row(t, scroll)
         self.list.bind("<MouseWheel>", scroll)
+
+    def layout(self, postit):
+        """일정이 없으면 포스트잇처럼 메모만 한 장으로, 일정이 있으면 목록 + 메모 + 입력줄"""
+        mode = "postit" if postit else "full"
+        if mode == self._mode:
+            return
+        self._mode = mode
+        base = self.base
+        for w in (self.foot, self.mf, self.wrap):
+            w.pack_forget()
+        if postit:
+            self.mf.pack(side="top", fill="both", expand=True, padx=S_(self, 10), pady=(S_(self, 2), S_(self, 10)))
+            self.memo_lab.pack_forget()
+            self.memo.config(bg=base, highlightthickness=0, padx=S_(self, 2))
+        else:
+            self.foot.pack(side="bottom", fill="x", padx=S_(self, 10), pady=(0, S_(self, 10)))
+            self.mf.pack(side="bottom", fill="both", expand=True, padx=S_(self, 10), pady=(S_(self, 4), S_(self, 8)))
+            self.wrap.pack(side="top", fill="x", padx=S_(self, 10), pady=(S_(self, 8), 0))
+            self.memo_lab.pack(side="left")
+            self.memo.config(bg=self.field, highlightthickness=1, padx=S_(self, 6))
+
+    def open_entry(self):
+        """포스트잇 모양에서 일정을 넣고 싶을 때: 입력줄을 연다"""
+        self.show_entry = True
+        self.refresh(force=True)
+        self.entry.focus_force()
 
     def _row(self, t, scroll):
         app, base = self.app, self.base
@@ -678,7 +716,7 @@ class Sticky:
     def _rs_move(self, e):
         S = self.app.S
         x0, y0, w0, h0 = self._r0
-        w = max(S(230), w0 + e.x_root - x0)
+        w = max(S(250), w0 + e.x_root - x0)
         h = max(S(180), h0 + e.y_root - y0)
         self.conf["w"], self.conf["h"] = w, h
         self.top.geometry(f"{w}x{h}")

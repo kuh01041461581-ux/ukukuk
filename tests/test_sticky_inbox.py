@@ -48,3 +48,21 @@ assert f.top.winfo_height() == bar
 # 3) 화면 밖 값은 보이는 위치만 보정하고 저장값은 유지
 u.conf["x"] = 99999; u._place(); assert u.conf["x"] == 99999
 print("STICKY OK")
+
+# 4) 일정 없는 스티커는 포스트잇처럼 메모만, 일정이 생기면 목록+입력줄, + 버튼으로 새 스티커
+p = u
+p.set_date("2031-06-10"); root.update()
+assert p._mode == "postit", p._mode
+assert not p.foot.winfo_ismapped() and not p.wrap.winfo_ismapped() and p.mf.winfo_ismapped()
+p.open_entry(); root.update()
+assert p._mode == "full" and p.foot.winfo_ismapped()
+p.show_entry = False; p.refresh(force=True); assert p._mode == "postit"
+import core
+core.add_item(a.data, "2031-06-10", core.new_item("일정 하나")); p.refresh(force=True); root.update()
+assert p._mode == "full" and p.wrap.winfo_ismapped()
+cnt = len(a.stickers.notes)
+p.hd.winfo_children()[0].event_generate  # header exists
+plus = [w for w in p.hd.winfo_children() if getattr(w, "_label", None) and w.itemcget(w._label, "text") == "＋"][0]
+plus._on_press(None); plus._on_release(type("E", (), {"x": 2, "y": 2})())
+root.update(); assert len(a.stickers.notes) == cnt + 1
+print("POSTIT OK")

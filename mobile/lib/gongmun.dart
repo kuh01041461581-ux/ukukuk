@@ -180,10 +180,31 @@ String _coreText(String body, List<_Span> spans, int k) {
 
 String _iso(DateTime d) => '${d.year}-${_two(d.month)}-${_two(d.day)}';
 
-/// 반환: (제목, 일정 후보 목록)
-(String, List<GongmunItem>) parseGongmun(String text, DateTime today) {
+final _titleTail = RegExp(r'\s*(?:\([^)]*\)|\[[^\]]*\]|추진\s*계획|시행\s*계획|계획\(?안?\)?|알림|안내|통보|공고|제출\s*요청|협조\s*요청|'
+    r'회신\s*요청|요청|협조|보고|\s*등)\s*$');
+
+/// 공문 제목에서 '무엇에 관한 건지' 만 남긴 짧은 이름: '2026년 공유재산 실태조사 추진계획' → '공유재산 실태조사'
+String topicOf(String title) {
+  var t = title.replaceAll(RegExp('[「」『』“”"\'‘’]'), '').trim();
+  t = t.replaceFirst(RegExp(r'^20\d{2}\s*(년도|년|학년도)?\s*'), '').trim();
+  for (var i = 0; i < 3; i++) {
+    final n = t.replaceFirst(_titleTail, '').trim();
+    if (n.length < 4) break;
+    t = n;
+  }
+  t = _stripChars(t.replaceAll(RegExp(r'\s+'), ' '), ' ,.:-·');
+  if (t.length > 18) {
+    final cut = t.lastIndexOf(' ', 17);
+    t = cut >= 6 ? _stripChars(t.substring(0, cut), ' ') : '${_stripChars(t.substring(0, 17), ' ')}…';
+  }
+  return t;
+}
+
+/// 반환: (제목, 일정 후보 목록). withTopic: 일정 이름 앞에 공문 주제를 붙인다 ('[공유재산 실태조사] 조사 기간')
+(String, List<GongmunItem>) parseGongmun(String text, DateTime today, {bool withTopic = true}) {
   final paras = paragraphs(text);
   final title = findTitle(text, paras);
+  final topic = withTopic ? topicOf(title) : '';
   var year = today.year;
   for (final p in paras) {
     final m = _date.firstMatch(p);
@@ -251,7 +272,8 @@ String _iso(DateTime d) => '${d.year}-${_two(d.month)}-${_two(d.day)}';
       if (!seen.add(key)) continue;
       final ctx = body.substring(s.start - 30 < 0 ? 0 : s.start - 30, s.stop + 14 > body.length ? body.length : s.stop + 14);
       final pa = body.substring(s.start - 40 < 0 ? 0 : s.start - 40, s.stop + 20 > body.length ? body.length : s.stop + 20);
-      found.add(GongmunItem(s.d, s.end, s.when, core, title, s.end != null && _period.hasMatch(pa), _urgent.hasMatch(ctx) ? 1 : 2));
+      final label = (topic.isNotEmpty && !core.contains(topic)) ? (topic.contains(core) ? topic : '[$topic] $core') : core;
+      found.add(GongmunItem(s.d, s.end, s.when, label, title, s.end != null && _period.hasMatch(pa), _urgent.hasMatch(ctx) ? 1 : 2));
     }
   }
   // 안정 정렬: 날짜 → 시간(없으면 맨 뒤) → 원래 순서

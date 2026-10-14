@@ -172,13 +172,33 @@ def _core_text(body, spans, k):
     return core
 
 
-def parse(text, today=None):
-    """반환: (제목, [{"date": date, "end": date|None, "time": "HH:MM"|"", "text": str, "pri": 0~3}, ...])"""
+_TITLE_TAIL = re.compile(r"\s*(?:\([^)]*\)|\[[^\]]*\]|추진\s*계획|시행\s*계획|계획\(?안?\)?|알림|안내|통보|공고|제출\s*요청|협조\s*요청|"
+                         r"회신\s*요청|요청|협조|보고|\s*등)\s*$")
+
+
+def topic_of(title):
+    """공문 제목에서 '무엇에 관한 건지' 만 남긴 짧은 이름: '2026년 공유재산 실태조사 추진계획' → '공유재산 실태조사'"""
+    t = re.sub("[「」『』“”\"'‘’]", "", title or "").strip()
+    t = re.sub(r"^20\d{2}\s*(년도|년|학년도)?\s*", "", t).strip()
+    for _ in range(3):
+        n = _TITLE_TAIL.sub("", t).strip()
+        if len(n) < 4:
+            break
+        t = n
+    t = re.sub(r"\s+", " ", t).strip(" ,.:-·")
+    if len(t) > 18:
+        cut = t.rfind(" ", 0, 18)
+        t = t[:cut if cut >= 6 else 17].rstrip() + ("…" if cut < 6 else "")
+    return t
+
+
+def parse(text, today=None, with_topic=True):
+    """반환: (제목, [{"date": date, "end": date|None, "time": "HH:MM"|"", "text": str, "pri": 0~3}, ...])
+    with_topic: 일정 이름 앞에 공문 주제를 붙인다 ('[공유재산 실태조사] 조사 기간') — 무엇에 관한 일정인지 알 수 있게"""
     today = today or dt.date.today()
     paras = paragraphs(text)
     title = find_title(text, paras)
-    short = re.sub(r"^20\d{2}\s*(년도|년|학년도)?\s*", "", title).strip() or title
-    short = short if len(short) <= 16 else short[:15] + "…"
+    topic = topic_of(title) if with_topic else ""
 
     # 문서 연도: 본문에서 처음 나오는 '연도 포함 날짜'의 연도, 없으면 올해
     year = today.year
@@ -238,7 +258,10 @@ def parse(text, today=None):
                 continue
             seen.add(key)
             ctx = body[max(0, s0 - 30):e0 + 14]
-            found.append({"date": d, "end": end, "time": when, "text": core, "doc": title,
+            label = core
+            if topic and topic not in core:
+                label = topic if core in topic else f"[{topic}] {core}"
+            found.append({"date": d, "end": end, "time": when, "text": label, "doc": title,
                           "period": bool(end) and bool(_PERIOD.search(body[max(0, s0 - 40):e0 + 20])),
                           "pri": 1 if _URGENT.search(ctx) else 2})
     found.sort(key=lambda x: (x["date"], x["time"] or "99:99"))

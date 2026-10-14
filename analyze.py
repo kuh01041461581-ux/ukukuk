@@ -105,7 +105,7 @@ def analyze(text, today=None):
     lines = _lines(text, today)
     # 1) 날짜가 글자로 적힌 줄: 공문 규칙(줄마다 한 문단)으로 읽는다
     numbered = "\n".join(f"1. {_SPEAKER.sub('', l)}" for l, _ in lines)
-    _, g = gongmun.parse("제목 메모\n" + numbered, today)
+    _, g = gongmun.parse("제목 메모\n" + numbered, today, with_topic=False)
     out, seen, covered = [], set(), []
     for i in g:
         key = (i["date"], i["text"])

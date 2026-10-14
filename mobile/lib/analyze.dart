@@ -97,7 +97,7 @@ List<AnalyzedItem> analyzeText(String text, DateTime today) {
   }
   final lines = _lines(text, today);
   final numbered = lines.map((l) => '1. ${l.$1.replaceFirst(_speaker, '')}').join('\n');
-  final (_, g) = parseGongmun('제목 메모\n$numbered', today);
+  final (_, g) = parseGongmun('제목 메모\n$numbered', today, withTopic: false);
   final out = <AnalyzedItem>[];
   final seen = <String>{};
   final covered = <String>[];

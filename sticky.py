@@ -202,17 +202,30 @@ class StickyManager:
         self._tick()
 
     def restore(self):
+        """윈도우를 켤 때: 접어 두었던 스티커도 펼쳐서, 마지막으로 두었던 자리에 메모가 그대로 보이게 한다.
+        부팅 직후엔 화면 크기·배율이 아직 자리 잡지 않았을 수 있어 몇 초 뒤 한 번 더 제자리에 놓는다."""
         for c in list(self.app.conf.get("stickies", [])):
+            c["folded"] = False
             self._open(c)
+        for ms in (1500, 6000, 15000):
+            try:
+                self.app.root.after(ms, self.replace_all)
+            except tk.TclError:
+                pass
 
-    def add(self, d=None):
-        """새 스티커. d 가 없으면 '오늘'을 따라가는 스티커"""
+    def replace_all(self):
+        for n in list(self.notes.values()):
+            if not n.conf.get("folded") and not n._dragging:
+                n._place()
+
+    def add(self, d=None, inbox=False):
+        """새 스티커. d 가 없으면 '오늘'을 따라가는 스티커, inbox=True 면 날짜 없는 칸(보관함)용 스티커"""
         app = self.app
         S = app.S
         n = len(self.notes)
         x0, y0, w0, _ = self.ui.work_area(app.root)
         conf = {"id": max([int(k) for k in self.notes] + [0]) + 1,
-                "date": d.isoformat() if d else None,
+                "date": "inbox" if inbox else (d.isoformat() if d else None),
                 "x": x0 + w0 - S(300) - S(28) * (n % 6), "y": y0 + S(60) + S(34) * (n % 6),
                 "w": S(280), "h": S(340), "folded": False, "color": COLORS[n % len(COLORS)][1], "top": False}
         self._open(conf)
@@ -274,6 +287,7 @@ class Sticky:
         self.sig = None
         self._memo_job = None
         self._anim = None
+        self._dragging = False
         self.top = top = tk.Toplevel(self.app.root)
         top._sticky = True
         top.overrideredirect(True)
@@ -311,21 +325,31 @@ class Sticky:
 
     # ── 위치·크기 ──
     def _place(self):
+        """저장해 둔 자리·크기에 놓는다. 화면 밖으로 나가 보일 때만 보이는 위치를 보정하고,
+        저장된 값(conf)은 건드리지 않아서 부팅 직후 화면이 덜 준비돼 있어도 원래 자리를 잃지 않는다."""
         c, S = self.conf, self.app.S
         vx, vy, vw, vh = self.ui.virtual_screen(self.app.root)
-        w = max(S(230), int(c.get("w", S(280))))
-        h = int(c.get("h", S(340)))
+        k = self.app.scale / (c.get("sc") or self.app.scale)       # 화면 배율이 달라졌으면 크기도 같은 비율로
+        c["sc"] = self.app.scale
+        if abs(k - 1) > .01:
+            c["w"], c["h"] = round(c.get("w", S(280)) * k), round(c.get("h", S(340)) * k)
+        c["w"] = max(S(230), int(c.get("w", S(280))))
+        c["h"] = max(S(180), int(c.get("h", S(340))))
         x = min(max(vx, int(c.get("x", vx + 40))), vx + vw - S(120))
         y = min(max(vy, int(c.get("y", vy + 60))), vy + vh - S(60))
-        c["x"], c["y"], c["w"], c["h"] = x, y, w, max(S(180), h)
-        self.top.geometry(f"{w}x{self.bar_h() if c.get('folded') else c['h']}+{x}+{y}")
+        if "x" not in c:
+            c["x"], c["y"] = x, y
+        self.top.geometry(f"{c['w']}x{self.bar_h() if c.get('folded') else c['h']}+{x}+{y}")
 
     def bar_h(self):
         return self.app.S(self.BAR)
 
+    def is_inbox(self):
+        return self.conf.get("date") == "inbox"
+
     def date(self):
         s = self.conf.get("date")
-        return dt.date.fromisoformat(s) if s else dt.date.today()
+        return dt.date.fromisoformat(s) if s and s != "inbox" else dt.date.today()
 
     # ── 화면 ──
     def build(self):
@@ -354,10 +378,10 @@ class Sticky:
         pill(hd, "●", self.menu, "right")
         self.pin_btn = pill(hd, "고정", self.toggle_top, "right")
         self.pin_set()
-        pill(hd, "‹", lambda: self.go(-1), "left")
+        self.prev_btn = pill(hd, "‹", lambda: self.go(-1), "left")
         self.title = tk.Label(hd, font=app.f_body, bg=bar, fg=INK, anchor="w", cursor="fleur")
         self.title.pack(side="left", padx=(S(8), S(2)))
-        pill(hd, "›", lambda: self.go(1), "left")
+        self.next_btn = pill(hd, "›", lambda: self.go(1), "left")
         # 제목 줄을 끌면 옮기고, 두 번 누르면 접는다
         for w in (hd, self.title):
             w.bind("<ButtonPress-1>", self._drag_start)
@@ -419,7 +443,7 @@ class Sticky:
         self.cv.bind("<Configure>", lambda e: self.cv.itemconfigure(win, width=e.width))
         self.cv.bind("<MouseWheel>", lambda e: self.cv.yview_scroll(int(-e.delta / 120), "units"))
         # 오른쪽 아래 손잡이: 크기 조절
-        self.grip = tk.Canvas(self.body, width=S(16), height=S(16), bg=base, highlightthickness=0, cursor="size_nw_se")
+        self.grip = tk.Canvas(self.body, width=S(16), height=S(16), bg=base, highlightthickness=0, cursor="size_nw_se" if ui.IS_WIN else "bottom_right_corner")
         for k in (4, 8, 12):
             self.grip.create_line(S(k) + S(3), S(15), S(15), S(k) + S(3), fill=INK_DIM)
         self.grip.place(relx=1.0, rely=1.0, anchor="se")
@@ -461,22 +485,32 @@ class Sticky:
     # ── 내용 ──
     def refresh(self, force=False):
         app, d = self.app, self.date()
-        rows = core.day_items(app.data, d)
-        rows.sort(key=lambda r: self.ui.sort_key(r[1]))
-        memo = app._entry(d).get("memo", "")
-        sig = (d, memo, tuple((t.get("text"), t.get("time"), bool(t.get("done")), t.get("note"), self.ui.pri_of(t))
-                              for _, t, _ in rows))
+        inbox = self.is_inbox()
+        if inbox:
+            rows = [(None, t, None) for t in app._inbox().get("todos", [])]
+            memo = app._inbox().get("memo", "")
+        else:
+            rows = core.day_items(app.data, d)
+            rows.sort(key=lambda r: self.ui.sort_key(r[1]))
+            memo = app._entry(d).get("memo", "")
+        sig = (inbox, d, memo, tuple((t.get("text"), t.get("time"), bool(t.get("done")), t.get("note"), self.ui.pri_of(t))
+                                     for _, t, _ in rows))
         if sig == self.sig and not force:
             return
         self.sig = sig
-        hol = self.ui.holiday_name(d)
-        left = f"{d.month}/{d.day} ({WD[d.weekday()]})"
-        if d == dt.date.today() and not self.conf.get("date"):
-            left = "오늘 " + left
+        hol = None if inbox else self.ui.holiday_name(d)
+        for b, ch in ((self.prev_btn, ""if inbox else "‹"), (self.next_btn, "" if inbox else "›")):
+            b.itemconfig(b._label, text=ch)
+        if inbox:
+            left = "보관함 · 날짜 없음"
+        else:
+            left = f"{d.month}/{d.day} ({WD[d.weekday()]})"
+            if d == dt.date.today() and not self.conf.get("date"):
+                left = "오늘 " + left
         n_open = sum(1 for _, t, _ in rows if not t.get("done"))
         if self.conf.get("folded"):
             left += f" · 일정 {n_open}" + (" · 메모" if memo.strip() else "")
-        self.title.config(text=left, fg="#c8374a" if (hol or d.weekday() == 6) else INK)
+        self.title.config(text=left, fg="#c8374a" if (hol or (not inbox and d.weekday() == 6)) else INK)
         # 메모: 지금 입력 중이면 건드리지 않는다
         if self.top.focus_get() is not self.memo and self.memo.get("1.0", "end-1c") != memo:
             self.memo.delete("1.0", "end")
@@ -490,7 +524,7 @@ class Sticky:
         if hol:
             tk.Label(self.list, text=hol, font=app.f_tiny, bg=base, fg="#c8374a", anchor="w").pack(fill="x")
         if not rows:
-            tk.Label(self.list, text="이 날은 일정이 없어요", font=app.f_small, bg=base, fg=INK_DIM,
+            tk.Label(self.list, text="보관함이 비었어요" if inbox else "이 날은 일정이 없어요", font=app.f_small, bg=base, fg=INK_DIM,
                      anchor="w").pack(fill="x", pady=S(6))
         scroll = lambda e: self.cv.yview_scroll(int(-e.delta / 120), "units")
         for lst, t, s0 in rows:
@@ -539,6 +573,11 @@ class Sticky:
             text = self.memo.get("1.0", "end-1c")
         except tk.TclError:
             return
+        if self.is_inbox():
+            if app._inbox().get("memo", "") != text:
+                app._inbox(create=True)["memo"] = text
+                app._commit()
+            return
         if app._entry(d).get("memo", "") != text:
             e = app._entry(d, create=True)
             e["memo"], e["memo_ts"] = text, core.now_ms()
@@ -556,11 +595,13 @@ class Sticky:
         m = ui.TIME_RE.match(text)
         if m and int(m.group(1)) < 24 and int(m.group(2)) < 60:
             item.update(text=m.group(3).strip(), time=f"{int(m.group(1)):02d}:{m.group(2)}")
-        core.add_item(self.app.data, self.date().isoformat(), item)
+        core.add_item(self.app.data, "_inbox" if self.is_inbox() else self.date().isoformat(), item)
         self.entry.delete(0, "end")
         self.app._after_todo_change()
 
     def go(self, delta):
+        if self.is_inbox():
+            return
         self._save_memo()
         d = self.date() + dt.timedelta(days=delta)
         self.conf["date"] = None if d == dt.date.today() else d.isoformat()
@@ -600,6 +641,7 @@ class Sticky:
     # ── 끌어서 옮기기 / 크기 조절 ──
     def _drag_start(self, e):
         self._d0 = (e.x_root - self.top.winfo_x(), e.y_root - self.top.winfo_y())
+        self._dragging = True
         self.top.lift()
 
     def _drag_move(self, e):
@@ -626,6 +668,7 @@ class Sticky:
         return (sx if abs(sx - x) <= near else x), (sy if abs(sy - y) <= near else y)
 
     def _drag_end(self, e):
+        self._dragging = False
         self.conf["x"], self.conf["y"] = self.top.winfo_x(), self.top.winfo_y()
         self.mgr.save()
 
@@ -661,12 +704,23 @@ class Sticky:
                            command=lambda a=a: self.set_alpha(a))
         m.add_cascade(label="투명도", menu=am)
         m.add_command(label="모든 스티커 숨기기 / 보이기", command=self.mgr.toggle_hidden)
-        m.add_command(label="오늘로", command=lambda: (self.conf.update(date=None), self.refresh(force=True), self.mgr.save()))
+        if self.is_inbox():
+            m.add_command(label="날짜 스티커로 바꾸기 (오늘)", command=lambda: self.set_date(None))
+        else:
+            m.add_command(label="오늘로", command=lambda: self.set_date(None))
+            m.add_command(label="날짜 없는 칸(보관함)으로 바꾸기", command=lambda: self.set_date("inbox"))
         m.add_command(label="새 스티커 (오늘)", command=self.mgr.add)
+        m.add_command(label="새 스티커 (날짜 없는 칸)", command=lambda: self.mgr.add(inbox=True))
         m.add_separator()
         m.add_command(label="이 스티커 닫기", command=self.close)
         x, y = (e.x_root, e.y_root) if e is not None else (self.top.winfo_pointerx(), self.top.winfo_pointery())
         m.tk_popup(x, y)
+
+    def set_date(self, val):
+        self._save_memo()
+        self.conf["date"] = val
+        self.refresh(force=True)
+        self.mgr.save()
 
     def set_color(self, col):
         self._save_memo()

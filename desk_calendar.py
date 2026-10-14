@@ -2913,6 +2913,7 @@ class DeskCalendar:
         m.add_separator()
         m.add_command(label="스티커 메모 만들기 (오늘)", command=lambda: self.stickers.add())
         m.add_command(label="선택한 날짜를 스티커로", command=lambda: self.stickers.add(self.selected))
+        m.add_command(label="날짜 없는 칸(보관함) 스티커 만들기", command=lambda: self.stickers.add(inbox=True))
         m.add_separator()
         m.add_command(label="업무 관리 (기한·업무 폴더)…", command=self.open_work)
         m.add_command(label="반복 업무 추가 (정기 업무 모음)…", command=self.open_templates)

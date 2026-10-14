@@ -3479,8 +3479,8 @@ class DeskCalendar:
         elif is_today:                                   # 오늘 칸: 강조색이 살짝 비치게
             rrect(c, x, y, x + cw, y + ch, S(10), fill=blend(ACCENT, CARD, 0.13),
                   outline=blend(ACCENT, CARD, 0.45))
-        else:                                            # 테두리는 거의 안 보일 만큼만
-            rrect(c, x, y, x + cw, y + ch, S(10), fill=fill, outline=blend(BORDER, fill, 0.5) if in_month else "")
+        else:                                            # 테두리 없이 칸 바탕만
+            rrect(c, x, y, x + cw, y + ch, S(10), fill=fill, outline="")
 
         cx, cy = x + S(17), y + S(16)
         if not in_month:
@@ -3815,8 +3815,7 @@ class DeskCalendar:
         rng = self._sel_range()
         if (rng and rng[0] <= d <= rng[1]) or (self._move is not None and self._move_to == i):
             self._rr(x1 + 1, y1 + 1, x2 - 2, y2 - 2, S(8), fill="", outline=ACCENT, width=2)
-        elif i == self.hover_idx:
-            self._rr(x1, y1, x2 - 1, y2 - 1, S(8), fill="", outline=col["line"], width=1)
+
 
     def _cell_at(self, x, y):
         if self.glass:

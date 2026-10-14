@@ -193,22 +193,23 @@ def render_bg(wp, ox, oy, W, H, panel, cells, tint=(17, 19, 27), strength=0.55, 
         elif a_extra:
             g = Image.blend(g, Image.new("RGB", (w, h), (255, 255, 255)), a_extra)
         out.paste(g, (x1, y1), m)
-        edge = ImageChops.subtract(m, _rmask(w, h, r, inset=1)).point(lambda v: int(v * ring * 3.2))
-        out.paste(Image.new("RGB", (w, h), ring_col), (x1, y1), edge)
+        if ring > 0:
+            edge = ImageChops.subtract(m, _rmask(w, h, r, inset=1)).point(lambda v: int(v * ring * 3.2))
+            out.paste(Image.new("RGB", (w, h), ring_col), (x1, y1), edge)
 
     ring_c = (0, 0, 0) if light else (255, 255, 255)
     # 머리 띠 (달 이름·버튼·요일) — 유일하게 판이 있는 곳
     px1, py1, px2, py2 = panel
-    glass_at((px1, py1, px2, py2), radius, ring=0.05, ring_col=ring_c)
+    glass_at((px1, py1, px2, py2), radius, ring=0.0, ring_col=ring_c)
     # 칸: 칸마다 흐린 바탕화면 + 색. 주말은 조금 더 투명하게, 오늘은 강조색이 살짝 비치게
-    a_fill, a_week = (0.45, 0.25) if light else (0.035, 0.0)
+    a_fill, a_week = (0.45, 0.25) if light else (0.05, 0.02)   # 테두리 대신 칸 바탕만 아주 살짝 밝게
     for cell in cells:
         x1, y1, x2, y2, weekend = cell[:5]
         kind = cell[5] if len(cell) > 5 else None
-        ring, a_col, col = 0.05 if light else 0.035, 0.0, None
+        ring, a_col, col = 0.0, 0.0, None                        # 칸 테두리는 없다 (오늘만 예외)
         a = a_week if weekend else a_fill
         if kind == "out":
-            a, ring = a * 0.3, ring * 0.5
+            a = a * 0.3
         elif kind == "today" and accent:
             col, a_col, ring = accent, (0.16 if light else 0.13), 0.32
         glass_at((x1, y1, x2, y2), cell_radius, a_extra=a, col=col, a_col=a_col, ring=ring,

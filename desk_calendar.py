@@ -2484,7 +2484,7 @@ class DeskCalendar:
             pass
 
     def _min_size(self):
-        return self.S(520), self.S(560)
+        return self.S(300), self.S(260)
 
     def _fit_rect(self, x, y, w, h):
         """창 전체가 화면 안에 들어오도록 크기와 위치를 맞춘다"""
@@ -3564,14 +3564,14 @@ class DeskCalendar:
         S = self.S
         m, pad, gap = S(4), S(10), S(4)
         hdr_h, wd_h = S(44), S(22)
-        panel = (m, m, W - m, H - m)
         gx, gw = m + pad, W - 2 * (m + pad)
         rows = self.weeks
         hdr = (gx, m + S(6), gx + gw, m + S(6) + hdr_h)
         y_wd = hdr[3]
         y0 = y_wd + wd_h + S(2)
+        panel = (m, m, W - m, y0 - gap)                       # 위쪽 머리 띠만 판이 있다
         cw = (gw - 6 * gap) / 7
-        ch = (H - m - pad - y0 - (rows - 1) * gap) / rows
+        ch = (H - m - y0 - (rows - 1) * gap) / rows
         cells = []
         for i in range(7 * rows):
             c, r = i % 7, i // 7
@@ -3680,7 +3680,7 @@ class DeskCalendar:
         if n_late:
             chips.append((f"지연 {n_late}", col["sun"]))
         chips.append((f"3일 내 {n_soon}", col["dim"] if not n_soon else ACCENT))
-        for text, fg in chips:
+        for text, fg in (chips if hx2 - hx1 > S(560) else []):      # 좁으면 요약 칩은 숨긴다
             wch = self.f_small.measure(text) + S(18)
             self._rr(sx, mid_y - S(11), sx + wch, mid_y + S(11), S(11), fill="#e2e6ef" if col.get("light") else "#2c303b", outline="")
             self._gtext(sx + wch / 2, mid_y, text, self.f_small, fg, "center")
@@ -3696,6 +3696,11 @@ class DeskCalendar:
                   ("☰", lambda e: self.menu.tk_popup(e.x_root, e.y_root)),
                   ("‹", lambda e: self.shift_weeks(-1)), ("오늘", lambda e: self.go_today()),
                   ("›", lambda e: self.shift_weeks(1))]
+        narrow = hx2 - hx1
+        if narrow < S(330):
+            labels = [l for l in labels if l[0] in ("☰", "‹", "오늘", "›")]
+        elif narrow < S(560):
+            labels = [l for l in labels if l[0] in ("☰", "‹", "오늘", "›", "설정") or l[0].startswith("업무")]
         x = hx2
         fb = self.f_small
         for text, fn in reversed(labels):
@@ -3741,7 +3746,8 @@ class DeskCalendar:
         self._gtext(x1 + pad, ny, dnum, self.f_day, num_fg, "nw")
         off = x1 + pad + nw + S(10)
         if label:
-            self._gtext(off, ny + S(2), label, self.f_tiny, col[kind], "nw")
+            if off + self.f_tiny.measure(label) <= x2 - S(4):          # 칸이 좁으면 휴일 이름은 생략
+                self._gtext(off, ny + S(2), label, self.f_tiny, col[kind], "nw")
         elif self.conf.get("show_lunar", False):
             self._gtext(off, ny + S(2), glass.lunar_text(d), self.f_tiny, col["dim"], "nw")
         font, fdone = self.f_chip, self.f_chip_done
@@ -3790,7 +3796,7 @@ class DeskCalendar:
             if clipped:
                 break
         if clipped:
-            self._gtext(x2 - pad, y2 - S(4), "더 보기", self.f_tiny, col["dim"], "se")
+            self._gtext(x2 - pad, y2 - S(4), "더 보기" if x2 - x1 > S(90) else "…", self.f_tiny, col["dim"], "se")
         elif not rows:
             memo = (self.data.get(d.isoformat(), {}).get("memo", "").strip().splitlines() or [""])[0]
             if memo:

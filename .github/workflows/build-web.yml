@@ -35,6 +35,7 @@ jobs:
         run: |
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
           flutter build web --release --web-renderer html --base-href "/${REPO_NAME}/" --dart-define=APP_VERSION="web ${GITHUB_SHA::7}"
+          python3 tools/patch_sw.py build/web      # 하위 주소에서도 오프라인 동작 + 안 쓰는 canvaskit 삭제(용량 1/5)
       - name: Zip
         run: cd mobile/build/web && zip -qr "$GITHUB_WORKSPACE/DeskCalendar-web.zip" .
       - name: Publish zip to Releases

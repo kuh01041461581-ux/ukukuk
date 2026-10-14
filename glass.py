@@ -168,47 +168,53 @@ def _rmask(w, h, r, inset=0):
 def render_bg(wp, ox, oy, W, H, panel, cells, tint=(17, 19, 27), strength=0.55, blur=20, radius=14,
               cell_radius=9, light=False, accent=None):
     """wp: 화면 크기 배경 PIL 이미지, (ox,oy): 창이 화면에서 시작하는 위치
-    panel: 유리 판 사각형 (x1,y1,x2,y2), cells: 칸 사각형 목록 [(x1,y1,x2,y2,weekend)]
-    반환: W x H 의 PIL RGB 이미지"""
+    panel: 위쪽 머리 띠 사각형 (x1,y1,x2,y2) — 바깥 테두리 판은 없고 머리 띠와 칸만 유리로 보인다
+    cells: 칸 사각형 목록 [(x1,y1,x2,y2,weekend,kind)]
+    반환: W x H 의 PIL RGB 이미지 (칸 밖은 바탕화면 그대로)"""
     from PIL import Image, ImageChops, ImageEnhance, ImageFilter, ImageStat
     base = Image.new("RGB", (W, H), (0, 0, 0))
     base.paste(wp, (-ox, -oy))
+    out = base.copy()
+    blurred_all = base.filter(ImageFilter.GaussianBlur(blur))
+
+    def glass_at(rect, r, a_extra=0.0, col=None, a_col=0.0, ring=0.05, ring_col=(255, 255, 255)):
+        x1, y1, x2, y2 = rect
+        w, h = x2 - x1, y2 - y1
+        if w < 4 or h < 4:
+            return
+        m = _rmask(w, h, r)
+        g = _mix(blurred_all.crop(rect), tint, strength)
+        if not light:
+            lum = ImageStat.Stat(g.convert("L")).mean[0]
+            if lum > 60:                       # 밝은 바탕화면이어도 글자가 잘 읽히게 어둡게
+                g = ImageEnhance.Brightness(g).enhance(60 / lum)
+        if col is not None and a_col:
+            g = Image.blend(g, Image.new("RGB", (w, h), col), a_col)
+        elif a_extra:
+            g = Image.blend(g, Image.new("RGB", (w, h), (255, 255, 255)), a_extra)
+        out.paste(g, (x1, y1), m)
+        edge = ImageChops.subtract(m, _rmask(w, h, r, inset=1)).point(lambda v: int(v * ring * 3.2))
+        out.paste(Image.new("RGB", (w, h), ring_col), (x1, y1), edge)
+
+    ring_c = (0, 0, 0) if light else (255, 255, 255)
+    # 머리 띠 (달 이름·버튼·요일) — 유일하게 판이 있는 곳
     px1, py1, px2, py2 = panel
-    pw, ph = px2 - px1, py2 - py1
-    # 부드러운 그림자
-    sh = Image.new("L", (W, H), 0)
-    sh.paste(_rmask(pw, ph, radius), (px1, py1 + 6))
-    sh = sh.filter(ImageFilter.GaussianBlur(14)).point(lambda v: int(v * 0.38))
-    out = Image.composite(Image.new("RGB", (W, H), (0, 0, 0)), base, sh)
-    # 유리 판: 흐린 바탕화면 + 색 입히기
-    blurred = base.crop(panel).filter(ImageFilter.GaussianBlur(blur))
-    glass = _mix(blurred, tint, strength)
-    if not light:
-        lum = ImageStat.Stat(glass.convert("L")).mean[0]
-        if lum > 60:                          # 밝은 바탕화면이어도 글자가 잘 읽히게 어둡게
-            glass = ImageEnhance.Brightness(glass).enhance(60 / lum)
-    out.paste(glass, (px1, py1), _rmask(pw, ph, radius))
-    # 칸: 판보다 아주 조금만 밝게 + 거의 안 보이는 얇은 선 (윈도우 11 위젯처럼 조용하게)
-    over, a_fill, a_week = ((255, 255, 255), 0.55, 0.30) if light else ((255, 255, 255), 0.05, 0.022)
-    ring_c, ring_a = ((0, 0, 0), 0.05) if light else ((255, 255, 255), 0.032)
+    glass_at((px1, py1, px2, py2), radius, ring=0.05, ring_col=ring_c)
+    # 칸: 칸마다 흐린 바탕화면 + 색. 주말은 조금 더 투명하게, 오늘은 강조색이 살짝 비치게
+    a_fill, a_week = (0.45, 0.25) if light else (0.035, 0.0)
     for cell in cells:
         x1, y1, x2, y2, weekend = cell[:5]
         kind = cell[5] if len(cell) > 5 else None
-        w, h = x2 - x1, y2 - y1
-        if w < 4 or h < 4:
-            continue
-        m = _rmask(w, h, cell_radius)
-        region = out.crop((x1, y1, x2, y2))
+        ring, a_col, col = 0.05 if light else 0.035, 0.0, None
         a = a_week if weekend else a_fill
-        col, ra, rc = over, ring_a, ring_c
-        if kind == "out":                    # 이번 달이 아닌 날: 더 흐리게
-            a, ra = a * 0.35, ring_a * 0.5
-        elif kind == "today" and accent:     # 오늘: 강조색이 아주 살짝 비치게
-            col, a, ra, rc = accent, (0.16 if light else 0.13), 0.32, accent
-        out.paste(Image.blend(region, Image.new("RGB", (w, h), col), a), (x1, y1), m)
-        ring = ImageChops.subtract(m, _rmask(w, h, cell_radius, inset=1)).point(lambda v, ra=ra: int(v * ra * 3.2))
-        out.paste(Image.new("RGB", (w, h), rc), (x1, y1), ring)
+        if kind == "out":
+            a, ring = a * 0.3, ring * 0.5
+        elif kind == "today" and accent:
+            col, a_col, ring = accent, (0.16 if light else 0.13), 0.32
+        glass_at((x1, y1, x2, y2), cell_radius, a_extra=a, col=col, a_col=a_col, ring=ring,
+                 ring_col=accent if (kind == "today" and accent) else ring_c)
     return out
+
 
 def wallpaper_sig():
     """바탕화면이 바뀌었는지 알아보는 표식 (경로, 수정시각)"""

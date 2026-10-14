@@ -29,7 +29,7 @@ class AppStore extends ChangeNotifier {
     await _prefs.setDouble('calScale', calScale);
     notifyListeners();
   }
-  Timer? _saveTimer, _syncTimer, _notifyTimer, _widgetTimer;
+  Timer? _saveTimer, _syncTimer, _notifyTimer, _widgetTimer, _retryTimer;
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -101,6 +101,7 @@ class AppStore extends ChangeNotifier {
     final cfg = syncCfg;
     if (cfg == null || syncing) return;
     syncing = true;
+    _retryTimer?.cancel();
     syncStatus = '동기화 중…';
     notifyListeners();
     try {
@@ -136,7 +137,10 @@ class AppStore extends ChangeNotifier {
     } on SyncError catch (e) {
       syncStatus = e.msg;
     } catch (_) {
-      syncStatus = '동기화에 실패했어요';
+      // 인터넷이 없을 때도 일정은 이 기기에 저장돼 있다. 연결되면 자동으로 다시 시도한다
+      syncStatus = '오프라인 · 연결되면 자동으로 동기화돼요';
+      _retryTimer?.cancel();
+      _retryTimer = Timer(const Duration(seconds: 20), syncNow);
     } finally {
       syncing = false;
       notifyListeners();

@@ -2,7 +2,9 @@
 끌어서 옮기고, 접고 펴고, 크기·색을 바꿀 수 있다. 메모는 달력의 그날 메모와 같은 것이라 어디서 고쳐도 같이 바뀐다.
 스티커 위치·크기·색은 데이터(폰과 동기화되는 일정)가 아니라 이 PC의 설정(conf["stickies"])에만 저장한다."""
 import datetime as dt
+import re
 import tkinter as tk
+import tkinter.font as tkfont
 
 import core
 
@@ -18,6 +20,178 @@ def _mix(a, b, t):
     pa = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
     pb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
     return "#%02x%02x%02x" % tuple(round(x + (y - x) * t) for x, y in zip(pa, pb))
+
+
+# ── 메모 서식 ────────────────────────────────────────────
+# 메모는 폰·검색·동기화와 같은 '그냥 글자'로 저장한다. 서식은 글자 안의 표시로 두고 PC 에서만 보기 좋게 그린다:
+#   **굵게**  ~~취소선~~  {빨강|색 글자}  1. 번호  - 글머리  - [ ] 체크리스트(누르면 [x])
+MEMO_COLORS = [("빨강", "#d1344a"), ("주황", "#d9730d"), ("초록", "#1f8a5b"), ("파랑", "#2f6bd1"), ("보라", "#7048c9")]
+_RX_BOLD = re.compile(r"\*\*(.+?)\*\*")
+_RX_STRIKE = re.compile(r"~~(.+?)~~")
+_RX_COLOR = re.compile(r"\{(" + "|".join(n for n, _ in MEMO_COLORS) + r")\|(.+?)\}")
+_RX_CHECK = re.compile(r"^(\s*)- \[( |x|X)\] ?(.*)$")
+_RX_NUM = re.compile(r"^(\s*)(\d+)\. (.*)$")
+_RX_BUL = re.compile(r"^(\s*)- (.*)$")
+
+
+class MemoFormat:
+    """스티커 메모 칸(tk.Text)에 서식 그리기와 편집 동작(번호 이어쓰기, 체크 누르기, 선택 글자 꾸미기)을 붙인다"""
+
+    def __init__(self, text, app, on_change):
+        self.t, self.on_change = text, on_change
+        base = tkfont.Font(font=app.f_small)
+        bold = base.copy()
+        bold.configure(weight="bold")
+        strike = base.copy()
+        strike.configure(overstrike=True)
+        self._fonts = (base, bold, strike)               # 글꼴 객체를 붙들어 둔다 (없어지면 서식이 사라짐)
+        t = text
+        t.tag_configure("bold", font=bold)
+        t.tag_configure("strike", font=strike, foreground=INK_DIM)
+        t.tag_configure("mark", foreground="#b9bbc8")      # ** ~~ { } 같은 표시는 흐리게
+        t.tag_configure("done", font=strike, foreground=INK_DIM)
+        for name, col in MEMO_COLORS:
+            t.tag_configure("c_" + name, foreground=col)
+        t.bind("<Return>", self._return)
+        t.bind("<Button-1>", self._click, add="+")
+        t.bind("<Control-b>", lambda e: (self.wrap("**", "**"), "break")[1])
+
+    # 그리기
+    def render(self):
+        t = self.t
+        for tag in ("bold", "strike", "mark", "done") + tuple("c_" + n for n, _ in MEMO_COLORS):
+            t.tag_remove(tag, "1.0", "end")
+        for ln, line in enumerate(t.get("1.0", "end-1c").split("\n"), 1):
+            def put(tag, a, b, ln=ln):
+                t.tag_add(tag, f"{ln}.{a}", f"{ln}.{b}")
+            for m in _RX_BOLD.finditer(line):
+                put("bold", m.start(), m.end())
+                put("mark", m.start(), m.start() + 2)
+                put("mark", m.end() - 2, m.end())
+            for m in _RX_STRIKE.finditer(line):
+                put("strike", m.start(), m.end())
+                put("mark", m.start(), m.start() + 2)
+                put("mark", m.end() - 2, m.end())
+            for m in _RX_COLOR.finditer(line):
+                put("c_" + m.group(1), m.start(), m.end())
+                put("mark", m.start(), m.start() + len(m.group(1)) + 2)
+                put("mark", m.end() - 1, m.end())
+            c = _RX_CHECK.match(line)
+            if c:
+                put("mark", len(c.group(1)), len(c.group(1)) + 6)
+                if c.group(2) in "xX":
+                    put("done", len(c.group(1)) + 6, len(line))
+            else:
+                n = _RX_NUM.match(line)
+                if n:
+                    put("mark", len(n.group(1)), len(n.group(1)) + len(n.group(2)) + 2)
+
+    # 선택한 글자(없으면 커서 자리)를 표시로 감싸거나 풀기
+    def wrap(self, left, right):
+        t = self.t
+        try:
+            a, b = t.index("sel.first"), t.index("sel.last")
+        except tk.TclError:
+            t.insert("insert", left + right)
+            t.mark_set("insert", f"insert-{len(right)}c")
+            t.focus_force()
+            self._changed()
+            return
+        sel = t.get(a, b)
+        if sel.startswith(left) and sel.endswith(right) and len(sel) >= len(left) + len(right):
+            t.delete(a, b)
+            t.insert(a, sel[len(left):len(sel) - len(right)])
+        else:
+            t.delete(a, b)
+            t.insert(a, left + sel + right)
+        t.focus_force()
+        self._changed()
+
+    def color(self, name):
+        if name:
+            self.wrap("{" + name + "|", "}")
+            return
+        try:                                             # 색 지우기: 선택 안의 {색|…} 를 벗긴다
+            a, b = self.t.index("sel.first"), self.t.index("sel.last")
+        except tk.TclError:
+            return
+        new = _RX_COLOR.sub(lambda m: m.group(2), self.t.get(a, b))
+        self.t.delete(a, b)
+        self.t.insert(a, new)
+        self._changed()
+
+    # 줄 머리: 번호 / 글머리 / 체크 (선택한 줄 전체, 이미 있으면 뺀다)
+    def prefix(self, kind):
+        t = self.t
+        try:
+            l1, l2 = int(t.index("sel.first").split(".")[0]), int(t.index("sel.last").split(".")[0])
+        except tk.TclError:
+            l1 = l2 = int(t.index("insert").split(".")[0])
+        lines = [t.get(f"{i}.0", f"{i}.end") for i in range(l1, l2 + 1)]
+
+        def strip(x):
+            for rx in (_RX_CHECK, _RX_NUM, _RX_BUL):
+                m = rx.match(x)
+                if m:
+                    return m.group(1), m.groups()[-1]
+            return re.match(r"^(\s*)", x).group(1), x.strip()
+        kinds = {"check": _RX_CHECK, "num": _RX_NUM, "bul": _RX_BUL}
+        all_same = all(kinds[kind].match(x) for x in lines if x.strip())
+        n = 0
+        for i, x in zip(range(l1, l2 + 1), lines):
+            ind, body = strip(x)
+            if all_same and x.strip():
+                new = ind + body
+            else:
+                n += 1
+                new = ind + {"check": "- [ ] ", "num": f"{n}. ", "bul": "- "}[kind] + body
+            t.delete(f"{i}.0", f"{i}.end")
+            t.insert(f"{i}.0", new)
+        t.focus_force()
+        self._changed()
+
+    # Enter: 번호는 다음 번호로, 체크·글머리는 같은 모양으로 이어 쓰고, 빈 줄에서 Enter 면 목록 끝내기
+    def _return(self, e):
+        t = self.t
+        ln = t.index("insert").split(".")[0]
+        line = t.get(f"{ln}.0", f"{ln}.end")
+        m = _RX_CHECK.match(line)
+        if m:
+            rest, nxt = m.group(3), m.group(1) + "- [ ] "
+        elif _RX_NUM.match(line):
+            m = _RX_NUM.match(line)
+            rest, nxt = m.group(3), f"{m.group(1)}{int(m.group(2)) + 1}. "
+        elif _RX_BUL.match(line):
+            m = _RX_BUL.match(line)
+            rest, nxt = m.group(2), m.group(1) + "- "
+        else:
+            return None
+        if not rest.strip():                           # 비어 있는 목록 줄: 목록 끝내기
+            t.delete(f"{ln}.0", f"{ln}.end")
+            self._changed()
+            return "break"
+        t.insert("insert", "\n" + nxt)
+        t.see("insert")
+        self._changed()
+        return "break"
+
+    def _click(self, e):
+        t = self.t
+        ln, col = t.index(f"@{e.x},{e.y}").split(".")
+        line = t.get(f"{ln}.0", f"{ln}.end")
+        m = _RX_CHECK.match(line)
+        if m and int(col) <= len(m.group(1)) + 6:       # '- [ ]' 부분을 누르면 체크 토글
+            pos = len(m.group(1)) + 3
+            t.delete(f"{ln}.{pos}", f"{ln}.{pos + 1}")
+            t.insert(f"{ln}.{pos}", " " if m.group(2) in "xX" else "x")
+            t.focus_force()
+            self._changed()
+            return "break"
+        return None
+
+    def _changed(self):
+        self.render()
+        self.on_change()
 
 
 class StickyManager:
@@ -209,23 +383,39 @@ class Sticky:
         self.entry.bind("<FocusIn>", self._ph_off)
         self.entry.bind("<FocusOut>", lambda e: self._placeholder())
         mf = tk.Frame(self.body, bg=base)
-        mf.pack(side="bottom", fill="x", padx=S(10), pady=(S(4), S(8)))
-        tk.Label(mf, text="메모", font=app.f_tiny, bg=base, fg=INK_SUB, anchor="w").pack(fill="x")
-        self.memo = tk.Text(mf, height=4, font=app.f_small, bg=field, fg=INK, insertbackground=INK, relief="flat",
+        mf.pack(side="bottom", fill="both", expand=True, padx=S(10), pady=(S(4), S(8)))
+        bar_f = tk.Frame(mf, bg=base)
+        bar_f.pack(fill="x", pady=(0, S(2)))
+        tk.Label(bar_f, text="메모", font=app.f_tiny, bg=base, fg=INK_SUB, anchor="w").pack(side="left")
+        tool_bg = _mix(base, "#000000", 0.07)
+
+        def tb(text, cmd, fg=INK_SUB):
+            p = ui.Pill(bar_f, text, cmd, app.f_tiny, fg=fg, bg=tool_bg, hover=_mix(tool_bg, "#000000", 0.14),
+                        parent_bg=base, padx=S(6), pady=S(1))
+            p.pack(side="right", padx=(S(2), 0))
+            return p
+        self.memo = tk.Text(mf, height=3, font=app.f_small, bg=field, fg=INK, insertbackground=INK, relief="flat",
                             wrap="word", padx=S(6), pady=S(4), undo=True, highlightthickness=1,
                             highlightbackground=_mix(base, "#000000", 0.1),
                             highlightcolor=_mix(base, "#000000", 0.35))
-        self.memo.pack(fill="x")
-        self.memo.bind("<KeyRelease>", lambda e: self._memo_changed())
-        self.memo.bind("<Button-1>", lambda e: self.memo.focus_force())
+        self.fmt = MemoFormat(self.memo, app, self._memo_changed)
+        tb("☑", lambda: self.fmt.prefix("check"))
+        tb("1.", lambda: self.fmt.prefix("num"))
+        tb("•", lambda: self.fmt.prefix("bul"))
+        tb("색", self._color_menu)
+        tb("취소", lambda: self.fmt.wrap("~~", "~~"))
+        tb("B", lambda: self.fmt.wrap("**", "**"), fg=INK)
+        self.memo.pack(fill="both", expand=True)
+        self.memo.bind("<KeyRelease>", lambda e: (self.fmt.render(), self._memo_changed()))
+        self.memo.bind("<Button-1>", lambda e: self.memo.focus_force(), add="+")
         self.memo.bind("<FocusOut>", lambda e: self._save_memo())
         wrap = tk.Frame(self.body, bg=base)
-        wrap.pack(side="top", fill="both", expand=True, padx=S(10), pady=(S(8), 0))
-        self.cv = tk.Canvas(wrap, bg=base, highlightthickness=0, bd=0)
-        self.cv.pack(fill="both", expand=True)
+        wrap.pack(side="top", fill="x", padx=S(10), pady=(S(8), 0))
+        self.cv = tk.Canvas(wrap, bg=base, highlightthickness=0, bd=0, height=S(60))
+        self.cv.pack(fill="x")
         self.list = tk.Frame(self.cv, bg=base)
         win = self.cv.create_window((0, 0), window=self.list, anchor="nw")
-        self.list.bind("<Configure>", lambda e: self.cv.configure(scrollregion=self.cv.bbox("all")))
+        self.list.bind("<Configure>", self._list_size)
         self.cv.bind("<Configure>", lambda e: self.cv.itemconfigure(win, width=e.width))
         self.cv.bind("<MouseWheel>", lambda e: self.cv.yview_scroll(int(-e.delta / 120), "units"))
         # 오른쪽 아래 손잡이: 크기 조절
@@ -239,6 +429,22 @@ class Sticky:
         if not self.conf.get("folded"):
             self.body.pack(side="top", fill="both", expand=True)
         self.fold_btn_set()
+
+    def _list_size(self, e=None):
+        """일정 목록은 내용만큼(최대 약 120px)만 차지하고, 남는 자리는 메모가 쓴다"""
+        self.cv.configure(scrollregion=self.cv.bbox("all"))
+        want = self.list.winfo_reqheight()
+        self.cv.configure(height=max(self.app.S(24), min(want, self.app.S(120))))
+
+    def _color_menu(self):
+        ui = self.ui
+        m = tk.Menu(self.top, tearoff=0, bg=ui.CARD, fg=ui.TEXT, activebackground=ui.ACCENT,
+                    activeforeground="#ffffff", bd=0)
+        for name, col in MEMO_COLORS:
+            m.add_command(label="● " + name, foreground=col, command=lambda n=name: self.fmt.color(n))
+        m.add_separator()
+        m.add_command(label="색 지우기", command=lambda: self.fmt.color(None))
+        m.tk_popup(self.top.winfo_pointerx(), self.top.winfo_pointery())
 
     def _placeholder(self):
         if not self.entry.get():
@@ -276,6 +482,7 @@ class Sticky:
             self.memo.delete("1.0", "end")
             self.memo.insert("1.0", memo)
             self.memo.edit_reset()
+            self.fmt.render()
         for w in self.list.winfo_children():
             w.destroy()
         S = app.S

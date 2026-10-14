@@ -18,7 +18,7 @@ OUT = HERE / "서무업무자동화.html"
 APP_COPY = HERE / "app" / "index.html"   # exe 런처가 품고 들어갈 복사본(저장소에는 올리지 않음)
 
 # 셸 목록(shell.html 의 TOOLS)과 같은 순서/이름
-TOOL_IDS = ["travel", "outstation", "meal", "utility", "blur"]
+TOOL_IDS = ["travel", "outstation", "meal", "utility", "blur", "compress", "labels"]
 
 
 def read(p):
@@ -42,7 +42,39 @@ def js_string(s):
     return json.dumps(s, ensure_ascii=False).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
+def build_labels():
+    """labels/ (우편 라벨지 자동화 원본) → tools/labels.html 한 장으로 합치기"""
+    import base64
+    src = HERE / "labels"
+    html = read(src / "index.html")
+
+    def inline_css(m):
+        return "<style>\n" + read(src / m.group(1)) + "\n</style>"
+    html = re.sub(r'<link rel="stylesheet" href="\./([\w./-]+\.css)"\s*/?>', inline_css, html)
+
+    png = base64.b64encode((src / "character.png").read_bytes()).decode()
+    def inline_js(m):
+        js = read(src / m.group(1)).replace("</script", "<\\/script")
+        js = js.replace('"./character.png"', 'window.CHARACTER_PNG')
+        js = js.replace('src="./character.png"', 'src="${window.CHARACTER_PNG}"')
+        return "<script>\n" + js + "\n</script>"
+    html = re.sub(r'<script src="\./([\w./-]+\.js)"></script>', inline_js, html)
+    html = re.sub(r'<link rel="shortcut icon"[^>]*>\s*', "", html)
+    html = html.replace('src="./character.png"', 'data-char-src src=""')
+    assert "./character.png" not in html.replace("window.CHARACTER_PNG", "")
+
+    head_add = ('<script>window.CHARACTER_PNG="data:image/png;base64,' + png + '";</script>\n'
+                '<style>\n' + read(src / "suite-bridge.css") + '\n</style>\n'
+                '<meta name="tool-id" content="labels">\n<meta name="tool-layout" content="fill">\n<!--SUITE:THEME-->\n')
+    html = html.replace("</head>", head_add + "</head>", 1)
+    body_add = "<script>\n" + read(src / "suite-bridge.js") + "\n</script>\n<!--SUITE:BRIDGE-->\n"
+    i = html.rfind("</body>")
+    html = html[:i] + body_add + html[i:]
+    (HERE / "tools" / "labels.html").write_text(html, encoding="utf-8")
+
+
 def main():
+    build_labels()
     theme = read(HERE / "theme.css")
     bridge = read(HERE / "bridge.js")
     shell = read(HERE / "shell.html")

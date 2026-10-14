@@ -1,0 +1,25 @@
+/* ==========================================================================
+   우편 라벨지 자동화 → 서무 업무 자동화 공통 디자인으로 맞추는 얇은 층
+   · 라벨 앱의 변수 이름(--clr-*, --surface-sb …)을 공통 토큰에 연결한다.
+   · 같은 이름(--bg, --surface, --text …)은 theme.css 가 뒤에 로드되어 그대로 따라간다.
+   ========================================================================== */
+html, html[data-theme="light"], html[data-theme="dark"]{
+  --clr-primary:var(--primary); --clr-primary-h:var(--primary-hover); --clr-primary-bg:var(--primary-tint);
+  --clr-success:var(--success); --clr-success-bg:var(--success-tint);
+  --clr-danger:var(--danger);   --clr-danger-bg:var(--danger-tint);
+  --clr-warn:var(--warning);    --clr-warn-bg:var(--warning-tint);
+  --surface-sb:var(--surface-2); --surface-insp:var(--surface-2);
+  --surface-hover:var(--hover);  --surface-active:var(--primary-tint-strong);
+  --border-2:var(--border-strong); --border-panel:var(--border);
+  --text-inv:#fff;
+  --shadow-xs:0 1px 2px rgba(20,28,80,.05);
+  --shadow-sm:var(--shadow-card); --shadow-md:var(--shadow-card);
+  --shadow-lg:var(--shadow-pop);  --shadow-float:var(--shadow-pop);
+  --r-xs:6px; --r-sm:var(--radius-sm); --r-md:var(--radius-btn); --r-lg:var(--radius-card); --r-xl:var(--radius-card);
+  --font-ui:var(--font); --label-font:var(--font);
+}
+/* 셸이 로고·테마 버튼을 대신 제공하므로 앱 자체 것은 숨김 */
+.titlebar-logo, #theme-toggle{display:none !important;}
+.titlebar-logo + .titlebar-sep{display:none !important;}
+/* 위험 동작(초기화 등)은 공통 '위험' 버튼 모양으로 */
+body .btn.btn-danger{--b-bg:var(--surface);--b-fg:var(--danger);--b-bd:color-mix(in srgb,var(--danger) 45%,transparent);--b-bg-h:var(--danger-tint);--b-bd-h:var(--danger);--b-sh:none;}

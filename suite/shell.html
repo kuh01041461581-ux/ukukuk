@@ -139,7 +139,9 @@ main.content{padding:28px 36px 48px;max-width:1280px;width:100%;margin:0 auto;}
 .steps .st i{font-style:normal;width:18px;height:18px;border-radius:50%;background:var(--grad-soft);color:var(--primary);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1px solid var(--primary-border);}
 .steps .arrow{color:var(--text-3);font-size:12px;}
 
-iframe.tool-frame{display:block;width:100%;height:520px;border:0;background:transparent;}
+body.fill-mode main.content{padding:14px 20px 14px;max-width:none;}
+.page.fill iframe.tool-frame{height:calc(100vh - var(--topbar-h) - 28px) !important;min-height:0;border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card);background:var(--surface);}
+iframe.tool-frame{display:block;width:100%;height:520px;min-height:calc(100vh - 180px);border:0;background:transparent;}
 .frame-loading{display:flex;align-items:center;gap:10px;color:var(--text-3);font-size:13px;padding:26px 4px;position:absolute;}
 .spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--border-strong);border-top-color:var(--primary);animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -251,6 +253,8 @@ iframe.tool-frame{display:block;width:100%;height:520px;border:0;background:tran
     <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4 10 14"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.1 7.5 9.5 4.4-1.4 7.5-4.9 7.5-9.5V6L12 3z"/><path d="m9 12 2.2 2.2L15.5 10"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-zip" viewBox="0 0 24 24"><path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M4 8.5 12 13l8-4.5M12 13v7"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.2V5a1.5 1.5 0 0 1 1.5-1.5h7.2a1.5 1.5 0 0 1 1.06.44l7.3 7.3a1.5 1.5 0 0 1 0 2.12l-7.2 7.2a1.5 1.5 0 0 1-2.12 0l-7.3-7.3a1.5 1.5 0 0 1-.44-1.06z"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/></symbol>
     <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
     <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 16V5M7 9l5-5 5 5M5 20h14"/></symbol>
   </defs>
@@ -329,10 +333,17 @@ iframe.tool-frame{display:block;width:100%;height:520px;border:0;background:tran
     {id:'blur',       group:'문서', label:'얼굴 블러',     icon:'face',   title:'HWPX 얼굴 자동 블러',
      desc:'HWPX 문서 안의 사진에서 얼굴을 자동으로 찾아 모자이크·블러 처리한 새 HWPX 파일을 만들어 줍니다.',
      tags:['HWPX 입력','HWPX 출력','PC 안에서 처리'],
-     steps:['HWPX 파일 선택','얼굴 자동 인식','필요하면 보정','HWPX 내려받기']}
+     steps:['HWPX 파일 선택','얼굴 자동 인식','필요하면 보정','HWPX 내려받기']},
+    {id:'compress',   group:'문서', label:'이미지 압축',   icon:'zip',    title:'HWPX 이미지 압축',
+     desc:'HWPX 문서 안의 사진과 미리보기 썸네일을 지정한 크기·품질로 줄여 파일 용량을 낮춥니다. 서식과 내용은 그대로 유지됩니다.',
+     tags:['HWPX 입력','HWPX 출력','PC 안에서 처리'],
+     steps:['HWPX 파일 선택','크기·품질 정하기','압축 후 내려받기']}
+    ,{id:'labels',     group:'라벨', label:'우편 라벨지',   icon:'tag',    title:'우편 라벨지 자동화', fill:true,
+     desc:'엑셀 주소 목록으로 우편 라벨을 만들어 인쇄하고, 사진·문구가 들어가는 일반 라벨도 자유롭게 편집합니다.',
+     tags:['엑셀 입력','라벨 편집','인쇄'],
+     steps:['데이터 불러오기','라벨 편집','출력(인쇄)']}
   ];
-  var GROUPS = ['여비','정산','문서'];
-  var RELEASE_URL = 'https://github.com/kuh01041461581-ux/ukukuk/releases/latest';
+  var GROUPS = ['여비','정산','문서','라벨'];
 
   var $ = function(s, r){ return (r||document).querySelector(s); };
   function icon(id, cls){ return '<svg class="ic '+(cls||'')+'"><use href="#i-'+id+'"/></svg>'; }
@@ -369,6 +380,7 @@ iframe.tool-frame{display:block;width:100%;height:520px;border:0;background:tran
   nav.innerHTML = html;
 
   $('#collapseBtn').addEventListener('click', function(){
+    autoCollapsed = false;
     var c = document.documentElement.classList.toggle('collapsed');
     store('suite.collapsed', c ? '1' : '0');
     setTimeout(function(){ sendViewport(); }, 220);
@@ -400,12 +412,7 @@ iframe.tool-frame{display:block;width:100%;height:520px;border:0;background:tran
       s += '<div class="home-group">'+g+'</div><div class="home-grid">'+
         TOOLS.filter(function(t){ return t.group===g; }).map(cardHtml).join('')+'</div>';
     });
-    s += '<div class="home-group">데스크톱 프로그램</div><div class="home-grid">'+
-      '<a class="tool-card ext" href="'+RELEASE_URL+'" target="_blank" rel="noopener"><div class="top"><div class="ico">'+icon('calendar','lg')+'</div></div>'+
-      '<h3>DeskCalendar (바탕화면 달력)</h3>'+
-      '<p>바탕화면에 떠 있는 달력 + 할 일 · 메모. 공문 PDF에서 일정을 뽑아 넣을 수 있는 별도 프로그램입니다.</p>'+
-      '<div class="tags"><span>Windows</span></div><div class="go">내려받기 '+icon('ext','sm')+'</div></a></div>';
-    s += '<div class="privacy">'+icon('shield')+'<div><b>개인정보는 밖으로 나가지 않습니다.</b> 엑셀·HWPX 처리는 모두 이 PC 안에서 이뤄집니다. '+
+    s += '<div class="privacy">'+icon('shield')+'<div><b>개인정보는 밖으로 나가지 않습니다.</b> 엑셀·HWPX·라벨 처리는 모두 이 PC 안에서 이뤄집니다. '+
       '단, 공과금 고지서 인식은 입력한 AI 키로 이미지를 Google(Gemini) 또는 Anthropic(Claude)에 보내 글자를 읽는 기능이므로, 개인정보가 많은 문서에는 주의하세요.</div></div>';
     $('#page-home').innerHTML = s;
     $('#heroSearch').addEventListener('click', openPalette);
@@ -497,8 +504,8 @@ iframe.tool-frame{display:block;width:100%;height:520px;border:0;background:tran
   function ensureFrame(t){
     if(frames[t.id]) return frames[t.id];
     var page = document.createElement('section');
-    page.className = 'page'; page.id = 'page-'+t.id;
-    page.innerHTML = headHtml(t) + '<div class="frame-loading"><span class="spin"></span>불러오는 중…</div>';
+    page.className = 'page' + (t.fill ? ' fill' : ''); page.id = 'page-'+t.id;
+    page.innerHTML = (t.fill ? '' : headHtml(t)) + '<div class="frame-loading"><span class="spin"></span>불러오는 중…</div>';
     var f = document.createElement('iframe');
     f.className = 'tool-frame'; f.title = t.title;
     page.appendChild(f);
@@ -513,12 +520,12 @@ iframe.tool-frame{display:block;width:100%;height:520px;border:0;background:tran
     if(!d || !d.__tabId) return;
     var rec = frames[d.__tabId];
     if(!rec || e.source !== rec.frame.contentWindow) return;
-    if(d.__tabHeight){
+    if(d.__tabHeight && !byId(d.__tabId).fill){
       rec.frame.style.height = Math.max(320, d.__tabHeight + 8) + 'px';
       var ld = rec.page.querySelector('.frame-loading'); if(ld) ld.remove();
       sendViewport();
     }
-    if(d.__ready) pushState(rec.frame);
+    if(d.__ready){ var ld2 = rec.page.querySelector('.frame-loading'); if(ld2 && byId(d.__tabId).fill) ld2.remove(); pushState(rec.frame); }
   });
 
   function pushState(f){
@@ -560,7 +567,7 @@ iframe.tool-frame{display:block;width:100%;height:520px;border:0;background:tran
   paintThemeBtn();
 
   /* ---------- 화면 전환 ---------- */
-  var current = null;
+  var current = null, autoCollapsed = false;
   function show(id){
     var t = byId(id);
     if(!t && id !== 'settings') id = 'home';
@@ -577,6 +584,11 @@ iframe.tool-frame{display:block;width:100%;height:520px;border:0;background:tran
     else { renderHome(); $('#page-home').classList.add('active'); }
     $('#crumbGroup').textContent = group; $('#crumbTitle').textContent = title;
     document.title = (id === 'home' ? '' : title + ' · ') + '서무 업무 자동화';
+    document.body.classList.toggle('fill-mode', !!(t && t.fill));
+    /* 전체 화면 편집 도구에 들어가면 사이드바를 자동으로 접어 작업 공간을 넓히고, 나오면 원래대로 */
+    var root = document.documentElement;
+    if(t && t.fill){ if(!root.classList.contains('collapsed')){ root.classList.add('collapsed'); autoCollapsed = true; } }
+    else if(autoCollapsed){ root.classList.remove('collapsed'); autoCollapsed = false; }
     window.scrollTo(0, 0);
     sendViewport();
   }

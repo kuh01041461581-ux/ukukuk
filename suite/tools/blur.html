@@ -7,731 +7,116 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <style>
-/* ==========================================================================
-   1. Design Tokens
-   ========================================================================== */
-:root{--surface-hover:var(--hover);--surface-sunken:var(--surface-2);--text-secondary:var(--text-2);--text-tertiary:var(--text-3);--primary-dim:var(--primary-tint);--success-dim:var(--success-tint);--warning-dim:var(--warning-tint);--danger-dim:var(--danger-tint);--shadow-sm:var(--shadow-card);--seal:var(--danger);--ink:var(--text);--pine:var(--primary);--paper:var(--bg);}
-
-/* ==========================================================================
-   2. Reset
-   ========================================================================== */
-*, *::before, *::after{ box-sizing:border-box; }
-html,body{ height:100%; }
-body{
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:var(--font);
-  font-size:14px;
-  line-height:1.5;
-  -webkit-font-smoothing:antialiased;
-}
-h1,h2,h3,p{ margin:0; }
-button{ font-family:inherit; }
-input, select{ font-family:inherit; }
-.icon{ width:18px; height:18px; flex:none; }
-.icon-sm{ width:14px; height:14px; flex:none; }
-.icon-lg{ width:34px; height:34px; flex:none; }
-svg.icon, svg.icon-sm, svg.icon-lg{
-  fill:none; stroke:currentColor; stroke-width:1.7;
-  stroke-linecap:round; stroke-linejoin:round;
-}
-
-/* ==========================================================================
-   3. Layout
-   ========================================================================== */
-.app{
-  display:flex;
-  min-height:100vh;
-}
-.main{
-  flex:1;
-  min-width:0;
-  display:flex;
-  flex-direction:column;
-}
-.content{
-  padding:28px 36px 60px;
-  max-width:1180px;
-  width:100%;
-  margin:0 auto;
-}
-.grid-2col{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:16px;
-  align-items:start;
-}
-.stack{ display:flex; flex-direction:column; gap:16px; }
-.section-gap{ margin-top:16px; }
-
-/* ==========================================================================
-   4. Sidebar
-   ========================================================================== */
-.sidebar{
-  width:var(--sidebar-w);
-  flex:none;
-  background:var(--surface);
-  border-right:1px solid var(--border);
-  display:flex;
-  flex-direction:column;
-  padding:18px 14px;
-  position:sticky;
-  top:0;
-  height:100vh;
-}
-.sidebar-brand{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:4px 8px 18px;
-}
-.brand-mark{
-  width:32px; height:32px;
-  border-radius:8px;
-  background:var(--primary);
-  color:#fff;
-  display:flex; align-items:center; justify-content:center;
-  font-weight:700; font-size:13px;
-  flex:none;
-  letter-spacing:.01em;
-}
-.brand-text{ min-width:0; }
-.brand-name{
-  font-size:13.5px; font-weight:600; color:var(--text);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
-.brand-version{
-  font-size:11px; color:var(--text-tertiary); margin-top:1px;
-}
-.sidebar-nav{
-  display:flex; flex-direction:column; gap:2px;
-  margin-top:4px;
-}
-.nav-item{
-  display:flex; align-items:center; gap:10px;
-  border:none; background:none; cursor:pointer;
-  width:100%; text-align:left;
-  padding:9px 10px;
-  border-radius:7px;
-  font-size:13.5px; color:var(--text-secondary);
-  transition:background .12s, color .12s;
-}
-.nav-item .icon{ color:var(--text-tertiary); }
-.nav-item:hover{ background:var(--surface-hover); color:var(--text); }
-.nav-item.active{
-  background:var(--primary-dim);
-  color:var(--primary);
-  font-weight:600;
-}
-.nav-item.active .icon{ color:var(--primary); }
-.sidebar-spacer{ flex:1; }
-.sidebar-footer{
-  display:flex; flex-direction:column; gap:12px;
-  padding-top:12px;
-}
-.status-dot{
-  width:8px; height:8px; border-radius:50%;
-  background:var(--text-tertiary);
-  flex:none;
-  transition:background .2s;
-}
-.status-dot.active{ background:var(--primary); animation:pulseDot 1.4s ease-in-out infinite; }
-.status-dot.done{ background:var(--success); }
-.status-dot.error{ background:var(--danger); }
-@keyframes pulseDot{
-  0%,100%{ opacity:1; }
-  50%{ opacity:.35; }
-}
-.status-card{
-  border:1px solid var(--border);
-  border-radius:10px;
-  background:var(--surface-sunken);
-  padding:11px 12px;
-}
-.status-card-head{
-  display:flex; align-items:center; gap:8px;
-  font-size:12.5px; font-weight:600; color:var(--text);
-}
-.status-card-body{
-  font-size:12px; color:var(--text-secondary);
-  margin-top:5px; padding-left:16px;
-}
-.sidebar-note{
-  font-size:11px; color:var(--text-tertiary);
-  line-height:1.5; padding:0 2px;
-}
-
-/* ==========================================================================
-   5. Header
-   ========================================================================== */
-.topbar{
-  display:flex; align-items:flex-start; justify-content:space-between;
-  gap:16px;
-  padding:26px 36px 0;
-  max-width:1180px; width:100%; margin:0 auto;
-}
-.breadcrumb{
-  font-size:12px; color:var(--text-tertiary);
-  margin-bottom:8px;
-}
-.page-title{
-  font-size:26px; font-weight:700; letter-spacing:-.01em; color:var(--text);
-}
-.page-desc{
-  font-size:13.5px; color:var(--text-secondary);
-  margin-top:6px;
-  max-width:560px;
-}
-.btn-ghost{
-  display:flex; align-items:center; gap:6px;
-  background:var(--surface);
-  border:1px solid var(--border);
-  color:var(--text-secondary);
-  font-size:13px; font-weight:500;
-  padding:8px 13px;
-  border-radius:var(--radius-btn);
-  cursor:pointer;
-  flex:none;
-  transition:background .12s, border-color .12s;
-}
-.btn-ghost:hover{ background:var(--surface-hover); border-color:var(--border-strong); color:var(--text); }
-.guide-panel{
-  display:none;
-  max-width:1180px; width:100%; margin:14px auto 0;
-  padding:0 36px;
-}
-.guide-panel.open{ display:block; }
-.guide-panel-inner{
-  background:var(--primary-dim);
-  border:1px solid var(--primary-border);
-  border-radius:var(--radius-card);
-  padding:16px 18px;
-}
-.guide-panel-inner h3{
-  font-size:13px; font-weight:700; color:var(--text); margin-bottom:10px;
-}
-.guide-steps{
-  display:flex; flex-wrap:wrap; gap:8px 4px; align-items:center;
-  font-size:12.5px; color:var(--text-secondary);
-}
-.guide-steps span.step{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:999px;
-  padding:5px 11px;
-  color:var(--text);
-  white-space:nowrap;
-}
-.guide-steps span.arrow{ color:var(--text-tertiary); }
-
-/* ==========================================================================
-   6. Cards
-   ========================================================================== */
-.card{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:var(--radius-card);
-  box-shadow:var(--shadow-card);
-  padding:20px;
-}
-.card-title{
-  font-size:13.5px; font-weight:700; color:var(--text);
-  margin-bottom:14px;
-}
-.card-subtitle{
-  font-size:12.5px; color:var(--text-secondary);
-  margin-top:-8px; margin-bottom:14px; line-height:1.6;
-}
-.divider{
-  border:none; border-top:1px solid var(--border);
-  margin:16px 0;
-}
-
-/* ==========================================================================
-   7. Upload
-   ========================================================================== */
-.dropzone{
-  border:1.5px dashed var(--border-strong);
-  border-radius:10px;
-  background:var(--surface-sunken);
-  padding:36px 20px;
-  text-align:center;
-  cursor:pointer;
-  transition:border-color .15s, background .15s;
-}
-.dropzone.hover{ border-color:var(--primary); background:var(--primary-dim); }
-.dropzone-icon{
-  width:52px; height:52px;
-  margin:0 auto 14px;
-  border-radius:50%;
-  background:var(--primary-dim);
-  color:var(--primary);
-  display:flex; align-items:center; justify-content:center;
-}
-.dropzone-title{ font-size:14.5px; font-weight:600; color:var(--text); }
-.dropzone-sub{ font-size:12.5px; color:var(--text-secondary); margin-top:4px; }
-.dropzone .btn-secondary{ margin-top:16px; }
-.dropzone-hint{ font-size:11.5px; color:var(--text-tertiary); margin-top:12px; }
-#fileInput{ display:none; }
-
-.file-card{
-  display:none;
-  margin-top:14px;
-  align-items:center;
-  gap:10px;
-  border:1px solid var(--border);
-  background:var(--surface-sunken);
-  border-radius:10px;
-  padding:12px 12px;
-}
-.file-card-icon{
-  width:34px; height:34px; flex:none;
-  border-radius:8px;
-  background:var(--primary-dim);
-  color:var(--primary);
-  display:flex; align-items:center; justify-content:center;
-}
-.file-card-info{ flex:1; min-width:0; }
-.file-card-name{
-  font-size:12.5px; color:var(--text);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
-.file-card-remove{
-  display:flex; align-items:center; gap:5px;
-  background:none; border:1px solid var(--border);
-  color:var(--text-secondary);
-  font-size:12px;
-  padding:6px 10px;
-  border-radius:7px;
-  cursor:pointer;
-  flex:none;
-  transition:background .12s, color .12s, border-color .12s;
-}
-.file-card-remove:hover{ background:var(--danger-dim); border-color:#f3c6c6; color:var(--danger); }
-
-/* ==========================================================================
-   8. Controls
-   ========================================================================== */
-.control-group{ margin-bottom:16px; }
-.control-group:last-child{ margin-bottom:0; }
-.control-label{
-  display:block;
-  font-size:12.5px; font-weight:600; color:var(--text);
-  margin-bottom:8px;
-}
-.select{
-  width:100%;
-  font-size:13px; color:var(--text);
-  padding:9px 11px;
-  border:1px solid var(--border);
-  border-radius:var(--radius-input);
-  background:var(--surface) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>') no-repeat right 10px center;
-  background-size:16px;
-  appearance:none;
-  -webkit-appearance:none;
-  cursor:pointer;
-  transition:border-color .12s;
-}
-.select:hover{ border-color:var(--border-strong); }
-.select:focus{ outline:none; border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-dim); }
-
-.segmented{
-  display:flex;
-  border:1px solid var(--border);
-  border-radius:var(--radius-input);
-  padding:3px;
-  background:var(--surface-sunken);
-  gap:3px;
-}
-.segmented-option{
-  flex:1;
-  position:relative;
-  text-align:center;
-  cursor:pointer;
-}
-.segmented-option input{
-  position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;
-}
-.segmented-option span{
-  display:block;
-  padding:8px 6px;
-  border-radius:6px;
-  font-size:13px;
-  color:var(--text-secondary);
-  transition:background .12s, color .12s, box-shadow .12s;
-}
-.segmented-option input:checked + span{
-  background:var(--surface);
-  color:var(--primary);
-  font-weight:600;
-  box-shadow:var(--shadow-sm);
-}
-.segmented-option input:focus-visible + span{
-  outline:2px solid var(--primary);
-  outline-offset:1px;
-}
-
-/* Model engine list */
-.model-list{ display:flex; flex-direction:column; gap:2px; }
-.model-row{
-  display:flex; align-items:center; gap:10px;
-  padding:9px 4px;
-  border-bottom:1px solid var(--border);
-  font-size:13px;
-}
-.model-row:last-child{ border-bottom:none; }
-.model-order{
-  font-size:11px; color:var(--text-tertiary);
-  width:18px; flex:none;
-}
-.model-name{ color:var(--text); flex:1; }
-.model-state{ font-size:12px; color:var(--text-tertiary); flex:none; }
-.model-state.done{ color:var(--success); }
-.model-state.active{ color:var(--primary); }
-.model-state.error{ color:var(--warning); }
-.model-note{
-  font-size:12px; color:var(--text-secondary); line-height:1.6;
-  margin-top:12px;
-}
-
-/* ==========================================================================
-   9. Buttons
-   ========================================================================== */
-button.run{
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  width:100%;
-  background:var(--primary);
-  color:#fff;
-  border:none;
-  padding:12px;
-  font-size:14px;
-  font-weight:600;
-  border-radius:var(--radius-btn);
-  cursor:pointer;
-  font-family:inherit;
-  transition:background .12s;
-}
-button.run:hover:not(:disabled){ background:var(--primary-hover); }
-button.run:disabled{ background:var(--border-strong); color:var(--text-tertiary); cursor:not-allowed; }
-
-.btn-secondary{
-  background:var(--surface);
-  border:1px solid var(--border);
-  color:var(--text);
-  font-size:13px; font-weight:600;
-  padding:9px 16px;
-  border-radius:var(--radius-btn);
-  cursor:pointer;
-  transition:background .12s, border-color .12s;
-}
-.btn-secondary:hover{ background:var(--surface-hover); border-color:var(--border-strong); }
-
-/* ==========================================================================
-   10. Progress
-   ========================================================================== */
-.progress-wrap{
-  display:none;
-  margin-top:16px;
-}
-.progress-track{
-  height:7px;
-  background:var(--border);
-  border-radius:999px;
-  overflow:hidden;
-}
-.progress-fill{
-  height:100%; width:0%;
-  background:var(--primary);
-  border-radius:999px;
-  transition:width .25s ease;
-}
-.progress-meta{
-  display:flex; justify-content:space-between;
-  font-size:11.5px; color:var(--text-tertiary);
-  margin-top:7px;
-}
-
-/* ==========================================================================
-   11. Logs
-   ========================================================================== */
-.log-panel{
-  font-family:var(--mono);
-  font-size:11.5px;
-  line-height:1.85;
-  color:var(--text-secondary);
-  background:var(--surface-sunken);
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:12px 14px;
-  max-height:230px;
-  overflow-y:auto;
-  white-space:pre-wrap;
-  margin-top:14px;
-}
-.log-panel > div{ padding-left:15px; position:relative; }
-.log-panel > div::before{
-  content:'';
-  position:absolute; left:0; top:8px;
-  width:5px; height:5px; border-radius:50%;
-  background:var(--text-tertiary);
-}
-.log-panel > div.ok{ color:var(--success); }
-.log-panel > div.ok::before{ background:var(--success); }
-.log-panel > div.warn{ color:var(--warning); }
-.log-panel > div.warn::before{ background:var(--warning); }
-.log-panel > div.err{ color:var(--danger); }
-.log-panel > div.err::before{ background:var(--danger); }
-
-/* ==========================================================================
-   12. Review
-   ========================================================================== */
-.reviewItem{
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:14px;
-  margin-bottom:12px;
-  background:var(--surface-sunken);
-}
-.reviewItem .fname{
-  font-size:12px; color:var(--text-secondary);
-  display:flex; justify-content:space-between; margin-bottom:10px;
-}
-.reviewItem .fname span.cnt{ color:var(--primary); font-weight:700; }
-.reviewItem canvas{
-  display:block; max-width:100%;
-  border:1px solid var(--border);
-  border-radius:8px;
-  cursor:crosshair; background:var(--surface-hover);
-  touch-action:none;
-}
-.review-hint{
-  font-size:12.5px; color:var(--text-secondary); line-height:1.7;
-  margin:-6px 0 16px;
-}
-
-/* ==========================================================================
-   13. Result
-   ========================================================================== */
-#downloadArea p, #downloadArea a{ font-family:var(--mono) !important; }
-#downloadArea > p:first-child{
-  font-family:var(--font) !important;
-  font-size:12.5px !important;
-  color:var(--text-secondary) !important;
-  background:var(--primary-dim);
-  border:1px solid var(--primary-border);
-  border-radius:8px;
-  padding:10px 12px;
-  margin:0 0 16px !important;
-  line-height:1.6;
-}
-#resultPreview img{
-  max-height:420px; object-fit:contain;
-  border:1px solid var(--border) !important;
-  border-radius:8px;
-}
-#downloadArea p{
-  font-size:11.5px !important;
-  color:var(--text-tertiary) !important;
-}
-#openNewTabBtn{
-  background:var(--surface) !important;
-  border:1px solid var(--border) !important;
-  color:var(--text-secondary) !important;
-  border-radius:7px !important;
-  padding:8px 12px !important;
-  font-family:var(--font) !important;
-}
-#openNewTabBtn:hover{ background:var(--surface-hover) !important; }
-.result-summary{
-  display:flex; flex-direction:column; gap:6px;
-  margin-bottom:16px;
-}
-.result-summary-row{
-  display:flex; align-items:center; gap:8px;
-  font-size:13px; color:var(--text);
-}
-.result-summary-row .icon{ color:var(--success); }
-
-/* ==========================================================================
-   14. Responsive
-   ========================================================================== */
-@media (max-width:1280px){
-  .content{ padding:24px 24px 50px; }
-  .topbar{ padding:24px 24px 0; }
-  .guide-panel{ padding:0 24px; }
-}
-@media (max-width:980px){
-  .grid-2col{ grid-template-columns:1fr; }
-  .sidebar{ width:76px; padding:16px 10px; }
-  .brand-text, .nav-item span.nav-label, .sidebar-note, .status-card{ display:none; }
-  .nav-item{ justify-content:center; padding:10px; }
-  .sidebar-brand{ justify-content:center; padding:4px 0 18px; }
-  .sidebar-footer{ align-items:center; }
-}
-@media (max-width:640px){
-  .topbar{ flex-direction:column; }
-  .page-title{ font-size:21px; }
-}
-
-/* 통합 셸: 좌측 사이드바·큰 제목은 숨기고 '사용 안내' 버튼만 남김 */
-.sidebar{display:none;}
-.app,.main{display:block;min-height:0;}
-.topbar{padding:0 0 12px;max-width:none;justify-content:flex-end;}
-.topbar > div:first-child{display:none;}
-.guide-panel{padding:0;max-width:none;margin:0 0 14px;}
-.content{padding:0;max-width:none;}
+/* 얼굴 자동 블러 — 공통 부품(u-*)으로 짠 화면. 이 도구에서만 필요한 것만 둔다. */
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-3);flex:none;}
+.status-dot.active{background:var(--primary);animation:pulseDot 1.4s ease-in-out infinite;}
+.status-dot.done{background:var(--success);}
+.status-dot.error{background:var(--danger);}
+@keyframes pulseDot{0%,100%{opacity:1;}50%{opacity:.35;}}
+.model-list{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius-input);overflow:hidden;background:var(--surface);}
+.model-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;}
+.model-row:last-child{border-bottom:0;}
+.model-order{font-size:11px;color:var(--text-3);width:18px;flex:none;font-weight:600;}
+.model-name{flex:1;font-weight:500;}
+.model-state{font-size:12px;color:var(--text-3);flex:none;}
+.model-state.done{color:var(--success);} .model-state.active{color:var(--primary);} .model-state.error{color:var(--warning);}
+#progressBar{display:none;}
+.reviewItem{border:1px solid var(--border);border-radius:var(--radius-input);padding:14px;margin-bottom:12px;background:var(--surface-2);}
+.reviewItem .fname{font-size:12.5px;color:var(--text-2);display:flex;justify-content:space-between;margin-bottom:10px;}
+.reviewItem .fname span.cnt{color:var(--primary);font-weight:700;}
+.reviewItem canvas{display:block;max-width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:crosshair;background:var(--surface-3);touch-action:none;}
+#resultPreview{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:14px 0;}
+#resultPreview img{width:100%;max-height:360px;object-fit:contain;}
+.u-drop input{display:none;}
 </style>
 <meta name="tool-id" content="blur">
 <!--SUITE:THEME-->
 </head>
-<body>
-<div class="app">
+<body class="tool">
+<div class="u-stack">
 
-
-  <div class="main">
-    <header class="topbar">
-      <div>
-        <div class="breadcrumb">파일 처리 / HWPX 얼굴 자동 블러</div>
-        <h1 class="page-title">HWPX 얼굴 자동 블러 도구</h1>
-        <p class="page-desc">HWPX 문서 안의 얼굴을 자동으로 탐지하고 개인정보 보호를 위해 블러 처리합니다.</p>
+  <div class="u-split">
+    <section class="u-card">
+      <div class="u-card-h"><span class="u-no">1</span><div>
+        <h2 class="u-card-t">HWPX 파일 올리기</h2>
+        <p class="u-card-d">.hwpx 파일만 지원합니다. 구형 .hwp는 한글에서 "다른 이름으로 저장 → HWPX"로 바꿔서 올려 주세요.</p>
+      </div></div>
+      <div id="drop" class="u-drop">
+        <div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div>
+        <div class="u-drop-t">HWPX 파일을 여기에 놓으세요</div>
+        <div class="u-drop-s">또는 클릭해서 파일 선택 · 서버로 업로드되지 않음</div>
+        <input type="file" id="fileInput" accept=".hwpx">
       </div>
-      <button type="button" class="btn-ghost" id="guideBtn">
-        <svg class="icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.3 9.2a2.7 2.7 0 0 1 5.2.9c0 1.8-2.5 2.1-2.5 3.9"/><path d="M12 17.2h.01"/></svg>
-        사용 안내
-      </button>
-    </header>
-
-    <div class="guide-panel" id="guidePanel">
-      <div class="guide-panel-inner">
-        <h3>사용 순서</h3>
-        <div class="guide-steps">
-          <span class="step">① HWPX 선택</span><span class="arrow">→</span>
-          <span class="step">② 블러 옵션 확인</span><span class="arrow">→</span>
-          <span class="step">③ 얼굴 자동 인식 시작</span><span class="arrow">→</span>
-          <span class="step">④ 진행 상태 확인</span><span class="arrow">→</span>
-          <span class="step">⑤ 검출 결과 확인</span><span class="arrow">→</span>
-          <span class="step">⑥ 필요 시 보정</span><span class="arrow">→</span>
-          <span class="step">⑦ HWPX 다운로드</span>
-        </div>
+      <div class="u-file" id="fileTag" style="display:none">
+        <div class="u-file-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg></div>
+        <div class="u-file-n" id="fileTagName"></div>
+        <button type="button" class="u-x" id="clearFile"><svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M6 6l12 12M18 6 6 18"/></svg> 제거</button>
       </div>
-    </div>
+    </section>
 
-    <div class="content">
-
-      <div class="grid-2col">
-        <section class="card">
-          <div class="card-title">파일 선택</div>
-          <div id="drop" class="dropzone">
-            <div class="dropzone-icon">
-              <svg class="icon-lg" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg>
-            </div>
-            <p class="dropzone-title">HWPX 파일을 여기에 놓으세요</p>
-            <p class="dropzone-sub">또는 파일을 선택하여 업로드하세요</p>
-            <button type="button" class="btn-secondary">파일 선택</button>
-            <p class="dropzone-hint">.hwpx 파일만 지원됩니다 · 서버로 업로드되지 않음</p>
-            <input type="file" id="fileInput" accept=".hwpx">
-          </div>
-          <div class="file-card" id="fileTag">
-            <div class="file-card-icon">
-              <svg class="icon" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
-            </div>
-            <div class="file-card-info">
-              <div class="file-card-name" id="fileTagName"></div>
-            </div>
-            <button type="button" class="file-card-remove" id="clearFile">
-              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
-              제거
-            </button>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-title">처리 옵션</div>
-          <div class="control-group">
-            <label class="control-label">블러 방식</label>
-            <div class="segmented">
-              <label class="segmented-option">
-                <input type="radio" name="mode" value="pixelate" checked>
-                <span>모자이크</span>
-              </label>
-              <label class="segmented-option">
-                <input type="radio" name="mode" value="blur">
-                <span>가우시안 블러</span>
-              </label>
-            </div>
-          </div>
-          <div class="control-group">
-            <label class="control-label" for="padSel">여백 배율</label>
-            <select id="padSel" class="select">
-              <option value="0.15">좁게</option>
-              <option value="0.3" selected>보통</option>
-              <option value="0.5">넓게</option>
-            </select>
-          </div>
-          <div class="control-group">
-            <label class="control-label" for="sensSel">민감도</label>
-            <select id="sensSel" class="select">
-              <option value="0.7">낮음 — 확실한 얼굴만</option>
-              <option value="0.5" selected>보통</option>
-              <option value="0.3">높음 — 작은 얼굴도 검출</option>
-            </select>
-          </div>
-        </section>
-      </div>
-
-      <section class="card section-gap">
-        <div class="card-title">얼굴 인식 엔진</div>
-        <div class="model-list">
-          <div class="model-row" data-model="ssd">
-            <span class="status-dot" data-dot></span>
-            <span class="model-order">01</span>
-            <span class="model-name">SSD Mobilenet v1</span>
-            <span class="model-state" data-state>대기 중</span>
-          </div>
-          <div class="model-row" data-model="mediapipe">
-            <span class="status-dot" data-dot></span>
-            <span class="model-order">02</span>
-            <span class="model-name">MediaPipe BlazeFace</span>
-            <span class="model-state" data-state>대기 중</span>
+    <section class="u-card">
+      <div class="u-card-h"><span class="u-no">2</span><div>
+        <h2 class="u-card-t">처리 옵션</h2>
+        <p class="u-card-d">얼굴을 가리는 방법과 범위를 정합니다.</p>
+      </div></div>
+      <div class="u-form" style="grid-template-columns:1fr">
+        <div class="u-field"><span class="u-label">블러 방식</span>
+          <div class="u-seg">
+            <label><input type="radio" name="mode" value="pixelate" checked><span>모자이크</span></label>
+            <label><input type="radio" name="mode" value="blur"><span>가우시안 블러</span></label>
           </div>
         </div>
-        <p class="model-note">두 모델을 순서대로 적용해 검출 결과를 합칩니다. SSD Mobilenet v1이 정면·일반 얼굴을 폭넓게 잡고, MediaPipe BlazeFace가 작은 얼굴·측면 얼굴 등 놓친 부분을 빠르게 보완합니다. 정확도 손실을 최소화하면서 로딩·처리 속도를 크게 개선했습니다. 처리는 여전히 이 브라우저 안에서만 이루어집니다.</p>
-      </section>
-
-      <section class="card section-gap">
-        <button type="button" class="run" id="runBtn" disabled>
-          <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>
-          모델 로딩 중…
-        </button>
-        <div class="progress-wrap" id="progressBar">
-          <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
-          <div class="progress-meta">
-            <span id="progressPercent">0%</span>
-            <span id="progressCount"></span>
-          </div>
+        <div class="u-field"><label for="padSel">여백 배율</label>
+          <select id="padSel"><option value="0.15">좁게</option><option value="0.3" selected>보통</option><option value="0.5">넓게</option></select>
         </div>
-        <div id="log" class="log-panel" style="display:none;"></div>
-      </section>
-
-      <section class="card section-gap" id="downloadPanel" style="display:none;">
-        <div class="card-title">처리 결과</div>
-        <div id="downloadArea"></div>
-      </section>
-
-      <section class="card section-gap" id="reviewPanel" style="display:none;">
-        <div class="card-title">검출 결과 확인</div>
-        <p class="review-hint">
-          자동으로 검출된 얼굴에는 이미 블러가 적용되어 위에서 바로 다운로드할 수 있습니다. 놓친 얼굴이 있거나 잘못 잡힌 박스가 있다면 여기서 보정한 뒤 다시 생성하세요.<br>
-          박스를 클릭하면 삭제 · 빈 공간을 드래그하면 박스 추가<br>
-          자동 검출이 되지 않은 사진도 목록에 표시되며, 드래그로 직접 영역을 지정할 수 있습니다.
-        </p>
-        <div id="reviewList"></div>
-        <button type="button" class="run" id="applyBtn" style="margin-top:6px;">보정 반영하여 다시 생성</button>
-      </section>
-
-    </div>
+        <div class="u-field"><label for="sensSel">민감도</label>
+          <select id="sensSel"><option value="0.7">낮음 — 확실한 얼굴만</option><option value="0.5" selected>보통</option><option value="0.3">높음 — 작은 얼굴도 검출</option></select>
+        </div>
+      </div>
+    </section>
   </div>
+
+  <section class="u-card">
+    <div class="u-card-h"><span class="u-no">3</span><div>
+      <h2 class="u-card-t">얼굴 인식 엔진</h2>
+      <p class="u-card-d">두 모델을 차례로 적용해 결과를 합칩니다. SSD Mobilenet v1이 정면·일반 얼굴을, MediaPipe BlazeFace가 작은 얼굴·측면 얼굴 등 놓친 부분을 보완합니다. 처리는 이 PC 안에서만 이뤄집니다.</p>
+    </div></div>
+    <div class="model-list">
+      <div class="model-row" data-model="ssd"><span class="status-dot" data-dot></span><span class="model-order">01</span><span class="model-name">SSD Mobilenet v1</span><span class="model-state" data-state>대기 중</span></div>
+      <div class="model-row" data-model="mediapipe"><span class="status-dot" data-dot></span><span class="model-order">02</span><span class="model-name">MediaPipe BlazeFace</span><span class="model-state" data-state>대기 중</span></div>
+    </div>
+  </section>
+
+  <section class="u-card">
+    <div class="u-card-h"><span class="u-no">4</span><div>
+      <h2 class="u-card-t">얼굴 자동 인식 시작</h2>
+      <p class="u-card-d">처음 한 번은 모델을 내려받느라 시간이 조금 걸립니다. 끝나면 블러가 적용된 결과가 바로 만들어집니다.</p>
+    </div></div>
+    <button type="button" class="btn btn-lg" id="runBtn" disabled style="width:100%">모델 로딩 중…</button>
+    <div class="u-progress" id="progressBar">
+      <div class="u-progress-track"><div id="progressFill" class="u-progress-fill"></div></div>
+      <div class="u-progress-meta"><span id="progressPercent">0%</span><span id="progressCount"></span></div>
+    </div>
+    <div id="log" class="u-log" style="display:none;"></div>
+  </section>
+
+  <section class="u-card" id="downloadPanel" style="display:none;">
+    <div class="u-card-h"><span class="u-no done"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div>
+      <h2 class="u-card-t">처리 결과</h2>
+      <p class="u-card-d">블러가 적용된 미리보기를 확인한 뒤 내려받으세요.</p>
+    </div></div>
+    <div id="downloadArea"></div>
+  </section>
+
+  <section class="u-card" id="reviewPanel" style="display:none;">
+    <div class="u-card-h"><span class="u-no">5</span><div>
+      <h2 class="u-card-t">검출 결과 확인 · 보정</h2>
+      <p class="u-card-d">놓친 얼굴이 있거나 잘못 잡힌 박스가 있다면 여기서 고친 뒤 다시 생성하세요. <b>박스를 클릭하면 삭제</b>, <b>빈 곳을 드래그하면 추가</b>됩니다. 자동 검출이 되지 않은 사진도 목록에 표시되며 직접 영역을 지정할 수 있습니다.</p>
+    </div></div>
+    <div id="reviewList"></div>
+    <div class="u-actions"><button type="button" class="btn" id="applyBtn">보정 반영하여 다시 생성</button></div>
+  </section>
+
 </div>
 
 <script>
@@ -1032,8 +417,8 @@ function redrawReview(idx){
   ctx.clearRect(0,0,img.displayCanvas.width, img.displayCanvas.height);
   ctx.drawImage(img.origCanvas, 0, 0, img.displayCanvas.width, img.displayCanvas.height);
   ctx.lineWidth = 2;
-  ctx.strokeStyle = '#8c2f2f';
-  ctx.fillStyle = 'rgba(140,47,47,0.12)';
+  ctx.strokeStyle = '#E03E4A';
+  ctx.fillStyle = 'rgba(224,62,74,0.14)';
   img.boxes.forEach(b => {
     const x = b.x * img.scale, y = b.y * img.scale, w = b.w * img.scale, h = b.h * img.scale;
     ctx.fillRect(x,y,w,h);
@@ -1078,7 +463,7 @@ function attachEditHandlers(idx){
       redrawReview(idx);
       const ctx = canvas.getContext('2d');
       ctx.lineWidth = 2;
-      ctx.strokeStyle = '#2f4a3d';
+      ctx.strokeStyle = '#4F5DF0';
       ctx.setLineDash([5,3]);
       ctx.strokeRect(
         Math.min(dragStart.x,pos.x), Math.min(dragStart.y,pos.y),
@@ -1188,7 +573,7 @@ applyBtn.addEventListener('click', async () => {
   }catch(e){
     console.error(e);
     log('블러 적용 중 오류 발생: ' + (e && e.message ? e.message : e), 'err');
-    downloadArea.innerHTML = `<p style="color:#8c2f2f; font-family:var(--mono); font-size:12px;">오류로 다운로드 파일을 만들지 못했습니다: ${(e && e.message) ? e.message : e}</p>`;
+    downloadArea.innerHTML = `<div class="u-note err">오류로 다운로드 파일을 만들지 못했습니다: ${(e && e.message) ? e.message : e}</div>`;
     downloadPanel.style.display = 'block';
   } finally {
     applyBtn.disabled = false;
@@ -1209,33 +594,15 @@ function renderDownload(blob, outName){
     const isPng = /\.png$/i.test(img.name);
     const srcCanvas = img.resultCanvas || img.origCanvas;
     const dataUrl = srcCanvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', 0.9);
-    return `
-      <div style="margin-bottom:14px;">
-        <img src="${dataUrl}" style="max-width:100%; display:block; border:1px solid #ccc;">
-        <p style="font-family:var(--mono); font-size:10.5px; color:#999; margin:4px 0 0;">${img.name.split('/').pop()}</p>
-      </div>`;
+    return `<div><img class="u-preview-img" src="${dataUrl}"><div class="u-help" style="margin-top:4px">${img.name.split('/').pop()}</div></div>`;
   }).join('');
 
   downloadArea.innerHTML = `
-    <div id="resultPreview">
-      <p style="font-family:var(--mono); font-size:11.5px; color:#777; margin:-2px 0 12px;">
-        미리보기 — 자동 검출된 얼굴에 블러를 적용한 결과입니다. 놓친 얼굴이 있다면 아래 [검출 결과 확인]에서 박스를 삭제/추가한 뒤 [보정 반영하여 다시 생성]을 눌러 주세요.
-        <button type="button" id="goReviewBtn" style="margin-left:8px;background:none;border:1px solid #999;color:#444;padding:3px 8px;font-size:11px;cursor:pointer;border-radius:6px;">영역 직접 수정하러 가기 ↓</button>
-      </p>
-      ${previewItems}
-    </div>
+    <div class="u-note info"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg><div>자동 검출된 얼굴에 블러를 적용한 결과입니다. 놓친 얼굴이 있다면 아래 [검출 결과 확인]에서 박스를 삭제·추가한 뒤 [보정 반영하여 다시 생성]을 눌러 주세요. <button type="button" id="goReviewBtn" class="btn ghost sm" style="margin-left:6px">영역 직접 수정하러 가기 ↓</button></div></div>
+    <div id="resultPreview">${previewItems}</div>
     <a id="hwpxDownloadLink" href="${url}" download="${outName}" style="display:none;"></a>
-    <button type="button" class="run" id="hwpxDownloadBtn">완성된 HWPX 다운로드</button>
-    <p>${outName} · ${(blob.size/1024).toFixed(1)} KB · 이미지 외 원본 서식·글꼴은 변경되지 않았습니다</p>
-    <p>
-      <button type="button" id="openNewTabBtn" style="background:none;border:1px solid #999;color:#444;padding:6px 10px;font-family:var(--mono);font-size:11px;cursor:pointer;">
-        다운로드가 안 되면 → 새 탭에서 열어 저장하기
-      </button>
-    </p>
-    <p style="font-family:var(--mono); font-size:10.5px; color:#999;">
-      ※ 이 페이지가 채팅창 미리보기(샌드박스) 안에서 열려 있다면 다운로드가 막힐 수 있습니다.
-      이 HTML 파일을 저장한 뒤 브라우저(Chrome 등)에서 직접 열어 실행하면 정상적으로 저장됩니다.
-    </p>
+    <div class="u-dl"><div class="u-dl-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></div><div><div class="u-dl-t">${outName}</div><div class="u-dl-s">${(blob.size/1024).toFixed(1)} KB · 이미지 외 원본 서식·글꼴은 변경되지 않았습니다</div></div><button type="button" class="btn" id="hwpxDownloadBtn">완성된 HWPX 다운로드</button></div>
+    <div style="margin-top:10px"><button type="button" id="openNewTabBtn" class="btn ghost sm">다운로드가 안 되면 → 새 탭에서 열어 저장하기</button></div>
   `;
 
   const linkEl = document.getElementById('hwpxDownloadLink');

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HWPX 이미지 압축</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* HWPX 이미지 압축 — 공통 부품(u-*)으로 짠 화면 */
+.u-drop input{display:none;}
+#resultBox{display:none;}
+#summary{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+#summary:empty{display:none;}
+#status:empty{display:none;}
+#status{margin-top:14px;}
+</style>
+<meta name="tool-id" content="compress">
+<!--SUITE:THEME-->
+</head>
+<body class="tool">
+
+<div class="u-stack">
+
+  <section class="u-card">
+    <div class="u-card-h"><span class="u-no">1</span><div>
+      <h2 class="u-card-t">HWPX 파일 올리기</h2>
+      <p class="u-card-d">.hwpx 파일 안의 사진(BinData)과 미리보기 썸네일을 줄입니다. 구형 .hwp(바이너리)는 지원하지 않으니, 한글에서 "다른 이름으로 저장 → HWPX"로 바꾼 뒤 올려 주세요.</p>
+    </div></div>
+    <div id="drop" class="u-drop">
+      <div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div>
+      <div class="u-drop-t">HWPX 파일을 여기에 놓으세요</div>
+      <div class="u-drop-s">또는 클릭해서 파일 선택 · 서버로 업로드되지 않음</div>
+      <input type="file" id="fileInput" accept=".hwpx">
+    </div>
+    <div class="u-file" id="fileTag" style="display:none">
+      <div class="u-file-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg></div>
+      <div class="u-file-n" id="fileTagName"></div>
+      <button type="button" class="u-x" id="clearFile"><svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M6 6l12 12M18 6 6 18"/></svg> 제거</button>
+    </div>
+  </section>
+
+  <section class="u-card">
+    <div class="u-card-h"><span class="u-no">2</span><div>
+      <h2 class="u-card-t">압축 옵션</h2>
+      <p class="u-card-d">JPEG는 다시 압축하고, BMP·GIF·TIFF는 PNG로 무손실 변환합니다(내부 매니페스트는 자동 갱신). 전체 압축률도 최대로 적용합니다.</p>
+    </div></div>
+    <div class="u-form c2">
+      <div class="u-field"><label for="dimRange">이미지 최대 가로/세로 크기</label>
+        <div class="u-range"><input type="range" id="dimRange" min="600" max="3000" step="100" value="1600"><b id="dimVal">1600px</b></div>
+        <div class="u-help">값이 작을수록 용량이 많이 줄지만 화질이 낮아집니다. 보고서용은 1600px 안팎을 권장합니다.</div>
+      </div>
+      <div class="u-field"><label for="qRange">JPEG 압축 품질</label>
+        <div class="u-range"><input type="range" id="qRange" min="30" max="95" step="5" value="70"><b id="qVal">70%</b></div>
+        <div class="u-help">70% 안팎이면 육안으로 차이가 거의 없습니다.</div>
+      </div>
+    </div>
+    <div class="u-actions"><button type="button" class="btn btn-lg" id="runBtn" disabled>압축 시작</button></div>
+    <div id="status"></div>
+  </section>
+
+  <section class="u-card" id="resultBox">
+    <div class="u-card-h"><span class="u-no done"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div>
+      <h2 class="u-card-t">압축 결과</h2>
+      <p class="u-card-d">이미지별 절감량과 최종 파일 크기입니다.</p>
+    </div></div>
+    <div class="u-stats">
+      <div class="u-stat"><div class="u-stat-l">원본 크기</div><div class="u-stat-v" id="sumBefore">-</div></div>
+      <div class="u-stat"><div class="u-stat-l">압축 후 크기</div><div class="u-stat-v" id="sumAfter">-</div></div>
+      <div class="u-stat"><div class="u-stat-l">재인코딩한 이미지</div><div class="u-stat-v" id="sumCount">-</div></div>
+      <div class="u-stat hl"><div class="u-stat-l">전체 절감률</div><div class="u-stat-v" id="sumPct">-</div></div>
+    </div>
+    <div id="summary"></div>
+    <div class="u-table-wrap">
+      <table class="u-table" id="resultTable">
+        <thead><tr><th>이미지</th><th class="r">원본</th><th class="r">압축 후</th><th class="r">절감률</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="u-dl" style="margin-top:16px">
+      <div class="u-dl-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></div>
+      <div><div class="u-dl-t" id="dlName">-</div><div class="u-dl-s" id="dlSize">-</div></div>
+      <button type="button" class="btn" id="downloadBtn">압축된 HWPX 다운로드</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const dropEl = document.getElementById('drop');
+const fileTag = document.getElementById('fileTag');
+const fileTagName = document.getElementById('fileTagName');
+const clearFileBtn = document.getElementById('clearFile');
+const runBtn = document.getElementById('runBtn');
+const dimRange = document.getElementById('dimRange');
+const qRange = document.getElementById('qRange');
+const dimVal = document.getElementById('dimVal');
+const qVal = document.getElementById('qVal');
+const status = document.getElementById('status');
+const resultBox = document.getElementById('resultBox');
+const resultTable = document.querySelector('#resultTable tbody');
+const summary = document.getElementById('summary');
+const downloadBtn = document.getElementById('downloadBtn');
+
+let selectedFile = null;
+let outputBlob = null;
+
+dimRange.oninput = () => dimVal.textContent = dimRange.value + 'px';
+qRange.oninput = () => qVal.textContent = qRange.value + '%';
+
+function setFile(f){
+  if(f && !/\.hwpx$/i.test(f.name)){
+    status.innerHTML = '<div class="u-note err">.hwpx 파일만 지원합니다. (.hwp 구형 파일은 한글에서 HWPX로 다시 저장해 주세요)</div>';
+    return;
+  }
+  selectedFile = f || null;
+  runBtn.disabled = !selectedFile;
+  resultBox.style.display = 'none';
+  status.innerHTML = '';
+  if(selectedFile){
+    fileTagName.innerHTML = selectedFile.name + '<span class="u-file-m">' + fmt(selectedFile.size) + '</span>';
+    fileTag.style.display = 'flex';
+  } else {
+    fileTag.style.display = 'none';
+    fileInput.value = '';
+  }
+}
+fileInput.onchange = () => setFile(fileInput.files[0] || null);
+dropEl.addEventListener('click', () => fileInput.click());
+dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.classList.add('hover'); });
+dropEl.addEventListener('dragleave', () => dropEl.classList.remove('hover'));
+dropEl.addEventListener('drop', e => { e.preventDefault(); dropEl.classList.remove('hover'); if(e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]); });
+clearFileBtn.addEventListener('click', () => setFile(null));
+
+function fmt(bytes) {
+  if (bytes > 1024*1024) return (bytes/1024/1024).toFixed(2) + ' MB';
+  return (bytes/1024).toFixed(1) + ' KB';
+}
+
+async function compressImage(data, isJpeg, maxDim, quality, sourceType) {
+  const blob = sourceType ? new Blob([data], { type: sourceType }) : new Blob([data]);
+  const bitmap = await createImageBitmap(blob);
+  const { width, height } = bitmap;
+  const scale = Math.min(1, maxDim / Math.max(width, height));
+  const w = Math.max(1, Math.round(width * scale));
+  const h = Math.max(1, Math.round(height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  const outType = isJpeg ? 'image/jpeg' : 'image/png';
+  const outBlob = await new Promise(res => canvas.toBlob(res, outType, isJpeg ? quality : undefined));
+  return new Uint8Array(await outBlob.arrayBuffer());
+}
+
+const SRC_MIME_BY_EXT = { bmp: 'image/bmp', gif: 'image/gif', tif: 'image/tiff', tiff: 'image/tiff' };
+
+// Contents/content.hpf(OPF 매니페스트)를 읽어서 BMP/GIF/TIFF 항목을 찾아낸다.
+// 본문(section*.xml)은 이 바이너리를 '경로'가 아니라 매니페스트의 id로 참조하므로,
+// href/media-type만 정확히 갱신하면 본문 서식이나 참조 구조는 전혀 건드리지 않고
+// 포맷만 안전하게 바꿀 수 있다. (DOM 파싱은 대상 탐색용으로만 쓰고, 실제 출력은
+// 원본 텍스트에서 해당 속성값만 문자열 치환한다 — 문서 전체를 XMLSerializer로
+// 재직렬화하면 XML 선언이 중복되는 등 예기치 못한 손상이 생길 수 있어 사용하지 않는다)
+async function prepareManifestConversion(zip) {
+  let hpfPath = null;
+  for (const p of Object.keys(zip.files)) {
+    if (/(^|\/)content\.hpf$/i.test(p)) { hpfPath = p; break; }
+  }
+  const result = { hpfPath, originalText: null, convertMap: {} };
+  if (!hpfPath) return result;
+
+  result.originalText = await zip.files[hpfPath].async('string');
+
+  let doc = null;
+  try {
+    doc = new DOMParser().parseFromString(result.originalText, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) doc = null;
+  } catch (e) { doc = null; }
+  if (!doc) return result;
+
+  const items = Array.from(doc.getElementsByTagName('*')).filter(el => el.localName === 'item');
+  for (const item of items) {
+    const href = item.getAttribute('href') || '';
+    if (!/^bindata\//i.test(href)) continue;
+    const extMatch = href.match(/\.([a-zA-Z0-9]+)$/);
+    if (!extMatch) continue;
+    const ext = extMatch[1].toLowerCase();
+    if (!(ext in SRC_MIME_BY_EXT)) continue;
+
+    let actualPath = zip.files[href] ? href : null;
+    if (!actualPath) {
+      const hrefLower = href.toLowerCase();
+      for (const p of Object.keys(zip.files)) {
+        if (p.toLowerCase() === hrefLower) { actualPath = p; break; }
+      }
+    }
+    if (!actualPath) continue;
+
+    const newHref = href.replace(/\.[a-zA-Z0-9]+$/, '.png');
+    result.convertMap[actualPath.toLowerCase()] = { actualPath, href, newHref, ext };
+  }
+  return result;
+}
+
+// 원본 텍스트에서 특정 href를 가진 <...item .../> 태그를 찾아 href/media-type 속성값만 치환.
+// 태그의 나머지 부분(속성 순서, 공백 등)과 문서의 다른 부분은 전혀 건드리지 않는다.
+function replaceManifestItemAttrs(text, oldHref, newHref, newMediaType) {
+  const escapedHref = oldHref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tagRegex = new RegExp('<[^>]*\\shref="' + escapedHref + '"[^>]*/?>');
+  const match = text.match(tagRegex);
+  if (!match) return text;
+  const tag = match[0];
+  let newTag = tag.replace(`href="${oldHref}"`, `href="${newHref}"`);
+  if (/\smedia-type="[^"]*"/.test(newTag)) {
+    newTag = newTag.replace(/(\smedia-type=")[^"]*(")/, `$1${newMediaType}$2`);
+  }
+  return text.slice(0, match.index) + newTag + text.slice(match.index + tag.length);
+}
+
+runBtn.onclick = async () => {
+  if (!selectedFile) return;
+  runBtn.disabled = true;
+  status.innerHTML = '<div class="u-help">이미지를 줄이는 중입니다… 파일이 크면 시간이 걸릴 수 있어요.</div>';
+  resultBox.style.display = 'none';
+  resultTable.innerHTML = '';
+
+  try {
+    const maxDim = parseInt(dimRange.value, 10);
+    const quality = parseInt(qRange.value, 10) / 100;
+
+    const zip = await JSZip.loadAsync(selectedFile);
+    const newZip = new JSZip();
+    const rows = [];
+    let totalBefore = 0, totalAfter = 0;
+    let otherBinBefore = 0, otherBinCount = 0;
+    let convertFailBefore = 0;
+
+    const manifestPrep = await prepareManifestConversion(zip);
+    const convertMap = manifestPrep.convertMap;
+    let convertedCount = 0, convertFailCount = 0;
+
+    for (const path of Object.keys(zip.files)) {
+      const entry = zip.files[path];
+      if (entry.dir) continue;
+      if (manifestPrep.hpfPath && path === manifestPrep.hpfPath) continue; // 마지막에 갱신된 내용으로 기록
+      const isMime = path === 'mimetype';
+      const lower = path.toLowerCase();
+      const isBinDataImage = /^bindata\//.test(lower) && /\.(jpe?g|png)$/.test(lower);
+      const isPreviewImage = /^preview\//.test(lower) && /\.(jpe?g|png)$/.test(lower);
+      const isImage = isBinDataImage || isPreviewImage;
+      const convertInfo = convertMap[lower];
+      const data = await entry.async('uint8array');
+
+      if (convertInfo) {
+        // BMP/GIF/TIFF → 무손실 PNG. 성공한 것만 나중에 매니페스트 텍스트에서 href/media-type을 치환한다.
+        try {
+          const converted = await compressImage(data, false, maxDim, quality, SRC_MIME_BY_EXT[convertInfo.ext]);
+          newZip.file(convertInfo.newHref, converted, { compression: 'DEFLATE' });
+          convertInfo.succeeded = true;
+          totalBefore += data.length;
+          totalAfter += converted.length;
+          convertedCount++;
+          rows.push({
+            name: `${path.split('/').pop()} → ${convertInfo.newHref.split('/').pop()}`,
+            before: data.length, after: converted.length
+          });
+        } catch (e) {
+          // 디코딩 실패 시 원본 그대로 유지, 매니페스트도 건드리지 않음(형식/참조 불변)
+          newZip.file(path, data, { compression: 'DEFLATE' });
+          convertFailBefore += data.length;
+          convertFailCount++;
+        }
+      } else if (isImage) {
+        const isJpeg = /\.jpe?g$/.test(lower);
+        let outData = data;
+        try {
+          const compressed = await compressImage(data, isJpeg, maxDim, quality);
+          if (compressed.length < data.length) outData = compressed;
+        } catch (e) {
+          // 디코딩 실패 시 원본 유지
+        }
+        newZip.file(path, outData, { compression: 'DEFLATE' });
+        totalBefore += data.length;
+        totalAfter += outData.length;
+        const label = (isPreviewImage ? '[미리보기] ' : '') + path.split('/').pop();
+        rows.push({ name: label, before: data.length, after: outData.length });
+      } else {
+        newZip.file(path, data, { compression: isMime ? 'STORE' : 'DEFLATE' });
+        if (/^bindata\//.test(lower)) {
+          // 포맷/확장자는 그대로 두고, 압축 레벨만 최대로 적용된 결과를 집계 (재인코딩 없음 = 서식/내용 변형 없음)
+          otherBinBefore += data.length;
+          otherBinCount++;
+        }
+      }
+    }
+
+    if (manifestPrep.hpfPath) {
+      let hpfOut = manifestPrep.originalText;
+      // 실제로 변환에 성공한 항목의 href/media-type만 원본 텍스트에서 그대로 치환한다.
+      // 실패했거나 대상이 아닌 항목, 그리고 문서의 나머지 부분은 원본 바이트 그대로 유지된다.
+      for (const key of Object.keys(convertMap)) {
+        const info = convertMap[key];
+        if (!info.succeeded) continue;
+        hpfOut = replaceManifestItemAttrs(hpfOut, info.href, info.newHref, 'image/png');
+      }
+      newZip.file(manifestPrep.hpfPath, hpfOut, { compression: 'DEFLATE' });
+    }
+
+    outputBlob = await newZip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/octet-stream',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 9 }
+    });
+
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const pct = r.before > 0 ? Math.round((1 - r.after / r.before) * 100) : 0;
+      tr.innerHTML = `<td>${r.name}</td><td class="r">${fmt(r.before)}</td><td class="r">${fmt(r.after)}</td><td class="r"><span class="u-tag ${pct>0?'ok':''}">${pct}%</span></td>`;
+      resultTable.appendChild(tr);
+    });
+
+    const origTotal = selectedFile.size;
+    const newTotal = outputBlob.size;
+    const totalPct = Math.round((1 - newTotal / origTotal) * 100);
+    const notes = [];
+    if (convertedCount > 0) notes.push(`BMP/GIF/TIFF ${convertedCount}개를 PNG로 무손실 변환하고, 내부 매니페스트(content.hpf)의 형식 정보도 함께 갱신했습니다.`);
+    if (convertFailCount > 0) notes.push(`${convertFailCount}개(원본 ${fmt(convertFailBefore)})는 브라우저가 디코딩하지 못해 원본 그대로 두었습니다(매니페스트도 변경하지 않음).`);
+    if (otherBinCount > 0) notes.push(`그 외 첨부 데이터(폰트·OLE 객체 등) ${otherBinCount}개(원본 ${fmt(otherBinBefore)})는 포맷을 바꾸지 않고 무손실 압축(레벨 9)만 적용했습니다.`);
+    document.getElementById('sumBefore').textContent = fmt(origTotal);
+    document.getElementById('sumAfter').textContent = fmt(newTotal);
+    document.getElementById('sumPct').textContent = totalPct + '%';
+    document.getElementById('sumCount').textContent = rows.length + '개';
+    summary.innerHTML = notes.map(n => `<div class="u-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg><div>${n}</div></div>`).join('');
+    document.getElementById('dlName').textContent = selectedFile.name.replace(/\.hwpx$/i, '') + '_압축.hwpx';
+    document.getElementById('dlSize').textContent = fmt(newTotal) + ' · 원본 대비 ' + totalPct + '% 감소';
+
+    resultBox.style.display = 'block';
+    status.innerHTML = '<div class="u-note ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><div>압축이 끝났습니다. 아래에서 결과를 확인하고 내려받으세요.</div></div>';
+  } catch (e) {
+    status.innerHTML = '<div class="u-note err">오류: ' + e.message + '</div>';
+    console.error(e);
+  } finally {
+    runBtn.disabled = false;
+  }
+};
+
+downloadBtn.onclick = () => {
+  if (!outputBlob || !selectedFile) return;
+  const a = document.createElement('a');
+  const baseName = selectedFile.name.replace(/\.hwpx$/i, '');
+  a.href = URL.createObjectURL(outputBlob);
+  a.download = baseName + '_압축.hwpx';
+  a.click();
+};
+
+</script>
+<!--SUITE:BRIDGE-->
+</body>
+</html>

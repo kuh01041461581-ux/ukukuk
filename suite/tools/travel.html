@@ -9,364 +9,131 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
-:root{--card:var(--surface);--ok:var(--success);--ok-tint:var(--success-tint);--warn:var(--danger);--warn-tint:var(--danger-tint);--amber:var(--warning);--amber-tint:var(--warning-tint);}
-*{box-sizing:border-box;}
-body{
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
-  line-height:1.55;
-  padding:0 0 80px;
-  -webkit-font-smoothing:antialiased;
-}
-.wrap{
-  max-width:900px;margin:0 auto;padding:24px 28px 0;
-}
-
-/* ---------- Header ---------- */
-header.top{
-  /* 이 도구가 셸(AppShell)의 탭 안에 들어갈 때는 탑바에 이미 같은 제목이 떠 있으므로,
-     중복되는 자체 헤더 카드는 숨겨서 급식비 탭과 톤을 맞추고 세로 길이를 줄인다.
-     (JS/기능에는 영향 없음 — 표시 여부만 CSS로 제어) */
-  display:none;
-}
-.top-inner{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;}
-.title-block .eyebrow{display:none;}
-h1{
-  font-weight:700;
-  font-size:18px;
-  margin:0 0 6px;
-  letter-spacing:-0.01em;
-  color:var(--text);
-}
-.title-block p{margin:0;color:var(--text-2);font-size:13.5px;line-height:1.65;max-width:640px;}
-.seal{
-  width:40px;height:40px;border-radius:11px;
-  display:flex;align-items:center;justify-content:center;
-  color:var(--primary);
-  background:var(--primary-tint);
-  flex-shrink:0;
-}
-.seal svg{width:20px;height:20px;}
-.seal b,.seal span{display:none;}
-
-/* ---------- Sections ---------- */
-section{margin-top:32px;}
-.section-head{display:flex;align-items:center;gap:11px;margin-bottom:14px;}
-.step-no{
-  width:24px;height:24px;border-radius:7px;flex-shrink:0;
-  font-family:'Noto Sans KR',sans-serif;
-  font-size:12px;color:var(--primary);background:var(--primary-tint);
-  display:flex;align-items:center;justify-content:center;
-  font-weight:700;font-variant-numeric:tabular-nums;
-}
-.section-head h2{font-size:18px;font-weight:700;margin:0;color:var(--text);}
-.section-sub{color:var(--text-2);font-size:13px;margin:0 0 14px;}
-
-.card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:var(--radius-card);
-  box-shadow:var(--shadow-card);
-  padding:24px;
-}
-
-/* ---------- Upload ---------- */
-.dropzone{
-  border:1.5px dashed var(--border);
-  border-radius:var(--radius-input);
-  padding:32px 24px;
-  text-align:center;
-  cursor:pointer;
-  transition:all .15s ease;
-  background:var(--hover);
-}
-.dropzone.drag{border-color:var(--primary);background:var(--primary-tint);}
-.dropzone:hover{border-color:var(--primary);}
-.dropzone b{display:block;font-size:14.5px;color:var(--text);margin-bottom:4px;font-weight:600;}
-.dropzone span{font-size:12.5px;color:var(--text-3);}
-input[type=file]{display:none;}
-.file-chip{
-  display:inline-flex;align-items:center;gap:8px;
-  background:var(--primary-tint);border:1px solid var(--primary-tint-strong);border-radius:20px;
-  padding:6px 14px;font-size:13px;color:var(--primary);margin-top:12px;font-weight:500;
-}
-.file-chip button{
-  border:none;background:none;color:var(--warn);cursor:pointer;font-size:13px;font-weight:600;
-}
-
-/* ---------- Rules panel ---------- */
-details.rules{margin-top:18px;border-top:1px solid var(--border);padding-top:14px;}
-summary{cursor:pointer;font-size:13.5px;color:var(--text);font-weight:600;}
-summary::marker{color:var(--primary);}
-.rules-grid{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
-  gap:14px;margin-top:14px;
-}
-.rule-field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:5px;font-weight:500;}
-.rule-field input{
-  width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-input);
-  font-family:'Noto Sans KR',sans-serif;font-size:13px;background:var(--card);
-  transition:border-color .15s ease, box-shadow .15s ease;
-}
-.rule-field input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
-.rules-note{
-  margin-top:14px;font-size:12px;color:var(--text-2);background:var(--hover);
-  border:1px solid var(--border);border-radius:var(--radius-input);padding:12px 14px;line-height:1.7;
-}
-
-/* ---------- Optional items (compact, de-emphasized) ---------- */
-.opt-group{margin-top:18px;}
-.opt-group-label{
-  font-size:11px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;
-  margin:0 0 8px 2px;font-weight:700;
-}
-details.opt{
-  border:1px solid var(--border);border-radius:var(--radius-input);background:var(--hover);
-  padding:9px 14px;margin-top:7px;transition:background .15s ease;
-}
-details.opt[open]{background:var(--card);}
-details.opt summary{
-  font-size:12.5px;color:var(--text-2);font-weight:600;list-style:none;cursor:pointer;
-  display:flex;align-items:center;gap:8px;
-}
-details.opt summary::-webkit-details-marker{display:none;}
-details.opt summary::before{
-  content:'\25B8';color:var(--primary);font-size:10px;display:inline-block;
-  transition:transform .15s ease;width:9px;
-}
-details.opt[open] summary::before{transform:rotate(90deg);}
-details.opt .opt-badge{
-  font-size:10px;color:var(--text-3);background:var(--card);border:1px solid var(--border);border-radius:8px;
-  padding:1px 7px;font-weight:600;margin-left:auto;letter-spacing:.02em;
-}
-details.opt .opt-desc{font-size:11.5px;color:var(--text-3);margin:9px 0 10px;line-height:1.6;}
-details.opt .opt-dropzone{
-  border:1.5px dashed var(--border);border-radius:var(--radius-input);padding:13px 12px;
-  text-align:center;cursor:pointer;background:var(--card);transition:all .15s ease;
-}
-details.opt[open]{padding-bottom:12px;}
-details.opt .opt-dropzone:hover,details.opt .opt-dropzone.drag{border-color:var(--primary);background:var(--primary-tint);}
-details.opt .opt-dropzone b{display:block;font-size:12px;color:var(--text);margin-bottom:2px;font-weight:600;}
-details.opt .opt-dropzone span{font-size:10.5px;color:var(--text-3);}
-details.opt .file-chip{margin-top:10px;padding:5px 12px;font-size:12px;}
-
-/* ---------- Stat cards ---------- */
-.stats{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;margin-top:18px;}
-@media (max-width:1280px){.stats{grid-template-columns:repeat(2,1fr);}}
-.stat{
-  background:var(--hover);border:1px solid var(--border);border-radius:var(--radius-input);
-  padding:14px 16px;
-}
-.stat .num{font-size:20px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
-.stat .lbl{font-size:12px;color:var(--text-3);margin-top:2px;}
-.stat.warn .num{color:var(--warn);}
-.stat.ok .num{color:var(--ok);}
-
-/* ---------- Employee table ---------- */
-.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
-.toolbar .left{display:flex;align-items:center;gap:10px;}
-.toolbar input[type=search]{
-  padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-input);font-size:13px;width:220px;
-  background:var(--card);transition:border-color .15s ease, box-shadow .15s ease;
-}
-.toolbar input[type=search]:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
-.btn{
-  font-family:'Noto Sans KR',sans-serif;
-  border:1px solid var(--primary);background:var(--primary);color:#fff;
-  height:40px;padding:0 16px;border-radius:var(--radius-btn);font-size:13.5px;font-weight:600;cursor:pointer;
-  transition:background .15s ease, border-color .15s ease, opacity .15s ease;
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-}
-.btn:hover{background:#1d4ed8;border-color:#1d4ed8;}
-.btn.ghost{background:var(--card);color:var(--text);border-color:var(--border);}
-.btn.ghost:hover{background:var(--hover);border-color:var(--text-3);}
-.btn.gold{background:var(--primary);border-color:var(--primary);}
-.btn.gold:hover{background:#1d4ed8;border-color:#1d4ed8;}
-.btn:disabled{opacity:.45;cursor:not-allowed;}
-
-table.datagrid{width:100%;border-collapse:collapse;font-size:13px;}
-table.datagrid th{
-  background:var(--hover);color:var(--text-2);text-align:left;
-  padding:10px 10px;font-weight:600;font-size:12px;letter-spacing:.01em;
-  position:sticky;top:0;border-bottom:1px solid var(--border);
-}
-table.datagrid td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
-table.datagrid tbody tr:hover{background:var(--hover);}
+/* 관내여비 — 공통 부품(u-*)으로 짠 화면. 이 도구에서만 필요한 것만 둔다. */
+.hidden{display:none !important;}
+.u-toolbar input[type=search]{height:36px;width:220px;padding:0 12px;}
+.u-toolbar .left{display:flex;align-items:center;gap:12px;}
+table.datagrid td input[type=text]{width:100%;min-width:64px;height:32px;padding:0 8px;font-size:12.5px;}
+table.datagrid td.name-cell{min-width:64px;white-space:normal;word-break:keep-all;}
 table.datagrid tbody tr.excluded{opacity:.4;}
-table.datagrid input[type=text]{
-  width:100%;min-width:64px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;
-  font-family:'Noto Sans KR',sans-serif;background:var(--card);box-sizing:border-box;
-  transition:border-color .15s ease, box-shadow .15s ease;
-}
-table.datagrid input[type=text]:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
-table.datagrid td.name-cell{
-  min-width:64px;white-space:normal;word-break:keep-all;overflow-wrap:break-word;
-}
 .num-cell{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
-.table-scroll{max-height:520px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-input);}
-.badge{
-  display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;
-  background:var(--primary-tint);color:var(--primary);font-weight:600;
-}
-.badge.zero{background:var(--warn-tint);color:var(--warn);}
-.badge.cap{background:var(--amber-tint);color:var(--amber);}
-
-/* ---------- Preview (ledger look) ---------- */
-.ledger-meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
-.ledger-meta .field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:5px;font-weight:500;}
-.ledger-meta .field input{
-  width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-input);font-size:13px;
-  background:var(--card);transition:border-color .15s ease, box-shadow .15s ease;
-}
-.ledger-meta .field input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
-.ledger{
-  border:1px solid var(--border);border-radius:var(--radius-input);overflow:hidden;
-}
+.badge{white-space:nowrap;display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--primary-tint);color:var(--primary);}
+.badge.zero{background:var(--danger-tint);color:var(--danger);}
+.badge.cap{background:var(--warning-tint);color:var(--warning);}
+.ledger-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px;}
+.ledger-meta .field{display:flex;flex-direction:column;gap:6px;}
+.ledger-meta .field label{font-size:12.5px;font-weight:600;}
+.ledger-meta .field input{height:38px;padding:0 12px;}
+.ledger{border:1px solid var(--border);border-radius:var(--radius-input);overflow:hidden;background:var(--surface);}
 .ledger-table-scroll{overflow-x:auto;}
 .ledger-table-scroll table.ledger-table{min-width:760px;}
-.ledger-title{
-  text-align:center;font-weight:700;font-size:19px;
-  padding:18px 10px 6px;color:var(--text);
-}
-.ledger-sub{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:6px 22px 18px;font-size:13.5px;color:var(--text);
-}
-.ledger-sub .approver{font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--text-2);text-align:right;}
+.ledger-title{text-align:center;font-weight:700;font-size:19px;padding:18px 10px 6px;color:var(--text);}
+.ledger-sub{display:flex;justify-content:space-between;align-items:center;padding:6px 22px 18px;font-size:13.5px;color:var(--text);}
+.ledger-sub .approver{font-size:12.5px;color:var(--text-2);text-align:right;}
 .ledger-sub .approver b{color:var(--text);}
 table.ledger-table{width:100%;border-collapse:collapse;font-size:12.5px;}
-table.ledger-table th{
-  background:var(--hover);border:1px solid var(--border);padding:9px 6px;font-weight:700;color:var(--text-2);
-}
+table.ledger-table th{background:var(--surface-2);border:1px solid var(--border);padding:9px 6px;font-weight:700;color:var(--text-2);}
 table.ledger-table td{border:1px solid var(--border);padding:8px 6px;text-align:center;word-break:keep-all;overflow-wrap:break-word;}
 table.ledger-table td.name{font-weight:600;white-space:normal;}
 table.ledger-table td.amt{text-align:right;padding-right:12px;font-variant-numeric:tabular-nums;}
 table.ledger-table tr.total-row td{background:var(--primary-tint);font-weight:700;color:var(--primary);}
 table.ledger-table td.purpose,table.ledger-table td.days{text-align:left;font-size:11.5px;color:var(--text-2);}
-
-.empty-state{
-  text-align:center;color:var(--text-3);padding:50px 10px;font-size:13.5px;
-}
-.hidden{display:none !important;}
-
-footer.note{
-  max-width:1480px;margin:44px auto 0;padding:0 28px 40px;color:var(--text-3);font-size:12px;
-}
-footer.note ul{margin:6px 0 0;padding-left:18px;}
-
+#previewFootnote{font-size:12.5px;color:var(--text-3);}
+.u-notes{margin:0;padding-left:18px;line-height:1.85;}
 </style>
 <meta name="tool-id" content="travel">
 <!--SUITE:THEME-->
 </head>
-<body>
+<body class="tool">
+<div class="u-stack">
 
-<header class="top">
-  <div class="wrap top-inner">
-    <div class="title-block">
-      <div class="eyebrow">국내(관내) 여비 · 자동 산정</div>
-      <h1>관내여비 지급명세서 생성기</h1>
-      <p>출장 원본 집계표(엑셀)를 올리면 인원별 산정 규칙에 따라 지급액을 자동 계산하고, 지급명세서 양식으로 바로 내려받을 수 있습니다.</p>
+  <section class="u-card" id="step1">
+    <div class="u-card-h"><span class="u-no">1</span><div>
+      <h2 class="u-card-t">출장 원본 파일 올리기</h2>
+      <p class="u-card-d">"출장 월별집계" 형태의 원본 엑셀(예: 7월_출장_여비.xlsx)을 올려 주세요. 사람별 출장 기록이 자동으로 인식됩니다.</p>
+    </div></div>
+    <div class="u-drop" id="dropzone">
+      <div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div>
+      <div class="u-drop-t">여기에 파일을 놓거나 클릭해서 선택하세요</div>
+      <div class="u-drop-s">.xlsx / .xls 파일 · 이 PC 안에서만 처리되며 서버로 전송되지 않습니다</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
     </div>
-    <div class="seal"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></div>
-  </div>
-</header>
+    <div id="fileChipWrap"></div>
 
-<div class="wrap">
-
-  <!-- STEP 1: 업로드 -->
-  <section>
-    <div class="section-head"><span class="step-no">1</span><h2>출장 원본 파일 업로드</h2></div>
-    <p class="section-sub">"출장 월별집계" 형태의 원본 엑셀(예: 7월_출장_여비.xlsx)을 올려주세요. 사람별 출장기록이 자동으로 인식됩니다.</p>
-    <div class="card">
-      <div class="dropzone" id="dropzone">
-        <b>여기에 파일을 놓거나 클릭해서 선택하세요</b>
-        <span>.xlsx 파일 · 클라이언트(브라우저) 내에서만 처리되며 서버로 전송되지 않습니다</span>
-        <input type="file" id="fileInput" accept=".xlsx,.xls">
-      </div>
-      <div id="fileChipWrap"></div>
-
-      <details class="rules">
-        <summary>지급 산정 규칙 설정 (기본값: 요청하신 기준)</summary>
-        <div class="rules-grid">
-          <div class="rule-field"><label>1인 월 최대 지급액 (원, 300,000원 초과 불가)</label><input type="number" id="ruleMonthlyCap" value="140000" step="10000" max="300000" min="0"></div>
-          <div class="rule-field"><label>1일 최대 지급액 (원)</label><input type="number" id="ruleDailyCap" value="20000" step="10000"></div>
-          <div class="rule-field"><label>단일(통) 출장 인정 최소시간 (시간)</label><input type="number" id="ruleFullHours" value="4" step="0.5"></div>
-          <div class="rule-field"><label>분할 출장 1건당 인정 최소시간 (시간)</label><input type="number" id="ruleSplitHours" value="1" step="0.5"></div>
-          <div class="rule-field"><label>차량 운행일 1일 감액액 (원)</label><input type="number" id="ruleVehicleDeduction" value="10000" step="1000"></div>
-          <div class="rule-field"><label>관외(타지역) 판정 키워드 (쉼표로 구분)</label><input type="text" id="ruleOutsideKeywords" value="관외"></div>
+    <details class="u-acc">
+      <summary>지급 산정 규칙 설정 <span class="u-tag">기본값 적용 중</span></summary>
+      <div class="u-acc-b">
+        <div class="u-form">
+          <div class="u-field"><label>1인 월 최대 지급액 (원, 300,000원 초과 불가)</label><input type="number" id="ruleMonthlyCap" value="140000" step="10000" max="300000" min="0"></div>
+          <div class="u-field"><label>1일 최대 지급액 (원)</label><input type="number" id="ruleDailyCap" value="20000" step="10000"></div>
+          <div class="u-field"><label>단일(통) 출장 인정 최소시간 (시간)</label><input type="number" id="ruleFullHours" value="4" step="0.5"></div>
+          <div class="u-field"><label>분할 출장 1건당 인정 최소시간 (시간)</label><input type="number" id="ruleSplitHours" value="1" step="0.5"></div>
+          <div class="u-field"><label>차량 운행일 1일 감액액 (원)</label><input type="number" id="ruleVehicleDeduction" value="10000" step="1000"></div>
+          <div class="u-field"><label>관외(타지역) 판정 키워드 (쉼표로 구분)</label><input type="text" id="ruleOutsideKeywords" value="관외"></div>
         </div>
-        <div class="rules-note">
-          계산 로직 &nbsp;·&nbsp;
-          같은 날 출장기록이 <b>1건</b>이고 시간이 단일인정기준(기본 4시간) 이상이면 → 1일 최대액(기본 2만원) 전액. 분할인정기준(기본 1시간) 이상이면 → 1일 최대액의 절반(기본 1만원). 그 미만이면 → 0원.
+        <div class="u-note info" style="margin-top:14px"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg><div><b>계산 로직</b> · 같은 날 출장기록이 <b>1건</b>이고 시간이 단일인정기준(기본 4시간) 이상이면 → 1일 최대액(기본 2만원) 전액. 분할인정기준(기본 1시간) 이상이면 → 1일 최대액의 절반(기본 1만원). 그 미만이면 → 0원.
           같은 날 출장기록이 <b>2건 이상</b>이면: 각 건별로 시간이 분할인정기준(기본 1시간) 이상인 건만 건당 1일 최대액의 절반(기본 1만원)씩 지급하며, 합산액은 1일 최대액(기본 2만원)을 넘지 않도록 상한을 둡니다.
           <b>차량 감액</b>: 출장기록의 "공무용차량 사용" 표시 여부와 무관하게, <b>차량배차 현황 파일에 실제 배차(운행) 기록이 있는 날짜만</b> 해당 일자 산정액에서 차량 감액액(기본 1만원)을 차감합니다. 단, <b>차량배차 현황의 목적지가 관외(타지역)로 표시된 건은 감액하지 않습니다</b> — 관내 출장에 한해서만 차량 사용이 여비에 영향을 줍니다. 목적지 정보가 없거나 위 키워드에 해당하지 않으면 관내로 간주해 감액합니다. 배차 파일을 올리지 않으면 이 감액은 적용되지 않습니다.
-          <b>월 한도 적용</b>: 날짜 오름차순으로 채우다 중간에 끊지 않고, 금액이 큰 날부터 우선 채운 뒤 남는 한도를 반액짜리 날로 메워 월 최대 지급액을 최대한 꽉 채웁니다.
+          <b>월 한도 적용</b>: 날짜 오름차순으로 채우다 중간에 끊지 않고, 금액이 큰 날부터 우선 채운 뒤 남는 한도를 반액짜리 날로 메워 월 최대 지급액을 최대한 꽉 채웁니다.</div></div>
+      </div>
+    </details>
+
+    <div class="u-sub" style="margin-top:22px">선택 항목 <span class="u-faint" style="font-weight:400">· 올리면 결과가 더 정확해집니다</span></div>
+    
+      <details class="u-acc" id="orderDetails">
+        <summary>지급대상자 목록<span class="u-tag">선택</span></summary>
+        <div class="u-acc-b">
+          <p style="margin:0 0 12px">성명·은행명·계좌번호가 있는 지급대상자 목록 엑셀(연번 순서 포함)을 올리면 그 순서대로 정렬되고, 목록에 있는 사람만 자동 선택되며 은행명·계좌번호도 채워집니다. 올리지 않으면 원본 집계표에 처음 등장하는 순서를 사용합니다.</p>
+          <div class="u-drop sm" id="orderDropzone">
+            <div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div>
+            <div><div class="u-drop-t">여기에 놓거나 클릭해서 선택</div><div class="u-drop-s">.xlsx/.xls · 연번/성명/은행명/계좌번호 열이 있는 형식</div></div>
+            <input type="file" id="orderFileInput" accept=".xlsx,.xls">
+          </div>
+          <div id="orderFileChipWrap"></div>
         </div>
       </details>
-    </div>
-
-    <div class="opt-group">
-      <div class="opt-group-label">선택 항목</div>
-
-      <details class="opt" id="orderDetails">
-        <summary>지급대상자 목록<span class="opt-badge">선택</span></summary>
-        <p class="opt-desc">성명·은행명·계좌번호가 있는 지급대상자 목록 엑셀(연번 순서 포함)을 올리면 그 순서대로 정렬되고, 목록에 있는 사람만 자동 선택되며 은행명·계좌번호도 채워집니다. 올리지 않으면 원본 집계표에 처음 등장하는 순서를 사용합니다.</p>
-        <div class="opt-dropzone" id="orderDropzone">
-          <b>여기에 놓거나 클릭해서 선택</b>
-          <span>.xlsx/.xls · 연번/성명/은행명/계좌번호 열이 있는 형식</span>
-          <input type="file" id="orderFileInput" accept=".xlsx,.xls">
+      <details class="u-acc" id="vehicleDetails">
+        <summary>차량배차 현황<span class="u-tag">선택</span></summary>
+        <div class="u-acc-b">
+          <p style="margin:0 0 12px">공무용차량 배차대장을 올리면, 실제로 배차·운행된 날짜 중 <b>목적지가 관내인 건</b>에 한해 해당 일자 여비에서 차량 감액액을 자동으로 차감합니다(관외 출장은 영향 없음). .csv(CP949/EUC-KR)와 .xlsx/.xls를 모두 지원합니다.</p>
+          <div class="u-drop sm" id="vehicleDropzone">
+            <div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div>
+            <div><div class="u-drop-t">여기에 놓거나 클릭해서 선택</div><div class="u-drop-s">.csv/.xlsx/.xls · 배차대장(사용일시/사용자/목적지 등)</div></div>
+            <input type="file" id="vehicleFileInput" accept=".csv,.xlsx,.xls">
+          </div>
+          <div id="vehicleFileChipWrap"></div>
         </div>
-        <div id="orderFileChipWrap"></div>
       </details>
-
-      <details class="opt" id="vehicleDetails">
-        <summary>차량배차 현황<span class="opt-badge">선택</span></summary>
-        <p class="opt-desc">공무용차량 배차대장을 올리면, 실제로 배차·운행된 날짜 중 <b>목적지가 관내인 건</b>에 한해 해당 일자 여비에서 차량 감액액을 자동으로 차감합니다(관외 출장은 영향 없음). .csv(CP949/EUC-KR)와 .xlsx/.xls를 모두 지원합니다.</p>
-        <div class="opt-dropzone" id="vehicleDropzone">
-          <b>여기에 놓거나 클릭해서 선택</b>
-          <span>.csv/.xlsx/.xls · 배차대장(사용일시/사용자/목적지 등)</span>
-          <input type="file" id="vehicleFileInput" accept=".csv,.xlsx,.xls">
+      <details class="u-acc" id="ehojoDetails">
+        <summary>e호조 지출폼 원본 양식<span class="u-tag">선택</span></summary>
+        <div class="u-acc-b">
+          <p style="margin:0 0 12px">기존에 쓰시던 e호조 관내여비 지출폼 원본을 올리면, 다른 시트(은행 코드표 등)와 데이터 유효성 검사(드롭다운)는 그대로 두고 "거래처입력" 시트 값만 채워서 내려받습니다. 올리지 않으면 서식을 새로 만들어 내려받습니다.</p>
+          <div class="u-drop sm" id="ehojoDropzone">
+            <div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div>
+            <div><div class="u-drop-t">여기에 놓거나 클릭해서 선택</div><div class="u-drop-s">.xlsx · e호조 관내여비 지출폼 원본</div></div>
+            <input type="file" id="ehojoFileInput" accept=".xlsx">
+          </div>
+          <div id="ehojoFileChipWrap"></div>
         </div>
-        <div id="vehicleFileChipWrap"></div>
       </details>
-
-      <details class="opt" id="ehojoDetails">
-        <summary>e호조 지출폼 원본 양식<span class="opt-badge">선택</span></summary>
-        <p class="opt-desc">기존에 쓰시던 e호조 관내여비 지출폼 원본을 올리면, 다른 시트(은행 코드표 등)와 데이터 유효성 검사(드롭다운)는 그대로 두고 "거래처입력" 시트 값만 채워서 내려받습니다. 올리지 않으면 서식을 새로 만들어 내려받습니다.</p>
-        <div class="opt-dropzone" id="ehojoDropzone">
-          <b>여기에 놓거나 클릭해서 선택</b>
-          <span>.xlsx · e호조 관내여비 지출폼 원본</span>
-          <input type="file" id="ehojoFileInput" accept=".xlsx">
-        </div>
-        <div id="ehojoFileChipWrap"></div>
-      </details>
-    </div>
   </section>
 
-  <!-- STEP 2: 대상자 -->
-  <section id="step2" class="hidden">
-    <div class="section-head"><span class="step-no">2</span><h2>대상자 선택 및 확인</h2></div>
-    <p class="section-sub">인식된 인원 목록입니다. 지급명세서에 포함할 사람만 체크하고, 필요한 항목(은행/계좌/출장목적)을 직접 채워주세요.</p>
-    <div class="card">
-      <div class="stats" id="statsRow"></div>
-
-      <div class="toolbar" style="margin-top:20px;">
-        <div class="left">
-          <label style="font-size:13px;display:flex;align-items:center;gap:6px;">
-            <input type="checkbox" id="toggleAll" checked> 전체 선택
-          </label>
-          <input type="search" id="searchBox" placeholder="이름으로 검색">
-        </div>
-        <div>
-          <button class="btn ghost" id="btnRecalc">다시 계산</button>
-        </div>
+  <section id="step2" class="u-card hidden">
+    <div class="u-card-h"><span class="u-no">2</span><div>
+      <h2 class="u-card-t">대상자 선택 · 확인</h2>
+      <p class="u-card-d">인식된 인원 목록입니다. 지급명세서에 넣을 사람만 체크하고, 필요한 항목(은행·계좌·출장목적)을 직접 채워 주세요.</p>
+    </div></div>
+    <div class="u-stats" id="statsRow"></div>
+    <div class="u-toolbar">
+      <div class="left">
+        <label class="u-check" style="align-items:center"><input type="checkbox" id="toggleAll" checked style="margin-top:0"> 전체 선택</label>
+        <input type="search" id="searchBox" placeholder="이름으로 검색">
       </div>
-
-      <div class="table-scroll">
-        <table class="datagrid">
-          <thead>
+      <button class="btn ghost sm grow" id="btnRecalc">다시 계산</button>
+    </div>
+    <div class="u-table-wrap table-scroll">
+      <table class="u-table datagrid">
+        <thead>
             <tr>
               <th style="width:34px;"></th>
               <th style="width:34px;">No</th>
@@ -381,31 +148,29 @@ footer.note ul{margin:6px 0 0;padding-left:18px;}
               <th>출장목적</th>
             </tr>
           </thead>
-          <tbody id="empTableBody"></tbody>
-        </table>
-      </div>
+        <tbody id="empTableBody"></tbody>
+      </table>
     </div>
   </section>
 
-  <!-- STEP 3: 미리보기/출력 -->
-  <section id="step3" class="hidden">
-    <div class="section-head"><span class="step-no">3</span><h2>지급명세서 미리보기 &amp; 출력</h2></div>
-    <p class="section-sub">아래 표가 실제 다운로드될 지급명세서 내용입니다. 상단 정보를 입력한 뒤 엑셀로 내려받으세요.</p>
-    <div class="card">
-      <div class="ledger-meta">
-        <div class="field"><label>문서 제목 (연/월)</label><input type="text" id="metaTitleYM" value="2026년 7월"></div>
-        <div class="field"><label>부서명</label><input type="text" id="metaDept" value="문화유산과"></div>
-        <div class="field"><label>대조자 직급</label><input type="text" id="metaApproverRank" value=""></div>
-        <div class="field"><label>대조자 성명</label><input type="text" id="metaApproverName" value=""></div>
+  <section id="step3" class="u-card hidden">
+    <div class="u-card-h"><span class="u-no">3</span><div>
+      <h2 class="u-card-t">지급명세서 미리보기 · 내려받기</h2>
+      <p class="u-card-d">아래 표가 실제로 내려받아질 지급명세서 내용입니다. 상단 정보를 입력한 뒤 엑셀로 내려받으세요.</p>
+    </div></div>
+    <div class="ledger-meta">
+      <div class="field"><label for="metaTitleYM">문서 제목 (연/월)</label><input type="text" id="metaTitleYM" value="2026년 7월"></div>
+      <div class="field"><label for="metaDept">부서명</label><input type="text" id="metaDept" value="문화유산과"></div>
+      <div class="field"><label for="metaApproverRank">대조자 직급</label><input type="text" id="metaApproverRank" value=""></div>
+      <div class="field"><label for="metaApproverName">대조자 성명</label><input type="text" id="metaApproverName" value=""></div>
+    </div>
+    <div class="ledger">
+      <div class="ledger-title" id="ledgerTitle">2026년 7월 국내여비 지급 명세서</div>
+      <div class="ledger-sub">
+        <span>지 출 명 세 서</span>
+        <span class="approver">출장명령부 대조자 &nbsp;·&nbsp; 직급: <b id="apRankOut">-</b> &nbsp;·&nbsp; 성명: <b id="apNameOut">-</b> &nbsp;(인)</span>
       </div>
-
-      <div class="ledger">
-        <div class="ledger-title" id="ledgerTitle">2026년 7월 국내여비 지급 명세서</div>
-        <div class="ledger-sub">
-          <span>지 출 명 세 서</span>
-          <span class="approver">출장명령부 대조자 &nbsp;·&nbsp; 직급: <b id="apRankOut">-</b> &nbsp;·&nbsp; 성명: <b id="apNameOut">-</b> &nbsp;(인)</span>
-        </div>
-        <div class="ledger-table-scroll">
+      <div class="ledger-table-scroll">
         <table class="ledger-table">
           <thead>
             <tr>
@@ -420,26 +185,20 @@ footer.note ul{margin:6px 0 0;padding-left:18px;}
           </thead>
           <tbody id="ledgerBody"></tbody>
         </table>
-        </div>
       </div>
-
-      <div class="toolbar" style="margin-top:18px;">
-        <div class="left" style="font-size:12.5px;color:#758392;" id="previewFootnote"></div>
-        <div style="display:flex;gap:10px;">
-          <button class="btn ghost" id="btnDownloadEhojo">e호조 관내여비 지출폼(.xlsx) 다운로드</button>
-          <button class="btn gold" id="btnDownload">지급명세서(총괄 서식) 엑셀(.xlsx)로 다운로드</button>
-        </div>
-      </div>
+    </div>
+    <div class="u-actions">
+      <span class="grow" id="previewFootnote"></span>
+      <button class="btn ghost" id="btnDownloadEhojo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg> e호조 지출폼(.xlsx)</button>
+      <button class="btn" id="btnDownload"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg> 지급명세서(총괄 서식) 엑셀</button>
     </div>
   </section>
 
-  <div id="emptyState" class="empty-state">파일을 업로드하면 여기에 결과가 표시됩니다.</div>
+  <div id="emptyState" class="u-empty">파일을 올리면 여기에 결과가 나타납니다.</div>
 
-</div>
-
-<footer class="note">
-  <b>참고 사항</b>
-  <ul>
+  <section class="u-card" style="padding:18px 24px">
+    <h2 class="u-card-t" style="font-size:13.5px;margin-bottom:8px">참고 사항</h2>
+    <ul class="u-notes u-muted" style="font-size:12.5px">
     <li>이 프로그램은 브라우저(클라이언트)에서만 동작하며, 업로드한 파일은 외부 서버로 전송되지 않습니다.</li>
     <li>은행명/계좌번호/출장목적은 원본 파일에 없는 경우가 많아 자동 채움 값(추정)이며, 다운로드 전 반드시 직접 확인·수정해 주세요.</li>
     <li>월 한도는 날짜 오름차순으로 채우다 중간에 끊지 않고, 금액이 큰 날부터 우선 채운 뒤 남는 한도를 반액짜리 날로 메워 월 최대 지급액을 최대한 꽉 채우는 방식으로 계산합니다. 실제 규정과 다르면 위 "지급 산정 규칙 설정"에서 값을 바꿔 다시 계산할 수 있습니다.</li>
@@ -449,7 +208,8 @@ footer.note ul{margin:6px 0 0;padding-left:18px;}
     <li>지급명세서의 "출장기간(일)" 칸에는 <b>금액이 반영되지 않은 날짜를 포함해</b> 원본 자료에 등장하는 모든 출장 일자가 표시됩니다. 실제 지급액 산정에 반영된 일수는 STEP 2 표의 "지급일수"에서 별도로 확인할 수 있습니다.</li>
     <li>e호조 관내여비 지출폼 원본 양식을 올리면, 그 파일의 다른 시트(예: 3번째 시트 은행 코드표)와 데이터 유효성 검사(드롭다운 등)를 그대로 유지한 채 "거래처입력" 시트 값만 채워서 내려받습니다.</li>
   </ul>
-</footer>
+  </section>
+</div>
 
 <script>
 (function(){
@@ -539,7 +299,7 @@ footer.note ul{margin:6px 0 0;padding-left:18px;}
 
   function handleEhojoTemplateFile(file){
     $('ehojoFileChipWrap').innerHTML =
-      '<div class="file-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> '+escapeHtml(file.name)+' &nbsp;<button id="clearEhojoFileBtn">제거</button></div>';
+      '<div class="u-file"><div class="u-file-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg></div><div class="u-file-n">'+escapeHtml(file.name)+'</div><button class="u-x" id="clearEhojoFileBtn"><svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M6 6l12 12M18 6 6 18"/></svg> 제거</button></div>';
     $('clearEhojoFileBtn').onclick = ()=>{
       ehojoTemplateBuffer = null;
       $('ehojoFileChipWrap').innerHTML = '';
@@ -558,7 +318,7 @@ footer.note ul{margin:6px 0 0;padding-left:18px;}
 
   function handleOrderFile(file){
     $('orderFileChipWrap').innerHTML =
-      '<div class="file-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> '+escapeHtml(file.name)+' &nbsp;<button id="clearOrderFileBtn">제거</button></div>';
+      '<div class="u-file"><div class="u-file-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg></div><div class="u-file-n">'+escapeHtml(file.name)+'</div><button class="u-x" id="clearOrderFileBtn"><svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M6 6l12 12M18 6 6 18"/></svg> 제거</button></div>';
     $('clearOrderFileBtn').onclick = ()=>{
       orderList = null;
       refBankMap = {};
@@ -635,7 +395,7 @@ footer.note ul{margin:6px 0 0;padding-left:18px;}
 
   function handleVehicleFile(file){
     $('vehicleFileChipWrap').innerHTML =
-      '<div class="file-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> '+escapeHtml(file.name)+' &nbsp;<button id="clearVehicleFileBtn">제거</button></div>';
+      '<div class="u-file"><div class="u-file-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg></div><div class="u-file-n">'+escapeHtml(file.name)+'</div><button class="u-x" id="clearVehicleFileBtn"><svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M6 6l12 12M18 6 6 18"/></svg> 제거</button></div>';
     $('clearVehicleFileBtn').onclick = ()=>{
       vehicleUsageMap = new Map();
       vehicleFileLoaded = false;
@@ -855,7 +615,7 @@ footer.note ul{margin:6px 0 0;padding-left:18px;}
 
   function handleFile(file){
     $('fileChipWrap').innerHTML =
-      '<div class="file-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> '+escapeHtml(file.name)+' &nbsp;<button id="clearFileBtn">제거</button></div>';
+      '<div class="u-file"><div class="u-file-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg></div><div class="u-file-n">'+escapeHtml(file.name)+'</div><button class="u-x" id="clearFileBtn"><svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M6 6l12 12M18 6 6 18"/></svg> 제거</button></div>';
     $('clearFileBtn').onclick = ()=>{ location.reload(); };
 
     const reader = new FileReader();
@@ -1087,13 +847,13 @@ footer.note ul{margin:6px 0 0;padding-left:18px;}
     const cappedCount = selectedIds.filter(id=>results[id].capped).length;
     const vehicleDeductionTotal = selectedIds.reduce((s,id)=>s+(results[id].vehicleDeductionTotal||0),0);
     const vehicleStatHtml = vehicleFileLoaded
-      ? `<div class="stat"><div class="num">${vehicleDeductionTotal.toLocaleString()}원</div><div class="lbl">차량 운행 감액 총액</div></div>`
+      ? `<div class="u-stat"><div class="u-stat-l">차량 운행 감액 총액</div><div class="u-stat-v">${vehicleDeductionTotal.toLocaleString()}원</div></div>`
       : '';
     $('statsRow').innerHTML = `
-      <div class="stat"><div class="num">${totalRecords.toLocaleString()}건</div><div class="lbl">인식된 전체 출장 기록</div></div>
-      <div class="stat"><div class="num">${empOrder.length}명</div><div class="lbl">인식된 인원 수</div></div>
-      <div class="stat ok"><div class="num">${selectedIds.length}명</div><div class="lbl">선택된 지급 대상자</div></div>
-      <div class="stat warn"><div class="num">${totalAmount.toLocaleString()}원</div><div class="lbl">선택 대상 합계 지급액 · 한도도달 ${cappedCount}명</div></div>
+      <div class="u-stat"><div class="u-stat-l">인식된 전체 출장 기록</div><div class="u-stat-v">${totalRecords.toLocaleString()}건</div></div>
+      <div class="u-stat"><div class="u-stat-l">인식된 인원 수</div><div class="u-stat-v">${empOrder.length}명</div></div>
+      <div class="u-stat"><div class="u-stat-l">선택된 지급 대상자</div><div class="u-stat-v">${selectedIds.length}명</div></div>
+      <div class="u-stat hl"><div class="u-stat-l">선택 대상 합계 지급액 · 한도도달 ${cappedCount}명</div><div class="u-stat-v">${totalAmount.toLocaleString()}원</div></div>
       ${vehicleStatHtml}
     `;
   }
@@ -1115,7 +875,7 @@ footer.note ul{margin:6px 0 0;padding-left:18px;}
         : `<span class="badge ${res.capped?'cap':''}">${res.includedDays.length}일${res.capped?' (한도)':''}</span>`;
 
       const vehicleBadge = (res.vehicleDeductedDays && res.vehicleDeductedDays.length)
-        ? `<span class="badge" title="차량 운행으로 감액된 날짜: ${res.vehicleDeductedDays.join(',')}일 (건당 ${getRules().vehicleDeduction.toLocaleString()}원 차감)" style="margin-left:4px;background:#eef2ff;color:#33417a;">차량 -${res.vehicleDeductedDays.length}</span>`
+        ? `<span class="badge" title="차량 운행으로 감액된 날짜: ${res.vehicleDeductedDays.join(',')}일 (건당 ${getRules().vehicleDeduction.toLocaleString()}원 차감)" style="margin-left:4px">차량 -${res.vehicleDeductedDays.length}</span>`
         : '';
 
       tr.innerHTML = `

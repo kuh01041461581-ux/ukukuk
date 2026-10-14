@@ -11,182 +11,97 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
-:root{--text-sub:var(--text-2);--text-faint:var(--text-3);--accent:var(--primary);--accent-hover:var(--primary-hover);--accent-light:var(--primary-tint);--accent-text:var(--primary);--danger-light:var(--danger-tint);--success-light:var(--success-tint);--warn:var(--warning);--warn-light:var(--warning-tint);--radius:var(--radius-btn);--radius-lg:var(--radius-card);--shadow-sm:var(--shadow-card);--shadow:var(--shadow-card);--shadow-lg:var(--shadow-pop);--ease:150ms cubic-bezier(.4,0,.2,1);}
-*{box-sizing:border-box;}
-html{-webkit-font-smoothing:antialiased;}
-body{margin:0;font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI','Malgun Gothic',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;}
-svg{display:block;}
-.icon{width:15px;height:15px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-.icon.sm{width:13px;height:13px;}
-.icon.lg{width:18px;height:18px;}
-
-/* ===== App shell: sidebar layout ===== */
-.app-shell{display:flex;min-height:100vh;align-items:stretch;}
-.sidebar{
-  width:250px;flex:0 0 250px;background:var(--surface-2);
-  border-right:1px solid var(--border);
-  padding:16px 12px;display:flex;flex-direction:column;gap:16px;
-  position:sticky;top:0;height:100vh;overflow-y:auto;z-index:60;
-}
-.sidebar-brand{display:flex;align-items:center;gap:10px;padding:4px 8px 14px;border-bottom:1px solid var(--border);}
-.brand-icon{width:32px;height:32px;flex:0 0 32px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);}
-.brand-icon .icon{width:17px;height:17px;stroke-width:2.2;}
-.brand-text{min-width:0;}
-.brand-title{font-size:13px;font-weight:700;color:var(--text);line-height:1.35;letter-spacing:-.01em;}
-.brand-sub{font-size:11px;color:var(--text-sub);margin-top:1px;}
-.sidebar-nav{display:flex;flex-direction:column;gap:2px;}
-.sidebar-nav .tabbtn{
-  display:flex;align-items:center;gap:10px;text-align:left;width:100%;
-  background:transparent;border:none;padding:10px 10px;border-radius:var(--radius-sm);
-  font-size:13px;font-weight:600;color:var(--text-sub);cursor:pointer;transition:background var(--ease),color var(--ease);
-  height:40px;
-}
-.sidebar-nav .tabbtn:hover{background:#ECEEF2;color:var(--text);}
-.sidebar-nav .tabbtn.active{background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow-sm);}
-.nav-ico{width:17px;text-align:center;flex:0 0 17px;color:inherit;opacity:.85;}
-.nav-ico .icon{width:16px;height:16px;}
-.tabbtn.active .nav-ico{opacity:1;}
-.tabbtn{position:relative;}
-.tabbtn .nav-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;}
-.nav-status{flex:0 0 auto;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;background:transparent;}
-.nav-status.done{background:var(--success);}
-.nav-status.doing{background:var(--warn);}
-.nav-status .icon{width:10px;height:10px;stroke-width:3;}
-
-.main-col{flex:1;min-width:0;display:flex;flex-direction:column;}
-.topbar{
-  background:rgba(255,255,255,.8);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  border-bottom:1px solid var(--border);padding:14px 28px;position:sticky;top:0;z-index:50;
-  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
-}
-.topbar-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.01em;}
-.topbar-actions{display:flex;gap:8px;flex-wrap:wrap;}
-.btn.sm{height:32px;padding:0 11px;font-size:12.5px;gap:5px;}
-main{max-width:1240px;margin:0 auto;padding:24px 28px 64px;width:100%;}
-
+/* 관외출장 여비지출결의서 — 공통 부품(u-*)과 같은 문법. 이 도구에서만 필요한 것만 둔다. */
 .tab{display:none;}
 .tab.active{display:block;animation:fade .15s ease;}
-@keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 @keyframes spin{to{transform:rotate(360deg);}}
-.spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:spin .6s linear infinite;flex:0 0 auto;}
-.btn.outline .spinner,.btn.ghost .spinner{border:2px solid rgba(0,0,0,.15);border-top-color:var(--text-sub);}
-.btn[disabled]{opacity:.62;cursor:not-allowed;pointer-events:none;}
+.spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:spin .6s linear infinite;flex:none;}
+.btn.outline .spinner,.btn.ghost .spinner{border:2px solid var(--border-strong);border-top-color:var(--text-2);}
+.icon{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.icon.sm{width:13px;height:13px;} .icon.lg{width:18px;height:18px;}
+.u-hide{display:none !important;}
+.u-drop + .u-toolbar,.u-drop + .u-actions{margin-top:14px;}
 
-/* ===== Card ===== */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:22px 24px;margin-bottom:20px;}
-.card h2{font-size:16px;margin:0 0 6px;font-weight:700;letter-spacing:-.01em;color:var(--text);}
-.card .sub{color:var(--text-sub);font-size:12.5px;margin-bottom:18px;line-height:1.65;}
-.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
+/* 단계 탭 (번호는 CSS 로 매김) */
+.app-shell{display:block;}
+.sidebar{margin-bottom:16px;}
+.sidebar-nav{counter-reset:stp;display:flex;gap:2px;padding:3px;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-btn);overflow-x:auto;}
+.tabbtn{counter-increment:stp;position:relative;flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 14px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);cursor:pointer;white-space:nowrap;transition:background .12s,color .12s;}
+.tabbtn::before{content:counter(stp);width:20px;height:20px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--surface);color:var(--text-3);border:1px solid var(--border);flex:none;}
+.tabbtn:hover{color:var(--text);}
+.tabbtn.active{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(20,28,80,.1),0 0 0 1px var(--border);}
+.tabbtn.active::before{background:var(--grad-primary);color:#fff;border-color:transparent;}
+.tabbtn .nav-ico{display:none;}
+.nav-status{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;background:transparent;}
+.nav-status.done{background:var(--success);color:#fff;}
+.nav-status.doing{background:var(--warning);color:#fff;}
+.nav-status .icon{width:10px;height:10px;stroke-width:3;}
 
-/* ===== Buttons =====
-   PRIMARY  (.btn)         : most important action on screen
-   SECONDARY(.btn.outline) : supporting actions (tinted, no heavy border)
-   OUTLINE  (.btn.ghost)   : lower-priority (reset / cancel / close)
-   DANGER   (.btn.danger)  : destructive actions
-*/
-button.btn, a.btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  height:38px;padding:0 15px;border-radius:var(--radius-sm);
-  font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;
-  border:1px solid transparent;white-space:nowrap;text-decoration:none;
-  transition:background var(--ease),color var(--ease),border-color var(--ease),box-shadow var(--ease),transform 60ms ease;
-}
-button.btn:disabled{opacity:.55;cursor:not-allowed;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;padding:0;background:transparent;border:0;position:static;}
+.topbar-title{display:none;}
+.topbar-actions{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;}
+main{padding:0;max-width:none;}
 
-button.btn, a.btn{background:var(--accent);color:#fff;box-shadow:var(--shadow-sm);}
-button.btn:hover, a.btn:hover{background:var(--accent-hover);box-shadow:var(--shadow);}
-button.btn:active, a.btn:active{transform:translateY(1px);box-shadow:none;}
-
-button.btn.outline, a.btn.outline{background:var(--accent-light);color:var(--accent-text);border:1px solid transparent;box-shadow:none;}
-button.btn.outline:hover, a.btn.outline:hover{background:#E3E4FA;}
-button.btn.outline:active, a.btn.outline:active{transform:translateY(1px);}
-
-button.btn.ghost, a.btn.ghost{background:var(--surface);color:var(--text-sub);border:1px solid var(--border-strong);box-shadow:none;}
-button.btn.ghost:hover, a.btn.ghost:hover{background:var(--surface-2);color:var(--text);border-color:var(--border-strong);}
-button.btn.ghost:active, a.btn.ghost:active{transform:translateY(1px);}
-
-button.btn.danger, a.btn.danger{background:var(--surface);color:var(--danger);border:1px solid var(--danger);box-shadow:none;}
-button.btn.danger:hover, a.btn.danger:hover{background:var(--danger-light);}
-button.btn.danger:active, a.btn.danger:active{transform:translateY(1px);}
-
-a.btn.disabled{opacity:.5;pointer-events:none;}
-
-/* Icon-only buttons (edit / delete / close in tight spaces) */
-.icon-btn{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid transparent;
-  background:transparent;color:var(--text-sub);cursor:pointer;padding:0;
-  transition:background var(--ease),color var(--ease);flex:0 0 auto;
-}
-.icon-btn:hover{background:var(--surface-3);color:var(--text);}
-.icon-btn.danger:hover{background:var(--danger-light);color:var(--danger-hover);}
-.icon-btn .icon{width:15px;height:15px;}
-.row-actions{display:flex;gap:4px;justify-content:center;}
-
-/* ===== Inputs / Selects ===== */
-input[type=file]{display:none;}
-input,select,textarea{font-family:inherit;color:var(--text);}
-input::placeholder,textarea::placeholder{color:var(--text-faint);}
-select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px!important;}
-
-table{width:100%;border-collapse:collapse;font-size:12.6px;font-variant-numeric:tabular-nums;}
-th,td{border:none;border-bottom:1px solid var(--border);padding:9px 10px;text-align:center;vertical-align:middle;}
-th{background:#F8F9FA;font-weight:600;color:var(--text-sub);white-space:nowrap;font-size:11.5px;border-bottom:1px solid var(--border-strong);}
-tbody tr{height:46px;transition:background var(--ease);}
-tbody tr:hover{background:#FAFAFC;}
-tbody tr.row-selected{background:var(--accent-light);}
-tbody tr:last-child td{border-bottom:none;}
-td input, td select{width:100%;border:1px solid transparent;background:transparent;padding:6px 5px;font-size:12.5px;border-radius:var(--radius-sm);text-align:center;font-family:inherit;transition:border-color var(--ease),background var(--ease),box-shadow var(--ease);}
-td input:hover,td select:hover{border-color:var(--border-strong);}
-td input:focus,td select:focus{border-color:var(--accent);background:var(--surface);outline:none;box-shadow:0 0 0 3px var(--accent-light);}
-td.amt,td.num{text-align:right;font-variant-numeric:tabular-nums;padding-right:14px;}
-td input.amt-input{text-align:right;padding-right:8px;}
-.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);}
-.tablewrap table{border-radius:var(--radius);overflow:hidden;}
-
-.pill{display:inline-block;padding:2px 9px;border-radius:6px;font-size:11px;font-weight:700;}
-.pill.gov{background:var(--success-light);color:var(--success);}
-.pill.own{background:var(--warn-light);color:var(--warn);}
-.pill.train{background:var(--accent-light);color:var(--accent-text);}
-.badge-total{font-size:20px;font-weight:700;color:var(--accent-text);}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
-.formrow{display:grid;grid-template-columns:128px 1fr;gap:12px;align-items:center;margin-bottom:12px;}
-.formrow label{font-size:12.5px;color:var(--text-sub);font-weight:600;}
-.formrow input,.formrow select,.formrow textarea{height:38px;padding:0 12px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface);transition:border-color var(--ease),box-shadow var(--ease);}
-.formrow textarea{height:auto;padding:8px 12px;}
-.formrow input:focus,.formrow select:focus,.formrow textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light);}
-.formrow input:hover,.formrow select:hover{border-color:#C7C9D1;}
-.hint{font-size:12px;color:var(--text-sub);background:var(--surface-2);border:1px solid var(--border);padding:10px 13px;border-radius:var(--radius-sm);margin-top:6px;line-height:1.65;}
-.hint .icon{margin-top:1px;color:var(--text-faint);vertical-align:-2px;margin-right:4px;}
-.hint-warn{display:flex;gap:8px;align-items:flex-start;background:var(--warn-light);border-color:#EFDDB2;color:#8A6100;}
-.hint-warn .icon{color:var(--warn);margin-top:2px;}
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(20,21,30,.4);backdrop-filter:blur(2px);z-index:100;align-items:center;justify-content:center;}
-.modal-bg.active{display:flex;animation:fade .15s ease;}
-.modal{background:var(--surface);border-radius:var(--radius-lg);width:520px;max-width:92vw;max-height:88vh;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden;}
-.modal h3{margin:0;font-size:16px;font-weight:700;letter-spacing:-.01em;padding:18px 22px;border-bottom:1px solid var(--border);flex:0 0 auto;}
-.modal-body{padding:20px 22px;overflow:auto;}
-.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:16px 22px;border-top:1px solid var(--border);flex:0 0 auto;margin-top:0;}
-.small{font-size:11.5px;color:var(--text-sub);}
-.checkbox-row{display:flex;align-items:center;gap:6px;}
-.summary-strip{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
-.summary-box{background:var(--accent-light);border-radius:var(--radius);padding:12px 16px;min-width:120px;}
-.summary-box .label{font-size:11px;color:var(--text-sub);font-weight:600;}
-.summary-box .val{font-size:17px;font-weight:700;color:var(--accent-text);font-variant-numeric:tabular-nums;}
-.doc-select-row{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;transition:background var(--ease),border-color var(--ease);}
-.doc-select-row:hover{background:var(--surface-2);border-color:var(--border-strong);}
-.toast{position:fixed;bottom:24px;right:24px;left:auto;transform:translateY(8px);background:var(--text);color:#fff;padding:11px 18px;border-radius:var(--radius);font-size:13px;z-index:200;opacity:0;transition:opacity .2s ease,transform .2s ease;pointer-events:none;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:8px;max-width:360px;}
-.toast.show{opacity:1;transform:translateY(0);}
-.tag-empty{padding:30px;text-align:center;color:var(--text-sub);font-size:13px;}
-.dropzone{border:1.5px dashed var(--border-strong);border-radius:var(--radius);padding:14px;transition:border-color var(--ease),background var(--ease);background:var(--surface-2);}
-.dropzone.dragover{border-color:var(--accent);background:var(--accent-light);}
-.dropzone .drop-hint{font-size:12px;color:var(--text-sub);margin-top:8px;display:flex;align-items:center;gap:6px;}
-.dropzone .drop-hint .icon{color:var(--text-faint);}
-.tpl-status{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12.5px;margin-bottom:10px;}
-.tpl-status.ok{background:var(--success-light);border-color:#BFE6CC;color:var(--success);}
-.tpl-status .name{font-weight:700;}
-details.hint{cursor:pointer;display:block;}
-details.hint summary{list-style:none;display:flex;align-items:center;gap:8px;}
+/* 입력 칸: 모달·거리계산 — 라벨은 위, 칸은 아래 (다른 도구와 같은 문법) */
+.formrow{display:flex;flex-direction:column;gap:6px;margin:0;min-width:0;}
+.formrow > label{font-size:12.5px;font-weight:600;color:var(--text);}
+.formrow > label:empty{display:none;}
+.formrow input,.formrow select,.formrow textarea{height:38px;padding:0 12px;width:100%;}
+.formrow textarea{height:auto;padding:9px 12px;}
+.formrow > div[style*="display:flex"] input{flex:1;}
+.u-form-grid,.modal-body,#m_carFields,#m_trainFields,#m_trainRoundFields,#m_trainOneWayFields,#m_returnTrainFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px;}
+.modal-body > .hint,.modal-body > div,.u-form-grid > .hint,.u-form-grid > .span2,#m_carFields > .hint,#m_carFields > .formrow:has(.checkbox-row),#m_trainFields > .hint,#m_trainFields > .formrow:has(.checkbox-row),#m_trainOneWayFields > .hint,#m_trainOneWayFields > div,#m_trainRoundFields > .hint,#m_returnTrainFields > .hint{grid-column:1 / -1;}
+.modal-body > .formrow{grid-column:auto;}
+.modal-body > #m_carFields,.modal-body > #m_trainFields{grid-column:1 / -1;}
+.hint{font-size:12.5px;padding:10px 13px;margin:0;line-height:1.7;}
+.hint .icon{margin-right:6px;vertical-align:-2px;}
+.hint-warn{display:flex;gap:8px;align-items:flex-start;}
+details.hint{display:block;cursor:pointer;margin-bottom:12px;}
+details.hint summary{list-style:none;display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);}
 details.hint summary::-webkit-details-marker{display:none;}
+.small{font-size:12px;color:var(--text-2);}
+.checkbox-row{display:flex;align-items:center;gap:6px;}
+.checkbox-row label{font-size:12.5px;}
+.right{text-align:right;} .left{text-align:left;}
+
+/* 표 */
+table{width:100%;font-size:12.8px;}
+th,td{border:none;border-bottom:1px solid var(--border);padding:9px 10px;text-align:center;vertical-align:middle;}
+tbody tr{height:46px;}
+tbody tr.row-selected{background:var(--primary-tint);}
+tbody tr:last-child td{border-bottom:none;}
+td input,td select{width:100%;border:1px solid transparent;background:transparent;padding:0 6px;height:32px;font-size:12.8px;text-align:center;box-shadow:none;border-radius:6px;}
+td input:hover,td select:hover{border-color:var(--border-strong);}
+td.amt,td.num{text-align:right;padding-right:14px;}
+td input.amt-input{text-align:right;padding-right:8px;}
+.tablewrap{overflow-x:auto;}
+.row-actions{display:flex;gap:4px;justify-content:center;}
+input[type=file]{display:none;}
+.pill{display:inline-flex;align-items:center;height:20px;padding:0 9px;border-radius:999px;font-size:11px;font-weight:600;}
+.pill.gov{background:var(--success-tint);color:var(--success);}
+.pill.own{background:var(--warning-tint);color:var(--warning);}
+.pill.train{background:var(--primary-tint);color:var(--primary);}
+.badge-total{font-size:20px;font-weight:700;color:var(--primary);}
+.tag-empty{padding:30px;text-align:center;color:var(--text-3);font-size:13px;}
+.u-table-head{margin-bottom:12px;}
+
+/* 모달 · 토스트 */
+.modal-bg{display:none;align-items:center;justify-content:center;z-index:100;}
+.modal-bg.active{display:flex;animation:fade .15s ease;}
+.modal{width:620px;max-width:92vw;display:flex;flex-direction:column;overflow:hidden;}
+.modal h3{margin:0;font-size:16px;font-weight:700;letter-spacing:-.01em;padding:18px 22px;flex:none;}
+.modal-body{padding:20px 22px;overflow:auto;}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;flex:none;}
+.toast{position:fixed;left:auto;right:24px;transform:translateY(8px);padding:11px 18px;font-size:13px;z-index:200;opacity:0;transition:opacity .2s ease,transform .2s ease;pointer-events:none;display:flex;align-items:center;gap:8px;max-width:360px;}
+.toast.show{opacity:1;transform:none;}
+
+/* 출력 탭 */
+.doc-select-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-input);margin-bottom:6px;transition:background .15s ease,border-color .15s ease;}
+.doc-select-row:hover{background:var(--surface-2);border-color:var(--border-strong);}
+.tpl-status{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:13px;margin-bottom:12px;}
+.tpl-status.ok{background:var(--success-tint);border-color:transparent;color:var(--success);}
+.tpl-status .name{font-weight:700;}
 
 /* ===== 여비지출결의서 미리보기 (실제 출력용 .hwpx 서식과 표·문구·배치를 동일하게 재현) =====
    .doc-page는 A4 세로(210mm x 297mm) 고정 캔버스입니다. 화면 폭에 맞춰 줄이거나 내용에 맞춰
@@ -213,46 +128,21 @@ details.hint summary::-webkit-details-marker{display:none;}
 .preview-item-actions{display:flex;gap:8px;flex-wrap:wrap;}
 .preview-item-body{padding:14px;background:#f0f0f0;}
 
-@media (max-width:760px){
-  .app-shell{flex-direction:column;}
-  .sidebar{width:100%;flex:none;height:auto;position:relative;border-right:none;border-bottom:1px solid var(--border);}
-  .sidebar-nav{flex-direction:row;overflow-x:auto;padding-bottom:2px;}
-  .sidebar-nav .tabbtn{white-space:nowrap;}
-  main{padding:18px 16px 48px;}
-  .topbar{padding:12px 16px;}
-}
 
-/* 통합 셸: 좌측 사이드바 → 상단 단계 탭 */
-.app-shell{flex-direction:column;min-height:0;}
-.sidebar{width:100%;flex:none;height:auto;position:static;background:transparent;border:none;padding:0;gap:0;overflow:visible;}
-.sidebar-brand{display:none;}
-.sidebar-nav{flex-direction:row;gap:4px;overflow-x:auto;padding:4px;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-btn);}
-.sidebar-nav .tabbtn{width:auto;flex:1 1 auto;justify-content:center;white-space:nowrap;height:38px;border-radius:8px;}
-.sidebar-nav .tabbtn:hover{background:var(--hover);}
-.sidebar-nav .tabbtn.active{background:var(--surface);color:var(--primary);box-shadow:var(--shadow-card);}
-.topbar{position:static;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;border:none;padding:16px 0 0;}
-main{max-width:none;padding:12px 0 0;}
 </style>
 <meta name="tool-id" content="outstation">
 <!--SUITE:THEME-->
 </head>
-<body>
+<body class="tool">
 
 <div class="app-shell">
   <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z"/><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 11h6M9 15h6"/></svg></div>
-      <div class="brand-text">
-        <div class="brand-title">관외출장 여비지출결의서</div>
-        <div class="brand-sub">익산시 문화유산과</div>
-      </div>
-    </div>
     <nav class="sidebar-nav">
-      <button class="tabbtn active" data-tab="staff" data-title="부서원 계좌관리"><span class="nav-ico"><svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-1a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="nav-label">① 부서원 계좌관리</span><span class="nav-status" id="navStatus-staff"></span></button>
-      <button class="tabbtn" data-tab="trip" data-title="출장 내역 입력"><span class="nav-ico"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg></span><span class="nav-label">② 출장 내역 입력</span><span class="nav-status" id="navStatus-trip"></span></button>
-      <button class="tabbtn" data-tab="distance" data-title="거리 계산기·자차 입력"><span class="nav-ico"><svg class="icon" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM3 17V11l2-5h14l2 5v6"/><path d="M5 11h14"/></svg></span><span class="nav-label">③ 거리 계산기·자차 입력</span><span class="nav-status" id="navStatus-distance"></span></button>
-      <button class="tabbtn" data-tab="calc" data-title="여비 계산결과"><span class="nav-ico"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/><line x1="16" y1="18" x2="16" y2="18"/></svg></span><span class="nav-label">④ 여비 계산결과</span><span class="nav-status" id="navStatus-calc"></span></button>
-      <button class="tabbtn" data-tab="output" data-title="서식 출력·다운로드"><span class="nav-ico"><svg class="icon" viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span><span class="nav-label">⑤ 서식 출력·다운로드</span><span class="nav-status" id="navStatus-output"></span></button>
+      <button class="tabbtn active" data-tab="staff" data-title="부서원 계좌관리"><span class="nav-ico"><svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-1a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="nav-label">부서원 계좌관리</span><span class="nav-status" id="navStatus-staff"></span></button>
+      <button class="tabbtn" data-tab="trip" data-title="출장 내역 입력"><span class="nav-ico"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg></span><span class="nav-label">출장 내역 입력</span><span class="nav-status" id="navStatus-trip"></span></button>
+      <button class="tabbtn" data-tab="distance" data-title="거리 계산기·자차 입력"><span class="nav-ico"><svg class="icon" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM3 17V11l2-5h14l2 5v6"/><path d="M5 11h14"/></svg></span><span class="nav-label">거리 계산기·자차 입력</span><span class="nav-status" id="navStatus-distance"></span></button>
+      <button class="tabbtn" data-tab="calc" data-title="여비 계산결과"><span class="nav-ico"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/><line x1="16" y1="18" x2="16" y2="18"/></svg></span><span class="nav-label">여비 계산결과</span><span class="nav-status" id="navStatus-calc"></span></button>
+      <button class="tabbtn" data-tab="output" data-title="서식 출력·다운로드"><span class="nav-ico"><svg class="icon" viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span><span class="nav-label">서식 출력·다운로드</span><span class="nav-status" id="navStatus-output"></span></button>
     </nav>
   </aside>
 
@@ -271,19 +161,15 @@ main{max-width:none;padding:12px 0 0;}
 
 <!-- ============ TAB 1: 부서원 계좌관리 ============ -->
 <div class="tab active" id="tab-staff">
-  <div class="card">
-    <h2>부서원 계좌 정보</h2>
-    <div class="sub">지출결의서 발행에 쓰일 부서원 이름·직급·계좌번호를 관리합니다. 공식 "거래처입력" 엑셀 양식으로 언제든 저장/불러오기 할 수 있습니다.</div>
-    <div class="dropzone" id="staffDropzone">
-      <div class="toolbar">
+  <div class="u-card"><div class="u-card-h"><span class="u-no">1</span><div><h2 class="u-card-t">부서원 계좌 정보</h2><p class="u-card-d">지출결의서 발행에 쓰일 부서원 이름·직급·계좌번호를 관리합니다. 공식 "거래처입력" 엑셀 양식으로 언제든 저장/불러오기 할 수 있습니다.</p></div></div>
+    <div class="u-toolbar">
         <button class="btn" onclick="addStaffRow()">+ 부서원 추가</button>
         <button class="btn outline" onclick="document.getElementById('staffImportFile').click()">엑셀 불러오기(거래처입력 양식)</button>
         <input type="file" id="staffImportFile" accept=".xlsx,.xls" onchange="importStaffExcel(event)">
         <button class="btn outline" onclick="exportStaffExcel()">엑셀 내보내기(거래처입력 양식)</button>
         <button class="btn danger" onclick="clearStaff()">전체 삭제</button>
       </div>
-      <div class="drop-hint"><svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> 거래처입력 엑셀 파일을 이 영역으로 드래그해서 놓아도 바로 불러옵니다.</div>
-    </div>
+<div class="u-drop sm" id="staffDropzone"><div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div><div><div class="u-drop-t">거래처입력 엑셀을 여기로 끌어다 놓으세요</div><div class="u-drop-s">거래처입력 엑셀 파일을 이 영역으로 드래그해서 놓아도 바로 불러옵니다.</div></div></div>
     <div class="tablewrap">
       <table id="staffTable">
         <thead><tr><th style="width:26px">#</th><th>성명</th><th>부서</th><th>직급</th><th>은행코드</th><th>은행명</th><th>계좌번호</th><th style="width:50px">삭제</th></tr></thead>
@@ -296,18 +182,14 @@ main{max-width:none;padding:12px 0 0;}
 
 <!-- ============ TAB 2: 출장 내역 입력 ============ -->
 <div class="tab" id="tab-trip">
-  <div class="card">
-    <h2>출장 내역 입력</h2>
-    <div class="sub">출장자별 출장 일시·교통수단·숙박 정보를 입력합니다. <b>관외출장 집계표, 출장월별집계표, 기안상신내역서, 출장내역서</b> 파일(엑셀 .xlsx/.xls 또는 PDF)을 그대로 불러오거나, 직접 웹에서 한 명씩 추가할 수 있습니다. 정해진 양식이 아니더라도 표 안에 성명·출장일시(또는 출장기간)·출장지·출장목적 같은 정보가 있으면 헤더를 스스로 찾아 자동으로 읽어들입니다. 결의서를 스캔해 얻은 정보를 옮겨 적을 때도 이 화면에 입력하세요.</div>
-    <div class="dropzone" id="tripDropzone">
-      <div class="toolbar">
+  <div class="u-card"><div class="u-card-h"><span class="u-no">2</span><div><h2 class="u-card-t">출장 내역 입력</h2><p class="u-card-d">출장자별 출장 일시·교통수단·숙박 정보를 입력합니다. <b>관외출장 집계표, 출장월별집계표, 기안상신내역서, 출장내역서</b> 파일(엑셀 .xlsx/.xls 또는 PDF)을 그대로 불러오거나, 직접 웹에서 한 명씩 추가할 수 있습니다. 정해진 양식이 아니더라도 표 안에 성명·출장일시(또는 출장기간)·출장지·출장목적 같은 정보가 있으면 헤더를 스스로 찾아 자동으로 읽어들입니다. 결의서를 스캔해 얻은 정보를 옮겨 적을 때도 이 화면에 입력하세요.</p></div></div>
+    <div class="u-toolbar">
         <button class="btn" onclick="openTripModal()">+ 출장자 추가(직접입력)</button>
         <button class="btn outline" onclick="document.getElementById('tripImportFile').click()">파일 불러오기(집계표/기안상신내역서/출장내역서)</button>
         <input type="file" id="tripImportFile" accept=".xlsx,.xls,.pdf" onchange="importTripExcel(event)">
         <button class="btn danger" onclick="clearTrips()">전체 삭제</button>
       </div>
-      <div class="drop-hint"><svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> 관외출장 집계표 · 출장월별집계표 · 기안상신내역서 · 출장내역서 파일(엑셀 .xlsx/.xls 또는 PDF)을 이 영역으로 드래그해서 놓아도 바로 불러옵니다. 정확히 같은 서식이 아니어도, 표 안에 필요한 항목(성명·일시·출장지 등)이 있으면 헤더를 인식해 자동으로 읽습니다.</div>
-    </div>
+<div class="u-drop sm" id="tripDropzone"><div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div><div><div class="u-drop-t">집계표·기안상신내역서·출장내역서 파일을 여기로 끌어다 놓으세요</div><div class="u-drop-s">관외출장 집계표 · 출장월별집계표 · 기안상신내역서 · 출장내역서 파일(엑셀 .xlsx/.xls 또는 PDF)을 이 영역으로 드래그해서 놓아도 바로 불러옵니다. 정확히 같은 서식이 아니어도, 표 안에 필요한 항목(성명·일시·출장지 등)이 있으면 헤더를 인식해 자동으로 읽습니다.</div></div></div>
     <div class="tablewrap">
       <table id="tripTable">
         <thead><tr>
@@ -322,21 +204,20 @@ main{max-width:none;padding:12px 0 0;}
 
 <!-- ============ TAB 3: 거리 계산기 · 자차 이용 입력 ============ -->
 <div class="tab" id="tab-distance">
-  <div class="card">
-    <h2>거리 계산기 · 자차 이용 입력</h2>
-    <div class="sub">출발지·도착지 주소로 왕복 거리(km)를 자동 계산해 출장자에게 바로 적용합니다. 자차로 여러 명이 함께 이동하는 경우, <b>운전자 1명만 자차 운임료를 지급받고 동승자는 운임료 없이 일비만 지급</b>됩니다. 계산이 끝나면 아래 "카카오맵에서 경로 확인하기" 버튼이 활성화되어, 실제 카카오맵 사이트에서 같은 경로를 눈으로 바로 확인할 수 있습니다.</div>
+  <div class="u-card"><div class="u-card-h"><span class="u-no">3</span><div><h2 class="u-card-t">거리 계산기 · 자차 이용 입력</h2><p class="u-card-d">출발지·도착지 주소로 왕복 거리(km)를 자동 계산해 출장자에게 바로 적용합니다. 자차로 여러 명이 함께 이동하는 경우, <b>운전자 1명만 자차 운임료를 지급받고 동승자는 운임료 없이 일비만 지급</b>됩니다. 계산이 끝나면 아래 "카카오맵에서 경로 확인하기" 버튼이 활성화되어, 실제 카카오맵 사이트에서 같은 경로를 눈으로 바로 확인할 수 있습니다.</p></div></div>
     <details class="hint" style="margin-bottom:10px;padding:8px 12px;cursor:pointer;">
-      <summary style="cursor:pointer;font-weight:600;color:var(--text-sub);"><svg class="icon" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.6 12.4L20 3M18 5l2 2M15 8l2 2"/></svg> API 키 (설정에 입력해 두었다면 펼칠 필요 없음 — 클릭해서 펼치기)</summary>
-      <div class="formrow" style="margin-top:10px;"><label>카카오 API 키</label><input id="distApiKeyInput" type="password" autocomplete="off" placeholder="설정에서 이미 입력했다면 비워두어도 됩니다"></div>
-      <div class="formrow"><label>오피넷 API 키</label><input id="distOpinetKeyInput" type="password" autocomplete="off" placeholder="설정에서 이미 입력했다면 비워두어도 됩니다"></div>
+      <summary style="cursor:pointer;font-weight:600;color:var(--text-sub);"><svg class="icon" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.6 12.4L20 3M18 5l2 2M15 8l2 2"/></svg> API 키 (코드에 이미 내장되어 있으면 펼칠 필요 없음 — 클릭해서 펼치기)</summary>
+      <div class="formrow" style="margin-top:10px;"><label>카카오 API 키</label><input id="distApiKeyInput" type="password" autocomplete="off" placeholder="비워두면 코드 상단에 들어 있는 키를 사용합니다"></div>
+      <div class="formrow"><label>오피넷 API 키</label><input id="distOpinetKeyInput" type="password" autocomplete="off" placeholder="비워두면 코드 상단에 들어 있는 키를 사용합니다"></div>
     </details>
-    <div class="formrow"><label>출발지</label>
+    <div class="u-form-grid" style="margin-top:14px">
+    <div class="formrow span2"><label>출발지</label>
       <div style="display:flex;gap:6px;">
         <input id="distOrigin" value="전북특별자치도 익산시 익산시청" style="flex:1;">
         <button class="btn outline sm" type="button" onclick="openAddrModal('origin')"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> 검색</button>
       </div>
     </div>
-    <div class="formrow"><label>도착지(출장지)</label>
+    <div class="formrow span2"><label>도착지(출장지)</label>
       <div style="display:flex;gap:6px;">
         <input id="distDest" placeholder="예: 대한민국 국회" style="flex:1;">
         <button class="btn outline sm" type="button" onclick="openAddrModal('dest')"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> 검색</button>
@@ -345,7 +226,7 @@ main{max-width:none;padding:12px 0 0;}
     <div class="formrow"><label>유종</label><select id="distFuelType" onchange="onCarFuelChange('distOilPrice','distFuelType','distRate','distOilUnit')"></select></div>
     <div class="formrow"><label>차종</label><select id="distCarType"></select></div>
     <div class="hint" style="margin:-4px 0 10px;">※ 차종은 카카오모빌리티 통행료(하이패스) 산정 참고용일 뿐, 운임단가 계산에는 영향을 주지 않습니다.</div>
-    <div class="formrow"><label>도착지역 유가(<span id="distOilUnit">원/L</span>)</label>
+    <div class="formrow span2"><label>도착지역 유가(<span id="distOilUnit">원/L</span>)</label>
       <div style="display:flex;gap:6px;align-items:center;">
         <input type="number" id="distOilPrice" value="1859" oninput="updateRateFromOilPrice('distOilPrice','distFuelType','distRate')" style="flex:1;">
         <button class="btn outline sm" type="button" onclick="onCarFuelChange('distOilPrice','distFuelType','distRate','distOilUnit')"><svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg> 유가 조회</button>
@@ -353,7 +234,8 @@ main{max-width:none;padding:12px 0 0;}
       <div class="small" id="distOilPrice_src" style="grid-column:2;color:var(--text-sub);">예시값(직접 확인 후 수정 권장)</div>
     </div>
     <div class="formrow"><label>운임단가(원/km)</label><input type="number" id="distRate" value="140" readonly></div>
-    <div class="toolbar"><button class="btn" onclick="runDistanceCalc()"><svg class="icon" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM3 17V11l2-5h14l2 5v6"/><path d="M5 11h14"/></svg> 왕복 거리 계산</button>
+    </div>
+    <div class="u-actions start" style="margin-top:16px"><button class="btn" onclick="runDistanceCalc()"><svg class="icon" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM3 17V11l2-5h14l2 5v6"/><path d="M5 11h14"/></svg> 왕복 거리 계산</button>
       <a id="distMapBtn" href="#" target="_blank" rel="noopener" class="btn outline sm disabled" style="text-decoration:none;pointer-events:none;opacity:.5;" onclick="return !this.classList.contains('disabled');"><svg class="icon" viewBox="0 0 24 24"><path d="M9 20l-6 2V6l6-2 6 2 6-2v16l-6 2-6-2z"/><path d="M9 4v16M15 6v16"/></svg> 카카오맵에서 경로 확인하기 ↗</a>
     </div>
     <div class="hint" id="distResult">아직 계산된 거리가 없습니다.</div>
@@ -397,19 +279,17 @@ main{max-width:none;padding:12px 0 0;}
 
 <!-- ============ TAB 4: 여비 계산결과 ============ -->
 <div class="tab" id="tab-calc">
-  <div class="card">
-    <h2>여비 계산 결과</h2>
-    <div class="sub">아래 계산 규칙에 따라 자동 산출됩니다. 금액이 다른 특별한 사정이 있으면 표에서 직접 수정할 수 있습니다(수정 시 금액이 <span style="color:var(--accent);font-weight:700;">파란색</span>으로 표시됩니다).</div>
+  <div class="u-card"><div class="u-card-h"><span class="u-no">4</span><div><h2 class="u-card-t">여비 계산 결과</h2><p class="u-card-d">아래 계산 규칙에 따라 자동 산출됩니다. 금액이 다른 특별한 사정이 있으면 표에서 직접 수정할 수 있습니다(수정 시 금액이 <span style="color:var(--accent);font-weight:700;">파란색</span>으로 표시됩니다).</p></div></div>
     <div class="hint">
       <b>적용 규칙</b> — 일비: 4시간 이상 출장 시 최대 25,000원 (공무용차량 사용 시 절반인 12,500원), 4시간 미만은 미지급 · 식비: 출장 시 기본 1끼(9,000원) 제공, 점심시간(11:00~13:00)이 포함되면 2끼(18,000원), 09:00~18:00 범위를 벗어나거나 왕복 100km 이상 원거리 출장이면 3끼(25,000원) · 교통비: 기차는 승차권 첨부 시 요금 지급, 자차는 거리(km)×운임단가(유가÷유종별 연비) + 통행료(영수증 첨부 시) · 숙박비: 1박 기준 서울 100,000원, 광역시 80,000원, 그 밖의 지역 70,000원 한도 내에서 영수증 금액 지급
     </div>
-    <div class="summary-strip">
-      <div class="summary-box"><div class="label">출장 건수</div><div class="val" id="sumCount">0건</div></div>
-      <div class="summary-box"><div class="label">일비 합계</div><div class="val" id="sumDaily">0원</div></div>
-      <div class="summary-box"><div class="label">식비 합계</div><div class="val" id="sumMeal">0원</div></div>
-      <div class="summary-box"><div class="label">교통비 합계</div><div class="val" id="sumTrans">0원</div></div>
-      <div class="summary-box"><div class="label">숙박비 합계</div><div class="val" id="sumLodge">0원</div></div>
-      <div class="summary-box" style="background:var(--accent);"><div class="label" style="color:#dce9f9;">총 지급액</div><div class="val" style="color:#fff;" id="sumTotal">0원</div></div>
+    <div class="u-stats">
+      <div class="u-stat"><div class="u-stat-l">출장 건수</div><div class="u-stat-v" id="sumCount">0건</div></div>
+      <div class="u-stat"><div class="u-stat-l">일비 합계</div><div class="u-stat-v" id="sumDaily">0원</div></div>
+      <div class="u-stat"><div class="u-stat-l">식비 합계</div><div class="u-stat-v" id="sumMeal">0원</div></div>
+      <div class="u-stat"><div class="u-stat-l">교통비 합계</div><div class="u-stat-v" id="sumTrans">0원</div></div>
+      <div class="u-stat"><div class="u-stat-l">숙박비 합계</div><div class="u-stat-v" id="sumLodge">0원</div></div>
+      <div class="u-stat hl"><div class="u-stat-l">총 지급액</div><div class="u-stat-v" id="sumTotal">0원</div></div>
     </div>
     <div class="tablewrap">
       <table id="calcTable">
@@ -424,38 +304,30 @@ main{max-width:none;padding:12px 0 0;}
 
 <!-- ============ TAB 5: 서식 출력 ============ -->
 <div class="tab" id="tab-output">
-  <div class="card">
-    <h2>① 출장자 선택 · 여비지출결의서 미리보기</h2>
-    <div class="sub">아래에서 결의서를 만들 출장자를 선택하세요. 선택한 출장자는 기본적으로 <b>접힌 상태(요약 한 줄)</b>로 표시되며, "열기(수정)"를 누르면 <b>실제 .hwpx 파일과 셀 크기·배치까지 동일한 A4 서식</b>이 펼쳐져 값(출장지·목적·금액·계좌 등)을 <b>직접 클릭해서 바로 수정</b>할 수 있습니다. 수정한 값은 즉시 저장되어 아래 ".hwpx 생성" 시 그대로 반영됩니다. "PDF로 미리보기"를 누르면 원본 한글 서식 그대로 인쇄/저장할 수 있는 창이 열립니다.</div>
+  <div class="u-card"><div class="u-card-h"><span class="u-no">5-1</span><div><h2 class="u-card-t">출장자 선택 · 여비지출결의서 미리보기</h2><p class="u-card-d">아래에서 결의서를 만들 출장자를 선택하세요. 선택한 출장자는 기본적으로 <b>접힌 상태(요약 한 줄)</b>로 표시되며, "열기(수정)"를 누르면 <b>실제 .hwpx 파일과 셀 크기·배치까지 동일한 A4 서식</b>이 펼쳐져 값(출장지·목적·금액·계좌 등)을 <b>직접 클릭해서 바로 수정</b>할 수 있습니다. 수정한 값은 즉시 저장되어 아래 ".hwpx 생성" 시 그대로 반영됩니다. "PDF로 미리보기"를 누르면 원본 한글 서식 그대로 인쇄/저장할 수 있는 창이 열립니다.</p></div></div>
     <div id="docSelectList" style="margin:12px 0;"></div>
-    <div class="toolbar">
+    <div class="u-toolbar">
       <button class="btn outline" onclick="renderReceiptPreview()"><svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg> 미리보기 새로고침</button>
     </div>
     <div id="previewHolder"></div>
   </div>
 
-  <div class="card">
-    <h2>② 여비지출결의서 (HWPX 원본 서식 그대로 생성)</h2>
-    <div class="sub">서식은 절대 건드리지 않고, 업로드하신 실제 결의서(.hwpx) 파일의 표·글자 배치·문구를 그대로 유지한 채 이름·금액·계좌 등 <b>내용만</b> 바꿔 넣어 새 .hwpx 파일을 만듭니다. 위 미리보기에서 확인·수정한 내용이 그대로 반영됩니다.</div>
+  <div class="u-card"><div class="u-card-h"><span class="u-no">5-2</span><div><h2 class="u-card-t">여비지출결의서 (HWPX 원본 서식 그대로 생성)</h2><p class="u-card-d">서식은 절대 건드리지 않고, 업로드하신 실제 결의서(.hwpx) 파일의 표·글자 배치·문구를 그대로 유지한 채 이름·금액·계좌 등 <b>내용만</b> 바꿔 넣어 새 .hwpx 파일을 만듭니다. 위 미리보기에서 확인·수정한 내용이 그대로 반영됩니다.</p></div></div>
     <div class="tpl-status" id="tplStatus">기본 내장 서식(사리장엄관 정책세미나 결의서) 사용 중</div>
-    <div class="dropzone" id="hwpxDropzone">
-      <div class="toolbar">
+    <div class="u-toolbar">
         <button class="btn outline" onclick="document.getElementById('hwpxTplFile').click()">다른 결의서(.hwpx) 서식으로 교체</button>
         <input type="file" id="hwpxTplFile" accept=".hwpx" onchange="handleHwpxFileInput(event)">
         <button class="btn ghost" onclick="resetHwpxTemplate()">기본 서식으로 되돌리기</button>
       </div>
-      <div class="drop-hint"><svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> 결의서 .hwpx 파일을 이 영역으로 드래그해서 놓으면 그 서식을 그대로 사용합니다. (서식의 표/문구/글씨체는 전혀 수정되지 않습니다)</div>
-    </div>
-    <div class="toolbar">
+<div class="u-drop sm" id="hwpxDropzone"><div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div><div><div class="u-drop-t">결의서 .hwpx 서식 파일을 여기로 끌어다 놓으세요</div><div class="u-drop-s">결의서 .hwpx 파일을 이 영역으로 드래그해서 놓으면 그 서식을 그대로 사용합니다. (서식의 표/문구/글씨체는 전혀 수정되지 않습니다)</div></div></div>
+    <div class="u-toolbar">
       <button class="btn" onclick="generateHwpxForSelected(this)"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></svg> 선택한 출장자 여비지출결의서(.hwpx) 생성·다운로드</button>
     </div>
     <div class="hint">여러 명을 선택하면 원본처럼 한 파일 안에 인원수만큼 페이지가 이어진 .hwpx 한 개로 내려받습니다. 받은 파일은 한글(HWP)에서 그대로 열어 확인·인쇄하시면 됩니다.</div>
   </div>
 
-  <div class="card">
-    <h2>③ 엑셀 서식 다운로드</h2>
-    <div class="sub">차세대 지방재정 시스템에 그대로 업로드할 수 있는 공식 엑셀 양식으로 내보냅니다.</div>
-    <div class="toolbar">
+  <div class="u-card"><div class="u-card-h"><span class="u-no">5-3</span><div><h2 class="u-card-t">엑셀 서식 다운로드</h2><p class="u-card-d">차세대 지방재정 시스템에 그대로 업로드할 수 있는 공식 엑셀 양식으로 내보냅니다.</p></div></div>
+    <div class="u-toolbar">
       <button class="btn" onclick="exportPaymentForm()"><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> 지급폼 다운로드 (거래처입력 양식 · 계좌번호 포함)</button>
       <button class="btn" onclick="exportDetailForm()"><svg class="icon" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg> 여비상세입력폼 다운로드</button>
     </div>
@@ -495,7 +367,7 @@ main{max-width:none;padding:12px 0 0;}
     </div>
     <div class="formrow"><label>왕복 거리(km)</label><input type="number" id="m_distance" placeholder="예: 342"></div>
     <div class="hint" style="margin:-4px 0 10px;">※ 편도가 아닌 왕복 총거리 기준입니다. 100km 이상이면 식비 3끼(25,000원) 지급 조건에 해당될 수 있어요.</div>
-    <div id="m_carFields" style="display:none;">
+    <div id="m_carFields" class="u-hide">
       <div class="formrow"><label>탑승 구분</label>
         <div class="checkbox-row" style="gap:14px;">
           <label class="small"><input type="radio" name="m_carRole" value="driver" checked> 운전자(운임료 지급)</label>
@@ -522,14 +394,14 @@ main{max-width:none;padding:12px 0 0;}
       <div class="formrow"><label></label><div class="checkbox-row"><input type="checkbox" id="m_tollReceipt"><label for="m_tollReceipt" class="small">통행료 영수증 첨부함</label></div></div>
       <div class="hint" style="margin-top:-4px;">※ 같은 차로 함께 이동한 인원이 여러 명이면, <b>운전자 1명만 "운전자"</b>로 선택하고 나머지는 "동승자"로 선택하세요. 동승자는 자차 운임료(거리×단가+통행료)를 받지 않고 일비·식비·숙박비만 지급됩니다. 여러 명에게 한 번에 거리를 적용하려면 "③ 거리 계산기·자차 입력" 탭을 이용하세요.</div>
     </div>
-    <div id="m_trainFields" style="display:none;">
+    <div id="m_trainFields" class="u-hide">
       <div class="formrow"><label></label><div class="checkbox-row"><input type="checkbox" id="m_trainOneWay" onchange="toggleTrainOneWay()"><label for="m_trainOneWay" class="small">왕복이 아니라 가는 편·오는 편을 따로 입력(편도, 귀임 교통수단이 다를 때)</label></div></div>
       <div id="m_trainRoundFields">
         <div class="formrow"><label>기차/KTX 요금(원)</label><input type="number" id="m_trainFare" placeholder="예: 23700"></div>
         <div class="hint" style="margin:-4px 0 6px;">※ 왕복 합계 금액입니다. 승차권(매표)에 적힌 금액을 직접 입력해주세요.</div>
         <div class="formrow"><label></label><div class="checkbox-row"><input type="checkbox" id="m_trainTicket"><label for="m_trainTicket" class="small">승차권 첨부함</label></div></div>
       </div>
-      <div id="m_trainOneWayFields" style="display:none;">
+      <div id="m_trainOneWayFields" class="u-hide">
         <div class="hint" style="margin:0 0 6px;font-weight:600;">▸ 가는 편(출발 → 목적지)</div>
         <div class="formrow"><label>가는 편 요금(원)</label><input type="number" id="m_trainFareGo" placeholder="예: 12000"></div>
         <div class="formrow"><label></label><div class="checkbox-row"><input type="checkbox" id="m_trainTicketGo"><label for="m_trainTicketGo" class="small">승차권 첨부함</label></div></div>
@@ -795,19 +667,19 @@ function onStaffPick(){
 }
 function toggleTransportFields(){
   const v = document.getElementById('m_transport').value;
-  document.getElementById('m_carFields').style.display = (v==='자차') ? 'block' : 'none';
-  document.getElementById('m_trainFields').style.display = (v==='기차') ? 'block' : 'none';
+  document.getElementById('m_carFields').classList.toggle('u-hide', v!=='자차');
+  document.getElementById('m_trainFields').classList.toggle('u-hide', v!=='기차');
   if(v==='기차') toggleTrainOneWay();
 }
 function toggleTrainOneWay(){
   const oneWay = document.getElementById('m_trainOneWay').checked;
-  document.getElementById('m_trainRoundFields').style.display = oneWay ? 'none' : 'block';
-  document.getElementById('m_trainOneWayFields').style.display = oneWay ? 'block' : 'none';
+  document.getElementById('m_trainRoundFields').classList.toggle('u-hide', !!oneWay);
+  document.getElementById('m_trainOneWayFields').classList.toggle('u-hide', !oneWay);
   if(oneWay) toggleReturnTransportFields();
 }
 function toggleReturnTransportFields(){
   const v = document.getElementById('m_returnTransport').value;
-  document.getElementById('m_returnTrainFields').style.display = (v==='기차') ? 'block' : 'none';
+  document.getElementById('m_returnTrainFields').classList.toggle('u-hide', v!=='기차');
 }
 function guessLodgeRegion(dest){
   if(!dest) return '기타';
@@ -1333,10 +1205,10 @@ function findAccount(name){
 
 /* ============================================================
    TAB3: 거리 계산기 · 자차 이용 입력
-   지도 API(카카오 로컬/모빌리티 REST API) 키는 셸의 '설정'에서 한 번만 입력하면 됩니다.
-      화면의 "API 키" 입력칸에 넣어도 동일하게 동작합니다(입력칸이 우선 적용).
+   아래 MAP_API_KEY 상수에 지도 API(카카오 로컬/모빌리티 REST API) 키가 들어 있습니다.
+      화면의 "API 키" 입력칸이나 셸 '설정'에 넣은 키가 있으면 그것이 우선 적용됩니다.
 ============================================================ */
-const MAP_API_KEY = '';   // 키는 코드에 적지 않습니다 → 셸의 '설정'에서 입력 (이 브라우저에만 저장)
+const MAP_API_KEY = 'a1e32e809202e84389f8a7913da38fe1';   // 카카오 REST API 키 (본문에 그대로 둠 · 설정 화면에 입력한 키가 있으면 그쪽이 우선)
 /* 부서 기본값: 셸 '설정'의 부서명 → 없으면 문화유산과 */
 function defaultDept(){ return (window.suiteInfo && suiteInfo('dept')) || '문화유산과'; }
 const DEFAULT_ORIGIN_ADDR = '전북특별자치도 익산시 익산시청';   // 출발지를 따로 입력하지 않으면 이 주소로 고정
@@ -1385,7 +1257,7 @@ const OPINET_PRODCD = {GASOLINE:'B027', DIESEL:'D047', LPG:'K015'};
 // 커서(공공 8천원대~민간 1만2천원대) 중간값으로 잡은 참고치입니다.
 // 출장 시작일 기준 최신 유가와 다를 수 있으니, 실제 지급 전에는 반드시 확인해 덮어써야 합니다.
 const FALLBACK_FUEL_PRICE = {GASOLINE:1859, DIESEL:1844, LPG:1098, EV:324, HYDROGEN:9000};
-const OPINET_API_KEY = '';   // 오피넷 인증키도 셸의 '설정'에서 입력 → 전국 평균 유가를 자동 조회합니다.
+const OPINET_API_KEY = 'F260915135';   // 오피넷 인증키 (본문에 그대로 둠 · 설정 화면에 입력한 키가 있으면 그쪽이 우선)
 // 직접 만든 오피넷 중계 주소(Cloudflare Worker 등). 비워두면 공개 중계 서버만 사용합니다.
 // 예: 'https://opinet-relay.내계정.workers.dev'  (함께 제공된 opinet-relay-worker.js 참고)
 const OPINET_PROXY_URL = '';
@@ -1396,7 +1268,7 @@ function calcRatePerKm(fuelType, oilPrice, dateStr){
 function getOpinetApiKey(){
   const el = document.getElementById('distOpinetKeyInput');
   const override = el ? el.value.trim() : '';
-  return override || OPINET_API_KEY || (window.suiteKey ? suiteKey('opinet') : '');
+  return override || (window.suiteKey ? suiteKey('opinet') : '') || OPINET_API_KEY;
 }
 /* 오피넷 avgAllPrice.do(전국 평균 유가)로 유종별 현재 평균가를 조회합니다.
    - 인증키 파라미터는 문서상 certkey, 예제상 code 로 혼재되어 있어 둘 다 보냅니다.
@@ -1616,7 +1488,7 @@ async function _onCarFuelChange(oilPriceElId, fuelTypeElId, rateElId, unitElId){
 function getMapApiKey(){
   const el = document.getElementById('distApiKeyInput');
   const override = el ? el.value.trim() : '';
-  return override || MAP_API_KEY || (window.suiteKey ? suiteKey('kakao') : '');
+  return override || (window.suiteKey ? suiteKey('kakao') : '') || MAP_API_KEY;
 }
 async function geocodeAddress(addr){
   const key = getMapApiKey();

@@ -1,0 +1,2270 @@
+/* ══════════════════════════════════════════════════════════════
+   일반라벨 모드 — general-labels.css
+   ⚠️ 기존 style.css는 단 한 줄도 수정하지 않습니다.
+      이 파일은 새로 추가되는 "일반라벨" 모드 전용 스타일이며,
+      기존 디자인 토큰(:root 변수)을 그대로 재사용해 톤을 맞춥니다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 모드 탭 (주소라벨 / 일반라벨) ── [수정] 별도 줄(.mode-tabbar)이었던 것을
+   타이틀바 안으로 병합하면서, 탭 모양(하단 밑줄) 대신 타이틀바 높이(44px)
+   안에 자연스럽게 들어가는 컴팩트한 알약형 세그먼트 컨트롤로 재설계했다. */
+.titlebar-modetabs {
+  display: flex; align-items: center; gap: 2px;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  padding: 2px;
+  flex-shrink: 0;
+}
+.mode-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 12px;
+  border-radius: calc(var(--r-md) - 2px);
+  font-size: 12.5px; font-weight: 600;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  letter-spacing: -0.01em;
+  transition: background .12s, color .12s;
+}
+.mode-tab:hover { background: var(--surface-hover); color: var(--text); }
+.mode-tab.active {
+  background: var(--surface);
+  color: var(--clr-primary);
+  box-shadow: var(--shadow-sm);
+}
+.mode-tab svg { flex-shrink: 0; }
+
+/* [버그 수정] 좁은 화면에서 타이틀바가 잘리던 문제의 일부 — 이 두 버튼
+   글자("주소라벨"/"일반라벨")가 꽤 넓어서(각각 약 80~90px) 아이콘만
+   남기면 그만큼 폭을 절약할 수 있다. 어떤 모드인지는 active 상태(배경색)
+   와 title/data-tooltip으로 여전히 확인 가능하다. style.css의 같은
+   브레이크포인트(로고 글자·상태배지 숨김)와 세트로 동작한다. */
+@media (max-width: 760px) {
+  .mode-tab span:not(.sr-only) { display: none; }
+  .mode-tab { padding: 0 9px; }
+}
+
+/* ── 일반라벨 앱 바디 (기존 .app-body와 동일 레이아웃 패턴) ─── */
+#general-app-body {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+#general-app-body.active { display: flex; }
+/* 기존 주소라벨 app-body / toolbar는 일반라벨 모드일 때 숨김 */
+body.mode-general .app-body { display: none; }
+body.mode-general .toolbar { display: none; }
+body.mode-general .statusbar { display: none; }
+/* [신규] 주소라벨 전용 3단계 마법사(데이터/라벨편집/출력)도 일반라벨
+   모드에서는 완전히 숨긴다 — 단, 일반라벨도 이제 자기만의 3단계 마법사
+   (아래 #gl-step-header, .wizard-step-gl-*)를 갖게 되어 같은 클래스
+   (.step-header/.wizard-step)를 공유하므로, 클래스 전체가 아니라
+   "주소라벨 전용 id"만 콕 집어 숨긴다(안 그러면 일반라벨 쪽까지
+   같이 숨어버림). */
+body.mode-general #addr-step-header { display: none !important; }
+body.mode-general #step-view-data,
+body.mode-general #step-view-edit,
+body.mode-general #step-view-print { display: none !important; }
+/* 반대 방향 — 주소라벨 모드일 때는 일반라벨 전용 스텝 요소를 숨김
+   ([정리] 전체확인/인쇄 스텝을 하나로 합치면서 #gl-step-view-print는
+   삭제되었다) */
+body:not(.mode-general) #gl-step-header { display: none !important; }
+body:not(.mode-general) #gl-step-view-spec,
+body:not(.mode-general) #gl-step-view-review { display: none !important; }
+/* [2026-07 리팩토링] 좌측 아이콘 레일(app-shell)도 일반라벨 모드에서는 숨김.
+   general-app-body는 app-shell 밖(형제 요소)에 그대로 있으므로 전체 폭을 사용한다 */
+body.mode-general .app-shell { display: none !important; }
+
+/* ★GL-RAIL: 일반라벨 전용 좌측 아이콘 레일(#gl-rail) + 본문(#gl-shell-main) 래퍼.
+   주소라벨의 .app-shell(레일 + .shell-main, 가로 flex)와 동일한 레이아웃
+   구조를 별도 id로 재현한다 — 클래스(.rail 등)는 그대로 재사용해 시각적으로
+   통일하면서도, id를 다르게 둬서 위의 "body.mode-general .app-shell{display:
+   none}" 규칙에 실수로 같이 걸리지 않게 한다. 기본은 숨김이고, 일반라벨
+   모드일 때만 보이며, 주소라벨 모드에서는 명시적으로 숨겨 빈 레일이 뜨는
+   일이 없게 한다(레이아웃 폭을 차지하는 flex 컨테이너라 opacity로는 부족). */
+#gl-shell {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+body.mode-general #gl-shell { display: flex; }
+body:not(.mode-general) #gl-shell { display: none !important; }
+/* [신규] 일반라벨 전용 하단 상태표시줄 — 주소라벨의 .statusbar는 클래스로만
+   숨기는 규칙(위에 이미 있음: body.mode-general .statusbar{display:none})이
+   있어서, 같은 클래스를 재사용하는 이 바도 같이 숨겨진다. id 셀렉터가 클래스
+   셀렉터보다 특이도가 높으므로 순서와 무관하게 아래 규칙이 이긴다. */
+body.mode-general #gl-statusbar { display: flex; }
+body:not(.mode-general) #gl-statusbar { display: none !important; }
+#gl-shell-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+/* 인쇄 중에는 레일이 종이 밖 UI이므로 숨긴다(다른 UI 크롬과 동일 처리) */
+@media print {
+  body.mode-general #gl-rail { display: none !important; }
+}
+/* ★GL-RAIL: "새 작업" 아이콘은 다른 rail-item처럼 파란 active 배경이 되지
+   않게(선택 단계가 아니라 실행 버튼이므로) 별도로 hover만 강조한다. */
+#gl-rail-new-btn { margin-bottom: 2px; }
+/* ★GL-RAIL: 지나온 단계에는 은은한 체크 표시를 오른쪽 위에 얹어
+   "이미 채워진 단계"라는 걸 알려준다(목업의 01/02/03 체크 표시와 같은 의도).
+   현재 단계(.active)에는 표시하지 않는다 — 능동적으로 보고 있는 화면이라
+   "완료"라는 신호를 줄 필요가 없다. */
+.rail-item.gl-rail-done {
+  position: relative;
+}
+.rail-item.gl-rail-done::after {
+  content: "✓";
+  position: absolute;
+  top: 4px; right: 10px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--clr-primary);
+  color: #fff;
+  font-size: 8px; font-weight: 800;
+  line-height: 12px; text-align: center;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.rail-item.active.gl-rail-done::after { background: #fff; color: var(--clr-primary); }
+/* ★GL-RAIL: 규격을 아직 안 골랐을 때 "라벨 디자인"/"확인·인쇄" 레일 버튼 —
+   눌러도 반응이 없는 이유(먼저 규격 선택 필요)를 옅은 명도로 암시한다.
+   실제 클릭 무시는 대상 버튼(#gl-step-tab-*)의 disabled가 이미 막아주므로
+   여기선 시각적 표시만 담당한다. */
+.rail-item.gl-rail-disabled { opacity: .4; }
+.rail-item.gl-rail-disabled:hover { background: transparent; color: inherit; }
+
+
+/* ── 좌측 사이드바 — 기존 사이드바 폭/배경 그대로 재사용 ──────── */
+.gl-sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface-sb);
+  border-right: 1px solid var(--border-panel);
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: width .18s ease;
+}
+/* [신규] "주소라벨처럼 패널 접기가 되게 해달라"는 피드백 대응 —
+   주소라벨의 .sidebar.collapsed와 완전히 동일한 방식(width:0). */
+.gl-sidebar.collapsed { width: 0; }
+.gl-sidebar-inner { padding: 14px 12px 24px; overflow-y: auto; height: 100%; scrollbar-width: none; }
+.gl-sidebar-inner::-webkit-scrollbar { display: none; }
+
+/* (제조사 세그먼트 · 제품 카드 UI는 드롭다운 방식으로 대체되어 제거됨 — gl-template-select 사용) */
+
+/* ── 출력 콘텐츠 타입 선택 ─────────────────────────────────── */
+.gl-content-seg {
+  display: flex; gap: 4px;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  padding: 3px;
+  margin-bottom: 4px;
+}
+.gl-content-btn {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  padding: 8px 4px;
+  min-height: 40px;
+  border: none; background: transparent;
+  border-radius: var(--r-sm);
+  font-size: 11px; font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  text-align: center;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.gl-content-btn:hover { color: var(--text); }
+/* [수정] 다른 선택 컨트롤(가로/세로 토글 .gl-fit-btn.active, 텍스트 위치 점)은
+   전부 옅은 파란색 배경으로 "선택됨"을 표시하는데, 이 세그먼트만 흰 배경+
+   그림자로 처리되어 있어 나란히 보면 이것만 "안 골라진 것처럼" 밋밋해
+   보였다. 같은 파란 배경으로 맞춘다. */
+.gl-content-btn.active {
+  background: var(--clr-primary-bg);
+  color: var(--clr-primary);
+  box-shadow: var(--shadow-xs);
+}
+.gl-content-btn svg { flex-shrink: 0; }
+
+/* 이미지 업로드 영역 */
+.gl-image-drop {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 16px 10px;
+  border: 1.5px dashed var(--border-2);
+  border-radius: var(--r-md);
+  color: var(--text-2);
+  font-size: 11.5px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.gl-image-drop:hover { border-color: var(--clr-primary); background: var(--clr-primary-bg); }
+.gl-image-drop.has-image { padding: 8px; border-style: solid; }
+/* 개선: 드래그로 이미지를 끌어오는 중 시각 피드백이 없던 문제 수정
+   (JS의 classList.add("drag-over") 호출에 대응하는 CSS가 없었음) */
+.gl-image-drop.drag-over { border-color: var(--clr-primary); background: var(--clr-primary-bg); }
+.gl-image-drop img {
+  max-width: 100%; max-height: 90px;
+  border-radius: var(--r-sm);
+  object-fit: contain;
+}
+
+/* 신규: 이미지를 업로드해도 곧바로 칸에 채우지 않고 대기시킬 때 보이는 안내 문구 —
+   '전체 칸에 적용'을 눌러야 실제로 채워진다는 것을 알려준다. */
+/* 개선: "출력 내용" 섹션이 both 모드에서 세그먼트→텍스트→이미지→배치가
+   8px 마진 하나로 다 붙어 보이던 문제 — 여백을 늘리고 옅은 구분선을 넣어
+   Notion처럼 그룹 사이가 시각적으로 분리되게 한다. */
+.gl-sb-subgroup {
+  margin-top: 20px !important;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-panel);
+}
+
+/* [신규] "여기서 바꾸면 전체 칸에 적용된다"는 점이 잘 안 보인다는 피드백 —
+   텍스트/이미지/배치 그룹 라벨 옆에 작은 배지로 명시한다. */
+.sb-scope-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  vertical-align: middle;
+  cursor: help;
+}
+
+/* [신규] 사이드바 섹션 접기/펼치기 — 주소 라벨 탭 인스펙터의 아코디언
+   (#inspector .insp-section[data-collapsible])과 같은 시각 언어를 쓴다.
+   라벨(.sb-ctrl-label)을 클릭하면 접히고, 상태는 localStorage에 저장돼
+   다음 방문에도 유지된다(실제 토글 로직은 ui-refresh.js). */
+.gl-sidebar .gl-sb-collapsible > .sb-ctrl-label {
+  cursor: pointer;
+  position: relative;
+  padding-right: 16px;
+  user-select: none;
+}
+.gl-sidebar .gl-sb-collapsible > .sb-ctrl-label:hover { color: var(--clr-primary); }
+.gl-sidebar .gl-sb-collapsible > .sb-ctrl-label::after {
+  content: "";
+  position: absolute;
+  right: 2px; top: 50%;
+  width: 6px; height: 6px;
+  margin-top: -4px;
+  border-right: 1.6px solid var(--text-3);
+  border-bottom: 1.6px solid var(--text-3);
+  transform: rotate(45deg);
+  transition: transform .18s;
+}
+.gl-sidebar .gl-sb-collapsible.collapsed > .sb-ctrl-label::after {
+  transform: rotate(-45deg);
+  margin-top: -1px;
+}
+.gl-sidebar .gl-sb-collapsible.collapsed > *:not(.sb-ctrl-label) {
+  display: none !important;
+}
+/* gl-sb-subgroup의 위쪽 여백/구분선은 접혀도 유지해 그룹 사이 간격이 어색해지지 않게 함 */
+.gl-sidebar .gl-sb-collapsible.collapsed {
+  padding-bottom: 5px;
+}
+
+/* 신규: 접이식 안내문단 — 기본 접힘 상태로 "출력 내용" 섹션의
+   기본 높이를 크게 줄이고, 필요할 때만 펼쳐 보게 한다. */
+.gl-hint-disclosure { margin-top: 10px; }
+.gl-hint-toggle {
+  display: flex; align-items: center; gap: 5px;
+  width: 100%;
+  background: none; border: none; padding: 4px 0;
+  font-size: 11px; font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: left;
+}
+.gl-hint-toggle:hover { color: var(--clr-primary); }
+/* [개선] "데이터 가져오기" 버튼 — 예전엔 ghost 스타일(테두리·배경 없음)이라
+   글자처럼 보여 버튼인지 알아채기 어려웠다. 강조색 테두리 + 연한 배경으로
+   "여기 누르면 뭔가 열린다"가 한눈에 보이게 한다. 완료/적용 같은 진짜
+   주요 액션(btn-primary)과는 구분되도록 톤은 한 단계 낮춘다. */
+.gl-import-btn {
+  background: var(--clr-primary-bg);
+  color: var(--clr-primary);
+  border: 1.5px dashed var(--clr-primary);
+  font-weight: 600;
+}
+.gl-import-btn:hover:not(:disabled) {
+  background: var(--clr-primary-bg-hover, var(--clr-primary-bg));
+  border-style: solid;
+  color: var(--clr-primary-h, var(--clr-primary));
+}
+.gl-import-btn-sub { font-weight: 400; opacity: .8; }
+
+.gl-hint-chevron { flex-shrink: 0; transition: transform .15s ease; }
+.gl-hint-toggle[aria-expanded="true"] .gl-hint-chevron { transform: rotate(90deg); }
+.gl-hint-body {
+  margin: 4px 0 0;
+  padding: 8px 9px;
+  font-size: 11px; line-height: 1.6;
+  /* 개선: text-3(가장 옅은, "비활성" 톤)는 실제로 읽어야 하는 설명
+     문단에는 명암비가 부족해 text-2로 한 단계 진하게 조정 */
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+}
+
+/* 신규: 우클릭 메뉴 그룹 소제목 — .toolbar-group-label과 같은 톤으로,
+   순수 라벨이라 클릭/hover 반응이 없다. */
+.ctx-group-label {
+  padding: 6px 12px 3px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--text-3);
+  user-select: none;
+}
+.ctx-group-label:first-child { padding-top: 8px; }
+
+.gl-image-pending-hint {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--clr-primary);
+  background: var(--clr-primary-bg);
+  border: 1px solid var(--clr-primary);
+  border-radius: var(--r-sm);
+}
+
+/* 신규: 대기 중인 이미지가 있을 때 '전체 칸에 적용' 버튼을 살짝 강조해
+   눌러야 반영된다는 것을 눈에 띄게 한다. */
+#gl-fill-all-btn.gl-fillall-pending {
+  box-shadow: 0 0 0 3px var(--clr-primary-bg), 0 0 0 1px var(--clr-primary);
+  animation: gl-fillall-pulse 1.4s ease-in-out infinite;
+}
+@keyframes gl-fillall-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--clr-primary-bg), 0 0 0 1px var(--clr-primary); }
+  50%      { box-shadow: 0 0 0 5px var(--clr-primary-bg), 0 0 0 1px var(--clr-primary); }
+}
+
+/* 이미지 배치 옵션 */
+.gl-fit-seg { display: flex; gap: 4px; margin-top: 6px; }
+.gl-fit-btn {
+  flex: 1; height: 24px;
+  border: 1px solid var(--border-2); background: var(--surface);
+  border-radius: var(--r-xs);
+  font-size: 10.5px; font-weight: 600; color: var(--text-2);
+  cursor: pointer;
+}
+.gl-fit-btn.active { border-color: var(--clr-primary); color: var(--clr-primary); background: var(--clr-primary-bg); }
+
+/* ── 글자 크기 / 이미지 크기 <select> — 노션 스타일 통일 ─────────
+   버그 수정: style.css의 #font-size-select(주소라벨)에는 브라우저
+   기본 select 테두리를 제거하는 규칙이 있지만, 일반라벨의
+   #gl-font-size-select · #gl-img-scale-select에는 대응 규칙이
+   없어서 각 select가 브라우저 기본 외곽선(실선)을 그대로 노출하고,
+   flex:1이 없어 -/+ 버튼과의 너비 배분도 깨져 있었다.
+   → 주소라벨과 동일한 규칙을 적용해 통일한다. ───────────────── */
+#gl-font-size-select,
+#gl-img-scale-select {
+  border: none; background: transparent; outline: none;
+  color: var(--text); font-weight: 600; font-size: 12px;
+  flex: 1;
+  min-width: 0;
+  text-align: center; cursor: pointer; height: 100%;
+  -webkit-appearance: none; appearance: none;
+}
+
+/* ── 줄 간격 / 자간 / 칸 개별 편집 폰트·크기 <select> — 노션 스타일 통일(신규) ──
+   위 두 select(글자 크기·이미지 크기)는 −/+ 버튼과 한 몸인 '알약형' 틀 안에
+   있어 테두리가 없는 게 맞지만, 이 네 개는 다른 컨트롤들과 나란히 놓이는
+   '독립형' select인데도 스타일이 전혀 없어 브라우저 기본 모양(테두리 실선,
+   높이 들쭉날쭉)이 그대로 보였다 — 바로 위 텍스트 속성 패널의 커스텀
+   드롭다운(.ctrl-select-display)과 같은 테두리·높이·모서리 값으로 맞춘다.
+   appearance:none + 배경 화살표 이미지로, 실제 <select>·접근성은 그대로
+   유지하면서 겉모습만 통일한다. ─────────────────────────────────── */
+#gl-line-height-select,
+#gl-letter-spacing-select,
+#gl-cell-edit-font,
+#gl-cell-edit-fontsize {
+  height: 28px;
+  padding: 0 22px 0 9px;
+  min-width: 92px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%239CA3AF'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  color: var(--text);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .1s, box-shadow .1s, background-color .1s;
+  -webkit-appearance: none; -moz-appearance: none; appearance: none;
+}
+#gl-line-height-select:hover,
+#gl-letter-spacing-select:hover,
+#gl-cell-edit-font:hover,
+#gl-cell-edit-fontsize:hover {
+  background-color: var(--surface-hover);
+}
+#gl-line-height-select:focus,
+#gl-letter-spacing-select:focus,
+#gl-cell-edit-font:focus,
+#gl-cell-edit-fontsize:focus {
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 2px var(--clr-primary-bg);
+  background-color: var(--surface);
+}
+
+/* ── 정렬/위치 컨트롤 공통 래퍼 ─────────────────────────────── */
+.gl-align-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-top: 8px;
+}
+.sb-ctrl-label-sm {
+  font-size: 11px; color: var(--text-2); font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* ── 3×3 위치 선택 그리드 — 텍스트 정렬 / 이미지 위치 공용 ─────
+   가운데 칸이 기본값(center/middle)이며, 기존 렌더링 결과와
+   완전히 동일하다. 사용자가 다른 칸을 클릭하면 해당 방향으로
+   정렬/앵커된다. ────────────────────────────────────────────── */
+.gl-align-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 20px);
+  grid-template-rows: repeat(3, 20px);
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  flex-shrink: 0;
+}
+.gl-align-btn {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 3px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: background .1s, box-shadow .1s;
+}
+.gl-align-btn:hover { background: var(--clr-primary-bg); }
+.gl-align-btn::after {
+  content: "";
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition: background .1s, transform .1s;
+}
+.gl-align-btn:hover::after { background: var(--clr-primary); }
+.gl-align-btn.active {
+  background: var(--clr-primary-bg);
+  box-shadow: inset 0 0 0 1px var(--clr-primary);
+}
+.gl-align-btn.active::after {
+  background: var(--clr-primary);
+  transform: scale(1.3);
+}
+
+/* (사이드바 내 미니 미리보기는 제거됨 — 우측 인스펙터의 A4 비율 미리보기로 통합) */
+
+/* ── 가운데 캔버스 ──────────────────────────────────────────── */
+.gl-canvas-wrap {
+  flex: 1;
+  display: flex; flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+}
+.gl-canvas-topbar {
+  height: 38px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-panel);
+  font-size: 12px; color: var(--text-2);
+}
+.gl-canvas-topbar b { color: var(--text); font-weight: 600; }
+
+/* 신규: "칸을 더블클릭하면 개별 편집할 수 있어요" 안내 — 상단바 여유 공간에
+   은은하게 표시. 좁은 화면에서는 줌/보기모드 버튼과 겹치므로 숨긴다(아래 반응형 규칙). */
+.gl-canvas-hint {
+  display: flex; align-items: center; gap: 5px;
+  color: var(--text-3); font-size: 11.5px; white-space: nowrap;
+  padding: 3px 9px; border-radius: 999px; background: var(--surface-2, var(--surface-hover));
+}
+.gl-canvas-hint svg { flex-shrink: 0; opacity: .75; }
+
+/* 신규: 캔버스 보기 모드 전환(한 페이지 맞춤 / 실제 크기 스크롤) —
+   사이드바의 .gl-fit-seg/.gl-fit-btn과 같은 시각 언어를 툴바 높이에 맞게 축소. */
+.gl-canvas-topbar-right {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+} /* 신규: 줌 컨트롤 + 구분선 + 보기모드 세그먼트를 한 그룹으로 묶어 툴바 우측에 배치 */
+.gl-view-seg {
+  display: flex; gap: 4px;
+}
+/* 신규: 캔버스 확대/축소 — 주소라벨 탭 #zoom-label과 동일한 문구 스타일(주소라벨은 id 선택자라 재사용 불가 → 클래스로 분리) */
+#gl-zoom-label { font-size: 10.5px; min-width: 32px; text-align: center; color: var(--text-2); }
+.gl-view-btn {
+  display: flex; align-items: center; gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border-2); background: var(--surface);
+  border-radius: var(--r-xs);
+  font-size: 11px; font-weight: 600; color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gl-view-btn:hover { color: var(--text); }
+.gl-view-btn.active { border-color: var(--clr-primary); color: var(--clr-primary); background: var(--clr-primary-bg); }
+.gl-view-btn svg { flex-shrink: 0; }
+
+/* ══════════════════════════════════════════════════════════════
+   신규: 칸 선택 편집 툴바 — 캔버스에서 라벨(칸)을 클릭해 선택하면
+   나타나는 상단 툴바. "전체 칸에 적용"과 별개로, 선택된 그 칸 하나에만
+   이미지를 교체하거나 텍스트를 지울 수 있게 해준다.
+   ══════════════════════════════════════════════════════════════ */
+.gl-edit-toolbar {
+  display: flex; align-items: center; gap: 6px;
+  height: 42px; flex-shrink: 0;
+  padding: 0 12px;
+  background: var(--clr-primary-bg);
+  border-bottom: 1px solid var(--clr-primary);
+  font-size: 12px;
+  animation: gl-edit-toolbar-in .12s ease;
+  /* 신규: 버튼이 다 안 들어갈 만큼 좁아져도 잘리거나 밀려나지 않고
+     가로 스크롤로 빠져나갈 수 있게 하는 안전망(우편라벨 .toolbar와 동일 패턴) */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.gl-edit-toolbar::-webkit-scrollbar { display: none; }
+@keyframes gl-edit-toolbar-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.gl-edit-toolbar-badge {
+  display: flex; align-items: center; gap: 5px;
+  color: var(--clr-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.gl-edit-toolbar-badge b { font-size: 13px; }
+.gl-edit-toolbar-sep {
+  width: 1px; height: 20px; flex-shrink: 0;
+  background: var(--border-2);
+}
+.gl-edit-toolbar .btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;   /* 신규: 좁아질 때 버튼 내부가 찌그러지는 대신 통째로 스크롤 영역으로 밀려나게 함 */
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.gl-edit-toolbar .btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.gl-edit-toolbar-spacer { flex: 1; min-width: 12px; }
+/* [신규] 상단 편집 툴바의 "이 칸" 글꼴·크기·색상 빠른 조절 컨트롤 —
+   기존 사이드바 select들과 같은 옵션을 담지만, 좁은 42px 툴바 높이에
+   맞춘 컴팩트한 자체 크기를 쓴다. */
+.gl-edit-toolbar-select {
+  height: 26px; flex-shrink: 0;
+  padding: 0 6px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11.5px;
+  max-width: 108px;
+}
+.gl-edit-toolbar-select#gl-edit-fontsize-select { max-width: 66px; }
+.gl-edit-toolbar-color {
+  width: 26px; height: 26px; flex-shrink: 0;
+  padding: 0; border: 1px solid var(--border-2); border-radius: var(--r-sm);
+  background: var(--surface);
+  cursor: pointer;
+}
+.gl-edit-toolbar .style-btn-row { flex-shrink: 0; }
+.gl-edit-toolbar .style-btn { width: 26px; height: 26px; }
+#gl-edit-toolbar-close {
+  flex-shrink: 0;
+}
+
+/* 신규: 창이 좁아지는 구간(기존 사이드바 축소 기준선과 동일)에서는
+   버튼 글자 라벨을 숨기고 아이콘+툴팁만 남겨 필요한 가로폭 자체를 줄인다.
+   그래도 다 안 들어가면 위 overflow-x:auto가 마지막 안전망 역할을 한다. */
+@media (max-width: 980px) {
+  .gl-edit-toolbar .gl-tb-label { display: none; }
+  .gl-edit-toolbar .btn { padding: 6px 8px; }
+  .gl-edit-toolbar-badge { gap: 4px; }
+}
+
+/* 선택된 칸 — 파란 테두리로 강조 표시(인쇄 시에는 숨김) */
+.gl-label-cell.gl-cell-selected {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: -1px;
+  z-index: 3;
+}
+/* [신규] 여러 칸 한꺼번에 선택(Shift+클릭 범위/Ctrl+클릭 개별) — 옅은 배경
+   틴트를 더해 "지금 여러 칸이 함께 선택돼 있다"를 단일 선택과 구분되게
+   보여준다. .gl-cell-selected보다 뒤에 둬서, 마지막으로 클릭한 대표 칸에
+   두 클래스가 함께 붙어도(선택 집합의 "앵커") 이 스타일이 우선한다. */
+.gl-label-cell.gl-cell-multiselected {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: -1px;
+  background: var(--clr-primary-bg);
+  z-index: 3;
+}
+/* 신규: 이미지 파일을 끌어다 이 칸 위에 올렸을 때(드래그앤드롭) 강조 표시 —
+   놓으면(drop) 그 칸의 개별 이미지로 바로 들어간다는 것을 시각적으로 알려준다. */
+.gl-label-cell.gl-drop-target {
+  outline: 2px dashed var(--clr-primary);
+  outline-offset: -1px;
+  background: var(--clr-primary-bg);
+  z-index: 4;
+}
+.gl-canvas-scroll {
+  flex: 1; overflow: auto;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 24px;
+  padding: 24px;
+}
+/* [버그 수정] 주소라벨의 .canvas-scroll에는 있는 스크롤바 스타일이
+   일반라벨의 이 캔버스에는 없어서, 여기만 브라우저 기본(두껍고 각진)
+   스크롤바가 그대로 보이며 화면이 겉돌았다. 주소라벨 .canvas-scroll
+   (style.css)과 완전히 같은 값으로 맞춘다. */
+.gl-canvas-scroll { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; }
+.gl-canvas-scroll::-webkit-scrollbar { width: 7px; height: 7px; }
+.gl-canvas-scroll::-webkit-scrollbar-track { background: transparent; }
+.gl-canvas-scroll::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
+.gl-canvas-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+/* 신규: "한 페이지" 보기 모드 — 페이지 전체가 스크롤 없이 한 화면에
+   들어오도록 캔버스 영역 가운데에 배치한다(실제 크기 스크롤 모드와 달리
+   overflow를 감춰 스크롤바가 생기지 않게 한다). */
+.gl-canvas-scroll.gl-fit-mode {
+  overflow: hidden;
+  justify-content: center;
+}
+/* JS가 실제 스케일에 맞는 픽셀 width/height를 지정해, 축소된 페이지가
+   차지하는 실제 자리만큼만 레이아웃 공간을 차지하게 한다(스케일된 페이지
+   주위에 원래 크기만큼의 빈 여백이 남는 것을 방지). */
+.gl-page-fit-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.gl-a4-page {
+  position: relative;
+  width: 210mm; height: 297mm;
+  background: #fff;
+  box-shadow: var(--shadow-lg);
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: grid;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+[data-theme="dark"] .gl-a4-page { background: #fdfdfd; }
+
+.gl-label-cell {
+  position: relative;
+  box-sizing: border-box;
+  border: 1px dashed rgba(55,53,47,.15);
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  padding: 2mm;
+}
+.gl-label-cell.gl-empty {
+  color: rgba(55,53,47,.28);
+  font-size: 10px;
+}
+/* [신규] 칸 포커스 패널의 확대 미리보기 — 빈 칸이라도 "#N" 안내문구 대신
+   바로 커서를 놓고 타이핑을 시작할 수 있는 편집 영역으로 보여준다.
+   실제 텍스트가 없을 때만(:empty) 안내문구를 얹고, 타이핑을 시작하면
+   자연히 사라진다(:empty 조건이 더는 참이 아니게 되므로). */
+.gl-cell-focus-clone.gl-empty { color: inherit; font-size: inherit; }
+.gl-cell-focus-clone .gl-cell-text:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(55,53,47,.32);
+  pointer-events: none;
+}
+[data-theme="dark"] .gl-cell-focus-clone .gl-cell-text:empty::before { color: rgba(255,255,255,.28); }
+/* 신규: 개별로 수정된 칸 표시 — 항상 보이는 작은 점(호버 안 해도 보임) */
+/* 개선: 65칸처럼 라벨 수가 많을 때 6px는 눈에 덜 띈다는 지적 반영 — 8px로 확대 */
+.gl-label-cell.gl-cell-modified::after {
+  content: "";
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--clr-primary, #6366f1);
+  box-shadow: 0 0 0 1.5px var(--surface, #fff);
+  z-index: 4;
+  pointer-events: none;
+}
+.gl-label-cell .gl-cell-text {
+  position: relative;
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-family: var(--gl-label-font, var(--label-font));
+  font-size: var(--gl-font-size, 12px);
+  /* [신규] 텍스트 속성 확장 — 색상/굵기/기울임/밑줄/줄간격/자간.
+     모두 기본값이 이전 하드코딩 값과 정확히 같아(color:--label-text-strong,
+     font-weight:400, line-height:1.25 등) 이 기능을 쓰지 않으면 렌더링이
+     전혀 달라지지 않는다. 전역 설정은 :root의 CSS 변수로, 칸별 개별
+     오버라이드는 buildCell()이 그 칸 엘리먼트에 인라인 style로 얹어
+     이 규칙보다 우선 적용된다. */
+  color: var(--gl-text-color, var(--label-text-strong));
+  font-weight: var(--gl-font-weight, 400);
+  font-style: var(--gl-font-style, normal);
+  text-decoration: var(--gl-text-decoration, none);
+  word-break: break-word;
+  white-space: pre-wrap;
+  text-align: center;
+  line-height: var(--gl-line-height, 1.25);
+  letter-spacing: var(--gl-letter-spacing, normal);
+}
+/* [신규] 칸 안의 표 — "칸 개별 편집" 패널의 표 도구로 만든 표를 렌더링한다.
+   폰트·크기·색상·굵기/기울임/밑줄은 부모 .gl-cell-text에 걸린 인라인
+   스타일을 font:inherit/color:inherit로 그대로 물려받아, 일반 텍스트와
+   같은 서식 컨트롤이 표에도 동일하게 적용된다. 테두리 색은 currentColor라
+   글자색을 바꾸면 테두리도 자동으로 같이 바뀐다. */
+.gl-label-cell .gl-cell-table {
+  border-collapse: collapse;
+  font: inherit;
+  color: inherit;
+  max-width: 100%;
+  max-height: 100%;
+}
+/* [버그 수정: "표가 라벨 범위를 벗어남"] 칸 포커스 패널의 확대 미리보기
+   (.gl-cell-focus-clone)는 회전 손잡이를 칸 밖으로 보여주려고 overflow:
+   visible로 풀어뒀다(위 .gl-cell-focus-clone 규칙 참고) — 그 대가로,
+   표도 열 너비·행 높이를 크게 늘리면 이미지처럼 칸 밖으로 그대로
+   삐져나와 보일 수 있었다. 이미지 때 썼던 것과 같은 패턴
+   (.gl-cell-img-clip — 손잡이류는 그대로 밖으로 나가되 실제 내용물은
+   자체적으로 다시 잘라주는 전용 래퍼)을, 표를 담는 .gl-cell-text-has-table에도
+   적용해 표 내용이 항상 칸 크기 안에만 보이게 한다. */
+.gl-cell-text-has-table {
+  overflow: hidden;
+}
+.gl-label-cell .gl-cell-table td {
+  /* [수정] "셀 외곽선의 종류와 굵기 조절 가능하게" 피드백 — 고정값(1px
+     solid) 대신 CSS 변수로 바꿔, 표마다 renderCellTableHtml()이 실어
+     보내는 --gl-tbl-bw(굵기)/--gl-tbl-bs(종류: 실선·파선·점선·이중선·
+     없음)/--gl-tbl-bc(색상, 없으면 글자색 그대로)를 읽어 적용한다.
+     값을 하나도 안 보내는 옛 저장물은 예전과 똑같이 1px 실선/글자색을
+     그대로 쓴다(하위호환). */
+  border: var(--gl-tbl-bw, 1px) var(--gl-tbl-bs, solid) var(--gl-tbl-bc, currentColor);
+  padding: 1px 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.25;
+}
+/* [신규] "표를 캔버스에서 직접 수정" — 각 칸이 contenteditable이라
+   클릭해서 바로 타이핑할 수 있다는 걸 알아볼 수 있게, 마우스를 올리면
+   text 커서로 바뀌고 포커스가 가면 얇은 강조 테두리가 안쪽으로 표시된다
+   (표 자체의 실제 테두리는 건드리지 않도록 outline을 쓴다). */
+.gl-label-cell .gl-cell-table td[contenteditable] {
+  cursor: text;
+  outline: none;
+}
+.gl-label-cell .gl-cell-table td[contenteditable]:focus {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: -2px;
+}
+/* 신규: 세로쓰기 — 칸 폭이 좁은 규격(정부문서화일 '분류번호(옆면)' 16mm 등)에서
+   가로쓰기가 물리적으로 들어가지 않을 때 사용. 기본값(가로쓰기)엔 클래스가 붙지
+   않으므로 이 기능을 쓰지 않는 사용자는 결과물이 전혀 달라지지 않는다.
+   text-orientation:upright로 한글·숫자를 눕히지 않고 그대로 세워서(위→아래) 표시한다.
+   ⚠️ 알려진 한계: gl-ta-left/right, gl-va-top/bottom과 함께 쓰면 좌/우와 위/아래
+   의미가 시각적으로 바뀐다(가로쓰기 기준으로 만든 정렬 클래스라 세로쓰기 축과
+   어긋남) — 정렬은 기본값(가운데)으로 쓰는 것을 권장하며, 축별 재매핑은 실제
+   수요가 확인되면 추가 예정(같은 방식으로 이미 처리한 아래 gl-layout-side 참고). */
+.gl-label-cell .gl-cell-text.gl-writing-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  letter-spacing: 0.05em;
+}
+.gl-label-cell .gl-cell-img {
+  width: 100%; height: 100%;
+  display: block;
+  transform: scale(var(--gl-img-scale, 1));
+  transform-origin: var(--gl-img-origin, 50% 50%);
+  transition: transform .15s ease;
+}
+.gl-label-cell .gl-cell-img.gl-fit-contain { object-fit: contain; }
+.gl-label-cell .gl-cell-img.gl-fit-cover   { object-fit: cover; }
+.gl-label-cell .gl-cell-img.gl-fit-stretch { object-fit: fill; }
+/* 신규: 칸별 이미지 위치 이동(드래그)·확대(휠) — 드래그 가능함을 커서로 알려주고,
+   드래그 중에는 transition을 꺼서(gl-dragging) 마우스 움직임에 지연 없이 반응한다. */
+.gl-label-cell .gl-cell-img { cursor: grab; }
+.gl-label-cell .gl-cell-img.gl-dragging { cursor: grabbing; transition: none; }
+
+/* ── 개별 칸 이미지 위치·확대·자르기 미니 컨트롤 ─────────────────
+   칸에 마우스를 올렸을 때(hover)만 좌상단에 나타나는 자르기·초기화
+   버튼. 글자 크기 미니 컨트롤(우상단)과 겹치지 않도록 반대쪽에
+   배치한다. 인쇄 시에는 항상 숨김(@media print 규칙 참고). ── */
+.gl-cell-img-ctrl {
+  position: absolute;
+  top: 2px; left: 2px;
+  display: flex; align-items: center; gap: 3px;
+  flex-wrap: wrap; max-width: calc(100% - 4px); /* 신규: 좁은 규격(예: 16mm 폭)에서 버튼 3개가 잘리지 않고 다음 줄로 넘어가게 */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s;
+  z-index: 6;
+}
+.gl-label-cell:hover .gl-cell-img-ctrl,
+.gl-label-cell.gl-cell-selected .gl-cell-img-ctrl {
+  opacity: 1;
+  pointer-events: auto;
+}
+.gl-cell-img-crop {
+  width: 15px; height: 15px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+  font-size: 9px; line-height: 1;
+  border: 1px solid var(--border-2);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+}
+.gl-cell-img-crop:hover {
+  background: var(--clr-primary-bg);
+  border-color: var(--clr-primary);
+  color: var(--clr-primary);
+}
+/* 신규: 회전 버튼 — 자르기 버튼과 동일한 미니 아이콘 스타일(디자인 통일) */
+/* 신규: 회전 버튼 — 아이콘(원형 화살표)은 옆의 초기화(↺) 버튼과 방향만
+   다른 거울상이라 라벨 없이 15px 크기로는 서로 헷갈리기 쉬웠다.
+   그래서 아이콘 대신 "90°" 글자를 써서 한눈에 구분되게 하고, 3글자가
+   들어가도록 폭만 자동으로 늘렸다(높이·테두리·색상은 자르기 버튼과 동일). */
+.gl-cell-img-rotate {
+  width: auto; height: 15px;
+  padding: 0 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8.5px; font-weight: 700; line-height: 1;
+  border: 1px solid var(--border-2);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+}
+.gl-cell-img-rotate:hover {
+  background: var(--clr-primary-bg);
+  border-color: var(--clr-primary);
+  color: var(--clr-primary);
+}
+/* ★FLIP: 좌우/상하 반전 버튼 — 회전 버튼과 동일한 미니 아이콘 스타일 */
+.gl-cell-img-flip {
+  width: 15px; height: 15px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+  font-size: 9px; line-height: 1;
+  border: 1px solid var(--border-2);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+}
+.gl-cell-img-flip:hover {
+  background: var(--clr-primary-bg);
+  border-color: var(--clr-primary);
+  color: var(--clr-primary);
+}
+.gl-cell-img-reset {
+  display: none;
+  width: 15px; height: 15px;
+  align-items: center; justify-content: center;
+  padding: 0;
+  font-size: 10px; line-height: 1;
+  border: 1px solid var(--clr-primary);
+  border-radius: 3px;
+  background: var(--clr-primary-bg);
+  color: var(--clr-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+}
+.gl-cell-img-custom .gl-cell-img-reset { display: flex; }
+
+/* ── 개별 칸 이미지 크기 조절용 3×3(9개) 핸들 ─────────────────────
+   마우스 휠 대신 이 핸들들을 드래그해서 이미지 배율(모서리·변 8개)과
+   위치(정중앙 1개)를 조절한다. 칸에 마우스를 올렸을 때만 보인다. ── */
+.gl-img-handles {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s;
+  z-index: 5;
+}
+/* ★CLICK-HANDLES: 원래는 hover(마우스를 올렸을 때)에만 보였는데,
+   터치/트랙패드 사용자는 hover 상태를 유지하기 어렵고 "클릭하면
+   나온다"는 요청에 맞춰 클릭 후 선택된 칸(.gl-cell-selected)에도
+   계속 보이도록 확장했다. 선택은 이미 있는 selectCell()이 관리하므로
+   (다른 칸을 클릭하거나 빈 곳을 클릭하면 자동으로 해제) 별도 로직
+   추가 없이 CSS 트리거만 넓히면 된다. */
+.gl-label-cell:hover .gl-img-handles,
+.gl-label-cell.gl-cell-selected .gl-img-handles {
+  opacity: 1;
+  pointer-events: auto;
+}
+.gl-img-handle {
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  background: #fff;
+  border: 1.5px solid var(--clr-primary);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.15);
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+.gl-img-handle[data-h="nw"] { top: 1px;  left: 1px; cursor: nwse-resize; }
+.gl-img-handle[data-h="n"]  { top: 1px;  left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.gl-img-handle[data-h="ne"] { top: 1px;  right: 1px; cursor: nesw-resize; }
+.gl-img-handle[data-h="w"]  { top: 50%;  left: 1px; transform: translateY(-50%); cursor: ew-resize; }
+.gl-img-handle[data-h="c"]  { top: 50%;  left: 50%; transform: translate(-50%,-50%);
+  width: 12px; height: 12px; border-radius: 50%; cursor: move; }
+.gl-img-handle[data-h="e"]  { top: 50%;  right: 1px; transform: translateY(-50%); cursor: ew-resize; }
+.gl-img-handle[data-h="sw"] { bottom: 1px; left: 1px; cursor: nesw-resize; }
+.gl-img-handle[data-h="s"]  { bottom: 1px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.gl-img-handle[data-h="se"] { bottom: 1px; right: 1px; cursor: nwse-resize; }
+
+/* ── 개별 칸 글자 크기 미니 컨트롤 ─────────────────────────────
+   칸에 마우스를 올리거나(hover) 텍스트를 편집 중일 때(focus-within)만
+   나타나는 작은 −/＋/초기화 버튼. 이 칸의 글자 크기만 전체 설정과
+   별도로 조절할 수 있다. 인쇄 시에는 항상 숨김(@media print 규칙 참고). ── */
+.gl-cell-fsz-ctrl {
+  position: absolute;
+  top: 2px; right: 2px;
+  display: flex; gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s;
+  z-index: 5;
+}
+.gl-label-cell:hover .gl-cell-fsz-ctrl,
+.gl-label-cell:focus-within .gl-cell-fsz-ctrl {
+  opacity: 1;
+  pointer-events: auto;
+}
+.gl-cell-fsz-btn {
+  width: 15px; height: 15px;
+  line-height: 13px;
+  padding: 0;
+  font-size: 10px; font-weight: 700;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text-2);
+  border-radius: 3px;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+}
+.gl-cell-fsz-btn:hover {
+  background: var(--clr-primary-bg);
+  border-color: var(--clr-primary);
+  color: var(--clr-primary);
+}
+.gl-cell-fsz-ctrl.gl-cell-fsz-custom .gl-cell-fsz-reset {
+  color: var(--clr-primary);
+  border-color: var(--clr-primary);
+  background: var(--clr-primary-bg);
+}
+
+.gl-label-cell .gl-cell-both {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+/* [수정] 이전엔 max-width/max-height·transform을 <img>에 직접 걸었는데,
+   "위/아래/옆" 배치에서도 9점 핸들·자유 회전 손잡이를 이미지 영역에
+   정확히 맞추려면 이미지를 감싸는 position:relative 컨테이너
+   (.gl-cell-img-wrap)가 필요하다 — .gl-img-handles/.gl-cell-img-ctrl는
+   `position:absolute`로 "가장 가까운 relative 조상"을 기준으로 하므로,
+   그 조상을 칸 전체(.gl-label-cell)가 아니라 이 래퍼로 좁히면 핸들이
+   칸 전체가 아닌 실제 이미지 크기·위치에 맞게 그려진다. 겹침(overlay)은
+   이미지가 이미 칸 전체를 덮으므로 이 래퍼를 쓰지 않는다(아래 overlay
+   규칙 참고).
+   [개선] max-height는 처음엔 65%였는데, "이미지가 칸 밖으로 안 나가는
+   건 좋은데 이미지 자체가 너무 작아졌다"는 피드백을 반영해 85%로
+   완화했다 — 텍스트 한 줄이 들어갈 최소 여백(15%)은 남기면서, 이미지가
+   훨씬 크게 보이도록 했다. */
+.gl-label-cell .gl-cell-both .gl-cell-img-wrap {
+  position: relative;
+  display: block;
+  max-width: 100%; max-height: 85%;
+  /* [버그 수정] "위/아래/옆" 배치에서 이미지를 9점 핸들로 크게 확대하면
+     .gl-cell-focus-clone의 overflow:visible(회전 손잡이가 칸 위로 나가야
+     해서 걸어둔 값) 때문에 칸 밖으로 그대로 다 보이던 문제. 이 래퍼에
+     overflow:hidden을 걸어 이미지가 최소한 "이 래퍼 = 칸 안쪽 영역"을
+     벗어나지는 못하게 한다.
+     [참고/트레이드오프] 이 래퍼 안에 자유 회전 손잡이(.gl-img-handle-rot 등,
+     래퍼 위쪽 바깥으로 튀어나오는 디자인)도 함께 들어있어서, 이미지가
+     래퍼 맨 위쪽에 딱 붙어 있는 상태에서는 회전 손잡이 끝부분이 아주
+     살짝 잘려 보일 수 있다. "이미지가 라벨 밖으로 삐져나오는" 더 눈에
+     띄는 문제를 먼저 없애는 쪽을 택했다 — 손잡이 클릭 영역 자체는
+     줄지 않으므로 회전 조작 자체는 계속 정상 동작한다. */
+  overflow: hidden;
+}
+.gl-label-cell .gl-cell-both .gl-cell-img-wrap img {
+  display: block; width: 100%; height: 100%; object-fit: contain;
+  transform: scale(var(--gl-img-scale, 1));
+  transform-origin: var(--gl-img-origin, 50% 50%);
+  transition: transform .15s ease;
+}
+.gl-label-cell .gl-cell-both .gl-cell-text { flex: 0 0 auto; height: auto; }
+
+/* ══════════════════════════════════════════════════════════════
+   버그 수정 — "텍스트+이미지" 모드에서 "텍스트 위치"의
+   위/중앙/아래(세로) 옵션이 시각적으로 전혀 구별되지 않던 문제.
+   원인: .gl-cell-text가 flex:0 0 auto로 자기 내용물 높이(글자 한 줄
+   높이)만큼만 차지해서, 그 안에서 justify-content를 위/중앙/아래로
+   바꿔도 움직일 여백 자체가 없었음(위·중앙·아래가 픽셀 단위까지
+   완전히 동일하게 렌더링됨을 실측으로 확인).
+   해결: 세로 위치는 텍스트 박스 "안"이 아니라 이미지+텍스트
+   "그룹 전체"를 칸 안에서 위/중앙/아래로 옮기는 방식으로 바꾼다.
+   기본값(중앙)은 기존 .gl-cell-both{justify-content:center}와 동일해
+   이 기능을 쓰지 않는 사용자는 결과물이 그대로 유지된다.
+   (위/아래 배치는 column-reverse라 flex-start·flex-end 의미가
+   반전되므로 레이아웃별로 나눠 지정한다.) ────────────────────── */
+.gl-label-cell .gl-cell-both.gl-layout-below:has(.gl-cell-text.gl-va-top),
+.gl-label-cell .gl-cell-both.gl-layout-above:has(.gl-cell-text.gl-va-bottom) {
+  justify-content: flex-start;
+}
+.gl-label-cell .gl-cell-both.gl-layout-below:has(.gl-cell-text.gl-va-middle),
+.gl-label-cell .gl-cell-both.gl-layout-above:has(.gl-cell-text.gl-va-middle) {
+  justify-content: center;
+}
+.gl-label-cell .gl-cell-both.gl-layout-below:has(.gl-cell-text.gl-va-bottom),
+.gl-label-cell .gl-cell-both.gl-layout-above:has(.gl-cell-text.gl-va-top) {
+  justify-content: flex-end;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   텍스트+이미지 — 텍스트 위치(레이아웃) 모드
+   기본값(below)은 위 규칙과 완전히 동일한 결과이며, 아래는
+   above/side/overlay를 선택했을 때만 적용되는 추가 규칙이다.
+   ══════════════════════════════════════════════════════════════ */
+/* 위: 텍스트가 위, 이미지가 아래 */
+.gl-label-cell .gl-cell-both.gl-layout-above { flex-direction: column-reverse; }
+/* 아래(기본값): 이미지가 위, 텍스트가 아래 — 기존 동작과 동일 */
+.gl-label-cell .gl-cell-both.gl-layout-below { flex-direction: column; }
+
+/* 옆(우, 기존 "옆"): 이미지가 왼쪽, 텍스트가 오른쪽 */
+.gl-label-cell .gl-cell-both.gl-layout-side {
+  flex-direction: row;
+  gap: 6px;
+}
+.gl-label-cell .gl-cell-both.gl-layout-side .gl-cell-img-wrap {
+  /* [개선] 45%→60%로 완화 — "옆" 배치도 이미지가 너무 작아 보인다는
+     피드백과 동일한 이유. 텍스트 칸(최소 40%)은 여전히 확보된다. */
+  max-width: 60%; max-height: 100%; flex: 0 0 auto;
+}
+.gl-label-cell .gl-cell-both.gl-layout-side .gl-cell-text {
+  flex: 1 1 auto; height: 100%; width: auto;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* [신규] 옆(좌) — 옆(우)와 좌우만 뒤바뀐 거울상. row-reverse로 이미지·텍스트
+   순서만 바꾸고, 폭 배분·정렬 축 보정 규칙은 옆(우)와 동일하게 재사용한다. */
+.gl-label-cell .gl-cell-both.gl-layout-side-left {
+  flex-direction: row-reverse;
+  gap: 6px;
+}
+.gl-label-cell .gl-cell-both.gl-layout-side-left .gl-cell-img-wrap {
+  max-width: 60%; max-height: 100%; flex: 0 0 auto;
+}
+.gl-label-cell .gl-cell-both.gl-layout-side-left .gl-cell-text {
+  flex: 1 1 auto; height: 100%; width: auto;
+  display: flex; align-items: center; justify-content: center;
+}
+
+
+/* 겹침: 이미지를 칸 전체 배경처럼 깔고 텍스트를 그 위에 겹쳐서 표시 */
+.gl-label-cell .gl-cell-both.gl-layout-overlay {
+  position: relative;
+}
+.gl-label-cell .gl-cell-both.gl-layout-overlay img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  max-width: none; max-height: none;
+}
+.gl-label-cell .gl-cell-both.gl-layout-overlay .gl-cell-text {
+  position: relative; z-index: 1;
+  width: 100%; height: 100%; flex: 0 0 auto;
+  /* [되돌림] 또렷한 8방향 외곽선(스티커 텍스트 효과)을 써봤는데 오히려
+     더 어색해 보인다는 피드백을 받아, 기존의 부드러운 후광(glow)으로
+     되돌렸다. 어떤 이미지 위에 놓여도 글자가 읽히도록 밝은 후광
+     (text-shadow)을 둠.
+     [버그 수정] 글자색을 흰색/밝은 색으로 바꾸면 이 흰 후광과 뒤섞여
+     글자가 다시 안 보이는 문제가 있었다. --gl-halo-shadow는 전역 글자색이
+     바뀔 때마다(JS applyGlTextFormat) 그 색의 밝기에 맞춰 흰색↔검정
+     계열로 자동 전환되어 즉시 갱신된다(칸별로 색을 따로 지정한 경우는
+     cellTextStyleAttr에서 인라인으로 이미 올바른 후광을 함께 굽는다). */
+  text-shadow: var(--gl-halo-shadow,
+    0 0 3px rgba(255,255,255,.85), 0 0 3px rgba(255,255,255,.85),
+    0 0 6px rgba(255,255,255,.6));
+}
+
+/* ══════════════════════════════════════════════════════════════
+   텍스트 정렬(위치) — .gl-cell-text 기본 배치(가운데)를 덮어쓴다.
+   기본값(gl-ta-center/gl-va-middle)은 기존 중앙 정렬과 완전히
+   동일해 이 기능을 쓰지 않는 사용자는 결과물이 그대로 유지된다.
+   side/overlay 레이아웃 안의 .gl-cell-text보다 나중에 선언되고
+   동일한 특이도를 갖도록 선택자를 맞춰 항상 우선 적용되게 한다.
+   ══════════════════════════════════════════════════════════════ */
+.gl-label-cell .gl-cell-both .gl-cell-text.gl-ta-left   { text-align: left;   align-items: flex-start; }
+.gl-label-cell .gl-cell-both .gl-cell-text.gl-ta-center { text-align: center; align-items: center; }
+.gl-label-cell .gl-cell-both .gl-cell-text.gl-ta-right  { text-align: right;  align-items: flex-end; }
+.gl-label-cell .gl-cell-both .gl-cell-text.gl-va-top    { justify-content: flex-start; }
+.gl-label-cell .gl-cell-both .gl-cell-text.gl-va-middle { justify-content: center; }
+.gl-label-cell .gl-cell-both .gl-cell-text.gl-va-bottom { justify-content: flex-end; }
+
+.gl-label-cell .gl-cell-text.gl-ta-left   { text-align: left;   align-items: flex-start; }
+.gl-label-cell .gl-cell-text.gl-ta-center { text-align: center; align-items: center; }
+.gl-label-cell .gl-cell-text.gl-ta-right  { text-align: right;  align-items: flex-end; }
+.gl-label-cell .gl-cell-text.gl-va-top    { justify-content: flex-start; }
+.gl-label-cell .gl-cell-text.gl-va-middle { justify-content: center; }
+.gl-label-cell .gl-cell-text.gl-va-bottom { justify-content: flex-end; }
+
+/* 버그 수정 — "옆"(side) 배치는 flex-direction:row라 주축/교차축이
+   위 규칙들(column 기준)과 반대다. 그대로 두면 가로(ta) 클릭이
+   세로로, 세로(va) 클릭이 가로로 적용되는 축 반전 버그가 있었다.
+   동일 특이도(4클래스)에 선택자를 하나 더 붙여(5클래스) side일 때만
+   축을 바로잡는다. ──────────────────────────────────────────── */
+.gl-label-cell .gl-cell-both.gl-layout-side .gl-cell-text.gl-ta-left   { justify-content: flex-start; }
+.gl-label-cell .gl-cell-both.gl-layout-side .gl-cell-text.gl-ta-center { justify-content: center; }
+.gl-label-cell .gl-cell-both.gl-layout-side .gl-cell-text.gl-ta-right  { justify-content: flex-end; }
+.gl-label-cell .gl-cell-both.gl-layout-side .gl-cell-text.gl-va-top    { align-items: flex-start; }
+.gl-label-cell .gl-cell-both.gl-layout-side .gl-cell-text.gl-va-middle { align-items: center; }
+.gl-label-cell .gl-cell-both.gl-layout-side .gl-cell-text.gl-va-bottom { align-items: flex-end; }
+/* [신규] 옆(좌)도 flex-direction이 row 계열(row-reverse)이라 동일한 축 보정이 필요 */
+.gl-label-cell .gl-cell-both.gl-layout-side-left .gl-cell-text.gl-ta-left   { justify-content: flex-start; }
+.gl-label-cell .gl-cell-both.gl-layout-side-left .gl-cell-text.gl-ta-center { justify-content: center; }
+.gl-label-cell .gl-cell-both.gl-layout-side-left .gl-cell-text.gl-ta-right  { justify-content: flex-end; }
+.gl-label-cell .gl-cell-both.gl-layout-side-left .gl-cell-text.gl-va-top    { align-items: flex-start; }
+.gl-label-cell .gl-cell-both.gl-layout-side-left .gl-cell-text.gl-va-middle { align-items: center; }
+.gl-label-cell .gl-cell-both.gl-layout-side-left .gl-cell-text.gl-va-bottom { align-items: flex-end; }
+
+/* ── 우측 인스펙터 — 기존 .insp-section 패턴 재사용 ───────────── */
+.gl-inspector {
+  width: var(--inspector-w);
+  background: var(--surface-insp);
+  border-left: 1px solid var(--border-panel);
+  overflow-y: auto; overflow-x: hidden; /* [수정] 주소라벨 .inspector-scroll과 동일한 이유로 명시 */
+  /* [버그 수정] 스크롤은 이미 나도록 지정돼 있었지만(overflow-y:auto),
+     실제 스크롤바 "모양"은 지정된 적이 없어 브라우저 기본 스크롤바가
+     그대로 노출됐다. 주소라벨 .inspector-scroll과 같은 얇은 스타일로. */
+  scrollbar-width: thin; scrollbar-color: var(--border-2) transparent;
+  flex-shrink: 0;
+  transition: width .18s ease;
+}
+/* [신규] "왼쪽 패널처럼 오른쪽 인스펙터도 접기가 되게 해달라"는 피드백
+   대응 — .gl-sidebar.collapsed와 완전히 동일한 방식(width:0). */
+.gl-inspector.collapsed { width: 0; overflow: hidden; border-left-color: transparent; }
+.gl-inspector::-webkit-scrollbar { width: 4px; }
+.gl-inspector::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
+.gl-inspector-scroll { padding: 14px 14px 24px; }
+
+/* [제거] .gl-empty-state — "규격 미선택" 빈 화면용으로 설계됐으나
+   renderTemplateSelect()가 항상 CFG 첫 번째 항목을 자동 선택하므로
+   이 상태에 도달하는 코드 경로 자체가 존재하지 않음 */
+
+/* ── 텍스트 입력 영역 ─────────────────────────────────────── */
+.gl-textarea {
+  width: 100%;
+  min-height: 64px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  resize: vertical;
+}
+.gl-textarea:focus { outline: none; border-color: var(--clr-primary); box-shadow: 0 0 0 2px var(--clr-primary-bg); }
+
+/* [신규] "이 칸을 표로" 편집기 — 칸 개별 편집 패널의 표 삽입/편집 UI */
+.gl-cell-table-del-all {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; font-size: 11px;
+}
+.gl-cell-table-grid {
+  position: relative;
+  padding: 6px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  overflow-x: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border-2) transparent;
+}
+.gl-cell-table-grid::-webkit-scrollbar { height: 6px; }
+.gl-cell-table-grid::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+/* [수정] 예전엔 CSS grid로 입력창을 늘어놓아 셀 병합을 표현할 방법이
+   없었다. 실제 <table rowspan/colspan>으로 바꿔 화면에 보이는 편집기
+   구조가 결과물(renderCellTableHtml)과 똑같아지도록 했다 — 병합된 칸이
+   편집기에서도 그대로 넓게 이어져 보인다. */
+.gl-cell-table-edit {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 0 auto;
+}
+.gl-cell-table-edit-td {
+  position: relative;
+  border: var(--gl-tbl-bw, 1px) var(--gl-tbl-bs, solid) var(--gl-tbl-bc, var(--border-2));
+  padding: 2px;
+  vertical-align: top;
+  background: var(--surface);
+}
+.gl-cell-table-edit-td-sel {
+  background: var(--clr-primary-bg);
+  outline: 2px solid var(--clr-primary);
+  outline-offset: -2px;
+  z-index: 1;
+}
+/* [신규] 캔버스(메인 격자·확대 미리보기)에서 표 칸을 선택했을 때의
+   하이라이트 — 사이드 패널의 .gl-cell-table-edit-td-sel과 같은 느낌으로
+   맞췄다. position:relative가 있어야 outline-offset이 실제 칸 테두리
+   기준으로 그려진다(표 칸은 기본이 static이라 명시해 둠). */
+.gl-cell-table-sel {
+  position: relative;
+  background: var(--clr-primary-bg) !important;
+  outline: 2px solid var(--clr-primary);
+  outline-offset: -2px;
+  z-index: 2;
+}
+.gl-cell-table-cell-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 26px;
+  max-height: 140px;
+  padding: 4px 5px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  text-align: center;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.3;
+}
+.gl-cell-table-cell-input:focus {
+  outline: none; background: var(--surface); box-shadow: 0 0 0 2px var(--clr-primary-bg) inset;
+}
+/* [수정] 예전엔 <td> 안에 심어둔 6px짜리 손잡이(옆 칸에 가려지기 쉬움)를
+   썼는데, 이제는 표 전체 위에 겹쳐 그리는 오버레이 레이어(아래
+   .gl-tbl-resize-overlay*)로 대체했다 — 더 넉넉하고(10px) 항상 맨 위에
+   있어 확실하게 잡힌다. */
+.gl-tbl-resize-overlay { position: absolute; inset: 0; pointer-events: none; }
+.gl-tbl-resize-overlay-col {
+  position: absolute;
+  width: 10px;
+  cursor: col-resize;
+  pointer-events: auto;
+  z-index: 5;
+}
+.gl-tbl-resize-overlay-col:hover, .gl-tbl-resize-overlay-col:active { background: var(--clr-primary-bg); }
+.gl-tbl-resize-overlay-row {
+  position: absolute;
+  height: 10px;
+  cursor: row-resize;
+  pointer-events: auto;
+  z-index: 5;
+}
+.gl-tbl-resize-overlay-row:hover, .gl-tbl-resize-overlay-row:active { background: var(--clr-primary-bg); }
+/* [신규] 표 전체 크기 조절(비율 유지) 손잡이 — 이미지의 모서리(대각선)
+   핸들과 같은 자리(우하단), 같은 느낌(작은 사각 손잡이)으로 통일해
+   "이것도 대각선으로 끌면 전체가 비율대로 커진다"는 걸 짐작하기 쉽게 했다. */
+.gl-tbl-resize-overlay-corner {
+  position: absolute;
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  background: var(--surface);
+  border: 1.5px solid var(--clr-primary);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.12);
+  cursor: nwse-resize;
+  pointer-events: auto;
+  z-index: 6;
+}
+.gl-tbl-resize-overlay-corner:hover, .gl-tbl-resize-overlay-corner:active { background: var(--clr-primary-bg); }
+/* [신규] 여러 칸을 드래그로 선택하는 동안 브라우저 기본 텍스트 선택을
+   꺼서, 우리가 그리는 칸 선택 하이라이트와 겹쳐 지저분해지지 않게 한다. */
+.gl-tbl-dragging, .gl-tbl-dragging * { user-select: none; }
+/* [신규] 표 전체 크기 슬라이더 줄 */
+.gl-cell-table-toolbar-size input[type="range"] { flex: 1 1 auto; }
+.gl-cell-table-width-val {
+  font-size: 11px; color: var(--text-2);
+  width: 34px; flex: 0 0 auto; text-align: right;
+}
+
+.gl-cell-table-toolbar {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 6px;
+}
+.gl-cell-table-toolbar-label {
+  font-size: 10.5px; font-weight: 700; color: var(--text-3);
+  width: 20px; flex: 0 0 auto;
+}
+.gl-cell-table-toolbar .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  padding: 5px 8px; font-size: 11.5px;
+  flex: 1 1 auto;
+}
+.gl-cell-table-toolbar .btn:disabled {
+  opacity: .4; cursor: not-allowed;
+}
+.gl-cell-table-toolbar-merge .btn { flex-basis: 50%; }
+.gl-cell-table-toolbar-sep {
+  width: 1px; align-self: stretch;
+  background: var(--border-2);
+  margin: 0 2px;
+}
+/* [신규] 배경색/테두리/즐겨찾기 툴바 행 — 기존 .gl-cell-table-toolbar
+   (flex row)를 그대로 쓰되 색상 인풋·셀렉트만 추가 스타일링한다. */
+.gl-cell-table-toolbar input[type="color"] {
+  width: 28px; height: 26px; flex: 0 0 auto;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  padding: 2px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.gl-cell-table-toolbar select {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11.5px;
+}
+.gl-cell-table-toolbar-border input[type="range"] { flex: 1 1 auto; width: 40px; }
+.gl-cell-table-toolbar-fav-save {
+  margin-top: 4px;
+}
+.gl-cell-table-fav-name-input {
+  flex: 1 1 auto; min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11.5px;
+}
+.gl-cell-table-fav-name-input:focus, .gl-cell-table-toolbar select:focus {
+  outline: none; border-color: var(--clr-primary); box-shadow: 0 0 0 2px var(--clr-primary-bg);
+}
+.gl-cell-table-toolbar-fav-save .btn { flex: 0 0 auto; white-space: nowrap; }
+
+/* [신규] "선택한 칸 테두리" — 위/오른쪽/아래/왼쪽을 개별로 켜고 끄는 아이콘
+   버튼 행. 라벨이 다른 행("테두리"/"배경" 등)보다 길어서 폭을 늘렸고,
+   버튼은 정사각형 아이콘 전용(글자 없음)이라 flex-grow를 끄고 고정폭으로 둔다. */
+.gl-cell-table-toolbar-sides .gl-cell-table-toolbar-label { width: 64px; }
+.gl-cell-table-toolbar-sides { flex-wrap: wrap; row-gap: 4px; }
+.gl-cell-table-toolbar-sides .btn {
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  padding: 0;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   이미지 자르기(Crop) 모달 — 기존 .modal-bg 패턴 재사용
+   ══════════════════════════════════════════════════════════════ */
+.gl-crop-modal { z-index: 950; } /* 다른 모달 위에 뜰 수 있도록 */
+.gl-crop-card {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding: 16px 18px 18px;
+  width: 480px; max-width: 92vw;
+  box-shadow: var(--shadow-float);
+  border: 1px solid var(--border);
+  transform: scale(.96) translateY(-6px);
+  opacity: 0;
+  transition: transform .18s cubic-bezier(.34,1.56,.64,1), opacity .16s;
+}
+.gl-crop-modal.active .gl-crop-card { transform: scale(1) translateY(0); opacity: 1; }
+.gl-crop-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 14px; font-weight: 600; color: var(--text);
+  margin-bottom: 10px;
+}
+.gl-crop-x {
+  width: 24px; height: 24px;
+  border: none; background: transparent; color: var(--text-2);
+  border-radius: var(--r-sm); cursor: pointer; font-size: 13px;
+}
+.gl-crop-x:hover { background: var(--surface-hover); color: var(--text); }
+.gl-crop-stage {
+  position: relative;
+  width: 100%; height: min(50vh, 380px);
+  background: repeating-conic-gradient(var(--surface-2) 0% 25%, var(--surface-3) 0% 50%) 50% / 16px 16px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.gl-crop-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+.gl-crop-select {
+  position: absolute;
+  border: 1.5px dashed var(--clr-primary);
+  background: rgba(35,131,226,.12);
+  box-shadow: 0 0 0 2000px rgba(0,0,0,.35);
+  box-sizing: border-box;
+}
+.gl-crop-handle {
+  position: absolute;
+  width: 10px; height: 10px;
+  margin: -5px;
+  border-radius: 2px;
+  background: #fff;
+  border: 1.5px solid var(--clr-primary);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.2);
+}
+.gl-crop-handle[data-h="nw"] { top: 0;   left: 0;   cursor: nwse-resize; }
+.gl-crop-handle[data-h="n"]  { top: 0;   left: 50%; cursor: ns-resize; }
+.gl-crop-handle[data-h="ne"] { top: 0;   left: 100%; cursor: nesw-resize; }
+.gl-crop-handle[data-h="w"]  { top: 50%; left: 0;   cursor: ew-resize; }
+.gl-crop-handle[data-h="c"]  { top: 50%; left: 50%; width: 14px; height: 14px; margin: -7px; border-radius: 50%; cursor: move; }
+.gl-crop-handle[data-h="e"]  { top: 50%; left: 100%; cursor: ew-resize; }
+.gl-crop-handle[data-h="sw"] { top: 100%; left: 0;   cursor: nesw-resize; }
+.gl-crop-handle[data-h="s"]  { top: 100%; left: 50%; cursor: ns-resize; }
+.gl-crop-handle[data-h="se"] { top: 100%; left: 100%; cursor: nwse-resize; }
+.gl-crop-hint {
+  margin: 8px 2px 0;
+  font-size: 11.5px; color: var(--text-3);
+  text-align: center;
+}
+.gl-crop-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-top: 14px;
+}
+.gl-crop-foot-right { display: flex; gap: 8px; }
+
+/* ── 인쇄 — 일반라벨 모드일 때만 적용 ─────────────────────────── */
+@media print {
+  body.mode-general .titlebar,
+  body.mode-general .toolbar,
+  body.mode-general .gl-sidebar,
+  body.mode-general .gl-inspector,
+  body.mode-general .gl-canvas-topbar,
+  body.mode-general .gl-edit-toolbar { display: none !important; }
+
+  body.mode-general html, body.mode-general body {
+    width: 210mm !important; height: auto !important;
+    overflow: visible !important; background: #fff !important;
+    margin: 0 !important; padding: 0 !important;
+  }
+  body.mode-general #general-app-body {
+    display: block !important; width: 210mm !important; height: auto !important; overflow: visible !important;
+  }
+  body.mode-general .gl-canvas-wrap,
+  body.mode-general .gl-canvas-scroll {
+    display: block !important; overflow: visible !important;
+    padding: 0 !important; margin: 0 !important; gap: 0 !important;
+    width: 210mm !important; background: none !important;
+  }
+  body.mode-general .gl-a4-page {
+    width: 210mm !important; height: 297mm !important;
+    box-shadow: none !important; border-radius: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    box-sizing: border-box !important; overflow: hidden !important;
+    break-after: page; page-break-after: always;
+    transform: none !important; /* 신규: "한 페이지" 보기 모드의 축소 배율이 인쇄에 그대로 남지 않도록 항상 원래 크기로 인쇄 */
+  }
+  body.mode-general .gl-page-fit-wrap {
+    width: auto !important; height: auto !important; /* 신규: 보기 모드용 축소 래퍼 크기를 인쇄에서는 무시 */
+  }
+  body.mode-general .gl-a4-page:last-child { break-after: avoid !important; page-break-after: avoid !important; }
+  body.mode-general .gl-label-cell { border: none !important; }
+  body.mode-general .gl-label-cell.gl-empty { color: transparent !important; }
+  body.mode-general .gl-cell-fsz-ctrl { display: none !important; }
+  body.mode-general .gl-cell-img-ctrl { display: none !important; }
+  body.mode-general .gl-img-handles   { display: none !important; }
+  body.mode-general .gl-label-cell.gl-cell-modified::after { display: none !important; }
+  body.mode-general .gl-label-cell.gl-cell-selected { outline: none !important; }
+  /* [신규] 텍스트 색상(색상 피커) 지정 시 일부 브라우저가 인쇄에서 색을
+     보정하지 않고 그대로 찍도록 강제 — 배경이 아닌 글자색이라 대부분
+     문제없지만, 사용자가 고른 색이 항상 정확히 나오도록 안전장치를 둔다. */
+  body.mode-general .gl-cell-text { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  #gl-crop-modal, #gl-context-menu, #gl-cell-focus-panel { display: none !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   [신규] 칸 더블클릭 → "칸 포커스" 패널(#gl-cell-focus-panel)
+   화면 전체를 덮는 모달이 아니라 .gl-canvas-wrap(캔버스 영역) 안에 딱 맞게
+   자리잡는 오버레이 — 왼쪽엔 그 칸을 확대한 실시간 미리보기, 오른쪽엔
+   편집 폼이 나란히 놓인다. .gl-canvas-wrap에 position:relative를 줘서
+   이 패널의 기준점으로 삼는다.
+   ══════════════════════════════════════════════════════════════ */
+.gl-canvas-wrap { position: relative; }
+.gl-cell-focus-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  background: var(--bg);
+}
+/* [신규] 이 패널 위로 이미지 파일을 끌어오면(드래그앤드롭) 패널 전체 테두리를
+   강조해 "여기에 놓으면 이 칸에 들어간다"를 알려준다 — 캔버스 칸의
+   .gl-drop-target과 같은 느낌으로 통일. */
+.gl-cell-focus-panel.gl-drop-target {
+  outline: 3px dashed var(--clr-primary);
+  outline-offset: -3px;
+}
+.gl-cell-focus-panel.gl-drop-target .gl-cell-focus-stage {
+  background: var(--clr-primary-bg);
+}
+.gl-cell-focus-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex; align-items: center;
+  /* [버그 수정 2026-07] justify-content:center였을 때는 레일+라벨을
+     "한 덩어리"로 보고 그 덩어리를 스테이지 한가운데로 모았다. 그러면
+     레일과 라벨이 서로 바짝 붙어 항상 화면 중앙에 함께 놓이고, 스테이지
+     양옆으로는 빈 여백만 커져서(사용자 스크린샷과 동일 증상) "레일이
+     라벨 위로 나온다"는 인상을 줬다. justify-content를 없애고 레일은
+     flex-shrink:0로 왼쪽에 고정한 뒤, 라벨 미리보기 쪽(.gl-cell-focus-preview)에
+     flex:1을 줘서 "레일을 뺀 나머지 공간"을 전부 차지하게 하고, 그 안에서
+     라벨만 따로 가운데 정렬한다 — 레일은 항상 스테이지 왼쪽 가장자리에
+     붙어 있고, 라벨은 레일과 무관하게 자기 몫의 공간 안에서만 커진다. */
+  gap: 18px;
+  padding: 32px;
+  overflow: hidden;
+  /* 은은한 체크무늬 대신 살짝 어두운 톤으로 "포커스된 무대" 느낌만 — 라벨이
+     흰 종이인 경우가 많아 배경과 확실히 구분되도록 */
+  background: var(--surface-2);
+}
+.gl-cell-focus-preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; z-index: 1;
+}
+/* JS가 이 안의 .gl-label-cell 사본에 transform:scale()로 배율을 직접
+   계산해서 넣는다(라벨 규격마다 실제 mm 크기가 달라 고정 배율은 부적절). */
+.gl-cell-focus-preview .gl-label-cell {
+  box-shadow: 0 14px 44px rgba(0,0,0,.24), 0 0 0 1px var(--border);
+}
+/* [신규] 확대 편집 패널 안의 사본(clone)에서는 9점 크기조절 핸들이
+   호버 없이도 항상 보이고(패널이 이미 "이 칸에 집중"하는 상태이므로
+   굳이 마우스를 올려야만 보이게 할 이유가 없다), 회전·자르기 등
+   아이콘 버튼 줄은 오른쪽 폼에 이미 큰 버튼으로 따로 있으므로
+   중복을 피해 숨긴다. */
+.gl-cell-focus-clone .gl-img-handles { opacity: 1 !important; pointer-events: auto !important; }
+.gl-cell-focus-clone .gl-cell-img-ctrl { display: none !important; }
+/* [수정] "9점 핸들이 너무 크다" 버그 수정 — .gl-cell-focus-clone 자신에게
+   확대 배율(예: 4배)만큼 transform:scale()이 걸려 있으면, 그 안의 모든
+   자식(핸들 포함)도 똑같이 4배로 커져 보인다. JS가 그 배율을
+   --gl-focus-scale로 내려주므로, 핸들 쪽 치수를 반대로 나눠(px ÷ 배율)
+   화면에 실제로 찍히는 크기가 항상 원래 크기(8px 등)로 일정하게 유지되도록
+   상쇄한다. */
+.gl-cell-focus-clone .gl-img-handle {
+  width: calc(8px / var(--gl-focus-scale, 1));
+  height: calc(8px / var(--gl-focus-scale, 1));
+  border-width: calc(1.5px / var(--gl-focus-scale, 1));
+}
+.gl-cell-focus-clone .gl-img-handle[data-h="c"] {
+  width: calc(12px / var(--gl-focus-scale, 1));
+  height: calc(12px / var(--gl-focus-scale, 1));
+}
+/* [신규] 자유 회전 손잡이 — 실제 캔버스의 작은 칸에서는 손잡이가 칸 밖으로
+   튀어나가 옆 칸과 겹치거나 잘리기 쉬워 숨기고, 여유 공간이 넉넉한 칸
+   포커스 패널의 확대 미리보기에서만 보이게 한다. 90도 회전 버튼은 두
+   곳 다 그대로 쓸 수 있으니 실제 캔버스에서는 그걸로 충분하다. */
+.gl-img-handle-rot, .gl-img-rot-stem { display: none; }
+.gl-cell-focus-clone { overflow: visible; } /* 손잡이가 칸 위쪽 바깥으로 나가므로 이 칸만 잘리지 않게 */
+/* [신규/버그 수정] 위에서 .gl-cell-focus-clone을 overflow:visible로 풀어준
+   대가로, 그 안의 <img>를 확대(핸들 드래그)하면 칸 밖으로 그대로 삐져
+   나와 보이는 문제가 있었다. <img>를 이 전용 래퍼로 한 번 더 감싸서
+   "칸 크기만큼만 보이게" 자체적으로 다시 잘라준다 — 손잡이류
+   (.gl-img-handles, 자유 회전 손잡이 등)는 이 래퍼 밖(칸의 직속 형제)에
+   그대로 있으므로 계속 정상적으로 밖으로 나갈 수 있다. */
+.gl-cell-img-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none; /* 클리핑 전용 레이어 — 이미지 드래그 등 실제 조작은 안쪽 <img>가 그대로 받는다 */
+}
+.gl-cell-img-clip > img { pointer-events: auto; }
+/* [버그 수정] 아래 두 줄의 특정도(.gl-cell-focus-clone .gl-img-handle-rot = 클래스 2개)가
+   .gl-img-handle-rot{display:flex}(클래스 1개, 아이콘을 원 정중앙에 놓는 규칙)보다 높아서,
+   손잡이를 "보이게" 하는 이 규칙이 뜻하지 않게 flex 중앙정렬까지 block으로 덮어써버렸다.
+   그 결과 아이콘(svg)이 원 안에서 위쪽이 아니라 아래쪽으로 쏠려 원 밖으로 삐져나온 것처럼
+   보였다. display:block 대신 원래 의도한 display:flex를 그대로 유지해 중앙정렬이 이기게 한다. */
+.gl-cell-focus-clone .gl-img-handle-rot { display: flex; }
+.gl-cell-focus-clone .gl-img-rot-stem { display: block; }
+.gl-img-rot-stem {
+  position: absolute;
+  top: -17px; left: 50%;
+  width: 1px; height: 15px;
+  background: var(--clr-primary);
+  opacity: .6;
+  pointer-events: none;
+}
+.gl-cell-focus-clone .gl-img-rot-stem {
+  top: calc(-17px / var(--gl-focus-scale, 1));
+  width: calc(1px / var(--gl-focus-scale, 1));
+  height: calc(15px / var(--gl-focus-scale, 1));
+}
+.gl-img-handle-rot {
+  position: absolute;
+  top: -28px; left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid var(--clr-primary);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.15);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--clr-primary);
+  cursor: grab;
+  overflow: hidden; /* [버그 수정] 아이콘이 원 밖으로 삐져나오는 일이 절대 없도록 확실히 잘라낸다 */
+  transition: transform .12s, box-shadow .12s; /* ★ROTATE-POLISH */
+}
+/* [버그 수정] "회전 아이콘이 동그라미 안에 제대로 안 들어간다" — 아이콘
+   크기를 항상 원(.gl-img-handle-rot) 크기의 약 55%로 맞춰, 위에서 원을
+   18px→다른 값으로 나중에 다시 조절하더라도 항상 안쪽에 여백을 두고
+   딱 맞게 보이도록 고정 비율로 관리한다(일반 그리드에서도, 확대
+   미리보기에서도 동일하게 적용). */
+.gl-img-handle-rot svg {
+  width: 60%; height: 60%;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.gl-cell-focus-clone .gl-img-handle-rot {
+  top: calc(-28px / var(--gl-focus-scale, 1));
+  width: calc(18px / var(--gl-focus-scale, 1));
+  height: calc(18px / var(--gl-focus-scale, 1));
+  border-width: calc(1.5px / var(--gl-focus-scale, 1));
+}
+/* [정리] svg는 부모 원 크기의 60%(%단위)로 고정했으므로 확대 배율에
+   따라 부모(.gl-img-handle-rot)가 이미 calc()로 보정된 크기를 쓰면
+   자동으로 함께 보정된다 — 여기서 별도로 다시 나눌 필요가 없다. */
+/* ★ROTATE-POLISH: 마우스를 올리면 살짝 커지면서 "여기 잡고 돌리세요"를
+   더 분명히 알려준다(다른 8개 크기조절 핸들은 정적이라 회전 손잡이만
+   유독 눈에 띄게 해 구분한다). */
+.gl-img-handle-rot:hover {
+  transform: translateX(-50%) scale(1.15);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.15), 0 2px 6px rgba(0,0,0,.2);
+}
+.gl-img-handle-rot:active { cursor: grabbing; }
+body.gl-rotating, body.gl-rotating * { cursor: grabbing !important; }
+
+/* ★ROTATE-POLISH: 회전 드래그 중 손잡이 위에 떠서 현재 각도를 보여주는
+   말풍선. 15도 배수에 딱 붙었을 때(.gl-rot-angle-snapped)는 강조 색으로
+   바뀌어 "지금 딱 맞는 각도"임을 알 수 있다. */
+.gl-rot-angle-badge {
+  position: absolute;
+  top: -52px; left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(20,20,24,.88);
+  color: #fff;
+  font-size: 10.5px; font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 6;
+  transition: background .12s, color .12s;
+}
+.gl-rot-angle-badge.gl-rot-angle-snapped {
+  background: var(--clr-primary);
+}
+.gl-cell-focus-clone .gl-rot-angle-badge {
+  top: calc(-52px / var(--gl-focus-scale, 1));
+  padding: calc(2px / var(--gl-focus-scale, 1)) calc(7px / var(--gl-focus-scale, 1));
+  font-size: calc(10.5px / var(--gl-focus-scale, 1));
+}
+
+.gl-cell-focus-form {
+  flex: 0 0 320px;
+  width: 320px;
+  max-width: 42vw;
+  background: var(--surface);
+  border-left: 1px solid var(--border-panel);
+  padding: 16px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
+  /* [버그 수정] 다른 스크롤 패널들과 마찬가지로 브라우저 기본 스크롤바
+     그대로 노출되던 것을 주소라벨과 같은 얇은 스타일로 통일 */
+  scrollbar-width: thin; scrollbar-color: var(--border-2) transparent;
+}
+.gl-cell-focus-form::-webkit-scrollbar { width: 4px; }
+.gl-cell-focus-form::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
+.gl-cell-focus-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 14px; font-weight: 600;
+}
+.gl-cell-focus-hint { font-size: 12px; color: var(--text-3); margin: 0 0 2px; line-height: 1.5; }
+/* [신규] 표 사용법처럼 긴 설명은 평소엔 접어 두고, 필요할 때만 눌러서
+   펼쳐 보게 한다 — 그 안의 .gl-cell-focus-hint 문단 스타일은 그대로
+   물려받는다. */
+.gl-cell-focus-hint-details { margin: 6px 0 0; }
+.gl-cell-focus-hint-details summary {
+  font-size: 12px;
+  color: var(--clr-primary);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.gl-cell-focus-hint-details summary::-webkit-details-marker { display: none; }
+.gl-cell-focus-hint-details summary::before {
+  content: "▸";
+  font-size: 9px;
+  transition: transform .12s ease;
+}
+.gl-cell-focus-hint-details[open] summary::before { transform: rotate(90deg); }
+.gl-cell-focus-hint-details summary:hover { text-decoration: underline; }
+/* [신규] 텍스트/이미지 탭 — .gl-view-seg(캔버스 보기모드 세그먼트)와
+   같은 시각 언어의 세그먼트 버튼. 탭이 하나만 필요한 경우(텍스트 전용·
+   이미지 전용 규격)엔 JS에서 이 바 전체를 숨긴다. */
+.gl-cell-focus-tabs {
+  display: flex; gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-panel);
+  border-radius: var(--r-md);
+  padding: 3px;
+}
+.gl-cft-btn {
+  flex: 1;
+  border: none; background: transparent;
+  padding: 7px 8px;
+  border-radius: var(--r-sm);
+  font-size: 12.5px; font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.gl-cft-btn:hover { color: var(--text); }
+.gl-cft-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-xs); }
+#gl-cell-edit-text-col, #gl-cell-edit-img-col { display: flex; flex-direction: column; gap: 10px; }
+/* [신규] "포토샵 같은 편집 메뉴" — 위치·회전·자르기(변형 도구)와 보정(조정)
+   섹션만 카드형 패널로 감싸고, 라벨을 포토샵 패널 헤더처럼 작은 대문자
+   + 왼쪽 색상 바 스타일로 바꿔 구획을 뚜렷하게 나눈다. "이미지 교체"·
+   "이미지 삭제" 같은 단일 버튼 필드는 그대로 둬(패널로 감싸면 오히려
+   더 산만해짐) 도구 모음 느낌이 필요한 두 섹션에만 적용했다. 색상·둥근
+   모서리는 기존 토큰(--surface-2·--border-panel·--r-md·--clr-primary)을
+   그대로 재사용해 앱 전체 톤과 어긋나지 않게 맞췄다. */
+#gl-cell-edit-img-col .me-field:has(.gl-cell-edit-img-tools),
+#gl-cell-edit-img-col .me-field#gl-cell-edit-img-filter-field {
+  background: var(--surface-2);
+  border: 1px solid var(--border-panel);
+  border-radius: var(--r-md);
+  padding: 10px 10px 12px;
+}
+#gl-cell-edit-img-col .me-field:has(.gl-cell-edit-img-tools) > label,
+#gl-cell-edit-img-col .me-field#gl-cell-edit-img-filter-field > label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+#gl-cell-edit-img-col .me-field:has(.gl-cell-edit-img-tools) > label::before,
+#gl-cell-edit-img-col .me-field#gl-cell-edit-img-filter-field > label::before {
+  content: "";
+  width: 3px; height: 11px;
+  border-radius: 2px;
+  background: var(--clr-primary);
+  flex: 0 0 auto;
+}
+/* [신규] 포토샵 왼쪽 툴 레일 참고 — 확대 미리보기 옆에 붙는 세로 아이콘
+   도구상자. 의도적으로 앱 전역 색 토큰과 분리된 고정 다크톤을 쓴다 —
+   "캔버스 옆 도구상자"는 이 패널(확대 편집) 안에서만 등장하는 특수
+   맥락이라, 라이트/다크 앱 테마가 바뀌어도 포토샵처럼 늘 짙은 톤을
+   유지하는 편이 도구 모음이라는 성격을 더 분명히 보여준다. */
+.gl-cell-tool-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 6px;
+  border-radius: var(--r-md);
+  background: #24262B;
+  box-shadow: var(--shadow-md);
+  flex-shrink: 0;
+  align-self: center;
+  /* [버그 수정] 확대된 라벨(.gl-cell-focus-preview)이 레일과 겹치는
+     경우에도 레일이 항상 위에서 클릭을 받도록 별도 쌓임 맥락 부여.
+     JS(refreshCellFocusPreview)에서 배율 계산 시 레일 폭을 미리
+     빼주므로 평상시엔 겹치지 않지만, 만약을 대비한 이중 안전장치. */
+  position: relative;
+  z-index: 2;
+}
+.gl-ctool-sep {
+  width: 20px;
+  height: 1px;
+  background: rgba(255,255,255,.14);
+  margin: 3px 0;
+  flex-shrink: 0;
+}
+.gl-ctool-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  padding: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,.68);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+  flex-shrink: 0;
+}
+.gl-ctool-btn svg { flex-shrink: 0; }
+.gl-ctool-btn:hover { background: rgba(255,255,255,.14); color: #fff; }
+.gl-ctool-btn:active { background: rgba(255,255,255,.22); }
+/* "초기화"는 되돌릴 수 없는(파괴적) 동작이라 구분선으로 살짝 떼어둔다
+   (포토샵 도구 패널에서 그룹 사이에 얇은 구분선을 두는 것과 같은 의도) */
+
+/* [신규] 보정(밝기·대비·채도·흑백) 슬라이더 — 라벨 · 슬라이더 · 값 3열 배치
+   (포토샵 이미지 조정 패널의 슬라이더+숫자값 구성을 참고)
+   [개선] 6개 항목이 아이콘도 없이 다닥다닥 붙어 있어 구분이 안 된다는
+   피드백을 반영 — 라벨에 아이콘을 붙이고, 성격이 비슷한 두 항목씩
+   .gl-img-filter-group으로 묶어 그룹 사이 간격을 눈에 띄게 벌렸다. */
+.gl-img-filter-group {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-2);
+}
+.gl-img-filter-group:last-of-type { border-bottom: none; padding-bottom: 4px; }
+.gl-img-filter-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 38px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.gl-img-filter-row:last-child { margin-bottom: 0; }
+.gl-img-filter-label {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11.5px; color: var(--text-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gl-img-filter-label svg { flex: 0 0 auto; opacity: .8; }
+.gl-img-filter-val { font-size: 11px; color: var(--text-3); text-align: right; font-variant-numeric: tabular-nums; }
+.gl-img-filter-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px;
+  border-radius: 2px;
+  background: var(--border-2);
+  outline: none;
+  cursor: pointer;
+}
+.gl-img-filter-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--clr-primary);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--clr-primary);
+  cursor: pointer;
+}
+.gl-img-filter-slider::-moz-range-thumb {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--clr-primary);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--clr-primary);
+  cursor: pointer;
+}
+#gl-cell-edit-img-filter-reset-btn { margin-top: 4px; }
+
+.gl-cell-focus-actions {
+  margin-top: auto;
+  display: flex; gap: 8px; padding-top: 14px;
+  border-top: 1px solid var(--border-panel);
+}
+.gl-cell-focus-actions .btn-primary { flex: 1; justify-content: center; }
+@media (max-width: 760px) {
+  .gl-cell-focus-panel { flex-direction: column; }
+  .gl-cell-focus-form { flex: 1 1 auto; width: 100%; max-width: none; border-left: none; border-top: 1px solid var(--border-panel); }
+  .gl-cell-focus-stage { flex: 0 0 38%; padding: 16px; }
+}
+
+/* ── 반응형 ───────────────────────────────────────────────── */
+@media (max-width: 980px) {
+  .gl-sidebar, .gl-inspector { width: 200px; }
+  .gl-view-btn { padding: 0 6px; }
+  .gl-canvas-hint { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   v2 추가 스타일 — 브랜드 확장 + 미리보기 그리드
+   ══════════════════════════════════════════════════════════════ */
+
+/* (v2: 제조사 가로 스크롤 탭 UI도 드롭다운으로 대체되어 제거됨) */
+
+/* ── 주소라벨 & 일반라벨 공용 — A4 비율 고정 미리보기 프레임 ───
+   실제 A4(210×297mm) 비율을 유지하는 축소 액자 안에,
+   라벨의 실제 mm 크기/여백/간격 비율 그대로 칸을 배치한다.
+   라벨 규격이 바뀌어도 프레임 크기는 고정되고, 그 안의 칸 배치만 바뀐다. ─ */
+.a4-frame-outer {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 8px;
+}
+.a4-frame {
+  position: relative;
+  width: 100%;
+  max-width: 110px;
+  aspect-ratio: 210 / 297;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* 프레임 내부 칸 — JS가 inset(%)으로 위치/크기를 직접 지정한다
+   변경: 칸 구분선(테두리)이 너무 옅어 안 보인다는 의견을 반영해
+   기본/빈 칸 테두리를 빨간색 계열로 바꿔 가시성을 높였다.
+   (입력됨·선택됨·잠금 등 상태를 나타내는 색상은 기존 의미를 유지) */
+/* [수정] 주소라벨 쪽(#addr-grid-preview)은 이미 이 빨간 테두리를 완전
+   불투명(var(--clr-danger))이 아니라 65%/35% 알파의 부드러운 톤으로
+   다듬어놨는데(위 style.css #addr-grid-preview .agp-cell 참고), 일반라벨은
+   그 개선 이전의 진한 원색 그대로 남아있어 나란히 보면 이쪽만 색이 세고
+   투박해 보였다. 같은 톤으로 맞춘다. */
+.a4-frame .agp-cell {
+  position: absolute;
+  height: auto;
+  border-radius: 1px;
+  border: 1px solid rgba(220, 53, 69, 0.65);
+  background: var(--surface-2);
+  transition: background .15s, border-color .15s;
+  cursor: default;
+}
+.a4-frame .agp-cell.agp-filled   { background: var(--clr-primary-bg); border-color: rgba(35,131,226,.4); }
+.a4-frame .agp-cell.agp-selected { background: var(--clr-primary);    border-color: var(--clr-primary); z-index: 2; }
+.a4-frame .agp-cell.agp-locked   { background: var(--surface-3);      border-color: var(--border-2); }
+.a4-frame .agp-cell.agp-blank    { background: var(--surface);        border-color: rgba(220, 53, 69, 0.65); }
+.a4-frame .agp-cell.agp-empty    { background: transparent;           border: 1px solid rgba(220, 53, 69, 0.35); }
+/* 신규: 시작 위치 지정으로 건너뛴(이미 사용된) 칸 — 빗금 패턴으로 구분 */
+.a4-frame .agp-cell.agp-skip {
+  background: repeating-linear-gradient(45deg, var(--surface-3), var(--surface-3) 3px, var(--surface) 3px, var(--surface) 6px);
+  border-color: var(--border-2);
+  opacity: .85;
+}
+/* 신규: 시작 위치 "피킹" 모드 — 미리보기의 아무 칸이나 클릭해 시작 위치로 지정 */
+.a4-frame .agp-cell.agp-pickable { cursor: pointer; }
+.a4-frame.agp-pick-mode .agp-cell:hover {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: -1px;
+  z-index: 3;
+}
+
+/* 일반라벨 미리보기 칸 — 항상 "채워진 칸" 톤으로 표시(입력 상태와 무관).
+   변경: 파란색(강조색)은 다른 곳에서 "선택됨"을 뜻하는 색이라, 항상 파랗게
+   보이면 실제로 아무것도 선택하지 않았는데도 전부 선택된 것처럼 보였다.
+   중립적인 회색 톤으로 바꿔 그냥 "라벨 용지의 실제 모양"만 담백하게 보여준다.
+   변경: 칸을 나누는 구분선이 너무 옅어 잘 안 보인다는 의견을 반영해,
+   구분선(테두리) 색상을 빨간색 계열로 바꿔 가시성을 높였다. */
+.a4-frame .gl-gp-cell {
+  position: absolute;
+  border-radius: 1px;
+  border: 1px solid rgba(220, 53, 69, 0.65);
+  background: var(--surface-2);
+}
+
+/* 미리보기 범례 */
+.agp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+.agp-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+.agp-dot {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: inline-block;
+  flex-shrink: 0;
+}
+.agp-dot.agp-filled   { background: var(--clr-primary-bg); border-color: rgba(35,131,226,.4); }
+.agp-dot.agp-selected { background: var(--clr-primary);    border-color: var(--clr-primary); }
+.agp-dot.agp-locked   { background: var(--surface-3);      border-color: var(--border-2); }
+.agp-dot.agp-blank    { background: var(--surface);        border-color: rgba(220, 53, 69, 0.65); }
+.agp-dot.agp-skip     { background: repeating-linear-gradient(45deg, var(--surface-3), var(--surface-3) 2px, var(--surface) 2px, var(--surface) 4px); border-color: var(--border-2); }
+
+/* 미리보기 하단 요약 정보 — 예전엔 헤더 안에 붙어 있어(예: "8/16칸 ·
+   5번째 칸부터 시작") 좁은 인스펙터 폭에서 제목과 뒤엉켜 줄바꿈이
+   지저분했다. 제목과 분리된 한 줄로 독립시켜 항상 깔끔하게 줄바꿈된다. */
+.agp-info-line {
+  font-size: 11px; color: var(--text-3);
+  margin: 2px 0 0;
+}
+
+/* 시작 위치 상태/버튼 — 좌: "시작 위치 + 값"(줄바꿈 없이 말줄임),
+   우: 버튼 묶음. 좁아지면 각 블록 "단위로" 줄바꿈되어(단어 중간에서
+   끊기지 않음) 항상 자연스럽게 읽힌다. */
+.agp-start-pos-block {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px 10px; flex-wrap: wrap;
+  margin-top: 10px;
+}
+.agp-start-pos-status {
+  display: flex; align-items: baseline; gap: 5px;
+  min-width: 0; max-width: 100%;
+}
+.agp-start-pos-status-label {
+  font-size: 10.5px; font-weight: 600; color: var(--text-3);
+  white-space: nowrap; flex-shrink: 0;
+}
+.agp-start-pos-status b {
+  font-size: 12px; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.agp-start-pos-actions {
+  display: flex; gap: 6px; flex-shrink: 0;
+}
+.agp-start-pos-hint {
+  font-size: 10.5px; color: var(--text-3); line-height: 1.5; margin: 6px 0 0;
+}
+
+/* 미리보기 하단 정보 텍스트 */
+.agp-info-model { font-size: 11px; font-weight: 700; color: var(--clr-primary); }
+.agp-info-sep   { font-size: 10px; color: var(--text-3); margin: 0 2px; }
+.agp-info-page  { font-size: 11px; color: var(--text); }
+.agp-info-rem   { font-size: 11px; color: var(--text-2); }
+
+/* ══════════════════════════════════════════════════════════════
+   일반라벨 3단계 마법사 — Step 1(규격 선택) / Step 3(전체 확인 및 인쇄)
+   Step 2(라벨 디자인)는 기존 #general-app-body를 그대로 재사용하므로
+   여기서는 나머지 2개 화면에 필요한 스타일만 추가한다. 주소라벨
+   마법사의 .wizard-step-main/.wizard-step-rail/.wrail-card 등 공용
+   클래스를 그대로 재사용해 디자인 통일성을 유지했다.
+   [정리] 기존에는 전체확인(review)/인쇄(print) 2개 화면으로 나뉘어
+   있었으나, 사실상 같은 미리보기를 두 번 보여주는 셈이라 하나로
+   합쳤다(review 화면에 인쇄 요약/버튼까지 포함). */
+/* [버그 수정] 이 규칙만 overflow: hidden으로 되어 있어서, 화면(뷰포트)이
+   충분히 크지 않아 오른쪽 레일(용지 미리보기 + 선택한 규격 + "다음: 라벨
+   디자인 →" 버튼) 내용이 다 안 들어가면 아래쪽이 잘린 채로 스크롤할 방법이
+   없었다(body가 height:100vh; overflow:hidden이라 이 레벨에서 막히면
+   끝). 주소라벨의 동일 위치 규칙(.wizard-step-data.active 등, style.css)은
+   처음부터 overflow: auto였다 — 같은 값으로 맞춘다. */
+.wizard-step-gl-spec.active,
+.wizard-step-gl-review.active {
+  flex: 1; min-height: 0; overflow: auto; background: var(--bg);
+  /* [버그 수정] 일반라벨의 나머지 스크롤 영역과 마찬가지로 브라우저 기본
+     스크롤바가 그대로 보이던 것을 주소라벨과 같은 얇은 스타일로 통일 */
+  scrollbar-width: thin; scrollbar-color: var(--border-2) transparent;
+}
+.wizard-step-gl-spec.active::-webkit-scrollbar,
+.wizard-step-gl-review.active::-webkit-scrollbar { width: 7px; height: 7px; }
+.wizard-step-gl-spec.active::-webkit-scrollbar-track,
+.wizard-step-gl-review.active::-webkit-scrollbar-track { background: transparent; }
+.wizard-step-gl-spec.active::-webkit-scrollbar-thumb,
+.wizard-step-gl-review.active::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
+
+/* ── Step 1: 규격 선택 ───────────────────────────────────────── */
+/* [신규] 자동 저장 복원 배너 — 저장된 이전 작업이 있을 때만 규격 선택
+   화면 맨 위에 나타난다. 사용자가 명시적으로 눌러야 실제로 복원되며,
+   "새로 시작"을 누르면 조용히 닫힌다(저장소 자체는 그대로 두어, 만약
+   실수로 닫았어도 다음 자동 저장 전까지는 새로고침하면 다시 뜬다). */
+.gl-restore-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: var(--clr-primary-bg);
+  border: 1px solid var(--clr-primary);
+  border-radius: var(--r-md);
+}
+.gl-restore-icon { font-size: 16px; flex-shrink: 0; }
+.gl-restore-hint { font-size: 13px; font-weight: 600; color: var(--text); }
+.gl-restore-spacer { flex: 1; }
+.gl-restore-banner .btn { height: 32px; padding: 0 12px; font-size: 12.5px; flex-shrink: 0; }
+@media (max-width: 720px) {
+  .gl-restore-banner { flex-wrap: wrap; }
+  .gl-restore-spacer { display: none; }
+}
+
+.gl-spec-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.gl-spec-search { flex: 0 0 260px; }
+/* ── 규격 선택(Step1) 검색창 — 노션 스타일 통일(신규) ─────────────
+   .search-wrap 클래스로 아이콘 위치는 주소라벨 탭 검색창(#search-input,
+   style.css)과 같은 규칙을 재사용하고 있었지만, 정작 <input> 자체에는
+   대응하는 테두리/배경/높이 규칙이 없어 브라우저 기본 입력창 그대로
+   노출되고 있었다 — 같은 앱 안에서 검색창 두 종류가 서로 달라 보이던
+   원인. #search-input과 동일한 값을 적용해 통일한다. ───────────── */
+#gl-spec-search {
+  width: 100%; height: 30px;
+  padding: 0 10px 0 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color .14s, box-shadow .14s, background .14s;
+}
+#gl-spec-search::placeholder { color: var(--text-3); }
+#gl-spec-search:focus {
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 2px var(--clr-primary-bg);
+  background: var(--surface);
+}
+.gl-spec-maker-tabs { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; background: var(--surface-2); border-radius: var(--r-md); padding: 2px; }
+.gl-spec-maker-tab {
+  display: inline-flex; align-items: center; height: 26px; padding: 0 11px;
+  border-radius: calc(var(--r-md) - 2px); font-size: 12px; font-weight: 600;
+  color: var(--text-2); background: transparent; border: none; cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.gl-spec-maker-tab:hover { background: var(--surface-hover); color: var(--text); }
+.gl-spec-maker-tab.active { background: var(--surface); color: var(--clr-primary); box-shadow: var(--shadow-sm); }
+
+.gl-spec-list {
+  flex: 1; min-height: 0; overflow-y: auto;
+  border: 1px solid var(--border-panel); border-radius: var(--r-lg);
+  background: var(--surface);
+  scrollbar-width: thin; scrollbar-color: var(--border-2) transparent;
+}
+.gl-spec-list::-webkit-scrollbar { width: 4px; }
+.gl-spec-list::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
+.gl-spec-row {
+  display: flex; align-items: center; gap: 13px; width: 100%;
+  padding: 12px 16px; border: none; border-bottom: 1px solid var(--border);
+  background: none; cursor: pointer; text-align: left; font-family: var(--font-ui);
+  transition: background .12s;
+}
+.gl-spec-row:last-child { border-bottom: none; }
+.gl-spec-row:hover { background: var(--surface-hover); }
+.gl-spec-row.active { background: var(--clr-primary-bg); }
+.gl-spec-radio {
+  width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid var(--border-2); position: relative; background: var(--surface);
+  transition: border-color .12s;
+}
+.gl-spec-row.active .gl-spec-radio { border-color: var(--clr-primary); }
+.gl-spec-row.active .gl-spec-radio::after {
+  content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--clr-primary);
+}
+.gl-spec-row-main { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 1px; }
+.gl-spec-row-main b { font-size: 13.5px; color: var(--text); font-weight: 600; }
+.gl-spec-row-sub { font-size: 11.5px; color: var(--text-3); }
+.gl-spec-row-meta { font-size: 12px; color: var(--text-2); white-space: nowrap; flex-shrink: 0; }
+.gl-spec-row.active .gl-spec-row-meta { color: var(--clr-primary); font-weight: 600; }
+.gl-spec-list-empty { padding: 40px 20px; text-align: center; color: var(--text-3); font-size: 12.5px; }
+/* [신규] "최근 사용" 규격 섹션 — 목록 자체(.gl-spec-row)는 기존 스타일을
+   그대로 재사용하고, 구분용 라벨/구분선만 추가해 톤을 맞춘다. */
+.gl-spec-list-group-label {
+  padding: 10px 16px 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  color: var(--text-3);
+  background: var(--surface-2);
+}
+.gl-spec-list-divider { height: 1px; background: var(--border-panel); margin: 0; }
+
+.gl-spec-preview-frame { display: flex; justify-content: center; padding: 6px 0 16px; }
+.gl-spec-preview-frame .a4-frame { max-width: 220px; }
+
+/* [버그 수정] "자주 쓰는 라벨지" 카드 한 줄 유지 — 일반라벨은 카드가
+   11장(주소라벨은 5장)이라, 공용 기본 규칙(.wstep-template-cards의
+   flex-wrap:wrap, style.css)만으로는 화면이 꽤 넓어도 2줄로 넘어가 버렸다.
+   flex-wrap:wrap은 각 카드의 "줄어들기 전" 기준 크기(flex-basis)만으로
+   한 줄에 몇 개가 들어갈지 정하기 때문에, 실제로는 flex-shrink로 더
+   좁아질 수 있는 여유가 있어도 그 전에 다음 줄로 넘겨버린다. 주소라벨의
+   .wstep-toprow가 이미 쓰고 있는 방식(nowrap + flex:1 1 0으로 균등
+   shrink)을 그대로 적용해 화면이 넓을 땐 한 줄에 다 펴 보이게 하고,
+   그래도 안 들어갈 만큼 좁은 화면에서는 억지로 찌그러뜨리는 대신
+   가로 스크롤로 전환한다(주소라벨 858행 부근과 동일한 원칙). */
+#gl-quick-template-cards {
+  flex-wrap: nowrap;
+}
+#gl-quick-template-cards .wstep-template-card {
+  flex: 1 1 0;
+  min-width: 64px;
+}
+@media (max-width: 700px) {
+  #gl-quick-template-cards {
+    overflow-x: auto;
+    padding-bottom: 4px; /* 스크롤바가 카드에 바짝 붙지 않게 여유 */
+  }
+  #gl-quick-template-cards .wstep-template-card {
+    flex: 0 0 76px;
+    min-width: 0;
+  }
+}
+
+/* [변경] 규격 선택 스텝: 목록(왼쪽)이 넓고 미리보기(오른쪽)가 작아 라벨 배치를
+   식별하기 어렵다는 피드백에 따라, 이 스텝에 한해서만 우측 레일 폭을 넓히고
+   그만큼 목록 폭은 줄인다(.wizard-step-rail은 다른 스텝—인쇄 등—과 공용
+   클래스라 전역으로 바꾸지 않고 #gl-step-view-spec 안에서만 override).
+   ⚠️ dark-theme.css에 .a4-frame { max-width:110px !important; } 라는 전역 규칙이
+   있어(다른 화면들의 미니 미리보기를 작게 유지하려는 의도), 특정도가 더 높아도
+   !important가 아니면 이길 수 없다. 이 스텝만 예외로 두기 위해 여기서도
+   !important를 함께 준다(특정도가 더 높은 선택자끼리는 뒤에 오지 않아도
+   ID 선택자가 있는 쪽이 이긴다). */
+#gl-step-view-spec .wizard-step-rail {
+  width: 430px;
+}
+#gl-step-view-spec .gl-spec-preview-frame .a4-frame {
+  max-width: 340px !important;
+}
+@media (max-width: 1180px) {
+  #gl-step-view-spec .wizard-step-rail { width: 340px; }
+  #gl-step-view-spec .gl-spec-preview-frame .a4-frame { max-width: 220px !important; }
+}
+/* [버그 수정] 480px 이하 초소형 화면(폰) — 이 폭에서는 이미 위 style.css의
+   "@media (max-width:980px) { .wizard-step{flex-direction:column} }" 규칙 덕에
+   레일이 목록 아래로 내려가 세로로 쌓이는데, 정작 레일 자체의 폭은 이 ID
+   선택자(#gl-step-view-spec .wizard-step-rail)가 340px 고정값으로 못을 박아둔
+   상태라(specificity가 더 높아 style.css의 width:auto를 이긴다), 화면이 340px보다
+   좁아지면 레일이 화면 폭을 넘치거나 여백이 거의 없이 꽉 끼어 보였다. 이 구간부터는
+   폭을 고정값 대신 카드처럼 화면에 맞춰(100%) 줄어들게 하고, 미리보기 프레임도
+   한 단계 더 작게 줄인다. */
+@media (max-width: 480px) {
+  #gl-step-view-spec .wizard-step-rail { width: 100%; }
+  #gl-step-view-spec .gl-spec-preview-frame .a4-frame { max-width: 160px !important; }
+}
+
+/* ── Step 3: 전체 확인 / Step 4: 인쇄 ─────────────────────────── */
+/* .preview-canvas-wrap/.wstep-print-main/.wrail-* 등은 주소라벨 쪽에서
+   이미 정의된 공용 스타일을 그대로 물려받는다 — 여기서는 재정의하지 않음 */
+.gl-review-cell-clickable { cursor: pointer; }
+.gl-review-cell-clickable:hover { outline: 2px solid var(--clr-primary); outline-offset: -2px; }

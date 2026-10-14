@@ -10,261 +10,113 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--accent:var(--primary);--accent-hover:var(--primary-hover);--accent-tint:var(--primary-tint);--accent-tint-strong:var(--primary-tint-strong);--ok:var(--success);--ok-tint:var(--success-tint);--warn:var(--danger);--warn-tint:var(--danger-tint);--sun:var(--danger);--sat:var(--primary);--radius-md:var(--radius-btn);--radius-lg:var(--radius-card);--shadow-sm:var(--shadow-card);--shadow-md:var(--shadow-card);--shadow-lg:var(--shadow-card);}
-*{box-sizing:border-box;}
-body{
-  margin:0;
-  font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
-  background:var(--bg); color:var(--text); line-height:1.55; -webkit-font-smoothing:antialiased;
-}
-.wrap{
-  max-width:900px; margin:0 auto; padding:24px 28px 90px;
-}
-#summarySection{position:relative;}
-.result-placeholder{
-  background:var(--surface-2); border:1.5px dashed var(--border-strong); border-radius:var(--radius-lg);
-  padding:60px 24px; text-align:center; color:var(--text-3); font-size:13.5px;
-}
-#summarySection:not(.hidden) ~ .result-placeholder,
-#step4:not(.hidden) ~ .result-placeholder{display:none;}
-
-header.app-header{
-  /* 상위 셸(AppShell)의 topbar가 동일한 제목/설명 영역을 이미 표시하므로 중복을 없애기 위해 숨김 처리.
-     (JS는 이 요소를 참조하지 않으므로 순수 시각적 변경) */
-  display:none;
-}
-header.app-header .app-icon{
-  flex-shrink:0; width:40px; height:40px; border-radius:11px;
-  background:var(--accent-tint); color:var(--accent);
-  display:flex; align-items:center; justify-content:center;
-}
-header.app-header h1{margin:0 0 6px; font-size:18px; font-weight:700; letter-spacing:-0.01em; color:var(--text);}
-header.app-header p{margin:0; color:var(--text-2); font-size:13.5px; line-height:1.65;}
-header.app-header p b{color:var(--text); font-weight:600;}
-
-.step{
-  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
-  padding:24px 26px; margin-bottom:16px; box-shadow:var(--shadow-sm);
-  transition:border-color .15s;
-}
-.step-title{
-  display:flex; align-items:center; gap:11px; font-size:18px; font-weight:700;
-  color:var(--text); margin-bottom:6px; letter-spacing:-0.01em;
-}
-.step-badge{
-  width:24px; height:24px; border-radius:7px; background:var(--accent-tint); color:var(--accent);
-  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0;
-  font-variant-numeric:tabular-nums;
-}
-.step-desc{color:var(--text-2); font-size:13px; margin-bottom:16px; line-height:1.65;}
-.step-desc b{color:var(--text); font-weight:600;}
-
-.drop-zone{
-  border:1.5px dashed var(--border-strong); border-radius:var(--radius-input); padding:24px; text-align:center;
-  background:var(--surface-2); cursor:pointer; transition:.15s ease;
-}
-.drop-zone:hover{background:var(--accent-tint); border-color:var(--accent);}
-.drop-zone.dragover{background:var(--accent-tint-strong); border-color:var(--accent);}
-.drop-zone input{display:none;}
-.drop-zone .dz-title{font-weight:600; color:var(--text); margin-bottom:4px; font-size:13.5px; display:flex; align-items:center; justify-content:center; gap:7px;}
-.drop-zone .dz-sub{font-size:12px; color:var(--text-3);}
-.file-chip{
-  display:inline-flex; align-items:center; gap:7px; background:var(--accent-tint);
-  color:var(--accent-hover); padding:6px 13px; border-radius:20px; font-size:12.5px; font-weight:600; margin-top:12px;
-}
-
-.summary-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:16px;}
-.summary-card{
-  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-input); padding:14px 16px; text-align:center;
-}
-.summary-card .num{font-size:18px; font-weight:700; color:var(--text); letter-spacing:-0.01em; font-variant-numeric:tabular-nums;}
-.summary-card .lbl{font-size:11px; color:var(--text-3); margin-top:3px;}
-.summary-card.highlight{background:var(--accent-tint); border-color:var(--accent-tint-strong);}
-.summary-card.highlight .num{color:var(--accent);}
-
-table.vendor-table{width:100%; min-width:460px; border-collapse:collapse; margin-top:14px; font-size:13px;}
-table.vendor-table th{
-  color:var(--text-3); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.02em;
-  padding:0 8px 8px; text-align:center; border-bottom:1px solid var(--border);
-}
-table.vendor-table td{padding:6px 6px; border-bottom:1px solid var(--border); text-align:center;}
-table.vendor-table tr:last-child td{border-bottom:none;}
-table.vendor-table input[type=text], table.vendor-table input[type=number]{
-  width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-input); font-size:13px;
-  text-align:center; font-family:inherit; background:var(--surface); transition:border-color .15s ease, box-shadow .15s ease;
-}
-table.vendor-table input[type=text]{text-align:left;}
-table.vendor-table input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint);}
-.row-actions button{
-  border:none; background:none; color:var(--text-3); cursor:pointer; font-size:15px; font-weight:600;
-  width:26px; height:26px; border-radius:7px; transition:.15s ease;
-  display:inline-flex; align-items:center; justify-content:center;
-}
-.row-actions button:hover{color:var(--warn); background:var(--warn-tint);}
-
-.btn{
-  border:1px solid transparent; border-radius:var(--radius-md); padding:0 16px; height:40px; font-size:13.5px; font-weight:600;
-  cursor:pointer; transition:.15s ease; font-family:inherit;
-  display:inline-flex; align-items:center; justify-content:center; gap:7px;
-}
-.btn-primary{background:var(--accent); color:#fff;}
-.btn-primary:hover{background:var(--accent-hover);}
-.btn-primary:disabled{background:var(--text-3); cursor:not-allowed; box-shadow:none;}
-.btn-outline{background:var(--surface); border-color:var(--border-strong); color:var(--text);}
-.btn-outline:hover{background:var(--surface-2); border-color:var(--text-3);}
-.btn-ghost{background:none; color:var(--text-2); border-color:var(--border);}
-.btn-lg{width:100%; padding:13px; font-size:14.5px; border-radius:var(--radius-md);}
-.toolbar{display:flex; justify-content:space-between; align-items:center; margin-top:14px; gap:10px;}
-
-.total-bar{
-  display:flex; justify-content:space-between; align-items:center; margin-top:14px; flex-wrap:wrap; gap:6px;
-  padding:12px 16px; border-radius:var(--radius-sm); background:var(--surface-2); font-size:13px; font-weight:500;
-  border:1px solid var(--border); color:var(--text-2);
-}
-.total-bar b{color:var(--text); font-weight:700;}
-.total-bar.over{background:var(--warn-tint); border-color:#f6cfcf; color:var(--warn);}
-.total-bar.over b{color:var(--warn);}
-.total-bar.ok{background:var(--ok-tint); border-color:#c9ecd9; color:var(--ok);}
-.total-bar.ok b{color:var(--ok);}
-
-.field-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px;}
-.field{display:flex; flex-direction:column; gap:6px;}
-.field label{font-size:12px; color:var(--text-2); font-weight:600;}
-.field input{
-  padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-input); font-size:13.5px;
-  font-family:inherit; background:var(--surface); transition:border-color .15s ease, box-shadow .15s ease;
-}
-.field input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint);}
-
-.note{font-size:12px; color:var(--text-3); margin-top:10px; line-height:1.7;}
-.note b{color:var(--text-2);}
+/* 급식비 정산 — 공통 부품(u-*)으로 짠 화면. 여기에는 이 도구에서만 필요한 것만 둔다. */
 .hidden{display:none !important;}
-
-.preview-toggle{
-  color:var(--accent); font-size:12.5px; font-weight:600; cursor:pointer; margin-top:14px; display:inline-block;
-  transition:color .15s ease;
-}
-.preview-toggle:hover{color:var(--accent-hover);}
-.preview-wrap{overflow-x:auto; margin-top:12px; border:1px solid var(--border); border-radius:var(--radius-md); max-height:420px;}
-table.preview-table{border-collapse:collapse; font-size:11px; white-space:nowrap; width:100%;}
-table.preview-table th, table.preview-table td{border-bottom:1px solid var(--border); border-right:1px solid var(--border); padding:5px 7px; text-align:center;}
-table.preview-table th{background:var(--surface-2); color:var(--text-2); position:sticky; top:0; font-weight:600;}
-table.preview-table td.o-mark{color:var(--accent); font-weight:700;}
-table.preview-table th.sun{color:var(--sun);}
-table.preview-table th.sat{color:var(--sat);}
-
-.status-msg{font-size:13px; padding:10px 14px; border-radius:var(--radius-sm); margin-top:12px; border:1px solid transparent; display:flex; align-items:center; gap:8px;}
-.status-msg.error{background:var(--warn-tint); color:var(--warn); border-color:#f6cfcf;}
-.status-msg.success{background:var(--ok-tint); color:var(--ok); border-color:#c9ecd9;}
-
-footer{text-align:center; color:var(--text-3); font-size:11.5px; margin-top:34px;}
-
-@media (max-width:640px){
-  .summary-grid{grid-template-columns:repeat(2,1fr);}
-  .field-grid{grid-template-columns:1fr;}
-  .step{padding:20px 18px;}
-}
-
-
-/* 통합 셸: 제목은 셸 상단에 있으므로 도구 자체 머리말은 숨김 */
-.app-header{display:none;}
+.vendor-table td,.vendor-table th{text-align:center;}
+.vendor-table input{width:100%;height:36px;padding:0 10px;text-align:center;}
+.vendor-table input.vendor-name{text-align:left;}
+.vendor-table .row-actions button{width:28px;height:28px;border:0;background:none;color:var(--text-3);border-radius:var(--radius-sm);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+.vendor-table .row-actions button:hover{background:var(--danger-tint);color:var(--danger);}
+.preview-toggle{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:13px;font-weight:600;color:var(--primary);cursor:pointer;}
+.preview-toggle:hover{text-decoration:underline;}
+.preview-wrap{margin-top:12px;max-height:420px;overflow:auto;}
+table.preview-table{border-collapse:collapse;font-size:11.5px;white-space:nowrap;width:100%;}
+table.preview-table th,table.preview-table td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:5px 7px;text-align:center;}
+table.preview-table th{position:sticky;top:0;}
+table.preview-table td.o-mark{color:var(--primary);font-weight:700;}
+table.preview-table th.sun{color:var(--danger);} table.preview-table th.sat{color:var(--primary);}
+#totalBar{margin-top:14px;flex-wrap:wrap;gap:4px 18px;align-items:center;}
+#summarySection ~ .u-empty,#step4:not(.hidden) ~ .u-empty{display:none;}
+#summarySection:not(.hidden) ~ .u-empty{display:none;}
 </style>
 <meta name="tool-id" content="meal">
 <!--SUITE:THEME-->
 </head>
 
-<body>
-<div class="wrap">
+<body class="tool">
+<div class="u-stack">
 
-  <header class="app-header">
-    <div class="app-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v7a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V2"></path><path d="M9 12v10"></path><path d="M17 2c-1.7 0-3 2-3 5s1.3 5 3 5v10"></path></svg></div>
-    <div>
-      <h1>급식비(매식비) 정산 엑셀 생성기</h1>
-      <p>인사랑 프로그램에서 내려받은 <b>초과근무 내역</b> 엑셀을 넣으면, 평일 20시 이후 야간근무자를 자동으로 뽑아
-      <b>급식확인서 · 급식지급 상세내역 · 초과근무내역</b> 3개 시트가 담긴 정산 엑셀을 만들어 드립니다.
-      기존에 쓰던 정산 양식 파일을 함께 올리면 직원 명단과 순서를 그대로 이어받고, 급식처에 입력한 실제 급식인원 수에 맞춰 O표시를 날짜별로 적당히 나눠 배분합니다.</p>
-    </div>
-  </header>
-
-  <!-- STEP 1 : template upload (optional) -->
-  <div class="step" id="stepTemplate">
-    <div class="step-title"><span class="step-badge">1</span>기존양식 파일 업로드 <span style="font-size:12.5px;color:var(--text-3);font-weight:500;">(선택)</span></div>
-    <div class="step-desc">이전 달에 쓰던 <b>급식비 지급내역</b> 정산 엑셀(.xls / .xlsx)을 올리면 "급식지급 상세내역" 시트의 <b>직원 명단과 순서</b>를 그대로 이어받습니다. 올리지 않으면 아래 초과근무 내역에서 발견되는 순서대로 직원 명단이 작성됩니다.</div>
-    <div class="drop-zone" id="dropZoneTemplate">
+  <section class="u-card" id="stepTemplate">
+    <div class="u-card-h"><span class="u-no">1</span><div>
+      <h2 class="u-card-t">기존 양식 파일 <span class="u-tag">선택</span></h2>
+      <p class="u-card-d">이전 달에 쓰던 <b>급식비 지급내역</b> 정산 엑셀을 올리면 "급식지급 상세내역" 시트의 <b>직원 명단과 순서</b>를 그대로 이어받습니다. 올리지 않으면 초과근무 내역에서 발견되는 순서대로 명단을 만듭니다.</p>
+    </div></div>
+    <div class="u-drop sm" id="dropZoneTemplate">
       <input type="file" id="fileInputTemplate" accept=".xls,.xlsx">
-      <div class="dz-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.9A5 5 0 0 1 7 6a5.5 5.5 0 0 1 10.3-1.5A4.5 4.5 0 0 1 18 13"></path><path d="M12 12v9"></path><path d="M9 16l3-3 3 3"></path></svg> 클릭하거나 파일을 여기로 끌어다 놓으세요</div>
-      <div class="dz-sub">.xls / .xlsx 파일 지원 · 선택 사항</div>
-      <div id="fileChipTemplate"></div>
+      <div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div>
+      <div><div class="u-drop-t">클릭하거나 파일을 여기로 끌어다 놓으세요</div><div class="u-drop-s">.xls / .xlsx · 선택 사항</div></div>
     </div>
+    <div id="fileChipTemplate"></div>
     <div id="templateStatus"></div>
-  </div>
+  </section>
 
-  <!-- STEP 2 : upload -->
-  <div class="step" id="stepUpload">
-    <div class="step-title"><span class="step-badge">2</span>초과근무 내역 엑셀 업로드</div>
-    <div class="step-desc">인사랑에서 다운로드한 "초과근무 내역" 엑셀 파일(.xls / .xlsx)을 올려주세요. No, 근무일자, 부서, 직급, 성명, 휴일구분, 출근(실제), 퇴근(실제), 총초과(분), 근무내역 컬럼을 자동으로 찾아 분석합니다.</div>
-    <div class="drop-zone" id="dropZone">
+  <section class="u-card" id="stepUpload">
+    <div class="u-card-h"><span class="u-no">2</span><div>
+      <h2 class="u-card-t">초과근무 내역 엑셀 올리기</h2>
+      <p class="u-card-d">인사랑에서 내려받은 "초과근무 내역" 엑셀(.xls / .xlsx)을 올려 주세요. No, 근무일자, 부서, 직급, 성명, 휴일구분, 출근(실제), 퇴근(실제), 총초과(분), 근무내역 열을 자동으로 찾아 분석합니다.</p>
+    </div></div>
+    <div class="u-drop" id="dropZone">
       <input type="file" id="fileInput" accept=".xls,.xlsx">
-      <div class="dz-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.9A5 5 0 0 1 7 6a5.5 5.5 0 0 1 10.3-1.5A4.5 4.5 0 0 1 18 13"></path><path d="M12 12v9"></path><path d="M9 16l3-3 3 3"></path></svg> 클릭하거나 파일을 여기로 끌어다 놓으세요</div>
-      <div class="dz-sub">.xls / .xlsx 파일 지원</div>
-      <div id="fileChip"></div>
+      <div class="u-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a3.5 3.5 0 0 1-.7 6.94"/><path d="M12 12v7"/><path d="M9.4 14.6 12 12l2.6 2.6"/></svg></div>
+      <div class="u-drop-t">클릭하거나 파일을 여기로 끌어다 놓으세요</div>
+      <div class="u-drop-s">.xls / .xlsx 파일 지원</div>
     </div>
+    <div id="fileChip"></div>
     <div id="uploadStatus"></div>
-  </div>
+  </section>
 
-  <!-- 결과: 인식 요약 · 미리보기 (파일 업로드 후 표시) -->
-  <div id="summarySection" class="hidden step result-step">
-    <div class="step-title"><span class="step-badge">✓</span>인식 결과</div>
-    <div class="summary-grid">
-      <div class="summary-card"><div class="num" id="sumYm">-</div><div class="lbl">대상 연월</div></div>
-      <div class="summary-card"><div class="num" id="sumRecords">-</div><div class="lbl">총 초과근무 기록</div></div>
-      <div class="summary-card"><div class="num" id="sumEmployees">-</div><div class="lbl">전체 직원 수</div></div>
-      <div class="summary-card highlight"><div class="num" id="sumMax">-</div><div class="lbl">최대 급식 가능 인원(끼)</div></div>
+  <section id="summarySection" class="u-card hidden">
+    <div class="u-card-h"><span class="u-no done"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><div>
+      <h2 class="u-card-t">인식 결과</h2>
+      <p class="u-card-d">최대 급식 가능 인원은 <b>휴일구분 = 평일</b>이면서 <b>퇴근(실제) 20:00 이후</b>인 날의 (직원×일자) 조합 수입니다. 실제 O표시는 아래에서 입력한 급식인원 합계만큼만 날짜별로 나눠 배분됩니다.</p>
+    </div></div>
+    <div class="u-stats" style="margin-bottom:0">
+      <div class="u-stat"><div class="u-stat-l">대상 연월</div><div class="u-stat-v" id="sumYm">-</div></div>
+      <div class="u-stat"><div class="u-stat-l">총 초과근무 기록</div><div class="u-stat-v" id="sumRecords">-</div></div>
+      <div class="u-stat"><div class="u-stat-l">전체 직원 수</div><div class="u-stat-v" id="sumEmployees">-</div></div>
+      <div class="u-stat hl"><div class="u-stat-l">최대 급식 가능 인원(끼)</div><div class="u-stat-v" id="sumMax">-</div></div>
     </div>
-    <div class="note">최대 급식 가능 인원은 <b>휴일구분 = 평일</b> 이면서 <b>퇴근(실제)가 20:00 이후</b>인 날의 (직원×일자) 조합 수입니다. 실제로 O표시가 들어가는 인원은 급식처별로 입력한 <b>급식인원 합계</b>만큼만, 날짜별로 적당히 나눠 배분됩니다.</div>
     <span class="preview-toggle" id="togglePreview">▸ 급식지급 상세내역 미리보기 열기</span>
-    <div class="note" id="previewNote"></div>
-    <div class="preview-wrap hidden" id="previewWrap"></div>
-  </div>
+    <div class="u-help" id="previewNote" style="margin-top:8px"></div>
+    <div class="preview-wrap u-table-wrap hidden" id="previewWrap"></div>
+  </section>
 
-  <!-- STEP 3 : vendors -->
-  <div class="step hidden" id="step2">
-    <div class="step-title"><span class="step-badge">3</span>급식처 · 급식인원 입력</div>
-    <div class="step-desc">식사를 제공한 급식처(식당)와 인원을 나눠서 입력하세요. 지급액은 인원 × 9,000원으로 자동 계산됩니다. 여기에 입력한 <b>급식인원 합계</b>만큼만 급식지급 상세내역 시트에 O표시가 들어가며, 최대 가능 인원을 모두 채우지 않고 날짜별로 적당히 나눠서 배분됩니다.</div>
-    <div style="overflow-x:auto;">
-    <table class="vendor-table">
-      <thead><tr><th style="width:44px;">연번</th><th>급식처</th><th style="width:110px;">급식인원</th><th style="width:90px;">단가</th><th style="width:120px;">지급액</th><th style="width:50px;"></th></tr></thead>
-      <tbody id="vendorBody"></tbody>
-    </table>
+  <section class="u-card hidden" id="step2">
+    <div class="u-card-h"><span class="u-no">3</span><div>
+      <h2 class="u-card-t">급식처 · 급식인원 입력</h2>
+      <p class="u-card-d">식사를 제공한 급식처(식당)와 인원을 나눠서 입력하세요. 지급액은 인원 × 9,000원으로 자동 계산됩니다.</p>
+    </div><div class="u-card-x"><span class="u-tag">단가 9,000원 고정</span></div></div>
+    <div class="u-table-wrap">
+      <table class="u-table vendor-table">
+        <thead><tr><th style="width:56px">연번</th><th>급식처</th><th style="width:130px">급식인원</th><th style="width:100px">단가</th><th style="width:130px">지급액</th><th style="width:56px"></th></tr></thead>
+        <tbody id="vendorBody"></tbody>
+      </table>
     </div>
-    <div class="toolbar">
-      <button class="btn btn-outline" id="addVendorBtn">+ 급식처 추가</button>
-      <div style="font-size:13px;color:var(--text-3);">단가: 9,000원 (고정)</div>
-    </div>
-    <div class="total-bar" id="totalBar"></div>
-  </div>
+    <div class="u-toolbar" style="margin:14px 0 0"><button class="btn outline sm" id="addVendorBtn">+ 급식처 추가</button></div>
+    <div class="u-note info" id="totalBar"></div>
+  </section>
 
-  <!-- STEP 3 : signer -->
-  <div class="step hidden" id="step3">
-    <div class="step-title"><span class="step-badge">4</span>확인자 정보 (선택)</div>
-    <div class="step-desc">급식확인서 하단에 표시될 확인자 직급/성명입니다. 비워두면 공란으로 출력됩니다.</div>
-    <div class="field-grid">
-      <div class="field"><label>확인자 직급</label><input type="text" id="officerRank" placeholder="예) 행정6급"></div>
-      <div class="field"><label>확인자 성명</label><input type="text" id="officerName" placeholder="예) 홍 길 동"></div>
+  <section class="u-card hidden" id="step3">
+    <div class="u-card-h"><span class="u-no">4</span><div>
+      <h2 class="u-card-t">확인자 정보 <span class="u-tag">선택</span></h2>
+      <p class="u-card-d">급식확인서 하단에 표시될 확인자 직급·성명입니다. 비워 두면 공란으로 출력됩니다.</p>
+    </div></div>
+    <div class="u-form c2">
+      <div class="u-field"><label for="officerRank">확인자 직급</label><input type="text" id="officerRank" placeholder="예) 행정6급"></div>
+      <div class="u-field"><label for="officerName">확인자 성명</label><input type="text" id="officerName" placeholder="예) 홍 길 동"></div>
     </div>
-  </div>
+  </section>
 
-  <!-- STEP 4 : generate -->
-  <div class="step hidden result-step" id="step4">
-    <div class="step-title"><span class="step-badge">5</span>정산 엑셀 생성</div>
-    <div class="step-desc">아래 버튼을 누르면 <b>급식확인서 / 급식지급 상세내역 / 초과근무내역</b> 3개 시트가 포함된 엑셀 파일이 다운로드됩니다.</div>
-    <button class="btn btn-primary btn-lg" id="generateBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg> 정산 엑셀 다운로드</button>
+  <section class="u-card hidden" id="step4">
+    <div class="u-card-h"><span class="u-no">5</span><div>
+      <h2 class="u-card-t">정산 엑셀 만들기</h2>
+      <p class="u-card-d">버튼을 누르면 <b>급식확인서 · 급식지급 상세내역 · 초과근무내역</b> 3개 시트가 들어 있는 엑셀 파일이 내려받아집니다.</p>
+    </div></div>
+    <div class="u-actions start" style="margin-top:0"><button class="btn btn-lg" id="generateBtn" style="width:100%"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg> 정산 엑셀 다운로드</button></div>
     <div id="generateStatus"></div>
-  </div>
+  </section>
 
-  <div class="result-placeholder">엑셀 파일을 업로드하면 여기에 인식 결과와 다운로드 버튼이 표시됩니다.</div>
-
-  <footer>업로드한 파일은 브라우저 안에서만 처리되며 서버로 전송되지 않습니다.</footer>
+  <div class="u-empty">엑셀 파일을 올리면 여기에 인식 결과와 다운로드 버튼이 나타납니다.</div>
 </div>
 
 <script>
@@ -302,11 +154,12 @@ fileInput.addEventListener('change', e=>{
 
 function showStatus(elId, msg, type){
   const el = document.getElementById(elId);
-  el.innerHTML = `<div class="status-msg ${type}">${msg}</div>`;
+  const cls = {error:'err', success:'ok', warn:'warn'}[type] || 'info';
+  el.innerHTML = `<div class="u-note ${cls}" style="margin-top:12px">${msg}</div>`;
 }
 
 function handleFile(file){
-  document.getElementById('fileChip').innerHTML = `<span class="file-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> ${file.name}</span>`;
+  document.getElementById('fileChip').innerHTML = `<div class="u-file"><div class="u-file-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg></div><div class="u-file-n">${file.name}<span class="u-file-m">${(file.size/1024).toFixed(1)} KB</span></div></div>`;
   document.getElementById('uploadStatus').innerHTML = '';
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -344,7 +197,7 @@ fileInputTemplate.addEventListener('change', e=>{
 });
 
 function handleTemplateFile(file){
-  document.getElementById('fileChipTemplate').innerHTML = `<span class="file-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> ${file.name}</span>`;
+  document.getElementById('fileChipTemplate').innerHTML = `<div class="u-file"><div class="u-file-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg></div><div class="u-file-n">${file.name}<span class="u-file-m">${(file.size/1024).toFixed(1)} KB</span></div></div>`;
   document.getElementById('templateStatus').innerHTML = '';
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -715,10 +568,10 @@ function updateTotalBar(){
   const diff = state.maxMealCount - totalCount;
   let msg = `입력한 급식인원 합계: <b>${totalCount}명</b> · 지급액 합계: <b>${totalAmount.toLocaleString()}원</b> · 최대 가능: ${state.maxMealCount}명`;
   if (diff < 0){
-    bar.className = 'total-bar over';
+    bar.className = 'u-note warn';
     msg += ` &nbsp;최대치보다 <b>${-diff}명</b> 초과했습니다.`;
   } else {
-    bar.className = 'total-bar ok';
+    bar.className = 'u-note ok';
     msg += ` &nbsp;(남음 ${diff}명)`;
   }
   bar.innerHTML = msg;

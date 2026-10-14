@@ -17,15 +17,17 @@
 
   window.addEventListener('message', function(e){
     var d = e.data;
-    if(!d) return;
+    if(!d || typeof d !== 'object') return;
     if('__theme' in d) applyTheme(d.__theme === 'dark');
     if(d.__viewport) applyViewport(d.__viewport);
   });
 
   /* ---- 높이 알림 ---- */
+  var FILL = ((document.querySelector('meta[name="tool-layout"]') || {}).content === 'fill');
   var last = -1, raf = 0;
   function post(){
     raf = 0;
+    if(FILL) return;
     var b = document.body;
     var h = Math.ceil(b.getBoundingClientRect().height + parseFloat(getComputedStyle(b).marginTop || 0) + parseFloat(getComputedStyle(b).marginBottom || 0));
     if(h === last) return;

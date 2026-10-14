@@ -1,0 +1,796 @@
+/* ══════════════════════════════════════════════════════════════
+   dark-theme.css — 다크모드 UI/UX 전면 개선
+   ------------------------------------------------------------------
+   ⚠️ 절대 규칙 준수
+     · style.css / general-labels.css 는 단 한 줄도 수정하지 않음
+     · 기존 기능 · 이벤트 · JavaScript 로직 · 인쇄 로직 · 주소라벨 기능
+       전부 무수정. 이 파일은 [data-theme="dark"] 범위의
+       "색상/표현" 만 재정의하는 후행 스타일시트입니다.
+     · 로드 순서: style.css → general-labels.css → dark-theme.css
+       (가장 마지막에 로드되어 다크모드 한정으로 자연스럽게 우선 적용됨.
+        라이트모드([data-theme="light"] 또는 미지정)에는 전혀 영향 없음)
+
+   디자인 레퍼런스: Windows 11 Fluent Design · VS Code Dark+ · Notion Dark
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 보정 이력 ──────────────────────────────────────────────────
+   [가독성 2차 보정] 새 디자인이 아닌 기존 팔레트/구조 위에서의
+   10~20% 수준 미세 조정. 변경 범위: ① 5단계 배경 밝기 차이 확대
+   (인접 대비 1.05~1.11 → 1.08~1.19) ② 설명/비활성 텍스트 밝기 소폭 상향
+   ③ 툴바 버튼 사이 여백(gap) 추가 ④ 인스펙터 섹션 구분선 완화 + 여백 보강.
+   레이아웃 구조·버튼 위치·JS·인쇄 로직은 전혀 건드리지 않음. ──────── */
+
+/* ══════════════════════════════════════════════════════════════
+   ⚠️ 인쇄 안전장치 (회귀 방지 — 기존 인쇄 로직 자체는 무수정)
+   ------------------------------------------------------------------
+   원인: style.css 내 "다크모드 가독성 강화" 섹션의
+     [data-theme="dark"] .a4-page { background:#2a2a2a !important; }
+   규칙이 @media print 블록보다 "나중에" 선언되어 있어,
+   다크모드가 켜진 채로 인쇄하면(Ctrl+P) 용지가 어둡게 나가는
+   기존(원본) 버그가 이미 존재합니다 — 이 파일을 추가하기 전에도
+   동일하게 발생함(라이트모드 인쇄는 정상).
+   이 블록은 style.css의 어떤 셀렉터/로직도 변경하지 않고,
+   "인쇄 매체에서만" 최종 안전망으로 흰 배경을 보장합니다.
+   (레이아웃·여백·grid·인쇄 버튼 등 인쇄 "로직"은 전혀 건드리지 않음) */
+@media print {
+  [data-theme="dark"] .a4-page,
+  [data-theme="dark"] .gl-a4-page {
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+  [data-theme="dark"] .label {
+    background: #fff !important;
+  }
+  [data-theme="dark"] .addr  { color: #222222 !important; }
+  [data-theme="dark"] .name  { color: #000000 !important; }
+  [data-theme="dark"] .post-digit {
+    color: #000000 !important;
+    background: #fff !important;
+    border-color: #cc0000 !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ⚠️ 이 아래 전체를 @media screen 으로 감쌈
+   ------------------------------------------------------------------
+   기존 style.css의 @media print 블록은 .a4-page, body 등을
+   강제로 흰 배경/실제 인쇄 레이아웃으로 되돌리는 !important 규칙을
+   갖고 있다. 이 파일은 style.css보다 "나중에" 로드되므로,
+   동일한 선택자에 !important를 쓰면 소스 순서상 이 파일이 이겨서
+   인쇄 결과까지 다크 배경으로 깨질 수 있다.
+   → 화면(screen)에서만 적용되도록 전체를 감싸 인쇄 로직을 100% 보존한다.
+   ══════════════════════════════════════════════════════════════ */
+@media screen {
+
+/* ══════════════════════════════════════════════════════════════
+   1. 디자인 토큰 — 다크 테마 전용 변수
+   ------------------------------------------------------------------
+   기존 style.css가 사용하는 변수명(--bg, --surface, --text 등)을
+   그대로 재정의하여 전체 UI에 일괄 반영시키되,
+   유지보수를 위한 의미 기반 별칭(--bg-primary 등)도 함께 정의해
+   향후 Light / Midnight 테마 확장 시 동일 패턴을 재사용할 수 있게 한다.
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+
+  /* ── 의미 기반 원본 토큰 (Single Source of Truth) ───────────── */
+  /* [보정] 5단계 배경의 인접 대비가 1.05~1.11 수준으로 너무 가까워
+     "패널 간 경계가 명확하지 않다"는 문제가 실측(WCAG 대비비)상 확인됨.
+     동일한 톤(중성 차가운 회색)·동일한 5단계 구조는 그대로 유지하고,
+     순수 검정은 계속 사용하지 않으면서 단계 간 밝기 차이만
+     약 10~20% 넓혀 경계 인지도를 높임(팔레트 재설계 아님, 값만 보정). */
+  --dt-bg-app:        #1C1D1F;  /* 앱 전체 배경 */
+  --dt-bg-panel:       #232326;  /* 좌측 메뉴 / 우측 패널 */
+  --dt-bg-workspace:  #2A2A2E;  /* 작업영역(캔버스 상단바 · 입력창 배경) */
+  --dt-bg-card:        #333336;  /* 카드 */
+  --dt-bg-hover:       #3E3E42;  /* Hover */
+  --dt-border:         #48484D;  /* Border — 기존보다 살짝 밝혀 구분선 인지도 향상 */
+
+  --dt-text-title:     #FFFFFF;  /* 제목 */
+  --dt-text-body:      #D4D4D4;  /* 본문 */
+  --dt-text-desc:      #A3ACBB;  /* 설명 — 기존 대비 살짝 밝혀 가독성 보강 */
+  --dt-text-disabled:  #7B8493;  /* 비활성 — 기존 대비 살짝 밝혀 최소 판독성 확보 */
+
+  --dt-accent:         #3B82F6;  /* Accent — 선택 메뉴/버튼/포커스/체크박스/탭/슬라이더/링크 공통 */
+  --dt-accent-h:       #2F6FE0;  /* Accent hover(약간 어둡게) */
+  --dt-accent-bg:      rgba(59,130,246,.16);
+  --dt-accent-bg-weak: rgba(59,130,246,.10);
+
+  --dt-success:        #22C55E;
+  --dt-warning:        #F59E0B;
+  --dt-error:          #EF4444;
+  --dt-info:           #3B82F6;
+  --dt-error-bg:       rgba(239,68,68,.14);
+  --dt-success-bg:     rgba(34,197,94,.14);
+  --dt-warning-bg:     rgba(245,158,11,.14);
+
+  /* ── 유지보수용 별칭 — 향후 Light/Midnight 테마도 동일 이름으로 매핑 가능 ── */
+  --bg-primary:    var(--dt-bg-app);
+  --bg-secondary:  var(--dt-bg-panel);
+  --bg-tertiary:   var(--dt-bg-workspace);
+  --bg-card:       var(--dt-bg-card);
+  --bg-hover:      var(--dt-bg-hover);
+  --text-primary:  var(--dt-text-title);
+  --text-secondary:var(--dt-text-body);
+  --text-tertiary: var(--dt-text-desc);
+  --text-disabled: var(--dt-text-disabled);
+  --border-color:  var(--dt-border);
+  --accent-color:  var(--dt-accent);
+
+  /* ── 기존 style.css 토큰 재매핑 — 모든 기존 UI가 자동으로 새 팔레트를 사용 ── */
+  --bg:           var(--dt-bg-app);
+  --surface:      var(--dt-bg-card);
+  --surface-sb:   var(--dt-bg-panel);
+  --surface-insp: var(--dt-bg-panel);
+  --surface-2:    var(--dt-bg-workspace);
+  --surface-3:    var(--dt-bg-hover);
+  --surface-hover:  rgba(255,255,255,.06);
+  --surface-active: var(--dt-accent-bg);
+
+  --text:   var(--dt-text-body);
+  --text-2: var(--dt-text-desc);
+  --text-3: var(--dt-text-disabled);
+  --text-inv: #FFFFFF;
+
+  --border:       var(--dt-border);
+  --border-2:     var(--dt-border);
+  --border-panel: var(--dt-border);
+
+  --clr-primary:    var(--dt-accent);
+  --clr-primary-h:  var(--dt-accent-h);
+  --clr-primary-bg: var(--dt-accent-bg);
+  --clr-success:    var(--dt-success);
+  --clr-danger:     var(--dt-error);
+  --clr-danger-bg:  var(--dt-error-bg);
+  --clr-warn:       var(--dt-warning);
+
+  /* ── 그림자 — Fluent 스타일, 더 진하고 부드럽게 ───────────────── */
+  --shadow-xs:    0 1px 2px rgba(0,0,0,.35);
+  --shadow-sm:    0 1px 3px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04);
+  --shadow-md:    0 4px 14px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.3);
+  --shadow-lg:    0 10px 34px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.35);
+  --shadow-float: 0 18px 50px rgba(0,0,0,.55), 0 4px 14px rgba(0,0,0,.4);
+
+  /* ── 라벨(인쇄물) 내부 텍스트 — 다크 캔버스 위에서도 또렷하게 ─── */
+  --label-text-strong: #FFFFFF;
+  --label-text-addr:   var(--dt-text-body);
+  --digit-border-clr:  #ef6a6a;
+
+  /* ── 트랜지션 토큰 — Fluent 권장 타이밍 ─────────────────────── */
+  --dt-ease-hover:  140ms cubic-bezier(.2,.6,.3,1);
+  --dt-ease-click:  100ms cubic-bezier(.2,.6,.3,1);
+  --dt-ease-panel:  180ms cubic-bezier(.2,.6,.3,1);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   2. 전역 베이스
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] body {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+}
+
+/* 패널 구분 — 굵은 선 대신 배경색 단계 + 미세한 그림자로만 구분 */
+[data-theme="dark"] .titlebar,
+[data-theme="dark"] .toolbar {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  box-shadow: none;
+}
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .gl-sidebar {
+  background: var(--bg-secondary);
+  border-color: transparent;
+  box-shadow: 1px 0 0 var(--border-color);
+}
+[data-theme="dark"] .inspector,
+[data-theme="dark"] .gl-inspector {
+  background: var(--bg-secondary);
+  border-color: transparent;
+  box-shadow: -1px 0 0 var(--border-color);
+}
+[data-theme="dark"] .canvas-wrap,
+[data-theme="dark"] .gl-canvas-wrap {
+  background: var(--bg-primary);
+}
+[data-theme="dark"] .canvas-topbar,
+[data-theme="dark"] .gl-canvas-topbar {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .statusbar {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-tertiary);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   3. 텍스트 위계 — 제목 / 본문 / 설명 / 비활성을 명확히 구분
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .titlebar-logo span,
+[data-theme="dark"] .dialog-box h3,
+[data-theme="dark"] .mapper-box h3,
+[data-theme="dark"] .shortcut-box h3,
+[data-theme="dark"] .upload-zone h3,
+[data-theme="dark"] .gl-empty-state h3,
+[data-theme="dark"] .sidebar-stat-value,
+[data-theme="dark"] .canvas-topbar-value,
+[data-theme="dark"] .insp-row-value {
+  color: var(--text-primary);
+}
+[data-theme="dark"] .sidebar-section-title,
+[data-theme="dark"] .insp-title,
+[data-theme="dark"] .toolbar-group-label,
+[data-theme="dark"] .sb-ctrl-label,
+[data-theme="dark"] .text-3,
+[data-theme="dark"] .insp-row-label,
+[data-theme="dark"] .text-disabled {
+  color: var(--text-tertiary);
+}
+
+/* [보정] 우측 인스펙터 섹션 구분 — 실선 대신 여백/은은한 경계로 전환.
+   구조(섹션 순서·항목)는 그대로 두고, 굵게 보이던 구분선만 거의
+   보이지 않을 정도로 낮추고 위아래 여백을 살짝 더 확보함. */
+[data-theme="dark"] .insp-section {
+  border-bottom-color: rgba(255,255,255,.06);
+  padding-top: 16px;
+  padding-bottom: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   4. 모드 탭 바 — 선택된 탭 = Accent 배경 + 흰 글씨
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .mode-tab {
+  color: var(--text-tertiary);
+  border-radius: var(--r-sm);
+  transition: background var(--dt-ease-hover), color var(--dt-ease-hover);
+}
+[data-theme="dark"] .mode-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .mode-tab.active {
+  background: var(--dt-accent);
+  color: #fff;
+  box-shadow: none;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   5. 버튼 — 카드 스타일, 살짝 커지고, 둥글고, 눌리는 느낌
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .btn {
+  height: 30px !important;
+  border-radius: var(--r-md);
+  transition: background var(--dt-ease-hover), color var(--dt-ease-hover),
+              box-shadow var(--dt-ease-hover), transform var(--dt-ease-click);
+}
+[data-theme="dark"] .btn:active:not(:disabled) {
+  transform: scale(.96);
+  opacity: 1;
+}
+
+/* Primary — Accent Blue 단색, hover 시 밝아짐 */
+[data-theme="dark"] .btn-primary {
+  background: var(--dt-accent);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 2px 8px rgba(59,130,246,.28);
+}
+[data-theme="dark"] .btn-primary:hover:not(:disabled) {
+  background: #5495f8; /* Accent보다 살짝 밝게 */
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 2px 10px rgba(59,130,246,.38);
+}
+
+/* Secondary — 카드 배경 + 옅은 테두리 (진한 테두리 제거) */
+[data-theme="dark"] .btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+[data-theme="dark"] .btn-secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+/* Ghost — 평소엔 배경 없음(작업영역과 자연히 구분), hover 시 카드처럼 떠오름 */
+[data-theme="dark"] .btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .btn-ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .btn-ghost:disabled { color: var(--text-disabled); }
+
+/* Danger */
+[data-theme="dark"] .btn-danger {
+  color: var(--dt-error);
+  background: transparent;
+}
+[data-theme="dark"] .btn-danger:hover:not(:disabled) {
+  background: var(--dt-error-bg);
+  opacity: 1;
+}
+
+/* 아이콘 버튼 — 툴바 검정 버튼 대신 카드 hover 느낌 */
+[data-theme="dark"] .icon-btn {
+  color: var(--text-secondary);
+  border-radius: var(--r-sm);
+  transition: background var(--dt-ease-hover), color var(--dt-ease-hover);
+}
+[data-theme="dark"] .icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+[data-theme="dark"] .icon-btn.active { background: var(--dt-accent-bg); color: var(--dt-accent); }
+[data-theme="dark"] .icon-btn:active { transform: scale(.92); }
+
+[data-theme="dark"] .icon-btn-text { color: var(--text-secondary); }
+[data-theme="dark"] .icon-btn-text:hover { background: var(--bg-hover); color: var(--text-primary); }
+[data-theme="dark"] .icon-btn-text.active { background: var(--dt-accent-bg); color: var(--dt-accent); }
+
+/* [보정] 툴바 그룹 내부 여백 — 버튼끼리 완전히 붙어 있던 gap:0을
+   다크모드에 한해 살짝 벌려 Notion 특유의 "여유 있는" 느낌을 보강.
+   버튼 위치·순서·크기는 그대로이고 간격만 넓어짐(레이아웃 폭 영향 미미). */
+[data-theme="dark"] .toolbar-group {
+  gap: 3px;
+}
+
+/* 구분선 — 패널 안 작은 구분도 은은하게 */
+[data-theme="dark"] .toolbar-sep,
+[data-theme="dark"] .titlebar-sep,
+[data-theme="dark"] .canvas-topbar-sep,
+[data-theme="dark"] .sidebar-divider,
+[data-theme="dark"] .ctx-sep {
+  background: var(--border-color);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   6. 입력창 — 배경/Border/Focus 명확히
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] #search-input,
+/* [제거] .insp-input — 해당 UI 컴포넌트 HTML에서 제거됨 */
+[data-theme="dark"] .mapper-select,
+[data-theme="dark"] .fav-input,
+[data-theme="dark"] .gl-textarea,
+[data-theme="dark"] select,
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="number"] {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  transition: border-color var(--dt-ease-hover), box-shadow var(--dt-ease-hover);
+}
+[data-theme="dark"] #search-input::placeholder,
+[data-theme="dark"] .gl-textarea::placeholder,
+[data-theme="dark"] .fav-input::placeholder {
+  color: var(--text-disabled);
+}
+[data-theme="dark"] #search-input:focus,
+/* [제거] .insp-input:focus — 해당 UI 컴포넌트 HTML에서 제거됨 */
+[data-theme="dark"] .mapper-select:focus,
+[data-theme="dark"] .fav-input:focus,
+[data-theme="dark"] .gl-textarea:focus {
+  border-color: var(--dt-accent);
+  box-shadow: 0 0 0 3px var(--dt-accent-bg-weak);
+  background: var(--bg-card);
+}
+
+/* 커스텀 select(드롭다운) */
+[data-theme="dark"] .ctrl-select-display {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ctrl-select-wrap:hover .ctrl-select-display { background: var(--bg-hover); }
+[data-theme="dark"] .ctrl-select-wrap:focus-within .ctrl-select-display {
+  border-color: var(--dt-accent);
+  box-shadow: 0 0 0 3px var(--dt-accent-bg-weak);
+}
+[data-theme="dark"] .size-ctrl {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+}
+[data-theme="dark"] .size-ctrl:focus-within {
+  border-color: var(--dt-accent);
+  box-shadow: 0 0 0 3px var(--dt-accent-bg-weak);
+}
+[data-theme="dark"] .size-step { color: var(--dt-accent); }
+[data-theme="dark"] .size-step:hover { background: var(--dt-accent-bg); }
+[data-theme="dark"] #font-size-select { color: var(--text-primary); }
+/* 버그 수정: 일반라벨의 글자 크기 / 이미지 크기 select도
+   다크모드에서 주소라벨(#font-size-select)과 동일하게 밝은 텍스트色을 갖도록 맞춤 */
+[data-theme="dark"] #gl-font-size-select,
+[data-theme="dark"] #gl-img-scale-select { color: var(--text-primary); }
+/* 신규: 줄 간격/자간/칸 개별 폰트·크기 select — 화살표 아이콘은 SVG data-uri라
+   var()로 색을 못 넣으므로, 다크모드용 밝은 회색(#7B8493)으로 별도 교체만 한다.
+   테두리/배경/글자색은 위쪽 공용 규칙([data-theme="dark"] select)이 이미 처리. */
+[data-theme="dark"] #gl-line-height-select,
+[data-theme="dark"] #gl-letter-spacing-select,
+[data-theme="dark"] #gl-cell-edit-font,
+[data-theme="dark"] #gl-cell-edit-fontsize {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%237B8493'/%3E%3C/svg%3E");
+}
+
+/* 인스펙터 미세조정 ± 버튼 */
+[data-theme="dark"] .insp-offset-ctrl { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="dark"] .insp-offset-btn { background: var(--bg-card); border-color: var(--border-color); color: var(--dt-accent); }
+[data-theme="dark"] .insp-offset-btn:hover { background: var(--dt-accent-bg); border-color: var(--dt-accent); }
+[data-theme="dark"] .insp-offset-val { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color); }
+[data-theme="dark"] .insp-tiny-btn { background: var(--bg-card); border-color: var(--border-color); color: var(--text-tertiary); }
+[data-theme="dark"] .insp-tiny-btn:hover { background: var(--dt-accent-bg); color: var(--dt-accent); border-color: var(--dt-accent); }
+
+/* ══════════════════════════════════════════════════════════════
+   7. 토글 스위치 — Accent Blue (체크박스/슬라이더 역할)
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .wm-toggle-track {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .wm-toggle-row input:checked + .wm-toggle-track {
+  background: var(--dt-accent);
+  border-color: var(--dt-accent);
+}
+[data-theme="dark"] .wm-toggle-text { color: var(--text-secondary); }
+[data-theme="dark"] .wm-toggle-row:hover .wm-toggle-text { color: var(--text-primary); }
+
+/* [제거] .insp-seg-btns / .insp-seg-btn 다크모드 — 방향 선택 버튼 UI가 HTML에서 제거됨.
+   style.css의 동일 셀렉터도 함께 제거됨 */
+
+/* 일반라벨 콘텐츠 타입 세그먼트 / 이미지 배치 세그먼트 */
+[data-theme="dark"] .gl-content-seg { background: var(--bg-tertiary); }
+[data-theme="dark"] .gl-content-btn { color: var(--text-tertiary); }
+[data-theme="dark"] .gl-content-btn:hover { color: var(--text-primary); }
+[data-theme="dark"] .gl-content-btn.active {
+  background: var(--bg-card);
+  color: var(--dt-accent);
+  box-shadow: var(--shadow-xs);
+}
+[data-theme="dark"] .gl-fit-btn { background: var(--bg-card); border-color: var(--border-color); color: var(--text-tertiary); }
+[data-theme="dark"] .gl-fit-btn.active { border-color: var(--dt-accent); color: var(--dt-accent); background: var(--dt-accent-bg); }
+[data-theme="dark"] .gl-image-drop { border-color: var(--border-color); color: var(--text-tertiary); }
+[data-theme="dark"] .gl-image-drop:hover { border-color: var(--dt-accent); background: var(--dt-accent-bg); }
+
+/* ══════════════════════════════════════════════════════════════
+   8. 좌측 메뉴(사이드바) 항목 — 선택됨 = Accent 배경 + 흰 글씨
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .sidebar-item {
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .sidebar-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .sidebar-item.active {
+  background: var(--dt-accent);
+  color: #fff;
+  box-shadow: none;
+}
+[data-theme="dark"] .sidebar-item.active svg { opacity: 1; }
+[data-theme="dark"] .sidebar-badge {
+  background: rgba(255,255,255,.22);
+  color: #fff;
+}
+[data-theme="dark"] .sidebar-item:not(.active) .sidebar-badge {
+  background: var(--dt-accent-bg);
+  color: var(--dt-accent);
+}
+
+/* 작업 현황 스탯 카드 */
+[data-theme="dark"] .sidebar-stat-card {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .sidebar-stat-label { color: var(--text-tertiary); }
+
+/* ══════════════════════════════════════════════════════════════
+   9. 라벨 미리보기(캔버스) — 훨씬 선명하게
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .a4-page,
+[data-theme="dark"] .gl-a4-page {
+  background: var(--bg-tertiary) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+[data-theme="dark"] .label {
+  background: var(--bg-card);
+  border-color: var(--border-color) !important;
+}
+[data-theme="dark"] .label:hover {
+  border-color: var(--dt-accent) !important;
+  background: var(--dt-accent-bg-weak);
+}
+[data-theme="dark"] .label.label-selected {
+  border-color: var(--dt-accent) !important;
+  background: var(--dt-accent-bg) !important;
+  box-shadow: inset 0 0 0 1px var(--dt-accent);
+}
+[data-theme="dark"] .label.label-selected::before {
+  background: var(--dt-accent);
+}
+[data-theme="dark"] .label.label-locked {
+  border-color: rgba(245,158,11,.55) !important;
+  background: var(--dt-warning-bg);
+}
+[data-theme="dark"] .label.label-empty {
+  border-color: var(--border-color) !important;
+  opacity: .4;
+}
+[data-theme="dark"] .label.search-highlight { background: var(--dt-accent-bg-weak); }
+[data-theme="dark"] .label.search-active { background: var(--dt-accent-bg) !important; border-color: var(--dt-accent) !important; }
+
+[data-theme="dark"] .addr  { color: var(--label-text-addr) !important; }
+[data-theme="dark"] .name  { color: var(--label-text-strong) !important; }
+[data-theme="dark"] .post-digit {
+  color: var(--label-text-strong) !important;
+  background: var(--bg-card);
+  border-color: var(--digit-border-clr);
+}
+[data-theme="dark"] .drag-handle { color: var(--text-secondary); }
+[data-theme="dark"] .drag-handle:hover { background: var(--bg-hover); }
+[data-theme="dark"] .drag-handle:active { color: var(--dt-accent); }
+[data-theme="dark"] .label-index-badge { color: var(--text-disabled); }
+
+[data-theme="dark"] .delete-btn,
+[data-theme="dark"] .label .delete-btn {
+  background: var(--bg-card) !important;
+  color: var(--dt-error) !important;
+  border-color: var(--dt-error) !important;
+}
+[data-theme="dark"] .delete-btn:hover,
+[data-theme="dark"] .label .delete-btn:hover { background: var(--dt-error) !important; color: #fff !important; }
+[data-theme="dark"] .copy-label-btn,
+[data-theme="dark"] .label .copy-label-btn,
+[data-theme="dark"] .lock-label-btn,
+[data-theme="dark"] .label .lock-label-btn {
+  background: var(--bg-card) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-color) !important;
+}
+[data-theme="dark"] .copy-label-btn:hover,
+[data-theme="dark"] .label .copy-label-btn:hover { background: var(--dt-accent) !important; color: #fff !important; }
+[data-theme="dark"] .lock-label-btn:hover,
+[data-theme="dark"] .label .lock-label-btn:hover { background: var(--dt-warning) !important; color: #fff !important; }
+
+/* 일반라벨 캔버스 셀 */
+[data-theme="dark"] .gl-label-cell {
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .gl-label-cell.gl-empty { color: var(--text-disabled); }
+[data-theme="dark"] .gl-label-cell .gl-cell-text { color: var(--label-text-strong); }
+
+/* mark.sh — 검색 하이라이트 (다크에서도 잘 보이도록 톤 조정) */
+[data-theme="dark"] mark.sh {
+  background: rgba(245,158,11,.55);
+  color: #1a1a19;
+}
+[data-theme="dark"] .label.search-active mark.sh {
+  background: rgba(245,158,11,.75);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   10. A4 비율 고정 미리보기 프레임 — "라벨 배치 미리보기" / 일반라벨 미리보기
+   ------------------------------------------------------------------
+   ▸ 요청사항 반영: 프레임 크기를 더 작게, 범례 텍스트("입력됨" 등)는 숨김.
+     레이아웃을 만드는 JS(general-labels.js)는 전혀 수정하지 않음 —
+     칸은 여전히 JS가 %inset으로 그리고, 여기서는 프레임 자체의
+     max-width 축소 + 범례 텍스트 표시만 CSS로 제어.
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .a4-frame {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-xs);
+}
+[data-theme="dark"] .a4-frame .agp-cell {
+  border-color: rgba(232, 85, 85, 0.7);
+  background: var(--bg-tertiary);
+}
+[data-theme="dark"] .a4-frame .agp-cell.agp-filled   { background: var(--dt-accent-bg); border-color: rgba(59,130,246,.5); }
+[data-theme="dark"] .a4-frame .agp-cell.agp-selected { background: var(--dt-accent); border-color: var(--dt-accent); }
+[data-theme="dark"] .a4-frame .agp-cell.agp-locked   { background: var(--dt-warning-bg); border-color: rgba(245,158,11,.5); }
+[data-theme="dark"] .a4-frame .agp-cell.agp-blank    { background: var(--bg-card); border-color: rgba(232, 85, 85, 0.7); }
+[data-theme="dark"] .a4-frame .agp-cell.agp-empty    { border-color: rgba(232, 85, 85, 0.4); }
+[data-theme="dark"] .a4-frame .gl-gp-cell {
+  background: var(--bg-tertiary);
+  border-color: rgba(232, 85, 85, 0.7);
+}
+[data-theme="dark"] .agp-dot { border-color: var(--border-color); background: var(--bg-tertiary); }
+[data-theme="dark"] .agp-dot.agp-filled   { background: var(--dt-accent-bg); border-color: rgba(59,130,246,.5); }
+[data-theme="dark"] .agp-dot.agp-selected { background: var(--dt-accent); border-color: var(--dt-accent); }
+[data-theme="dark"] .agp-dot.agp-locked   { background: var(--dt-warning-bg); border-color: rgba(245,158,11,.5); }
+[data-theme="dark"] .agp-dot.agp-blank    { background: var(--bg-card); border-color: var(--dt-error); }
+[data-theme="dark"] .agp-info-model { color: var(--dt-accent); }
+[data-theme="dark"] .agp-info-page  { color: var(--text-primary); }
+[data-theme="dark"] .agp-info-rem   { color: var(--text-secondary); }
+
+/* 미니맵 */
+[data-theme="dark"] .mm-page { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="dark"] .mm-page:hover { border-color: var(--dt-accent); box-shadow: 0 0 0 1px var(--dt-accent-bg); }
+[data-theme="dark"] .mm-page-label { color: var(--text-tertiary); }
+[data-theme="dark"] .mm-dot { background: var(--bg-hover); border-color: var(--border-color); }
+[data-theme="dark"] .mm-dot.mm-filled   { background: var(--dt-accent); border-color: var(--dt-accent); }
+[data-theme="dark"] .mm-dot.mm-selected { background: var(--dt-success); border-color: var(--dt-success); }
+[data-theme="dark"] .mm-dot.mm-locked   { background: var(--dt-warning); border-color: var(--dt-warning); }
+[data-theme="dark"] .mm-empty { color: var(--text-tertiary); }
+[data-theme="dark"] .legend-dot { border-color: var(--border-color); }
+[data-theme="dark"] .legend-filled   { background: var(--dt-accent); border-color: var(--dt-accent); }
+[data-theme="dark"] .legend-empty    { background: var(--bg-hover); }
+[data-theme="dark"] .legend-selected { background: var(--dt-success); border-color: var(--dt-success); }
+[data-theme="dark"] .legend-locked   { background: var(--dt-warning); border-color: var(--dt-warning); }
+
+/* ── 요청사항: "라벨 배치 미리보기"(a4-frame) 프레임은 더 작게, 범례 글자
+   ("입력됨" 등)도 제거. 단, 미니맵(.legend-row)의 상태 범례는 그대로 유지
+   — 사용자가 미니맵에서는 입력됨/비어있음/선택됨/잠금 상태를 계속 볼 수 있어야 함.
+   라이트/다크 공통으로 자연스럽게 보이도록 테마와 무관하게 적용.
+   (이 규칙들은 색상이 아니라 크기·표시 여부이므로 [data-theme] 무관하게 둠) */
+.a4-frame {
+  max-width: 110px !important;
+}
+.agp-legend {
+  display: none !important;
+}
+
+/* ── 요청사항: 인스펙터의 "인쇄 설정"(용지/방향/배율 안내) 섹션은 숨기고,
+   바로 아래 "인쇄하기" 버튼이 그 자리에 바로 이어지도록 함.
+   주소라벨 · 일반라벨 인스펙터 둘 다 동일 패턴이라 두 id 모두 처리.
+   JS는 이 섹션의 내용을 갱신하지 않으므로(정적 텍스트) 숨겨도 기능엔 영향 없음. */
+#print-settings-section,
+#gl-print-settings-section {
+  display: none !important;
+}
+/* 섹션이 사라지며 생기는 위쪽 구분선 중복을 정리 — 인쇄 버튼 섹션이
+   바로 윗 섹션과 자연스럽게 이어지도록 상단 padding만 살짝 보정 */
+#print-settings-section + .insp-section,
+#gl-print-settings-section + .insp-section {
+  padding-top: 14px;
+}
+
+/* ── 요청사항: "엑셀 파일을 불러오거나 직접 추가하세요" 빈 상태(업로드 존)를
+   캔버스 영역 안에서 좌우뿐 아니라 위아래로도 가운데에 오도록 조정.
+   .canvas-scroll은 라벨이 있을 때는 여러 페이지를 위에서부터 쌓아야 하므로
+   justify-content를 바꾸지 않고, 비어있을 때만 보이는 .upload-zone 자체에
+   margin:auto를 줘서 flex 컨테이너 안에서 양쪽 축 모두 중앙에 오도록 함.
+   레이아웃 위치만 바뀌며 업로드 동작/이벤트는 그대로 유지됨. */
+.canvas-scroll {
+  min-height: 100%;
+}
+.upload-zone {
+  margin: auto;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   11. 상태 표시 (Success / Warning / Error / Info)
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .statusbar-autosave.saving { color: var(--dt-warning); }
+[data-theme="dark"] .statusbar-autosave.saving::before { background: var(--dt-warning); }
+[data-theme="dark"] .statusbar-autosave.saved { color: var(--dt-success); }
+[data-theme="dark"] .statusbar-autosave.saved::before { background: var(--dt-success); }
+[data-theme="dark"] .statusbar-autosave.error { color: var(--dt-error); }
+[data-theme="dark"] .statusbar-autosave.error::before { background: var(--dt-error); }
+
+[data-theme="dark"] .insp-badge-err { background: var(--dt-error); }
+[data-theme="dark"] .val-item { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="dark"] .val-item:hover { background: var(--dt-accent-bg); border-color: var(--dt-accent); }
+[data-theme="dark"] .val-item-msg { color: var(--text-primary); }
+[data-theme="dark"] .val-item-idx { background: var(--bg-hover); color: var(--text-tertiary); }
+[data-theme="dark"] .val-item.err-missing  .val-item-icon { color: var(--dt-error); }
+[data-theme="dark"] .val-item.err-postcode .val-item-icon { color: var(--dt-warning); }
+/* [제거] .val-item.err-duplicate 다크모드 — findDuplicates()가 항상 [] 반환해 이 클래스가 절대 부여되지 않음 */
+[data-theme="dark"] .val-item.err-special  .val-item-icon { color: var(--dt-warning); }
+[data-theme="dark"] .label.label-err-missing  { outline-color: var(--dt-error) !important; }
+[data-theme="dark"] .label.label-err-postcode { outline-color: var(--dt-warning) !important; }
+/* [제거] .label.label-err-dup 다크모드 — 동일 이유. label-err-dup 클래스가 JS에서 절대 추가되지 않음 */
+
+[data-theme="dark"] .col-auto-badge { background: var(--dt-success-bg); color: var(--dt-success); }
+[data-theme="dark"] .col-badge-name { background: var(--dt-accent-bg); color: var(--dt-accent); }
+[data-theme="dark"] .col-badge-addr { background: var(--dt-success-bg); color: var(--dt-success); }
+[data-theme="dark"] .col-name-hl { background: var(--dt-accent-bg-weak) !important; }
+[data-theme="dark"] .col-addr-hl { background: var(--dt-success-bg) !important; }
+
+[data-theme="dark"] .search-mode-chip.mode-field { background: var(--dt-success-bg); color: var(--dt-success); }
+[data-theme="dark"] .search-mode-chip.mode-or    { background: var(--dt-warning-bg); color: var(--dt-warning); }
+[data-theme="dark"] .search-mode-chip.mode-and   { background: var(--dt-accent-bg); color: var(--dt-accent); }
+[data-theme="dark"] #search-input.has-results { border-color: var(--dt-success); }
+[data-theme="dark"] #search-input.no-results  { border-color: var(--dt-error); }
+[data-theme="dark"] .search-result-badge { background: var(--dt-accent-bg); color: var(--dt-accent); border-color: rgba(59,130,246,.3); }
+
+[data-theme="dark"] .statusbar-badge { background: var(--bg-card); color: var(--dt-accent); }
+[data-theme="dark"] .statusbar-badge.empty { background: var(--bg-tertiary); color: var(--text-tertiary); }
+[data-theme="dark"] .statusbar-sel-info { background: var(--dt-accent-bg); color: var(--dt-accent); }
+
+/* ══════════════════════════════════════════════════════════════
+   12. 모달 / 다이얼로그 / 컨텍스트 메뉴
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .modal-bg { background: rgba(0,0,0,.6); }
+[data-theme="dark"] .dialog-box,
+[data-theme="dark"] .loading-box,
+[data-theme="dark"] .mapper-box,
+[data-theme="dark"] .shortcut-box {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-float);
+}
+[data-theme="dark"] .dialog-box p { color: var(--text-secondary); }
+[data-theme="dark"] .dialog-icon { background: var(--bg-hover); }
+[data-theme="dark"] .dialog-icon.dialog-icon-danger { background: var(--dt-error-bg); }
+[data-theme="dark"] .dialog-btn-ok { background: var(--dt-accent); color: #fff; }
+[data-theme="dark"] .dialog-btn-ok:hover { background: var(--dt-accent-h); }
+[data-theme="dark"] .dialog-btn-cancel { background: var(--bg-hover); color: var(--text-secondary); border-color: var(--border-color); }
+[data-theme="dark"] .dialog-btn-cancel:hover { background: var(--bg-tertiary); }
+[data-theme="dark"] .dialog-btn-danger { background: var(--dt-error); color: #fff; }
+[data-theme="dark"] .loading-spinner { border-color: var(--border-color); border-top-color: var(--dt-accent); }
+[data-theme="dark"] .loading-box p { color: var(--text-secondary); }
+[data-theme="dark"] .loading-progress-wrap { background: var(--bg-hover); }
+[data-theme="dark"] .loading-progress-bar { background: var(--dt-accent); }
+
+[data-theme="dark"] .mapper-box > p { color: var(--text-secondary); }
+[data-theme="dark"] .mapper-selectors label { color: var(--text-secondary); }
+[data-theme="dark"] .preview-table-wrapper { border-color: var(--border-color); }
+[data-theme="dark"] .preview-table th { background: var(--bg-tertiary); color: var(--text-secondary); border-color: var(--border-color); }
+[data-theme="dark"] .preview-table td { border-color: var(--border-color); }
+
+[data-theme="dark"] .shortcut-section-title { color: var(--text-tertiary); }
+[data-theme="dark"] kbd {
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .ctx-menu {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-float);
+}
+[data-theme="dark"] .ctx-item { color: var(--text-primary); }
+[data-theme="dark"] .ctx-item:hover { background: var(--bg-hover); }
+[data-theme="dark"] .ctx-item:active { background: var(--dt-accent-bg); }
+[data-theme="dark"] .ctx-item svg { color: var(--text-secondary); }
+[data-theme="dark"] .ctx-item-danger { color: var(--dt-error); }
+[data-theme="dark"] .ctx-item-danger svg { color: var(--dt-error); }
+[data-theme="dark"] .ctx-item-danger:hover { background: var(--dt-error-bg); }
+[data-theme="dark"] .ctx-kbd { background: var(--bg-hover); border-color: var(--border-color); color: var(--text-tertiary); }
+[data-theme="dark"] .ctx-menu.ctx-locked #ctx-lock svg { color: var(--dt-warning); }
+[data-theme="dark"] .ctx-menu.ctx-locked #ctx-lock-label { color: var(--dt-warning); }
+
+/* 즐겨찾기 패널 */
+[data-theme="dark"] .fav-panel { box-shadow: -8px 0 28px rgba(0,0,0,.5); background: var(--bg-card); }
+[data-theme="dark"] .fav-add-section { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="dark"] .fav-add-section-title { color: var(--text-tertiary); }
+
+/* 툴팁 */
+[data-theme="dark"] [data-tooltip]::after {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   13. 업로드존
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .upload-zone p { color: var(--text-tertiary); }
+[data-theme="dark"] .restore-section { border-color: var(--border-color); }
+[data-theme="dark"] .restore-hint { color: var(--text-tertiary); }
+
+/* ══════════════════════════════════════════════════════════════
+   14. 접근성 — 포커스 링은 항상 Accent로 또렷하게
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] :focus-visible {
+  outline: 2px solid var(--dt-accent);
+  outline-offset: 2px;
+}
+[data-theme="dark"] .sidebar-item:focus-visible {
+  background: var(--bg-hover);
+  outline-color: var(--dt-accent);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   15. 향후 테마 확장 가이드 (참고용 — 현재는 Dark만 구현)
+   ------------------------------------------------------------------
+   동일한 의미 토큰 이름을 사용해 아래처럼 추가하면 됨:
+
+   [data-theme="light"] { --bg-primary:#FFFFFF; --bg-secondary:#F5F5F3; ... }
+   [data-theme="midnight"] { --bg-primary:#000000; --bg-secondary:#0A0A0C; ... }
+
+   토글 로직(JS)은 이미 document.documentElement에 data-theme 속성만
+   설정하므로, 새 테마 블록만 추가하면 별도 JS 수정 없이 즉시 동작함.
+   ══════════════════════════════════════════════════════════════ */
+
+} /* /@media screen — 인쇄(print) 시에는 이 파일의 모든 규칙이 무시되어
+     style.css의 기존 @media print 로직이 100% 그대로 적용됩니다. */

@@ -1,0 +1,2457 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<link rel="shortcut icon" href="./character.ico" type="image/x-icon"/>
+<title>우편 라벨지 자동화 v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Nanum+Gothic:wght@400;700&family=Nanum+Gothic+Coding:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;700&family=Black+Han+Sans&family=Do+Hyeon&family=Nanum+Myeongjo:wght@400;700&family=Nanum+Pen+Script&family=Gowun+Dodum&family=Gowun+Batang:wght@400;700&family=Gothic+A1:wght@400;700&family=Sunflower:wght@300;500;700&family=Jua&family=Gaegu:wght@400;700&family=Hi+Melody&family=Poor+Story&family=Stylish&family=Gamja+Flower&family=Song+Myung&family=East+Sea+Dokdo&family=Kirang+Haerang&family=Yeon+Sung&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="./style.css"/>
+<link rel="stylesheet" href="./general-labels.css"/>
+<link rel="stylesheet" href="./dark-theme.css"/>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════ 타이틀바 — 로고·모드탭·상태·검색·유틸 (모드탭을 이 줄에 합쳐 2번째 줄을 없앰) ═══════════════════ -->
+<div class="titlebar">
+  <div class="titlebar-logo">
+    <img src="./character.png" alt="logo" onerror="this.style.display='none'"/>
+    <span>우편 라벨지 자동화</span>
+  </div>
+  <div class="titlebar-sep"></div>
+  <!-- 모드 탭 — 주소라벨 / 일반라벨 (기존에 별도 줄이던 .mode-tabbar를 타이틀바로 병합) -->
+  <div class="titlebar-modetabs" id="titlebar-modetabs">
+    <button id="mode-tab-address" class="mode-tab active" title="주소라벨 모드 — 엑셀 주소 목록으로 우편라벨 인쇄" data-tooltip="주소/우편라벨 모드로 전환">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+      <span>주소라벨</span>
+    </button>
+    <button id="mode-tab-general" class="mode-tab" title="일반라벨 모드 — 사진·문구 등 자유 양식 라벨 인쇄" data-tooltip="일반라벨(사진·문구) 모드로 전환">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>일반라벨</span>
+    </button>
+  </div>
+  <div class="titlebar-sep"></div>
+  <!-- 상태 배지 -->
+  <div id="status-badge" class="statusbar-badge empty">라벨 없음</div>
+  <!-- 검색 -->
+  <div class="titlebar-search">
+    <div class="search-wrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="search-input" 
+        placeholder="검색: 서울 강남 / 이름:홍길동 / 주소:서울 / AND·OR"
+        title="다중검색: 서울 강남(AND) | 서울 OR 부산(OR) | 이름:홍길동 | 주소:서울 | 우편번호:06236 · Enter:다음 · ESC:초기화"/>
+      <span id="search-result-badge" class="search-result-badge" style="display:none"></span>
+    </div>
+  </div>
+  <!-- 유틸 -->
+  <div class="titlebar-utils">
+    <!-- 사용법 버튼 — 클릭 시 shortcut-modal의 "사용법" 탭으로 바로 열림 -->
+    <button id="guide-btn" class="icon-btn-text" title="사용법 보기" data-tooltip="사용법 안내">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      사용법
+    </button>
+    <div class="titlebar-sep" style="height:14px"></div>
+    <button id="shortcut-btn" class="icon-btn" title="단축키 안내 (?)" data-tooltip="단축키 안내 · ?" aria-label="단축키 안내">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+    </button>
+    <button id="theme-toggle" class="icon-btn" title="다크모드 전환" data-tooltip="다크모드 전환" aria-label="다크모드 전환" aria-pressed="false">🌙</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ [신규] 좌측 아이콘 레일 + 우측 shell-main 래퍼 ═══════════════════ -->
+<div class="app-shell" id="app-shell">
+  <nav class="rail" id="app-rail">
+    <button type="button" class="rail-item active" data-rail-step="data" title="데이터">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span>데이터</span>
+    </button>
+    <button type="button" class="rail-item" data-rail-step="edit" title="라벨 편집">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      <span>라벨 편집</span>
+    </button>
+    <button type="button" class="rail-item" data-rail-step="print" title="출력">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      <span>출력</span>
+    </button>
+    <div class="rail-sep"></div>
+    <button type="button" class="rail-item" id="rail-fav-btn" title="즐겨찾기 관리">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <span>즐겨찾기</span>
+    </button>
+    <button type="button" class="rail-item" id="rail-guide-btn" title="사용법 보기">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span>도움말</span>
+    </button>
+    <div class="rail-bottom">
+      <b id="rail-label-count">0</b>
+      <span>라벨</span>
+    </div>
+  </nav>
+
+  <div class="shell-main" id="shell-main">
+
+<!-- ═══════════════════ 진행 단계 표시줄 — 데이터 → 라벨 편집 → 출력 (신규, 주소라벨 모드 전용) ═══════════════════ -->
+<div class="step-header" id="addr-step-header">
+  <div class="step-header-spacer" aria-hidden="true"></div>
+  <div class="step-header-steps">
+  <button type="button" class="step-item" id="step-tab-data" data-step="data">
+    <span class="step-badge">1</span>
+    <span class="step-item-text"><b>데이터</b><small>주소 데이터 불러오기</small></span>
+  </button>
+  <span class="step-arrow" aria-hidden="true">›</span>
+  <button type="button" class="step-item" id="step-tab-edit" data-step="edit">
+    <span class="step-badge">2</span>
+    <span class="step-item-text"><b>라벨 편집</b><small>라벨 디자인 및 미리보기</small></span>
+  </button>
+  <span class="step-arrow" aria-hidden="true">›</span>
+  <button type="button" class="step-item" id="step-tab-print" data-step="print">
+    <span class="step-badge">3</span>
+    <span class="step-item-text"><b>출력</b><small>프린터 및 인쇄설정</small></span>
+  </button>
+  </div>
+  <div class="step-header-next-wrap">
+    <!-- 신규: '다음' 버튼만 있고 뒤로 갈 방법이 상단 스텝 아이템을 직접
+         클릭하는 것뿐이라 눈에 잘 안 띈다는 피드백 반영 — 다음 버튼과
+         짝을 이루는 '이전' 버튼을 항상 같은 자리에 추가한다. 데이터(1단계)는
+         이전이 없어 숨김, 라벨편집/출력 단계에서는 표시된다.
+         (ui-refresh.js의 syncHeaderNext가 표시 여부·클릭 대상을 관리) -->
+    <button type="button" class="btn btn-secondary step-header-prev-btn" id="step-header-prev-btn" hidden>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+      이전
+    </button>
+    <button type="button" class="btn btn-primary step-header-next-btn" id="step-header-next-btn" hidden></button>
+  </div>
+</div>
+
+<!-- ═══════════════════ 툴바 — Notion 스타일 계층 ═══════════════════ -->
+<div class="toolbar">
+
+  <!-- ① PRIMARY — 파일 불러오기 (유일한 강조 버튼) — [확장] 엑셀뿐 아니라 한글(hwpx)·메모장(txt)도 지원 -->
+  <button id="load-btn" class="btn btn-primary" title="엑셀(.xlsx/.xls) · 한글(.hwpx) · 메모장(.txt) 파일 불러오기" data-tooltip="파일 불러오기" data-step="data edit">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    파일 불러오기
+  </button>
+
+  <!-- 불러오기↔인쇄 사이 구분선 추가 — 공간 확보 -->
+  <div class="toolbar-sep" data-step="data edit"></div>
+
+  <!-- ② SECONDARY — 인쇄 -->
+  <button id="print-btn" class="btn btn-secondary" title="인쇄 (Ctrl+P)" data-tooltip="인쇄 · Ctrl+P" data-step="edit print">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    인쇄
+  </button>
+
+  <div class="toolbar-sep" data-step="edit print"></div>
+
+  <!-- ③ 편집 그룹 — 레이블 + 버튼 묶음 -->
+  <div class="toolbar-group" aria-label="편집" data-step="edit">
+    <span class="toolbar-group-label">편집</span>
+
+    <button id="add-btn" class="btn btn-ghost" title="새 라벨 추가 (Ctrl+N)" data-tooltip="라벨 추가 · Ctrl+Shift+A">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      추가
+    </button>
+
+    <button id="copy-btn" class="btn btn-ghost" title="라벨 복사 (Ctrl+D)" data-tooltip="선택 라벨 복사 · Ctrl+D">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      복사
+    </button>
+
+    <button id="fill-btn" class="btn btn-ghost" title="페이지 채우기" data-tooltip="현재 페이지 빈 칸 채우기">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      채우기
+    </button>
+
+    <button id="undo-btn" class="btn btn-ghost" disabled title="실행취소 (Ctrl+Z)" data-tooltip="실행취소 · Ctrl+Z">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+      실행취소
+    </button>
+  </div>
+
+  <div class="toolbar-sep" data-step="edit"></div>
+
+  <!-- ④ DANGER — 초기화 (완전 분리) -->
+  <button id="reset-btn" class="btn btn-danger" title="전체 초기화" data-tooltip="모든 라벨 삭제" data-step="data edit print">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+    초기화
+  </button>
+
+  <div class="toolbar-sep" data-step="data edit print"></div>
+
+  <!-- ⑤ GHOST — 즐겨찾기 -->
+  <button id="fav-btn" class="btn btn-ghost" title="즐겨찾기 관리" data-tooltip="주소 즐겨찾기" data-step="data edit">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    즐겨찾기
+  </button>
+
+</div>
+
+<!-- ═══════════════════ 1단계: 데이터 (신규) ═══════════════════ -->
+<div class="wizard-step wizard-step-data" id="step-view-data" data-step="data">
+  <div class="wizard-step-main">
+
+    <!-- [정리] 상단 마법사 탭 옆에 이미 고정 "다음" 버튼(#step-header-next-btn,
+         ui-refresh.js가 클릭을 이 버튼으로 그대로 전달)이 떠 있어, 본문에
+         똑같은 버튼을 또 두면 중복이라 화면에서는 숨긴다. 요소 자체는
+         지우지 않고 hidden만 둬서 기존 클릭 전달(forward)·리스너가 그대로
+         동작한다 — 상단 버튼을 누르면 이 버튼이 보이지 않는 채로 클릭될 뿐. -->
+    <button type="button" id="step-data-next" class="btn btn-primary" disabled hidden>
+      다음: 라벨 편집
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+
+    <!-- [재구성] 엑셀 불러오기/직접 입력 카드는 "적당한 직사각형" 크기(아이콘+
+         제목+부제)를 그대로 유지하고, 폭만 380px로 제한해 나란히 둔다.
+         "자주 쓰는 라벨지"를 그 아래가 아니라 바로 오른쪽 같은 줄에 배치한다.
+         .wstep-toprow가 가로 한 줄을 이루고, 왼쪽(.wstep-source-cards)은
+         380px 고정, 오른쪽(.wstep-template-section)이 남는 폭을 전부
+         차지(flex:1)한다 — 화면이 좁아지면 자연히 아래로 줄바꿈되지만,
+         일반적인 폭에서는 항상 한 줄로 보인다. -->
+    <div class="wstep-toprow">
+      <div class="wstep-source-cards">
+        <button type="button" class="wstep-source-card" id="wstep-load-excel">
+          <span class="wstep-source-icon wstep-icon-excel">
+            <svg width="19" height="19" viewBox="0 0 24 24">
+              <rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="#1D6F42"/>
+              <path d="M7 7.2l3.6 4.8-3.6 4.8h2.5l2.4-3.35 2.4 3.35H17l-3.6-4.8L17 7.2h-2.5l-2.4 3.3-2.4-3.3H7z" fill="#fff"/>
+            </svg>
+          </span>
+          <b>엑셀·한글·메모장 불러오기</b>
+          <span>.xlsx, .xls, .hwpx, .txt 파일 선택</span>
+        </button>
+        <button type="button" class="wstep-source-card" id="wstep-add-manual">
+          <span class="wstep-source-icon wstep-icon-manual">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="6" y1="9" x2="6" y2="9"/><line x1="10" y1="9" x2="10" y2="9"/><line x1="14" y1="9" x2="14" y2="9"/><line x1="18" y1="9" x2="18" y2="9"/><line x1="6" y1="12" x2="6" y2="12"/><line x1="10" y1="12" x2="10" y2="12"/><line x1="14" y1="12" x2="14" y2="12"/><line x1="18" y1="12" x2="18" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
+          </span>
+          <b>직접 입력하기</b>
+          <span>아래 표에 바로 입력</span>
+        </button>
+      </div>
+
+      <!-- '자주 쓰는 라벨지' — 마크업 구조(.wstep-template-card[data-template-key])는
+           그대로라 클릭 핸들러·populateTemplateCardShapes()는 수정 없이 그대로 동작한다. -->
+      <div class="wstep-template-section">
+        <div class="wstep-template-section-head">
+          <span class="wstep-source-icon wstep-icon-tpl">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </span>
+          <b>자주 쓰는 라벨지</b>
+        </div>
+        <div class="wstep-template-cards" id="wstep-template-cards">
+          <button type="button" class="wstep-template-card" data-template-key="3107" title="폼텍 LS-3107 · 16칸(2×8) · 99.1×33.9mm">
+            <span class="wstep-tpl-shape" id="wstep-tpl-shape-3107" aria-hidden="true"></span>
+            <span class="wstep-tpl-label"><b>LS-3107</b><span>16칸</span></span>
+          </button>
+          <button type="button" class="wstep-template-card" data-template-key="3108" title="폼텍 LS-3108 · 14칸(2×7) · 99.1×38.1mm">
+            <span class="wstep-tpl-shape" id="wstep-tpl-shape-3108" aria-hidden="true"></span>
+            <span class="wstep-tpl-label"><b>LS-3108</b><span>14칸</span></span>
+          </button>
+          <button type="button" class="wstep-template-card" data-template-key="3109" title="폼텍 LS-3109 · 18칸(2×9) · 100×30mm">
+            <span class="wstep-tpl-shape" id="wstep-tpl-shape-3109" aria-hidden="true"></span>
+            <span class="wstep-tpl-label"><b>LS-3109</b><span>18칸</span></span>
+          </button>
+          <button type="button" class="wstep-template-card" data-template-key="A3210" title="아이라벨 CL228 · 16칸(2×8) · 98.8×33.67mm">
+            <span class="wstep-tpl-shape" id="wstep-tpl-shape-A3210" aria-hidden="true"></span>
+            <span class="wstep-tpl-label"><b>CL228</b><span>16칸</span></span>
+          </button>
+          <button type="button" class="wstep-template-card" data-template-key="ANI_V3240" title="애니라벨 V3240 · 16칸(2×8) · 99.06×33.85mm">
+            <span class="wstep-tpl-shape" id="wstep-tpl-shape-ANI_V3240" aria-hidden="true"></span>
+            <span class="wstep-tpl-label"><b>V3240</b><span>16칸</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- [신규] 드래그 안내 — 문서 전체 어디에나 엑셀 파일을 끌어다 놓아도
+         바로 불러와지는 기능(document 레벨 dragover/drop, index.js)은
+         이미 있었지만 화면 어디에도 안내가 없어 아는 사람만 쓸 수
+         있었다. 카드 아래 한 줄로 짧게 알려준다. -->
+    <p class="wstep-drag-hint">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      화면 어디에나 엑셀 파일을 끌어다 놓아도 바로 불러와져요.
+    </p>
+
+    <div class="wstep-table-card">
+      <div class="wstep-table-head">
+        <b>주소 목록 <span id="wstep-table-count">(0건)</span></b>
+        <button type="button" id="wstep-add-row-btn" class="btn btn-secondary wstep-add-row-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          행 추가
+        </button>
+      </div>
+      <div id="wstep-table-wrap" class="wstep-table-wrap">
+        <p class="wstep-table-empty" id="wstep-table-empty">아직 불러온 데이터가 없습니다. 엑셀 파일을 불러오거나 직접 입력해 보세요.</p>
+        <table id="wstep-table" style="display:none">
+          <thead><tr><th>번호</th><th>이름</th><th>우편번호</th><th>주소</th><th>연락처</th><th class="wstep-th-actions"></th></tr></thead>
+          <tbody id="wstep-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <aside class="wizard-step-rail">
+    <div class="wrail-card">
+      <div class="wrail-title">데이터 요약</div>
+      <div class="wrail-stat-row"><span>전체 건수</span><b id="wstep-stat-total">0건</b></div>
+      <div class="wrail-stat-row"><span>예상 페이지</span><b id="wstep-stat-pages">0페이지</b></div>
+      <div class="wrail-stat-row"><span>라벨 규격</span><b id="wstep-stat-template">-</b></div>
+    </div>
+
+    <!-- 신규: 라벨 1개 미리보기 — 실제 첫 번째 라벨(있으면)의 내용을
+         실물 크기 그대로 그린 뒤 카드 폭에 맞춰 축소해서 보여준다.
+         라벨이 없으면 예시 데이터로. 글자 크기·우편번호 칸 크기까지
+         실제 라벨(.label)과 같은 CSS 변수를 그대로 물려받아 함께
+         축소되므로, 진짜 라벨을 사진으로 줄인 것처럼 보인다.
+         (계산: index.js의 updateSingleLabelPreviewScale()) -->
+    <div class="wrail-card wrail-card-preview">
+      <div class="wrail-title">미리보기</div>
+      <div class="wstep-single-preview-wrap" id="wstep-single-preview-wrap">
+        <div class="wstep-single-preview-scaler" id="wstep-single-preview-scaler">
+          <div class="wstep-single-preview" id="wstep-single-preview">
+            <p class="wstep-single-preview-addr" id="wstep-preview-addr">서울특별시 강남구 테헤란로 123, 456호</p>
+            <p class="wstep-single-preview-name" id="wstep-preview-name">홍길동 귀하</p>
+            <div class="wstep-single-preview-postcode" id="wstep-preview-postcode">
+              <span class="wspd">1</span><span class="wspd">2</span><span class="wspd">3</span><span class="wspd">4</span><span class="wspd">5</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="wrail-hint" id="wstep-preview-hint">아직 데이터가 없어 예시로 표시 중입니다.</p>
+    </div>
+
+    <div class="wrail-card wrail-tip">
+      <div class="wrail-title">TIP</div>
+      <p>데이터를 확인한 후 다음 단계로 이동해 라벨 디자인을 시작하세요. 이미 불러온 라벨은 2단계(라벨 편집)에서 자유롭게 수정할 수 있습니다.</p>
+    </div>
+  </aside>
+</div>
+
+<!-- ═══════════════════ 앱 바디 (2단계: 라벨 편집) ═══════════════════ -->
+<div class="app-body wizard-step" id="step-view-edit" data-step="edit">
+
+  <!-- ══ 사이드바 (좌) — 작업 현황 + 설정 ══ -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-inner">
+
+      <!-- 작업 현황 섹션 -->
+      <div class="sidebar-section-title">작업 현황</div>
+      <div class="sidebar-section">
+        <!-- 라벨 수 / 페이지 정보 — JS updateLabelCount()가 sb-page-info를 씀 -->
+        <div class="sidebar-stat-card">
+          <div class="sidebar-stat-row">
+            <span class="sidebar-stat-label">라벨 수</span>
+            <span class="sidebar-stat-value" id="sb-label-count">0개</span>
+          </div>
+          <div class="sidebar-stat-row">
+            <span class="sidebar-stat-label">페이지</span>
+            <span class="sidebar-stat-value" id="sb-page-count">0페이지</span>
+          </div>
+        </div>
+        <!-- 기존 sb-page-info ID 보존 (JS updateLabelCount가 직접 씀) — 숨겨두기 -->
+        <span id="sb-page-info" style="display:none"></span>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <!-- 라벨 설정 섹션 — Titlebar에서 이동 -->
+      <div class="sidebar-section-title">라벨 설정</div>
+      <div class="sidebar-section">
+
+        <!-- 라벨 규격 -->
+        <div class="sb-ctrl-group">
+          <span class="sb-ctrl-label">라벨 규격</span>
+          <div class="ctrl-select-wrap" style="width:100%">
+            <span id="template-display" class="ctrl-select-display" style="width:100%;min-width:0">폼텍 3107</span>
+            <select id="template-select" class="ctrl-select-hidden">
+              <optgroup label="폼텍 (Formtec)">
+                <option value="3107" data-short="폼텍 LS-3107" selected>폼텍 LS-3107 (16칸 · 99.1×33.9mm)</option>
+                <option value="3108" data-short="폼텍 LS-3108">폼텍 LS-3108 (14칸 · 99.1×38.1mm)</option>
+                <option value="3105" data-short="폼텍 LS-3105">폼텍 LS-3105 (21칸 · 63.5×38.1mm)</option>
+                <option value="3112" data-short="폼텍 LS-3112">폼텍 LS-3112 (12칸 · 63.5×70.0mm)</option>
+                <option value="3109" data-short="폼텍 LS-3109">폼텍 LS-3109 (18칸 · 100×30mm)</option>
+                <option value="3510" data-short="폼텍 LS-3510">폼텍 LS-3510 (10칸 · 88.9×52mm)</option>
+                <option value="3114" data-short="폼텍 LS-3114">폼텍 LS-3114 (8칸 · 99.1×67.7mm)</option>
+              </optgroup>
+              <optgroup label="아이라벨 (iLabel)">
+                <option value="A3210" data-short="아이라벨 CL228">아이라벨 CL228 (16칸 · 98.8×33.67mm)</option>
+                <option value="A3120" data-short="아이라벨 CL227">아이라벨 CL227 (14칸 · 98.8×38.05mm)</option>
+                <option value="A3140" data-short="아이라벨 CL437">아이라벨 CL437 (21칸 · 63.8×39.97mm)</option>
+                <option value="A3105" data-short="아이라벨 CL225">아이라벨 CL225 (10칸 · 99.1×57.0mm)</option>
+                <option value="A3108" data-short="아이라벨 CL239">아이라벨 CL239 (27칸 · 62.2×30.03mm)</option>
+              </optgroup>
+              <optgroup label="iLIFE">
+                <option value="IL2016" data-short="iLIFE 2016">iLIFE 2016 (16칸 · 99.1×33.9mm)</option>
+                <option value="IL2012" data-short="iLIFE 2012">iLIFE 2012 (12칸 · 99.1×42.3mm)</option>
+                <option value="IL2010" data-short="iLIFE 2010">iLIFE 2010 (10칸 · 96×51.5mm)</option>
+              </optgroup>
+              <optgroup label="오피스디포">
+                <option value="OD2016" data-short="오피스디포 16칸">오피스디포 16칸 (101×33.9mm)</option>
+                <option value="OD2030" data-short="오피스디포 30칸">오피스디포 30칸 (66×25.4mm · 3열)</option>
+              </optgroup>
+              <optgroup label="아이라벨 LQ">
+                <option value="LQ2514" data-short="LQ2514">아이라벨 LQ2514 (14칸 · 100×38.05mm)</option>
+                <option value="LQ2520" data-short="LQ2520">아이라벨 LQ2520 (20칸 · 100×27mm)</option>
+              </optgroup>
+              <optgroup label="애니라벨 (프린텍)">
+                <option value="ANI_V3250" data-short="애니라벨 V3250">애니라벨 V3250 (10칸 · 88.9×52.0mm)</option>
+                <option value="ANI_V3270" data-short="애니라벨 V3270">애니라벨 V3270 (12칸 · 100×46.4mm)</option>
+                <option value="ANI_V3230" data-short="애니라벨 V3230">애니라벨 V3230 (14칸 · 99.06×38.1mm)</option>
+                <option value="ANI_V3240" data-short="애니라벨 V3240">애니라벨 V3240 (16칸 · 99.06×33.85mm)</option>
+                <option value="ANI_V3320" data-short="애니라벨 V3320">애니라벨 V3320 (18칸 · 63.5×46.5mm · 3열)</option>
+              </optgroup>
+              <optgroup label="일반 규격">
+                <option value="STD_A4_8"  data-short="일반 8칸">일반 8칸 대형 (94×64mm)</option>
+                <option value="STD_A4_32" data-short="일반 32칸">일반 32칸 소형 (48.5×25.4mm · 4열)</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        <!-- 글꼴 -->
+        <div class="sb-ctrl-group">
+          <span class="sb-ctrl-label">글꼴</span>
+          <div class="ctrl-select-wrap" style="width:100%">
+            <span id="font-display" class="ctrl-select-display" style="width:100%;min-width:0">노토 산스</span>
+            <select id="font-select" class="ctrl-select-hidden">
+              <option value="'Noto Sans KR',sans-serif" data-short="노토 산스" selected>노토 산스 KR</option>
+              <option value="'Nanum Gothic',sans-serif" data-short="나눔 고딕">나눔 고딕</option>
+              <option value="'Nanum Gothic Coding',monospace" data-short="나눔 코딩">나눔 고딕 코딩</option>
+              <option value="'IBM Plex Sans KR',sans-serif" data-short="IBM Plex">IBM Plex Sans KR</option>
+              <option value="'Black Han Sans',sans-serif" data-short="블랙한산스">블랙 한 산스</option>
+              <option value="'Do Hyeon',sans-serif" data-short="도현체">도현체</option>
+              <option value="'Nanum Myeongjo',serif" data-short="나눔 명조">나눔 명조</option>
+              <option value="'Nanum Pen Script',cursive" data-short="나눔 손글씨">나눔 손글씨</option>
+              <option value="'Gowun Dodum',sans-serif" data-short="고운 도담">고운 도담</option>
+              <option value="'Gowun Batang',serif" data-short="고운 바탕">고운 바탕</option>
+              <option value="'Gothic A1',sans-serif" data-short="Gothic A1">Gothic A1</option>
+              <option value="'Sunflower',sans-serif" data-short="해바라기체">해바라기체</option>
+              <!-- ★NEW-FONTS: 구글 폰트 10종 추가 -->
+              <option value="'Jua',sans-serif" data-short="주아체">주아체</option>
+              <option value="'Gaegu',cursive" data-short="개구체">개구체</option>
+              <option value="'Hi Melody',cursive" data-short="하이멜로디">하이 멜로디</option>
+              <option value="'Poor Story',cursive" data-short="푸어스토리">푸어 스토리</option>
+              <option value="'Stylish',sans-serif" data-short="스타일리시">스타일리시</option>
+              <option value="'Gamja Flower',cursive" data-short="감자꽃체">감자꽃체</option>
+              <option value="'Song Myung',serif" data-short="송명체">송명체</option>
+              <option value="'East Sea Dokdo',cursive" data-short="동해 독도체">동해 독도체</option>
+              <option value="'Kirang Haerang',cursive" data-short="기랑해랑체">기랑해랑체</option>
+              <option value="'Yeon Sung',cursive" data-short="연성체">연성체</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 글자 크기 -->
+        <div class="sb-ctrl-group">
+          <span class="sb-ctrl-label">글자 크기</span>
+          <div class="size-ctrl">
+            <button id="font-size-down" class="size-step" title="줄이기" aria-label="주소 라벨 글자 크기 줄이기">−</button>
+            <select id="font-size-select">
+              <option value="0.6">8pt</option><option value="0.7">9pt</option>
+              <option value="0.8">10pt</option><option value="0.9">11pt</option>
+              <option value="1.0" selected>12pt</option><option value="1.1">13pt</option>
+              <option value="1.2">14pt</option><option value="1.3">15pt</option>
+              <option value="1.4">16pt</option><option value="1.5">17pt</option>
+              <option value="1.6">18pt</option>
+            </select>
+            <button id="font-size-up" class="size-step" title="키우기" aria-label="주소 라벨 글자 크기 키우기">＋</button>
+          </div>
+        </div>
+
+        <!-- [이동] 워터마크 설정은 "출력" 단계(인쇄 옵션 카드)로 옮겼습니다.
+             인쇄에만 영향을 주는 설정이라 편집 화면보다 출력 화면에 있는 게
+             맞다고 판단했습니다. id는 그대로 유지해 기존 JS 로직을 그대로 재사용합니다. -->
+
+        <!-- [통일] 굵게(Bold)만 따로 스위치형이었는데, 기울임/밑줄과 같은 버튼형으로
+             합쳤다(일반라벨 사이드바의 gl-bold-toggle-btn과 동일한 패턴). -->
+        <div class="sb-ctrl-group">
+          <span class="sb-ctrl-label">글씨 스타일</span>
+          <div class="style-btn-row" role="group" aria-label="글씨 스타일">
+            <button type="button" id="bold-toggle-btn" class="style-btn" title="굵게" aria-pressed="false"><span style="font-weight:800">B</span></button>
+            <button type="button" id="italic-toggle-btn" class="style-btn" title="기울임체" aria-pressed="false"><span style="font-style:italic;font-weight:700">I</span></button>
+            <button type="button" id="underline-toggle-btn" class="style-btn" title="밑줄" aria-pressed="false"><span style="text-decoration:underline;font-weight:700">U</span></button>
+          </div>
+        </div>
+
+
+        <!-- 신규: 글자 색상 — 기본(검정 계열 2색 배색) 대신 라벨 전체를 한 가지 색으로 통일 -->
+        <div class="sb-ctrl-group">
+          <span class="sb-ctrl-label">글자 색상</span>
+          <div class="color-swatch-row">
+            <input type="color" id="label-color-input" value="#1a1a1a" aria-label="라벨 글자 색상"/>
+            <button type="button" id="label-color-reset-btn" class="insp-tiny-btn" title="기본 배색으로 되돌리기">기본값</button>
+          </div>
+        </div>
+
+        <!-- 신규: 정렬 — 기본은 이름/주소가 원래 배색대로(주소 왼쪽·이름 오른쪽), 나머지는 라벨 전체를 하나로 통일 -->
+        <div class="sb-ctrl-group">
+          <span class="sb-ctrl-label">정렬</span>
+          <div class="align-btn-row" role="group" aria-label="텍스트 정렬" id="align-btn-row">
+            <button type="button" class="align-btn active" data-align="default" title="기본 (주소 왼쪽 · 이름 오른쪽)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="14" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/></svg>
+            </button>
+            <button type="button" class="align-btn" data-align="left" title="왼쪽 정렬">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="17" y2="18"/></svg>
+            </button>
+            <button type="button" class="align-btn" data-align="center" title="가운데 정렬">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="5.5" y1="18" x2="18.5" y2="18"/></svg>
+            </button>
+            <button type="button" class="align-btn" data-align="right" title="오른쪽 정렬">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="7" y1="18" x2="20" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /sidebar-section 설정 -->
+
+      <!-- 숨김 처리된 사이드바 원본 ID 유지 (JS 참조) -->
+      <div style="display:none">
+        <div id="sb-copy"></div>
+        <div id="sb-fill"></div>
+        <div id="sb-undo"><span class="sidebar-badge" id="sb-undo-badge" style="display:none">0</span></div>
+        <div id="sb-reset"></div>
+        <!-- [제거] sb-preview — JS/CSS 어디서도 참조하지 않는 완전한 죽은 DOM 요소 -->
+        <div id="sb-print"></div>
+        <!-- [제거] "빠른 접근"(sb-load/sb-add/sb-fav/sb-shortcut) 섹션 —
+             좌측 아이콘 레일 + 상단 툴바에 동일 기능이 이미 있어 중복이라
+             제거함. ID만 숨겨서 유지해 관련 JS가 있어도 에러 없이 무시되게 함. -->
+        <div id="sb-load"></div>
+        <div id="sb-add"></div>
+        <div id="sb-fav"></div>
+        <div id="sb-shortcut"></div>
+      </div>
+
+    </div><!-- /sidebar-inner -->
+  </nav>
+
+  <!-- ══ 캔버스 (가운데) ══ -->
+  <div class="canvas-wrap">
+    <!-- 캔버스 상단바 — 규격 표시 + 뷰 컨트롤 -->
+    <div class="canvas-topbar">
+      <span class="canvas-topbar-label">규격</span>
+      <span class="canvas-topbar-value" id="canvas-spec">폼텍 LS-3107  ·  2×8칸  ·  99.1×33.9mm</span>
+      <div class="canvas-topbar-right">
+        <!-- [신규] 되돌리기/다시실행 — 상단 툴바에 실행취소 버튼이 있긴 하지만
+             화면 스크롤에 따라 멀어질 수 있어, 일반라벨 캔버스 상단바와 같은
+             자리(포토샵·구글독스 등과 같은 위치)에 눈에 보이는 아이콘 버튼을
+             둔다. 실제 되돌리기/다시실행 로직은 기존 undoDelete()/redoAction()을
+             그대로 재사용 — 새 스택을 만들지 않는다. 되돌릴 게 없으면
+             .zoom-btn:disabled 스타일로 자동으로 흐려진다. -->
+        <button type="button" class="zoom-btn" id="canvas-undo-btn" aria-label="되돌리기" title="되돌리기 (Ctrl+Z)" data-tooltip="되돌리기 · Ctrl+Z" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        </button>
+        <button type="button" class="zoom-btn" id="canvas-redo-btn" aria-label="다시 실행" title="다시 실행 (Ctrl+Shift+Z)" data-tooltip="다시 실행 · Ctrl+Shift+Z" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.13-9.36L23 10"/></svg>
+        </button>
+        <div class="canvas-topbar-sep"></div>
+        <!-- [정리] 상단 마법사 탭 옆 고정 "다음: 출력" 버튼과 중복이라 화면에서
+             숨김(hidden). 요소는 남겨 기존 클릭 전달·리스너를 그대로 유지. -->
+        <button id="step-edit-next" class="btn btn-primary" style="padding:5px 12px;font-size:12px" title="출력 단계로 이동" hidden>
+          다음: 출력
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+        <div class="canvas-topbar-sep" id="edit-next-sep"></div>
+        <!-- [신규] 캔버스 상단바 미니 인쇄 위치 조정 — 3단계(출력)까지 가지
+             않아도 편집 중 바로 오차를 보정할 수 있도록. 실제 조정 로직은
+             기존 오프셋 버튼과 완전히 동일한 adjust()를 공유한다. -->
+        <div class="canvas-topbar-offset" id="topbar-offset-wrap">
+          <button id="topbar-offset-btn" class="icon-btn-text" title="인쇄 위치 미세조정" data-tooltip="인쇄 위치 미세조정" aria-expanded="false" aria-controls="topbar-offset-pop">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l4-4 4 4M9 5v14M19 15l-4 4-4-4M15 19V5"/></svg>
+            <span class="vm-label">인쇄 위치</span>
+          </button>
+          <div class="topbar-offset-pop" id="topbar-offset-pop">
+            <div class="insp-offset-group">
+              <span class="insp-offset-label">상단 ↕</span>
+              <div class="insp-offset-ctrl">
+                <button class="insp-offset-btn" id="mini-offset-pt-down" title="위로" aria-label="인쇄 위치 위로 이동">−</button>
+                <span class="insp-offset-val" id="mini-offset-pt-display">0.0mm</span>
+                <button class="insp-offset-btn" id="mini-offset-pt-up" title="아래로" aria-label="인쇄 위치 아래로 이동">＋</button>
+              </div>
+            </div>
+            <div class="insp-offset-group">
+              <span class="insp-offset-label">좌측 ↔</span>
+              <div class="insp-offset-ctrl">
+                <button class="insp-offset-btn" id="mini-offset-pl-down" title="왼쪽으로" aria-label="인쇄 위치 왼쪽으로 이동">−</button>
+                <span class="insp-offset-val" id="mini-offset-pl-display">0.0mm</span>
+                <button class="insp-offset-btn" id="mini-offset-pl-up" title="오른쪽으로" aria-label="인쇄 위치 오른쪽으로 이동">＋</button>
+              </div>
+            </div>
+            <p class="insp-offset-hint">프린터 오차 보정용 (0.25mm 단위)</p>
+            <button type="button" id="mini-offset-reset-btn" class="insp-tiny-btn" style="width:100%">0으로 초기화</button>
+          </div>
+        </div>
+        <div class="canvas-topbar-sep"></div>
+        <button id="view-mode-btn" class="icon-btn-text" title="한 페이지 보기 전환" data-tooltip="한 페이지 보기 전환">
+          <!-- 스크롤 모드일 때: 격자(멀티페이지) 아이콘 → 클릭하면 한페이지로 -->
+          <svg class="vm-icon-scroll" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <!-- 한페이지 모드일 때: 단일 페이지 아이콘 → 클릭하면 스크롤로 -->
+          <svg class="vm-icon-fit" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="4" y="2" width="16" height="20" rx="2"/>
+            <line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/>
+          </svg>
+          <span class="vm-label">한페이지</span>
+        </button>
+        <div class="canvas-topbar-sep"></div>
+        <button id="sidebar-toggle" class="icon-btn" title="사이드바 토글" data-tooltip="사이드바 접기" aria-label="사이드바 접기" aria-expanded="true" aria-controls="sidebar">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+        </button>
+        <button id="inspector-toggle" class="icon-btn" title="인스펙터 토글" data-tooltip="인스펙터 접기" aria-label="인스펙터 접기" aria-expanded="true" aria-controls="inspector">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 캔버스 스크롤 영역 -->
+    <div class="canvas-scroll" id="canvas-scroll">
+      <div id="post-label-container"></div>
+      <!-- 업로드 존 -->
+      <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-label="파일 업로드 영역">
+        <div class="upload-zone-icon">
+          <img src="./character.png" alt="캐릭터" onerror="this.style.display='none';this.nextElementSibling.style.display=''"/>
+          <span style="display:none;font-size:36px">📮</span>
+        </div>
+        <h3>파일을 불러오거나 직접 추가하세요</h3>
+        <p>xlsx / xls / hwpx / txt 파일을 여기로 드래그하거나 아래 버튼을 누르세요.<br>이름, 주소를 자동으로 인식합니다(한글·메모장 파일은 가져오기 전에 인식 결과를 미리 보여드려요).</p>
+        <div class="upload-zone-btns">
+          <button class="btn btn-primary" id="uz-load" title="엑셀(.xlsx) · 한글(.hwpx) · 메모장(.txt) 파일에서 이름·주소 목록을 불러옵니다" data-tooltip="파일에서 주소 목록 가져오기">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            파일 불러오기
+          </button>
+          <button class="btn btn-secondary" id="uz-add" title="빈 라벨을 하나 추가해 직접 입력합니다" data-tooltip="빈 라벨 1개 직접 추가">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            직접 추가
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 인스펙터 (우) — 라벨 규격 정보 + 미니맵 + 인쇄 ══ -->
+  <aside class="inspector" id="inspector">
+    <div class="inspector-scroll">
+
+      <!-- 라벨 규격 정보 -->
+      <div class="insp-section">
+        <div class="insp-title">라벨 규격 정보</div>
+        <div class="insp-row">
+          <span class="insp-row-label">제조사</span>
+          <span class="insp-row-value" id="insp-maker">폼텍 (Formtec)</span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">모델명</span>
+          <span class="insp-row-value" id="insp-model">LS-3107</span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">라벨 크기</span>
+          <span class="insp-row-value" id="insp-size">99.1 × 33.9 mm</span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">칸 수</span>
+          <span class="insp-row-value" id="insp-count">2 × 8 = 16칸</span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">여백 (상/좌)</span>
+          <span class="insp-row-value" id="insp-margin">12.85 / 5.95 mm</span>
+        </div>
+      </div>
+
+      <!-- 라벨 배치 미리보기 + 시작 위치 지정 — "인쇄 정렬"이 아니라 "지금
+           라벨이 어떻게 배치되는지 보는" 용도라 편집 단계가 더 직관적 -->
+      <div class="insp-section" id="addr-grid-preview-wrap" data-collapsible="gridpreview">
+        <div class="insp-title">라벨 배치 미리보기</div>
+        <p class="agp-info-line" id="addr-grid-info"></p>
+        <div class="a4-frame-outer">
+          <div id="addr-grid-preview" class="a4-frame"></div>
+        </div>
+        <div class="agp-start-pos-block">
+          <div class="agp-start-pos-status">
+            <span class="agp-start-pos-status-label">시작 위치</span>
+            <b id="addr-start-pos-display">첫 칸부터(기본)</b>
+          </div>
+          <div class="agp-start-pos-actions">
+            <button type="button" id="addr-start-pos-btn" class="insp-tiny-btn" title="미리보기에서 칸을 클릭해 시작 위치를 지정합니다">시작 위치 지정</button>
+            <button type="button" id="addr-start-pos-reset" class="insp-tiny-btn" title="첫 칸으로 초기화" style="display:none">초기화</button>
+          </div>
+        </div>
+        <p class="agp-start-pos-hint">남은 라벨지를 재활용할 때 유용합니다. "시작 위치 지정"을 누른 뒤 위 미리보기에서 시작할 칸을 클릭하세요.</p>
+        <div id="addr-grid-legend" class="agp-legend">
+          <span class="agp-legend-item"><span class="agp-dot agp-filled"></span>입력됨</span>
+          <span class="agp-legend-item"><span class="agp-dot agp-blank"></span>비어있음</span>
+          <span class="agp-legend-item"><span class="agp-dot agp-selected"></span>선택됨</span>
+          <span class="agp-legend-item"><span class="agp-dot agp-locked"></span>잠금</span>
+          <span class="agp-legend-item"><span class="agp-dot agp-skip"></span>건너뜀</span>
+        </div>
+      </div>
+
+      <!-- 미니맵 -->
+      <div class="insp-section" data-collapsible="minimap">
+        <div class="insp-title">
+          미니맵
+          <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--text-3)" id="mm-count"></span>
+        </div>
+        <div id="mm-grid" class="minimap-grid">
+          <p class="mm-empty">라벨 없음</p>
+        </div>
+        <div class="legend-row" style="margin-top:8px">
+          <span class="legend-item"><span class="legend-dot legend-filled"></span>입력됨</span>
+          <span class="legend-item"><span class="legend-dot legend-empty"></span>비어있음</span>
+          <span class="legend-item"><span class="legend-dot legend-selected"></span>선택됨</span>
+          <span class="legend-item"><span class="legend-dot legend-locked"></span>잠금</span>
+        </div>
+      </div>
+
+      <!-- [비활성] 인쇄 설정 — dark-theme.css에서 display:none !important으로 영구 숨김 처리됨.
+           JS에서 이 섹션 내용을 갱신하지 않으므로 기능 영향 없음. 삭제하려면 dark-theme.css의
+           #print-settings-section 규칙도 함께 제거할 것 -->
+      <div class="insp-section" id="print-settings-section" style="display:none">
+        <div class="insp-title">인쇄 설정</div>
+        <div class="insp-row">
+          <span class="insp-row-label">용지</span>
+          <span class="insp-row-value">A4 (210 × 297 mm)</span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">방향</span>
+          <span class="insp-row-value">세로</span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">배율</span>
+          <span class="insp-row-value" style="color:var(--clr-primary)">100% 고정</span>
+        </div>
+      </div>
+
+      <!-- [정리] 상단 마법사 탭에 이미 "다음: 출력" 고정 버튼이 있어 중복이라
+           화면에서 숨김(hidden). 요소는 남겨 forward("step-tab-print")가
+           그대로 동작하게 유지. -->
+      <div class="insp-section" hidden>
+        <button class="btn btn-secondary" id="insp-goto-output" style="width:100%;justify-content:center" title="인쇄 미리보기·테스트 인쇄·인쇄는 출력 탭에서 진행합니다" data-tooltip="출력 탭으로 이동">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          다음: 출력 (미리보기·인쇄)
+        </button>
+      </div>
+
+      <!-- 데이터 검증 오류 패널 -->
+      <div class="insp-section" id="validation-panel" style="display:none;border-bottom:none">
+        <div class="insp-title">
+          <span>데이터 오류</span>
+          <span id="validation-count" class="insp-badge-err">0</span>
+        </div>
+        <div id="validation-list" class="validation-list"></div>
+        <button id="validation-clear" class="val-clear-btn" title="검증 결과 패널을 닫습니다 (라벨의 오류 표시는 유지됩니다)" data-tooltip="패널만 닫기 · 오류 표시는 유지">패널 닫기</button>
+      </div>
+
+    </div><!-- /inspector-scroll -->
+  </aside>
+
+</div><!-- /app-body -->
+
+<!-- ═══════════════════ 3단계: 출력 (신규) ═══════════════════ -->
+<div class="wizard-step wizard-step-print" id="step-view-print" data-step="print">
+
+  <aside class="wizard-step-rail wizard-step-rail-left">
+    <div class="wrail-card">
+      <div class="wrail-title">출력 요약</div>
+      <div class="wrail-stat-row"><span>전체 데이터</span><b id="pstep-stat-total">0건</b></div>
+      <div class="wrail-stat-row"><span>총 페이지</span><b id="pstep-stat-pages">0페이지</b></div>
+      <div class="wrail-stat-row"><span>한 페이지 라벨 수</span><b id="pstep-stat-perpage">-</b></div>
+      <div class="wrail-stat-row"><span>용지 / 규격</span><b id="pstep-stat-template">-</b></div>
+    </div>
+    <div class="wrail-card">
+      <div class="wrail-title">인쇄 옵션</div>
+      <!-- [이동] 라벨 편집 사이드바에 있던 워터마크 설정을 그대로 옮겨왔습니다.
+           id(watermark-checkbox 등)를 그대로 유지해 기존 JS를 그대로 재사용합니다. -->
+      <label class="wm-toggle-row" style="margin-bottom:4px">
+        <input type="checkbox" id="watermark-checkbox" checked/>
+        <span class="wm-toggle-track"><span class="wm-toggle-thumb"></span></span>
+        <span class="wm-toggle-text">워터마크 인쇄 시 포함</span>
+      </label>
+      <div class="wm-opacity-row" id="wm-opacity-row" style="margin:0 0 8px">
+        <input type="range" id="watermark-opacity" min="4" max="40" step="1" value="10"
+               aria-label="워터마크 선명도" title="워터마크 선명도">
+        <span class="wm-opacity-value" id="watermark-opacity-value">10%</span>
+      </div>
+      <p class="wrail-hint">용지 크기·인쇄 매수·프린터 선택은 <b>인쇄 시작</b>을 누르면 뜨는 브라우저 인쇄 대화상자에서 설정합니다.</p>
+    </div>
+  </aside>
+
+  <div class="wizard-step-main wstep-print-main">
+    <div class="wstep-heading">
+      <div>
+        <p id="pstep-page-info">실제 인쇄될 내용을 그대로 보여줍니다.</p>
+      </div>
+      <!-- [정리] 상단 마법사 탭 옆 고정 "이전" 버튼과 중복이라 화면에서 숨김. -->
+      <button type="button" id="step-print-back" class="btn btn-secondary" hidden>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+        이전: 라벨 편집
+      </button>
+    </div>
+    <div class="preview-canvas-wrap wstep-print-preview" id="step3-preview-canvas"></div>
+  </div>
+
+  <aside class="wizard-step-rail">
+    <!-- 신규: 페이지 탐색 — 출력 미리보기가 여러 페이지일 때 클릭 한 번으로 해당 페이지로 스크롤 이동
+         (buildPrintPreviewPages가 만드는 기존 .preview-page-fit-wrap을 그대로 스크롤 대상으로 삼는
+         "얇은 보조 UI"라 기존 미리보기 렌더링 로직은 전혀 건드리지 않는다) -->
+    <div class="wrail-card">
+      <div class="wrail-title">페이지 탐색</div>
+      <div class="wrail-page-nav" id="pstep-page-nav"></div>
+    </div>
+
+    <!-- 인쇄 위치 미세조정 (좌측 레일에서 이동 — 좌/우 레일 카드 균형을 맞추기 위함, 기능 동일) -->
+    <div class="wrail-card">
+      <div class="insp-title">인쇄 위치 미세조정
+        <button id="offset-reset-btn" class="insp-tiny-btn" title="0으로 초기화">초기화</button>
+      </div>
+      <div class="insp-offset-group">
+        <span class="insp-offset-label">상단 ↕</span>
+        <div class="insp-offset-ctrl">
+          <button class="insp-offset-btn" id="offset-pt-down" title="위로" aria-label="인쇄 위치 위로 이동">−</button>
+          <span class="insp-offset-val" id="offset-pt-display">0.0mm</span>
+          <button class="insp-offset-btn" id="offset-pt-up" title="아래로" aria-label="인쇄 위치 아래로 이동">＋</button>
+        </div>
+      </div>
+      <div class="insp-offset-group">
+        <span class="insp-offset-label">좌측 ↔</span>
+        <div class="insp-offset-ctrl">
+          <button class="insp-offset-btn" id="offset-pl-down" title="왼쪽으로" aria-label="인쇄 위치 왼쪽으로 이동">−</button>
+          <span class="insp-offset-val" id="offset-pl-display">0.0mm</span>
+          <button class="insp-offset-btn" id="offset-pl-up" title="오른쪽으로" aria-label="인쇄 위치 오른쪽으로 이동">＋</button>
+        </div>
+      </div>
+      <p class="insp-offset-hint">프린터 오차 보정용 (0.25mm 단위)</p>
+    </div>
+
+    <div class="wrail-card">
+      <div class="wrail-title">출력하기</div>
+      <button class="btn btn-primary wrail-print-btn" id="pstep-print" title="인쇄 (Ctrl+P)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        인쇄 시작
+      </button>
+      <button class="btn btn-secondary wrail-print-btn" id="pstep-test-print" title="테두리·십자선만 인쇄 · 라벨지 정렬 확인용">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="12" y1="7" x2="12" y2="17"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+        테스트 인쇄
+      </button>
+    </div>
+    <div class="wrail-card wrail-tip">
+      <div class="wrail-title">주의 사항</div>
+      <p>라벨 용지를 프린터에 넣기 전 방향을 확인해주세요.<br>테스트 인쇄로 정렬을 먼저 확인한 뒤 출력하시길 권장합니다.</p>
+    </div>
+  </aside>
+
+</div>
+
+  </div><!-- /shell-main -->
+</div><!-- /app-shell -->
+
+<!-- ═══════════════════ ★GL-RAIL: 일반라벨 전용 좌측 아이콘 레일 + 본문 래퍼.
+     주소라벨의 #app-shell(레일 .rail + 본문 .shell-main)과 완전히 같은
+     시각 언어를 그대로 재사용한다(같은 .rail/.rail-item/.rail-sep/
+     .rail-bottom 클래스). 클래스 이름만 같게 쓰고 바깥 래퍼 id는
+     app-shell과 다르게(gl-shell) 둬서, "body.mode-general .app-shell
+     {display:none}" 같은 기존 규칙이 이 새 레일까지 같이 숨겨버리는
+     사고를 막는다. 실제 표시/숨김은 general-labels.css에서
+     "body.mode-general #gl-shell{display:flex}"로 별도 관리. ═══════════════════ -->
+<div class="gl-shell" id="gl-shell">
+  <nav class="rail" id="gl-rail">
+    <div class="rail-sep"></div>
+    <button type="button" class="rail-item" data-gl-rail-step="spec" title="1. 규격 선택 — 라벨 용지 고르기">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>규격 선택</span>
+    </button>
+    <button type="button" class="rail-item" data-gl-rail-step="design" title="2. 라벨 디자인 — 텍스트·이미지 편집">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <span>디자인</span>
+    </button>
+    <button type="button" class="rail-item" data-gl-rail-step="review" title="3. 확인 및 인쇄 — 전체 시트 확인 후 출력">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      <span>확인·인쇄</span>
+    </button>
+    <div class="rail-sep"></div>
+    <button type="button" class="rail-item" id="gl-rail-guide-btn" title="사용법 보기">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span>도움말</span>
+    </button>
+    <div class="rail-bottom">
+      <b id="gl-rail-cell-count">0</b>
+      <span>칸</span>
+    </div>
+  </nav>
+
+  <div class="gl-shell-main" id="gl-shell-main">
+
+<!-- ═══════════════════ 일반라벨 전용 3단계 마법사 헤더 —
+     주소라벨의 #addr-step-header와 완전히 같은 시각 언어(클래스)를
+     재사용해 디자인 통일성을 유지한다. 표시/숨김은 위 CSS에서
+     #gl-step-header/#addr-step-header를 id로 구분해 처리했다.
+     [정리] 전체확인/인쇄를 굳이 나눌 필요가 없어 한 화면으로 합쳐
+     4단계 → 3단계로 줄였다. ═══════════════════ -->
+<div class="step-header" id="gl-step-header">
+  <div class="step-header-spacer" aria-hidden="true"></div>
+  <div class="step-header-steps">
+  <button type="button" class="step-item" id="gl-step-tab-spec" data-gl-step="spec">
+    <span class="step-badge">1</span>
+    <span class="step-item-text"><b>규격 선택</b><small>라벨 용지 고르기</small></span>
+  </button>
+  <span class="step-arrow" aria-hidden="true">›</span>
+  <button type="button" class="step-item" id="gl-step-tab-design" data-gl-step="design">
+    <span class="step-badge">2</span>
+    <span class="step-item-text"><b>라벨 디자인</b><small>텍스트·이미지 편집</small></span>
+  </button>
+  <span class="step-arrow" aria-hidden="true">›</span>
+  <button type="button" class="step-item" id="gl-step-tab-review" data-gl-step="review">
+    <span class="step-badge">3</span>
+    <span class="step-item-text"><b>확인 및 인쇄</b><small>전체 시트 확인 후 바로 출력</small></span>
+  </button>
+  </div>
+  <div class="step-header-next-wrap">
+    <!-- [신규] "일반라벨도 라벨디자인탭처럼 상단 마법사칸 우측에 이전/다음
+         버튼을" 피드백 대응 — 주소라벨의 #step-header-prev-btn/
+         #step-header-next-btn과 완전히 같은 구조·스타일을 그대로
+         재사용한다(ui-refresh.js의 syncGlHeaderNext가 표시 여부·문구·
+         클릭 대상을 관리). -->
+    <button type="button" class="btn btn-secondary step-header-prev-btn" id="gl-step-header-prev-btn" hidden>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+      이전
+    </button>
+    <button type="button" class="btn btn-primary step-header-next-btn" id="gl-step-header-next-btn" hidden></button>
+  </div>
+</div>
+
+<!-- ═══════════════════ 일반라벨 Step 1 — 규격 선택
+     기존 #gl-template-select 드롭다운에 이미 들어있는 전체 규격 데이터를
+     그대로 읽어와 카드로 보여준다(데이터 중복 없음). 카드를 고르면
+     selectTemplate()을 그대로 호출해 실제 규격 변경 로직을 재사용한다. ═══════════════════ -->
+<div class="wizard-step wizard-step-gl-spec" id="gl-step-view-spec" data-gl-step="spec">
+  <div class="wizard-step-main">
+    <!-- [신규] 자동 저장된 이전 작업이 있을 때만 보이는 복원 배너.
+         기본은 숨김(display:none) — general-labels.js가 저장된 내용이
+         있을 때만 보여준다(확인 후 복원, 자동 덮어쓰기 없음). -->
+    <div class="gl-restore-banner" id="gl-restore-banner" style="display:none">
+      <span class="gl-restore-icon">💾</span>
+      <span class="gl-restore-hint" id="gl-restore-hint">저장된 작업이 있습니다</span>
+      <div class="gl-restore-spacer"></div>
+      <button type="button" class="btn btn-ghost" id="gl-restore-dismiss-btn">새로 시작</button>
+      <button type="button" class="btn btn-primary" id="gl-restore-btn">이전 작업 이어하기</button>
+    </div>
+    <div class="wstep-heading">
+      <div>
+        <h2>라벨 규격 선택</h2>
+        <p>사용할 라벨 용지를 선택하세요. 오른쪽에서 A4 용지 전체 배치를 바로 확인할 수 있어요.</p>
+      </div>
+    </div>
+
+    <!-- [신규] "자주 쓰는 라벨지" — 주소라벨 1단계의 같은 컴포넌트(.wstep-template-*)를
+         그대로 재사용해 크기·톤을 맞췄다. 다만 이 카드들의 데이터소스·선택 로직은
+         일반라벨 전용(GENERAL_TEMPLATE_CONFIGS/selectTemplate)이라, 주소라벨 쪽
+         전역 클릭 핸들러(index.js, data-template-key 기준)와 절대 겹치지 않도록
+         속성 이름을 data-gl-template-key로, 스와치 id 접두사도 gl-tpl-shape-로
+         구분했다(populateGlTemplateCardShapes()가 별도로 그린다). -->
+    <div class="wstep-template-section" id="gl-quick-template-section">
+      <div class="wstep-template-section-head">
+        <span class="wstep-source-icon wstep-icon-tpl">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </span>
+        <b>자주 쓰는 라벨지</b>
+      </div>
+      <div class="wstep-template-cards" id="gl-quick-template-cards">
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_F_3107" title="Formtec LS-3107 · 16칸(2×8) · 99.1×33.9mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_F_3107" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>LS-3107</b><span>16칸</span></span>
+        </button>
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_F_3108" title="Formtec LS-3108 · 14칸(2×7) · 99.1×38.1mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_F_3108" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>LS-3108</b><span>14칸</span></span>
+        </button>
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_F_3109" title="Formtec LS-3109 · 18칸(2×9) · 100×30mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_F_3109" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>LS-3109</b><span>18칸</span></span>
+        </button>
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_IL_CL228" title="아이라벨 CL228 · 16칸(2×8) · 98.8×33.67mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_IL_CL228" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>CL228</b><span>16칸</span></span>
+        </button>
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_A_V3240" title="애니라벨 V3240 · 16칸(2×8) · 99.06×33.85mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_A_V3240" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>V3240</b><span>16칸</span></span>
+        </button>
+        <!-- [신규] 여기부터 6개 추가 — 일반라벨다운 다양한 용도(물류·명함분류·전지·
+             CD/DVD·소형 방수·상하 2단)를 골라 넣어 "주소용 규격 5개 복붙"에서
+             벗어나게 했다. -->
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_F_3112" title="Formtec LS-3112 · 물류/소포 · 12칸(3×4) · 63.5×70.0mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_F_3112" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>LS-3112</b><span>물류·12칸</span></span>
+        </button>
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_F_3510" title="Formtec LS-3510 · 명함분류 · 10칸(2×5) · 88.9×52.0mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_F_3510" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>LS-3510</b><span>명함·10칸</span></span>
+        </button>
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_F_3130" title="Formtec LS-3130 · 전지(A4 전면) 1칸 · 210×297mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_F_3130" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>LS-3130</b><span>전지 1칸</span></span>
+        </button>
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_F_3650" title="Formtec LS-3650 · CD/DVD(원형) 1칸 · 117×117mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_F_3650" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>LS-3650</b><span>CD/DVD</span></span>
+        </button>
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_A_V8990" title="애니라벨 V8990 · 방수/소형 · 60칸(4×15) · 45.7×18.0mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_A_V8990" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>V8990</b><span>방수·60칸</span></span>
+        </button>
+        <button type="button" class="wstep-template-card" data-gl-template-key="G_IL_CL612" title="아이라벨 CL612 · 물류표기(상하 2단) · 2칸(1×2) · 210×148.5mm">
+          <span class="wstep-tpl-shape" id="gl-tpl-shape-G_IL_CL612" aria-hidden="true"></span>
+          <span class="wstep-tpl-label"><b>CL612</b><span>물류·2칸</span></span>
+        </button>
+      </div>
+    </div>
+    <div class="gl-spec-toolbar">
+      <div class="gl-spec-search search-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" id="gl-spec-search" placeholder="규격명 또는 제조사 검색"/>
+      </div>
+      <div class="gl-spec-maker-tabs" id="gl-spec-maker-tabs"></div>
+    </div>
+    <div class="gl-spec-list" id="gl-spec-list"></div>
+  </div>
+  <aside class="wizard-step-rail">
+    <div class="wrail-card">
+      <div class="wrail-title">용지 전체 미리보기 (A4)</div>
+      <div class="gl-spec-preview-frame">
+        <div id="gl-spec-grid-preview" class="a4-frame"></div>
+      </div>
+      <p class="wrail-hint" id="gl-spec-grid-info">-</p>
+    </div>
+    <div class="wrail-card" id="gl-spec-selected-card">
+      <div class="wrail-title">선택한 규격</div>
+      <div class="wrail-stat-row"><span>제조사/모델</span><b id="gl-spec-sel-model">-</b></div>
+      <div class="wrail-stat-row"><span>칸 수</span><b id="gl-spec-sel-count">-</b></div>
+      <div class="wrail-stat-row"><span>라벨 크기</span><b id="gl-spec-sel-size">-</b></div>
+    </div>
+    <button type="button" class="btn btn-primary" id="gl-step-spec-next" style="width:100%;justify-content:center">
+      다음: 라벨 디자인 →
+    </button>
+  </aside>
+</div>
+
+<!-- ═══════════════════ 일반라벨 모드 — 신규 추가 (기존 app-body와 완전 독립) ═══════════════════ -->
+<div id="general-app-body">
+
+  <!-- 좌측 사이드바 -->
+  <nav class="gl-sidebar" id="gl-sidebar">
+    <div class="gl-sidebar-inner">
+
+      <div class="sidebar-section-title">라벨 설정</div>
+      <div class="sidebar-section">
+
+        <!-- 라벨 규격 — 주소라벨과 동일한 드롭다운 패턴 (제조사별 optgroup) -->
+        <div class="sb-ctrl-group">
+          <span class="sb-ctrl-label">라벨 규격</span>
+          <div class="ctrl-select-wrap" style="width:100%">
+            <span id="gl-template-display" class="ctrl-select-display" style="width:100%;min-width:0">규격 선택</span>
+            <select id="gl-template-select" class="ctrl-select-hidden"></select>
+          </div>
+        </div>
+
+        <!-- 글꼴 -->
+        <div class="sb-ctrl-group">
+          <span class="sb-ctrl-label">글꼴</span>
+          <div class="ctrl-select-wrap" style="width:100%">
+            <span id="gl-font-display" class="ctrl-select-display" style="width:100%;min-width:0">노토 산스</span>
+            <select id="gl-font-select" class="ctrl-select-hidden">
+              <option value="'Noto Sans KR',sans-serif" data-short="노토 산스" selected>노토 산스 KR</option>
+              <option value="'Nanum Gothic',sans-serif" data-short="나눔 고딕">나눔 고딕</option>
+              <option value="'Nanum Gothic Coding',monospace" data-short="나눔 코딩">나눔 고딕 코딩</option>
+              <option value="'IBM Plex Sans KR',sans-serif" data-short="IBM Plex">IBM Plex Sans KR</option>
+              <option value="'Black Han Sans',sans-serif" data-short="블랙한산스">블랙 한 산스</option>
+              <option value="'Do Hyeon',sans-serif" data-short="도현체">도현체</option>
+              <option value="'Nanum Myeongjo',serif" data-short="나눔 명조">나눔 명조</option>
+              <option value="'Nanum Pen Script',cursive" data-short="나눔 손글씨">나눔 손글씨</option>
+              <option value="'Gowun Dodum',sans-serif" data-short="고운 도담">고운 도담</option>
+              <option value="'Gowun Batang',serif" data-short="고운 바탕">고운 바탕</option>
+              <option value="'Gothic A1',sans-serif" data-short="Gothic A1">Gothic A1</option>
+              <option value="'Sunflower',sans-serif" data-short="해바라기체">해바라기체</option>
+              <!-- ★NEW-FONTS: 구글 폰트 10종 추가 -->
+              <option value="'Jua',sans-serif" data-short="주아체">주아체</option>
+              <option value="'Gaegu',cursive" data-short="개구체">개구체</option>
+              <option value="'Hi Melody',cursive" data-short="하이멜로디">하이 멜로디</option>
+              <option value="'Poor Story',cursive" data-short="푸어스토리">푸어 스토리</option>
+              <option value="'Stylish',sans-serif" data-short="스타일리시">스타일리시</option>
+              <option value="'Gamja Flower',cursive" data-short="감자꽃체">감자꽃체</option>
+              <option value="'Song Myung',serif" data-short="송명체">송명체</option>
+              <option value="'East Sea Dokdo',cursive" data-short="동해 독도체">동해 독도체</option>
+              <option value="'Kirang Haerang',cursive" data-short="기랑해랑체">기랑해랑체</option>
+              <option value="'Yeon Sung',cursive" data-short="연성체">연성체</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 글자 크기 -->
+        <div class="sb-ctrl-group">
+          <span class="sb-ctrl-label">글자 크기</span>
+          <div class="size-ctrl">
+            <button id="gl-font-size-down" class="size-step" title="줄이기" aria-label="일반 라벨 글자 크기 줄이기">−</button>
+            <select id="gl-font-size-select">
+              <!-- ★FONTSIZE-RANGE: 8~18pt(11개) → 4~96pt(구글독스 스타일 사다리)로 확대. value=(pt-2)/10 공식은 기존 multToPt()와 동일하게 유지 -->
+              <option value="0.2">4pt</option><option value="0.3">5pt</option>
+              <option value="0.4">6pt</option><option value="0.5">7pt</option>
+              <option value="0.6">8pt</option><option value="0.7">9pt</option>
+              <option value="0.8">10pt</option><option value="0.9">11pt</option>
+              <option value="1.0" selected>12pt</option><option value="1.1">13pt</option>
+              <option value="1.2">14pt</option><option value="1.3">15pt</option>
+              <option value="1.4">16pt</option><option value="1.5">17pt</option>
+              <option value="1.6">18pt</option><option value="1.7">19pt</option>
+              <option value="1.8">20pt</option><option value="2.0">22pt</option>
+              <option value="2.2">24pt</option><option value="2.4">26pt</option>
+              <option value="2.6">28pt</option><option value="3.0">32pt</option>
+              <option value="3.4">36pt</option><option value="3.8">40pt</option>
+              <option value="4.2">44pt</option><option value="4.6">48pt</option>
+              <option value="5.2">54pt</option><option value="5.8">60pt</option>
+              <option value="6.4">66pt</option><option value="7.0">72pt</option>
+              <option value="7.8">80pt</option><option value="8.6">88pt</option>
+              <option value="9.4">96pt</option>
+            </select>
+            <button id="gl-font-size-up" class="size-step" title="키우기" aria-label="일반 라벨 글자 크기 키우기">＋</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section-title">출력 내용</div>
+      <div class="sidebar-section">
+        <div id="gl-content-seg" class="gl-content-seg"></div>
+
+        <div id="gl-text-block" class="sb-ctrl-group gl-sb-collapsible" data-collapsible="glText" style="margin-top:8px">
+          <span class="sb-ctrl-label">텍스트 <span class="sb-scope-badge" title="여기서 바꾸는 값은 모든 칸에 공통으로 적용돼요. 칸 하나만 다르게 하려면 캔버스에서 그 칸을 클릭해 위에 뜨는 툴바를 쓰거나, 칸을 더블클릭하세요.">모든 칸 설정 시</span></span>
+          <textarea id="gl-textarea" class="gl-textarea" placeholder="모든 칸에 표시할 텍스트를 입력하세요.&#10;(칸을 직접 클릭해 개별 수정도 가능합니다)"></textarea>
+          <!-- [신규] 엑셀/한글/메모장에서 원하는 열의 데이터를 칸 순서대로
+               채우기 — 이미지 여러 장 넣기(gl-bulk-image-btn)와 같은 자리의
+               "텍스트판" 기능. -->
+          <input type="file" id="gl-import-data-input" accept=".xlsx,.xls,.txt,.hwpx" style="display:none"/>
+          <button type="button" id="gl-import-data-btn" class="btn gl-import-btn" style="width:100%;justify-content:center;margin-top:6px" title="엑셀(.xlsx)·한글(.hwpx)·메모장(.txt) 파일에서 원하는 열의 데이터를 골라 칸에 순서대로 채웁니다.">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+            데이터 가져오기 <span class="gl-import-btn-sub">(엑셀·한글·메모장)</span>
+          </button>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">텍스트 위치</span>
+            <div id="gl-text-align-grid" class="gl-align-grid" title="텍스트를 칸 안 어디에 배치할지 선택하세요"></div>
+          </div>
+          <!-- 신규: 글자 방향(가로/세로) — 정부문서화일 '분류번호(옆면)'처럼 칸 폭이
+               좁아 가로쓰기가 안 들어가는 규격을 위한 세로쓰기 전환 -->
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">글자 방향</span>
+            <div id="gl-writing-seg" class="gl-fit-seg" title="칸 폭이 좁을 때 세로쓰기를 사용하세요"></div>
+          </div>
+          <!-- [신규] 텍스트 속성 확장 — 색상/스타일/줄간격/자간. 여기서 바꾸면
+               전체 칸에 공통으로 적용된다(개별 칸만 다르게 하려면 그 칸을
+               더블클릭 → 칸 개별 편집을 사용). -->
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">글자 색상</span>
+            <div class="color-swatch-row">
+              <input type="color" id="gl-text-color-input" value="#000000" aria-label="일반 라벨 글자 색상"/>
+              <button type="button" id="gl-text-color-reset-btn" class="insp-tiny-btn" title="기본 색상으로 되돌리기">기본값</button>
+            </div>
+          </div>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">스타일</span>
+            <div class="style-btn-row" role="group" aria-label="일반 라벨 글씨 스타일">
+              <button type="button" id="gl-bold-toggle-btn" class="style-btn" title="굵게" aria-pressed="false"><span style="font-weight:800">B</span></button>
+              <button type="button" id="gl-italic-toggle-btn" class="style-btn" title="기울임체" aria-pressed="false"><span style="font-style:italic;font-weight:700">I</span></button>
+              <button type="button" id="gl-underline-toggle-btn" class="style-btn" title="밑줄" aria-pressed="false"><span style="text-decoration:underline;font-weight:700">U</span></button>
+            </div>
+          </div>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">줄 간격</span>
+            <select id="gl-line-height-select">
+              <option value="1.0">100%</option>
+              <option value="1.1">110%</option>
+              <option value="1.25" selected>125%</option>
+              <option value="1.4">140%</option>
+              <option value="1.6">160%</option>
+              <option value="1.8">180%</option>
+              <option value="2.0">200%</option>
+            </select>
+          </div>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">자간</span>
+            <select id="gl-letter-spacing-select">
+              <option value="-1">좁게</option>
+              <option value="0" selected>기본</option>
+              <option value="1">넓게</option>
+              <option value="2">더 넓게</option>
+              <option value="3">아주 넓게</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="gl-image-block" class="sb-ctrl-group gl-sb-subgroup gl-sb-collapsible" data-collapsible="glImage" style="margin-top:8px">
+          <span class="sb-ctrl-label">이미지 <span class="sb-scope-badge" title="여기서 바꾸는 값은 모든 칸에 공통으로 적용돼요. 칸 하나만 다르게 하려면 캔버스에서 그 칸을 클릭해 위에 뜨는 툴바를 쓰거나, 칸을 더블클릭하세요.">모든 칸 설정 시</span></span>
+          <input type="file" id="gl-image-input" accept=".png,.jpg,.jpeg,.webp,.svg,image/*" style="display:none"/>
+          <div id="gl-image-drop" class="gl-image-drop">이미지를 끌어다 놓거나 클릭해서 업로드<br><span style="color:var(--text-3)">PNG · JPG · JPEG · WEBP · SVG</span></div>
+          <p id="gl-image-pending-hint" class="gl-image-pending-hint" style="display:none">🕐 이미지가 아직 칸에 채워지지 않았어요 — 아래 <b>전체 칸에 적용</b>을 눌러야 모든 칸에 반영돼요.</p>
+          <!-- [신규] 위 업로드는 이미지 1장을 "모든 칸 공통"으로 채우는 것이고,
+               이건 여러 장을 한 번에 골라 칸 순서(1번, 2번, 3번...)대로
+               하나씩 서로 다르게 채워 넣는 용도다(예: 사원증 200장 각자 다른
+               사진). 파일 개수가 칸 수보다 적으면 남는 칸은 그대로 두고,
+               많으면 칸 수만큼만 순서대로 쓰고 나머지는 알려준다. -->
+          <input type="file" id="gl-bulk-image-input" accept=".png,.jpg,.jpeg,.webp,image/*" multiple style="display:none"/>
+          <button type="button" id="gl-bulk-image-btn" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:6px" title="선택한 이미지 여러 장을 순서대로 각 칸에 하나씩 채웁니다(1번 칸=첫 파일, 2번 칸=둘째 파일…)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            이미지 여러 장 넣기 (칸마다 하나씩)
+          </button>
+          <p id="gl-bulk-image-progress" class="gl-cell-focus-hint" style="display:none;margin:4px 0 0"></p>
+          <div id="gl-fit-seg" class="gl-fit-seg"></div>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">이미지 크기</span>
+            <div class="size-ctrl">
+              <button id="gl-img-scale-down" class="size-step" title="줄이기" aria-label="이미지 배율 줄이기">−</button>
+              <select id="gl-img-scale-select">
+                <option value="40">40%</option><option value="50">50%</option>
+                <option value="60">60%</option><option value="70">70%</option>
+                <option value="80">80%</option><option value="90">90%</option>
+                <option value="100" selected>100%</option>
+                <option value="110">110%</option><option value="125">125%</option>
+                <option value="150">150%</option><option value="175">175%</option>
+                <option value="200">200%</option>
+              </select>
+              <button id="gl-img-scale-up" class="size-step" title="키우기" aria-label="이미지 배율 키우기">＋</button>
+            </div>
+          </div>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">이미지 위치</span>
+            <div id="gl-img-align-grid" class="gl-align-grid" title="이미지 크기를 줄였을 때 어느 쪽으로 붙일지 선택하세요"></div>
+          </div>
+          <!-- 개선: 상시 노출되던 긴 안내문단을 접이식으로 변경 —
+               기본은 접힌 상태라 "출력 내용" 섹션이 훨씬 짧아 보이고,
+               필요할 때만 펼쳐 읽을 수 있다. 명암비도 text-3(옅음) 대신
+               text-2로 올려 실제 읽어야 하는 문장 기준을 맞췄다. -->
+          <div class="gl-hint-disclosure">
+            <button type="button" id="gl-image-hint-toggle" class="gl-hint-toggle" aria-expanded="false" aria-controls="gl-image-hint-body">
+              <svg class="gl-hint-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+              💡 이미지, 어디서 조절하나요? (여기 · 캔버스 · 칸 개별 편집)
+            </button>
+            <p id="gl-image-hint-body" class="gl-hint-body" style="display:none">
+              이미지를 조절하는 곳은 성격이 다른 세 군데예요 — <b>① 여기(사이드바)</b>는 <u>모든 칸에 공통으로</u> 적용할 기본 크기·위치를 정해요(업로드 후 <b>전체 칸에 적용</b>을 눌러야 반영). <b>② 캔버스 위 칸</b>은 그 칸에 마우스를 올리면 나타나는 9개 조절점으로 <u>그 칸 하나만 빠르게</u> 드래그·크기조절하거나, 90°(회전)·◫/⬍(반전)·✂(자르기) 아이콘을 바로 누를 수 있어요. <b>③ 칸을 더블클릭</b>하면 뜨는 개별 편집 패널은 같은 조작들을 <u>확대된 화면 + 밝기·대비·채도 등 보정 슬라이더</u>까지 더해 한 칸을 자세히 다듬을 때 편해요. 세 곳 모두 결과는 즉시 같은 칸에 반영되니, 편한 곳에서 시작하면 돼요.
+            </p>
+          </div>
+        </div>
+
+        <div id="gl-layout-block" class="sb-ctrl-group gl-sb-subgroup gl-sb-collapsible" data-collapsible="glLayout" style="margin-top:8px">
+          <span class="sb-ctrl-label">텍스트+이미지 배치 <span class="sb-scope-badge" title="여기서 바꾸는 값은 모든 칸에 공통으로 적용돼요. 칸 하나만 다르게 하려면 그 칸을 더블클릭하세요.">모든 칸 설정 시</span></span>
+          <div id="gl-layout-seg" class="gl-fit-seg"></div>
+        </div>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+        <button id="gl-fill-all-btn" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:6px" title="입력한 텍스트와 업로드한 이미지를 모든 칸에 채웁니다">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          전체 칸에 적용
+        </button>
+        <button id="gl-clear-btn" class="btn btn-secondary" style="width:100%;justify-content:center" title="전체 초기화" data-tooltip="모든 칸의 텍스트·이미지 삭제">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+          전체 초기화
+        </button>
+      </div>
+
+    </div>
+  </nav>
+
+  <!-- 가운데 캔버스 -->
+  <div class="gl-canvas-wrap">
+
+    <!-- 신규: 라벨(칸)을 선택하면 나타나는 상단 편집 툴바 —
+         칸을 클릭해 선택하면 그 칸 하나만 골라 이미지를 교체하거나
+         텍스트를 지울 수 있다(전체 칸 일괄 적용과 별개). -->
+    <div id="gl-edit-toolbar" class="gl-edit-toolbar" style="display:none">
+      <span class="gl-edit-toolbar-badge">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <b id="gl-edit-toolbar-idx">1</b><span class="gl-tb-label">번 칸 편집 중</span>
+      </span>
+      <div class="gl-edit-toolbar-sep"></div>
+      <!-- [신규] "이 칸"만 글꼴·크기·색상·굵기/기울임/밑줄을 바로 바꾸는
+           빠른 서식 컨트롤 — 캔버스에서 칸을 선택하기만 하면 바로 쓸 수
+           있어, 왼쪽 사이드바(전체 칸 공통값만 바꾸던 것)와 달리 "지금 보고
+           있는 이 칸"을 직접 다루는 통로가 된다. 옵션 목록은 좌측 사이드바의
+           글꼴·글자크기 select와 똑같이 JS에서 채워 넣는다(중복 유지보수
+           방지). -->
+      <select id="gl-edit-font-select" class="gl-edit-toolbar-select" title="이 칸 글꼴"></select>
+      <select id="gl-edit-fontsize-select" class="gl-edit-toolbar-select" title="이 칸 글자 크기"></select>
+      <input type="color" id="gl-edit-color-input" class="gl-edit-toolbar-color" value="#000000" title="이 칸 글자 색상"/>
+      <div class="style-btn-row" role="group" aria-label="이 칸 글씨 스타일">
+        <button type="button" id="gl-edit-bold" class="style-btn" title="이 칸만 굵게" aria-pressed="false"><span style="font-weight:800">B</span></button>
+        <button type="button" id="gl-edit-italic" class="style-btn" title="이 칸만 기울임체" aria-pressed="false"><span style="font-style:italic;font-weight:700">I</span></button>
+        <button type="button" id="gl-edit-underline" class="style-btn" title="이 칸만 밑줄" aria-pressed="false"><span style="text-decoration:underline;font-weight:700">U</span></button>
+      </div>
+      <button type="button" id="gl-edit-text-reset" class="icon-btn" title="이 칸 글꼴·색상·스타일을 기본값으로" style="display:none">↺</button>
+      <div class="gl-edit-toolbar-sep"></div>
+      <button type="button" id="gl-edit-img-replace" class="btn btn-ghost" title="이 칸에만 다른 이미지 넣기">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <span class="gl-tb-label">이 칸 이미지 교체</span>
+      </button>
+      <button type="button" id="gl-edit-img-rotate" class="btn btn-ghost" title="이 칸 이미지 90도 회전" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        <span class="gl-tb-label">회전</span>
+      </button>
+      <button type="button" id="gl-edit-img-flip-x" class="btn btn-ghost" title="이 칸 이미지 좌우 반전" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M16 7l4 5-4 5"/><path d="M8 7l-4 5 4 5"/></svg>
+        <span class="gl-tb-label">좌우 반전</span>
+      </button>
+      <button type="button" id="gl-edit-img-flip-y" class="btn btn-ghost" title="이 칸 이미지 상하 반전" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M7 16l5 4 5-4"/><path d="M7 8l5-4 5 4"/></svg>
+        <span class="gl-tb-label">상하 반전</span>
+      </button>
+      <button type="button" id="gl-edit-img-crop" class="btn btn-ghost" title="이 칸 이미지 자르기" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 002 2h14"/><path d="M18 22V8a2 2 0 00-2-2H2"/></svg>
+        <span class="gl-tb-label">자르기</span>
+      </button>
+      <button type="button" id="gl-edit-img-reset" class="btn btn-ghost" title="이 칸 이미지 위치·크기·회전·자르기·반전 초기화" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        <span class="gl-tb-label">크기·위치 초기화</span>
+      </button>
+      <button type="button" id="gl-edit-img-clear" class="btn btn-ghost" title="이 칸의 개별 이미지를 지우고 공통 이미지로 되돌리기" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        <span class="gl-tb-label">개별 이미지 해제</span>
+      </button>
+      <button type="button" id="gl-edit-text-clear" class="btn btn-ghost" title="이 칸의 텍스트만 지우기">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <span class="gl-tb-label">이 칸 텍스트 지우기</span>
+      </button>
+      <!-- [신규] 표 빠른 도구 — 이 칸에 표가 있을 때만 보인다. 병합·분할·
+           테두리처럼 정밀한 칸 선택이 필요한 작업은 라벨이 워낙 작아
+           확대 편집 화면(더블클릭)에서 하는 게 맞아 그쪽 사이드 패널에
+           남겨두고, 여기서는 확대 화면을 열지 않고도 바로 되는 단순한
+           구조 조작(행/열 끝에 추가, 표 삭제)만 둔다. -->
+      <div id="gl-edit-table-group" class="gl-edit-toolbar-sep" style="display:none"></div>
+      <button type="button" id="gl-edit-table-add-row" class="btn btn-ghost" style="display:none" title="표 맨 아래에 행 추가">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="12" y1="18" x2="12" y2="24"/></svg>
+        <span class="gl-tb-label">행 추가</span>
+      </button>
+      <button type="button" id="gl-edit-table-add-col" class="btn btn-ghost" style="display:none" title="표 맨 오른쪽에 열 추가">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="18" y1="12" x2="24" y2="12"/></svg>
+        <span class="gl-tb-label">열 추가</span>
+      </button>
+      <button type="button" id="gl-edit-table-delete" class="btn btn-ghost" style="display:none" title="이 칸의 표를 지우고 일반 텍스트로">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        <span class="gl-tb-label">표 삭제</span>
+      </button>
+      <div class="gl-edit-toolbar-sep"></div>
+      <!-- [신규] "전체 칸에 적용"(사이드바)은 항상 공통 텍스트·이미지 기본값만 채우는데,
+           이 칸을 자르기·회전·보정까지 공들여 다듬어 놓고 "이 모양 그대로 나머지 칸에도
+           쓰고 싶다"는 요청이 있어 추가했다. 이 칸의 텍스트·이미지·서식·위치·회전·자르기·
+           보정을 통째로 복사해 다른 칸에 붙여넣는다. -->
+      <button type="button" id="gl-edit-fill-others" class="btn btn-secondary" title="이 칸의 텍스트·이미지·편집 상태를 다른 칸에도 그대로 채웁니다">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V4a1 1 0 011-1h12"/></svg>
+        <span class="gl-tb-label">이 칸을 다른 칸에 채우기</span>
+      </button>
+      <div class="gl-edit-toolbar-spacer"></div>
+      <button type="button" id="gl-edit-toolbar-close" class="icon-btn" title="선택 해제 (ESC)" aria-label="선택 해제">✕</button>
+    </div>
+
+    <div class="gl-canvas-topbar">
+      <span>규격</span>
+      <span id="gl-canvas-spec"></span>
+      <span class="gl-canvas-hint" title="칸을 두 번 클릭하면 그 칸만 따로 텍스트·서식을 편집할 수 있어요">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        칸을 더블클릭하면 그 칸만 개별 편집할 수 있어요
+      </span>
+      <div class="gl-canvas-topbar-right">
+        <!-- [신규] "주소라벨처럼 왼쪽 패널이 접혔으면 좋겠다"는 피드백 대응 —
+             주소라벨의 #sidebar-toggle과 완전히 동일한 방식(gl-sidebar에
+             collapsed 클래스 토글)으로 왼쪽 사이드바를 접고 펼친다. -->
+        <button type="button" class="zoom-btn" id="gl-sidebar-toggle" title="사이드바 토글" data-tooltip="사이드바 접기" aria-label="사이드바 접기" aria-expanded="true" aria-controls="gl-sidebar">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+        </button>
+        <!-- [신규] "왼쪽 패널처럼 오른쪽 사이드 패널(인스펙터)도 접히게"
+             피드백 대응 — 주소라벨의 #inspector-toggle과 완전히 동일한
+             방식(gl-inspector에 collapsed 클래스 토글). -->
+        <button type="button" class="zoom-btn" id="gl-inspector-toggle" title="인스펙터 토글" data-tooltip="인스펙터 접기" aria-label="인스펙터 접기" aria-expanded="true" aria-controls="gl-inspector">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+        </button>
+        <div class="canvas-topbar-sep"></div>
+        <!-- [신규] 되돌리기/다시실행 — 지금까지 Ctrl+Z/Ctrl+Y 키보드로만 가능해서
+             단축키를 모르면 쓸 방법이 없었다. 자주 쓰는 동작이라 눈에 보이는
+             버튼을 추가(단축키 안내 모달과 별개로 여기서도 바로 누를 수 있게). -->
+        <button type="button" class="zoom-btn" id="gl-undo-btn" aria-label="되돌리기" title="되돌리기 (Ctrl+Z)" data-tooltip="되돌리기 · Ctrl+Z">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        </button>
+        <button type="button" class="zoom-btn" id="gl-redo-btn" aria-label="다시 실행" title="다시 실행 (Ctrl+Y)" data-tooltip="다시 실행 · Ctrl+Y">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.13-9.36L23 10"/></svg>
+        </button>
+        <div class="canvas-topbar-sep"></div>
+        <div class="zoom-ctrl">
+          <button type="button" class="zoom-btn" id="gl-zoom-out" aria-label="화면 축소" title="화면 축소 (10%씩)" data-tooltip="화면 축소 · 10%씩">−</button>
+          <span id="gl-zoom-label">100%</span>
+          <button type="button" class="zoom-btn" id="gl-zoom-in" aria-label="화면 확대" title="화면 확대 (10%씩)" data-tooltip="화면 확대 · 10%씩">＋</button>
+        </div>
+        <div class="canvas-topbar-sep"></div>
+        <div id="gl-view-mode-seg" class="gl-view-seg" role="group" aria-label="보기 모드">
+          <button type="button" class="gl-view-btn" data-mode="fit" title="페이지 전체가 한 화면에 보이도록 축소해서 보기">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/></svg>
+            한 페이지
+          </button>
+          <button type="button" class="gl-view-btn active" data-mode="scroll" title="실제 인쇄 크기로 보면서 스크롤">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="9" rx="1"/><rect x="4" y="13" width="16" height="9" rx="1"/></svg>
+            스크롤
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="gl-canvas-scroll" class="gl-canvas-scroll"></div>
+
+    <!-- ═══════════════════ 일반라벨 — 칸(라벨) 더블클릭 시 캔버스 안에 뜨는
+         "칸 포커스" 패널. 화면 전체를 덮는 팝업이 아니라 이 STEP2 캔버스
+         영역(.gl-canvas-wrap) 안에서 그 칸만 확대해 보여주고, 바로 옆
+         패널에서 편집한다. 텍스트·서식 값은 입력하는 대로 미리보기에
+         바로 반영되고(실제 저장은 "완료"를 눌러야 확정), 이미지 교체/삭제는
+         기존 칸별 이미지 로직을 그대로 타 즉시 반영된다. ═══════════════════ -->
+    <div id="gl-cell-focus-panel" class="gl-cell-focus-panel" style="display:none">
+      <div class="gl-cell-focus-stage">
+        <!-- [신규] 포토샵 왼쪽 툴 레일 참고 — 자주 쓰는 이미지 도구를
+             아이콘만 모아 확대 미리보기 바로 옆에 붙였다("캔버스 옆
+             도구상자"라는 포토샵의 시각 언어). 버튼 id는 기존 폼에
+             있던 것과 완전히 동일하게 유지해서 교체·회전·반전·자르기·
+             초기화 JS 로직은 손대지 않고 그대로 재사용한다. -->
+        <div class="gl-cell-tool-rail" id="gl-cell-tool-rail">
+          <button type="button" id="gl-cell-edit-img-replace-btn" class="gl-ctool-btn" title="이미지 교체">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </button>
+          <div class="gl-ctool-sep"></div>
+          <button type="button" id="gl-cell-edit-img-rotate-btn" class="gl-ctool-btn" title="90도 회전">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          </button>
+          <button type="button" id="gl-cell-edit-img-flip-x-btn" class="gl-ctool-btn" title="좌우 반전">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M16 7l4 5-4 5"/><path d="M8 7l-4 5 4 5"/></svg>
+          </button>
+          <button type="button" id="gl-cell-edit-img-flip-y-btn" class="gl-ctool-btn" title="상하 반전">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M7 16l5 4 5-4"/><path d="M7 8l5-4 5 4"/></svg>
+          </button>
+          <button type="button" id="gl-cell-edit-img-crop-btn" class="gl-ctool-btn" title="자르기">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 002 2h14"/><path d="M18 22V8a2 2 0 00-2-2H2"/></svg>
+          </button>
+          <div class="gl-ctool-sep"></div>
+          <button type="button" id="gl-cell-edit-img-posreset-btn" class="gl-ctool-btn" title="위치·크기·회전·자르기·반전 초기화">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+          </button>
+        </div>
+        <div id="gl-cell-focus-preview" class="gl-cell-focus-preview"></div>
+      </div>
+      <div class="gl-cell-focus-form">
+        <div class="gl-cell-focus-head">
+          <span>🏷️ <b id="gl-cell-edit-title">칸 개별 편집</b></span>
+          <button type="button" id="gl-cell-edit-close" class="icon-btn" title="닫기 (ESC)" aria-label="닫기">✕</button>
+        </div>
+        <p class="gl-cell-focus-hint">이 칸에만 적용됩니다. 다른 칸의 공통 설정에는 영향을 주지 않아요.</p>
+
+        <!-- [신규] 이 칸만 콘텐츠 타입(텍스트/이미지/텍스트+이미지)을 왼쪽
+             사이드바의 전역 "출력 내용"과 다르게 지정할 수 있는 오버라이드.
+             전역 설정과 같은 값을 고르면 오버라이드가 자동으로 풀린다
+             (다른 칸별 설정들과 같은 "값이 없으면 전역을 따른다" 패턴). -->
+        <div class="me-field">
+          <span class="sb-ctrl-label sb-ctrl-label-sm">이 칸의 콘텐츠</span>
+          <div id="gl-cell-focus-type-seg" class="gl-cell-focus-tabs" role="tablist">
+            <button type="button" class="gl-cft-btn" data-ctype="text" role="tab">✏️ 텍스트</button>
+            <button type="button" class="gl-cft-btn" data-ctype="image" role="tab">🖼️ 이미지</button>
+            <button type="button" class="gl-cft-btn" data-ctype="both" role="tab">🏷️ 텍스트+이미지</button>
+          </div>
+          <p class="gl-cell-focus-hint" id="gl-cell-focus-type-hint" style="margin:4px 0 0"></p>
+        </div>
+
+        <!-- [신규] "텍스트+이미지" 칸에서 텍스트를 이미지 기준 어디에
+             둘지(위/아래/옆/겹침) — 왼쪽 사이드바의 전역 "텍스트+이미지
+             배치"와 완전히 같은 선택지를, 이 칸 하나에만 다르게 적용할
+             수 있는 오버라이드로 추가했다. 값이 없으면(대부분의 칸)
+             전역 설정을 그대로 따르고, "이 칸의 콘텐츠"가 텍스트+이미지일
+             때만 나타난다(다른 콘텐츠 오버라이드들과 같은 패턴). -->
+        <div class="me-field" id="gl-cell-focus-layout-block" style="display:none">
+          <span class="sb-ctrl-label sb-ctrl-label-sm">이 칸의 텍스트+이미지 배치</span>
+          <div id="gl-cell-focus-layout-seg" class="gl-fit-seg"></div>
+          <p class="gl-cell-focus-hint" id="gl-cell-focus-layout-hint" style="margin:4px 0 0"></p>
+        </div>
+
+        <!-- [신규] 텍스트/이미지 칼럼을 늘어놓지 않고 탭으로 나눠 한 번에
+             하나만 보여준다("텍스트+이미지" 규격일 때만 탭이 뜬다 —
+             텍스트 전용/이미지 전용 규격은 어차피 칼럼이 하나뿐이라 탭이
+             필요 없다). 이전에는 텍스트칸에 항상 자동 포커스가 가서
+             이미지만 만지려 할 때도 커서가 거기 가 있었는데, 탭 전환은
+             포커스를 건드리지 않으므로 그 문제도 함께 없어진다. -->
+        <div id="gl-cell-focus-tabs" class="gl-cell-focus-tabs" role="tablist">
+          <button type="button" class="gl-cft-btn active" data-tab="text" role="tab">✏️ 텍스트</button>
+          <button type="button" class="gl-cft-btn" data-tab="image" role="tab">🖼️ 이미지</button>
+        </div>
+
+        <div id="gl-cell-edit-text-col">
+          <div class="me-field" id="gl-cell-edit-text-plain-wrap">
+            <label>텍스트</label>
+            <textarea id="gl-cell-edit-text" class="gl-textarea" rows="3" placeholder="이 칸에 표시할 텍스트"></textarea>
+            <!-- [신규] 표 삽입 — 이 칸의 텍스트를 일반 문단 대신 표(행×열)로
+                 바꾼다. 처음엔 2×2 표로 시작해서 아래 +행/+열 버튼으로
+                 필요한 만큼 키울 수 있다. -->
+            <button type="button" id="gl-cell-table-insert-btn" class="btn btn-ghost" style="width:100%;justify-content:center;gap:6px;margin-top:6px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+              표 삽입
+            </button>
+          </div>
+          <!-- [신규] 표 편집기 — 표가 있는 칸일 때만 보이고(위 텍스트 필드
+               대신) 표 칸마다 입력창을 두어 바로 값을 고칠 수 있다. 표
+               구조가 깨지지 않도록 표 내용 편집은 여기서만 한다(캔버스에서
+               직접 표를 만지지 않음). -->
+          <div class="me-field" id="gl-cell-table-editor-wrap" style="display:none">
+            <div class="gl-align-row" style="justify-content:space-between;margin-bottom:4px">
+              <label style="margin:0">표</label>
+              <button type="button" id="gl-cell-table-delete-btn" class="btn btn-ghost gl-cell-table-del-all" title="표를 지우고 일반 텍스트로 되돌리기">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                표 삭제
+              </button>
+            </div>
+            <div id="gl-cell-table-grid" class="gl-cell-table-grid"></div>
+            <!-- [개선] 병합·분할·테두리는 표를 다룰 때 가장 자주 쓰는
+                 "구조" 조작이라, 아래로 스크롤해야 나오던 걸 그리드
+                 바로 다음(맨 위)으로 옮겼다 — 행/열 삽입삭제나 크기
+                 조절보다 먼저 눈에 띄고 손이 먼저 가게 하기 위함. -->
+            <div class="gl-cell-table-toolbar gl-cell-table-toolbar-merge">
+              <span class="gl-cell-table-toolbar-label">셀</span>
+              <button type="button" id="gl-cell-table-merge" class="btn btn-ghost" title="선택한 여러 칸을 하나로 병합 (Shift+클릭으로 범위 선택)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><path d="M9 12h6M9 12l2-2M9 12l2 2"/></svg>
+                병합
+              </button>
+              <button type="button" id="gl-cell-table-split" class="btn btn-ghost" title="병합된 칸을 다시 낱개 칸으로 분할">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="12" y1="3" x2="12" y2="21"/><path d="M9 9l-2 3 2 3M15 9l2 3-2 3"/></svg>
+                분할
+              </button>
+            </div>
+            <!-- [신규] 표 전체 테두리 종류·굵기·색상 — "셀 외곽선의 종류와
+                 굵기 조절 가능하게" 피드백 대응. 표 하나에 한 번에
+                 적용된다(칸마다 다른 테두리는 지원하지 않음). -->
+            <div class="gl-cell-table-toolbar gl-cell-table-toolbar-border">
+              <span class="gl-cell-table-toolbar-label">테두리</span>
+              <select id="gl-cell-table-border-style" title="테두리 종류">
+                <option value="solid">실선</option>
+                <option value="dashed">파선</option>
+                <option value="dotted">점선</option>
+                <option value="double">이중선</option>
+                <option value="none">없음</option>
+              </select>
+              <input type="range" id="gl-cell-table-border-width" min="0" max="6" step="1" value="1" title="테두리 굵기">
+              <span id="gl-cell-table-border-width-val" class="gl-cell-table-width-val">1px</span>
+              <input type="color" id="gl-cell-table-border-color" value="#000000" title="테두리 색상(끄면 글자색을 그대로 따라갑니다)">
+              <button type="button" id="gl-cell-table-border-color-clear" class="btn btn-ghost" title="테두리 색을 지정하지 않고 글자색을 그대로 따라가게 합니다">기본</button>
+            </div>
+            <!-- [수정] 기존엔 위/오른쪽/아래/왼쪽을 그냥 "켜짐/꺼짐"으로만
+                 토글했는데, 그러면 "선을 없애는 것"만 되고 "그 위치의 선
+                 종류·굵기를 바꾸는" 건 할 수 없었다. 지금은 순서를
+                 뒤집었다 — 먼저 위 "테두리" 줄에서 원하는 종류·굵기·색을
+                 고르고, 여기서 그 설정을 "어느 변에" 적용할지 고른다.
+                 (선을 없애고 싶으면 종류를 "없음"으로 고른 뒤 여기서
+                 위치를 고르면 된다 — 즉 "없애기"는 여러 선택지 중 하나일
+                 뿐, 위치별 지정이 핵심이다.) 여러 칸을 선택했으면
+                 위/오른쪽/아래/왼쪽은 그 선택 범위의 바깥 가장자리만
+                 대상이 된다(안쪽 칸 사이 경계선은 "안쪽" 버튼으로 따로). -->
+            <div class="gl-cell-table-toolbar gl-cell-table-toolbar-sides">
+              <span class="gl-cell-table-toolbar-label">적용 위치</span>
+              <button type="button" id="gl-cell-table-border-top" class="btn btn-ghost" title="선택 범위 바깥 위쪽 변에 지금 설정한 종류·굵기·색 적용">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1" opacity=".25"/><line x1="4" y1="4" x2="20" y2="4" stroke-width="3"/></svg>
+              </button>
+              <button type="button" id="gl-cell-table-border-right" class="btn btn-ghost" title="선택 범위 바깥 오른쪽 변에 지금 설정한 종류·굵기·색 적용">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1" opacity=".25"/><line x1="20" y1="4" x2="20" y2="20" stroke-width="3"/></svg>
+              </button>
+              <button type="button" id="gl-cell-table-border-bottom" class="btn btn-ghost" title="선택 범위 바깥 아래쪽 변에 지금 설정한 종류·굵기·색 적용">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1" opacity=".25"/><line x1="4" y1="20" x2="20" y2="20" stroke-width="3"/></svg>
+              </button>
+              <button type="button" id="gl-cell-table-border-left" class="btn btn-ghost" title="선택 범위 바깥 왼쪽 변에 지금 설정한 종류·굵기·색 적용">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1" opacity=".25"/><line x1="4" y1="4" x2="4" y2="20" stroke-width="3"/></svg>
+              </button>
+              <span class="gl-cell-table-toolbar-sep"></span>
+              <button type="button" id="gl-cell-table-border-outer" class="btn btn-ghost" title="선택 범위 바깥 테두리 4면 전체에 적용">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/></svg>
+              </button>
+              <button type="button" id="gl-cell-table-border-inner" class="btn btn-ghost" title="선택 범위 안쪽 칸 사이 경계선에만 적용">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1" opacity=".25"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+              </button>
+              <button type="button" id="gl-cell-table-border-all" class="btn btn-ghost" title="선택 범위의 모든 선(바깥+안쪽)에 적용">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+              </button>
+              <button type="button" id="gl-cell-table-border-reset" class="btn btn-ghost" title="선택 범위의 칸별 테두리 지정을 지우고, 표 전체 기본 테두리를 다시 따르게 합니다">기본값</button>
+            </div>
+            <span class="gl-cell-table-toolbar-sep2"></span>
+            <!-- [신규] 표 "전체" 크기 — 열 너비/행 높이는 표 안에서의 상대적
+                 배분이고, 이건 표 자체가 칸 안에서 얼마나 넓게 보일지를
+                 정한다("표 크기 자체를 조절 못 한다"는 피드백에 대응). -->
+            <div class="gl-cell-table-toolbar gl-cell-table-toolbar-size">
+              <span class="gl-cell-table-toolbar-label">크기</span>
+              <input type="range" id="gl-cell-table-width-range" min="20" max="100" step="5" value="100" title="표 전체가 칸 안에서 차지하는 가로 폭을 조절합니다">
+              <span id="gl-cell-table-width-val" class="gl-cell-table-width-val">100%</span>
+            </div>
+            <div class="gl-cell-table-toolbar gl-cell-table-toolbar-rows">
+              <span class="gl-cell-table-toolbar-label">행</span>
+              <button type="button" id="gl-cell-table-ins-row-above" class="btn btn-ghost" title="선택한 칸 위에 행 삽입">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="8" rx="1"/><path d="M12 2v5M9 4.5l3-3 3 3"/></svg>
+              </button>
+              <button type="button" id="gl-cell-table-ins-row-below" class="btn btn-ghost" title="선택한 칸 아래에 행 삽입">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="8" rx="1"/><path d="M12 22v-5M9 19.5l3 3 3-3"/></svg>
+              </button>
+              <button type="button" id="gl-cell-table-del-row" class="btn btn-ghost" title="선택한 칸의 행 삭제">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="8" rx="1"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+              </button>
+            </div>
+            <div class="gl-cell-table-toolbar gl-cell-table-toolbar-cols">
+              <span class="gl-cell-table-toolbar-label">열</span>
+              <button type="button" id="gl-cell-table-ins-col-left" class="btn btn-ghost" title="선택한 칸 왼쪽에 열 삽입">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="3" width="8" height="18" rx="1"/><path d="M2 12h5M4.5 9l-3 3 3 3"/></svg>
+              </button>
+              <button type="button" id="gl-cell-table-ins-col-right" class="btn btn-ghost" title="선택한 칸 오른쪽에 열 삽입">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="8" height="18" rx="1"/><path d="M22 12h-5M19.5 9l3 3-3 3"/></svg>
+              </button>
+              <button type="button" id="gl-cell-table-del-col" class="btn btn-ghost" title="선택한 칸의 열 삭제">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="18" rx="1"/><line x1="12" y1="7" x2="12" y2="17"/></svg>
+              </button>
+            </div>
+            <!-- [신규] 선택한 칸들의 너비/높이를 서로 같게 맞춘다(워드의
+                 "셀 간격을 동일하게"와 같은 기능). 2칸 이상을 선택해야
+                 뜻이 있으므로 칸이 1개만 선택돼 있으면 비활성화된다. -->
+            <div class="gl-cell-table-toolbar gl-cell-table-toolbar-dist">
+              <span class="gl-cell-table-toolbar-label">균등</span>
+              <button type="button" id="gl-cell-table-dist-col" class="btn btn-ghost" title="선택한 열들의 너비를 서로 같게 맞춥니다">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="14" rx="1"/><rect x="14" y="5" width="7" height="14" rx="1"/></svg>
+                열 너비
+              </button>
+              <button type="button" id="gl-cell-table-dist-row" class="btn btn-ghost" title="선택한 행들의 높이를 서로 같게 맞춥니다">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="7" rx="1"/><rect x="5" y="14" width="14" height="7" rx="1"/></svg>
+                행 높이
+              </button>
+            </div>
+            <!-- [신규] 선택한 칸(들)의 배경색을 채운다. "지우기"는 배경을
+                 다시 투명(없음)으로 되돌린다. -->
+            <div class="gl-cell-table-toolbar gl-cell-table-toolbar-bg">
+              <span class="gl-cell-table-toolbar-label">배경</span>
+              <input type="color" id="gl-cell-table-bg-color" value="#fff3cd" title="선택한 칸의 배경색을 채웁니다">
+              <button type="button" id="gl-cell-table-bg-clear" class="btn btn-ghost" title="선택한 칸의 배경색을 지웁니다">지우기</button>
+            </div>
+            <!-- [신규] 즐겨찾기 — 자주 쓰는 표 양식(칸 구성·병합·너비·테두리
+                 등, 지금 입력된 글자까지 그대로)을 이름 붙여 저장해 두고,
+                 다른 칸이나 다음에 또 쓸 때 바로 불러와 재사용한다. -->
+            <div class="gl-cell-table-toolbar gl-cell-table-toolbar-fav">
+              <span class="gl-cell-table-toolbar-label">양식</span>
+              <select id="gl-cell-table-fav-select" title="저장해둔 표 양식">
+                <option value="">즐겨찾기에서 불러오기…</option>
+              </select>
+              <button type="button" id="gl-cell-table-fav-apply" class="btn btn-ghost" title="선택한 양식을 이 칸에 적용합니다(지금 표는 사라져요)">불러오기</button>
+              <button type="button" id="gl-cell-table-fav-delete" class="btn btn-ghost" title="선택한 양식을 즐겨찾기에서 삭제합니다">삭제</button>
+            </div>
+            <div class="gl-cell-table-toolbar gl-cell-table-toolbar-fav-save">
+              <input type="text" id="gl-cell-table-fav-name" class="gl-cell-table-fav-name-input" placeholder="이 표를 양식으로 저장할 이름" maxlength="30">
+              <button type="button" id="gl-cell-table-fav-save" class="btn btn-ghost" title="지금 이 표를 즐겨찾기(재사용 양식)에 저장합니다">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.5 17 14.5 18.5 21.5 12 18 5.5 21.5 7 14.5 2 9.5 9 8.5 12 2"/></svg>
+                즐겨찾기에 저장
+              </button>
+            </div>
+            <details class="gl-cell-focus-hint-details">
+              <summary>표 사용법 보기</summary>
+              <p class="gl-cell-focus-hint" style="margin:6px 0 0"><b>이 표가 그려진 칸(메인 화면·이 확대 미리보기 모두)을 직접 클릭하면 그 자리에 바로 커서가 놓여 타이핑할 수 있어요</b>(Enter로 줄바꿈, Tab으로 다음 칸 이동). 병합·분할·테두리·크기 조절처럼 표의 구조를 바꾸는 도구는 실수로 표가 깨지지 않도록 계속 이 아래 도구들에서만 다룹니다 — 먼저 아래에서 여러 칸을 <b>마우스로 끌어서(드래그)</b> 선택하거나 Shift+클릭하면 병합할 수 있고, 칸을 선택한 채 <b>Ctrl+방향키</b>로도 너비·높이를 조절할 수 있어요. 테두리는 위 "테두리"에서 종류·굵기·색을 고른 뒤 "적용 위치"에서 어느 변에 칠할지 고르면 됩니다(없애고 싶은 자리만 종류를 "없음"으로 골라 적용하면 그 자리만 선이 사라져요). 맨 윗줄 칸의 오른쪽 경계를 드래그하면 열 너비를, 첫 열 칸의 아래쪽 경계를 드래그하면 행 높이를 조절할 수 있어요. 폰트·크기·색상·정렬은 아래 설정이 표에도 함께 적용됩니다.</p>
+            </details>
+          </div>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">폰트</span>
+            <select id="gl-cell-edit-font"></select>
+          </div>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">글자 크기</span>
+            <select id="gl-cell-edit-fontsize"></select>
+          </div>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">글자 색상</span>
+            <div class="color-swatch-row">
+              <input type="color" id="gl-cell-edit-color" value="#000000"/>
+            </div>
+          </div>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">스타일</span>
+            <div class="style-btn-row" role="group" aria-label="이 칸 글씨 스타일">
+              <button type="button" id="gl-cell-edit-bold" class="style-btn" title="굵게" aria-pressed="false"><span style="font-weight:800">B</span></button>
+              <button type="button" id="gl-cell-edit-italic" class="style-btn" title="기울임체" aria-pressed="false"><span style="font-style:italic;font-weight:700">I</span></button>
+              <button type="button" id="gl-cell-edit-underline" class="style-btn" title="밑줄" aria-pressed="false"><span style="text-decoration:underline;font-weight:700">U</span></button>
+            </div>
+          </div>
+          <div class="gl-align-row">
+            <span class="sb-ctrl-label sb-ctrl-label-sm">정렬</span>
+            <div id="gl-cell-edit-align-grid" class="gl-align-grid"></div>
+          </div>
+        </div>
+
+        <div id="gl-cell-edit-img-col">
+          <div class="me-field">
+            <label>이미지</label>
+            <!-- [신규] 왼쪽 도구 모음의 "이미지 교체" 아이콘(17x17, 글자 없음)이
+                 눈에 잘 안 띈다는 의견을 반영 — 탭 본문 맨 위에 글자가 있는
+                 큼직한 버튼을 하나 더 둔다. 새 로직을 만들지 않고 기존
+                 gl-cell-edit-img-replace-btn(왼쪽 도구 모음 아이콘)을 그대로
+                 클릭 전달만 해서, 이미지를 처음 넣을 때나 바꿀 때나 항상
+                 똑같이 동작한다. -->
+            <button type="button" id="gl-cell-edit-img-load-btn" class="btn btn-secondary" style="width:100%;justify-content:center;gap:6px;margin-bottom:8px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              이미지 불러오기
+            </button>
+            <p class="gl-cell-focus-hint" style="margin:0">왼쪽 도구 모음에서 교체·회전·반전·자르기·초기화를 사용하세요. 확대된 미리보기를 직접 드래그하거나 모서리 손잡이로 크기를 바꿀 수도 있고, 위쪽 동그란 손잡이(⟳)로 자유롭게 회전할 수도 있어요(15도 근처에서는 딱 붙어요).</p>
+          </div>
+          <!-- [신규] 보정(밝기·대비·채도·흑백) — 포토샵의 이미지 조정(Adjustments)
+               패널처럼 슬라이더 + 오른쪽 숫자값을 나란히 두는 구성을 참고했다.
+               사진 원본은 건드리지 않고 화면/인쇄에 그릴 때만 CSS로 적용되므로
+               "보정 초기화"로 언제든 되돌릴 수 있다.
+               [개선] 아이콘 없이 텍스트 라벨만 촘촘히 붙어있어 "한눈에 안
+               들어온다"는 피드백을 반영 — 각 줄에 아이콘을 붙이고, 성격이
+               비슷한 항목끼리(밝기·대비 / 채도·흑백 / 불투명도·색상반전)
+               작은 그룹으로 묶어 줄 간격도 넉넉히 띄웠다. -->
+          <div class="me-field" id="gl-cell-edit-img-filter-field">
+            <label>보정</label>
+            <div class="gl-img-filter-group">
+              <div class="gl-img-filter-row">
+                <span class="gl-img-filter-label" title="밝기">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                  밝기
+                </span>
+                <input type="range" id="gl-cell-edit-img-brightness" class="gl-img-filter-slider" min="50" max="150" step="1" value="100" aria-label="이 칸 이미지 밝기"/>
+                <span class="gl-img-filter-val" id="gl-cell-edit-img-brightness-val">100%</span>
+              </div>
+              <div class="gl-img-filter-row">
+                <span class="gl-img-filter-label" title="대비">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18z" fill="currentColor" stroke="none"/></svg>
+                  대비
+                </span>
+                <input type="range" id="gl-cell-edit-img-contrast" class="gl-img-filter-slider" min="50" max="150" step="1" value="100" aria-label="이 칸 이미지 대비"/>
+                <span class="gl-img-filter-val" id="gl-cell-edit-img-contrast-val">100%</span>
+              </div>
+            </div>
+            <div class="gl-img-filter-group">
+              <div class="gl-img-filter-row">
+                <span class="gl-img-filter-label" title="채도">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5s6.5 7.2 6.5 11.5a6.5 6.5 0 01-13 0C5.5 9.7 12 2.5 12 2.5z"/></svg>
+                  채도
+                </span>
+                <input type="range" id="gl-cell-edit-img-saturate" class="gl-img-filter-slider" min="0" max="200" step="1" value="100" aria-label="이 칸 이미지 채도"/>
+                <span class="gl-img-filter-val" id="gl-cell-edit-img-saturate-val">100%</span>
+              </div>
+              <div class="gl-img-filter-row">
+                <span class="gl-img-filter-label" title="흑백">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18V3z" fill="currentColor" stroke="none"/></svg>
+                  흑백
+                </span>
+                <input type="range" id="gl-cell-edit-img-grayscale" class="gl-img-filter-slider" min="0" max="100" step="1" value="0" aria-label="이 칸 이미지 흑백 정도"/>
+                <span class="gl-img-filter-val" id="gl-cell-edit-img-grayscale-val">0%</span>
+              </div>
+            </div>
+            <!-- [신규] 불투명도·색상 반전 — 포토샵 조정 패널에 흔한 두 항목 추가 -->
+            <div class="gl-img-filter-group">
+              <div class="gl-img-filter-row">
+                <span class="gl-img-filter-label" title="불투명도">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="13" width="8" height="8" fill="currentColor" opacity="0.4" stroke="none"/><rect x="13" y="3" width="8" height="8" opacity="0.5"/><rect x="3" y="13" width="8" height="8" opacity="0.5"/></svg>
+                  불투명도
+                </span>
+                <input type="range" id="gl-cell-edit-img-opacity" class="gl-img-filter-slider" min="10" max="100" step="1" value="100" aria-label="이 칸 이미지 불투명도"/>
+                <span class="gl-img-filter-val" id="gl-cell-edit-img-opacity-val">100%</span>
+              </div>
+              <div class="gl-img-filter-row">
+                <span class="gl-img-filter-label" title="색상 반전">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-9-9"/><path d="M21 3l-9 9"/></svg>
+                  반전
+                </span>
+                <input type="range" id="gl-cell-edit-img-invert" class="gl-img-filter-slider" min="0" max="100" step="1" value="0" aria-label="이 칸 이미지 색상 반전 정도"/>
+                <span class="gl-img-filter-val" id="gl-cell-edit-img-invert-val">0%</span>
+              </div>
+            </div>
+            <button type="button" id="gl-cell-edit-img-filter-reset-btn" class="btn btn-ghost" style="width:100%;justify-content:center">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+              보정 초기화
+            </button>
+          </div>
+          <div class="me-field">
+            <button type="button" id="gl-cell-edit-img-clear-btn" class="btn btn-ghost" style="width:100%;justify-content:center">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              이미지 삭제(공통으로)
+            </button>
+          </div>
+        </div>
+
+
+
+        <div class="gl-cell-focus-actions">
+          <button type="button" id="gl-cell-edit-reset" class="btn btn-ghost" title="이 칸의 모든 개별 설정을 지우고 공통 설정으로 되돌립니다">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+            이 칸 초기화
+          </button>
+          <button type="button" id="gl-cell-edit-cancel" class="btn btn-secondary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            취소
+          </button>
+          <button type="button" id="gl-cell-edit-save" class="btn btn-primary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            완료
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 신규: 선택된 칸 하나에만 이미지를 적용할 때 쓰는 숨김 파일 입력 -->
+  <input type="file" id="gl-cell-image-input" accept=".png,.jpg,.jpeg,.webp,.svg,image/*" style="display:none"/>
+
+  <!-- 우측 인스펙터 -->
+  <aside class="gl-inspector" id="gl-inspector">
+    <div class="gl-inspector-scroll">
+      <div class="insp-section">
+        <div class="insp-title">라벨 배치 미리보기
+          <span id="gl-grid-info" style="font-weight:400;font-size:11px;color:var(--text-3)"></span>
+        </div>
+        <div class="a4-frame-outer">
+          <div id="gl-grid-preview" class="a4-frame"></div>
+        </div>
+        <div class="agp-legend">
+          <span class="agp-legend-item"><span class="agp-dot agp-filled" style="background:var(--surface-2);border-color:rgba(220,53,69,.65)"></span>라벨 칸</span>
+        </div>
+      </div>
+
+      <div class="insp-section">
+        <div class="insp-title">라벨 규격 정보</div>
+        <div class="insp-row">
+          <span class="insp-row-label">제조사</span>
+          <span class="insp-row-value" id="gl-insp-maker"></span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">모델명</span>
+          <span class="insp-row-value" id="gl-insp-model"></span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">라벨 크기</span>
+          <span class="insp-row-value" id="gl-insp-size"></span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">칸 수</span>
+          <span class="insp-row-value" id="gl-insp-count"></span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">여백 (상/좌)</span>
+          <span class="insp-row-value" id="gl-insp-margin"></span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">출처</span>
+          <span class="insp-row-value" id="gl-insp-source" style="font-size:11px;color:var(--text-3)"></span>
+        </div>
+      </div>
+
+      <div class="insp-section" id="gl-print-settings-section" style="display:none"><!-- [주석] 인쇄 설정 섹션은 항상 숨김 처리됨(dark-theme.css). 주소라벨 쪽(#print-settings-section)과 동일하게 의도를 명시 -->
+        <div class="insp-title">인쇄 설정</div>
+        <div class="insp-row">
+          <span class="insp-row-label">용지</span>
+          <span class="insp-row-value">A4 (210 × 297 mm)</span>
+        </div>
+        <div class="insp-row">
+          <span class="insp-row-label">배율</span>
+          <span class="insp-row-value" style="color:var(--clr-primary)">100% 고정</span>
+        </div>
+      </div>
+
+      <div class="insp-section">
+        <button class="btn btn-primary" id="gl-print-btn" style="width:100%;justify-content:center" title="인쇄 (Ctrl+P)" data-tooltip="인쇄 · Ctrl+P">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          인쇄하기
+        </button>
+      </div>
+    </div>
+  </aside>
+
+</div><!-- /general-app-body -->
+
+<!-- ═══════════════════ 일반라벨 Step 3 — 확인 및 인쇄
+     실제 시트 전체를 읽기 전용 미리보기로 보여준다. 편집 중인 라이브
+     캔버스(.gl-a4-page)를 그대로 옮기지 않고(재부모화 시 CSS 파손 위험)
+     복제본을 만들어 붙이는, 주소라벨 인쇄 미리보기와 같은 안전한
+     방식을 재사용한다. 칸을 클릭하면 2단계로 이동해 그 칸을 선택한다.
+     [정리] 원래는 "전체 확인"과 "인쇄"가 각각 별도 스텝(3/4단계)이었다.
+     두 화면 모두 같은 시트 미리보기를 보여줄 뿐이라 사실상 중복이었어서
+     하나의 화면(확인 후 바로 인쇄)으로 합쳤다. 실제 브라우저 인쇄
+     대화상자(프린터/용지 선택 등)는 JS로 제어할 수 없으므로, 기존
+     gl-print-btn/테스트 인쇄 로직을 그대로 재사용한다. ═══════════════════ -->
+<div class="wizard-step wizard-step-gl-review" id="gl-step-view-review" data-gl-step="review">
+  <aside class="wizard-step-rail wizard-step-rail-left">
+    <div class="wrail-card">
+      <div class="wrail-title">전체 현황</div>
+      <div class="wrail-stat-row"><span>전체 칸 수</span><b id="gl-review-stat-total">-</b></div>
+      <div class="wrail-stat-row"><span>입력됨</span><b id="gl-review-stat-filled">-</b></div>
+      <div class="wrail-stat-row"><span>비어있음</span><b id="gl-review-stat-empty">-</b></div>
+      <div class="wrail-stat-row"><span>규격</span><b id="gl-pstep-stat-template">-</b></div>
+      <div class="wrail-stat-row"><span>한 페이지 칸 수</span><b id="gl-pstep-stat-perpage">-</b></div>
+      <div class="wrail-stat-row"><span>용지</span><b>A4 (210 × 297 mm)</b></div>
+    </div>
+    <div class="wrail-card">
+      <div class="wrail-title">선택한 라벨</div>
+      <p class="wrail-hint" id="gl-review-sel-hint">시트에서 칸을 클릭하면 여기 정보가 표시돼요.</p>
+      <div id="gl-review-sel-body" style="display:none">
+        <div class="wrail-stat-row"><span>번호</span><b id="gl-review-sel-idx">-</b></div>
+        <div class="wrail-stat-row"><span>상태</span><b id="gl-review-sel-state">-</b></div>
+        <button type="button" class="btn btn-primary" id="gl-review-sel-edit" style="width:100%;justify-content:center;margin-top:8px">이 라벨 수정</button>
+      </div>
+    </div>
+    <div class="wrail-card">
+      <div class="wrail-title">출력하기</div>
+      <button class="btn btn-primary wrail-print-btn" id="gl-pstep-print-btn" title="인쇄 (Ctrl+P)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        인쇄 시작
+      </button>
+      <p class="wrail-hint">브라우저 인쇄 대화상자가 열리면 프린터·용지·매수를 그곳에서 설정하세요.</p>
+    </div>
+    <div class="wrail-card wrail-tip">
+      <div class="wrail-title">주의 사항</div>
+      <p>라벨 용지를 프린터에 넣기 전 방향을 확인해주세요. 인쇄 전 빈 칸이 없는지 다시 살펴보시길 권장합니다.</p>
+    </div>
+  </aside>
+  <div class="wizard-step-main wstep-print-main">
+    <div class="wstep-heading">
+      <div>
+        <h2>전체 확인 및 인쇄</h2>
+        <p>전체 용지의 라벨을 확인하고, 필요 시 칸을 클릭해 개별 수정한 뒤 바로 인쇄하세요.</p>
+      </div>
+    </div>
+    <div class="preview-canvas-wrap wstep-print-preview" id="gl-review-preview-canvas"></div>
+  </div>
+</div>
+
+  </div><!-- /gl-shell-main -->
+</div><!-- /gl-shell -->
+
+<!-- ═══════════════════ 일반라벨 전용 하단 상태표시줄 —
+     주소라벨의 .statusbar와 완전히 같은 시각 언어(같은 클래스)를 재사용한다.
+     id만 gl-statusbar로 달라서 "body.mode-general .statusbar{display:none}"
+     같은 기존 규칙이 이것까지 같이 숨기지 않는다 — 표시/숨김은
+     general-labels.css에서 "body.mode-general #gl-statusbar{display:flex}"로
+     별도 관리(위 #gl-shell과 같은 패턴). 내용은 새로 계산하지 않고 이미
+     화면에 떠 있는 값(규격 표시·칸 수·선택 칸·실행취소 등)을 그대로
+     읽어와 보여준다 — ui-refresh.js 참고. ═══════════════════ -->
+<div class="statusbar" id="gl-statusbar" role="status" aria-live="polite">
+  <span class="statusbar-template-name" id="gl-sb-template-name">규격을 선택하세요</span>
+  <span class="statusbar-sep-dot" id="gl-sb-count-sep" style="display:none">·</span>
+  <span id="gl-sb-count-info" style="display:none"></span>
+  <span class="statusbar-sep-dot" id="gl-sb-sel-sep" style="display:none">·</span>
+  <span class="statusbar-sel-info" id="gl-sb-sel-info" style="display:none"></span>
+  <span class="statusbar-sep-dot" id="gl-sb-undo-sep" style="display:none">·</span>
+  <button type="button" class="statusbar-mini-btn" id="gl-sb-undo-info" style="display:none" title="클릭하면 실행취소됩니다"></button>
+  <span class="statusbar-sep-dot" id="gl-sb-redo-sep" style="display:none">·</span>
+  <button type="button" class="statusbar-mini-btn" id="gl-sb-redo-info" style="display:none" title="클릭하면 다시 실행됩니다"></button>
+  <!-- [요청 반영] 자동저장 상태 표시 — 예전엔 좌측 아이콘 레일 맨 아래 끼워
+       넣었는데, 좁은 세로 레일이라 눈에 잘 안 띄고 다른 상태 정보(규격·칸
+       수·선택·실행취소)와도 따로 놀았다. 주소라벨의 #sb-autosave와 정확히
+       같은 위치(.statusbar-right 바로 앞)로 옮겨, 두 탭 모두 "지금 이
+       라벨의 상태"를 하단 상태표시줄 한 줄에서 같은 방식으로 볼 수 있게
+       통일했다. -->
+  <span id="gl-autosave" class="statusbar-autosave" style="display:none" aria-live="polite"></span>
+  <div class="statusbar-right">
+    <span id="gl-sb-viewmode" style="font-size:11px;color:var(--text-2)"></span>
+    <div class="zoom-ctrl" id="gl-sb-zoom-ctrl" aria-hidden="true" style="pointer-events:none">
+      <span id="gl-sb-zoom-label">100%</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ 상태바 ═══════════════════ -->
+<div class="statusbar" role="status" aria-live="polite">
+  <span id="sb-page-info-display">페이지 0/0 · 라벨 0개</span>
+  <span class="statusbar-sep-dot">·</span>
+  <span class="statusbar-template-name" id="sb-template-name">폼텍 LS-3107</span>
+  <span class="statusbar-sep-dot" id="sb-sel-sep" style="display:none">·</span>
+  <span class="statusbar-sel-info" id="sb-sel-info" style="display:none"></span>
+  <!-- [신규] 실행취소 가능 단계 수 -->
+  <span class="statusbar-sep-dot" id="sb-undo-sep" style="display:none">·</span>
+  <button type="button" class="statusbar-mini-btn" id="sb-undo-info" style="display:none" title="클릭하면 실행취소됩니다"></button>
+  <!-- [신규] 검증 오류 건수 — 클릭 시 검증 패널로 이동 -->
+  <span class="statusbar-sep-dot" id="sb-valerr-sep" style="display:none">·</span>
+  <button type="button" class="statusbar-mini-btn statusbar-mini-btn-danger" id="sb-valerr-info" style="display:none" title="클릭하면 검증 패널이 열립니다"></button>
+  <!-- 자동저장 상태 표시 -->
+  <span id="sb-autosave" class="statusbar-autosave" style="display:none" aria-live="polite"></span>
+  <div class="statusbar-right">
+    <div id="fit-nav">
+      <button class="fit-nav-btn" id="fit-prev" title="이전 페이지 (←)" data-tooltip="이전 페이지 · ←">◀ 이전</button>
+      <span id="fit-page-info" style="font-size:11px;color:var(--text-2)">1/1</span>
+      <button class="fit-nav-btn" id="fit-next" title="다음 페이지 (→)" data-tooltip="다음 페이지 · →">다음 ▶</button>
+    </div>
+    <div class="zoom-ctrl">
+      <button class="zoom-btn" id="zoom-out" aria-label="화면 축소" title="화면 축소 (10%씩)" data-tooltip="화면 축소 · 10%씩">−</button>
+      <span id="zoom-label">100%</span>
+      <button class="zoom-btn" id="zoom-in" aria-label="화면 확대" title="화면 확대 (10%씩)" data-tooltip="화면 확대 · 10%씩">＋</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ 모달들 ═══════════════════ -->
+<input type="file" id="excel" style="display:none" accept=".xls,.xlsx,.txt,.hwpx"/>
+<div id="drop-overlay"><h2>엑셀 파일을 놓아주세요</h2></div>
+
+<div id="dialog-modal" class="modal-bg" style="display:none">
+  <div class="dialog-box">
+    <div class="dialog-icon" id="dialog-icon">⚠️</div>
+    <h3 id="dialog-title"></h3>
+    <p id="dialog-message"></p>
+    <div class="dialog-actions" id="dialog-actions"></div>
+  </div>
+</div>
+
+<!-- 인쇄 전 확인 체크리스트 — 브라우저 인쇄 대화상자의 "여백/배율"이
+     기본값으로 되어있으면 CSS의 mm 단위 계산이 그대로 적용되지 않아
+     실제 라벨지와 어긋나게 인쇄되는 문제를 예방하기 위한 안내 모달.
+     "다시 보지 않기"를 체크하지 않는 한 인쇄(정식/테스트) 시마다 표시됨. -->
+<div id="print-checklist-modal" class="modal-bg" style="display:none">
+  <div class="dialog-box">
+    <div class="dialog-icon">🖨️</div>
+    <h3>인쇄 전, 이것만 확인해주세요</h3>
+    <p style="margin-bottom:14px">브라우저 인쇄창의 기본값을 그대로 두면 여백이 더해지거나 자동으로 축소되어, 실제 라벨지와 위치가 어긋날 수 있어요.</p>
+    <div class="print-checklist-list">
+      <div class="print-checklist-item print-checklist-item-margin">
+        <span class="print-checklist-check">✓</span>
+        <span class="print-checklist-text"><b>여백</b> — <span class="print-checklist-value">없음</span>으로 설정</span>
+      </div>
+      <div class="print-checklist-item print-checklist-item-margin">
+        <span class="print-checklist-check">✓</span>
+        <span class="print-checklist-text"><b>배율</b> — <span class="print-checklist-value">100% (사용자 지정)</span>으로 설정</span>
+      </div>
+      <!-- [신규] 라벨지는 일반 용지 트레이로 급지하면 걸리거나 인쇄가 밀리기 쉬워서,
+           프린터의 수동급지대(수동 트레이)와 용지 종류 설정을 함께 안내한다.
+           브라우저가 기억하는 설정이 아니라 프린터 쪽 물리적인 준비물이라
+           여백/배율과 같은 "다시 보지 않기" 대상으로 묶어도 된다고 판단했다. -->
+      <div class="print-checklist-item print-checklist-item-margin">
+        <span class="print-checklist-check">✓</span>
+        <span class="print-checklist-text"><b>용지 공급</b> — 인쇄 대화상자의 <b>추가 설정(자세히)</b>을 열어 <span class="print-checklist-value">수동급지대</span>로 변경하고, 라벨 용지를 수동급지대에 넣어주세요. <b>용지 종류</b>도 <span class="print-checklist-value">라벨 또는 두꺼운 용지</span>로 바꿔주세요.</span>
+      </div>
+      <!-- [신규] 시작 위치를 건너뛴 경우에만 표시되는 고위험 재확인 항목.
+           "다시 보지 않기"로도 숨겨지지 않는다 (confirmPrintSettings 참고) -->
+      <div class="print-checklist-item print-checklist-item-warn" id="print-checklist-startpos-row" style="display:none">
+        <span class="print-checklist-check">⚠</span>
+        <span class="print-checklist-text"><b>시작 위치</b> — <span class="print-checklist-value" id="print-checklist-startpos-value">1번째 칸부터</span> 인쇄됩니다. 이미 사용한 라벨과 겹치지 않는지 확인하세요.</span>
+      </div>
+    </div>
+    <label class="print-checklist-remember" id="print-checklist-remember-row">
+      <input type="checkbox" id="print-checklist-remember-cb"/>
+      <span class="print-checklist-remember-box"></span>
+      <span>다시 보지 않기</span>
+    </label>
+    <div class="dialog-actions">
+      <button class="dialog-btn dialog-btn-cancel" id="print-checklist-cancel">취소</button>
+      <button class="dialog-btn dialog-btn-ok" id="print-checklist-ok">확인, 인쇄하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 로딩 -->
+<div id="loading-modal" class="modal-bg" style="display:none">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <p id="loading-text">처리 중...</p>
+    <div class="loading-progress-wrap" id="loading-progress-wrap" style="display:none">
+      <div class="loading-progress-bar" id="loading-progress-bar"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 컬럼 매퍼 -->
+<div id="column-mapper-modal" class="modal-bg" style="display:none">
+  <div class="mapper-box">
+    <h3>📊 열 선택</h3>
+    <p>엑셀 파일의 열을 직접 지정해주세요.</p>
+    <div class="mapper-selectors">
+      <label>👤 이름 열</label><select id="name-col-select" class="mapper-select"></select>
+      <label>🏠 주소 열</label><select id="addr-col-select" class="mapper-select"></select>
+    </div>
+    <div id="data-preview-table"></div>
+    <div class="mapper-actions">
+      <button id="cancel-mapping"  class="btn btn-secondary">✕ 취소</button>
+      <button id="confirm-mapping" class="btn btn-primary">✔ 이 열로 가져오기</button>
+    </div>
+  </div>
+</div>
+
+<!-- [신규] 일반 라벨 — 엑셀·한글(hwpx)·메모장(txt)에서 원하는 열 하나를
+     골라 그 값을 칸에 순서대로(1번째 값→1번 칸, 2번째 값→2번 칸…) 채운다.
+     주소 라벨의 "열 매퍼"(이름+주소 2열 고정)와 달리 일반 라벨은 칸에
+     들어갈 값 1열만 고르면 되므로 별도의 단순한 모달을 쓴다. -->
+<div id="gl-import-modal" class="modal-bg" style="display:none">
+  <div class="mapper-box">
+    <h3>📊 가져올 열 선택</h3>
+    <p>파일에서 어떤 열의 데이터를 칸에 채울지 골라주세요. 1번째 값은 1번 칸에, 2번째 값은 2번 칸에… 순서대로 들어갑니다.</p>
+    <div class="mapper-selectors">
+      <label>📥 가져올 열</label><select id="gl-import-col-select" class="mapper-select"></select>
+    </div>
+    <label id="gl-import-header-row" class="gl-import-header-row">
+      <input type="checkbox" id="gl-import-header-cb"/> 첫 행은 제목(헤더)이에요 — 데이터로 쓰지 않아요
+    </label>
+    <p id="gl-import-summary" class="gl-import-summary"></p>
+    <div id="gl-import-preview-table"></div>
+    <div class="mapper-actions">
+      <button id="gl-import-cancel"  class="btn btn-secondary">✕ 취소</button>
+      <button id="gl-import-confirm" class="btn btn-primary">✔ 이 열로 칸 채우기</button>
+    </div>
+  </div>
+</div>
+
+<!-- [신규] hwpx/txt 가져오기 미리보기 — 엑셀의 "열 매핑"과 달리 hwpx/txt는
+     열이 없어 이름·주소를 통째로 추측해서 나눠야 하므로 결과가 더
+     예측하기 어렵다. 라벨을 실제로 만들기 전에 "이렇게 인식했어요"를
+     보여주고, 잘못 나뉜 줄은 표에서 직접 고치거나 지울 수 있게 한다. -->
+<div id="import-preview-modal" class="modal-bg" style="display:none">
+  <div class="mapper-box" style="width:560px">
+    <h3>🔍 가져오기 전 확인</h3>
+    <p id="import-preview-desc">파일에서 이름·주소를 이렇게 인식했어요. 잘못된 칸은 표에서 바로 고치거나 그 줄을 지운 뒤 가져오세요.</p>
+    <p id="import-preview-summary" style="font-size:11.5px;color:var(--text-2);margin:-4px 0 10px"></p>
+    <div id="import-preview-table-wrap" class="preview-table-wrapper" style="max-height:340px"></div>
+    <div class="mapper-actions">
+      <button id="import-preview-cancel"  class="btn btn-secondary">✕ 취소</button>
+      <button id="import-preview-confirm" class="btn btn-primary">✔ 이대로 라벨 생성</button>
+    </div>
+  </div>
+</div>
+
+<!-- 주소 직접 입력 모달 — 1단계(데이터)에서 사용. 입력한 내용은 기존
+     createLabel()로 그대로 라벨을 만들되, 화면은 이동하지 않고
+     아래 "주소 목록" 표에 계속 쌓인다. -->
+<div id="manual-entry-modal" class="modal-bg" style="display:none">
+  <div class="mapper-box" style="width:420px">
+    <h3>✏️ 주소 직접 입력</h3>
+    <p>입력한 주소는 아래 목록에 바로 추가됩니다. 우편번호를 비워두면 자동으로 찾아드려요.</p>
+    <div class="me-fields">
+      <div class="me-field"><label>이름</label><input type="text" id="me-name" class="me-input" placeholder="홍길동" autocomplete="off"/></div>
+      <div class="me-field"><label>연락처</label><input type="text" id="me-phone" class="me-input" placeholder="010-0000-0000 (선택)" autocomplete="off"/></div>
+      <div class="me-field"><label>주소</label><input type="text" id="me-addr" class="me-input" placeholder="서울특별시 강남구 테헤란로 123" autocomplete="off"/></div>
+      <div class="me-field"><label>상세주소</label><input type="text" id="me-addr2" class="me-input" placeholder="101동 202호 (선택)" autocomplete="off"/></div>
+      <div class="me-field"><label>우편번호</label><input type="text" id="me-zip" class="me-input" placeholder="비워두면 자동 조회" maxlength="5" inputmode="numeric" autocomplete="off"/></div>
+    </div>
+    <p id="me-error" class="me-error" style="display:none"></p>
+    <div class="mapper-actions">
+      <button id="manual-entry-cancel" class="btn btn-secondary">닫기</button>
+      <button id="manual-entry-add-more" class="btn btn-secondary">추가하고 계속 입력</button>
+      <button id="manual-entry-add" class="btn btn-primary">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 단축키 안내 / 사용법 -->
+<div id="shortcut-modal" class="modal-bg" style="display:none">
+  <div class="shortcut-box">
+    <div class="shortcut-header">
+      <div>
+        <h3 id="shortcut-modal-title">⌨️ 단축키 안내</h3>
+        <p id="shortcut-modal-desc">자주 쓰는 동작을 키보드로 빠르게</p>
+      </div>
+      <button id="shortcut-close" class="shortcut-close" aria-label="단축키 안내 닫기" title="닫기 (Esc)" data-tooltip="닫기 · Esc">✕</button>
+    </div>
+
+    <!-- 탭 전환: 단축키 안내 ↔ 사용법 -->
+    <div class="shortcut-tabs" role="tablist">
+      <button type="button" class="shortcut-tab active" data-tab="keys">⌨️ 단축키</button>
+      <button type="button" class="shortcut-tab" data-tab="guide">📖 사용법</button>
+    </div>
+
+    <!-- 탭 패널 1: 단축키 안내 -->
+    <div class="shortcut-tab-panel active" data-panel="keys">
+      <div class="shortcut-grid">
+        <div class="shortcut-section">
+          <div class="shortcut-section-title">편집 · 추가</div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>Z</kbd><span>실행취소</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd><span>새 라벨 추가</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>D</kbd><span>선택 라벨 복사</span></div>
+          <div class="shortcut-row"><kbd>Tab</kbd><span>주소 → 이름 → 다음 라벨</span></div>
+          <div class="shortcut-row"><kbd>Enter</kbd><span>편집 완료 (주소 자동 검색)</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>S</kbd><span>수동 저장</span></div>
+        </div>
+        <div class="shortcut-section">
+          <div class="shortcut-section-title">탐색</div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>Home</kbd><span>첫 라벨로 이동</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>End</kbd><span>마지막 라벨로 이동</span></div>
+          <div class="shortcut-row"><kbd>Page Down</kbd><span>다음 페이지</span></div>
+          <div class="shortcut-row"><kbd>Page Up</kbd><span>이전 페이지</span></div>
+          <div class="shortcut-row"><kbd>←</kbd><kbd>→</kbd><span>한페이지 모드: 페이지 전환</span></div>
+        </div>
+        <div class="shortcut-section">
+          <div class="shortcut-section-title">검색</div>
+          <div class="shortcut-row"><kbd>/</kbd><span>검색창 포커스</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>F</kbd><span>검색창 포커스</span></div>
+          <div class="shortcut-row"><kbd>Enter</kbd><span>다음 결과</span></div>
+          <div class="shortcut-row"><kbd>Shift</kbd><kbd>Enter</kbd><span>이전 결과</span></div>
+          <div class="shortcut-row"><kbd>ESC</kbd><span>검색 초기화</span></div>
+        </div>
+        <div class="shortcut-section">
+          <div class="shortcut-section-title">인쇄 · 글꼴</div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>P</kbd><span>인쇄</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>[</kbd><span>글자 크기 줄이기</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>]</kbd><span>글자 크기 키우기</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>B</kbd><span>글씨 굵게/기본 전환</span></div>
+          <div class="shortcut-row"><kbd>?</kbd><span>이 도움말 열기</span></div>
+        </div>
+        <div class="shortcut-section">
+          <div class="shortcut-section-title">다중 선택 · 잠금</div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>A</kbd><span>전체 선택</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>클릭</kbd><span>개별 추가 선택</span></div>
+          <div class="shortcut-row"><kbd>Shift</kbd><kbd>클릭</kbd><span>범위 선택</span></div>
+          <div class="shortcut-row"><kbd>ESC</kbd><span>선택 해제</span></div>
+          <div class="shortcut-row"><kbd>Del</kbd><span>선택 라벨 삭제</span></div>
+          <div class="shortcut-row"><kbd>Alt</kbd><kbd>L</kbd><span>잠금/해제</span></div>
+        </div>
+        <div class="shortcut-section">
+          <div class="shortcut-section-title">드래그 앤 드롭</div>
+          <div class="shortcut-row drag-tip"><span>🖱️ 라벨 좌상단 ⠿ 핸들을 드래그해 순서를 바꿀 수 있어요.<br>🔒 잠긴 라벨은 드래그 · 삭제 불가</span></div>
+        </div>
+        <div class="shortcut-section">
+          <div class="shortcut-section-title">일반라벨 모드</div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>P</kbd><span>인쇄</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>Z</kbd><span>되돌리기(칸 텍스트·이미지·초기화 등)</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>Y</kbd><span>다시 실행</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>[</kbd><span>글자 크기 줄이기</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>]</kbd><span>글자 크기 키우기</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>−</kbd><span>이미지 크기 줄이기</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>＋</kbd><span>이미지 크기 키우기</span></div>
+          <div class="shortcut-row"><span>클릭</span><span>칸 선택 → 상단 편집 툴바 표시</span></div>
+          <div class="shortcut-row"><span>더블클릭</span><span>그 칸만 따로 개별 편집(텍스트·이미지·9점 크기조절)</span></div>
+          <div class="shortcut-row"><span>우클릭</span><span>칸 편집 메뉴(자르기·복사/붙여넣기·빈 칸에 채우기·초기화 등)</span></div>
+          <div class="shortcut-row"><kbd>ESC</kbd><span>칸 선택 해제</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 탭 패널 2: 사용법 안내 -->
+    <div class="shortcut-tab-panel" data-panel="guide">
+      <button type="button" id="reopen-onboarding-btn" class="btn btn-secondary" style="margin-bottom:14px">
+        🎬 3단계 마법사 안내 다시 보기
+      </button>
+      <div class="guide-grid">
+        <div class="guide-section">
+          <div class="guide-section-title">📮 주소라벨 사용법</div>
+          <ol class="guide-steps">
+            <li><b>엑셀 불러오기</b> — 이름·주소 컬럼이 있는 xlsx/xls 파일을 끌어다 놓거나 버튼을 눌러 불러오세요. 우편번호는 자동으로 조회됩니다.</li>
+            <li><b>라벨 편집</b> — 라벨의 이름·주소를 직접 클릭해 수정하세요. <kbd>Tab</kbd>으로 다음 칸으로 이동할 수 있어요.</li>
+            <li><b>라벨 복사</b> — 툴바의 "복사" 버튼(<kbd>Ctrl</kbd>+<kbd>D</kbd>)을 누르면 마지막 라벨의 이름·주소가 그대로 복제되어 새 라벨로 추가돼요. 같은 주소로 여러 장 뽑을 때 편리해요.</li>
+            <li><b>채우기</b> — 툴바의 "채우기" 버튼은 현재 페이지에서 비어 있는 나머지 칸을 마지막 라벨 내용으로 한 번에 채워 페이지를 꽉 채워줘요. 한 페이지 분량을 빠르게 완성하고 싶을 때 사용하세요.</li>
+            <li><b>즐겨찾기</b> — 툴바의 "즐겨찾기" 버튼을 누르면 자주 쓰는 이름·주소를 저장해두고, 목록에서 <b>＋</b> 버튼 한 번으로 바로 라벨에 추가할 수 있어요. 우편번호도 자동으로 채워져요.</li>
+            <li><b>스타일 조정</b> — 좌측 사이드바에서 라벨 규격·글꼴·글자 크기·굵기를 바꿀 수 있어요.</li>
+            <li><b>인쇄 미리보기</b> — 우측 인스펙터의 "인쇄 미리보기" 버튼을 누르면, 실제 인쇄될 내용을 실물 크기(100%) 그대로, 편집 화면과 분리된 깔끔한 화면으로 미리 볼 수 있어요. 인쇄하기 전 "진짜 이대로 나가는지" 눈으로 먼저 확인해보세요.</li>
+            <li><b>인쇄</b> — 상단 "인쇄" 버튼 또는 <kbd>Ctrl</kbd>+<kbd>P</kbd>. 인쇄 전 미세조정으로 위치를 보정할 수 있어요. 보정값은 규격별로 저장되어 새로고침하거나 다른 규격에 다녀와도 유지돼요.</li>
+            <li><b>테스트 인쇄</b> — 우측 인스펙터의 "테스트 인쇄" 버튼을 누르면, 내용 없이 칸 테두리·중심 십자선만 그린 페이지가 일반 A4 용지에 인쇄돼요. 이걸 실제 라벨지 위에 겹쳐 빛에 비춰보면 라벨지를 낭비하지 않고도 여백·간격이 맞는지 바로 확인할 수 있어요. 안 맞으면 "인쇄 위치 미세조정"으로 보정한 뒤 다시 테스트해보세요.</li>
+          </ol>
+        </div>
+        <div class="guide-section">
+          <div class="guide-section-title">🏷️ 일반라벨 사용법</div>
+          <ol class="guide-steps">
+            <li><b>라벨 규격 선택</b> — 좌측 "라벨 규격" 드롭다운에서 사용할 용지를 고르세요.</li>
+            <li><b>콘텐츠 타입 선택</b> — "텍스트" · "이미지" · "텍스트+이미지" 중 하나를 고르세요.</li>
+            <li><b>텍스트 입력 및 위치 조정</b> — 텍스트 상자에 입력하면 모든 칸에 한 번에 적용돼요. 칸을 직접 클릭하면 개별 수정도 가능해요. "텍스트 위치" 3×3 그리드로 칸 안 정렬(좌·중앙·우 / 상·중앙·하)을 바꿀 수 있어요.</li>
+            <li><b>이미지 업로드 및 크기 조정</b> — 이미지를 끌어다 놓거나 클릭해서 업로드하세요. "이미지 크기"로 40~200% 사이에서 전체 칸에 공통으로 조정하고, "이미지 위치" 그리드로 원하는 방향에 붙일 수 있어요. <b>칸마다 다르게 조절</b>하고 싶다면 캔버스의 이미지를 직접 드래그(위치 이동)하거나 모서리 핸들로 확대·축소하세요 — 이 칸만 개별 적용되며, 칸에 나타나는 ✂(자르기)·↺(초기화) 버튼으로 실제 필요한 부분만 잘라내거나 원래대로 되돌릴 수 있어요.</li>
+            <li><b>칸 하나만 선택해서 편집</b> — 캔버스에서 칸을 클릭하면 그 칸이 선택되고 상단에 편집 툴바가 나타나요. "이 칸 이미지 교체"로 <b>그 칸에만 다른 이미지</b>를 넣거나(다른 칸에는 영향 없음), "회전"으로 90도씩 돌리고, "자르기"로 잘라내고, "크기·위치 초기화"·"개별 이미지 해제"로 되돌리거나, "이 칸 텍스트 지우기"로 그 칸의 텍스트만 지울 수 있어요.</li>
+            <li><b>우클릭 빠른 메뉴</b> — 어떤 칸이든(텍스트·이미지·빈 칸 모두) 마우스 우클릭하면 자르기·이미지 교체·초기화는 물론, <b>칸 내용 복사/붙여넣기</b>로 한 칸의 텍스트·이미지·크기 설정을 통째로 다른 칸에 옮길 수 있어요.</li>
+            <li><b>되돌리기</b> — 칸을 잘못 지웠거나 이미지를 실수로 바꿨다면 <b>Ctrl+Z</b>로 바로 이전 상태로 되돌릴 수 있어요(최근 30단계까지 기억).</li>
+            <li><b>개별 수정 칸 표시</b> — 다른 칸과 다르게 텍스트·이미지를 따로 넣은 칸에는 왼쪽 위에 작은 점이 항상 표시돼요. 마우스를 올리지 않아도 어떤 칸을 손댔는지 한눈에 확인할 수 있어요.</li>
+            <li><b>큰 이미지 자동 최적화</b> — 용량이 큰 사진(3MB 이상)을 넣으면 인쇄 품질은 그대로 유지하면서 자동으로 크기를 줄여 저장해, 여러 칸에 넣어도 느려지지 않아요.</li>
+            <li><b>텍스트+이미지 배치</b> — "텍스트+이미지" 모드에서는 텍스트를 이미지의 위/아래/옆/겹침 중 원하는 배치로 고를 수 있어요.</li>
+            <li><b>인쇄</b> — 우측 "인쇄하기" 버튼 또는 <kbd>Ctrl</kbd>+<kbd>P</kbd>.</li>
+          </ol>
+        </div>
+        <div class="guide-section guide-section-tip">
+          <div class="guide-section-title">💡 알아두면 좋은 팁</div>
+          <ul class="guide-tips">
+            <li>우측 상단 🌙 버튼으로 다크모드를 켜고 끌 수 있어요.</li>
+            <li>⭐ 즐겨찾기에 자주 쓰는 주소를 저장해두면 다음에 한 번에 추가할 수 있어요.</li>
+            <li>라벨을 <kbd>Ctrl</kbd>+클릭하면 여러 개를 한 번에 선택해 복사·삭제·잠금할 수 있어요.</li>
+            <li>실수했다면 <kbd>Ctrl</kbd>+<kbd>Z</kbd>로 언제든 되돌릴 수 있어요.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- [신규] 온보딩 모달 — 첫 방문 시 1회, 3단계 마법사(데이터→라벨편집→출력) 구조를 간단히 안내.
+     기존 모달들과 완전히 독립적인 새 요소이며, 표시 여부는 localStorage(onboardingSeen)로만
+     제어한다. index.js는 건드리지 않고 ui-refresh.js에서 열고 닫는다. -->
+<div id="onboarding-modal" class="modal-bg" style="display:none">
+  <div class="onboarding-box">
+    <button id="onboarding-close" class="shortcut-close" aria-label="안내 닫기" title="닫기 (Esc)">✕</button>
+    <div class="onboarding-head">
+      <div class="onboarding-logo">📮</div>
+      <h3>우편 라벨지 자동화에 오신 걸 환영합니다</h3>
+      <p>주소 라벨은 3단계로 진행돼요. 위쪽 진행 표시줄이나 왼쪽 아이콘으로 언제든 단계를 오갈 수 있어요.</p>
+    </div>
+    <div class="onboarding-steps">
+      <div class="onboarding-step">
+        <span class="onboarding-step-num">1</span>
+        <b>데이터</b>
+        <p>엑셀을 불러오거나 직접 입력해 주소 데이터를 준비해요.</p>
+      </div>
+      <svg class="onboarding-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      <div class="onboarding-step">
+        <span class="onboarding-step-num">2</span>
+        <b>라벨 편집</b>
+        <p>라벨 규격·폰트·여백을 정하고 미리보기로 확인해요.</p>
+      </div>
+      <svg class="onboarding-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      <div class="onboarding-step">
+        <span class="onboarding-step-num">3</span>
+        <b>출력</b>
+        <p>인쇄 미리보기로 확인한 뒤 바로 인쇄해요.</p>
+      </div>
+    </div>
+    <button id="onboarding-start" class="btn btn-primary" style="width:100%;justify-content:center">시작하기</button>
+    <p class="onboarding-foot">이 안내는 <b>사용법</b> 메뉴(❓)에서 언제든 다시 볼 수 있어요.</p>
+  </div>
+</div>
+
+<!-- 즐겨찾기 슬라이드 패널 -->
+<div id="fav-panel" class="fav-panel">
+  <div class="fav-panel-header">
+    <h3>⭐ 즐겨찾기</h3>
+    <button id="fav-close" class="icon-btn" title="닫기" aria-label="즐겨찾기 패널 닫기">✕</button>
+  </div>
+  <div id="fav-list" class="fav-list-scroll"></div>
+  <div class="fav-add-section">
+    <div class="fav-add-section-title">새 즐겨찾기 추가</div>
+    <input type="text" id="fav-name" placeholder="이름 (예: 익산시청)" class="fav-input" autocomplete="off"/>
+    <input type="text" id="fav-addr" placeholder="주소를 입력하세요" class="fav-input" autocomplete="off"/>
+    <button class="fav-add-btn btn btn-primary" id="fav-add" style="margin-top:2px">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      추가
+    </button>
+  </div>
+</div>
+
+
+<!-- ═══════════════════ 라벨 우클릭 컨텍스트 메뉴 ═══════════════════ -->
+<!-- ═══════════════ 1단계 "주소 목록" 표 행 우클릭 메뉴 — 항목이 삭제 하나뿐이라
+     기존 라벨 메뉴(label-context-menu)와 별도로 아주 작게 둔다 ═══════════════ -->
+<div id="wstep-row-context-menu" class="ctx-menu" style="display:none" role="menu" aria-label="주소 행 메뉴">
+  <button role="menuitem" class="ctx-item ctx-item-danger" id="wstep-row-ctx-delete" data-action="delete">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+    <span>행 삭제</span>
+  </button>
+</div>
+
+<div id="label-context-menu" class="ctx-menu" style="display:none" role="menu" aria-label="라벨 메뉴">
+  <button role="menuitem" class="ctx-item" id="ctx-copy"     data-action="copy">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+    <span>복사</span>
+    <kbd class="ctx-kbd">Ctrl+D</kbd>
+  </button>
+  <button role="menuitem" class="ctx-item" id="ctx-paste"    data-action="paste">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+    <span>붙여넣기</span>
+    <kbd class="ctx-kbd">Ctrl+V</kbd>
+  </button>
+  <div class="ctx-sep"></div>
+  <button role="menuitem" class="ctx-item ctx-item-danger" id="ctx-delete" data-action="delete">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+    <span>삭제</span>
+    <kbd class="ctx-kbd">Del</kbd>
+  </button>
+  <div class="ctx-sep"></div>
+  <button role="menuitem" class="ctx-item" id="ctx-lock"     data-action="lock">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+    <span id="ctx-lock-label">잠금</span>
+    <kbd class="ctx-kbd">Alt+L</kbd>
+  </button>
+  <div class="ctx-sep"></div>
+  <button role="menuitem" class="ctx-item" id="ctx-fill"     data-action="fill">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+    <span>현재 페이지 채우기</span>
+  </button>
+</div>
+
+<!-- ═══════════════ 일반 라벨 칸 우클릭 컨텍스트 메뉴 (주소 라벨과 동일한 스타일) ═══════════════ -->
+<div id="gl-context-menu" class="ctx-menu" style="display:none" role="menu" aria-label="칸 메뉴">
+  <!-- 개선: 항목이 9개+구분선 3개로 많아서 스캔이 느리다는 지적 반영 —
+       구분선마다 옅은 회색 소제목을 붙여 그룹을 즉시 구분할 수 있게 함
+       (Notion 메뉴의 섹션 라벨과 동일한 패턴, 클릭 불가능한 순수 라벨). -->
+  <div class="ctx-group-label" id="gl-ctx-glabel-crop">자르기 · 변형</div>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-crop" data-action="crop">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 002 2h14"/><path d="M18 22V8a2 2 0 00-2-2H2"/></svg>
+    <span>이미지 자르기</span>
+  </button>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-reset-img" data-action="reset-img">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+    <span>위치·크기·회전·자르기 초기화</span>
+  </button>
+  <div class="ctx-sep" id="gl-ctx-sep-a"></div>
+  <div class="ctx-group-label" id="gl-ctx-glabel-replace">이미지 교체</div>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-replace-cell" data-action="replace-cell">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    <span>이 칸만 이미지 교체</span>
+  </button>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-clear-img" data-action="clear-img">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+    <span>개별 이미지 해제</span>
+  </button>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-replace-all" data-action="replace-all">
+    <!-- 개선: "이 칸만"과 완전히 같은 아이콘이라 구분이 안 된다는 지적 반영 —
+         사진 한 장이 아니라 여러 장(전체 칸)임을 뜻하는 겹친 사진 아이콘으로 교체 -->
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="14" height="14" rx="2" opacity=".5"/><rect x="3" y="7" width="14" height="14" rx="2"/><circle cx="8.5" cy="12" r="1.2"/><polyline points="17 21 12 16 3 21"/></svg>
+    <span>이미지 교체 (전체 칸)</span>
+  </button>
+  <div class="ctx-sep" id="gl-ctx-sep-b"></div>
+  <div class="ctx-group-label" id="gl-ctx-glabel-copy">복사 · 붙여넣기</div>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-copy" data-action="copy">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+    <span>칸 내용 복사</span>
+  </button>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-paste" data-action="paste" disabled aria-disabled="true">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+    <span>붙여넣기</span>
+  </button>
+  <div class="ctx-sep" id="gl-ctx-sep-c"></div>
+  <div class="ctx-group-label" id="gl-ctx-glabel-manage">칸 관리</div>
+  <!-- [신규] 사이드바의 "전체 칸에 적용"을 캔버스에서 우클릭으로도 할 수 있게 —
+       사이드바 텍스트 입력칸까지 갔다 올 필요 없이, 이미 마음에 드는 내용이
+       입력된 칸을 바로 전체 칸에 채울 수 있다. -->
+  <button role="menuitem" class="ctx-item" id="gl-ctx-fill-all-text" data-action="fill-all-text">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    <span>이 칸 내용 전체 칸에 채우기</span>
+  </button>
+  <!-- [수정] "다른 칸으로 이 칸 채우기"(원본 고르기 모드)는 요청 의도와 달라 제거하고,
+       대신 이 칸의 텍스트·서식(글꼴·색·정렬 등)·이미지·자르기·회전 상태까지
+       전부 라벨의 "아직 비어 있는" 나머지 칸에만 채우는 기능으로 교체했다.
+       이미 내용이 있는 칸은 건드리지 않는다(실수로 덮어쓰지 않도록). -->
+  <button role="menuitem" class="ctx-item" id="gl-ctx-fill-empty-cells" data-action="fill-empty-cells">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1" stroke-dasharray="2 2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke-dasharray="2 2"/><rect x="14" y="14" width="7" height="7" rx="1" stroke-dasharray="2 2"/></svg>
+    <span>이 칸 전체(서식·이미지·회전 포함) 빈 칸에 채우기</span>
+  </button>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-clear-text" data-action="clear-text">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    <span>텍스트 지우기</span>
+  </button>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-reset-cell" data-action="reset-cell">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+    <span>이 칸 전체 초기화</span>
+  </button>
+  <!-- [신규] 여러 칸 다중 선택(Shift+클릭 범위/Ctrl+클릭 개별) 후 일괄 작업 메뉴 —
+       평소엔 숨겨져 있다가(display:none) 다중 선택 상태에서 그 중 한 칸을
+       우클릭하면 위 항목들은 모두 숨겨지고 이 그룹만 보인다. -->
+  <div class="ctx-group-label" id="gl-ctx-batch-group" style="display:none">
+    <span id="gl-ctx-batch-label">선택한 N칸</span>
+  </div>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-batch-clear-text" data-action="batch-clear-text" style="display:none">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    <span>선택한 칸 텍스트 지우기</span>
+  </button>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-batch-clear-img" data-action="batch-clear-img" style="display:none">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+    <span>선택한 칸 이미지 해제</span>
+  </button>
+  <button role="menuitem" class="ctx-item" id="gl-ctx-batch-reset" data-action="batch-reset" style="display:none">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+    <span>선택한 칸 전체 초기화</span>
+  </button>
+</div>
+
+<script src="./lib/search-parser.js"></script>
+<script src="./lib/label-geometry.js"></script>
+<script src="./lib/table-import.js"></script>
+<script src="./index.js"></script>
+<script src="./general-labels-data.js"></script>
+<script src="./general-labels.js"></script>
+<script src="./ui-refresh.js"></script>
+
+</body>
+</html>

@@ -113,7 +113,7 @@ class DeskApp extends StatelessWidget {
         cardTheme: CardTheme(
             color: cCard,
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22), side: const BorderSide(color: cBorder))),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
         dialogTheme: DialogTheme(
             backgroundColor: cSurface, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26))),
         bottomSheetTheme: const BottomSheetThemeData(
@@ -130,13 +130,13 @@ class DeskApp extends StatelessWidget {
                 shape: const StadiumBorder(), padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12))),
         outlinedButtonTheme: OutlinedButtonThemeData(
             style: OutlinedButton.styleFrom(
-                shape: const StadiumBorder(), side: const BorderSide(color: cBorder), foregroundColor: cText)),
+                shape: const StadiumBorder(), side: BorderSide.none, backgroundColor: Colors.white.withOpacity(0.07), foregroundColor: cText)),
         textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(shape: const StadiumBorder())),
         chipTheme: ChipThemeData(
             shape: const StadiumBorder(),
-            side: const BorderSide(color: cBorder),
+            side: BorderSide.none,
             pressElevation: 0,
-            backgroundColor: Colors.transparent,
+            backgroundColor: Colors.white.withOpacity(0.06),
             selectedColor: cAccent.withOpacity(0.24)),
         inputDecorationTheme: InputDecorationTheme(
             filled: true,
@@ -208,6 +208,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       });
     } else if (u.host == 'tasks') {
       setState(() => tab = 3);
+    } else if (u.host == 'work') {
+      setState(() => tab = 2);
     }
   }
 
@@ -360,8 +362,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                       color: cSurface.withOpacity(0.96),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: cBorder)),
+                      borderRadius: BorderRadius.circular(28)),
                   child: NavigationBar(
                     selectedIndex: tab,
                     animationDuration: kMid,
@@ -915,7 +916,7 @@ class ItemTile extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           decoration: BoxDecoration(
-              color: cCard, borderRadius: BorderRadius.circular(18), border: Border.all(color: cBorder.withOpacity(0.7))),
+              color: cCard, borderRadius: BorderRadius.circular(18)),
           child: Material(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(18),

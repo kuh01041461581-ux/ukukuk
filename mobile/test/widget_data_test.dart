@@ -45,4 +45,17 @@ void main() {
     final id2 = (todoWidgetData(data, today)['rows'] as List).firstWhere((r) => r['x'] == '지난 보고')['id'] as String;
     expect(findForToggle(data, today, id2)?['text'], '지난 보고');
   });
+
+  test('할 일 위젯: 마감이 가까운 업무가 맨 위에 D-day 로 나온다', () {
+    final data = sample();
+    data['_work'] = {
+      'a': {'id': 'a', 'title': '수요조사 제출', 'due': iso(addDays(today, 2)), 'done': false, 'created': 1},
+      'b': {'id': 'b', 'title': '먼 업무', 'due': iso(addDays(today, 30)), 'done': false, 'created': 2},
+    };
+    final rows = (todoWidgetData(data, today)['rows'] as List).cast<Map<String, dynamic>>();
+    expect(rows[0]['x'], '마감 임박');
+    expect(rows[1]['k'], 'w');
+    expect(rows[1]['s'], 'D-2');
+    expect(rows.where((r) => r['k'] == 'w').length, 1);
+  });
 }

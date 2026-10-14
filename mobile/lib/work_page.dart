@@ -9,7 +9,6 @@ import 'work.dart';
 
 const _bg = Color(0xFF16171F);
 const _card = Color(0xFF1C1E28);
-const _border = Color(0xFF292C3A);
 const _text = Color(0xFFF1F3F8);
 const _sub = Color(0xFF9AA4B8);
 const _dim = Color(0xFF687187);
@@ -95,7 +94,7 @@ class _CaseCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
           child: Container(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(22), border: Border.all(color: _border)),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(22)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(

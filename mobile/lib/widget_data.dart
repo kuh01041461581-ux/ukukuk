@@ -1,6 +1,7 @@
 // 홈 화면 위젯에 넣을 자료를 만든다 (월간 달력 위젯, 할 일 위젯). 화면과 무관한 순수 계산이라 시험할 수 있다.
 import 'core.dart';
 import 'holidays.dart';
+import 'work.dart';
 
 const _maxLines = 3; // 달력 한 칸에 보이는 일정 줄 수
 
@@ -94,6 +95,20 @@ Map<String, dynamic> todoWidgetData(Json data, DateTime today) {
         'd': t['done'] == true,
         'c': _colorCode(t),
       };
+
+  // 마감이 가까운 업무(공문): 일주일 안 또는 이미 지난 것 중 가장 급한 2건
+  final soon = sortedCases(data).where((c) {
+    final n = dday(c, today);
+    return n != null && n <= 7;
+  }).take(2).toList();
+  if (soon.isNotEmpty) {
+    rows.add({'k': 'h', 'x': '마감 임박'});
+    left--;
+    for (final c in soon) {
+      rows.add({'k': 'w', 'x': (c['title'] as String?) ?? '', 's': ddayLabel(dday(c, today)), 'n': dday(c, today)});
+      left--;
+    }
+  }
 
   final late = overdueRows(data, today);
   total += late.length;

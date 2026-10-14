@@ -202,10 +202,10 @@ class StickyManager:
         self._tick()
 
     def restore(self):
-        """윈도우를 켤 때: 접어 두었던 스티커도 펼쳐서, 마지막으로 두었던 자리에 메모가 그대로 보이게 한다.
+        """윈도우를 켤 때: 마지막으로 두었던 자리·크기·접힘 상태 그대로 나타난다
+        (접어 둔 스티커는 한 줄로 접힌 채, 펼쳐 둔 스티커는 펼쳐진 채).
         부팅 직후엔 화면 크기·배율이 아직 자리 잡지 않았을 수 있어 몇 초 뒤 한 번 더 제자리에 놓는다."""
         for c in list(self.app.conf.get("stickies", [])):
-            c["folded"] = False
             self._open(c)
         for ms in (1500, 6000, 15000):
             try:
@@ -215,7 +215,7 @@ class StickyManager:
 
     def replace_all(self):
         for n in list(self.notes.values()):
-            if not n.conf.get("folded") and not n._dragging:
+            if not n._dragging:
                 n._place()
 
     def add(self, d=None, inbox=False):

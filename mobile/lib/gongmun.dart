@@ -132,6 +132,7 @@ String _tidy(String t) {
   t = t.replaceAll(RegExp('[‘’\'`´"“”]'), '');
   t = t.replaceAll(RegExp(r'\(\s*[,.~∼～\-:·\s]*\)'), ' ');
   t = t.trim().replaceAll(_tail, '');
+  t = t.replaceAll(RegExp(r'\s*(?:은|는|이|가)?\s*(?:입니다|이며|이고|임)\s*[.,]?\s*$'), ''); // "조사 기간은 입니다" → "조사 기간"
   t = t.replaceAll(RegExp(r'(?:기한|마감일?)\s*[:：]\s*(?=\S)'), ' ');
   t = t.replaceAll(RegExp(r'\s*[:：]\s*(?=[,，;])'), ''); // 날짜를 빼고 남은 "설명회: , 장소"
   t = t.replaceAllMapped(RegExp(r'\s*([,，;])(?:\s*[,，;])+'), (m) => m.group(1)!);
@@ -218,11 +219,77 @@ String topicOf(String title) {
   return t;
 }
 
+final _submitList = RegExp(
+    r'^\s*(?:\d+\.\s*)?(?:[가-힣]\.\s*)?[<\[(]?\s*제출\s*(?:서류|자료|물|내용|서식|양식)\s*[>\])]?\s*[:：]\s*(.+)$');
+const _objNoun = r'(?:자료|서류|현황표?|계획서|보고서|결과|내역|명단|목록|조사표|신청서|서식|양식|통계|실적|의견|증빙|사진|'
+    r'점검표|확인서|동의서|대장|보고|계획|자료집)';
+final _obj = RegExp(r'((?:[가-힣A-Za-z0-9·\-]+\s+){0,4}[가-힣A-Za-z0-9·\-]*' + _objNoun +
+    r'(?:\s+[가-힣A-Za-z0-9·\-]*' + _objNoun + r')*)(?:을|를|은|는|이|가)?(?=[\s,.)\]]|$)');
+final _objDrop = RegExp(r'^(?:각|해당|관련|위|아래|다음|소관|부서별?|별첨|붙임|동|본|귀|우리|및|또는|까지|부터|이내|전까지|작성|작성한|\d+[.)]?)$');
+final _partEnd = RegExp(r'.*(?:은|는|에서|에게|으로|로|에|와|과|하여|하고|하며|하니|위해|대한|관한|따라|같이)$');
+final _verb = RegExp(r'(?:작성|취합|제출|회신|송부|보고|입력|등록)');
+
+/// '각 부서에서는 소관 공유재산 현황 자료' → '공유재산 현황 자료'
+String _cleanObj(String raw) {
+  var words = raw.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  while (words.isNotEmpty && (_objDrop.hasMatch(words.first) || _partEnd.hasMatch(words.first))) {
+    words.removeAt(0);
+  }
+  for (var k = words.length - 2; k >= 0; k--) {
+    if (_partEnd.hasMatch(words[k])) {
+      words = words.sublist(k + 1);
+      break;
+    }
+  }
+  words = words.where((w) => !_objDrop.hasMatch(w)).toList();
+  final tail = words.length > 4 ? words.sublist(words.length - 4) : words;
+  return _stripChars(tail.join(' ').trim(), ' ,.·-');
+}
+
+/// '제출 서류: 현황표(별지 제1호), 사용허가 현황 1부' → '현황표·사용허가 현황' (문서에 서류 목록이 있을 때)
+String submitList(List<String> paras) {
+  for (final p in paras) {
+    final m = _submitList.firstMatch(p.replaceFirst(_mark, ''));
+    if (m == null) continue;
+    final out = <String>[];
+    for (var it in m.group(1)!.split(RegExp(r'[,，、·ㆍ]|\s및\s|;|/'))) {
+      it = it.replaceAll(RegExp(r'[(（\[][^)）\]]*[)）\]]'), '');
+      it = it.replaceAll(RegExp(r'\s*(?:각\s*)?\d+\s*(?:부|매|개|건|종)\s*$'), '');
+      it = _stripChars(it.replaceAll(RegExp(r'\s*(?:을|를|등)\s*$'), ''), ' .:-');
+      if (it.replaceAll(RegExp(r'[^가-힣A-Za-z0-9]'), '').length >= 2 && !out.contains(it)) out.add(it);
+    }
+    if (out.isNotEmpty) {
+      return out.take(3).join('·') + (out.length > 3 ? ' 외 ${out.length - 3}' : '');
+    }
+  }
+  return '';
+}
+
+/// 마감 날짜가 들어 있는 문장에서 '무엇을' 내라는 건지 찾는다. lo~hi 는 이 날짜의 문장 범위(앞뒤 다른 날짜 사이)
+String whatToSubmit(String body, int lo, int s0, int e0, int hi) {
+  final before = body.substring(lo, s0), after = body.substring(e0, hi);
+  final vb = _verb.allMatches(before).toList();
+  String window;
+  if (vb.isNotEmpty) {
+    window = before.substring(0, vb.last.start);
+  } else {
+    final va = _verb.firstMatch(after);
+    window = '$before ${va != null ? after.substring(0, va.start) : after.substring(0, after.length < 40 ? after.length : 40)}';
+  }
+  var best = '';
+  for (final m in _obj.allMatches(window)) {
+    final obj = _cleanObj(m.group(1)!);
+    if (obj.replaceAll(RegExp(r'[^가-힣A-Za-z0-9]'), '').length >= 3) best = obj;
+  }
+  return best;
+}
+
 /// 반환: (제목, 일정 후보 목록). withTopic: 일정 이름 앞에 공문 주제를 붙인다 ('[공유재산 실태조사] 조사 기간')
 (String, List<GongmunItem>) parseGongmun(String text, DateTime today, {bool withTopic = true}) {
   final paras = paragraphs(text);
   final title = findTitle(text, paras);
   final topic = withTopic ? topicOf(title) : '';
+  final listed = submitList(paras); // '제출 서류: …' 가 있으면 모든 제출기한에 그 서류를 붙인다
   var year = today.year;
   for (final p in paras) {
     final m = _date.firstMatch(p);
@@ -294,6 +361,12 @@ String topicOf(String title) {
       if (topic.isNotEmpty) {
         final kind = kindOf(core);
         label = topic.contains(kind) ? topic : (kind.contains(topic) ? kind : '$topic $kind');
+        if (kind == '제출기한') {
+          final lo = k > 0 ? spans[k - 1].stop : 0;
+          final hi = k + 1 < spans.length ? spans[k + 1].start : body.length;
+          final what = listed.isNotEmpty ? listed : whatToSubmit(body, lo, s.start, s.stop, hi);
+          if (what.isNotEmpty) label = '$what 제출 · $topic';
+        }
       }
       found.add(GongmunItem(s.d, s.end, s.when, label, title, s.end != null && _period.hasMatch(pa), _urgent.hasMatch(ctx) ? 1 : 2,
           detail: core));

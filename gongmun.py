@@ -136,6 +136,7 @@ def _tidy(t):
     t = re.sub(r"[‘’'`´\"“”]", "", t)
     t = re.sub(r"\(\s*[,.~∼～\-:·\s]*\)", " ", t)                 # 비어 버린 괄호
     t = _TAIL.sub("", t.strip())
+    t = re.sub(r"\s*(?:은|는|이|가)?\s*(?:입니다|이며|이고|임)\s*[.,]?\s*$", "", t)      # "조사 기간은 입니다" → "조사 기간"
     t = re.sub(r"(?:기한|마감일?)\s*[:：]\s*(?=\S)", " ", t)           # "제출 기한: 제출" 처럼 겹치는 말
     t = re.sub(r"\s*[:：]\s*(?=[,，;])", "", t)                       # 날짜를 빼고 남은 "설명회: , 장소"
     t = re.sub(r"\s*([,，;])(?:\s*[,，;])+", r"\1", t)
@@ -215,6 +216,65 @@ def kind_of(core):
     return c[:12].rstrip() + "…"
 
 
+_SUBMIT_LIST = re.compile(r"^\s*(?:\d+\.\s*)?(?:[가-힣]\.\s*)?[<\[(]?\s*제출\s*(?:서류|자료|물|내용|서식|양식)\s*[>\])]?\s*[:：]\s*(.+)$")
+_OBJ_NOUN = (r"(?:자료|서류|현황표?|계획서|보고서|결과|내역|명단|목록|조사표|신청서|서식|양식|통계|실적|의견|증빙|사진|"
+             r"점검표|확인서|동의서|대장|보고|계획|자료집)")
+_OBJ = re.compile(r"((?:[가-힣A-Za-z0-9·\-]+\s+){0,4}[가-힣A-Za-z0-9·\-]*" + _OBJ_NOUN
+                  + r"(?:\s+[가-힣A-Za-z0-9·\-]*" + _OBJ_NOUN + r")*)(?:을|를|은|는|이|가)?(?=[\s,.)\]]|$)")
+_OBJ_DROP = re.compile(r"^(?:각|해당|관련|위|아래|다음|소관|부서별?|별첨|붙임|동|본|귀|우리|및|또는|까지|부터|이내|전까지|작성|작성한|\d+[.)]?)$")
+_PART_END = re.compile(r".*(?:은|는|에서|에게|으로|로|에|와|과|하여|하고|하며|하니|위해|대한|관한|따라|같이)$")
+_VERB = re.compile(r"(?:작성|취합|제출|회신|송부|보고|입력|등록)")
+
+
+def _clean_obj(raw):
+    """'각 부서에서는 소관 공유재산 현황 자료' → '공유재산 현황 자료'"""
+    words = [w for w in raw.split() if w]
+    while words and (_OBJ_DROP.match(words[0]) or _PART_END.match(words[0])):
+        words.pop(0)
+    for k in range(len(words) - 1, -1, -1):          # 조사로 끝나는 말이 앞에 있으면 그 뒤부터가 목적어
+        if k < len(words) - 1 and _PART_END.match(words[k]):
+            words = words[k + 1:]
+            break
+    words = [w for w in words if not _OBJ_DROP.match(w)]
+    return " ".join(words[-4:]).strip(" ,.·-")
+
+
+def submit_list(paras):
+    """'제출 서류: 현황표(별지 제1호), 사용허가 현황 1부' → '현황표·사용허가 현황' (문서에 서류 목록이 있을 때)"""
+    for p in paras:
+        m = _SUBMIT_LIST.match(_MARK.sub("", p, count=1))
+        if not m:
+            continue
+        out = []
+        for it in re.split(r"[,，、·ㆍ]|\s및\s|;|/", m.group(1)):
+            it = re.sub(r"[(（\[][^)）\]]*[)）\]]", "", it)                      # (별지 제1호 서식) 같은 괄호
+            it = re.sub(r"\s*(?:각\s*)?\d+\s*(?:부|매|개|건|종)\s*$", "", it)   # 1부
+            it = re.sub(r"\s*(?:을|를|등)\s*$", "", it).strip(" .:-")
+            if len(re.sub(r"[^가-힣A-Za-z0-9]", "", it)) >= 2 and it not in out:
+                out.append(it)
+        if out:
+            return "·".join(out[:3]) + (f" 외 {len(out) - 3}" if len(out) > 3 else "")
+    return ""
+
+
+def what_to_submit(body, lo, s0, e0, hi):
+    """마감 날짜가 들어 있는 문장에서 '무엇을' 내라는 건지 찾는다: '… 현황 자료를 작성하여 10. 28.까지 제출' → '현황 자료'
+    lo~hi 는 이 날짜의 문장 범위(앞뒤 다른 날짜 사이) — 다른 일정의 '제출'과 섞이지 않게"""
+    before, after = body[lo:s0], body[e0:hi]
+    vb = list(_VERB.finditer(before))
+    if vb:                                  # '… 점검 결과 제출 : 5. 22' — 동사가 날짜 앞에 있으면 그 앞이 목적어
+        window = before[:vb[-1].start()]
+    else:                                   # '10. 28.까지 … 현황 자료를 제출' — 동사가 날짜 뒤에 있으면 날짜 앞뒤가 목적어
+        va = _VERB.search(after)
+        window = before + " " + (after[:va.start()] if va else after[:40])
+    best = ""
+    for m in _OBJ.finditer(window):
+        obj = _clean_obj(m.group(1))
+        if len(re.sub(r"[^가-힣A-Za-z0-9]", "", obj)) >= 3:
+            best = obj                       # 동사(제출)에 가장 가까운 것
+    return best
+
+
 def parse(text, today=None, with_topic=True):
     """반환: (제목, [{"date": date, "end": date|None, "time": "HH:MM"|"", "text": str, "pri": 0~3}, ...])
     with_topic: 일정 이름 앞에 공문 주제를 붙인다 ('[공유재산 실태조사] 조사 기간') — 무엇에 관한 일정인지 알 수 있게"""
@@ -222,6 +282,7 @@ def parse(text, today=None, with_topic=True):
     paras = paragraphs(text)
     title = find_title(text, paras)
     topic = topic_of(title) if with_topic else ""
+    listed = submit_list(paras)             # '제출 서류: …' 가 있으면 모든 제출기한에 그 서류를 붙인다
 
     # 문서 연도: 본문에서 처음 나오는 '연도 포함 날짜'의 연도, 없으면 올해
     year = today.year
@@ -285,6 +346,12 @@ def parse(text, today=None, with_topic=True):
             if topic:                                  # '공유재산 실태조사 제출기한' — 무엇의 어떤 일정인지 한눈에, 긴 설명은 detail(메모)로
                 kind = kind_of(core)
                 label = topic if kind in topic else (kind if topic in kind else f"{topic} {kind}")
+                if kind == "제출기한":                # 달력에서 '무엇을 내야 하는지' 바로 보이게: '현황표·사용허가 현황 제출 · 공유재산 실태조사'
+                    lo = spans[k - 1][1] if k > 0 else 0
+                    hi = spans[k + 1][0] if k + 1 < len(spans) else len(body)
+                    what = listed or what_to_submit(body, lo, s0, e0, hi)
+                    if what:
+                        label = f"{what} 제출 · {topic}"
             found.append({"date": d, "end": end, "time": when, "text": label, "detail": core, "doc": title,
                           "period": bool(end) and bool(_PERIOD.search(body[max(0, s0 - 40):e0 + 20])),
                           "pri": 1 if _URGENT.search(ctx) else 2})

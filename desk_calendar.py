@@ -679,7 +679,7 @@ class ImportDialog:
             msg = f"{len(picked)}개 일정을 추가했어요."
             if case:
                 msg += "\n업무 폴더도 만들었어요. '업무'에서 기한과 폴더를 볼 수 있어요."
-            NotifyPopup(app, "가져오기 완료", msg, beep=False,
+            NotifyPopup(app, "가져오기 완료", msg, beep=False, near_calendar=True,
                         actions=[("업무 열기", lambda: app.open_work(case["id"]))] if case else None)
 
 
@@ -1261,13 +1261,13 @@ class CommandBar:
             core.delete_item(app.data, item)
             app._after_todo_change()
         when = f"{d.month}/{d.day}({'월화수목금토일'[d.weekday()]})" + (f" {r['time']}" if r["time"] else "")
-        NotifyPopup(app, "일정 추가됨", f"{when}  {r['text']}", action=("실행 취소", undo))
+        NotifyPopup(app, "일정 추가됨", f"{when}  {r['text']}", action=("실행 취소", undo), near_calendar=True)
 
 
 class NotifyPopup:
     """화면 오른쪽 아래에 뜨는 알림 카드"""
 
-    def __init__(self, app, title, body, on_snooze=None, action=None, actions=None, beep=True):
+    def __init__(self, app, title, body, on_snooze=None, action=None, actions=None, beep=True, near_calendar=False):
         self.app = app
         S = app.S
         top = self.top = tk.Toplevel(app.root)
@@ -1294,7 +1294,15 @@ class NotifyPopup:
         w, h = top.winfo_reqwidth(), top.winfo_reqheight()
         vx, vy, vw, vh = virtual_screen(app.root)
         off = sum(p.top.winfo_reqheight() + S(10) for p in app.popups)
-        top.geometry(f"+{vx + vw - w - S(20)}+{vy + vh - h - S(70) - off}")
+        if near_calendar:                              # 달력이 있는 곳(달력 창 오른쪽 아래)에 띄운다
+            r = app.root
+            x = r.winfo_rootx() + r.winfo_width() - w - S(16)
+            y = r.winfo_rooty() + r.winfo_height() - h - S(16) - off
+            x = min(max(x, vx), vx + vw - w)
+            y = min(max(y, vy), vy + vh - h)
+            top.geometry(f"+{x}+{y}")
+        else:
+            top.geometry(f"+{vx + vw - w - S(20)}+{vy + vh - h - S(70) - off}")
         app.popups.append(self)
         while len(app.popups) > 4:                     # 알림이 너무 쌓이면 오래된 것부터 닫는다
             app.popups[0].close()
@@ -2269,7 +2277,7 @@ class TemplateDialog:
         self.top.destroy()
         if n:
             app._after_todo_change()
-            NotifyPopup(app, "반복 업무 추가", f"{n}개를 달력에 넣었어요. 각 일정을 눌러 날짜·반복을 바꿀 수 있어요.", beep=False)
+            NotifyPopup(app, "반복 업무 추가", f"{n}개를 달력에 넣었어요. 각 일정을 눌러 날짜·반복을 바꿀 수 있어요.", beep=False, near_calendar=True)
 
 
 class HelpDialog:
@@ -4945,7 +4953,7 @@ class DeskCalendar:
             acts.append(("업무 열기", lambda: self.open_work(cases_all[0]["id"])))
         if added or cases_new:
             acts.append(("실행 취소", undo))
-        NotifyPopup(self, "공문 가져오기", msg, actions=acts)
+        NotifyPopup(self, "공문 가져오기", msg, actions=acts, near_calendar=True)
         if self.workwin is not None:
             self.workwin.build_left()
 

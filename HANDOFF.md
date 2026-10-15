@@ -33,6 +33,9 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 - 유리형 머리 줄(달 이름·버튼·요일)은 투명으로 두면 바탕화면에 묻혀 안 보이므로 칸과 같은 은은한 유리 띠를 깐다(테두리 없음).
 - 공문 일정 이름·메모는 **줄이지 않는다**(`…` 로 자르는 코드를 없앰). 화면에서 자리가 모자랄 때만 달력 칸이 `…` 로 줄여 보인다.
 
+- 입력 칸 글자 크기: 한글 조합 중인 글자는 윈도우 입력기가 따로 그려 칸 글자와 크기가 달랐다 → `sync_ime_font()` 가 Entry/Text 포커스·키 입력 때 입력기에 칸의 글꼴을 알려 줌(윈도우만, 실기기 확인 필요). 스티커의 완료 줄도 일반 줄과 같은 크기(7pt)로 맞춤.
+- 스티커는 작업표시줄에 안 보이게 `WS_EX_TOOLWINDOW` 로 만들고, 트레이 메뉴에 '스티커 메모 새로 만들기 / 모두 숨기기·보이기'가 있다(실기기 확인 필요).
+
 ## 실행·시험
 ```
 python tests/test_fixtures.py ; python tests/test_work.py ; python tests/test_sticky.py ; python tests/test_sticky_inbox.py   # 뒤 둘은 Tk 필요

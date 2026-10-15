@@ -57,6 +57,42 @@ FALLBACK_FONT = "Malgun Gothic" if IS_WIN else "NanumGothic"
 DEFAULT_FONT = BUNDLED_FONT
 
 
+def sync_ime_font(widget):
+    """한글을 칠 때 아직 확정 안 된 글자는 윈도우 입력기가 따로 그린다. 기본 크기로 그려져 칸의 글자와 크기가 달랐으므로
+    입력기에게 이 칸의 글꼴·크기를 알려 준다 (윈도우만)"""
+    if not IS_WIN:
+        return
+    try:
+        f = tkfont.Font(font=widget.cget("font"))
+        hwnd = ctypes.windll.user32.GetAncestor(widget.winfo_id(), 2)       # GA_ROOT
+        imm = ctypes.windll.imm32
+        imm.ImmGetContext.restype = ctypes.c_void_p
+        imm.ImmGetContext.argtypes = [ctypes.c_void_p]
+        himc = imm.ImmGetContext(hwnd)
+        if not himc:
+            return
+
+        class LOGFONTW(ctypes.Structure):
+            _fields_ = [("lfHeight", ctypes.c_long), ("lfWidth", ctypes.c_long), ("lfEscapement", ctypes.c_long),
+                        ("lfOrientation", ctypes.c_long), ("lfWeight", ctypes.c_long), ("lfItalic", ctypes.c_byte),
+                        ("lfUnderline", ctypes.c_byte), ("lfStrikeOut", ctypes.c_byte), ("lfCharSet", ctypes.c_byte),
+                        ("lfOutPrecision", ctypes.c_byte), ("lfClipPrecision", ctypes.c_byte),
+                        ("lfQuality", ctypes.c_byte), ("lfPitchAndFamily", ctypes.c_byte),
+                        ("lfFaceName", ctypes.c_wchar * 32)]
+        lf = LOGFONTW()
+        px = int(f.cget("size"))
+        lf.lfHeight = px if px < 0 else -round(px * widget.winfo_fpixels("1i") / 72)
+        lf.lfWeight = 700 if f.actual("weight") == "bold" else 400
+        lf.lfCharSet = 129                                                    # HANGUL_CHARSET
+        lf.lfFaceName = f.actual("family")[:31]
+        imm.ImmSetCompositionFontW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        imm.ImmSetCompositionFontW(himc, ctypes.byref(lf))
+        imm.ImmReleaseContext.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        imm.ImmReleaseContext(hwnd, himc)
+    except Exception:
+        pass
+
+
 def load_bundled_fonts():
     """assets/fonts 의 노토 산스를 이 프로그램에서만 쓰도록 등록한다 (설치·관리자 권한 필요 없음, 윈도우만)"""
     if not IS_WIN:
@@ -360,6 +396,8 @@ def start_tray(q):
         pystray.MenuItem("오늘 일정 추가", put("add")),
         pystray.MenuItem("클립보드 내용으로 일정 만들기", put("clip")),
         pystray.MenuItem("업무 관리", put("work")),
+        pystray.MenuItem("스티커 메모 새로 만들기", put("sticker_new")),
+        pystray.MenuItem("스티커 메모 모두 숨기기/보이기", put("sticker_toggle")),
         pystray.MenuItem("휴대폰 연결", put("phone")),
         pystray.MenuItem("설정", put("settings")),
         pystray.Menu.SEPARATOR,
@@ -5162,6 +5200,10 @@ class DeskCalendar:
             PhoneDialog(self)
         elif cmd == "work":
             self.open_work()
+        elif cmd == "sticker_new":
+            self.stickers.add()
+        elif cmd == "sticker_toggle":
+            self.stickers.toggle_hidden()
 
         elif cmd == "settings":
             self.summon(popup=False)
@@ -5255,6 +5297,9 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
     load_bundled_fonts()
     root = tk.Tk()
+    for cls in ("Entry", "Text"):        # 어느 입력 칸이든 한글 조합 글자가 칸의 글자 크기로 보이게
+        root.bind_class(cls, "<FocusIn>", lambda e: sync_ime_font(e.widget), add="+")
+        root.bind_class(cls, "<KeyPress>", lambda e: sync_ime_font(e.widget), add="+")
     DeskCalendar(root, pdfs)
     root.mainloop()
 

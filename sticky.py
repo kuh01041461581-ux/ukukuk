@@ -1,6 +1,7 @@
 """바탕화면 스티커: 날짜 하나의 일정과 메모를 한 장에 보여 주는 작은 창.
 끌어서 옮기고, 접고 펴고, 크기·색을 바꿀 수 있다. 메모는 달력의 그날 메모와 같은 것이라 어디서 고쳐도 같이 바뀐다.
 스티커 위치·크기·색은 데이터(폰과 동기화되는 일정)가 아니라 이 PC의 설정(conf["stickies"])에만 저장한다."""
+import ctypes
 import datetime as dt
 import re
 import tkinter as tk
@@ -323,11 +324,24 @@ class Sticky:
                     st = u.GetClassLongPtrW(h, -26)            # GCL_STYLE
                     if st & 0x20000:
                         u.SetClassLongPtrW(h, -26, st & ~0x20000)
+            self._tool_window(u)
             if not self.mgr.hidden:
                 self.top.withdraw()
                 self.top.deiconify()
         except Exception:
             pass
+
+    def _tool_window(self, u):
+        """작업표시줄에 스티커마다 단추가 생기지 않게 '도구 창'으로 만든다 (트레이 아이콘 하나로 모아서 다룬다)"""
+        u.GetWindowLongPtrW.restype = ctypes.c_ssize_t
+        u.GetWindowLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        u.SetWindowLongPtrW.restype = ctypes.c_ssize_t
+        u.SetWindowLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_ssize_t]
+        wid = self.top.winfo_id()
+        for h in {wid, u.GetParent(wid)}:
+            if h:
+                ex = u.GetWindowLongPtrW(h, -20)               # GWL_EXSTYLE
+                u.SetWindowLongPtrW(h, -20, (ex | 0x80) & ~0x40000)   # TOOLWINDOW 켜고 APPWINDOW 끔
 
     # ── 위치·크기 ──
     def _place(self):
@@ -586,7 +600,7 @@ class Sticky:
         chk.pack(side="left", anchor="n", pady=S(1))
         chk.bind("<Button-1>", lambda e, t=t: app.toggle_todo(t))
         txt = (t["time"] + "  " if t.get("time") else "") + t.get("text", "")
-        lb = tk.Label(r, text=txt, font=app.f_done if done else app.f_small, bg=base, fg=INK_DIM if done else INK,
+        lb = tk.Label(r, text=txt, font=self.fmt._fonts[2] if done else app.f_small, bg=base, fg=INK_DIM if done else INK,
                       anchor="w", justify="left", wraplength=max(S(120), self.conf["w"] - S(70)))
         lb.pack(side="left", fill="x", expand=True, padx=(S(8), 0))
         lb.bind("<Double-Button-1>", lambda e, t=t: app.edit_item(t))

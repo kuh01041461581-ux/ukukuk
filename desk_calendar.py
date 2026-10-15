@@ -2351,7 +2351,7 @@ class HelpDialog:
         ("창 크기", "창 가장자리나 모서리에 마우스를 가져가면 양방향 화살표가 나와요. 끌면 창 크기가 바뀌어요."),
         ("달력 글자", "위쪽 '달력 글자 －/＋' 또는 Ctrl+마우스 휠로 달력 칸 안 글자만 키우고 줄여요. (팝업·입력창은 그대로)"),
         ("글자·색", "위쪽 'Aa' 에서 글자 크기, 글꼴, 색상 테마, 강조색, 중요도 색, 투명도를 바꿔요."),
-        ("스티커 메모", "'스티커' 버튼(또는 ☰ 메뉴)으로 바탕화면에 스티커를 붙여요. 닫은 스티커도 '스티커' 버튼을 누르면 한꺼번에 다시 떠요. 새 스티커는 스티커 머리 줄의 ＋ 로 만들어요. 그날의 일정과 메모가 한 장에 보여요. 제목줄을 끌면 옮겨지고(화면 끝·다른 스티커에 달라붙어요), 두 번 누르거나 ▴ 로 접어요. ● 에서 색·투명도, '고정'은 항상 위, ‹ › 로 날짜를 넘겨요. 메모는 달력의 그날 메모와 같아서 어디서 고쳐도 같이 바뀌어요."),
+        ("스티커 메모", "'스티커' 버튼(또는 ☰ 메뉴)으로 바탕화면에 스티커를 붙여요. '스티커' 버튼을 누르면 닫아 둔 스티커가 한꺼번에 다시 뜨고 새 스티커도 하나 붙어요. 그날의 일정과 메모가 한 장에 보여요. 제목줄을 끌면 옮겨지고(화면 끝·다른 스티커에 달라붙어요), 두 번 누르거나 ▴ 로 접어요. ● 에서 색·투명도, '고정'은 항상 위, ‹ › 로 날짜를 넘겨요. 메모는 달력의 그날 메모와 같아서 어디서 고쳐도 같이 바뀌어요."),
         ("빠른 입력", "Ctrl+Alt+Space 를 누르면 어디서든 오늘 날짜 입력창이 바로 열려요."),
     ]
 
@@ -3845,7 +3845,7 @@ class DeskCalendar:
         sum_end = sx
         n_case = sum(1 for c in (self.data.get("_work") or {}).values() if not c.get("done"))
         labels = [(f"업무 {n_case}" if n_case else "업무", lambda e: self.open_work()),
-                  ("스티커", lambda e: self.stickers.open_all()),
+                  ("스티커", lambda e: self.stickers.open_all(self.selected if self.selected != self.today else None)),
                   ("보관함", lambda e: self.open_inbox()), ("공문", lambda e: self.import_pdf()),
                   ("검색", lambda e: self.open_search()), ("폰 연결", lambda e: PhoneDialog(self)),
                   ("설정", lambda e: self.open_settings()),

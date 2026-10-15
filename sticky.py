@@ -251,9 +251,9 @@ class StickyManager:
         self.app.conf["stickies_closed"] = closed[-30:]
         self.save()
 
-    def open_all(self):
-        """'스티커' 버튼: 닫아 둔 스티커가 있으면 모두 한꺼번에 다시 띄운다. 없으면 떠 있는 스티커를 앞으로 가져오고,
-        스티커가 하나도 없을 때만 새로 만든다"""
+    def open_all(self, new_for=False):
+        """닫아 둔 스티커가 있으면 모두 한꺼번에 다시 띄우고, 떠 있는 스티커는 앞으로 가져온다.
+        new_for 가 False 가 아니면('스티커' 버튼) 새 스티커도 하나 더 띄운다 (None = 오늘을 따라가는 스티커, 날짜 = 그날 스티커)"""
         closed = list(self.app.conf.get("stickies_closed", []))
         self.app.conf["stickies_closed"] = []
         if self.hidden:
@@ -266,15 +266,14 @@ class StickyManager:
                 self._open(c)
         if closed:
             self.save()
-        if not self.notes:
-            self.add()
-            return
         for n in self.notes.values():
             try:
                 n.top.deiconify()
                 n.top.lift()
             except tk.TclError:
                 pass
+        if new_for is not False or not self.notes:
+            self.add(new_for or None)
 
     def save(self):
         self.app.conf["stickies"] = [n.conf for n in self.notes.values()]

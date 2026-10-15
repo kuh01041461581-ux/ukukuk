@@ -76,12 +76,11 @@ pos = {k: (v.conf["x"], v.conf["y"], v.conf["color"]) for k, v in a.stickers.not
 for n in list(a.stickers.notes.values()):
     n.close()
 assert not a.stickers.notes and len(a.conf["stickies_closed"]) == 3
-a.stickers.open_all(); root.update()
-assert sorted(a.stickers.notes) == ids, (sorted(a.stickers.notes), ids)
-assert {k: (v.conf["x"], v.conf["y"], v.conf["color"]) for k, v in a.stickers.notes.items()} == pos
+a.stickers.open_all(None); root.update()                          # '스티커' 버튼: 닫은 3개가 돌아오고 새 것도 하나 더
+assert set(ids) <= set(a.stickers.notes) and len(a.stickers.notes) == 4, sorted(a.stickers.notes)
+assert {k: (v.conf["x"], v.conf["y"], v.conf["color"]) for k, v in a.stickers.notes.items() if k in pos} == pos
 assert a.conf["stickies_closed"] == []
-n1 = a.stickers.notes[ids[0]]; n1.close()
-a.stickers.open_all(); assert len(a.stickers.notes) == 3          # 하나만 닫았어도 그 하나가 돌아온다
-a.stickers.open_all(); assert len(a.stickers.notes) == 3          # 닫은 게 없으면 새로 만들지 않는다
+a.stickers.open_all(None); assert len(a.stickers.notes) == 5      # 닫은 게 없어도 버튼은 새 스티커를 붙인다
+a.stickers.open_all(); assert len(a.stickers.notes) == 5          # 트레이·메뉴의 '모두 열기'는 새로 만들지 않는다
 a.stickers.close_all(); a.conf["stickies_closed"] = []; a.stickers.open_all(); assert len(a.stickers.notes) == 1   # 하나도 없을 때만 새로
 print("REOPEN OK")

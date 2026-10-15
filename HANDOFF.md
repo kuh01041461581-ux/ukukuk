@@ -36,6 +36,8 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 - 입력 칸 글자 크기: 한글 조합 중인 글자는 윈도우 입력기가 따로 그려 칸 글자와 크기가 달랐다 → `sync_ime_font()` 가 Entry/Text 포커스·키 입력 때 입력기에 칸의 글꼴을 알려 줌(윈도우만, 실기기 확인 필요). 스티커의 완료 줄도 일반 줄과 같은 크기(7pt)로 맞춤.
 - 스티커는 작업표시줄에 안 보이게 `WS_EX_TOOLWINDOW` 로 만들고, 트레이 메뉴에 '스티커 메모 새로 만들기 / 모두 숨기기·보이기'가 있다(실기기 확인 필요).
 
+- 메모 연동: 스티커 메모 ↔ 오른쪽 패널 메모는 같은 데이터(날짜별 memo)를 본다. `_commit` 이 스티커와 패널 메모 칸을 함께 갱신(`_pull_panel_memo`), 패널은 이 칸에서 고친 적이 있을 때만 저장(`edit_modified`)해서 옛 글로 덮어쓰지 않는다. 시험: tests/test_memo_sync.py
+
 ## 실행·시험
 ```
 python tests/test_fixtures.py ; python tests/test_work.py ; python tests/test_sticky.py ; python tests/test_sticky_inbox.py   # 뒤 둘은 Tk 필요

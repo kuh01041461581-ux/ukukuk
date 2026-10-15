@@ -4381,6 +4381,7 @@ class DeskCalendar:
         self.memo.delete("1.0", "end")
         self.memo.insert("1.0", self._entry(d).get("memo", ""))
         self.memo.edit_reset()
+        self.memo.edit_modified(False)
         self.render_todos()
         self.todo_canvas.yview_moveto(0)
 
@@ -4428,12 +4429,32 @@ class DeskCalendar:
             self._save_job = None
         if self._memo_date is None:
             return
+        if not self.memo.edit_modified():          # 이 칸에서 고친 적이 없으면 저장하지 않는다 (스티커·폰이 고친 것을 옛 글로 덮어쓰지 않게)
+            return
+        self.memo.edit_modified(False)
         text = self.memo.get("1.0", "end-1c")
         if self._entry(self._memo_date).get("memo", "") != text:
             e = self._entry(self._memo_date, create=True)
             e["memo"], e["memo_ts"] = text, core.now_ms()
             self._commit()
             self.draw_calendar()
+
+    def _pull_panel_memo(self):
+        """스티커나 폰에서 고친 메모가 오른쪽 패널의 메모 칸에도 바로 보이게 한다 (여기서 입력 중이면 건드리지 않는다)"""
+        d = getattr(self, "_memo_date", None)
+        if d is None or self._save_job or self.memo.edit_modified():
+            return
+        try:
+            if self.root.focus_get() is self.memo:
+                return
+            text = self._entry(d).get("memo", "")
+            if self.memo.get("1.0", "end-1c") != text:
+                self.memo.delete("1.0", "end")
+                self.memo.insert("1.0", text)
+                self.memo.edit_reset()
+                self.memo.edit_modified(False)
+        except tk.TclError:
+            pass
 
     def _draw_progress(self):
         p = self.prog
@@ -5049,6 +5070,7 @@ class DeskCalendar:
         st = getattr(self, "stickers", None)
         if st is not None:
             st.refresh()
+        self._pull_panel_memo()
 
     def _save_conf(self):
         self.conf["locked"] = self.locked.get()

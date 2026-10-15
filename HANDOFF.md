@@ -49,6 +49,8 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 - 공문 일정 이름(사용자가 실제 공문 2건으로 확인): 제목 자체가 '… 제출(요청)' 이고 제출기한이 하나면 **제목에서 연도·'요청'만 뺀 것이 그대로 일정 이름**(`submit_title` / `submitTitle`; 예 '제10차 ○○위원회 심의안건 제출', '공유재산 실태조사 결과 제출'). '관련문서 ○○과-991(2026.3.16.)호' 같은 문서번호 옆 발송 날짜는 일정으로 넣지 않는다(`_is_doc_ref_date`). 실제 공문은 커밋하지 않고 가짜 문서로만 시험(tests/gongmun_cases.json).
 - 달력에서 마우스 휠로 주·월이 넘어가지 않는다(Ctrl+휠은 글자 크기). 주 이동은 오늘 옆 ‹ › 로만.
 
+- 스티커는 자리마다 **한 장**: 날짜 스티커는 날짜마다, '오늘'은 오늘 날짜로 세고, 날짜 없는 칸은 하나(`StickyManager.key_of`). `add()` 는 이미 있으면 새로 만들지 않고 앞으로 가져온다. 머리 줄 ＋ 는 다음 날짜(스티커 없는 첫 날짜, `add_next`). 닫을 때 내용(메모·일정)이 있는 스티커만 닫아 둔 목록에 남는다. 켤 때 중복 스티커는 정리(`_dedupe`).
+
 ## 실행·시험
 ```
 python tests/test_fixtures.py ; python tests/test_work.py ; python tests/test_sticky.py ; python tests/test_sticky_inbox.py   # 뒤 둘은 Tk 필요

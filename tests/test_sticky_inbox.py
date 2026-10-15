@@ -67,22 +67,52 @@ plus._on_press(None); plus._on_release(type("E", (), {"x": 2, "y": 2})())
 root.update(); assert len(a.stickers.notes) == cnt + 1
 print("POSTIT OK")
 
-# 5) 닫은 스티커는 '스티커' 버튼 한 번에 모두 다시 뜬다 (자리·설정 그대로)
+# 5) 닫은 스티커는 '스티커' 버튼 한 번에 모두 다시 뜬다 (내용이 있는 것만, 자리·설정 그대로)
+import datetime as _dt
 a.stickers.close_all()
 a.conf["stickies_closed"] = []
-a.stickers.add(); a.stickers.add(inbox=True); a.stickers.add(); root.update()
+a.stickers.add(); a.stickers.add(inbox=True); a.stickers.add(_dt.date(2031, 5, 5)); root.update()
+assert len(a.stickers.notes) == 3
+a._entry(a.today, create=True)["memo"] = "오늘 메모"
+a._inbox(create=True)["memo"] = "보관함 메모"
+a._entry(_dt.date(2031, 5, 5), create=True)["todos"] = [core.new_item("할 일")]
+a.stickers.refresh(); root.update()                               # 스티커 화면이 데이터를 따라가게
 ids = sorted(a.stickers.notes)
 pos = {k: (v.conf["x"], v.conf["y"], v.conf["color"]) for k, v in a.stickers.notes.items()}
 for n in list(a.stickers.notes.values()):
     n.close()
 assert not a.stickers.notes and len(a.conf["stickies_closed"]) == 3
-a.stickers.open_all(None); root.update()                          # '스티커' 버튼: 닫은 3개가 돌아오고 새 것도 하나 더
-assert set(ids) <= set(a.stickers.notes) and len(a.stickers.notes) == 4, sorted(a.stickers.notes)
-assert {k: (v.conf["x"], v.conf["y"], v.conf["color"]) for k, v in a.stickers.notes.items() if k in pos} == pos
+a.stickers.open_all(); root.update()                              # 닫은 3개가 한꺼번에 돌아온다
+assert sorted(a.stickers.notes) == ids and len(a.stickers.notes) == 3, sorted(a.stickers.notes)
+assert {k: (v.conf["x"], v.conf["y"], v.conf["color"]) for k, v in a.stickers.notes.items()} == pos
 assert a.conf["stickies_closed"] == []
-a.stickers.open_all(None); assert len(a.stickers.notes) == 5      # 닫은 게 없어도 버튼은 새 스티커를 붙인다
-a.stickers.open_all(); assert len(a.stickers.notes) == 5          # 트레이·메뉴의 '모두 열기'는 새로 만들지 않는다
-a.stickers.close_all(); a.conf["stickies_closed"] = []; a.stickers.open_all(); assert len(a.stickers.notes) == 1   # 하나도 없을 때만 새로
+# 5-1) 눌러도 늘어나지 않는다: 같은 자리 스티커가 이미 있으면 그걸 앞으로 가져올 뿐
+for _ in range(5):
+    a.stickers.open_all(None)
+    a.stickers.add(); a.stickers.add(inbox=True)
+assert len(a.stickers.notes) == 3, len(a.stickers.notes)
+a.stickers.open_all(_dt.date(2031, 6, 1)); assert len(a.stickers.notes) == 4      # 다른 날짜를 골라 눌렀을 때만 그 날짜 스티커가 생긴다
+a.stickers.open_all(_dt.date(2031, 6, 1)); assert len(a.stickers.notes) == 4
+# 5-2) 내용이 없는 스티커는 닫으면 그냥 사라지고 되살아나지 않는다
+empty = a.stickers.find("2031-06-01"); empty.close()
+assert not any(a.stickers.key_of(c) == "2031-06-01" for c in a.conf["stickies_closed"])
+a.stickers.open_all(); assert len(a.stickers.notes) == 3
+# 5-3) 이미 쌓인 중복 스티커는 켤 때 한 장으로 정리된다 (내용이 있는 쪽을 남김)
+a.stickers.close_all()
+a.conf["stickies"] = [{"id": 1, "date": "inbox", "x": 10, "y": 10, "w": 280, "h": 340, "folded": False, "color": "#fff1a6", "top": False},
+                      {"id": 2, "date": "inbox", "x": 20, "y": 20, "w": 280, "h": 340, "folded": False, "color": "#fff1a6", "top": False},
+                      {"id": 3, "date": None, "x": 30, "y": 30, "w": 280, "h": 340, "folded": False, "color": "#fff1a6", "top": False},
+                      {"id": 4, "date": a.today.isoformat(), "x": 40, "y": 40, "w": 280, "h": 340, "folded": False, "color": "#fff1a6", "top": False}]
+a.stickers.restore(); root.update()
+assert sorted(a.stickers.notes) == ["1", "3"], sorted(a.stickers.notes)       # 보관함 1장, 오늘 1장 ('오늘' 스티커와 오늘 날짜 스티커는 같은 자리)
+# 5-4) ＋ 는 다음 날짜(아직 스티커 없는 첫 날짜)
+n3 = a.stickers.notes["3"]
+nx = a.stickers.add_next(n3)
+assert a.stickers.key_of(nx.conf) == (a.today + _dt.timedelta(days=1)).isoformat()
+nx2 = a.stickers.add_next(n3)
+assert a.stickers.key_of(nx2.conf) == (a.today + _dt.timedelta(days=2)).isoformat()
+a.stickers.close_all(); a.conf["stickies_closed"] = []; a.conf["stickies"] = []
+a.stickers.open_all(); assert len(a.stickers.notes) == 1                       # 하나도 없으면 오늘 스티커 하나
 print("REOPEN OK")
 
 # 6) 글자 크기 조절: 스티커마다 따로, 저장되고, 메모·일정·입력줄이 같이 커진다

@@ -361,8 +361,11 @@ class StickyManager:
         """윈도우를 켤 때: 마지막으로 두었던 자리·크기·접힘 상태 그대로 나타난다
         (접어 둔 스티커는 한 줄로 접힌 채, 펼쳐 둔 스티커는 펼쳐진 채).
         부팅 직후엔 화면 크기·배율이 아직 자리 잡지 않았을 수 있어 몇 초 뒤 한 번 더 제자리에 놓는다."""
-        for c in list(self.app.conf.get("stickies", [])):
+        for c in self._dedupe(list(self.app.conf.get("stickies", []))):
             self._open(c)
+        self.app.conf["stickies_closed"] = [c for c in self._dedupe(self.app.conf.get("stickies_closed", []))
+                                            if self.has_content(c) and self.find(self.key_of(c)) is None]   # 빈 것·겹치는 것은 정리
+        self.save()
         for ms in (1500, 6000, 15000):
             try:
                 self.app.root.after(ms, self.replace_all)
@@ -374,9 +377,60 @@ class StickyManager:
             if not n._dragging:
                 n._place()
 
+    # ── 스티커 하나의 '자리 키': 날짜 스티커는 날짜마다, 날짜 없는 칸은 하나, '오늘' 스티커는 오늘 날짜로 센다 ──
+    def key_of(self, conf):
+        d = conf.get("date")
+        return "inbox" if d == "inbox" else (d or dt.date.today().isoformat())
+
+    def has_content(self, conf):
+        """메모나 일정이 하나라도 있는 스티커인가 (빈 스티커는 닫으면 그냥 사라진다)"""
+        k = self.key_of(conf)
+        e = self.app.data.get("_inbox" if k == "inbox" else k) or {}
+        return bool((e.get("memo") or "").strip() or e.get("todos"))
+
+    def _dedupe(self, confs):
+        """같은 자리의 스티커가 여러 장이면 한 장만 남긴다 (내용이 있는 쪽 우선)"""
+        keep = {}
+        for c in confs:
+            k = self.key_of(c)
+            if k not in keep or (self.has_content(c) and not self.has_content(keep[k])):
+                keep[k] = c
+        return [c for c in confs if keep.get(self.key_of(c)) is c]
+
+    def find(self, key):
+        for n in self.notes.values():
+            if self.key_of(n.conf) == key:
+                return n
+        return None
+
+    def _raise(self, note):
+        try:
+            if self.hidden:                      # 숨겨 둔 상태였으면 모두 다시 보인다
+                self.hidden = False
+                self.app.conf["stickies_hidden"] = False
+                for n in self.notes.values():
+                    n.top.deiconify()
+            note.top.deiconify()
+            note.top.lift()
+        except tk.TclError:
+            pass
+
     def add(self, d=None, inbox=False):
-        """새 스티커. d 가 없으면 '오늘'을 따라가는 스티커, inbox=True 면 날짜 없는 칸(보관함)용 스티커"""
+        """스티커 열기. d 가 없으면 '오늘'을 따라가는 스티커, inbox=True 면 날짜 없는 칸(보관함)용 스티커.
+        같은 자리의 스티커가 이미 있으면 새로 만들지 않고 그걸 앞으로 가져온다 (같은 날짜 스티커는 같은 메모라 여러 장일 이유가 없다)"""
         app = self.app
+        key = "inbox" if inbox else (d.isoformat() if d else dt.date.today().isoformat())
+        have = self.find(key)
+        if have is not None:
+            self._raise(have)
+            return have
+        # 닫아 둔 목록에 같은 자리가 있으면 그 자리·크기로 다시 연다
+        closed = [c for c in app.conf.get("stickies_closed", []) if self.key_of(c) == key]
+        if closed:
+            app.conf["stickies_closed"] = [c for c in app.conf["stickies_closed"] if self.key_of(c) != key]
+            self._open(closed[-1])
+            self.save()
+            return self.notes[str(closed[-1]["id"])]
         S = app.S
         n = len(self.notes)
         x0, y0, w0, _ = self.ui.work_area(app.root)
@@ -387,6 +441,18 @@ class StickyManager:
                 "w": S(280), "h": S(340), "folded": False, "color": COLORS[n % len(COLORS)][1], "top": False}
         self._open(conf)
         self.save()
+        return self.notes[str(conf["id"])]
+
+    def add_next(self, note):
+        """머리 줄 ＋ : 이 스티커 다음 날짜 중 아직 스티커가 없는 첫 날짜의 스티커 (날짜 없는 칸이면 오늘 스티커)"""
+        if note.is_inbox():
+            return self.add()
+        start = dt.date.fromisoformat(self.key_of(note.conf))
+        for k in range(1, 400):
+            d = start + dt.timedelta(days=k)
+            if self.find(d.isoformat()) is None:
+                return self.add(d)
+        return None
 
     def _open(self, conf):
         note = Sticky(self, conf)
@@ -395,27 +461,31 @@ class StickyManager:
             note.top.withdraw()
 
     def remove(self, note):
-        """닫은 스티커는 지우지 않고 '닫아 둔 목록'에 자리·크기·내용 설정째 남긴다 (스티커 버튼으로 한꺼번에 다시 연다)"""
+        """닫은 스티커는 내용(메모·일정)이 있을 때만 '닫아 둔 목록'에 남긴다. 빈 스티커는 그냥 사라진다"""
         self.notes.pop(str(note.conf["id"]), None)
-        closed = [c for c in self.app.conf.get("stickies_closed", []) if c.get("id") != note.conf.get("id")]
-        closed.append(note.conf)
+        key = self.key_of(note.conf)
+        closed = [c for c in self.app.conf.get("stickies_closed", []) if self.key_of(c) != key]
+        if self.has_content(note.conf):
+            closed.append(note.conf)
         self.app.conf["stickies_closed"] = closed[-30:]
         self.save()
 
     def open_all(self, new_for=False):
-        """닫아 둔 스티커가 있으면 모두 한꺼번에 다시 띄우고, 떠 있는 스티커는 앞으로 가져온다.
-        new_for 가 False 가 아니면('스티커' 버튼) 새 스티커도 하나 더 띄운다 (None = 오늘을 따라가는 스티커, 날짜 = 그날 스티커)"""
-        closed = list(self.app.conf.get("stickies_closed", []))
+        """'스티커' 버튼: 닫아 둔 스티커(내용이 있는 것만)를 한꺼번에 다시 띄우고, 떠 있는 스티커는 앞으로 가져온다.
+        new_for 가 False 가 아니면 그 자리(None = 오늘, 날짜 = 그날)의 스티커가 없을 때만 하나 연다 — 눌러도 늘어나지 않는다"""
+        closed = [c for c in self.app.conf.get("stickies_closed", []) if self.has_content(c)]
         self.app.conf["stickies_closed"] = []
         if self.hidden:
             self.hidden = False
             self.app.conf["stickies_hidden"] = False
             for n in self.notes.values():
                 n.top.deiconify()
-        for c in closed:
-            if str(c.get("id")) not in self.notes:
+        opened = False
+        for c in self._dedupe(closed):
+            if self.find(self.key_of(c)) is None and str(c.get("id")) not in self.notes:
                 self._open(c)
-        if closed:
+                opened = True
+        if opened:
             self.save()
         for n in self.notes.values():
             try:
@@ -587,7 +657,7 @@ class Sticky:
         pill(hd, "●", self.menu, "right")
         self.pin_btn = pill(hd, "고정", self.toggle_top, "right")
         self.pin_set()
-        pill(hd, "＋", lambda: self.mgr.add(inbox=self.is_inbox()), "left")
+        pill(hd, "＋", lambda: self.mgr.add_next(self), "left")
         self.prev_btn = pill(hd, "‹", lambda: self.go(-1), "left")
         self.title = tk.Label(hd, font=app.f_body, bg=bar, fg=INK, anchor="w", cursor="fleur")
         self.title.pack(side="left", padx=(S(8), S(2)))
@@ -963,8 +1033,9 @@ class Sticky:
         else:
             m.add_command(label="오늘로", command=lambda: self.set_date(None))
             m.add_command(label="날짜 없는 칸(보관함)으로 바꾸기", command=lambda: self.set_date("inbox"))
-        m.add_command(label="새 스티커 (오늘)", command=self.mgr.add)
-        m.add_command(label="새 스티커 (날짜 없는 칸)", command=lambda: self.mgr.add(inbox=True))
+        m.add_command(label="다음 날짜 스티커", command=lambda: self.mgr.add_next(self))
+        m.add_command(label="오늘 스티커 열기", command=self.mgr.add)
+        m.add_command(label="날짜 없는 칸 스티커 열기", command=lambda: self.mgr.add(inbox=True))
         m.add_separator()
         m.add_command(label="이 스티커 닫기", command=self.close)
         x, y = (e.x_root, e.y_root) if e is not None else (self.top.winfo_pointerx(), self.top.winfo_pointery())

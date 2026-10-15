@@ -141,12 +141,7 @@ String _tidy(String t) {
   final m = RegExp(r'^\(([^()]*)\)$').firstMatch(t);
   if (m != null) t = m.group(1)!.trim();
   t = _stripChars(t.replaceFirst(_leadWord, ''), ' :;,.~-');
-  if (t.length > 70) {
-    final cut = t.lastIndexOf(' ', 67);
-    final end = cut > 30 ? cut : 68;
-    t = '${_stripChars(t.substring(0, end), ' ,.;:')}…';
-  }
-  return t;
+  return t; // 길다고 줄이지 않는다 (줄여 보이는 건 화면에서 자리가 모자랄 때만)
 }
 
 /// 다른 파일(붙여넣기 분석)에서도 쓰는 문장 정리
@@ -199,7 +194,7 @@ String kindOf(String core) {
   if (c.length <= 12) return c;
   final m = _kindEvent.firstMatch(c);
   if (m != null) return m.group(0)!;
-  return '${_stripChars(c.substring(0, 12), ' ')}…';
+  return c;
 }
 
 /// 공문 제목에서 '무엇에 관한 건지' 만 남긴 짧은 이름: '2026년 공유재산 실태조사 추진계획' → '공유재산 실태조사'
@@ -212,10 +207,6 @@ String topicOf(String title) {
     t = n;
   }
   t = _stripChars(t.replaceAll(RegExp(r'\s+'), ' '), ' ,.:-·');
-  if (t.length > 18) {
-    final cut = t.lastIndexOf(' ', 17);
-    t = cut >= 6 ? _stripChars(t.substring(0, cut), ' ') : '${_stripChars(t.substring(0, 17), ' ')}…';
-  }
   return t;
 }
 

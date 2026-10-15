@@ -29,6 +29,10 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 - 공문 가져온 일정 이름은 "주제 + 무엇을 제출하는지/종류"(예: "공유재산 실태조사 제출기한"), 원문 문장은 메모에.
 - 스티커: 날짜 스티커 + 날짜 없는 칸(보관함) 스티커, 일정이 없으면 포스트잇처럼 메모만, 머리 줄 ＋ 로 새 스티커, 접은 건 한 줄 고정(켤 때도 접힌 채/펼친 채 그대로 제자리).
 
+- 글꼴: 오픈소스 **노토 산스(Noto Sans CJK KR, SIL OFL)** 를 앱에 넣어 기본으로 쓴다. `assets/fonts`(PC, `AddFontResourceExW` 로 프로그램 안에서만 등록, PyInstaller `--add-data`) / `mobile/assets/fonts`(pubspec `NotoSansKR`). 한글·영문·기호만 추린 부분집합(각 1.7MB). 못 쓰면 맑은 고딕.
+- 유리형 머리 줄(달 이름·버튼·요일)은 투명으로 두면 바탕화면에 묻혀 안 보이므로 칸과 같은 은은한 유리 띠를 깐다(테두리 없음).
+- 공문 일정 이름·메모는 **줄이지 않는다**(`…` 로 자르는 코드를 없앰). 화면에서 자리가 모자랄 때만 달력 칸이 `…` 로 줄여 보인다.
+
 ## 실행·시험
 ```
 python tests/test_fixtures.py ; python tests/test_work.py ; python tests/test_sticky.py ; python tests/test_sticky_inbox.py   # 뒤 둘은 Tk 필요

@@ -168,7 +168,7 @@ def _rmask(w, h, r, inset=0):
 def render_bg(wp, ox, oy, W, H, panel, cells, tint=(17, 19, 27), strength=0.55, blur=20, radius=14,
               cell_radius=9, light=False, accent=None):
     """wp: 화면 크기 배경 PIL 이미지, (ox,oy): 창이 화면에서 시작하는 위치
-    panel: 위쪽 머리 줄 사각형 (x1,y1,x2,y2) — 지금은 쓰지 않는다(머리 줄에는 판이 없고 날짜 칸만 유리로 보인다)
+    panel: 위쪽 머리 줄 사각형 (x1,y1,x2,y2) — 칸과 같은 유리 띠(테두리 없음)
     cells: 칸 사각형 목록 [(x1,y1,x2,y2,weekend,kind)]
     반환: W x H 의 PIL RGB 이미지 (칸 밖은 바탕화면 그대로)"""
     from PIL import Image, ImageChops, ImageEnhance, ImageFilter, ImageStat
@@ -198,7 +198,8 @@ def render_bg(wp, ox, oy, W, H, panel, cells, tint=(17, 19, 27), strength=0.55, 
             out.paste(Image.new("RGB", (w, h), ring_col), (x1, y1), edge)
 
     ring_c = (0, 0, 0) if light else (255, 255, 255)
-    # 머리 줄(달 이름·버튼·요일)에는 판을 깔지 않는다: 글자만 바탕화면 위에 떠 있고, 판은 날짜 칸에만 있다
+    # 머리 줄(달 이름·버튼·요일): 바탕화면에 글자만 두면 안 보이므로 칸과 같은 은은한 유리 띠를 깐다 (테두리 없음)
+    glass_at(tuple(int(v) for v in panel), radius, a_extra=0.04 if light else 0.0, ring=0.0)
     # 칸: 칸마다 흐린 바탕화면 + 색. 주말은 조금 더 투명하게, 오늘은 강조색이 살짝 비치게
     a_fill, a_week = (0.45, 0.25) if light else (0.05, 0.02)   # 테두리 대신 칸 바탕만 아주 살짝 밝게
     for cell in cells:

@@ -2,4 +2,3 @@ build/
 dist/
 *.spec
 __pycache__/
-mobile/assets/fonts/

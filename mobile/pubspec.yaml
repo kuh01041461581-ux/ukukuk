@@ -68,6 +68,14 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # 앱에 넣은 오픈소스 노토 산스(SIL OFL, 한글·영문·기호만 추린 것) — 기기 글꼴과 상관없이 같은 모양
+  fonts:
+    - family: NotoSansKR
+      fonts:
+        - asset: assets/fonts/NotoSansKR-Regular.otf
+        - asset: assets/fonts/NotoSansKR-Bold.otf
+          weight: 700
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

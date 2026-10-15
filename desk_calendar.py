@@ -52,9 +52,25 @@ if IS_WIN:
     import ctypes
     from ctypes import wintypes
 
-DEFAULT_FONT = "Malgun Gothic" if IS_WIN else "NanumGothic"
+BUNDLED_FONT = "Noto Sans CJK KR"        # 앱에 들어 있는 오픈소스 노토 산스 (SIL OFL) — 컴퓨터에 깔린 글꼴과 상관없이 같은 모양
+FALLBACK_FONT = "Malgun Gothic" if IS_WIN else "NanumGothic"
+DEFAULT_FONT = BUNDLED_FONT
+
+
+def load_bundled_fonts():
+    """assets/fonts 의 노토 산스를 이 프로그램에서만 쓰도록 등록한다 (설치·관리자 권한 필요 없음, 윈도우만)"""
+    if not IS_WIN:
+        return
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    d = os.path.join(base, "assets", "fonts")
+    try:
+        for fn in sorted(os.listdir(d)):
+            if fn.lower().endswith((".otf", ".ttf")):
+                ctypes.windll.gdi32.AddFontResourceExW(os.path.join(d, fn), 0x10, 0)   # FR_PRIVATE
+    except Exception:
+        pass
 # 글꼴 메뉴에 바로 보여줄 후보 (설치된 것만 표시)
-FONT_CHOICES = ["Malgun Gothic", "Segoe UI Variable Text", "Segoe UI", "Pretendard", "Pretendard Variable",
+FONT_CHOICES = ["Noto Sans CJK KR", "Malgun Gothic", "Segoe UI Variable Text", "Segoe UI", "Pretendard", "Pretendard Variable",
                 "Noto Sans KR", "Noto Sans CJK KR", "NanumGothic", "NanumSquare", "NanumSquare Round",
                 "NanumBarunGothic", "NanumMyeongjo", "Gulim", "Dotum", "Batang", "Gungsuh"]
 
@@ -2373,7 +2389,7 @@ class DeskCalendar:
         self.menu = None
         installed = set(tkfont.families())
         fam = self.conf.get("font", DEFAULT_FONT)
-        self.family = fam if fam in installed else DEFAULT_FONT
+        self.family = fam if fam in installed else (DEFAULT_FONT if DEFAULT_FONT in installed else FALLBACK_FONT)
 
         self.today = dt.date.today()
         self.view_y, self.view_m = self.today.year, self.today.month
@@ -3274,7 +3290,7 @@ class DeskCalendar:
             self.conf.pop(k, None)
         self.set_alpha(0.97)
         self._gkey = None
-        self.family = DEFAULT_FONT
+        self.family = DEFAULT_FONT if DEFAULT_FONT in set(tkfont.families()) else FALLBACK_FONT
         self.ui = 0.9
         self.scale = self.dpi_scale * 0.9
         self.panel_w = self.S(290) + 1
@@ -3738,12 +3754,6 @@ class DeskCalendar:
                              tint=glass.TINTS.get(tint_name, glass.TINTS["그래파이트"]), strength=strength,
                              blur=max(8, self.S(18)), radius=self.S(14), cell_radius=self.S(10),
                              light=tint_name == "밝게", accent=tuple(int(ACCENT[i:i + 2], 16) for i in (1, 3, 5)))
-        try:        # 머리 줄 뒤 바탕화면이 밝으면 머리 줄 글자를 어둡게 (판이 없어서 바탕에 맞춰야 읽힌다)
-            from PIL import ImageStat
-            x1, y1, x2, y2 = L["panel"]
-            self._hdr_light = ImageStat.Stat(im.crop((x1, y1, x2, y2)).convert("L")).mean[0] > 135
-        except Exception:
-            self._hdr_light = False
         self._gimg = ImageTk.PhotoImage(im)
         self._gkey = key
         return self._gimg
@@ -3767,7 +3777,7 @@ class DeskCalendar:
             for r in L["cells"]:
                 self._rr(*r, S(8), fill="#232736", outline="")
         today = dt.date.today()
-        hcol = self._glass_colors(light=bool(getattr(self, "_hdr_light", False)))
+        hcol = col                                       # 머리 줄도 유리 띠 위에 있으므로 칸과 같은 글자색
         # 머리줄: 큰 '2026년 10월' + 오른쪽 작은 버튼들
         hx1, hy1, hx2, hy2 = L["hdr"]
         mid_y = (hy1 + hy2) / 2
@@ -5243,6 +5253,7 @@ def main():
             return
         enable_dpi_awareness()
     os.makedirs(DATA_DIR, exist_ok=True)
+    load_bundled_fonts()
     root = tk.Tk()
     DeskCalendar(root, pdfs)
     root.mainloop()

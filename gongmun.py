@@ -146,10 +146,7 @@ def _tidy(t):
     if m:
         t = m.group(1).strip()
     t = _LEADWORD.sub("", t).strip(" :;,.~-")
-    if len(t) > 70:
-        cut = t.rfind(" ", 0, 68)
-        t = t[:cut if cut > 30 else 68].rstrip(" ,.;:") + "…"
-    return t
+    return t                                # 길다고 줄이지 않는다 (줄여 보이는 건 화면에서 자리가 모자랄 때만)
 
 
 def _meaningful(t):
@@ -187,9 +184,6 @@ def topic_of(title):
             break
         t = n
     t = re.sub(r"\s+", " ", t).strip(" ,.:-·")
-    if len(t) > 18:
-        cut = t.rfind(" ", 0, 18)
-        t = t[:cut if cut >= 6 else 17].rstrip() + ("…" if cut < 6 else "")
     return t
 
 
@@ -213,7 +207,7 @@ def kind_of(core):
     m = _KIND_EVENT.search(c)
     if m:
         return m.group(0)
-    return c[:12].rstrip() + "…"
+    return c
 
 
 _SUBMIT_LIST = re.compile(r"^\s*(?:\d+\.\s*)?(?:[가-힣]\.\s*)?[<\[(]?\s*제출\s*(?:서류|자료|물|내용|서식|양식)\s*[>\])]?\s*[:：]\s*(.+)$")

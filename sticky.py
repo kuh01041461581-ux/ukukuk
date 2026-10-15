@@ -229,7 +229,8 @@ class StickyManager:
         S = app.S
         n = len(self.notes)
         x0, y0, w0, _ = self.ui.work_area(app.root)
-        conf = {"id": max([int(k) for k in self.notes] + [0]) + 1,
+        used = [int(k) for k in self.notes] + [int(c.get("id", 0)) for c in app.conf.get("stickies_closed", [])]
+        conf = {"id": max(used + [0]) + 1,
                 "date": "inbox" if inbox else (d.isoformat() if d else None),
                 "x": x0 + w0 - S(300) - S(28) * (n % 6), "y": y0 + S(60) + S(34) * (n % 6),
                 "w": S(280), "h": S(340), "folded": False, "color": COLORS[n % len(COLORS)][1], "top": False}
@@ -243,8 +244,37 @@ class StickyManager:
             note.top.withdraw()
 
     def remove(self, note):
+        """닫은 스티커는 지우지 않고 '닫아 둔 목록'에 자리·크기·내용 설정째 남긴다 (스티커 버튼으로 한꺼번에 다시 연다)"""
         self.notes.pop(str(note.conf["id"]), None)
+        closed = [c for c in self.app.conf.get("stickies_closed", []) if c.get("id") != note.conf.get("id")]
+        closed.append(note.conf)
+        self.app.conf["stickies_closed"] = closed[-30:]
         self.save()
+
+    def open_all(self):
+        """'스티커' 버튼: 닫아 둔 스티커가 있으면 모두 한꺼번에 다시 띄운다. 없으면 떠 있는 스티커를 앞으로 가져오고,
+        스티커가 하나도 없을 때만 새로 만든다"""
+        closed = list(self.app.conf.get("stickies_closed", []))
+        self.app.conf["stickies_closed"] = []
+        if self.hidden:
+            self.hidden = False
+            self.app.conf["stickies_hidden"] = False
+            for n in self.notes.values():
+                n.top.deiconify()
+        for c in closed:
+            if str(c.get("id")) not in self.notes:
+                self._open(c)
+        if closed:
+            self.save()
+        if not self.notes:
+            self.add()
+            return
+        for n in self.notes.values():
+            try:
+                n.top.deiconify()
+                n.top.lift()
+            except tk.TclError:
+                pass
 
     def save(self):
         self.app.conf["stickies"] = [n.conf for n in self.notes.values()]

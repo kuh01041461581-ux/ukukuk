@@ -38,6 +38,8 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 
 - 메모 연동: 스티커 메모 ↔ 오른쪽 패널 메모는 같은 데이터(날짜별 memo)를 본다. `_commit` 이 스티커와 패널 메모 칸을 함께 갱신(`_pull_panel_memo`), 패널은 이 칸에서 고친 적이 있을 때만 저장(`edit_modified`)해서 옛 글로 덮어쓰지 않는다. 시험: tests/test_memo_sync.py
 
+- 스티커 닫기/열기: 닫은 스티커는 `conf["stickies_closed"]` 에 자리·설정째 남고, '스티커' 버튼(·☰ 메뉴·트레이 '스티커 메모 모두 열기')이 닫은 것들을 한꺼번에 다시 띄운다. 닫은 게 없으면 떠 있는 것을 앞으로, 하나도 없을 때만 새로 만든다. 새 스티커는 스티커 머리 줄의 ＋ / ☰ 메뉴 / 트레이.
+
 ## 실행·시험
 ```
 python tests/test_fixtures.py ; python tests/test_work.py ; python tests/test_sticky.py ; python tests/test_sticky_inbox.py   # 뒤 둘은 Tk 필요

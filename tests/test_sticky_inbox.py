@@ -66,3 +66,22 @@ plus = [w for w in p.hd.winfo_children() if getattr(w, "_label", None) and w.ite
 plus._on_press(None); plus._on_release(type("E", (), {"x": 2, "y": 2})())
 root.update(); assert len(a.stickers.notes) == cnt + 1
 print("POSTIT OK")
+
+# 5) 닫은 스티커는 '스티커' 버튼 한 번에 모두 다시 뜬다 (자리·설정 그대로)
+a.stickers.close_all()
+a.conf["stickies_closed"] = []
+a.stickers.add(); a.stickers.add(inbox=True); a.stickers.add(); root.update()
+ids = sorted(a.stickers.notes)
+pos = {k: (v.conf["x"], v.conf["y"], v.conf["color"]) for k, v in a.stickers.notes.items()}
+for n in list(a.stickers.notes.values()):
+    n.close()
+assert not a.stickers.notes and len(a.conf["stickies_closed"]) == 3
+a.stickers.open_all(); root.update()
+assert sorted(a.stickers.notes) == ids, (sorted(a.stickers.notes), ids)
+assert {k: (v.conf["x"], v.conf["y"], v.conf["color"]) for k, v in a.stickers.notes.items()} == pos
+assert a.conf["stickies_closed"] == []
+n1 = a.stickers.notes[ids[0]]; n1.close()
+a.stickers.open_all(); assert len(a.stickers.notes) == 3          # 하나만 닫았어도 그 하나가 돌아온다
+a.stickers.open_all(); assert len(a.stickers.notes) == 3          # 닫은 게 없으면 새로 만들지 않는다
+a.stickers.close_all(); a.conf["stickies_closed"] = []; a.stickers.open_all(); assert len(a.stickers.notes) == 1   # 하나도 없을 때만 새로
+print("REOPEN OK")

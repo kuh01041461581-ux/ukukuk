@@ -20,6 +20,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'share_import.dart';
 import 'widget_sync.dart';
+import 'memo_rich.dart';
 import 'store.dart';
 import 'work_page.dart';
 
@@ -663,7 +664,7 @@ class DaySheet extends StatefulWidget {
 class _DaySheetState extends State<DaySheet> {
   late DateTime date = widget.date;
   final entry = TextEditingController();
-  late final TextEditingController memo = TextEditingController(text: widget.store.memoOf(widget.date));
+  late final RichMemoController memo = RichMemoController(widget.store.memoOf(widget.date));
   int pri = 2;
 
   @override
@@ -675,14 +676,15 @@ class _DaySheetState extends State<DaySheet> {
   }
 
   void _saveMemo() {
-    if (memo.text != widget.store.memoOf(date)) widget.store.setMemo(date, memo.text);
+    final m = memo.markup;
+    if (m != widget.store.memoOf(date)) widget.store.setMemo(date, m);
   }
 
   void _go(int n) {
     _saveMemo();
     setState(() {
       date = addDays(date, n);
-      memo.text = widget.store.memoOf(date);
+      memo.setMarkup(widget.store.memoOf(date));
     });
   }
 
@@ -784,14 +786,7 @@ class _DaySheetState extends State<DaySheet> {
                   for (final r in rows) ItemTile(store: store, row: r),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-                    child: TextField(
-                      controller: memo,
-                      minLines: 3,
-                      maxLines: 6,
-                      onChanged: (_) => _saveMemo(),
-                      style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(hintText: '메모', hintStyle: TextStyle(color: cDim, fontSize: 14)),
-                    ),
+                    child: MemoEditor(controller: memo, fontSize: 14, onChanged: _saveMemo),
                   ),
                 ]),
               ),
@@ -835,7 +830,7 @@ class DayPanel extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
             child: GestureDetector(
                 onTap: () => _editMemo(context),
-                child: Text(memo, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(color: cSub, fontSize: 13))),
+                child: Text(stripMemoMarkup(memo), maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(color: cSub, fontSize: 13))),
           ),
         if (rows.isEmpty)
           const Padding(
@@ -847,19 +842,19 @@ class DayPanel extends StatelessWidget {
   }
 
   Future<void> _editMemo(BuildContext context) async {
-    final c = TextEditingController(text: store.memoOf(date));
+    final c = RichMemoController(store.memoOf(date));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('${dateLabel(date)} 메모'),
-        content: TextField(controller: c, maxLines: 6, autofocus: true),
+        content: SingleChildScrollView(child: MemoEditor(controller: c, minLines: 4, maxLines: 8, autofocus: true)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('저장')),
         ],
       ),
     );
-    if (ok == true) store.setMemo(date, c.text);
+    if (ok == true) store.setMemo(date, c.markup);
   }
 }
 
@@ -1094,7 +1089,7 @@ class ItemSearch extends SearchDelegate<Object?> {
         if (text.toLowerCase().contains(q) || note.toLowerCase().contains(q)) hits.add((d, text, d == null ? '보관함' : dateLabel(d)));
       }
       final memo = (v['memo'] as String?) ?? '';
-      if (d != null && memo.toLowerCase().contains(q)) hits.add((d, memo.split('\n').first, '${dateLabel(d)} · 메모'));
+      if (d != null && memo.toLowerCase().contains(q)) hits.add((d, stripMemoMarkup(memo).split('\n').first, '${dateLabel(d)} · 메모'));
     });
     hits.sort((a, b) => a.$1 == null ? 1 : b.$1 == null ? -1 : a.$1!.compareTo(b.$1!));
     if (hits.isEmpty) return const Center(child: Text('결과가 없어요', style: TextStyle(color: cDim)));

@@ -29,7 +29,7 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 - 공문 가져온 일정 이름은 "주제 + 무엇을 제출하는지/종류"(예: "공유재산 실태조사 제출기한"), 원문 문장은 메모에.
 - 스티커: 날짜 스티커 + 날짜 없는 칸(보관함) 스티커, 일정이 없으면 포스트잇처럼 메모만, 머리 줄 ＋ 로 새 스티커, 접은 건 한 줄 고정(켤 때도 접힌 채/펼친 채 그대로 제자리).
 
-- 글꼴: 오픈소스 **노토 산스(Noto Sans CJK KR, SIL OFL)** 를 앱에 넣어 기본으로 쓴다. `assets/fonts`(PC, `AddFontResourceExW` 로 프로그램 안에서만 등록, PyInstaller `--add-data`) / `mobile/assets/fonts`(pubspec `NotoSansKR`). 한글·영문·기호만 추린 부분집합(각 1.7MB). 못 쓰면 맑은 고딕.
+- 글꼴: 오픈소스 **노토 산스(Noto Sans CJK KR, SIL OFL)** 를 앱에 넣어 기본으로 쓴다. `assets/fonts`(PC, `AddFontResourceExW` 로 프로그램 안에서만 등록, PyInstaller `--add-data`) / `mobile/assets/fonts`(pubspec `NotoSansKR`; 예전 Pretendard 내려받기 스크립트 `fetch_font.sh` 는 충돌해서 없앰). 한글·영문·기호만 추린 부분집합(각 1.7MB). 못 쓰면 맑은 고딕.
 - 유리형 머리 줄(달 이름·버튼·요일)은 투명으로 두면 바탕화면에 묻혀 안 보이므로 칸과 같은 은은한 유리 띠를 깐다(테두리 없음).
 - 공문 일정 이름·메모는 **줄이지 않는다**(`…` 로 자르는 코드를 없앰). 화면에서 자리가 모자랄 때만 달력 칸이 `…` 로 줄여 보인다.
 
@@ -40,7 +40,7 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 
 - 스티커 닫기/열기: 닫은 스티커는 `conf["stickies_closed"]` 에 자리·설정째 남고, '스티커' 버튼은 닫은 것들을 한꺼번에 다시 띄우고 **새 스티커도 하나 더** 붙인다. ☰ 메뉴·트레이의 '모두 열기'는 닫은 것만 되살리고 새로 만들지 않는다(스티커가 하나도 없을 때만 새로).
 
-- 메모 서식(스티커·오른쪽 패널 공용 `sticky.MemoFormat`): 저장은 폰·검색과 같은 글자(`**굵게**` `~~취소~~` `{빨강|글}` `1.` `- ` `- [ ]`)지만 화면에서는 표시를 감추고 진짜 서식(굵게, ☐/☑ 누르면 토글+취소선, •, 번호 이어쓰기, `- `·`[] ` 손으로 치면 자동 변환, Ctrl+B)으로 보여 준다. `get_markup()`/`set_markup()` 으로 오간다. 달력 칸 미리보기는 `strip_markup()`. **폰 앱의 메모 칸은 아직 표시 글자를 그대로 보여 준다**(손대지 않음).
+- 메모 서식(스티커·오른쪽 패널 공용 `sticky.MemoFormat`): 저장은 폰·검색과 같은 글자(`**굵게**` `~~취소~~` `{빨강|글}` `1.` `- ` `- [ ]`)지만 화면에서는 표시를 감추고 진짜 서식(굵게, ☐/☑ 누르면 토글+취소선, •, 번호 이어쓰기, `- `·`[] ` 손으로 치면 자동 변환, Ctrl+B)으로 보여 준다. `get_markup()`/`set_markup()` 으로 오간다. 달력 칸 미리보기는 `strip_markup()`. 폰 앱도 같은 규칙: `mobile/lib/memo_rich.dart` 의 `RichMemoController`(글자마다 서식 배열을 들고 있는 TextEditingController, 한글 조합·Enter 이어쓰기·`- `/`[] ` 자동 변환·체크 누르기)와 `MemoEditor`(서식 버튼 줄+입력 칸)를 날짜 시트 메모·메모 대화상자에 쓴다. 시험: mobile/test/memo_rich_test.dart. 저장 글자 규칙을 바꾸면 PC(sticky.py)와 폰(memo_rich.dart) 양쪽을 같이.
 
 ## 실행·시험
 ```

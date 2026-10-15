@@ -26,7 +26,6 @@ jobs:
       - name: Test
         working-directory: mobile
         run: |
-          bash tools/fetch_font.sh
           flutter pub get
           flutter test
       - name: Build APK

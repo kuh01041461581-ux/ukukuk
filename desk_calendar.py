@@ -5323,6 +5323,12 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
     load_bundled_fonts()
     root = tk.Tk()
+    try:                                  # Tk 기본 '깃털' 아이콘 대신 앱 아이콘 (모든 창 공통)
+        ico = os.path.join(getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__))), "assets", "app.ico")
+        if IS_WIN and os.path.exists(ico):
+            root.iconbitmap(default=ico)
+    except Exception:
+        pass
     for cls in ("Entry", "Text"):        # 어느 입력 칸이든 한글 조합 글자가 칸의 글자 크기로 보이게
         root.bind_class(cls, "<FocusIn>", lambda e: sync_ime_font(e.widget), add="+")
         root.bind_class(cls, "<KeyPress>", lambda e: sync_ime_font(e.widget), add="+")

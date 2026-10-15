@@ -203,8 +203,29 @@ class StickyManager:
     def __init__(self, app, ui):
         self.app, self.ui = app, ui
         self.notes = {}
+        self._owner = None
         self.hidden = bool(app.conf.get("stickies_hidden"))
         self._tick()
+
+    def owner_hwnd(self, u):
+        """스티커들의 보이지 않는 주인 창 (1픽셀, 투명, 화면 밖). 작업표시줄·Alt+Tab 에 나오지 않는다"""
+        try:
+            if self._owner is None or not self._owner.winfo_exists():
+                o = self._owner = tk.Toplevel(self.app.root)
+                o.overrideredirect(True)
+                o.geometry("1x1+-3000+-3000")
+                o.attributes("-alpha", 0.0)
+                o.update_idletasks()
+                wid = o.winfo_id()
+                for h in {wid, u.GetParent(wid)}:
+                    if h:
+                        ex = u.GetWindowLongPtrW(h, -20)
+                        u.SetWindowLongPtrW(h, -20, (ex | 0x80) & ~0x40000)
+            u.GetAncestor.restype = ctypes.c_void_p
+            u.GetAncestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+            return u.GetAncestor(self._owner.winfo_id(), 2)
+        except Exception:
+            return None
 
     def restore(self):
         """윈도우를 켤 때: 마지막으로 두었던 자리·크기·접힘 상태 그대로 나타난다
@@ -371,6 +392,12 @@ class Sticky:
             if h:
                 ex = u.GetWindowLongPtrW(h, -20)               # GWL_EXSTYLE
                 u.SetWindowLongPtrW(h, -20, (ex | 0x80) & ~0x40000)   # TOOLWINDOW 켜고 APPWINDOW 끔
+        # 다른 창에 '소유된' 창에는 윈도우가 작업표시줄 단추를 만들지 않는다 → 눈에 안 보이는 주인 창을 하나 두고 모든 스티커를 그 소유로
+        u.GetAncestor.restype = ctypes.c_void_p
+        u.GetAncestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        owner = self.mgr.owner_hwnd(u)
+        if owner:
+            u.SetWindowLongPtrW(u.GetAncestor(wid, 2), -8, owner)   # GWLP_HWNDPARENT
 
     # ── 위치·크기 ──
     def _place(self):

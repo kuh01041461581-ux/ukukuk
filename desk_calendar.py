@@ -2937,8 +2937,9 @@ class DeskCalendar:
                             padx=S(10), pady=S(8), undo=True, highlightthickness=1,
                             highlightbackground=BORDER, highlightcolor=ACCENT)
         self.memo.pack(fill="x")
-        self.memo.bind("<KeyRelease>", lambda e: self._schedule_memo_save())
-        self.memo.bind("<Button-1>", lambda e: self.memo.focus_force())
+        self.memo_fmt = sticky.MemoFormat(self.memo, self, self._schedule_memo_save)   # 스티커와 같은 서식 메모 (Ctrl+B, - 글머리, [] 체크)
+        self.memo.bind("<KeyRelease>", self.memo_fmt.on_key)
+        self.memo.bind("<Button-1>", lambda e: self.memo.focus_force(), add="+")
         self.memo_box.pack(side="bottom", fill="x")
 
         # 할 일 목록
@@ -3682,7 +3683,7 @@ class DeskCalendar:
                 else:
                     placed.append(("m", left, k, 1))
         elif entry.get("memo", "").strip():          # 자리가 남으면 그날 메모
-            memo = entry["memo"].strip().splitlines()[0]
+            memo = sticky.strip_markup(entry["memo"].strip()).splitlines()[0]
             n = len(self._wrap_lines("✎ " + memo, self.f_chip, inner_w, self.chip_lines))
             k = find(n) if free else None
             if k is not None:
@@ -4007,7 +4008,7 @@ class DeskCalendar:
         if clipped:
             self._gtext(x2 - pad, y2 - S(4), "더 보기" if x2 - x1 > S(90) else "…", self.f_tiny, col["dim"], "se")
         elif not rows:
-            memo = (self.data.get(d.isoformat(), {}).get("memo", "").strip().splitlines() or [""])[0]
+            memo = (sticky.strip_markup(self.data.get(d.isoformat(), {}).get("memo", "").strip()).splitlines() or [""])[0]
             if memo:
                 self._gtext(x1 + pad, y, self._fit("✎ " + memo, font, x2 - x1 - 2 * pad), font, col["dim"], "nw")
         # 선택 / 마우스 올림
@@ -4082,7 +4083,7 @@ class DeskCalendar:
         d = self.dates[idx]
         rows = core.day_items(self.data, d)
         rows.sort(key=lambda r: sort_key(r[1]))
-        memo = self.data.get(d.isoformat(), {}).get("memo", "").strip()
+        memo = sticky.strip_markup(self.data.get(d.isoformat(), {}).get("memo", "").strip())
         h = holiday_name(d)
         if not rows and not memo and not h:
             return
@@ -4380,8 +4381,7 @@ class DeskCalendar:
         self.selected = d
         self._memo_date = d
         self._update_sub()
-        self.memo.delete("1.0", "end")
-        self.memo.insert("1.0", self._entry(d).get("memo", ""))
+        self.memo_fmt.set_markup(self._entry(d).get("memo", ""))
         self.memo.edit_reset()
         self.memo.edit_modified(False)
         self.render_todos()
@@ -4434,7 +4434,7 @@ class DeskCalendar:
         if not self.memo.edit_modified():          # 이 칸에서 고친 적이 없으면 저장하지 않는다 (스티커·폰이 고친 것을 옛 글로 덮어쓰지 않게)
             return
         self.memo.edit_modified(False)
-        text = self.memo.get("1.0", "end-1c")
+        text = self.memo_fmt.get_markup()
         if self._entry(self._memo_date).get("memo", "") != text:
             e = self._entry(self._memo_date, create=True)
             e["memo"], e["memo_ts"] = text, core.now_ms()
@@ -4450,9 +4450,8 @@ class DeskCalendar:
             if self.root.focus_get() is self.memo:
                 return
             text = self._entry(d).get("memo", "")
-            if self.memo.get("1.0", "end-1c") != text:
-                self.memo.delete("1.0", "end")
-                self.memo.insert("1.0", text)
+            if self.memo_fmt.get_markup() != text:
+                self.memo_fmt.set_markup(text)
                 self.memo.edit_reset()
                 self.memo.edit_modified(False)
         except tk.TclError:

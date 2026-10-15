@@ -24,23 +24,44 @@ def _mix(a, b, t):
 
 
 # ── 메모 서식 ────────────────────────────────────────────
-# 메모는 폰·검색·동기화와 같은 '그냥 글자'로 저장한다. 서식은 글자 안의 표시로 두고 PC 에서만 보기 좋게 그린다:
-#   **굵게**  ~~취소선~~  {빨강|색 글자}  1. 번호  - 글머리  - [ ] 체크리스트(누르면 [x])
+# 메모는 폰·검색·동기화와 같은 '그냥 글자'로 저장하고(**굵게** ~~취소선~~ {빨강|색 글자}, 1. 번호, - 글머리, - [ ] 체크리스트),
+# 화면에서는 표시를 감추고 진짜 서식으로 보여 준다: 굵게는 그냥 굵게, 체크는 ☐/☑ (누르면 바뀜), 글머리는 •.
 MEMO_COLORS = [("빨강", "#d1344a"), ("주황", "#d9730d"), ("초록", "#1f8a5b"), ("파랑", "#2f6bd1"), ("보라", "#7048c9")]
-_RX_BOLD = re.compile(r"\*\*(.+?)\*\*")
-_RX_STRIKE = re.compile(r"~~(.+?)~~")
-_RX_COLOR = re.compile(r"\{(" + "|".join(n for n, _ in MEMO_COLORS) + r")\|(.+?)\}")
+_RX_PAT = re.compile(r"\*\*(.+?)\*\*|~~(.+?)~~|\{(" + "|".join(n for n, _ in MEMO_COLORS) + r")\|(.+?)\}")
 _RX_CHECK = re.compile(r"^(\s*)- \[( |x|X)\] ?(.*)$")
 _RX_NUM = re.compile(r"^(\s*)(\d+)\. (.*)$")
 _RX_BUL = re.compile(r"^(\s*)- (.*)$")
+_D_PRE = re.compile(r"^(\s*)([☐☑] |• |\d+\. )")                # 화면에 보이는 줄 머리
+_RX_AUTO = re.compile(r"^(\s*)(- \[ \] |- \[[xX]\] |\[\] |\[ \] |\[[xX]\] |- |\* )$")   # 줄 머리를 손으로 치면 바꿔 준다
+_COLOR_OF = dict(MEMO_COLORS)
+
+
+def strip_markup(text):
+    """달력 칸·검색에서 보여 줄 때: 서식 표시를 빼고 글자만 (체크는 ☐/☑, 글머리는 •)"""
+    out = []
+    for line in (text or "").split("\n"):
+        m = _RX_CHECK.match(line)
+        if m:
+            line = m.group(1) + ("☑ " if m.group(2) in "xX" else "☐ ") + m.group(3)
+        else:
+            m = _RX_BUL.match(line)
+            if m:
+                line = m.group(1) + "• " + m.group(2)
+        prev = None
+        while prev != line:
+            prev = line
+            line = _RX_PAT.sub(lambda k: k.group(1) or k.group(2) or k.group(4), line)
+        out.append(line)
+    return "\n".join(out)
 
 
 class MemoFormat:
-    """스티커 메모 칸(tk.Text)에 서식 그리기와 편집 동작(번호 이어쓰기, 체크 누르기, 선택 글자 꾸미기)을 붙인다"""
+    """메모 칸(tk.Text)을 진짜 서식 편집기로 만든다: 굵게·취소선·글자색은 선택한 글자(또는 앞으로 칠 글자)에,
+    번호·글머리·체크리스트는 줄 머리로. 저장할 땐 get_markup(), 보여 줄 땐 set_markup() 으로 글자 표시와 오간다."""
 
     def __init__(self, text, app, on_change):
         self.t, self.on_change = text, on_change
-        base = tkfont.Font(font=app.f_small)
+        base = tkfont.Font(font=text.cget("font"))
         bold = base.copy()
         bold.configure(weight="bold")
         strike = base.copy()
@@ -48,150 +69,258 @@ class MemoFormat:
         self._fonts = (base, bold, strike)               # 글꼴 객체를 붙들어 둔다 (없어지면 서식이 사라짐)
         t = text
         t.tag_configure("bold", font=bold)
-        t.tag_configure("strike", font=strike, foreground=INK_DIM)
-        t.tag_configure("mark", foreground="#b9bbc8")      # ** ~~ { } 같은 표시는 흐리게
-        t.tag_configure("done", font=strike, foreground=INK_DIM)
+        t.tag_configure("strike", overstrike=True)
+        t.tag_configure("done", overstrike=True, foreground=INK_DIM)
         for name, col in MEMO_COLORS:
             t.tag_configure("c_" + name, foreground=col)
+        t.tag_raise("done")
+        t.tag_raise("sel")
+        self._pend = {}                                  # 글자를 고르지 않고 누른 서식: 이어서 칠 글자에 적용
+        t.mark_set("pend", "insert")
+        t.mark_gravity("pend", "left")
         t.bind("<Return>", self._return)
+        t.bind("<BackSpace>", self._back)
         t.bind("<Button-1>", self._click, add="+")
-        t.bind("<Control-b>", lambda e: (self.wrap("**", "**"), "break")[1])
+        t.bind("<Control-b>", lambda e: (self.toggle("bold"), "break")[1])
+        t.bind("<Control-B>", lambda e: (self.toggle("bold"), "break")[1])
 
-    # 그리기
-    def render(self):
+    # ── 저장 글자 ↔ 화면 ──
+    def set_markup(self, s):
         t = self.t
-        for tag in ("bold", "strike", "mark", "done") + tuple("c_" + n for n, _ in MEMO_COLORS):
-            t.tag_remove(tag, "1.0", "end")
-        for ln, line in enumerate(t.get("1.0", "end-1c").split("\n"), 1):
-            def put(tag, a, b, ln=ln):
-                t.tag_add(tag, f"{ln}.{a}", f"{ln}.{b}")
-            for m in _RX_BOLD.finditer(line):
-                put("bold", m.start(), m.end())
-                put("mark", m.start(), m.start() + 2)
-                put("mark", m.end() - 2, m.end())
-            for m in _RX_STRIKE.finditer(line):
-                put("strike", m.start(), m.end())
-                put("mark", m.start(), m.start() + 2)
-                put("mark", m.end() - 2, m.end())
-            for m in _RX_COLOR.finditer(line):
-                put("c_" + m.group(1), m.start(), m.end())
-                put("mark", m.start(), m.start() + len(m.group(1)) + 2)
-                put("mark", m.end() - 1, m.end())
-            c = _RX_CHECK.match(line)
-            if c:
-                put("mark", len(c.group(1)), len(c.group(1)) + 6)
-                if c.group(2) in "xX":
-                    put("done", len(c.group(1)) + 6, len(line))
+        t.delete("1.0", "end")
+        for i, line in enumerate((s or "").split("\n")):
+            if i:
+                t.insert("end-1c", "\n")
+            m = _RX_CHECK.match(line)
+            if m:
+                t.insert("end-1c", m.group(1) + ("☑ " if m.group(2) in "xX" else "☐ "))
+                line = m.group(3)
             else:
-                n = _RX_NUM.match(line)
-                if n:
-                    put("mark", len(n.group(1)), len(n.group(1)) + len(n.group(2)) + 2)
+                m = _RX_BUL.match(line)
+                if m:
+                    t.insert("end-1c", m.group(1) + "• ")
+                    line = m.group(2)
+            self._emit(line, ())
+        self._pend.clear()
+        self._lists()
 
-    # 선택한 글자(없으면 커서 자리)를 표시로 감싸거나 풀기
-    def wrap(self, left, right):
-        t = self.t
+    def _emit(self, text, tags):
+        t, pos = self.t, 0
+        for m in _RX_PAT.finditer(text):
+            if m.start() > pos:
+                t.insert("end-1c", text[pos:m.start()], tags)
+            if m.group(1) is not None:
+                self._emit(m.group(1), tags + ("bold",))
+            elif m.group(2) is not None:
+                self._emit(m.group(2), tags + ("strike",))
+            else:
+                self._emit(m.group(4), tags + ("c_" + m.group(3),))
+            pos = m.end()
+        if pos < len(text):
+            t.insert("end-1c", text[pos:], tags)
+
+    def get_markup(self):
+        t, active, lines = self.t, set(), [[]]
+        for key, val, _ in t.dump("1.0", "end-1c", text=True, tag=True):
+            if key == "tagon":
+                active.add(val)
+            elif key == "tagoff":
+                active.discard(val)
+            else:
+                fm = frozenset(a for a in active if a in ("bold", "strike") or a.startswith("c_"))
+                for j, part in enumerate(val.split("\n")):
+                    if j:
+                        lines.append([])
+                    if part:
+                        lines[-1].append([part, fm])
+        out = []
+        for runs in lines:
+            plain = "".join(r[0] for r in runs)
+            m = _D_PRE.match(plain)
+            head = ""
+            if m:                                           # 줄 머리는 저장 글자(- [ ] / - )로, 번호는 그대로
+                n = m.end()
+                g = m.group(2)
+                head = m.group(1) + {"☐ ": "- [ ] ", "☑ ": "- [x] ", "• ": "- "}.get(g, g)
+                while n and runs:                            # 줄 머리 글자는 서식 없이 따로 빼 둔다
+                    take = min(n, len(runs[0][0]))
+                    runs[0][0] = runs[0][0][take:]
+                    n -= take
+                    if not runs[0][0]:
+                        runs.pop(0)
+            merged = []
+            for txt, fm in runs:
+                if merged and merged[-1][1] == fm:
+                    merged[-1][0] += txt
+                else:
+                    merged.append([txt, fm])
+            out.append(head + "".join(self._wrap(txt, fm) for txt, fm in merged))
+        return "\n".join(out)
+
+    @staticmethod
+    def _wrap(txt, fm):
+        s = txt
+        if "strike" in fm:
+            s = f"~~{s}~~"
+        if "bold" in fm:
+            s = f"**{s}**"
+        for c in fm:
+            if c.startswith("c_"):
+                s = "{" + c[2:] + "|" + s + "}"
+        return s
+
+    # ── 글자 꾸미기 ──
+    def _sel(self):
         try:
-            a, b = t.index("sel.first"), t.index("sel.last")
+            return self.t.index("sel.first"), self.t.index("sel.last")
         except tk.TclError:
-            t.insert("insert", left + right)
-            t.mark_set("insert", f"insert-{len(right)}c")
+            return None
+
+    def _all_tagged(self, tag, a, b):
+        t = self.t
+        n = len(t.get(a, b))
+        return n > 0 and all(tag in t.tag_names(f"{a}+{k}c") for k in range(n) if t.get(f"{a}+{k}c") != "\n")
+
+    def toggle(self, tag):
+        t, sel = self.t, self._sel()
+        if sel:
+            a, b = sel
+            (t.tag_remove if self._all_tagged(tag, a, b) else t.tag_add)(tag, a, b)
             t.focus_force()
             self._changed()
             return
-        sel = t.get(a, b)
-        if sel.startswith(left) and sel.endswith(right) and len(sel) >= len(left) + len(right):
-            t.delete(a, b)
-            t.insert(a, sel[len(left):len(sel) - len(right)])
-        else:
-            t.delete(a, b)
-            t.insert(a, left + sel + right)
+        t.mark_set("pend", "insert")                      # 고른 글자가 없으면 이어서 칠 글자에 켜고 끈다
+        self._pend[tag] = not self._pend.get(tag, tag in t.tag_names("insert-1c"))
         t.focus_force()
-        self._changed()
 
     def color(self, name):
+        t, sel = self.t, self._sel()
+        cols = ["c_" + n for n, _ in MEMO_COLORS]
+        if sel:
+            a, b = sel
+            for c in cols:
+                t.tag_remove(c, a, b)
+            if name:
+                t.tag_add("c_" + name, a, b)
+            self._changed()
+            return
+        t.mark_set("pend", "insert")
+        for c in cols:
+            self._pend[c] = False
         if name:
-            self.wrap("{" + name + "|", "}")
+            self._pend["c_" + name] = True
+        t.focus_force()
+
+    def on_key(self, e=None):
+        """키를 뗄 때: 미리 눌러 둔 서식을 방금 친 글자에 입히고, 손으로 친 줄 머리('- ', '[] ')를 바꿔 주고, 저장 예약"""
+        t = self.t
+        if e is not None and e.keysym in ("Left", "Right", "Up", "Down", "Home", "End", "Prior", "Next"):
+            self._pend.clear()
+            t.mark_set("pend", "insert")
             return
-        try:                                             # 색 지우기: 선택 안의 {색|…} 를 벗긴다
-            a, b = self.t.index("sel.first"), self.t.index("sel.last")
-        except tk.TclError:
-            return
-        new = _RX_COLOR.sub(lambda m: m.group(2), self.t.get(a, b))
-        self.t.delete(a, b)
-        self.t.insert(a, new)
+        if self._pend and t.compare("insert", ">", "pend"):
+            for tag, on in self._pend.items():
+                (t.tag_add if on else t.tag_remove)(tag, "pend", "insert")
+            t.mark_set("pend", "insert")
+        ln = t.index("insert").split(".")[0]
+        head = t.get(f"{ln}.0", "insert")
+        m = _RX_AUTO.match(head)
+        if m and t.index("insert") == t.index(f"{ln}.{len(head)}"):
+            g = m.group(2)
+            glyph = "☑ " if "x" in g.lower() and "[" in g else "☐ " if "[" in g else "• "
+            t.delete(f"{ln}.{len(m.group(1))}", "insert")
+            t.insert("insert", glyph)
         self._changed()
 
-    # 줄 머리: 번호 / 글머리 / 체크 (선택한 줄 전체, 이미 있으면 뺀다)
+    # ── 줄 머리: 번호 / 글머리 / 체크 (선택한 줄 전체, 이미 있으면 뺀다) ──
     def prefix(self, kind):
         t = self.t
-        try:
-            l1, l2 = int(t.index("sel.first").split(".")[0]), int(t.index("sel.last").split(".")[0])
-        except tk.TclError:
+        sel = self._sel()
+        if sel:
+            l1, l2 = int(sel[0].split(".")[0]), int(sel[1].split(".")[0])
+        else:
             l1 = l2 = int(t.index("insert").split(".")[0])
-        lines = [t.get(f"{i}.0", f"{i}.end") for i in range(l1, l2 + 1)]
+        want = {"check": "☐ ", "num": "1. ", "bul": "• "}[kind]
 
-        def strip(x):
-            for rx in (_RX_CHECK, _RX_NUM, _RX_BUL):
-                m = rx.match(x)
-                if m:
-                    return m.group(1), m.groups()[-1]
-            return re.match(r"^(\s*)", x).group(1), x.strip()
-        kinds = {"check": _RX_CHECK, "num": _RX_NUM, "bul": _RX_BUL}
-        all_same = all(kinds[kind].match(x) for x in lines if x.strip())
+        def kind_of(line):
+            m = _D_PRE.match(line)
+            if not m:
+                return None
+            g = m.group(2)
+            return "check" if g in ("☐ ", "☑ ") else "bul" if g == "• " else "num"
+        lines = [t.get(f"{i}.0", f"{i}.end") for i in range(l1, l2 + 1)]
+        all_same = all(kind_of(x) == kind for x in lines if x.strip())
         n = 0
         for i, x in zip(range(l1, l2 + 1), lines):
-            ind, body = strip(x)
+            m = _D_PRE.match(x)
+            ind = m.group(1) if m else re.match(r"^(\s*)", x).group(1)
+            a = f"{i}.{len(ind)}"
+            if m:
+                t.delete(a, f"{i}.{m.end()}")
             if all_same and x.strip():
-                new = ind + body
-            else:
-                n += 1
-                new = ind + {"check": "- [ ] ", "num": f"{n}. ", "bul": "- "}[kind] + body
-            t.delete(f"{i}.0", f"{i}.end")
-            t.insert(f"{i}.0", new)
+                continue
+            n += 1
+            t.insert(a, f"{n}. " if kind == "num" else want)
         t.focus_force()
         self._changed()
 
-    # Enter: 번호는 다음 번호로, 체크·글머리는 같은 모양으로 이어 쓰고, 빈 줄에서 Enter 면 목록 끝내기
+    # ── Enter / 지우기 / 누르기 ──
     def _return(self, e):
         t = self.t
         ln = t.index("insert").split(".")[0]
         line = t.get(f"{ln}.0", f"{ln}.end")
-        m = _RX_CHECK.match(line)
-        if m:
-            rest, nxt = m.group(3), m.group(1) + "- [ ] "
-        elif _RX_NUM.match(line):
-            m = _RX_NUM.match(line)
-            rest, nxt = m.group(3), f"{m.group(1)}{int(m.group(2)) + 1}. "
-        elif _RX_BUL.match(line):
-            m = _RX_BUL.match(line)
-            rest, nxt = m.group(2), m.group(1) + "- "
-        else:
+        m = _D_PRE.match(line)
+        if not m or int(t.index("insert").split(".")[1]) < m.end():
             return None
-        if not rest.strip():                           # 비어 있는 목록 줄: 목록 끝내기
-            t.delete(f"{ln}.0", f"{ln}.end")
+        if not line[m.end():].strip():                    # 비어 있는 목록 줄에서 Enter: 목록 끝내기
+            t.delete(f"{ln}.{len(m.group(1))}", f"{ln}.end")
             self._changed()
             return "break"
-        t.insert("insert", "\n" + nxt)
+        g = m.group(2)
+        nxt = "☐ " if g in ("☐ ", "☑ ") else g if g == "• " else f"{int(g.split('.')[0]) + 1}. "
+        t.insert("insert", "\n" + m.group(1) + nxt)
         t.see("insert")
         self._changed()
         return "break"
 
+    def _back(self, e):
+        t = self.t
+        if self._sel():
+            return None
+        ln, col = t.index("insert").split(".")
+        m = _D_PRE.match(t.get(f"{ln}.0", f"{ln}.end"))
+        if m and int(col) == m.end():                     # 줄 머리 바로 뒤에서 지우기: 줄 머리를 통째로
+            t.delete(f"{ln}.{len(m.group(1))}", f"{ln}.{m.end()}")
+            self._changed()
+            return "break"
+        return None
+
     def _click(self, e):
         t = self.t
+        self._pend.clear()
         ln, col = t.index(f"@{e.x},{e.y}").split(".")
-        line = t.get(f"{ln}.0", f"{ln}.end")
-        m = _RX_CHECK.match(line)
-        if m and int(col) <= len(m.group(1)) + 6:       # '- [ ]' 부분을 누르면 체크 토글
-            pos = len(m.group(1)) + 3
-            t.delete(f"{ln}.{pos}", f"{ln}.{pos + 1}")
-            t.insert(f"{ln}.{pos}", " " if m.group(2) in "xX" else "x")
+        m = _D_PRE.match(t.get(f"{ln}.0", f"{ln}.end"))
+        if m and m.group(2) in ("☐ ", "☑ ") and len(m.group(1)) <= int(col) <= len(m.group(1)) + 1:
+            p = f"{ln}.{len(m.group(1))}"                  # 체크 칸을 누르면 ☐ ↔ ☑
+            t.delete(p, f"{p}+1c")
+            t.insert(p, "☐" if m.group(2) == "☑ " else "☑")
             t.focus_force()
             self._changed()
             return "break"
         return None
 
+    def _lists(self):
+        """체크한 줄(☑)은 취소선·흐리게"""
+        t = self.t
+        t.tag_remove("done", "1.0", "end")
+        for i, line in enumerate(t.get("1.0", "end-1c").split("\n"), 1):
+            m = _D_PRE.match(line)
+            if m and m.group(2) == "☑ ":
+                t.tag_add("done", f"{i}.{m.end()}", f"{i}.end")
+
     def _changed(self):
-        self.render()
+        self._lists()
+        self.t.edit_modified(True)                        # 서식만 바꿨어도 '고쳤다'고 표시해 저장되게
         self.on_change()
 
 
@@ -508,10 +637,10 @@ class Sticky:
         tb("1.", lambda: self.fmt.prefix("num"))
         tb("•", lambda: self.fmt.prefix("bul"))
         tb("색", self._color_menu)
-        tb("취소", lambda: self.fmt.wrap("~~", "~~"))
-        tb("B", lambda: self.fmt.wrap("**", "**"), fg=INK)
+        tb("취소", lambda: self.fmt.toggle("strike"))
+        tb("B", lambda: self.fmt.toggle("bold"), fg=INK)
         self.memo.pack(fill="both", expand=True)
-        self.memo.bind("<KeyRelease>", lambda e: (self.fmt.render(), self._memo_changed()))
+        self.memo.bind("<KeyRelease>", self.fmt.on_key)
         self.memo.bind("<Button-1>", lambda e: self.memo.focus_force(), add="+")
         self.memo.bind("<FocusOut>", lambda e: self._save_memo())
         wrap = self.wrap = tk.Frame(self.body, bg=base)
@@ -594,11 +723,9 @@ class Sticky:
             left += f" · 일정 {n_open}" + (" · 메모" if memo.strip() else "")
         self.title.config(text=left, fg="#c8374a" if (hol or (not inbox and d.weekday() == 6)) else INK)
         # 메모: 지금 입력 중이면 건드리지 않는다
-        if self.top.focus_get() is not self.memo and self.memo.get("1.0", "end-1c") != memo:
-            self.memo.delete("1.0", "end")
-            self.memo.insert("1.0", memo)
+        if self.top.focus_get() is not self.memo and self.fmt.get_markup() != memo:
+            self.fmt.set_markup(memo)
             self.memo.edit_reset()
-            self.fmt.render()
         for w in self.list.winfo_children():
             w.destroy()
         S = app.S
@@ -678,7 +805,7 @@ class Sticky:
             self._memo_job = None
         app, d = self.app, self.date()
         try:
-            text = self.memo.get("1.0", "end-1c")
+            text = self.fmt.get_markup()
         except tk.TclError:
             return
         if self.is_inbox():

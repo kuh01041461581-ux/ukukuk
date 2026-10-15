@@ -40,6 +40,8 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 
 - 스티커 닫기/열기: 닫은 스티커는 `conf["stickies_closed"]` 에 자리·설정째 남고, '스티커' 버튼은 닫은 것들을 한꺼번에 다시 띄우고 **새 스티커도 하나 더** 붙인다. ☰ 메뉴·트레이의 '모두 열기'는 닫은 것만 되살리고 새로 만들지 않는다(스티커가 하나도 없을 때만 새로).
 
+- 메모 서식(스티커·오른쪽 패널 공용 `sticky.MemoFormat`): 저장은 폰·검색과 같은 글자(`**굵게**` `~~취소~~` `{빨강|글}` `1.` `- ` `- [ ]`)지만 화면에서는 표시를 감추고 진짜 서식(굵게, ☐/☑ 누르면 토글+취소선, •, 번호 이어쓰기, `- `·`[] ` 손으로 치면 자동 변환, Ctrl+B)으로 보여 준다. `get_markup()`/`set_markup()` 으로 오간다. 달력 칸 미리보기는 `strip_markup()`. **폰 앱의 메모 칸은 아직 표시 글자를 그대로 보여 준다**(손대지 않음).
+
 ## 실행·시험
 ```
 python tests/test_fixtures.py ; python tests/test_work.py ; python tests/test_sticky.py ; python tests/test_sticky_inbox.py   # 뒤 둘은 Tk 필요

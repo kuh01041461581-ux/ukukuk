@@ -2337,7 +2337,7 @@ class TemplateDialog:
 
 class HelpDialog:
     TEXT_LINES = [
-        ("달력 보기", "바탕화면이 비치는 유리 달력이에요. 위쪽 날짜 줄을 끌면 창이 옮겨지고, ‹ › 나 마우스 휠로 한 주씩, 왼쪽 아래 월 이름을 누르면 다음 달로 가요."),
+        ("달력 보기", "바탕화면이 비치는 유리 달력이에요. 위쪽 날짜 줄을 끌면 창이 옮겨지고, 오늘 옆 ‹ › 로 한 주씩 넘겨요(마우스 휠로는 넘어가지 않아요). 왼쪽 아래 월 이름을 누르면 다음 달로 가요."),
         ("일정 입력", "날짜를 클릭하면 오른쪽에 입력창이 열려요. 쓰고 Enter. 같은 날짜를 다시 누르면 닫혀요."),
         ("시간 넣기", "'14:30 팀 회의' 처럼 앞에 시간을 쓰면 시간이 함께 저장돼요."),
         ("기간 일정", "시작 날짜에서 끝 날짜까지 끌어서 선택한 뒤 입력하면 여러 날에 걸친 일정이 돼요."),
@@ -2857,7 +2857,7 @@ class DeskCalendar:
         self.cal.bind("<ButtonPress-1>", self._cal_press)
         self.cal.bind("<B1-Motion>", self._cal_drag)
         self.cal.bind("<ButtonRelease-1>", self._cal_release)
-        self.cal.bind("<MouseWheel>", self._on_wheel_month)
+        # 마우스 휠로는 달력이 넘어가지 않는다 (실수로 넘어가면 안 됨). 한 주씩은 오늘 옆 ‹ › 로만. Ctrl+휠은 글자 크기
 
         # 오른쪽 상세 패널
         inner = tk.Frame(self.right, bg=SURFACE, padx=S(18), pady=S(10))
@@ -4245,14 +4245,6 @@ class DeskCalendar:
         self._apply_mode_layout()
         self.show_day(self.today)
         self.render_month()
-
-    def _on_wheel_month(self, e):
-        if e.state & 0x4:   # Ctrl+휠은 크기 조절
-            return
-        if self.glass:
-            self.shift_weeks(-1 if e.delta > 0 else 1)
-            return
-        self.shift_month(-1 if e.delta > 0 else 1)
 
     # ── 입력 패널 열기 / 닫기 ──
     def _apply_panel_visibility(self):

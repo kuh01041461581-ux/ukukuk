@@ -276,6 +276,24 @@ String whatToSubmit(String body, int lo, int s0, int e0, int hi) {
 }
 
 /// 반환: (제목, 일정 후보 목록). withTopic: 일정 이름 앞에 공문 주제를 붙인다 ('[공유재산 실태조사] 조사 기간')
+final _refBefore = RegExp(r'[가-힣A-Za-z]-\s*\d+\s*\(\s*$'); // '회계과-991(' — 문서번호 바로 뒤 괄호
+final _refAfter = RegExp(r'^\s*\)\s*호'); // ')호'
+
+/// '행정안전부 공유재산정책과-991(2026.3.16.)호' 처럼 관련 문서의 '발송 날짜' 는 일정이 아니다
+bool _isDocRefDate(String body, int s0, int e0) {
+  final before = body.substring(s0 - 30 < 0 ? 0 : s0 - 30, s0);
+  final after = body.substring(e0, e0 + 6 > body.length ? body.length : e0 + 6);
+  return _refBefore.hasMatch(before) && _refAfter.hasMatch(after);
+}
+
+/// 공문 제목 자체가 '… 제출(요청)' 이면, 연도와 '요청' 만 뺀 그 제목이 곧 일정 이름이다. 제출 공문이 아니면 빈 글자
+String submitTitle(String title) {
+  var t = title.replaceAll(RegExp('[「」『』“”"\'‘’]'), '').trim();
+  t = t.replaceFirst(RegExp(r'^20\d{2}\s*(년도|년|학년도)?\s*'), '').trim();
+  t = t.replaceFirst(RegExp(r'\s*(?:협조\s*)?(?:요청|바랍니다)\s*$'), '').trim();
+  return t.contains('제출') && t.length >= 4 ? t : '';
+}
+
 (String, List<GongmunItem>) parseGongmun(String text, DateTime today, {bool withTopic = true}) {
   final paras = paragraphs(text);
   final title = findTitle(text, paras);
@@ -292,6 +310,7 @@ String whatToSubmit(String body, int lo, int s0, int e0, int hi) {
   }
 
   final found = <GongmunItem>[];
+  final submitIdx = <int>[]; // 제출기한 일정의 위치
   final seen = <String>{};
   for (final p in paras) {
     if (_skip.hasMatch(p) || p.startsWith('제목')) continue;
@@ -303,7 +322,7 @@ String whatToSubmit(String body, int lo, int s0, int e0, int hi) {
       if (m.start < pos) continue;
       final d = _dateOf(m, year);
       final tailText = body.substring(m.end, m.end + 8 > body.length ? body.length : m.end + 8);
-      if (d == null || _asof.hasMatch(tailText)) continue;
+      if (d == null || _asof.hasMatch(tailText) || _isDocRefDate(body, m.start, m.end)) continue;
       final rest = body.substring(m.end);
       final when = _timeAfter(rest);
       DateTime? end;
@@ -359,9 +378,16 @@ String whatToSubmit(String body, int lo, int s0, int e0, int hi) {
           if (what.isNotEmpty) label = '$what 제출 · $topic';
         }
       }
+      if (topic.isNotEmpty && kindOf(core) == '제출기한') submitIdx.add(found.length);
       found.add(GongmunItem(s.d, s.end, s.when, label, title, s.end != null && _period.hasMatch(pa), _urgent.hasMatch(ctx) ? 1 : 2,
           detail: core));
     }
+  }
+  // 제출 공문에 제출기한이 하나면 제목 그대로: '제10차 ○○위원회 심의안건 제출'
+  final st = submitTitle(title);
+  if (withTopic && submitIdx.length == 1 && st.isNotEmpty) {
+    final o = found[submitIdx.first];
+    found[submitIdx.first] = GongmunItem(o.date, o.end, o.time, st, o.doc, o.period, o.pri, detail: o.detail);
   }
   // 안정 정렬: 날짜 → 시간(없으면 맨 뒤) → 원래 순서
   final idx = {for (var i = 0; i < found.length; i++) found[i]: i};

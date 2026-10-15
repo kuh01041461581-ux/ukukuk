@@ -46,6 +46,9 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 - 스티커 접기/펴기는 시간 기반 easeInOutCubic(약 0.28초), 안쪽 내용은 `place` 로 크기를 고정해 두고 창만 움직인다. 스티커마다 글자 크기 `conf["fs"]`(0.7~2.4): 도구줄 A＋/A－, 메모 위 Ctrl+휠, 우클릭 메뉴 '글자 크기'.
 - 카드형 머리 줄에도 '스티커' 버튼(유리형과 같은 `open_all`).
 
+- 공문 일정 이름(사용자가 실제 공문 2건으로 확인): 제목 자체가 '… 제출(요청)' 이고 제출기한이 하나면 **제목에서 연도·'요청'만 뺀 것이 그대로 일정 이름**(`submit_title` / `submitTitle`; 예 '제10차 ○○위원회 심의안건 제출', '공유재산 실태조사 결과 제출'). '관련문서 ○○과-991(2026.3.16.)호' 같은 문서번호 옆 발송 날짜는 일정으로 넣지 않는다(`_is_doc_ref_date`). 실제 공문은 커밋하지 않고 가짜 문서로만 시험(tests/gongmun_cases.json).
+- 달력에서 마우스 휠로 주·월이 넘어가지 않는다(Ctrl+휠은 글자 크기). 주 이동은 오늘 옆 ‹ › 로만.
+
 ## 실행·시험
 ```
 python tests/test_fixtures.py ; python tests/test_work.py ; python tests/test_sticky.py ; python tests/test_sticky_inbox.py   # 뒤 둘은 Tk 필요

@@ -269,6 +269,24 @@ def what_to_submit(body, lo, s0, e0, hi):
     return best
 
 
+_REF_BEFORE = re.compile(r"[가-힣A-Za-z]-\s*\d+\s*\(\s*$")          # '회계과-991(' — 문서번호 바로 뒤 괄호
+_REF_AFTER = re.compile(r"^\s*\)\s*호")                               # ')호'
+
+
+def _is_doc_ref_date(body, s0, e0):
+    """'행정안전부 공유재산정책과-991(2026.3.16.)호' 처럼 관련 문서의 '발송 날짜' 는 일정이 아니다"""
+    return bool(_REF_BEFORE.search(body[max(0, s0 - 30):s0]) and _REF_AFTER.match(body[e0:e0 + 6]))
+
+
+def submit_title(title):
+    """공문 제목 자체가 '… 제출(요청)' 이면, 연도와 '요청' 만 뺀 그 제목이 곧 일정 이름이다:
+    '2026년 제10차 ○○위원회 심의안건 제출' → '제10차 ○○위원회 심의안건 제출'. 제출 공문이 아니면 빈 글자"""
+    t = re.sub("[「」『』“”\"'‘’]", "", title or "").strip()
+    t = re.sub(r"^20\d{2}\s*(년도|년|학년도)?\s*", "", t).strip()
+    t = re.sub(r"\s*(?:협조\s*)?(?:요청|바랍니다)\s*$", "", t).strip()
+    return t if "제출" in t and len(t) >= 4 else ""
+
+
 def parse(text, today=None, with_topic=True):
     """반환: (제목, [{"date": date, "end": date|None, "time": "HH:MM"|"", "text": str, "pri": 0~3}, ...])
     with_topic: 일정 이름 앞에 공문 주제를 붙인다 ('[공유재산 실태조사] 조사 기간') — 무엇에 관한 일정인지 알 수 있게"""
@@ -300,7 +318,7 @@ def parse(text, today=None, with_topic=True):
             if m.start() < pos:
                 continue
             d = _date_of(m, year)
-            if not d or _ASOF.match(body[m.end():m.end() + 8]):
+            if not d or _ASOF.match(body[m.end():m.end() + 8]) or _is_doc_ref_date(body, m.start(), m.end()):
                 continue
             rest = body[m.end():]
             when = _time_after(rest)
@@ -348,6 +366,10 @@ def parse(text, today=None, with_topic=True):
                         label = f"{what} 제출 · {topic}"
             found.append({"date": d, "end": end, "time": when, "text": label, "detail": core, "doc": title,
                           "period": bool(end) and bool(_PERIOD.search(body[max(0, s0 - 40):e0 + 20])),
-                          "pri": 1 if _URGENT.search(ctx) else 2})
+                          "pri": 1 if _URGENT.search(ctx) else 2, "_submit": topic and kind_of(core) == "제출기한"})
+    subs = [f for f in found if f.pop("_submit")]
+    st = submit_title(title)
+    if with_topic and len(subs) == 1 and st:       # 제출 공문에 제출기한이 하나면 제목 그대로: '제10차 ○○위원회 심의안건 제출'
+        subs[0]["text"] = st
     found.sort(key=lambda x: (x["date"], x["time"] or "99:99"))
     return title, found

@@ -266,8 +266,8 @@ def export_state(data):
             r = {k: val for k, val in t.items() if not k.startswith("_")}
             r["date"] = None if key == "_inbox" else key
             items.append(r)
-        if key != "_inbox" and v.get("memo", "").strip():
-            memos[key] = {"memo": v["memo"], "ts": v.get("memo_ts", 0)}
+        if key != "_inbox" and (v.get("memo", "").strip() or v.get("memo_ts")):    # 지운 메모도 '비웠다'는 기록(ts)으로 보내야 다른 기기의 옛 메모가 되살아나지 않는다
+            memos[key] = {"memo": v.get("memo", ""), "ts": v.get("memo_ts", 0)}
     work = {i: {k: val for k, val in c.items() if not k.startswith("_")} for i, c in (data.get("_work") or {}).items()}
     return {"items": items, "memos": memos, "deleted": dict(data.get("_deleted", {})), "work": work}
 

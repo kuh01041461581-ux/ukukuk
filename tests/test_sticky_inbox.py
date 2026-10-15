@@ -84,3 +84,17 @@ a.stickers.open_all(None); assert len(a.stickers.notes) == 5      # 닫은 게 �
 a.stickers.open_all(); assert len(a.stickers.notes) == 5          # 트레이·메뉴의 '모두 열기'는 새로 만들지 않는다
 a.stickers.close_all(); a.conf["stickies_closed"] = []; a.stickers.open_all(); assert len(a.stickers.notes) == 1   # 하나도 없을 때만 새로
 print("REOPEN OK")
+
+# 6) 글자 크기 조절: 스티커마다 따로, 저장되고, 메모·일정·입력줄이 같이 커진다
+q = list(a.stickers.notes.values())[0]
+q.set_date("2031-07-01"); root.update()
+q.memo.insert("1.0", "크기 시험"); q._save_memo()
+base = abs(int(q.f_txt.cget("size")))
+q.set_fs(0.3); root.update()
+assert q.conf["fs"] == 1.3 and abs(int(q.f_txt.cget("size"))) > base
+assert q.memo.cget("font") and q.fmt.get_markup() == "크기 시험"          # 크기를 바꿔도 내용은 그대로
+q.set_fs(1.0, rel=False); assert q.conf["fs"] == 1.0 and abs(int(q.f_txt.cget("size"))) == base
+for _ in range(30):
+    q.set_fs(-0.1)
+assert q.conf["fs"] == 0.7                                                   # 너무 작아지지 않는다
+print("FONTSIZE OK")

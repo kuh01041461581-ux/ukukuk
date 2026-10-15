@@ -42,6 +42,10 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 
 - 메모 서식(스티커·오른쪽 패널 공용 `sticky.MemoFormat`): 저장은 폰·검색과 같은 글자(`**굵게**` `~~취소~~` `{빨강|글}` `1.` `- ` `- [ ]`)지만 화면에서는 표시를 감추고 진짜 서식(굵게, ☐/☑ 누르면 토글+취소선, •, 번호 이어쓰기, `- `·`[] ` 손으로 치면 자동 변환, Ctrl+B)으로 보여 준다. `get_markup()`/`set_markup()` 으로 오간다. 달력 칸 미리보기는 `strip_markup()`. 폰 앱도 같은 규칙: `mobile/lib/memo_rich.dart` 의 `RichMemoController`(글자마다 서식 배열을 들고 있는 TextEditingController, 한글 조합·Enter 이어쓰기·`- `/`[] ` 자동 변환·체크 누르기)와 `MemoEditor`(서식 버튼 줄+입력 칸)를 날짜 시트 메모·메모 대화상자에 쓴다. 시험: mobile/test/memo_rich_test.dart. 저장 글자 규칙을 바꾸면 PC(sticky.py)와 폰(memo_rich.dart) 양쪽을 같이.
 
+- 메모 지움 동기화: 메모를 지워도 그날 항목에 `memo_ts` 를 남기고(90일) 동기화 때 빈 메모도 ts 와 함께 내보낸다(`core.export_state` / `core.dart exportState`). 안 그러면 다른 기기의 옛 메모가 되살아난다. 시험: tests/test_memo_revive.py, mobile/test/memo_revive_test.dart.
+- 스티커 접기/펴기는 시간 기반 easeInOutCubic(약 0.28초), 안쪽 내용은 `place` 로 크기를 고정해 두고 창만 움직인다. 스티커마다 글자 크기 `conf["fs"]`(0.7~2.4): 도구줄 A＋/A－, 메모 위 Ctrl+휠, 우클릭 메뉴 '글자 크기'.
+- 카드형 머리 줄에도 '스티커' 버튼(유리형과 같은 `open_all`).
+
 ## 실행·시험
 ```
 python tests/test_fixtures.py ; python tests/test_work.py ; python tests/test_sticky.py ; python tests/test_sticky_inbox.py   # 뒤 둘은 Tk 필요

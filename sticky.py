@@ -4,6 +4,7 @@
 import ctypes
 import datetime as dt
 import re
+import time
 import tkinter as tk
 import tkinter.font as tkfont
 
@@ -565,6 +566,8 @@ class Sticky:
         for w in top.winfo_children():
             w.destroy()
         base = c.get("color", COLORS[0][1])
+        self.f_txt = tkfont.Font(font=app.f_small)                 # 이 스티커의 메모·일정 글자 (스티커마다 크기 조절)
+        self.f_txt.configure(size=-max(8, round(abs(int(app.f_small.cget("size"))) * float(c.get("fs", 1.0)))))
         bar = self.bar_col = _mix(base, "#000000", 0.07)
         self.base = base
         top.configure(bg=_mix(base, "#000000", 0.16))          # 아주 얇은 가장자리
@@ -602,7 +605,7 @@ class Sticky:
         foot = self.foot = tk.Frame(self.body, bg=base)
         foot.pack(side="bottom", fill="x", padx=S(10), pady=(0, S(10)))
         field = _mix(base, "#ffffff", 0.55)
-        self.entry = tk.Entry(foot, font=app.f_small, bg=field, fg=INK, insertbackground=INK, relief="flat",
+        self.entry = tk.Entry(foot, font=self.f_txt, bg=field, fg=INK, insertbackground=INK, relief="flat",
                               highlightthickness=1, highlightbackground=_mix(base, "#000000", 0.1),
                               highlightcolor=_mix(base, "#000000", 0.35))
         self.entry.pack(fill="x", ipady=S(4))
@@ -627,7 +630,7 @@ class Sticky:
             p.pack(side="right", padx=(S(2), 0))
             return p
         self.field = field
-        self.memo = tk.Text(mf, height=3, font=app.f_small, bg=field, fg=INK, insertbackground=INK, relief="flat",
+        self.memo = tk.Text(mf, height=3, font=self.f_txt, bg=field, fg=INK, insertbackground=INK, relief="flat",
                             wrap="word", padx=S(6), pady=S(4), undo=True, highlightthickness=1,
                             highlightbackground=_mix(base, "#000000", 0.1),
                             highlightcolor=_mix(base, "#000000", 0.35))
@@ -639,10 +642,13 @@ class Sticky:
         tb("색", self._color_menu)
         tb("취소", lambda: self.fmt.toggle("strike"))
         tb("B", lambda: self.fmt.toggle("bold"), fg=INK)
+        tb("A＋", lambda: self.set_fs(0.1))                           # 메모 글자 크기 (Ctrl+마우스 휠도 됨)
+        tb("A－", lambda: self.set_fs(-0.1))
         self.memo.pack(fill="both", expand=True)
         self.memo.bind("<KeyRelease>", self.fmt.on_key)
         self.memo.bind("<Button-1>", lambda e: self.memo.focus_force(), add="+")
         self.memo.bind("<FocusOut>", lambda e: self._save_memo())
+        self.memo.bind("<Control-MouseWheel>", lambda e: (self.set_fs(0.1 if e.delta > 0 else -0.1), "break")[1])
         wrap = self.wrap = tk.Frame(self.body, bg=base)
         wrap.pack(side="top", fill="x", padx=S(10), pady=(S(8), 0))
         self.cv = tk.Canvas(wrap, bg=base, highlightthickness=0, bd=0, height=S(60))
@@ -733,7 +739,7 @@ class Sticky:
         if hol:
             tk.Label(self.list, text=hol, font=app.f_tiny, bg=base, fg="#c8374a", anchor="w").pack(fill="x")
         if not rows:
-            tk.Label(self.list, text="보관함이 비었어요" if inbox else "이 날은 일정이 없어요", font=app.f_small, bg=base, fg=INK_DIM,
+            tk.Label(self.list, text="보관함이 비었어요" if inbox else "이 날은 일정이 없어요", font=self.f_txt, bg=base, fg=INK_DIM,
                      anchor="w").pack(fill="x", pady=S(6))
         scroll = lambda e: self.cv.yview_scroll(int(-e.delta / 120), "units")
         for lst, t, s0 in rows:
@@ -783,7 +789,7 @@ class Sticky:
         chk.pack(side="left", anchor="n", pady=S(1))
         chk.bind("<Button-1>", lambda e, t=t: app.toggle_todo(t))
         txt = (t["time"] + "  " if t.get("time") else "") + t.get("text", "")
-        lb = tk.Label(r, text=txt, font=self.fmt._fonts[2] if done else app.f_small, bg=base, fg=INK_DIM if done else INK,
+        lb = tk.Label(r, text=txt, font=self.fmt._fonts[2] if done else self.f_txt, bg=base, fg=INK_DIM if done else INK,
                       anchor="w", justify="left", wraplength=max(S(120), self.conf["w"] - S(70)))
         lb.pack(side="left", fill="x", expand=True, padx=(S(8), 0))
         lb.bind("<Double-Button-1>", lambda e, t=t: app.edit_item(t))
@@ -855,21 +861,29 @@ class Sticky:
         self.refresh(force=True)
         cur = self.top.winfo_height()
         goal = self.bar_h() if c["folded"] else c["h"]
-        if c["folded"]:
-            self.body.pack_forget()
         self._animate(cur, goal)
         self.mgr.save()
 
-    def _animate(self, cur, goal, i=0, steps=7):
+    def _animate(self, cur, goal, t0=None, dur=0.28):
+        """접고 펼 때 창 높이를 시간에 맞춰 부드럽게(처음·끝은 천천히) 바꾼다. 안쪽 내용은 크기를 고정해 두고 창만 움직여서
+        프레임마다 내용을 다시 배치하지 않으므로 끊기지 않는다."""
         if self._anim:
             self.top.after_cancel(self._anim)
-        e = 1 - (1 - (i + 1) / steps) ** 2             # 끝에서 부드럽게 멈춤
+            self._anim = None
+        if t0 is None:
+            hdh = self.hd.winfo_height() + 1
+            self.body.pack_forget()
+            self.body.place(in_=self.frame, x=0, y=hdh, relwidth=1.0, height=max(self.conf["h"], cur, goal) - hdh - 2)
+            t0 = time.perf_counter()
+        p = min(1.0, (time.perf_counter() - t0) / dur)
+        e = 4 * p ** 3 if p < 0.5 else 1 - (-2 * p + 2) ** 3 / 2         # easeInOutCubic
         h = round(cur + (goal - cur) * e)
         self.top.geometry(f"{self.conf['w']}x{h}+{self.conf['x']}+{self.conf['y']}")
-        if i + 1 < steps:
-            self._anim = self.top.after(14, lambda: self._animate(cur, goal, i + 1, steps))
+        if p < 1.0:
+            self._anim = self.top.after(8, lambda: self._animate(cur, goal, t0, dur))
         else:
             self._anim = None
+            self.body.place_forget()
             if not self.conf["folded"]:
                 self.body.pack(side="top", fill="both", expand=True)
 
@@ -938,6 +952,11 @@ class Sticky:
             am.add_command(label=("● " if abs(float(self.conf.get("alpha", 1.0)) - a) < .01 else "○ ") + f"투명도 {int(a * 100)}%",
                            command=lambda a=a: self.set_alpha(a))
         m.add_cascade(label="투명도", menu=am)
+        fm = tk.Menu(m, tearoff=0, bg=ui.CARD, fg=ui.TEXT, activebackground=ui.ACCENT, activeforeground="#ffffff", bd=0)
+        for lab, v in (("작게", 0.8), ("보통", 1.0), ("크게", 1.3), ("더 크게", 1.7), ("아주 크게", 2.2)):
+            fm.add_command(label=("● " if abs(float(self.conf.get("fs", 1.0)) - v) < .06 else "○ ") + lab,
+                           command=lambda v=v: self.set_fs(v, rel=False))
+        m.add_cascade(label="글자 크기", menu=fm)
         m.add_command(label="모든 스티커 숨기기 / 보이기", command=self.mgr.toggle_hidden)
         if self.is_inbox():
             m.add_command(label="날짜 스티커로 바꾸기 (오늘)", command=lambda: self.set_date(None))
@@ -978,6 +997,21 @@ class Sticky:
         self.pin_btn.itemconfig(self.pin_btn._label, fill="#ffffff" if on else INK_SUB)
         self.pin_btn.itemconfig(self.pin_btn._shape, fill="#4a4b5a" if on else self.bar_col)
         self.pin_btn._bg = "#4a4b5a" if on else self.bar_col
+
+    def set_fs(self, v, rel=True):
+        """이 스티커의 메모·일정 글자 크기 (보통 = 1.0). 스티커마다 따로 저장된다"""
+        cur = float(self.conf.get("fs", 1.0))
+        new = round(min(2.4, max(0.7, cur + v if rel else v)), 2)
+        if abs(new - cur) < 0.001:
+            return
+        had_focus = self.top.focus_get() is self.memo
+        self._save_memo()
+        self.conf["fs"] = new
+        self.build()
+        self.refresh(force=True)
+        self.mgr.save()
+        if had_focus:
+            self.memo.focus_set()
 
     def set_alpha(self, a):
         self.conf["alpha"] = a

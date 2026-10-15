@@ -2826,6 +2826,8 @@ class DeskCalendar:
         nav = tk.Frame(hdr, bg=BG)
         nav.pack(side="right")
         small = dict(padx=S(9), pady=S(2))
+        Pill(nav, "스티커", lambda: self.stickers.open_all(self.selected if self.selected != self.today else None),
+             self.f_small, **small).pack(side="left", padx=(0, S(4)))
         Pill(nav, "보관함", self.open_inbox, self.f_small, **small).pack(side="left", padx=(0, S(4)))
         Pill(nav, "공문 PDF", self.import_pdf, self.f_small, **small).pack(side="left", padx=(0, S(10)))
         Pill(nav, "달력 글자 －", lambda: self.cal_font_step(-0.1), self.f_tiny, **small).pack(side="left", padx=(0, S(3)))
@@ -5060,7 +5062,8 @@ class DeskCalendar:
             v = self.data[k]
             if k in ("_deleted", "_work"):
                 continue
-            if not v.get("memo", "").strip() and not v.get("todos"):
+            keep_stamp = k != "_inbox" and v.get("memo_ts", 0) > core.now_ms() - 90 * 86400 * 1000   # 비운 메모의 '지웠다' 기록은 90일 보관
+            if not v.get("memo", "").strip() and not v.get("todos") and not keep_stamp:
                 del self.data[k]
         try:
             save_json(DATA_FILE, self.data)

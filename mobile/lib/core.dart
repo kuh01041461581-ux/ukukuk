@@ -272,8 +272,9 @@ Json exportState(Json data) {
       r['date'] = key == '_inbox' ? null : key;
       items.add(r);
     }
-    if (key != '_inbox' && ((v['memo'] as String?) ?? '').trim().isNotEmpty) {
-      memos[key] = {'memo': v['memo'], 'ts': v['memo_ts'] ?? 0};
+    // 지운 메모도 '비웠다'는 기록(ts)으로 보낸다: 안 그러면 다른 기기의 옛 메모가 되살아난다
+    if (key != '_inbox' && (((v['memo'] as String?) ?? '').trim().isNotEmpty || (v['memo_ts'] ?? 0) != 0)) {
+      memos[key] = {'memo': v['memo'] ?? '', 'ts': v['memo_ts'] ?? 0};
     }
   });
   final work = <String, dynamic>{};

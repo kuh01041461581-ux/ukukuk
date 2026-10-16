@@ -1,0 +1,31 @@
+name: Build DeptCalendar exe
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths: ["deptcal/**", .github/workflows/build-deptcal.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build exe
+        shell: cmd
+        working-directory: deptcal
+        run: build.bat
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DeptCalendar
+          path: deptcal/DeptCalendar.exe
+      - name: Release (latest-deptcal)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-deptcal --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create latest-deptcal deptcal/DeptCalendar.exe --repo "$GITHUB_REPOSITORY" --title "부서 일정 달력 exe" --notes "자동 빌드 ($GITHUB_SHA)" --prerelease

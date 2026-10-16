@@ -51,6 +51,9 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 
 - 스티커는 자리마다 **한 장**: 날짜 스티커는 날짜마다, '오늘'은 오늘 날짜로 세고, 날짜 없는 칸은 하나(`StickyManager.key_of`). `add()` 는 이미 있으면 새로 만들지 않고 앞으로 가져온다. 머리 줄 ＋ 는 다음 날짜(스티커 없는 첫 날짜, `add_next`). 닫을 때 내용(메모·일정)이 있는 스티커만 닫아 둔 목록에 남는다. 켤 때 중복 스티커는 정리(`_dedupe`).
 
+- 빠른 입력(Ctrl+Alt+Space): 달력을 앞으로 불러오지 않고 `CommandBar(anywhere=True)` 를 마우스가 있는 모니터(`work_area_at`)에 띄운다. 이미 열려 있으면 닫힘. 단축키가 이미 쓰이면 Ctrl+Shift+Space → Ctrl+Alt+Q 로 등록하고 알림. 입력 해석은 quickadd.py/quickadd.dart(붙여 쓴 날짜 261024·20261024, 끝에 붙인 중요/긴급/낮음). 시험: tests/test_quickbar.py, tests/quickadd_cases.json.
+- 날짜 상세 창(DayDetail, 더블클릭)은 일정이 많을 때 어느 줄 위에서든 휠로 스크롤(`_bind_wheel_tree`), 창도 더 크게. 오른쪽 패널·말풍선은 기존 그대로(말풍선은 14개까지, '날짜를 눌러 전체 보기').
+
 ## 실행·시험
 ```
 python tests/test_fixtures.py ; python tests/test_work.py ; python tests/test_sticky.py ; python tests/test_sticky_inbox.py   # 뒤 둘은 Tk 필요

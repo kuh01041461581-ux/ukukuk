@@ -240,6 +240,76 @@
     "pri": null,
     "repeat": null
    }
+  },
+  {
+   "in": "주간업무취합 261024 중요",
+   "out": {
+    "text": "주간업무취합",
+    "date": "2026-10-24",
+    "time": null,
+    "pri": 1,
+    "repeat": null
+   }
+  },
+  {
+   "in": "20261024 회의 14:30",
+   "out": {
+    "text": "회의",
+    "date": "2026-10-24",
+    "time": "14:30",
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "261024 보고서 낮음",
+   "out": {
+    "text": "보고서",
+    "date": "2026-10-24",
+    "time": null,
+    "pri": 3,
+    "repeat": null
+   }
+  },
+  {
+   "in": "중요 사항 확인",
+   "out": {
+    "text": "중요 사항 확인",
+    "date": null,
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "예산 증액 보통",
+   "out": {
+    "text": "예산 증액 보통",
+    "date": null,
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "계약번호 123456 확인",
+   "out": {
+    "text": "계약번호 123456 확인",
+    "date": null,
+    "time": null,
+    "pri": null,
+    "repeat": null
+   }
+  },
+  {
+   "in": "결과 보고 261331 중요",
+   "out": {
+    "text": "결과 보고 261331",
+    "date": null,
+    "time": null,
+    "pri": 1,
+    "repeat": null
+   }
   }
  ]
 }

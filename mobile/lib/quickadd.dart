@@ -92,6 +92,19 @@ QuickResult parseQuick(String text, DateTime today) {
   DateTime? d;
   m = cut(r'(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?(?!\d)');
   if (m != null) d = _mk(int.parse(m.group(1)!), int.parse(m.group(2)!), int.parse(m.group(3)!));
+  // 붙여 쓴 날짜: 261024 (연월일 6자리) · 20261024 (8자리)
+  if (d == null) {
+    final cm = RegExp(r'(?<![\d.:/\-])(\d{2}|20\d{2})(\d{2})(\d{2})(?![\d.:/\-])').firstMatch(s);
+    if (cm != null) {
+      final yy = int.parse(cm.group(1)!);
+      final y = yy < 100 ? 2000 + yy : yy;
+      final cd = _mk(y, int.parse(cm.group(2)!), int.parse(cm.group(3)!));
+      if (cd != null && y >= 2020 && y <= 2049) {
+        s = '${s.substring(0, cm.start)} ${s.substring(cm.end)}';
+        d = cd;
+      }
+    }
+  }
   DateTime? nextYearIfOld(DateTime? x, int mo, int da) {
     if (x != null && x.isBefore(today) && today.difference(x).inDays > 180) return _mk(today.year + 1, mo, da);
     return x;
@@ -174,6 +187,11 @@ QuickResult parseQuick(String text, DateTime today) {
   }
 
   s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final toks = s.split(' ');
+  if (pri == null && toks.length >= 2 && (toks.last == '중요' || toks.last == '긴급' || toks.last == '낮음')) {
+    pri = _priWords[toks.last]; // '주간업무취합 261024 중요' — 끝에 붙인 중요도
+    s = toks.sublist(0, toks.length - 1).join(' ');
+  }
   s = s.replaceFirst(RegExp(r'^(에|까지|부터|은|는|에는|에서)\s+'), '').trim();
   if (repeat != null && date == null) date = today;
   return QuickResult(s.isEmpty ? text.trim() : s, date: date, time: time, pri: pri, repeat: repeat);

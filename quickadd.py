@@ -67,11 +67,28 @@ def parse(text, today=None):
             out["repeat"] = code
             break
 
+    def cut_if(rx, ok):
+        """찾은 것이 쓸 만할 때만(ok) 잘라 낸다"""
+        nonlocal s
+        m = re.search(rx, s)
+        if m and ok(m):
+            s = s[:m.start()] + " " + s[m.end():]
+            return m
+        return None
+
     d = None
     # 날짜: 연-월-일
     m = cut(r"(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?(?!\d)")
     if m:
         d = _mk(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    if d is None:       # 붙여 쓴 날짜: 261024 (연월일 6자리) · 20261024 (8자리)
+        def compact(m):
+            y = int(m.group(1))
+            return _mk(2000 + y if y < 100 else y, int(m.group(2)), int(m.group(3))) is not None and 2020 <= (2000 + y if y < 100 else y) <= 2049
+        m = cut_if(r"(?<![\d.:/\-])(\d{2}|20\d{2})(\d{2})(\d{2})(?![\d.:/\-])", compact)
+        if m:
+            y = int(m.group(1))
+            d = _mk(2000 + y if y < 100 else y, int(m.group(2)), int(m.group(3)))
     if d is None:
         m = cut(r"(?<!\d)(\d{1,2})\s*월\s*(\d{1,2})\s*일?(?![가-힣\d])")
         if m:
@@ -142,6 +159,10 @@ def parse(text, today=None):
                 out["time"] = f"{h:02d}:{mi:02d}"
 
     s = re.sub(r"\s+", " ", s).strip()
+    toks = s.split(" ")
+    if out["pri"] is None and len(toks) >= 2 and toks[-1] in ("중요", "긴급", "낮음"):      # '주간업무취합 261024 중요' — 끝에 붙인 중요도
+        out["pri"] = PRI_WORDS[toks[-1]]
+        s = " ".join(toks[:-1])
     s = re.sub(r"^(에|까지|부터|은|는|에는|에서)\s+", "", s).strip()
     out["text"] = s or text.strip()
     if out["repeat"] and out["date"] is None:

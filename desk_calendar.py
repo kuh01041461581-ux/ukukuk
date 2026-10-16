@@ -412,10 +412,18 @@ def start_tray(q):
 
 
 def start_hotkey_listener(q, mods, vk):
-    """전역 단축키 → q 에 신호. 별도 스레드의 메시지 루프에서 처리한다."""
+    """전역 단축키 → q 에 신호(1). 별도 스레드의 메시지 루프에서 처리한다.
+    Ctrl+Alt+Space 를 다른 프로그램이 이미 쓰고 있으면 Ctrl+Shift+Space, 그것도 안 되면 Ctrl+Alt+Q 로 등록하고 알려 준다."""
     def run():
         u = ctypes.windll.user32
-        if not u.RegisterHotKey(None, 1, mods | 0x4000, vk):  # MOD_NOREPEAT
+        tries = [(mods, vk, "Ctrl+Alt+Space"), (0x0002 | 0x0004, vk, "Ctrl+Shift+Space"), (0x0002 | 0x0001, 0x51, "Ctrl+Alt+Q")]
+        for n, (m, k, name) in enumerate(tries, 1):
+            if u.RegisterHotKey(None, n, m | 0x4000, k):  # MOD_NOREPEAT
+                if n > 1:
+                    q.put("hotkey:" + name)
+                break
+        else:
+            q.put("hotkey-failed")
             return
         msg = wintypes.MSG()
         while u.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
@@ -423,6 +431,29 @@ def start_hotkey_listener(q, mods, vk):
                 q.put(1)
 
     threading.Thread(target=run, daemon=True).start()
+
+
+def work_area_at(root, x, y):
+    """(x, y) 점이 있는 모니터의 작업 영역 (왼쪽, 위, 너비, 높이). 알 수 없으면 가상 화면 전체"""
+    if IS_WIN:
+        try:
+            class RECT(ctypes.Structure):
+                _fields_ = [("l", ctypes.c_long), ("t", ctypes.c_long), ("r", ctypes.c_long), ("b", ctypes.c_long)]
+
+            class MINFO(ctypes.Structure):
+                _fields_ = [("cb", wintypes.DWORD), ("mon", RECT), ("work", RECT), ("flags", wintypes.DWORD)]
+            u = ctypes.windll.user32
+            u.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+            u.MonitorFromPoint.restype = wintypes.HANDLE
+            u.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MINFO)]
+            h = u.MonitorFromPoint(wintypes.POINT(int(x), int(y)), 2)      # MONITOR_DEFAULTTONEAREST
+            mi = MINFO()
+            mi.cb = ctypes.sizeof(MINFO)
+            if h and u.GetMonitorInfoW(h, ctypes.byref(mi)):
+                return mi.work.l, mi.work.t, mi.work.r - mi.work.l, mi.work.b - mi.work.t
+        except Exception:
+            pass
+    return virtual_screen(root)
 
 
 # ── 그리기 헬퍼 ─────────────────────────────────────────
@@ -894,6 +925,14 @@ class EditDialog:
         app._after_todo_change()
 
 
+def _bind_wheel_tree(widget, fn):
+    """위젯과 그 안의 모든 자식에 마우스 휠을 달아, 목록 어디에 마우스를 올려도 스크롤되게 한다 (Text 는 자기 스크롤을 쓴다)"""
+    if not isinstance(widget, tk.Text):
+        widget.bind("<MouseWheel>", fn)
+    for c in widget.winfo_children():
+        _bind_wheel_tree(c, fn)
+
+
 class DayDetail:
     """날짜 하나의 모든 일정과 메모를 크게 보여 주고 바로 고칠 수 있는 창 (달력 날짜 더블클릭)"""
 
@@ -901,7 +940,7 @@ class DayDetail:
         self.app, self.d, self.end = app, d, end
         self.pri = DEFAULT_PRI
         S = app.S
-        self.top = _dialog(app, "메모", S(400), S(520))
+        self.top = _dialog(app, "메모", S(440), min(S(780), max(S(520), app.root.winfo_screenheight() - S(140))))
         self.top.minsize(S(320), S(360))
         self.top.protocol("WM_DELETE_WINDOW", self.close)
         self.top.bind("<Escape>", lambda e: self.close())
@@ -910,6 +949,11 @@ class DayDetail:
 
     def _focus(self):
         try:
+            if IS_WIN:                                       # 다른 프로그램을 쓰는 중에도 입력 창이 키보드를 받도록
+                u = ctypes.windll.user32
+                u.keybd_event(0x12, 0, 0, 0)
+                u.keybd_event(0x12, 0, 2, 0)
+                u.SetForegroundWindow(u.GetParent(self.top.winfo_id()) or self.top.winfo_id())
             self.top.focus_force()
             self.entry.focus_force()
         except tk.TclError:
@@ -1006,7 +1050,7 @@ class DayDetail:
         mf = tk.Frame(top, bg=SURFACE)
         mf.pack(side="bottom", fill="x", padx=pad, pady=(S(6), 0))
         tk.Label(mf, text="메모", font=app.f_head, bg=SURFACE, fg=SUB, anchor="w").pack(fill="x", pady=(0, S(3)))
-        self.memo = tk.Text(mf, height=5, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
+        self.memo = tk.Text(mf, height=3, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
                             wrap="word", padx=S(10), pady=S(8), undo=True, highlightthickness=1,
                             highlightbackground=BORDER, highlightcolor=ACCENT)
         self.memo.insert("1.0", app._entry(d).get("memo", ""))
@@ -1034,7 +1078,8 @@ class DayDetail:
                      fg=DIM, anchor="w").pack(fill="x", pady=S(10))
         for lst, t, s0 in rows:
             self.row(body, lst, t, s0, scroll)
-        body.bind("<MouseWheel>", scroll)
+        _bind_wheel_tree(body, scroll)      # 일정이 많을 때 어느 줄 위에서든 휠로 아래 일정까지 볼 수 있게
+        cv.bind("<MouseWheel>", scroll)
 
     def row(self, parent, lst, t, s0, scroll):
         app = self.app
@@ -1124,8 +1169,9 @@ class DayDetail:
 class CommandBar:
     """Ctrl+K / Ctrl+Alt+Space: 한 줄로 일정 추가('내일 오후 3시 회의 !중요') · 검색 · 명령을 한 곳에서"""
 
-    def __init__(self, app):
+    def __init__(self, app, anywhere=False):
         self.app = app
+        self.anywhere = anywhere             # 단축키로 어디서든 연 경우: 마우스가 있는 화면에 띄운다 (달력과 상관없이)
         S = app.S
         self.rows, self.sel = [], 0
         top = self.top = tk.Toplevel(app.root)
@@ -1154,9 +1200,15 @@ class CommandBar:
         top.update_idletasks()
         w = top.winfo_reqwidth()
         vx, vy, vw, vh = virtual_screen(app.root)
-        rx, ry = app.root.winfo_x() + app.root.winfo_width() // 2, app.root.winfo_y()
-        x = max(vx + S(10), min(rx - w // 2, vx + vw - w - S(10)))
-        y = max(vy + S(40), min(ry + S(90), vy + vh - S(420)))
+        if anywhere:
+            px, py = app.root.winfo_pointerxy()
+            ax, ay, aw, ah = work_area_at(app.root, px, py)
+            x = ax + max(0, (aw - w) // 2)
+            y = ay + int(ah * 0.2)
+        else:
+            rx, ry = app.root.winfo_x() + app.root.winfo_width() // 2, app.root.winfo_y()
+            x = max(vx + S(10), min(rx - w // 2, vx + vw - w - S(10)))
+            y = max(vy + S(40), min(ry + S(90), vy + vh - S(420)))
         top.geometry(f"+{x}+{y}")
         top.after(30, self._focus)
         self.refresh()
@@ -1316,7 +1368,7 @@ class CommandBar:
             core.delete_item(app.data, item)
             app._after_todo_change()
         when = f"{d.month}/{d.day}({'월화수목금토일'[d.weekday()]})" + (f" {r['time']}" if r["time"] else "")
-        NotifyPopup(app, "일정 추가됨", f"{when}  {r['text']}", action=("실행 취소", undo), near_calendar=True)
+        NotifyPopup(app, "일정 추가됨", f"{when}  {r['text']}", action=("실행 취소", undo), near_calendar=not self.anywhere)
 
 
 class NotifyPopup:
@@ -2352,7 +2404,7 @@ class HelpDialog:
         ("달력 글자", "위쪽 '달력 글자 －/＋' 또는 Ctrl+마우스 휠로 달력 칸 안 글자만 키우고 줄여요. (팝업·입력창은 그대로)"),
         ("글자·색", "위쪽 'Aa' 에서 글자 크기, 글꼴, 색상 테마, 강조색, 중요도 색, 투명도를 바꿔요."),
         ("스티커 메모", "'스티커' 버튼(또는 ☰ 메뉴)으로 바탕화면에 스티커를 붙여요. '스티커' 버튼을 누르면 닫아 둔 스티커가 한꺼번에 다시 뜨고 새 스티커도 하나 붙어요. 그날의 일정과 메모가 한 장에 보여요. 제목줄을 끌면 옮겨지고(화면 끝·다른 스티커에 달라붙어요), 두 번 누르거나 ▴ 로 접어요. ● 에서 색·투명도, '고정'은 항상 위, ‹ › 로 날짜를 넘겨요. 메모는 달력의 그날 메모와 같아서 어디서 고쳐도 같이 바뀌어요."),
-        ("빠른 입력", "Ctrl+Alt+Space 를 누르면 어디서든 오늘 날짜 입력창이 바로 열려요."),
+        ("빠른 입력", "Ctrl+Alt+Space 를 누르면 어떤 프로그램을 쓰는 중이든 입력창이 바로 떠요(다시 누르면 닫혀요). 내용·날짜·중요도를 한 줄로 적으면 알아서 그 날짜에 넣어요. 예) 주간업무취합 261024 중요 → 2026-10-24 에 중요 일정. 날짜는 261024 · 20261024 · 10/24 · 내일 · 다음주 월요일 모두 돼요. (다른 프로그램이 단축키를 쓰고 있으면 Ctrl+Shift+Space 로 자동 등록돼요)"),
     ]
 
     def __init__(self, app):
@@ -4106,7 +4158,8 @@ class DeskCalendar:
                      font=self.f_done if done else self.f_body, bg=SURFACE, fg=DONE if done else pri_color(t),
                      anchor="w", justify="left", wraplength=S(320)).pack(fill="x", pady=(S(3), 0))
         if len(rows) > 14:
-            tk.Label(card, text=f"…외 {len(rows) - 14}개", font=self.f_small, bg=SURFACE, fg=SUB, anchor="w").pack(fill="x")
+            tk.Label(card, text=f"…외 {len(rows) - 14}개  (날짜를 눌러 전체 보기)", font=self.f_small, bg=SURFACE, fg=SUB,
+                     anchor="w").pack(fill="x")
         if memo:
             tk.Label(card, text="✎ " + memo[:200], font=self.f_small, bg=SURFACE, fg=SUB, anchor="w",
                      justify="left", wraplength=S(320)).pack(fill="x", pady=(S(6), 0))
@@ -5189,8 +5242,13 @@ class DeskCalendar:
     def _poll_hotkey(self):
         try:
             while True:
-                self.hotkey_q.get_nowait()
-                self.summon()
+                sig = self.hotkey_q.get_nowait()
+                if sig == 1:
+                    self.quick_add_anywhere()
+                elif sig == "hotkey-failed":
+                    NotifyPopup(self, "빠른 입력 단축키", "Ctrl+Alt+Space 등 단축키를 다른 프로그램이 쓰고 있어요. 트레이 아이콘 메뉴의 '오늘 일정 추가'를 쓰세요.", beep=False)
+                elif isinstance(sig, str) and sig.startswith("hotkey:"):
+                    NotifyPopup(self, "빠른 입력 단축키", f"Ctrl+Alt+Space 를 다른 프로그램이 쓰고 있어서 {sig[7:]} 로 등록했어요.", beep=False)
         except queue.Empty:
             pass
         try:
@@ -5209,7 +5267,7 @@ class DeskCalendar:
         if cmd == "show":
             self.summon(popup=False)
         elif cmd == "add":
-            self.summon()
+            self.quick_add_anywhere()
         elif cmd == "clip":
             self.summon(popup=False)
             self.analyze_clipboard()
@@ -5230,6 +5288,20 @@ class DeskCalendar:
             self.open_settings()
         elif cmd == "quit":
             self.quit()
+
+    def quick_add_anywhere(self):
+        """Ctrl+Alt+Space: 어떤 프로그램을 쓰는 중이든 일정 빠른 입력 창을 마우스가 있는 화면에 띄운다 (달력은 그대로, 다시 누르면 닫힘).
+        예) '주간업무취합 261024 중요' → 2026-10-24 에 중요 일정으로 추가"""
+        cb = getattr(self, "cmdbar", None)
+        if cb is not None:
+            try:
+                if cb.top.winfo_exists():
+                    cb.close()
+                    return
+            except tk.TclError:
+                pass
+            self.cmdbar = None
+        self.cmdbar = CommandBar(self, anywhere=True)
 
     def open_cmdbar(self):
         if getattr(self, "cmdbar", None) is not None:

@@ -203,7 +203,7 @@ internal sealed class KartGame : MiniGame
 		cars.Clear(); string[] nm = { "팀장님", "민원인", "주무관", "과장님", "신규 직원" }; Color[] cc = { Color.FromArgb(230, 70, 70), Color.FromArgb(70, 110, 230), Color.FromArgb(240, 190, 40), Color.FromArgb(150, 80, 210), Color.FromArgb(250, 130, 60) };
 		float[] sk = { 0.97f, 0.93f, 0.95f, 0.99f, 0.9f }; float dif = 0.97f + 0.015f * T0.Stars; for (int k = 0; k < 5; k++) cars.Add(new Car { Skill = sk[k] * dif, Z = PZ + 600f + k * 450f, X = (k % 2 == 0 ? -0.45f : 0.45f), V = 0f, C = cc[k], Name = nm[k], Tgt = (k % 2 == 0 ? -0.45f : 0.45f) });
 		bans.Clear(); pos = 0f; px = 0f; v = 0f; el = 0f; skyOff = 0f; drift = 0f; charge = 0f; boostT = 0f; spinT = 0f; msgT = 0f; bumpT = 0f; finT = 0f; hitT = 0f; lap = 0; item = -1; place = 6; finished = false; wasDrift = false; Score = 0; Over = false;
-		airH = 0f; airV = 0f; airT = 0f; padCd = 0f; latV = 0f; camPx = 0f; bubT = 0f; getT = 0f; banSlip = false; pops.Clear(); lastSk = -1; dHop = 0f; gauge = 0f; bst = 0; driftVis = 0f; rollT = 0f; giantT = 0f; gS = 1f; gV = 0f; splashT = 0f; warnT = 0f; parts.Clear(); shots.Clear(); spls.Clear(); for (int q = 0; q < N; q++) skT[q] = -999f; scTo = -1; scT = 0f; wallCd = 0f; scHintLap = -1; cphase = 1; msg = T0.Name + " · 출발!"; msgT = 1.8f; Sfx.Play("ok");
+		airH = 0f; airV = 0f; airT = 0f; padCd = 0f; latV = 0f; camPx = 0f; landT = 0f; wallHitT = 0f; steerRaw = 0f; brakeOn = false; bubT = 0f; getT = 0f; banSlip = false; pops.Clear(); lastSk = -1; dHop = 0f; gauge = 0f; bst = 0; driftVis = 0f; rollT = 0f; giantT = 0f; gS = 1f; gV = 0f; splashT = 0f; warnT = 0f; parts.Clear(); shots.Clear(); spls.Clear(); for (int q = 0; q < N; q++) skT[q] = -999f; scTo = -1; scT = 0f; wallCd = 0f; scHintLap = -1; cphase = 1; msg = T0.Name + " · 출발!"; msgT = 1.8f; Sfx.Play("ok");
 	}
 	private int SegOf(float z) { int s = (int)(Wrap(z) / SEG); return s < 0 ? 0 : (s >= N ? N - 1 : s); }
 	private static float Wrap(float z) { z %= LEN; if (z < 0) z += LEN; return z; }
@@ -272,7 +272,7 @@ internal sealed class KartGame : MiniGame
 		driftVis += (driftDir - driftVis) * Math.Min(1f, dt * (driftDir != 0 ? 7f : 5f));
 		if (spinT > 0f) { spinT -= dt; steer = 0f; }
 		if (bubT > 0f) { bubT -= dt; steer = 0f; driftDir = 0; if (bubT <= 0f) { AddPop("ms_kfx_5", 200f, 490f, 190f, 0.4f); Sfx.Play("whoosh"); for (int q = 0; q < 16; q++) { double an = Rnd.NextDouble() * Math.PI * 2; Part(2, 200f, 490f, (float)Math.Cos(an) * 220f, (float)Math.Sin(an) * 220f - 120f, 0.6f, 6f, Color.FromArgb(230, 150, 215, 255)); } msg = "퐁! 빠져나왔어요"; msgT = 0.7f; } }
-		float st = driftDir != 0 ? (driftDir * 0.75f + steer * 0.55f) : steer;
+		steerRaw = steer; float st = driftDir != 0 ? (driftDir * 0.75f + steer * 0.55f) : steer;
 		steerVis += (st - steerVis) * Math.Min(1f, dt * 10f);
 		int ps = SegOf(PlayerZ); float cv = curve[ps];
 		// 빙판은 핸들이 늦게 먹고(미끄러져요) 커브 바깥으로 더 밀려요 · 공중에서는 핸들이 반만 먹어요
@@ -287,7 +287,7 @@ internal sealed class KartGame : MiniGame
 			else if (pk == 2 && padCd <= 0f && v > MAXV * 0.3f) { airV = 430f * (0.6f + 0.4f * sp); airH = 0.01f; airT = 0f; padCd = 0.6f; Sfx.Play("swing"); float ft = 2f * airV / (1150f * T0.Grav); if (ft > 0.55f) { rollDur = ft * 0.9f; rollT = rollDur; msg = "점프! 한 바퀴~"; } else msg = "점프!"; msgT = 0.7f; }
 			else if (pk == 3) slowZone = true;
 		}
-		if (airH > 0f) { airT += dt; airV -= 1150f * T0.Grav * dt; airH += airV * dt; if (airH <= 0f) { airH = 0f; Shake = 0.22f; Sfx.Play("thud_soft"); if (airT > 0.7f) { boostT = Math.Max(boostT, 0.7f); msg = "착지 부스트!"; msgT = 0.8f; } } }
+		if (airH > 0f) { airT += dt; airV -= 1150f * T0.Grav * dt; airH += airV * dt; if (airH <= 0f) { airH = 0f; landT = 0.16f; Shake = 0.22f; Sfx.Play("thud_soft"); if (airT > 0.7f) { boostT = Math.Max(boostT, 0.7f); msg = "착지 부스트!"; msgT = 0.8f; } } }
 		// 속도
 		float top = MAXV * (boostT > 0f ? 1.32f : (giantT > 0f ? 1.08f : 1f));
 		// 차선 밖: 연석(살짝 느려지고 덜컹) → 그 바깥 풀밭(많이 느려짐) → 벽
@@ -295,7 +295,7 @@ internal sealed class KartGame : MiniGame
 		if (curb) top = Math.Min(top, MAXV * (boostT > 0f ? 0.95f : 0.82f)); curbBump = curb || offRoad ? 1f : 0f;
 		if (offRoad) top = Math.Min(top, MAXV * (boostT > 0f ? 0.75f : T0.OffSlow));
 		if (slowZone) top = Math.Min(top, MAXV * (boostT > 0f ? 0.8f : 0.55f));
-		bool brake = inp.Down != null && (inp.Down.Contains(Keys.Down) || inp.Down.Contains(Keys.S));
+		bool brake = inp.Down != null && (inp.Down.Contains(Keys.Down) || inp.Down.Contains(Keys.S)); brakeOn = brake;
 		if (bubT > 0f) v = Math.Max(MAXV * 0.3f, v - MAXV * 0.9f * dt);
 		else if (spinT > 0f) v -= MAXV * 1.1f * dt;
 		else if (brake) v -= MAXV * 1.2f * dt;
@@ -314,7 +314,7 @@ internal sealed class KartGame : MiniGame
 			{
 				// 벽에 부딪히면 튕겨 나오고 느려져요
 				px = sd * WALL; float hitV = latV * sd; if (latV * sd > 0f) latV = -latV * 0.35f;
-				if (wallCd <= 0f) { wallCd = 0.3f; v *= 0.8f; Shake = 0.3f; if (hitV > 0.5f) AddPop("ms_kfx_6", 200f + sd * 70f, 520f, 80f, 0.3f); Sfx.Play("thud_soft"); if (msgT <= 0f) { msg = "쿵! 벽에 부딪혔어요"; msgT = 0.8f; } }
+				if (wallCd <= 0f) { wallCd = 0.3f; v *= 0.8f; Shake = 0.3f; if (hitV > 0.3f) { wallHitT = 0.35f; wallSide = sd; } if (hitV > 0.5f) AddPop("ms_kfx_6", 200f + sd * 70f, 520f, 80f, 0.3f); Sfx.Play("thud_soft"); if (msgT <= 0f) { msg = "쿵! 벽에 부딪혔어요"; msgT = 0.8f; } }
 			}
 		}
 		px = Clamp(px, -2.2f, 2.2f); camPx += (px - camPx) * Math.Min(1f, dt * 7f);
@@ -338,7 +338,7 @@ internal sealed class KartGame : MiniGame
 			float dz = Wrap(c.Z - pz + LEN * 0.5f) - LEN * 0.5f;
 			if (dz > -SEG * 0.6f * gS && dz < SEG * 1.4f * gS && Math.Abs(c.X - px) < 0.32f * (gS + c.GS) * 0.5f && bumpT <= 0f)
 			{
-				bumpT = 0.4f; AddPop("ms_kfx_6", 200f + (c.X < px ? -55f : 55f), 515f, 70f, 0.3f);
+				bumpT = 0.4f; bumpSide = c.X < px ? -1 : 1; AddPop("ms_kfx_6", 200f + (c.X < px ? -55f : 55f), 515f, 70f, 0.3f);
 				if (giantT > 0f && c.Giant <= 0f) { HitCar(c, 1.2f); c.X += c.X < px ? -0.5f : 0.5f; Shake = 0.3f; Sfx.Play("thud"); msg = c.Name + " 꽝!"; msgT = 0.8f; }
 				else if (c.Giant > 0f && giantT <= 0f) { Spin(1.1f); px += px < c.X ? -0.4f : 0.4f; Sfx.Play("bad2"); msg = "거대한 " + c.Name + "에 튕겨났어요!"; msgT = 1.2f; }
 				else { v = Math.Min(v, c.V * 0.92f); px += px < c.X ? -0.18f : 0.18f; Shake = 0.25f; Sfx.Play("thud_soft"); for (int q = 0; q < 5; q++) Part(1, 200f + (c.X < px ? -50f : 50f), 520f, (float)(Rnd.NextDouble() - 0.5) * 200f, -(float)Rnd.NextDouble() * 150f, 0.3f, 3f, Color.FromArgb(255, 240, 160)); }
@@ -358,7 +358,7 @@ internal sealed class KartGame : MiniGame
 	private class Pop { public string N; public float X, Y, S, T, D, R; public bool F; }
 	private readonly List<Pop> pops = new List<Pop>();
 	private void AddPop(string n, float x, float y, float s, float d, bool f = false) { if (pops.Count < 24) pops.Add(new Pop { N = n, X = x, Y = y, S = s, D = d, F = f, R = (float)(Rnd.NextDouble() - 0.5) * 30f }); }
-	private float bubT, getT; private bool banSlip;
+	private float bubT, getT, landT, wallHitT, steerRaw; private int bumpSide, wallSide; private bool banSlip, brakeOn;
 	private int lastSk = -1, trI; private readonly float[] trK = new float[14]; private readonly bool[] trOn = new bool[14]; private float dHop;
 	private void Spin(float d) { if (spinT > 0f) return; banSlip = false; spinT = d; spinMax = d; AddPop("ms_kfx_7", 200f, 470f, 90f, 0.45f); Shake = 0.4f; driftDir = 0; charge = 0f; }
 	private void HitCar(Car c, float d) { if (c.Giant > 0f) return; c.Spin = d; c.SpinMax = d; spls.Add(new Spl { Z = c.Z, X = c.X, T = 0f }); }
@@ -366,7 +366,7 @@ internal sealed class KartGame : MiniGame
 	private void Fx(float dt)
 	{
 		float kx = 200f + Clamp((px - camPx) * 170f, -60f, 60f);
-		if (rollT > 0f) rollT -= dt; if (getT > 0f) getT -= dt; for (int i = pops.Count - 1; i >= 0; i--) { pops[i].T += dt; if (pops[i].T >= pops[i].D) pops.RemoveAt(i); } if (splashT > 0f) splashT -= dt; if (warnT > 0f) warnT -= dt;
+		if (rollT > 0f) rollT -= dt; if (getT > 0f) getT -= dt; if (landT > 0f) landT -= dt; if (wallHitT > 0f) wallHitT -= dt; for (int i = pops.Count - 1; i >= 0; i--) { pops[i].T += dt; if (pops[i].T >= pops[i].D) pops.RemoveAt(i); } if (splashT > 0f) splashT -= dt; if (warnT > 0f) warnT -= dt;
 		if (giantT > 0f) { giantT -= dt; if (giantT <= 0f) { AddPop("ms_kfx_11", 200f, 510f, 170f, 0.4f); Sfx.Play("ui_open"); msg = "원래 크기로"; msgT = 0.7f; } }
 		float gt = giantT > 0f ? 1.55f : 1f; gV += (gt - gS) * 160f * dt; gV *= (float)Math.Exp(-9f * dt); gS += gV * dt;   // 통통 튀는 스프링
 		foreach (Car c in cars) { if (c.Giant > 0f) c.Giant -= dt; float ct = c.Giant > 0f ? 1.55f : 1f; c.GV += (ct - c.GS) * 160f * dt; c.GV *= (float)Math.Exp(-9f * dt); c.GS += c.GV * dt; }
@@ -570,7 +570,10 @@ internal sealed class KartGame : MiniGame
 		if (airH > 0f) bob -= airH;
 		{
 			// 상황마다 그림을 골라요: 물방울 · 바나나 · 제자리 회전(뒤→옆→앞→옆) · 어지러움 · 우승 · 공중 · 드리프트 · 부스터 · 핸들
-			string ks = Math.Abs(steerVis) > 0.35f ? "ms_kart_me1" : "ms_kart_me0"; bool kf = steerVis > 0.35f; float sxs = 1f, shear = -driftVis * 0.24f;
+			string ks = Math.Abs(steerVis) > 0.6f ? "ms_kart_me_s2" : (Math.Abs(steerVis) > 0.2f ? "ms_kart_me_s1" : "ms_kart_me0"); bool kf = steerVis > 0.2f; float sxs = 1f, shear = 0f;
+			if (el < 1.6f && v < MAXV * 0.25f && !finished) { ks = "ms_kart_me_rev"; kf = false; hopM += Math.Abs((float)Math.Sin(t * 30)) * 2f; }   // 출발 직전 부릉부릉
+			else if (brakeOn && v > MAXV * 0.2f && driftDir == 0) { ks = "ms_kart_me_brk"; kf = steerVis > 0.2f; }
+			if (landT > 0f && airH <= 0f) { ks = "ms_kart_me_land"; kf = false; }
 			float rot = rollT > 0f ? rollM : steerVis * 3f + driftVis * 6f + (driftDir != 0 ? (float)Math.Sin(t * 26) * 0.8f : 0f);
 			if (bubT > 0f) { ks = "ms_kart_me_bub"; kf = false; rot = (float)Math.Sin(t * 5) * 6f; hopM += 22f + (float)Math.Sin(t * 6) * 6f; shear = 0f; }
 			else if (spinT > 0f)
@@ -582,7 +585,19 @@ internal sealed class KartGame : MiniGame
 			}
 			else if (finished && place == 1) { ks = "ms_kart_me_win"; kf = false; }
 			else if (airH > 0f || rollT > 0f) { ks = "ms_kart_me_air"; kf = false; }
-			else if (driftDir != 0) { ks = "ms_kart_me_dl"; kf = driftDir > 0; shear = -driftVis * 0.07f; }
+			else if (wallHitT > 0f) { ks = "ms_kart_me_wall"; kf = wallSide < 0; }   // 그림의 벽은 오른쪽에 있어요
+			else if (bumpT > 0.15f) { ks = "ms_kart_me_bump"; kf = bumpSide < 0; }
+			else if (driftDir != 0)
+			{
+				// 드리프트 각도: 시작 점프 → 15° → 30° → 45° (안쪽으로 더 꺾을수록), 반대로 꺾으면 카운터 자세
+				float into = steerRaw * driftDir, dv = Math.Abs(driftVis);
+				if (dHop > 0.05f) ks = "ms_kart_me_dh";
+				else if (into < -0.3f) ks = "ms_kart_me_dc";
+				else if (dv < 0.45f) ks = "ms_kart_me_d15";
+				else if (into > 0.3f && charge > 0.5f) ks = "ms_kart_me_d45";
+				else ks = "ms_kart_me_d30";
+				kf = driftDir > 0; shear = -driftVis * 0.04f;
+			}
 			else if (boostT > 0f && Math.Abs(steerVis) < 0.35f) { ks = "ms_kart_me_bst"; kf = false; }
 			if (Spr.Get(ks) == null) { ks = "ms_kart_me0"; kf = false; }
 			float ky = 556f + bob, rcy = rollT > 0f ? 60f * gsv : 0f;

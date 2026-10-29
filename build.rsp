@@ -201,9 +201,6 @@
 -resource:spr\ms_kp_6.png,spr.ms_kp_6.png
 -resource:spr\ms_kp_7.png,spr.ms_kp_7.png
 -resource:spr\ms_kart_me0.png,spr.ms_kart_me0.png
--resource:spr\ms_kart_me1.png,spr.ms_kart_me1.png
--resource:spr\ms_kart_me3.png,spr.ms_kart_me3.png
--resource:spr\ms_kart_me4.png,spr.ms_kart_me4.png
 -resource:spr\ms_kart_cpu0.png,spr.ms_kart_cpu0.png
 -resource:spr\ms_kart_cpu1.png,spr.ms_kart_cpu1.png
 -resource:spr\ms_kart_cpu2.png,spr.ms_kart_cpu2.png
@@ -1101,7 +1098,6 @@ Vfx.cs
 -resource:spr\ms_kart_me_ban.png,spr.ms_kart_me_ban.png
 -resource:spr\ms_kart_me_bst.png,spr.ms_kart_me_bst.png
 -resource:spr\ms_kart_me_bub.png,spr.ms_kart_me_bub.png
--resource:spr\ms_kart_me_dl.png,spr.ms_kart_me_dl.png
 -resource:spr\ms_kart_me_dz.png,spr.ms_kart_me_dz.png
 -resource:spr\ms_kart_me_f.png,spr.ms_kart_me_f.png
 -resource:spr\ms_kart_me_side.png,spr.ms_kart_me_side.png
@@ -1141,3 +1137,15 @@ Vfx.cs
 -resource:spr\ms_vb_o6.png,spr.ms_vb_o6.png
 -resource:spr\ms_vb_o7.png,spr.ms_vb_o7.png
 -resource:spr\ms_vb_bg.png,spr.ms_vb_bg.png
+-resource:spr\ms_kart_me_s1.png,spr.ms_kart_me_s1.png
+-resource:spr\ms_kart_me_s2.png,spr.ms_kart_me_s2.png
+-resource:spr\ms_kart_me_dh.png,spr.ms_kart_me_dh.png
+-resource:spr\ms_kart_me_d15.png,spr.ms_kart_me_d15.png
+-resource:spr\ms_kart_me_d30.png,spr.ms_kart_me_d30.png
+-resource:spr\ms_kart_me_d45.png,spr.ms_kart_me_d45.png
+-resource:spr\ms_kart_me_dc.png,spr.ms_kart_me_dc.png
+-resource:spr\ms_kart_me_land.png,spr.ms_kart_me_land.png
+-resource:spr\ms_kart_me_brk.png,spr.ms_kart_me_brk.png
+-resource:spr\ms_kart_me_bump.png,spr.ms_kart_me_bump.png
+-resource:spr\ms_kart_me_wall.png,spr.ms_kart_me_wall.png
+-resource:spr\ms_kart_me_rev.png,spr.ms_kart_me_rev.png

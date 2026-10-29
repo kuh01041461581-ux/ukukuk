@@ -121,10 +121,26 @@ internal static class Anim
 			if (dwmOk) { try { if (DwmFlush() != 0) System.Threading.Thread.Sleep(8); } catch { dwmOk = false; } }
 			else System.Threading.Thread.Sleep(8);
 			if (System.Threading.Interlocked.Exchange(ref posted, 1) == 0)
-				ctx.Post(delegate { System.Threading.Interlocked.Exchange(ref posted, 0); Tick(); }, null);
+				ctx.Post(delegate
+				{
+					System.Threading.Interlocked.Exchange(ref posted, 0);
+					// 클릭·키 입력이 기다리고 있으면 이번 프레임은 건너뛰어요.
+					// (윈도우는 '보낸 메시지'를 클릭보다 먼저 처리해서, 한 프레임 그리기가 화면 주기보다 오래 걸리는 PC에서는
+					//  애니메이션이 계속 줄을 서는 바람에 알림창의 '확인'·X 클릭이 처리되지 못했어요)
+					if (InputWaiting()) { skipped++; if (skipped < 6) return; }
+					skipped = 0; Tick();
+				}, null);
 		}
 	}
 
+	[System.Runtime.InteropServices.DllImport("user32.dll")] private static extern uint GetQueueStatus(uint flags);
+	private static bool qsOk = true; private static int skipped;
+	private static bool InputWaiting()
+	{
+		if (!qsOk) return false;
+		try { return ((GetQueueStatus(0x0001 | 0x0004) >> 16) & (0x0001 | 0x0004)) != 0; }   // QS_KEY | QS_MOUSEBUTTON 이 큐에 있으면
+		catch { qsOk = false; return false; }
+	}
 	internal static void Add(AV a) { avs.Add(a); Ensure(); }
 	internal static void AddFrame(FrameTimer f) { frames.Add(f); Ensure(); }
 	internal static void RemoveFrame(FrameTimer f) { frames.Remove(f); }

@@ -17,7 +17,7 @@ internal sealed class GolfGame : MiniGame
 		new Hole { Par = 5, Tee = new PointF(280, 1400), Pin = new PointF(120, 380), Way = new[] { new PointF(280, 1400), new PointF(265, 1180), new PointF(190, 980), new PointF(150, 760), new PointF(125, 560), new PointF(120, 400) }, WayW = 96, GreenR = 42, MinY = 220, MaxY = 1450, Slope = new PointF(6f, 7f),
 			Sand = new[] { new[] { 190f, 930f, 28f, 18f }, new[] { 100f, 640f, 26f, 18f }, new[] { 165f, 430f, 22f, 14f }, new[] { 70f, 370f, 26f, 18f } }, Water = new[] { new[] { 300f, 880f, 52f, 100f }, new[] { 60f, 1100f, 45f, 70f }, new[] { 200f, 1010f, 36f, 16f } } },
 	};
-	private static readonly string[] CName = { "드라이버", "아이언", "웨지" }; private static readonly float[] CMax = { 460f, 300f, 140f }, CRoll = { 0.14f, 0.09f, 0.03f };
+	private static readonly string[] CName = { "드라이버", "3번 우드", "5번 아이언", "7번 아이언", "9번 아이언", "피칭 웨지", "샌드 웨지" }; private static readonly float[] CMax = { 460f, 400f, 340f, 290f, 240f, 180f, 110f }, CRoll = { 0.14f, 0.12f, 0.09f, 0.08f, 0.06f, 0.04f, 0.02f };
 	private static readonly string[] SName = { "러프", "페어웨이", "그린", "벙커", "호수", "OB" };
 	private int hole, strokes, club, state; private PointF ball, start, end, land, cen = new PointF(200, 300); private float zoom = 1f, gauge, gdir = 1f, accV, accDir = 1f, pPow, pAcc, flyT, flyDur, rollT, swingT, putV, putAng, msgT, sumT, wx, wy, flightH, fallT, tm;
 	private string msg = ""; private PointF aimW; private int hscore; private List<PointF> trail = new List<PointF>(); private bool holed, perfect; private int totalStrokes;
@@ -25,7 +25,7 @@ internal sealed class GolfGame : MiniGame
 	public override string Name { get { return "마룡이 골프"; } }
 	public override string Key { get { return "golf"; } }
 	public override string Desc { get { return "바람을 읽고 3홀을 돌아요"; } }
-	public override string Help { get { return "① 마우스로 방향·거리를 정해요 (점선 끝 = 예상 낙하 지점, 바람 화살표를 보고 보정!)\n② 클릭 → 힘 게이지가 오르내려요 → 점선 눈금 근처에서 클릭해 힘 결정\n③ 정확도 바가 좌우로 움직여요 → 한가운데에서 클릭하면 똑바로! (벗어나면 휘어요)\n클럽은 1·2·3 키나 아래 버튼 (드라이버 멀리·아이언 중간·웨지 짧게)\n호수·OB는 벌타 +1 · 벙커·러프는 거리가 줄어요\n그린에서는 퍼터: 방향은 마우스, 세기는 게이지 · 초록 화살표는 그린의 경사예요\n파 기준 타수가 적을수록 점수가 높아요"; } }
+	public override string Help { get { return "① 클럽을 고르면 최대 거리가 정해져요 (아래 ◀ ▶ 또는 1~7 키 · 드라이버 230m ~ 샌드 웨지 55m)\n② 마우스로 방향만 잡고 클릭 (점선 끝 = 이 클럽으로 꽉 쳤을 때 떨어지는 곳 · 바람 보정!)\n③ 마룡이가 나와서 스윙해요: 힘 게이지가 오르내려요 → 원하는 거리에서 클릭 (노란 눈금 = 핀까지 거리)\n④ 정확도 바 한가운데에서 클릭하면 똑바로! → 홀 화면으로 돌아와 공이 날아가요\n호수·OB는 벌타 +1 · 벙커·러프는 거리가 줄어요\n그린에서는 퍼터: 방향은 마우스, 세기는 게이지 · 초록 화살표는 그린의 경사예요\n파 기준 타수가 적을수록 점수가 높아요"; } }
 	public override string RightText { get { return (hole + 1) + "/3홀 · " + strokes + "타"; } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{
@@ -42,7 +42,7 @@ internal sealed class GolfGame : MiniGame
 		double a = Rnd.NextDouble() * 6.283; float sp = 1.5f + (float)Rnd.NextDouble() * 6f + hole * 0.8f; wx = (float)Math.Cos(a) * sp; wy = (float)Math.Sin(a) * sp * 0.6f;
 		club = 0; AutoClub(); cen = new PointF(200, ball.Y - 170); zoom = 1f;
 	}
-	private void AutoClub() { if (Surf(ball.X, ball.Y) == 2) return; float d = Dist(ball, H.Pin); club = Surf(ball.X, ball.Y) == 3 ? 2 : (d < 120f ? 2 : (d < 310f ? 1 : 0)); }
+	private void AutoClub() { if (Surf(ball.X, ball.Y) == 2) return; float d = Dist(ball, H.Pin), lp = LieP(Surf(ball.X, ball.Y)); club = 0; for (int i = CName.Length - 1; i >= 0; i--) if (CMax[i] * lp >= d * 1.02f) { club = i; break; } if (Surf(ball.X, ball.Y) == 3) club = Math.Max(club, 5); }   // 핀까지 닿는 가장 짧은 클럽
 	private static float Dist(PointF a, PointF b) { float dx = a.X - b.X, dy = a.Y - b.Y; return (float)Math.Sqrt(dx * dx + dy * dy); }
 	private static float SegD(PointF p, PointF a, PointF b) { float dx = b.X - a.X, dy = b.Y - a.Y, l2 = dx * dx + dy * dy, t = l2 < 1f ? 0f : ((p.X - a.X) * dx + (p.Y - a.Y) * dy) / l2; t = Math.Max(0f, Math.Min(1f, t)); float qx = a.X + dx * t - p.X, qy = a.Y + dy * t - p.Y; return (float)Math.Sqrt(qx * qx + qy * qy); }
 	private int Surf(float x, float y)
@@ -59,13 +59,13 @@ internal sealed class GolfGame : MiniGame
 	private float PuttDist { get { return 103f; } }
 	private bool Putting { get { return Surf(ball.X, ball.Y) == 2 && state <= 2; } }
 	private PointF ToWorld(float sx, float sy) { return new PointF((sx - 200f) / zoom + cen.X, (sy - 300f) / zoom + cen.Y); }
-	public override void Press(Keys k) { if (state == 0 && !Putting) { if (k == Keys.D1) club = 0; else if (k == Keys.D2) club = 1; else if (k == Keys.D3) club = 2; } if (k == Keys.Space) Click(200f, 300f); }
+	public override void Press(Keys k) { if (state == 0 && !Putting) { if (k >= Keys.D1 && k <= Keys.D7) club = k - Keys.D1; else if (k == Keys.Left || k == Keys.A) club = Math.Max(0, club - 1); else if (k == Keys.Right || k == Keys.D) club = Math.Min(CName.Length - 1, club + 1); } if (k == Keys.Space) Click(200f, 300f); }
 	public override void Click(float x, float y)
 	{
 		if (Over) return;
 		if (state == 0)
 		{
-			if (!Putting && y >= 560f) { for (int i = 0; i < 3; i++) if (x >= 10 + i * 78 && x < 84 + i * 78) { club = i; Sfx.Play("tick"); return; } }
+			if (!Putting && y >= 552f) { if (x < 70f) club = Math.Max(0, club - 1); else if (x > 330f) club = Math.Min(CName.Length - 1, club + 1); Sfx.Play("tick"); return; }
 			state = 1; gauge = 0f; gdir = 1f; Sfx.Play("tick");
 		}
 		else if (state == 1)
@@ -90,7 +90,7 @@ internal sealed class GolfGame : MiniGame
 		land = new PointF(ball.X + (float)Math.Cos(an) * dist + drift.X, ball.Y + (float)Math.Sin(an) * dist + drift.Y);
 		int ls = Surf(land.X, land.Y); float rf = ls == 1 ? 1f : (ls == 0 ? 0.35f : (ls == 2 ? 0.7f : 0f));
 		float rd = dist * CRoll[club] * rf; end = land; if (ls != 4 && ls != 5) end = new PointF(land.X + (float)Math.Cos(an) * rd, land.Y + (float)Math.Sin(an) * rd);
-		flyDur = Tf; flyT = 0f; rollT = 0f; flightH = 26f + dist * 0.28f; swingT = 0.3f; state = 3;
+		flyDur = Tf; flyT = 0f; rollT = 0f; flightH = 26f + dist * (0.22f + club * 0.03f); swingT = SwingDur; state = 3;
 	}
 	private void Finish()
 	{
@@ -119,7 +119,7 @@ internal sealed class GolfGame : MiniGame
 		else if (state == 2) { accV += accDir * dt * 2.3f; if (accV >= 1f) { accV = 1f; accDir = -1f; } else if (accV <= -1f) { accV = -1f; accDir = 1f; } }
 		else if (state == 3)
 		{
-			if (swingT > 0.12f) return; flyT += dt; trail.Add(Pos3(Math.Min(1f, flyT / flyDur))); if (flyT >= flyDur) { flyT = flyDur; ball = land; state = 4; rollT = 0f; int ls = Surf(land.X, land.Y); if (ls == 4) { Fx.Burst(land.X, land.Y, Color.FromArgb(160, 210, 255), 10); Sfx.Play("glass"); } else Sfx.Play("thud2"); }
+			if (swingT > 0f) return; flyT += dt; trail.Add(Pos3(Math.Min(1f, flyT / flyDur))); if (flyT >= flyDur) { flyT = flyDur; ball = land; state = 4; rollT = 0f; int ls = Surf(land.X, land.Y); if (ls == 4) { Fx.Burst(land.X, land.Y, Color.FromArgb(160, 210, 255), 10); Sfx.Play("glass"); } else Sfx.Play("thud2"); }
 		}
 		else if (state == 4)
 		{
@@ -213,7 +213,8 @@ internal sealed class GolfGame : MiniGame
 			if (putting) { float len = Math.Min(want, PuttDist); using (Pen p = new Pen(Color.FromArgb(220, 255, 255, 255), 1.4f) { DashStyle = DashStyle.Dot }) g.DrawLine(p, ball.X, ball.Y, ball.X + (float)Math.Cos(ang) * len, ball.Y + (float)Math.Sin(ang) * len); }
 			else
 			{
-				int sf = Surf(ball.X, ball.Y); float mx = CMax[club] * LieP(sf), d = Math.Min(want, mx), Tf = 0.8f + d / 420f; PointF lp = new PointF(ball.X + (float)Math.Cos(ang) * d + wx * Tf * 2.2f, ball.Y + (float)Math.Sin(ang) * d + wy * Tf * 2.2f);
+				int sf = Surf(ball.X, ball.Y); float mx = CMax[club] * LieP(sf), d = mx, Tf = 0.8f + d / 420f;
+					using (Pen rp = new Pen(Color.FromArgb(70, 255, 255, 255), 1f) { DashStyle = DashStyle.Dash }) foreach (float fr in new[] { 0.5f, 0.75f }) { float rr = mx * fr; g.DrawArc(rp, ball.X - rr, ball.Y - rr, rr * 2, rr * 2, ang * 57.3f - 25f, 50f); } PointF lp = new PointF(ball.X + (float)Math.Cos(ang) * d + wx * Tf * 2.2f, ball.Y + (float)Math.Sin(ang) * d + wy * Tf * 2.2f);
 				using (Pen p = new Pen(Color.FromArgb(220, 255, 255, 255), 1.6f) { DashStyle = DashStyle.Dot }) g.DrawLine(p, ball.X, ball.Y, lp.X, lp.Y);
 				using (Pen p = new Pen(Color.FromArgb(230, 255, 230, 90), 2f)) { g.DrawEllipse(p, lp.X - 9, lp.Y - 9, 18, 18); g.DrawLine(p, lp.X - 13, lp.Y, lp.X + 13, lp.Y); g.DrawLine(p, lp.X, lp.Y - 13, lp.X, lp.Y + 13); }
 			}
@@ -251,18 +252,56 @@ internal sealed class GolfGame : MiniGame
 		float ws = (float)Math.Sqrt(wx * wx + wy * wy), wa = (float)Math.Atan2(wy, wx); GraphicsState s0 = g.Save(); g.TranslateTransform(W - 84f, 64f); g.RotateTransform(wa * 57.3f);
 		using (Pen p = new Pen(Color.FromArgb(255, 150, 220, 255), 3f) { EndCap = LineCap.ArrowAnchor }) g.DrawLine(p, -12, 0, 12, 0); g.Restore(s0);
 		Txt(g, "바람 " + ws.ToString("0.0") + "m/s", 9f, 2, Color.White, W - 66, 50, 62, 18, StringAlignment.Near); Txt(g, WindDir(wa), 9f, 1, Color.FromArgb(200, 255, 255, 255), W - 66, 65, 62, 16, StringAlignment.Near);
-		if (state == 0) { if (!putting) for (int i = 0; i < 3; i++) { RectangleF r = new RectangleF(10 + i * 78, 562, 74, 28); using (GraphicsPath gp = Gfx.Round(r, 10)) { using (SolidBrush b = new SolidBrush(i == club ? Color.FromArgb(235, 255, 214, 90) : Color.FromArgb(150, 10, 20, 30))) g.FillPath(b, gp); } Txt(g, CName[i], 10f, 2, i == club ? Color.FromArgb(60, 40, 10) : Color.White, r.X, r.Y + 3, r.Width, 22, StringAlignment.Center); } else Txt(g, "퍼터 · 마우스로 방향, 클릭으로 세기", 11f, 2, Color.White, 0, 568, W, 22, StringAlignment.Center); if (msgT <= 0f) Hint(g, putting ? "방향을 잡고 클릭!" : "방향·거리를 잡고 클릭!", 520 + 15.0, 12f, false, 1f); }
+		if (state == 0) { if (!putting) { RectangleF r = new RectangleF(10, 556, 380, 36); using (GraphicsPath gp = Gfx.Round(r, 12)) using (SolidBrush b = new SolidBrush(Color.FromArgb(170, 10, 20, 30))) g.FillPath(b, gp); Txt(g, "◀", 14f, 2, club > 0 ? Color.White : Color.FromArgb(90, 255, 255, 255), 14, 558, 50, 32, StringAlignment.Center); Txt(g, "▶", 14f, 2, club < CName.Length - 1 ? Color.White : Color.FromArgb(90, 255, 255, 255), 336, 558, 50, 32, StringAlignment.Center); Txt(g, (club + 1) + ". " + CName[club] + "  ·  최대 " + (int)(CMax[club] * LieP(Surf(ball.X, ball.Y)) * 0.5f) + "m", 11.5f, 2, Color.FromArgb(255, 230, 140), 64, 558, 272, 32, StringAlignment.Center); } else Txt(g, "퍼터 · 마우스로 방향, 클릭으로 세기", 11f, 2, Color.White, 0, 568, W, 22, StringAlignment.Center); if (msgT <= 0f) Hint(g, putting ? "방향을 잡고 클릭!" : "클럽을 고르고 방향을 잡은 뒤 클릭!", 520 + 15.0, 12f, false, 1f); }
 		float want = 0f;
+		if (!putting && (state == 1 || state == 2 || (state == 3 && swingT > 0f))) SwingScene(g, t);
 		if (state == 1 || state == 2)
 		{
 			PointF aw = ToWorld(aimW.X, aimW.Y); float d = Dist(ball, aw);
-			if (putting) want = Math.Min(1f, (float)((Math.Sqrt(2f * 95f * Math.Min(d, PuttDist)) - 20f) / 120f)); else { float mx = CMax[club] * LieP(Surf(ball.X, ball.Y)); want = Math.Min(1f, d / mx); }
+			if (putting) want = Math.Min(1f, (float)((Math.Sqrt(2f * 95f * Math.Min(d, PuttDist)) - 20f) / 120f)); else { float mx = CMax[club] * LieP(Surf(ball.X, ball.Y)); want = Math.Min(1f, Dist(ball, H.Pin) / mx); }   // 노란 눈금 = 핀까지 거리
 			float bx = 60f, bw = 280f; Bar(g, bx, 524, bw, 16, Color.FromArgb(255, 160, 80), state == 1 ? gauge : pPow); using (Pen p = new Pen(Color.FromArgb(255, 255, 255, 90), 3f)) g.DrawLine(p, bx + bw * want, 519, bx + bw * want, 545);
 			Txt(g, "힘", 9f, 2, Color.White, 14, 522, 40, 20, StringAlignment.Near);
 			if (!putting) { Bar(g, bx, 548, bw, 14, Color.FromArgb(0, 0, 0, 0), 0f); using (SolidBrush b = new SolidBrush(Color.FromArgb(130, 110, 230, 150))) g.FillRectangle(b, bx + bw / 2f - 9f, 548, 18f, 14); using (Pen p = new Pen(Color.White, 2f)) g.DrawLine(p, bx + bw / 2f, 545, bx + bw / 2f, 565); if (state == 2) using (SolidBrush b = new SolidBrush(Color.White)) g.FillEllipse(b, bx + bw / 2f + accV * (bw / 2f - 7f) - 7f, 548, 14, 14); Txt(g, "정확도", 9f, 2, Color.White, 8, 546, 50, 20, StringAlignment.Near); }
 		}
 		if (msgT > 0f) Txt(g, msg, 17f, 2, Color.FromArgb((int)(255 * Math.Min(1f, msgT)), 255, 236, 130), 0, 100, W, 30, StringAlignment.Center);
 		if (state == 3 && perfect && flyT < 0.6f) Txt(g, "굿 샷!", 18f, 2, Color.FromArgb(255, 255, 230, 100), 0, 260, W, 30, StringAlignment.Center);
+	}
+	// ── 스윙 장면: 거리·방향을 정한 뒤 마룡이가 나와서 백스윙(힘 게이지) → 다운스윙 → 임팩트 → 다시 홀 화면에서 공이 날아가요 ──
+	private const float SwingDur = 0.8f;
+	private void SwingScene(Graphics g, double t)
+	{
+		using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(0, 0, W, 430), Color.FromArgb(120, 190, 245), Color.FromArgb(200, 232, 255), 90f)) g.FillRectangle(lb, 0, 0, W, 430);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 190, 110))) g.FillRectangle(b, 0, 300, W, 130);
+		using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(0, 428, W, MiniGame.H - 428), Color.FromArgb(96, 170, 84), Color.FromArgb(70, 140, 64), 90f)) g.FillRectangle(lb, 0, 428, W, MiniGame.H - 428);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 210, 140))) for (int i = 0; i < 9; i++) g.FillEllipse(b, i * 52 - 20 + (float)((t * 4) % 1), 296, 70, 16);   // 먼 언덕
+		// 클럽 각도: 0 = 어드레스(공을 향해 아래) · 양수 = 백스윙(뒤로 들어 올림) · 음수 = 팔로스루
+		float th, u = 0f; bool after = false;
+		if (state == 1 || state == 2) th = 215f * (state == 1 ? gauge : pPow) * (state == 1 ? 1f : 1f);
+		else { u = 1f - swingT / SwingDur; float top = 215f * pPow; if (u < 0.35f) { float k = u / 0.35f; th = top * (1f - k * k); } else { after = true; float k = (u - 0.35f) / 0.65f; th = -200f * (1f - (1f - k) * (1f - k)); } }
+		string sp = null; if (Spr.Get("ms_golf_sw0") != null) { int fi = th > 150f ? 2 : (th > 50f ? 1 : (th > -40f ? (after ? 3 : 0) : (th > -150f ? 4 : 5))); sp = "ms_golf_sw" + fi; }
+		float hx = 192f, hy = 372f, len = 62f - club * 1.5f;
+		// 공 (임팩트 뒤엔 날아가요)
+		float bx = 218f, by = 424f; if (after) { float k = (u - 0.35f) / 0.65f; bx += k * 260f; by -= k * 200f + k * k * 60f; }
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(60, 0, 0, 0))) g.FillEllipse(b, 210, 424, 18, 6);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(240, 240, 230))) g.FillRectangle(b, 216, 424, 4, 6);   // 티
+		DrawBall(g, bx, by - 5f, 6f);
+		if (sp != null) { Spr.Frame(g, sp, 170f, 432f, 1f, 0f, false); }
+		else
+		{
+			// 그림이 없을 때: 마룡이(골프 옷) + 클럽을 직접 그려요
+			Image m = Mascot; if (m != null) { float mh = 190f, mw = mh * m.Width / m.Height; g.DrawImage(m, 160f - mw / 2f, 432f - mh, mw, mh); }
+			double a = (90 + th) * Math.PI / 180;   // 아래(90°)에서 백스윙은 시계 반대로
+			float ex = hx + (float)Math.Cos(a) * len * 0.92f, ey = hy + (float)Math.Sin(a) * len;
+			using (Pen p = new Pen(Color.FromArgb(70, 70, 80), 4f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLine(p, hx, hy, ex, ey);
+			using (SolidBrush b = new SolidBrush(club == 0 || club == 1 ? Color.FromArgb(50, 50, 60) : Color.FromArgb(190, 196, 210))) g.FillEllipse(b, ex - (club <= 1 ? 9f : 6f), ey - 5f, club <= 1 ? 18f : 12f, 10f);
+			using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 240, 240, 245))) g.FillEllipse(b, hx - 7, hy - 7, 14, 14);   // 장갑
+		}
+		if (state == 3 && u > 0.33f && u < 0.45f) { using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 255, 245, 160))) g.FillEllipse(b, 196, 400, 50, 40); Txt(g, perfect ? "나이스 샷!" : "딱!", 18f, 2, Color.FromArgb(255, 120, 60, 20), 0, 200, W, 34, StringAlignment.Center); }
+		// 거리 표시
+		float mx = CMax[club] * LieP(Surf(ball.X, ball.Y)); float pw = state == 1 ? gauge : pPow;
+		Txt(g, CName[club], 13f, 2, Color.FromArgb(40, 60, 90), 0, 50, W, 26, StringAlignment.Center);
+		Txt(g, (int)(mx * pw * 0.5f) + "m", 26f, 2, Color.FromArgb(30, 50, 80), 0, 80, W, 44, StringAlignment.Center);
+		Txt(g, "핀까지 " + (int)(Dist(ball, H.Pin) * 0.5f) + "m · 최대 " + (int)(mx * 0.5f) + "m", 10f, 1, Color.FromArgb(70, 90, 120), 0, 126, W, 20, StringAlignment.Center);
 	}
 	private static string WindDir(float a) { int i = (int)Math.Round(((a * 57.3f + 360f) % 360f) / 45f) % 8; string[] n = { "오른쪽으로", "앞·오른쪽", "앞쪽으로", "앞·왼쪽", "왼쪽으로", "뒤·왼쪽", "뒤에서 앞으로", "뒤·오른쪽" }; return n[i]; }
 }

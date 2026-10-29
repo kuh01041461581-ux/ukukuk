@@ -1,0 +1,35 @@
+name: 초과근무 알리미 릴리스
+
+# dist/OvertimeReminder.exe 를 올리면(푸시) 자동으로 ot-v<버전> 릴리스를 만들고 exe를 붙여요.
+# 버전은 Updater.cs 의 AppVersion 에서 읽어요. 같은 버전 릴리스가 이미 있으면 exe만 새로 바꿔 끼워요.
+on:
+  push:
+    branches: [overtime-reminder]
+    paths: [dist/OvertimeReminder.exe, dist/CHANGES.md]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 버전 읽기
+        id: v
+        run: |
+          VER=$(grep -oP 'AppVersion = "\K[0-9.]+' Updater.cs)
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          echo "버전: $VER"
+          test -s dist/OvertimeReminder.exe
+      - name: 릴리스 만들기 + exe 붙이기
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ot-v${{ steps.v.outputs.ver }}
+          name: 초과근무 알리미 v${{ steps.v.outputs.ver }}
+          target_commitish: ${{ github.sha }}
+          body_path: dist/CHANGES.md
+          prerelease: false
+          make_latest: false
+          files: dist/OvertimeReminder.exe

@@ -12,7 +12,7 @@ internal sealed class KartGame : MiniGame
 	public override string Name { get { return "마룡이 카트"; } }
 	public override string Key { get { return "kart"; } }
 	public override string Desc { get { return "코스 9개 · 부스트·점프 발판 · CPU 5대와 3바퀴"; } }
-	public override string Help { get { return "먼저 코스를 골라요 (마을·사막·빙하·숲·외계·노르테유·요정·도검·청사)\n←→ (또는 마우스 좌우)로 핸들 · 가속은 자동, ↓ 브레이크 · 노란 화살표 발판은 부스트, 줄무늬 발판은 점프\n커브에서 스페이스·Shift(또는 마우스를 누른 채)로 드리프트 → 게이지를 모아 놓으면 부스터!\n아이템 상자: 부스터 · 바나나(뒤에 놓기) · 물풍선(앞차 맞히기) — Z·X·Ctrl 또는 아이템 칸 클릭으로 사용\n길 밖 잔디는 느려져요 · 3바퀴를 먼저 돌면 1등! · 갈고리 U턴 두 번 · S자 · 긴 내리막 커브 · 계단 커브 — 드리프트로 부스터를 모아요\nCPU 5대도 아이템을 써요 (물풍선 조심!)"; } }
+	public override string Help { get { return "먼저 코스를 골라요 (마을·사막·빙하·숲·외계·중세·요정·일본·청사)\n←→ (또는 마우스 좌우)로 핸들 · 가속은 자동, ↓ 브레이크 · 노란 화살표 발판은 부스트, 줄무늬 발판은 점프\n커브에서 스페이스·Shift(또는 마우스를 누른 채)로 드리프트 → 게이지를 모아 놓으면 부스터!\n아이템 상자: 부스터 · 바나나(뒤에 놓기) · 물풍선(앞차 맞히기) — Z·X·Ctrl 또는 아이템 칸 클릭으로 사용\n길 밖 잔디는 느려져요 · 3바퀴를 먼저 돌면 1등! · 갈고리 U턴 두 번 · S자 · 긴 내리막 커브 · 계단 커브 — 드리프트로 부스터를 모아요\nCPU 5대도 아이템을 써요 (물풍선 조심!)"; } }
 	public override string RightText { get { return lap < Laps ? (lap + 1) + "/" + Laps + "바퀴" : "완주"; } }
 	public override void Icon(Graphics g, float cx, float cy) { DrawKart(g, cx, cy + 16, 34f, Color.FromArgb(40, 170, 150), true, 0f, 0f, "ms_kart_me0"); }
 
@@ -36,9 +36,9 @@ internal sealed class KartGame : MiniGame
 		new Thm { Name = "꽁꽁 빙하 협곡", Sub = "빙판", Tags = "미끄러운 빙판 · 점프", Stars = 3, SkyA = Color.FromArgb(150, 196, 240), SkyB = Color.FromArgb(226, 240, 252), Sun = Color.FromArgb(255, 255, 240), HillF = Color.FromArgb(190, 214, 236), HillN = Color.FromArgb(236, 244, 252), G1 = Color.FromArgb(240, 246, 252), G2 = Color.FromArgb(226, 236, 248), R1 = Color.FromArgb(150, 196, 226), R2 = Color.FromArgb(140, 186, 220), Ru1 = Color.FromArgb(70, 130, 220), Ru2 = Color.FromArgb(250, 252, 255), Ln = Color.FromArgb(240, 250, 255), Slow = Color.FromArgb(200, 220, 236), Grip = 0.32f },
 		new Thm { Name = "마룡이 숲 오솔길", Sub = "포레스트", Tags = "S자 커브 · 버섯 점프", Stars = 2, SkyA = Color.FromArgb(110, 190, 220), SkyB = Color.FromArgb(200, 236, 220), Sun = Color.FromArgb(255, 250, 210), HillF = Color.FromArgb(90, 150, 120), HillN = Color.FromArgb(50, 120, 80), G1 = Color.FromArgb(62, 140, 70), G2 = Color.FromArgb(54, 128, 64), R1 = Color.FromArgb(150, 120, 86), R2 = Color.FromArgb(140, 112, 80), Ru1 = Color.FromArgb(236, 200, 80), Ru2 = Color.FromArgb(110, 80, 50), Ln = Color.FromArgb(220, 196, 150), Slow = Color.FromArgb(100, 80, 54) },
 		new Thm { Name = "보랏빛 외계 행성", Sub = "외계행성", Tags = "낮은 중력 · 큰 언덕 · 점프", Stars = 3, SkyA = Color.FromArgb(30, 16, 70), SkyB = Color.FromArgb(120, 60, 160), Sun = Color.FromArgb(150, 255, 220), HillF = Color.FromArgb(80, 50, 140), HillN = Color.FromArgb(50, 130, 140), G1 = Color.FromArgb(70, 160, 150), G2 = Color.FromArgb(60, 146, 140), R1 = Color.FromArgb(70, 60, 110), R2 = Color.FromArgb(64, 54, 102), Ru1 = Color.FromArgb(120, 255, 200), Ru2 = Color.FromArgb(200, 120, 255), Ln = Color.FromArgb(160, 255, 230), Slow = Color.FromArgb(160, 90, 200), Grav = 0.45f, Night = true },
-		new Thm { Name = "노르테유 성곽길", Sub = "노르테유", Tags = "돌길 시케인 · 부스트", Stars = 2, SkyA = Color.FromArgb(130, 170, 220), SkyB = Color.FromArgb(220, 228, 240), Sun = Color.FromArgb(255, 248, 220), HillF = Color.FromArgb(140, 160, 180), HillN = Color.FromArgb(110, 140, 110), G1 = Color.FromArgb(120, 160, 96), G2 = Color.FromArgb(110, 150, 90), R1 = Color.FromArgb(150, 140, 130), R2 = Color.FromArgb(140, 130, 122), Ru1 = Color.FromArgb(70, 80, 160), Ru2 = Color.FromArgb(236, 210, 120), Ln = Color.FromArgb(200, 190, 176), Slow = Color.FromArgb(110, 120, 140) },
+		new Thm { Name = "중세 성곽 마을", Sub = "중세", Tags = "직각 시케인 · 돌길", Stars = 2, SkyA = Color.FromArgb(130, 170, 220), SkyB = Color.FromArgb(220, 228, 240), Sun = Color.FromArgb(255, 248, 220), HillF = Color.FromArgb(140, 160, 180), HillN = Color.FromArgb(110, 140, 110), G1 = Color.FromArgb(120, 160, 96), G2 = Color.FromArgb(110, 150, 90), R1 = Color.FromArgb(150, 140, 130), R2 = Color.FromArgb(140, 130, 122), Ru1 = Color.FromArgb(70, 80, 160), Ru2 = Color.FromArgb(236, 210, 120), Ln = Color.FromArgb(200, 190, 176), Slow = Color.FromArgb(110, 120, 140) },
 		new Thm { Name = "요정의 꽃길", Sub = "요정", Tags = "부스트 꽃밭 · 무지개 점프", Stars = 1, SkyA = Color.FromArgb(250, 190, 230), SkyB = Color.FromArgb(255, 236, 246), Sun = Color.FromArgb(255, 255, 230), HillF = Color.FromArgb(210, 190, 240), HillN = Color.FromArgb(170, 220, 180), G1 = Color.FromArgb(160, 220, 150), G2 = Color.FromArgb(150, 210, 146), R1 = Color.FromArgb(232, 206, 230), R2 = Color.FromArgb(224, 196, 224), Ru1 = Color.FromArgb(255, 150, 200), Ru2 = Color.FromArgb(255, 250, 250), Ln = Color.FromArgb(255, 255, 255), Slow = Color.FromArgb(200, 160, 220) },
-		new Thm { Name = "도검 대나무 숲", Sub = "도검", Tags = "급 헤어핀 · 부스트", Stars = 3, SkyA = Color.FromArgb(240, 200, 170), SkyB = Color.FromArgb(250, 236, 214), Sun = Color.FromArgb(250, 120, 90), HillF = Color.FromArgb(170, 170, 160), HillN = Color.FromArgb(100, 140, 100), G1 = Color.FromArgb(110, 156, 90), G2 = Color.FromArgb(100, 146, 84), R1 = Color.FromArgb(120, 110, 104), R2 = Color.FromArgb(112, 104, 98), Ru1 = Color.FromArgb(200, 40, 40), Ru2 = Color.FromArgb(30, 30, 34), Ln = Color.FromArgb(230, 220, 200), Slow = Color.FromArgb(150, 120, 90) },
+		new Thm { Name = "일본 신사 언덕길", Sub = "일본", Tags = "급 헤어핀 · 대나무 숲", Stars = 3, SkyA = Color.FromArgb(240, 200, 170), SkyB = Color.FromArgb(250, 236, 214), Sun = Color.FromArgb(250, 120, 90), HillF = Color.FromArgb(170, 170, 160), HillN = Color.FromArgb(100, 140, 100), G1 = Color.FromArgb(110, 156, 90), G2 = Color.FromArgb(100, 146, 84), R1 = Color.FromArgb(120, 110, 104), R2 = Color.FromArgb(112, 104, 98), Ru1 = Color.FromArgb(200, 40, 40), Ru2 = Color.FromArgb(30, 30, 34), Ln = Color.FromArgb(230, 220, 200), Slow = Color.FromArgb(150, 120, 90) },
 		new Thm { Name = "청사 민원 대행진", Sub = "민원", Tags = "서류 더미 · 결재 부스트", Stars = 2, SkyA = Color.FromArgb(150, 200, 240), SkyB = Color.FromArgb(230, 240, 250), Sun = Color.FromArgb(255, 252, 230), HillF = Color.FromArgb(170, 186, 206), HillN = Color.FromArgb(150, 170, 190), G1 = Color.FromArgb(206, 210, 214), G2 = Color.FromArgb(196, 200, 206), R1 = Color.FromArgb(236, 226, 206), R2 = Color.FromArgb(228, 218, 198), Ru1 = Color.FromArgb(14, 138, 124), Ru2 = Color.FromArgb(250, 250, 250), Ln = Color.FromArgb(200, 180, 150), Slow = Color.FromArgb(250, 250, 244) },
 	};
 	private int course, cphase, hovCard = -1; private Thm T0 = Th[0];
@@ -75,56 +75,47 @@ internal sealed class KartGame : MiniGame
 				Bump(141, 119, 26f); Bump(590, 110, -18f); Bump(900, 100, 14f);
 				Pad(60, 3, 1, -0.45f, 0.26f); Pad(1000, 3, 1, 0.45f, 0.26f); Pad(1080, 3, 1, -0.3f, 0.26f); Pad(820, 2, 2, 0f, 1f);
 				break;
-			case 1:   // 사막: 긴 직선과 큰 곡선, 굽이치는 모래 언덕 · 언덕 꼭대기 점프
-				sec(120, 0); sec(90, 90); sec(150, 0); sec(60, 45); sec(60, -45); sec(90, 90); sec(140, 0); sec(80, 90); sec(100, 0); sec(80, 90); sec(N - i, 0);
-				Bump(20, 90, 22f); Bump(220, 70, 30f); Bump(290, 70, 24f); Bump(580, 60, 34f); Bump(650, 60, 20f); Bump(1000, 120, 26f);
-				Pad(250, 2, 2, 0f, 1f); Pad(605, 2, 2, 0f, 1f); Pad(150, 3, 1, 0.4f, 0.26f); Pad(450, 3, 1, -0.4f, 0.26f); Pad(900, 3, 1, 0f, 0.26f);
-				Pad(370, 10, 3, 0.55f, 0.4f); Pad(760, 10, 3, -0.55f, 0.4f); Pad(1120, 12, 3, 0.5f, 0.45f);
-				break;
-			case 2:   // 빙하: 미끄러운 빙판 · 협곡 S자 · 얼음 점프
-				sec(130, 0); sec(60, 90); sec(40, 0); sec(50, -60); sec(50, 60); sec(80, 90); sec(120, 0); sec(70, 90); sec(60, -45); sec(60, 45); sec(90, 90); sec(N - i, 0);
-				Bump(130, 100, 18f); Bump(470, 120, -22f); Bump(800, 90, 16f);
-				Pad(100, 2, 2, 0f, 1f); Pad(560, 2, 2, 0f, 1f); Pad(1000, 2, 2, 0f, 1f); Pad(200, 3, 1, 0f, 0.26f); Pad(700, 3, 1, -0.4f, 0.26f); Pad(1150, 3, 1, 0.4f, 0.26f);
-				break;
-			case 3:   // 숲: S자가 이어지는 오솔길 · 버섯 점프 · 진흙
-				sec(110, 0); sec(50, 70); sec(40, -70); sec(50, 70); sec(30, 0); sec(70, 110); sec(60, -50); sec(60, 50); sec(100, 0); sec(60, 90); sec(40, -40); sec(40, 40); sec(70, 90); sec(N - i, 0);
-				Bump(120, 160, 20f); Bump(520, 90, -16f); Bump(760, 140, 24f);
-				Pad(80, 2, 2, 0f, 1f); Pad(640, 2, 2, 0f, 1f); Pad(300, 3, 1, 0.3f, 0.26f); Pad(900, 3, 1, -0.3f, 0.26f);
-				Pad(430, 8, 3, -0.45f, 0.4f); Pad(1060, 8, 3, 0.45f, 0.4f);
-				break;
-			case 4:   // 외계 행성: 큰 삼각 고리 · 거대한 언덕 · 낮은 중력 점프
-				sec(100, 0); sec(80, 120); sec(120, 0); sec(80, 120); sec(120, 0); sec(80, 120); sec(N - i, 0);
-				Bump(110, 160, 48f); Bump(400, 140, -30f); Bump(600, 180, 52f); Bump(900, 200, 40f);
-				Pad(60, 2, 2, 0f, 1f); Pad(330, 2, 2, 0f, 1f); Pad(560, 2, 2, 0f, 1f); Pad(860, 2, 2, 0f, 1f); Pad(1150, 2, 2, 0f, 1f);
-				Pad(200, 3, 1, -0.4f, 0.26f); Pad(480, 3, 1, 0.4f, 0.26f); Pad(1000, 3, 1, 0f, 0.26f);
-				break;
-			case 5:   // 노르테유: 성곽 사이 직각 커브 · 시케인 · 돌길
-				sec(120, 0); sec(40, 90); sec(30, 0); sec(30, -90); sec(30, 90); sec(100, 0); sec(40, 90); sec(160, 0); sec(40, 90); sec(60, 0); sec(30, -60); sec(30, 60); sec(60, 0); sec(40, 90); sec(N - i, 0);
-				Bump(300, 100, 14f); Bump(700, 120, -12f);
-				Pad(150, 3, 1, 0f, 0.26f); Pad(420, 3, 1, 0.4f, 0.26f); Pad(800, 3, 1, -0.4f, 0.26f); Pad(1100, 3, 1, 0f, 0.26f); Pad(560, 2, 2, 0f, 1f);
-				Pad(640, 8, 3, 0.5f, 0.42f);
-				break;
-			case 6:   // 요정: 둥근 꽃길 · 부스트 꽃밭 · 무지개 점프
-				sec(100, 0); sec(120, 180); sec(80, 0); sec(60, -90); sec(60, 90); sec(120, 180); sec(N - i, 0);
-				Bump(260, 140, 22f); Bump(700, 160, 18f);
-				for (int q = 0; q < 8; q++) Pad(60 + q * 150, 3, 1, (q % 3 - 1) * 0.45f, 0.26f);
-				Pad(330, 2, 2, 0f, 1f); Pad(980, 2, 2, 0f, 1f);
-				break;
-			case 7:   // 도검: 급 헤어핀이 이어지는 대나무 숲
-				sec(130, 0); sec(50, 150); sec(40, 0); sec(50, -120); sec(60, 0); sec(60, 150); sec(100, 0); sec(50, 90); sec(80, 0); sec(40, 90); sec(N - i, 0);
-				Bump(180, 120, 20f); Bump(600, 140, -20f); Bump(900, 100, 24f);
-				Pad(100, 3, 1, 0f, 0.26f); Pad(330, 3, 1, -0.4f, 0.26f); Pad(560, 3, 1, 0.4f, 0.26f); Pad(1100, 3, 1, 0f, 0.26f); Pad(760, 2, 2, 0f, 1f);
-				break;
-			default:   // 청사 민원 대행진: 복도처럼 네모난 고리 · 서류 더미(느려져요) · 결재 완료 발판(부스트)
-				sec(140, 0); sec(40, 90); sec(120, 0); sec(40, 90); sec(60, 0); sec(30, -90); sec(30, 90); sec(80, 0); sec(40, 90); sec(130, 0); sec(40, 90); sec(N - i, 0);
-				Bump(500, 80, 10f);
-				Pad(90, 3, 1, -0.4f, 0.26f); Pad(260, 3, 1, 0.4f, 0.26f); Pad(560, 3, 1, 0f, 0.26f); Pad(880, 3, 1, -0.4f, 0.26f); Pad(1120, 3, 1, 0.4f, 0.26f);
-				Pad(180, 6, 3, 0.45f, 0.36f); Pad(400, 6, 3, -0.45f, 0.36f); Pad(700, 6, 3, 0.45f, 0.36f); Pad(980, 6, 3, -0.45f, 0.36f); Pad(640, 2, 2, 0f, 1f);
-				break;
+			case 1:   // 사막: 크게 휘는 곡선과 모래 언덕 S자가 번갈아 (오른쪽으로 크게 도는 고리)
+				sec(80, 0); sec(60, 70); sec(30, 0); sec(50, -50); sec(50, 50); sec(40, 0); sec(70, 110); sec(60, 0); sec(40, -80); sec(40, 80); sec(50, 0); sec(60, 90); sec(40, -40); sec(40, 40); sec(60, 0); sec(70, 90); sec(40, -30); sec(40, 30); sec(N - i, 0);
+				AutoPads(id, 3, 4, 4, 30f); break;
+			case 2:   // 빙하: 미끄러운 빙판에 헤어핀이 두 번 · 협곡 S자
+				sec(90, 0); sec(45, -120); sec(20, 0); sec(45, 120); sec(40, 0); sec(60, 90); sec(30, 0); sec(40, -60); sec(40, 60); sec(30, 0); sec(60, 90); sec(70, 0); sec(50, 150); sec(30, 0); sec(50, -150); sec(30, 0); sec(60, 90); sec(40, 0); sec(50, 90); sec(N - i, 0);
+				AutoPads(id, 3, 3, 0, 22f); break;
+			case 3:   // 숲: 좌우로 계속 꺾이는 오솔길 (S자 사슬 세 번)
+				sec(70, 0); sec(40, 60); sec(40, -60); sec(40, 60); sec(40, -60); sec(30, 0); sec(60, 120); sec(30, 0); sec(40, -70); sec(40, 70); sec(40, -70); sec(40, 70); sec(30, 0); sec(60, 120); sec(40, 0); sec(50, -45); sec(50, 45); sec(30, -45); sec(30, 45); sec(60, 120); sec(N - i, 0);
+				AutoPads(id, 2, 3, 3, 24f); break;
+			case 4:   // 외계 행성: 큰 고리 두 개가 이어진 8자 느낌 · 거대한 언덕 · 낮은 중력
+				sec(80, 0); sec(70, 150); sec(40, 0); sec(50, -90); sec(50, 90); sec(60, 0); sec(70, 150); sec(30, 0); sec(40, -60); sec(40, 60); sec(40, -60); sec(40, 60); sec(60, 0); sec(50, 60); sec(N - i, 0);
+				AutoPads(id, 5, 3, 1, 50f); break;
+			case 5:   // 중세: 성벽 사이 직각 커브와 시케인이 연달아
+				sec(80, 0); sec(30, 90); sec(40, 0); sec(25, -90); sec(30, 0); sec(25, 90); sec(60, 0); sec(30, 90); sec(40, 0); sec(25, -90); sec(25, 90); sec(70, 0); sec(30, 90); sec(50, 0); sec(25, 90); sec(40, 0); sec(25, -90); sec(25, 90); sec(40, 0); sec(30, -45); sec(30, 45); sec(N - i, 0);
+				AutoPads(id, 1, 4, 2, 14f); break;
+			case 6:   // 요정: 소용돌이처럼 크게 감았다 푸는 꽃길
+				sec(70, 0); sec(80, 200); sec(40, 0); sec(60, -130); sec(40, 0); sec(70, 180); sec(50, 0); sec(60, -80); sec(30, 0); sec(40, 40); sec(40, -40); sec(60, 190); sec(N - i, 0);
+				AutoPads(id, 2, 7, 1, 22f); break;
+			case 7:   // 일본: 신사 언덕을 오르내리는 급 헤어핀과 S자
+				sec(100, 0); sec(45, 150); sec(30, 0); sec(45, -120); sec(40, 0); sec(40, 60); sec(40, -60); sec(50, 150); sec(50, 0); sec(40, -50); sec(40, 50); sec(50, 90); sec(30, 0); sec(30, -40); sec(30, 40); sec(40, 90); sec(N - i, 0);
+				AutoPads(id, 1, 4, 2, 28f); break;
+			default:   // 청사 민원 대행진: 복도를 도는 미로 같은 직각 코스 · 서류 더미 · 결재 완료 발판
+				sec(90, 0); sec(30, 90); sec(50, 0); sec(30, 90); sec(30, 0); sec(30, -90); sec(30, 0); sec(30, -90); sec(40, 0); sec(30, 90); sec(60, 0); sec(30, 90); sec(70, 0); sec(30, 90); sec(40, 0); sec(30, -90); sec(30, 90); sec(40, 0); sec(30, 90); sec(N - i, 0);
+				AutoPads(id, 1, 5, 4, 8f); break;
 		}
 		// 미니맵은 끝점이 출발점과 정확히 만나도록 조금씩 나눠 맞춰요 (주행에는 영향 없음)
 		{ int n0 = mapPts.Count; PointF e0 = mapPts[n0 - 1]; for (int k = 0; k < n0; k++) { float f = k / (float)(n0 - 1); mapPts[k] = new PointF(mapPts[k].X - e0.X * f, mapPts[k].Y - e0.Y * f); } }
 		boxes.Clear(); foreach (int sq in bx) { if (padK[sq] != 0) continue; for (int k = -1; k <= 1; k++) boxes.Add(new Box { Seg = sq, X = k * 0.55f }); }
+	}
+	// 발판 자동 배치: 긴 직선 가운데에 점프, 직선 들머리에 부스트, 커브 바깥쪽에 감속 구역 · 언덕은 코스마다 다르게
+	private void AutoPads(int id, int nJump, int nBoost, int nSlow, float hillAmp)
+	{
+		List<int[]> runs = new List<int[]>(); int st = -1;
+		for (int k = 0; k <= N; k++) { bool str = k < N && Math.Abs(curve[k]) < 0.02f; if (str && st < 0) st = k; else if (!str && st >= 0) { if (k - st >= 18 && st > 8) runs.Add(new int[] { st, k - st }); st = -1; } }
+		runs.Sort((a, b) => b[1].CompareTo(a[1]));
+		int used = 0; for (int r = 0; r < runs.Count && used < nJump; r++) if (runs[r][1] >= 34) { Pad(runs[r][0] + runs[r][1] / 2, 2, 2, 0f, 1f); used++; }
+		float[] bxs = { -0.42f, 0.42f, 0f };
+		int b = 0; for (int r = runs.Count - 1; r >= 0 && b < nBoost; r--) { int sg = runs[r][0] + 4; if (padK[sg] == 0 && padK[sg + 2] == 0) { Pad(sg, 3, 1, bxs[b % 3], 0.26f); b++; } }
+		for (int r = 0; r < runs.Count && b < nBoost; r++) { int sg = runs[r][0] + runs[r][1] / 4; if (padK[sg] == 0 && padK[sg + 2] == 0) { Pad(sg, 3, 1, bxs[b % 3], 0.26f); b++; } }
+		int sl = 0; for (int k = 40; k < N - 20 && sl < nSlow; k += 97) { int q = k; while (q < N - 12 && Math.Abs(curve[q]) < 1.0f) q++; if (q >= N - 12) break; if (padK[q] == 0) { Pad(q, 8, 3, curve[q] > 0f ? -0.55f : 0.55f, 0.4f); sl++; } k = q; }
+		Random hr = new Random(id * 77 + 5); for (int k = 0; k < 6; k++) { int s0 = 60 + k * 190 + hr.Next(60); int len = 70 + hr.Next(80); float amp = hillAmp * (0.5f + (float)hr.NextDouble() * 0.7f) * (k % 3 == 1 ? -0.7f : 1f); if (s0 + len < N - 10) Bump(s0, len, amp); }
 	}
 	private void StartRace(int id)
 	{
@@ -477,7 +468,9 @@ internal sealed class KartGame : MiniGame
 		float u = a.Sc * W / 2f, sx = a.X + u * side * ROADW; float h = u * (kind == 2 ? 2300f : (kind == 1 ? 2400f : (kind == 3 ? 520f : (kind == 4 ? 1700f : 2000f)))); if (h < 2f || h > 340f || a.Y - h > clip) return;
 		int slot = kind == 2 ? ((seg / 5) % 2) : (kind == 0 ? (seg % 10 == 0 ? 3 : 2) : (kind == 3 ? 4 : (kind == 4 ? 5 : 3)));
 		GraphicsState st = g.Save(); g.SetClip(new RectangleF(0, 0, W, clip));
-		string pn = "ms_kt" + course + "_" + slot; Bitmap pb = Spr.Get(pn);
+		int[] pool = slot <= 1 ? new[] { 0, 1, 6, 7 } : (slot <= 3 ? new[] { 2, 3, 8 } : (slot == 4 ? new[] { 4, 10 } : new[] { 5, 9, 3 }));
+		string pn = null; { List<string> have = new List<string>(); foreach (int q in pool) { string nm = "ms_kt" + course + "_" + q; if (Spr.Get(nm) != null) have.Add(nm); } if (have.Count > 0) pn = have[(slot == 4 ? seg / 40 : seg / 5 + slot) % have.Count]; }
+		Bitmap pb = pn == null ? null : Spr.Get(pn);
 		if (pb != null) { float ph = kind == 3 ? h * 1.1f : h, pw = ph * pb.Width / pb.Height; Spr.Draw(g, pn, sx, a.Y - ph / 2f, pw, ph, 0f); g.Restore(st); return; }
 		Color c1, c2, c3;
 		switch (course)

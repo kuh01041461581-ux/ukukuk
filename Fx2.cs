@@ -134,7 +134,7 @@ internal static class Spr
 	{
 		Bitmap b = Get(n); if (b == null) return false;
 		float sc = ImgCache.Scale(g); System.Drawing.Image im = ImgCache.Get(b, Math.Abs(w) * sc, Math.Abs(h) * sc);
-		GraphicsState st = g.Save(); g.TranslateTransform(cx, cy); if (rot != 0f) g.RotateTransform(rot);
+		GraphicsState st = g.Save(); g.TranslateTransform(cx, cy); if (rot != 0f) g.RotateTransform(rot); if (w < 0f) { g.ScaleTransform(-1f, 1f); w = -w; }   // 좌우 반전은 음수 너비 대신 거울 변환으로 (어디서나 확실히 그려져요)
 		g.InterpolationMode = InterpolationMode.Bilinear; g.PixelOffsetMode = PixelOffsetMode.Half; g.CompositingQuality = CompositingQuality.HighSpeed;
 		g.DrawImage(im, new RectangleF(-w / 2, -h / 2, w, h), new RectangleF(0, 0, im.Width, im.Height), GraphicsUnit.Pixel); g.Restore(st); return true;
 	}

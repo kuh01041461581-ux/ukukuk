@@ -141,7 +141,7 @@ internal sealed partial class TarotForm : Form
 	}
 	private void OnDown(object s, MouseEventArgs e)
 	{
-		float x = (e.X - ox) / sc, y = (e.Y - oy) / sc; if (e.Button == MouseButtons.Left && UiDown(x, y)) return; down = true; dragging = false; downX = x; downScroll = scroll; if (zoom >= 0) return; if (hist && e.Button == MouseButtons.Left) { down = false; if (FHist.ChipHit(x, y) == 1) { hist = false; Invalidate(); } return; } if (e.Button == MouseButtons.Left) { int hc = FHist.ChipHit(x, y); if (hc == 1) { down = false; hist = true; hScroll = 0; FHist.Refresh(); Invalidate(); return; } if (hc == 2) { down = false; FHist.SavePng(this); return; } int hb = Chrome.HubHit(x, y); if (hb == 1) { down = false; FortuneForm.Open(); Close(); return; } if (hb == 2) { down = false; return; } } if (y < 54f && e.Button == MouseButtons.Left) { down = false; Chrome.Drag(this); return; }
+		float x = (e.X - ox) / sc, y = (e.Y - oy) / sc; if (e.Button == MouseButtons.Left && UiDown(x, y)) return; down = true; dragging = false; downX = x; downScroll = scroll; if (zoom >= 0) return; if (hist && e.Button == MouseButtons.Left) { down = false; if (FHist.ChipHit(x, y) == 1) { hist = false; Invalidate(); } return; } if (e.Button == MouseButtons.Left) { int hc = FHist.ChipHit(x, y); if (hc == 1) { down = false; hist = true; hScroll = 0; FHist.Refresh(); Invalidate(); return; } if (hc == 2) { down = false; FHist.SaveFull(this, RenderFull, "마룡이 타로"); return; } int hb = Chrome.HubHit(x, y); if (hb == 1) { down = false; FortuneForm.Open(); Close(); return; } if (hb == 2) { down = false; return; } } if (y < 54f && e.Button == MouseButtons.Left) { down = false; Chrome.Drag(this); return; }
 		if (spOpen) { down = false; for (int i = 0; i < SpreadName.Length; i++) if (spRows[i].Contains(x, y)) { SetMode(i); spOpen = false; Invalidate(); return; } spOpen = false; Invalidate(); return; }
 		if (spR.Contains(x, y)) { spOpen = true; Sfx.Play("tick"); Invalidate(); down = false; return; }
 		for (int i = 0; i < 5; i++) if (tR[i].Contains(x, y)) { topic = i; Sfx.Play("tick"); Invalidate(); down = false; return; }
@@ -247,8 +247,9 @@ internal sealed partial class TarotForm : Form
 	private void Badge(Graphics g, int i)
 	{
 		RectangleF r = sR[i]; float bx = r.X + 1f, by = r.Y + 1f; if (sRot[i] != 0f) { bx = r.X + r.Width / 2f + 14f; by = r.Y + r.Height / 2f - 21f; }
-		using (SolidBrush b = new SolidBrush(PRed)) g.FillEllipse(b, bx, by, 13f, 13f);
-		FUi.Text(g, (i + 1).ToString(), FUi.F(7f, 1), Color.White, new RectangleF(bx, by, 13f, 13f), StringAlignment.Center, StringAlignment.Center, false);
+		float bw = i >= 9 ? 19f : 13f;   // 두 자리(10번)는 옆으로 넓은 알약 모양이라 '1'로 잘리지 않아요
+		using (GraphicsPath gp = Gfx.Round(new RectangleF(bx, by, bw, 13f), 6.5f)) using (SolidBrush b = new SolidBrush(PRed)) g.FillPath(b, gp);
+		FUi.Text(g, (i + 1).ToString(), FUi.F(i >= 9 ? 6.6f : 7f, 1), Color.White, new RectangleF(bx - 3f, by, bw + 6f, 13f), StringAlignment.Center, StringAlignment.Center, false);
 	}
 	protected override void OnPaint(PaintEventArgs e)
 	{
@@ -270,7 +271,7 @@ internal sealed partial class TarotForm : Form
 	}
 	private void DrawMain(Graphics g)
 	{
-		FUi.Text(g, "마룡이 타로", FUi.F(15f, 1), PInk, new RectangleF(16, 8, 215, 28), StringAlignment.Near, StringAlignment.Center, false); Chrome.Hub(g, true, PRed, PCard, Color.White, PSub);
+		FUi.Text(g, "마룡이 타로", FUi.F(15f, 1), PInk, new RectangleF(16, 8, 215, 28), StringAlignment.Near, StringAlignment.Center, false); if (!exporting) Chrome.Hub(g, true, PRed, PCard, Color.White, PSub);
 		FUi.Text(g, "직접 고르는 타로 · 재미로 보는 풀이", FUi.F(8.5f, 0), PMut, new RectangleF(16, 36, 212, 16), StringAlignment.Near, StringAlignment.Center, false);
 		spR = new RectangleF(14, 58, 262, 28);
 		using (GraphicsPath gp = Gfx.Round(spR, 14)) { using (SolidBrush b = new SolidBrush(PCard)) g.FillPath(b, gp); using (Pen p = new Pen(PRed, 1.4f)) g.DrawPath(p, gp); }
@@ -282,6 +283,7 @@ internal sealed partial class TarotForm : Form
 		LayoutSlots();
 		for (int i = 0; i < slots.Length; i++) DrawSlot(g, i);
 		if (noLab) for (int i = 0; i < slots.Length; i++) if (slots[i].State >= 2) Badge(g, i);
+		if (exporting) { if (st == St.Read) DrawReadRaw(g, ReadTop); return; }
 		if (st == St.Idle) DrawIdle(g); else if (st == St.Shuffle) DrawShuffleMagic(g); else if (st == St.Pick) DrawPick(g); else DrawRead(g);
 		DrawSlotHover(g); DrawMotes(g);
 		if (zoom >= 0) DrawZoom(g);

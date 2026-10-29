@@ -33,7 +33,7 @@ internal sealed class PetWin : Form
 	private sealed class Pt { public int K; public float X, Y, Vx, Vy, Age, Life, Sz; public string T; }   // K 0 하트 · 1 반짝 · 2 글자(Zzz) · 3 김
 	private readonly List<Pt> ps = new List<Pt>();
 	private IntPtr memDC, hBmp, oldBmp, bits; private Bitmap canvas; private int Wd, Hd; private float S, sizeMul = 1f;
-	private readonly System.Windows.Forms.Timer tm = new System.Windows.Forms.Timer(); private readonly System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew(); private double last, T;
+	private readonly FrameTimer ft = new FrameTimer(); private int fSkip; private readonly System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew(); private double last, T;
 	private static readonly Random R = new Random();
 	private St st = St.Idle; private float stT, px, py, vx, vy, flyH, tx, squish, idleFor, rubAcc, lastRubX, lastRubY, sayT, kickCd, mood; private int face = 1; private string say = "";
 	private Rectangle wa;
@@ -61,9 +61,15 @@ internal sealed class PetWin : Form
 		Bounds = new Rectangle(wa.Left, wa.Top, 10, 10);
 		menu = BuildMenu();
 		MouseDown += OnDown; MouseUp += OnUp; MouseMove += OnMove;
-		tm.Interval = 33; tm.Tick += delegate { Tick(); };
-		Load += delegate { Init(); lookCd = 4f; last = sw.Elapsed.TotalSeconds; tm.Start(); Say("안녕하세요!", 2f); Burst(0, 0, true); Go(St.Wave, 0f); };
-		FormClosed += delegate { tm.Stop(); tm.Dispose(); FreeGdi(); if (cur == this) cur = null; Program.petOn = false; };
+		// 화면 주사율(vsync)에 맞춘 프레임으로 움직여요. 예전 33ms 타이머는 윈도우에서 31/47ms 로 들쭉날쭉 와서 걸을 때 덜컹거렸어요
+		ft.Tick += delegate
+		{
+			bool calm = (st == St.Sleep || st == St.Nap) && ps.Count == 0 && toy == Toy.None;
+			bool still = (st == St.Idle || st == St.Sit) && ps.Count == 0 && toy == Toy.None && sayT <= 0f;
+			int need = !Visible ? 30 : (calm ? 5 : (still ? 2 : 1)); if (++fSkip < need) return; fSkip = 0; Tick();
+		};
+		Load += delegate { Init(); lookCd = 4f; last = sw.Elapsed.TotalSeconds; ft.Start(); Say("안녕하세요!", 2f); Burst(0, 0, true); Go(St.Wave, 0f); };
+		FormClosed += delegate { ft.Stop(); FreeGdi(); if (cur == this) cur = null; Program.petOn = false; };
 	}
 	private void SizeMul(int idx) { Program.petSize = idx; sizeMul = idx == 0 ? 0.75f : (idx == 2 ? 1.3f : 1f); S = Dpi.Scale * sizeMul; Rectangle pw = Screen.PrimaryScreen.WorkingArea; int mh = 0; foreach (Screen sc0 in Screen.AllScreens) mh = Math.Max(mh, sc0.WorkingArea.Height); Wd = Math.Max(400, pw.Width + (int)(200 * Dpi.Scale)); Hd = Math.Max(300, mh + (int)(300 * Dpi.Scale)); }
 	protected override bool ShowWithoutActivation { get { return true; } }
@@ -261,7 +267,6 @@ internal sealed class PetWin : Form
 		if ((int)(T * 2) != (int)((T - dt) * 2)) { try { if (Program.AutoBusy()) { if (Visible) Hide(); return; } else if (!Visible) Show(); } catch { } }
 		if (!Visible) return;
 		wa = AllWA(); dtS += (dt - dtS) * 0.35f; Step(dtS); Render();
-		tm.Interval = (st == St.Sleep && ps.Count == 0 && toy == Toy.None) ? 90 : 33;
 	}
 	// 비서 기능: 정각 시간 알림과 초과근무 현황
 	private int lastChime = -1; private int ux, uy, uw = 10, uh = 10; private bool dragToy;

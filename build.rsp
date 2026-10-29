@@ -1030,6 +1030,7 @@ Raise.cs
 Secrets.cs
 Ocr.cs
 Palette.cs
+Pdf.cs
 Game17.cs
 Game18.cs
 Lotto.cs

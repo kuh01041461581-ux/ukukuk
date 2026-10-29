@@ -42,6 +42,22 @@ internal sealed partial class TarotForm
 		}
 	}
 	private float ReadTop { get { return SlotsBottom + 38f; } }
+	private bool exporting;
+	// 저장용: 카드 배치 + 풀이 글 전체를 스크롤 없이 2배 크기로 한 장에 그려요
+	private Bitmap RenderFull()
+	{
+		const float k = 2f; float total = 4f; if (st == St.Read) foreach (Ent e in Ents) total += e.H + 6f;
+		float lh = st == St.Read ? ReadTop + total + 16f : LH;
+		int W = (int)Math.Ceiling(LW * k), H = (int)Math.Ceiling(lh * k);
+		Bitmap b = new Bitmap(W, H, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+		try
+		{
+			exporting = true;
+			using (Graphics g = Graphics.FromImage(b)) { g.Clear(Theme.Page); Gfx.HQ(g); g.ScaleTransform(k, k); g.InterpolationMode = InterpolationMode.HighQualityBicubic; DrawMain(g); }
+		}
+		finally { exporting = false; }
+		return b;
+	}
 	private RectangleF TsBtn(int i) { return new RectangleF(LW - 136f + i * 40f, ReadTop - 30f, 36f, 22f); }
 	private RectangleF SbTrack { get { float top = ReadTop; return new RectangleF(LW - 14f, top + 2f, 10f, LH - 8f - top - 2f); } }
 	private RectangleF SbThumb

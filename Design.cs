@@ -1387,7 +1387,7 @@ internal class SkyBanner : Ctl
 	// ── 변하지 않는 바탕(하늘·해·달·탑·글자)은 한 장으로 그려 두고 재사용 ──
 	private Bitmap bgCache; private string bgKey = ""; private GraphicsPath clipP; private double dkC; private Color topC, horC;
 	private float L_tx, L_tw, L_yCap, L_yTime, L_hTime, L_yDate, L_hCap, L_hDate, L_mw;
-	private bool tickPending; private bool flipping; private double lastPulse; private int bgChk; private bool bgDirty;
+	private bool tickPending; private bool flipping; private double lastPulse, lastBob; private int bgChk; private bool bgDirty;
 	private bool ClockMode { get { return Flap && IsClock(TimeText); } }
 
 	private void LayoutText()
@@ -1487,8 +1487,18 @@ internal class SkyBanner : Ctl
 		{
 			if (!tickNow && t - lastPulse < 0.0145) return; if (tickNow && t - lastPulse < 0.0085) { tickPending = true; return; } PulsePaints++; if (tickNow) TickPaints++; lastPulse = t;
 			bool oth = Lively || Bursting || actKind >= 0 || hovTarget > 0f || hov > 0.01f || hearts.Count > 0; calmNow = CalmIdle && !oth;
-			if (CalmIdle && ClockMode && !oth && L_tw > 10f && L_hTime > 4f) Invalidate(new Rectangle((int)L_tx - 6, (int)L_yTime - 6, (int)L_tw + 12, (int)L_hTime + 12)); else Invalidate();
-			Update(); return;
+			// 가만히 있을 때: 배너 전체(하늘·구름·마룡이)를 1초에 60번 다시 그리면 앱 전체가 같이 버벅여요.
+			// → 시계 글자는 바뀔 때(넘김 0.4초 동안만 60번), 마룡이 둥실은 그 주변만 1초에 20번 그려요
+			bool soon = !CalmIdle && t >= nextAct - 0.05;
+			if (!oth && !soon && ClockMode && L_tw > 10f && L_hTime > 4f)
+			{
+				bool doClock = tickNow || flipping, doM = !CalmIdle && mRect.Width > 4f && t - lastBob >= 0.05;
+				if (!doClock && !doM) { lastPulse = t; return; }
+				if (doClock) Invalidate(new Rectangle((int)L_tx - 6, (int)L_yTime - 6, (int)L_tw + 12, (int)L_hTime + 12));
+				if (doM) { lastBob = t; Rectangle mr = Rectangle.Round(mRect); mr.Inflate((int)Dpi.Zf(8f), (int)Dpi.Zf(8f)); Invalidate(mr); }
+				lastPulse = t; Update(); return;
+			}
+			Invalidate(); Update(); return;
 		}
 		bool busy = Lively || Bursting || actKind >= 0 || hovTarget > 0f || hov > 0.01f || hearts.Count > 0 || flipping || (!CalmIdle && t >= nextAct - 0.05);
 		// 그리는 데 오래 걸리는 PC에서는 그리는 시간의 2배 이상 쉬어서, 설정 변경·클릭 같은 다른 동작이 밀리지 않게 해요
@@ -1520,9 +1530,11 @@ internal class SkyBanner : Ctl
 			if (clipP != null) { GraphicsState cs = g.Save(); g.SetClip(clipP, CombineMode.Exclude); Wash.Under(this, g); g.Restore(cs); }
 			InterpolationMode im0 = g.InterpolationMode; PixelOffsetMode po0 = g.PixelOffsetMode;
 			g.InterpolationMode = InterpolationMode.NearestNeighbor; g.PixelOffsetMode = PixelOffsetMode.None;
-			g.DrawImage(bgCache, 0, 0, bgCache.Width, bgCache.Height);
+			Rectangle cr = Rectangle.Intersect(e.ClipRectangle, new Rectangle(0, 0, bgCache.Width, bgCache.Height));   // 다시 그릴 부분만 복사 (작은 부분 갱신이 훨씬 가벼워져요)
+			if (cr.Width > 0 && cr.Height > 0) g.DrawImage(bgCache, cr, cr, GraphicsUnit.Pixel);
 			g.InterpolationMode = im0; g.PixelOffsetMode = po0;
 		}
+		RectangleF clipF = e.ClipRectangle; bool partial = e.ClipRectangle.Width < Width || e.ClipRectangle.Height < Height;
 		double dk = dkC;
 		double t = clock.Elapsed.TotalSeconds;
 		GraphicsState gs = null;
@@ -1535,7 +1547,7 @@ internal class SkyBanner : Ctl
 			for (int i = 0; i < stars.Length; i++)
 			{
 				float sx = stars[i].X * Width, sy = stars[i].Y * Height * 0.72f;
-				if (sx > pgX || sx < edge || sx > Width - edge) continue;
+				if (sx > pgX || sx < edge || sx > Width - edge) continue; if (partial && !clipF.Contains(sx, sy)) continue;
 				double tw = 0.5 + 0.5 * Math.Sin(t * 1.6 + i * 1.9);
 				int a = (int)(255 * dk * (0.25 + 0.6 * tw));
 				float sz = Dpi.Zf(i % 5 == 0 ? 2.2f : 1.4f);
@@ -1544,7 +1556,8 @@ internal class SkyBanner : Ctl
 			}
 		}
 		// 마룡이
-		if (Mascot != null)
+		RectangleF mGuard = mRect; mGuard.Inflate(Dpi.Zf(30f), Dpi.Zf(40f));
+		if (Mascot != null && (!partial || mRect.Width < 1f || mGuard.IntersectsWith(clipF)))
 		{
 			float mh = Height * 0.86f, mw = mh * Mascot.Width / Mascot.Height;
 			float ground = Height - Dpi.Zf(9);
@@ -1608,7 +1621,7 @@ internal class SkyBanner : Ctl
 				}
 			}
 		}
-		if (ClockMode) DrawFlap(g, new RectangleF(L_tx, L_yTime, L_tw, L_hTime), t); else Shadowed(g, TimeText, Theme.F(TimePt, 2), Color.White, new RectangleF(L_tx, L_yTime, L_tw, L_hTime), StringAlignment.Near);
+		if (ClockMode) { RectangleF ckR = new RectangleF(L_tx - 6, L_yTime - 6, L_tw + 12, L_hTime + 12); if (!partial || ckR.IntersectsWith(clipF)) DrawFlap(g, new RectangleF(L_tx, L_yTime, L_tw, L_hTime), t); } else Shadowed(g, TimeText, Theme.F(TimePt, 2), Color.White, new RectangleF(L_tx, L_yTime, L_tw, L_hTime), StringAlignment.Near);
 		DrawBits(g); DrawStamp(g);
 		if (gs != null) g.Restore(gs);
 		PaintMs = PaintMs * 0.85 + pw.Elapsed.TotalMilliseconds * 0.15; if (pw.Elapsed.TotalMilliseconds > 8.0) PaintProf.Add("Sky긴그림(8ms+)", pt0); if (PaintProf.On) lock (Stamps) { Stamps.Add(Stopwatch.GetTimestamp()); StampIds.Add(this.GetHashCode()); }

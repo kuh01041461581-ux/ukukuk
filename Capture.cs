@@ -9,7 +9,7 @@ using System.Windows.Forms;
 // 화면 캡처 → 플로팅: 단축키(기본 Alt+V)로 화면을 얼려 놓고 영역을 드래그하면, 그 부분이 항상 위에 떠 있는 작은 창이 돼요.
 internal sealed class ShotOverlay : Form
 {
-	private Bitmap shot; private Rectangle vs; private Point a, b; private bool drag;
+	private Bitmap shot, shotDim; private Rectangle vs; private Point a, b, hoverPt = new Point(-10, -10); private bool drag;
 	public static bool Active; private bool ocr;
 	public static void Start() { Start(false); }
 	// ocr: 고른 영역의 글자를 바로 읽어서 복사해요 (떠 있는 창 없이)
@@ -24,36 +24,35 @@ internal sealed class ShotOverlay : Form
 		vs = SystemInformation.VirtualScreen;
 		shot = new Bitmap(vs.Width, vs.Height, PixelFormat.Format32bppRgb);
 		using (Graphics g = Graphics.FromImage(shot)) g.CopyFromScreen(vs.Location, Point.Empty, vs.Size);
+		shotDim = new Bitmap(shot); using (Graphics g = Graphics.FromImage(shotDim)) using (SolidBrush db = new SolidBrush(Color.FromArgb(120, 0, 0, 0))) g.FillRectangle(db, 0, 0, shotDim.Width, shotDim.Height);   // 어둡게 한 화면은 한 번만 만들어 둬요
 		FormBorderStyle = FormBorderStyle.None; StartPosition = FormStartPosition.Manual; Bounds = vs; TopMost = true; ShowInTaskbar = false; Cursor = Cursors.Cross; KeyPreview = true;
 		SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
 	}
 	private Rectangle Sel { get { return Rectangle.FromLTRB(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Max(a.X, b.X), Math.Max(a.Y, b.Y)); } }
-	protected override void OnMouseDown(MouseEventArgs e) { if (e.Button == MouseButtons.Right) { Close(); return; } if (e.Button != MouseButtons.Left) return; a = b = e.Location; drag = true; }
-	protected override void OnMouseMove(MouseEventArgs e) { b = e.Location; Invalidate(); }
+	protected override void OnMouseDown(MouseEventArgs e) { if (e.Button == MouseButtons.Right) { Close(); return; } if (e.Button != MouseButtons.Left) return; a = b = e.Location; drag = true; Invalidate(); }
+	protected override void OnMouseMove(MouseEventArgs e) { if (drag) { Rectangle o = Sel; b = e.Location; Rectangle u = Rectangle.Union(o, Sel); u.Inflate(8, 34); Invalidate(u); } else { Point o = hoverPt; hoverPt = e.Location; Invalidate(new Rectangle(0, o.Y - 1, Width, 3)); Invalidate(new Rectangle(o.X - 1, 0, 3, Height)); Invalidate(new Rectangle(0, e.Y - 1, Width, 3)); Invalidate(new Rectangle(e.X - 1, 0, 3, Height)); } }   // 누르기 전에는 십자선만 (왼쪽 위에서 시작하는 선택 없음)
 	protected override void OnMouseUp(MouseEventArgs e)
 	{
 		if (!drag || e.Button != MouseButtons.Left) return; drag = false; b = e.Location; Rectangle r = Sel; r.Intersect(new Rectangle(0, 0, shot.Width, shot.Height));
 		if (r.Width < 8 || r.Height < 8) { Invalidate(); return; }
-		Bitmap crop = shot.Clone(r, PixelFormat.Format32bppRgb); Point at = new Point(vs.X + r.X, vs.Y + r.Y); Close(); if (ocr) { ShotFloat.ReadText(crop, null); crop.Dispose(); } else ShotFloat.Open(crop, at);
+		Bitmap crop = shot.Clone(r, PixelFormat.Format32bppRgb); Point at = new Point(vs.X + r.X, vs.Y + r.Y); Close(); try { Clipboard.SetImage(crop); } catch { }   // 캡처하면 바로 클립보드에도 복사
+		if (ocr) { ShotFloat.ReadText(crop, null); crop.Dispose(); } else ShotFloat.Open(crop, at, true);
 	}
 	protected override void OnKeyDown(KeyEventArgs e) { if (e.KeyCode == Keys.Escape) Close(); base.OnKeyDown(e); }
 	protected override void OnPaint(PaintEventArgs e)
 	{
-		Graphics g = e.Graphics; g.DrawImageUnscaled(shot, 0, 0);
-		Rectangle r = Sel; bool has = (drag || r.Width > 0) && r.Width > 0 && r.Height > 0;
-		using (Region dim = new Region(ClientRectangle)) using (SolidBrush db = new SolidBrush(Color.FromArgb(120, 0, 0, 0)))
-		{
-			if (has) dim.Exclude(r); g.FillRegion(db, dim);
-		}
+		Graphics g = e.Graphics; Rectangle c = e.ClipRectangle; g.DrawImage(shotDim, c, c, GraphicsUnit.Pixel);   // 바뀐 부분만 다시 그려요 (전체 화면을 매번 그리면 버벅여요)
+		Rectangle r = Sel; bool has = drag && r.Width > 0 && r.Height > 0;
 		if (has)
 		{
-			g.DrawImage(shot, r, r, GraphicsUnit.Pixel);
+			Rectangle rr = Rectangle.Intersect(r, c); if (rr.Width > 0 && rr.Height > 0) g.DrawImage(shot, rr, rr, GraphicsUnit.Pixel);
 			using (Pen p = new Pen(Color.FromArgb(255, 20, 184, 166), 2f)) g.DrawRectangle(p, r);
 			string t = r.Width + " × " + r.Height; using (Font f = new Font("맑은 고딕", 9f, FontStyle.Bold)) { SizeF sz = g.MeasureString(t, f); float ty = r.Y - sz.Height - 4 < 0 ? r.Y + 4 : r.Y - sz.Height - 4; using (SolidBrush bb = new SolidBrush(Color.FromArgb(220, 20, 30, 40))) g.FillRectangle(bb, r.X, ty, sz.Width + 8, sz.Height); g.DrawString(t, f, Brushes.White, r.X + 4, ty); }
 		}
 		else using (Font f = new Font("맑은 고딕", 11f, FontStyle.Bold)) { string t = ocr ? "글자를 읽을 영역을 드래그하세요  (Esc · 오른쪽 클릭: 취소)" : "캡처할 영역을 드래그하세요  (Esc · 오른쪽 클릭: 취소)"; SizeF sz = g.MeasureString(t, f); float x = (ClientSize.Width - sz.Width) / 2f; using (SolidBrush bb = new SolidBrush(Color.FromArgb(200, 20, 30, 40))) g.FillRectangle(bb, x - 12, 24, sz.Width + 24, sz.Height + 12); g.DrawString(t, f, Brushes.White, x, 30); }
+		if (!drag && hoverPt.X >= 0) using (Pen cp = new Pen(Color.FromArgb(150, 120, 230, 220), 1f)) { g.DrawLine(cp, 0, hoverPt.Y, Width, hoverPt.Y); g.DrawLine(cp, hoverPt.X, 0, hoverPt.X, Height); }   // 시작점을 잡기 쉽게 십자선
 	}
-	protected override void OnFormClosed(FormClosedEventArgs e) { Active = false; if (shot != null) { shot.Dispose(); shot = null; } base.OnFormClosed(e); }
+	protected override void OnFormClosed(FormClosedEventArgs e) { Active = false; if (shot != null) { shot.Dispose(); shot = null; } if (shotDim != null) { shotDim.Dispose(); shotDim = null; } base.OnFormClosed(e); }
 }
 
 // 떠 있는 캡처 창: 끌어서 이동 · 휠로 크기 · Ctrl+휠로 투명도 · 오른쪽 클릭 메뉴(복사·저장·닫기) · 모서리를 끌어도 크기 조절
@@ -62,7 +61,13 @@ internal sealed class ShotFloat : Form
 	private static readonly List<ShotFloat> all = new List<ShotFloat>();
 	private Bitmap img; private float zoom = 1f; private bool dragging, sizing; private Point dsM, dsL; private Size dsS; private bool hover, overX, overT; private string pill; private DateTime pillUntil; private Timer pillTm;
 	private const int Grip = 16;
-	public static void Open(Bitmap bmp, Point at) { try { ShotFloat f = new ShotFloat(bmp, at); all.Add(f); f.Show(); } catch { bmp.Dispose(); } }
+	public static void Open(Bitmap bmp, Point at) { Open(bmp, at, false); }
+	// 여러 장을 띄워 두면 나중에 캡처한 것이 맨 위에 와요 (예전 것은 그대로 남아요)
+	public static void Open(Bitmap bmp, Point at, bool copied)
+	{
+		try { ShotFloat f = new ShotFloat(bmp, at); all.Add(f); f.Show(); f.BringToFront(); if (copied) f.Pill("클립보드에 복사했어요 · 우클릭으로 저장", 2.2); }
+		catch { bmp.Dispose(); }
+	}
 	public static void CloseAll() { foreach (ShotFloat f in new List<ShotFloat>(all)) f.Close(); }
 	private ShotFloat(Bitmap bmp, Point at)
 	{
@@ -70,9 +75,9 @@ internal sealed class ShotFloat : Form
 		Size = img.Size; Location = at; MinimumSize = new Size(40, 30); BackColor = Color.Black; Opacity = 1.0;
 		SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
 		ContextMenuStrip m = new ContextMenuStrip();
-		m.Items.Add("클립보드로 복사", null, delegate { try { Clipboard.SetImage(img); } catch { } });
+		m.Items.Add("스크린샷으로 저장… (Ctrl+S)", null, delegate { Save(); });
+		m.Items.Add("클립보드로 복사 (Ctrl+C)", null, delegate { try { Clipboard.SetImage(img); Pill("클립보드에 복사했어요", 1.6); } catch { } });
 		m.Items.Add("글자 복사 (그림 속 글자 읽기)", null, delegate { ReadText(img, this); });
-		m.Items.Add("파일로 저장…", null, delegate { Save(); });
 		m.Items.Add("원래 크기로", null, delegate { SetZoom(1f); });
 		ToolStripMenuItem op = new ToolStripMenuItem("투명도");
 		foreach (int pc in new int[] { 100, 80, 60, 40 }) { int pp = pc; op.DropDownItems.Add(pc + "%", null, delegate { Opacity = pp / 100.0; }); }
@@ -81,7 +86,7 @@ internal sealed class ShotFloat : Form
 	}
 	private void Save()
 	{
-		try { using (SaveFileDialog d = new SaveFileDialog()) { d.Filter = "PNG 그림|*.png"; d.FileName = "캡처_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png"; if (d.ShowDialog() == DialogResult.OK) img.Save(d.FileName, ImageFormat.Png); } } catch { }
+		try { using (SaveFileDialog d = new SaveFileDialog()) { d.Filter = "PNG 그림|*.png|JPG 그림|*.jpg"; d.FileName = "캡처_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png"; try { string sd = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Screenshots"); d.InitialDirectory = Directory.Exists(sd) ? sd : Environment.GetFolderPath(Environment.SpecialFolder.MyPictures); } catch { } if (d.ShowDialog(this) == DialogResult.OK) { img.Save(d.FileName, d.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ? ImageFormat.Jpeg : ImageFormat.Png); Pill("저장했어요", 1.6); } } } catch { }
 	}
 	private void SetZoom(float z)
 	{
@@ -129,6 +134,13 @@ internal sealed class ShotFloat : Form
 	protected override void OnMouseUp(MouseEventArgs e) { dragging = sizing = false; Capture = false; }
 	protected override void OnMouseLeave(EventArgs e) { hover = false; Invalidate(); base.OnMouseLeave(e); }
 	protected override void OnMouseDoubleClick(MouseEventArgs e) { if (e.Button == MouseButtons.Left && !XRect.Contains(e.Location) && !TRect.Contains(e.Location)) SetZoom(1f); }
+	protected override bool ProcessCmdKey(ref Message msg, Keys k)
+	{
+		if (k == (Keys.Control | Keys.S)) { Save(); return true; }
+		if (k == (Keys.Control | Keys.C)) { try { Clipboard.SetImage(img); Pill("클립보드에 복사했어요", 1.6); } catch { } return true; }
+		if (k == Keys.Escape) { Close(); return true; }
+		return base.ProcessCmdKey(ref msg, k);
+	}
 	protected override void OnMouseWheel(MouseEventArgs e)
 	{
 		if ((ModifierKeys & Keys.Control) != 0) Opacity = Math.Max(0.25, Math.Min(1.0, Opacity + Math.Sign(e.Delta) * 0.1));
@@ -138,7 +150,7 @@ internal sealed class ShotFloat : Form
 	{
 		Graphics g = e.Graphics; g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.Half;
 		g.DrawImage(img, new Rectangle(0, 0, Width, Height), 0, 0, img.Width, img.Height, GraphicsUnit.Pixel);
-		using (Pen p = new Pen(Color.FromArgb(255, 20, 184, 166), 2f)) g.DrawRectangle(p, 1, 1, Width - 3, Height - 3);
+		if (hover) using (Pen p = new Pen(Color.FromArgb(70, 255, 255, 255), 1f)) g.DrawRectangle(p, 0, 0, Width - 1, Height - 1);   // 테두리 선 없이, 마우스를 올렸을 때만 아주 옅게
 		if (hover)
 		{
 			Rectangle x = XRect; using (SolidBrush b = new SolidBrush(overX ? Color.FromArgb(230, 220, 60, 60) : Color.FromArgb(170, 20, 30, 40))) g.FillEllipse(b, x);
@@ -167,6 +179,6 @@ internal sealed class ShotFloat : Form
 			using (StringFormat sf = new StringFormat()) { sf.Alignment = StringAlignment.Center; sf.LineAlignment = StringAlignment.Center; sf.Trimming = StringTrimming.EllipsisCharacter; sf.FormatFlags = StringFormatFlags.NoWrap; g.DrawString(s, f, Brushes.White, new RectangleF(x, y, w, h), sf); }
 		}
 	}
-	protected override CreateParams CreateParams { get { CreateParams cp = base.CreateParams; cp.ExStyle |= 0x80; return cp; } }   // 작업 전환창(Alt+Tab)에는 안 나오게
+	protected override CreateParams CreateParams { get { CreateParams cp = base.CreateParams; cp.ExStyle |= 0x80; cp.ClassStyle |= 0x20000; return cp; } }   // 작업 전환창(Alt+Tab)에는 안 나오게
 	protected override void OnFormClosed(FormClosedEventArgs e) { all.Remove(this); if (pillTm != null) { pillTm.Dispose(); pillTm = null; } if (img != null) { img.Dispose(); img = null; } base.OnFormClosed(e); }
 }

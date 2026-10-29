@@ -25,7 +25,7 @@ internal partial class FortuneForm
 	}
 	private float Para(Graphics g, float y, string title, string body, bool hi, string tag)
 	{
-		float bh = Est(body, 9f, 346f), h = 30f + bh + 6f; if (y + h < 136f + ySc - 4f || y > 740f + ySc + 4f) return y + h + 6f;
+		float bh = Est(body, 9f, 346f), h = 30f + bh + 6f; if (!exporting && (y + h < 136f + ySc - 4f || y > 740f + ySc + 4f)) return y + h + 6f;
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(24, y, 372, h), 10)) { using (SolidBrush b = new SolidBrush(hi ? PSoft : PCard)) g.FillPath(b, gp); if (hi) using (Pen p = new Pen(PRed, 1.2f)) g.DrawPath(p, gp); }
 		FUi.Text(g, title, FUi.F(9.5f, 1), hi ? PRed : PInk, new RectangleF(34, y + 4, 250, 20), StringAlignment.Near, StringAlignment.Center, false);
 		if (tag != null) FUi.Text(g, tag, FUi.F(8.5f, 1), PSub, new RectangleF(250, y + 4, 138, 20), StringAlignment.Far, StringAlignment.Center, false);

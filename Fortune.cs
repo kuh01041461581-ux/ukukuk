@@ -82,7 +82,7 @@ internal sealed partial class FortuneForm : Form
 {
 	private static FortuneForm inst;
 	public static void Open() { try { if (inst != null && !inst.IsDisposed) { inst.WindowState = FormWindowState.Normal; inst.Activate(); return; } inst = new FortuneForm(); inst.Show(); try { string tl = TodayLine(); if (tl != null) FHist.Add("운세", "오늘", tl); Bond.Daily("fo"); } catch { } } catch (Exception ex) { Program.LogErr(ex); } }
-	private readonly float sc = FUi.Scale(420, 790); private readonly RectangleF[] fR = new RectangleF[10]; private int pk = -1, pkScroll, pkHov = -1;
+	private float sc = FUi.Scale(420, 790); private bool exporting; private readonly RectangleF[] fR = new RectangleF[10]; private int pk = -1, pkScroll, pkHov = -1;
 	private int cal, by = 1990, bm = 1, bd = 1, bh = -1, bmin, bg; private bool leap, corr = true; private string mbti = ""; private Saju.Pil pil; private DateTime solar;
 	private static readonly string[] MB = { "ISTJ", "ISFJ", "INFJ", "INTJ", "ISTP", "ISFP", "INFP", "INTP", "ESTP", "ESFP", "ENFP", "ENTP", "ESTJ", "ESFJ", "ENFJ", "ENTJ" };
 	private static readonly string[] MBT = { "꼼꼼한 원칙주의자", "다정한 수호자", "깊이 있는 조언가", "치밀한 전략가", "침착한 해결사", "조용한 예술가", "이상을 품은 몽상가", "탐구하는 사색가", "행동파 모험가", "분위기 메이커", "아이디어 스파크", "토론하는 발명가", "든든한 관리자", "챙겨 주는 사교가", "따뜻한 리더", "추진력 있는 지휘관" };
@@ -225,7 +225,7 @@ internal sealed partial class FortuneForm : Form
 		MouseDown += delegate(object s, MouseEventArgs e)
 		{
 			float x = e.X / sc, y = e.Y / sc; if (hist && e.Button == MouseButtons.Left) { if (FHist.ChipHit(x, y) == 1) { hist = false; Invalidate(); } return; }
-			if (pk < 0 && e.Button == MouseButtons.Left) { int hc = FHist.ChipHit(x, y); if (hc == 1) { hist = true; hScroll = 0; FHist.Refresh(); Invalidate(); return; } if (hc == 2) { FHist.SavePng(this); return; } }
+			if (pk < 0 && e.Button == MouseButtons.Left) { int hc = FHist.ChipHit(x, y); if (hc == 1) { hist = true; hScroll = 0; FHist.Refresh(); Invalidate(); return; } if (hc == 2) { FHist.SaveFull(this, RenderFull, "마룡이 운세"); return; } }
 			if (pk < 0 && e.Button == MouseButtons.Left) { int hb = Chrome.HubHit(x, y); if (hb == 2) { TarotForm.Open(); Close(); return; } if (hb == 1) return; } if (y < 56f && e.Button == MouseButtons.Left && pk < 0) { Chrome.Drag(this); return; }
 			if (pk >= 0) { int h = PkHit(pk, x, y); if (h >= 0) { SetOpt(pk, h); pk = -1; Sfx.Play("tick"); } else if (h == -2) pk = -1; Invalidate(); return; }
 			for (int i = 0; i < 10; i++) if (!fR[i].IsEmpty && fR[i].Contains(x, y))
@@ -251,24 +251,39 @@ internal sealed partial class FortuneForm : Form
 	private bool hist; private float hScroll;
 	protected override void OnPaint(PaintEventArgs e)
 	{
-		PaintMain(e);
+		PaintMain(e.Graphics, ClientSize.Width, ClientSize.Height);
 		if (hist) { Graphics g = e.Graphics; Gfx.HQ(g); g.ScaleTransform(sc, sc); FHist.DrawOverlay(g, 420f, 790f, hScroll); FHist.DrawChips(g, true, PRed, PCard, PSub, Color.White); Chrome.Hub(g, false, PRed, PCard, Color.White, PSub); }
 	}
-	private void PaintMain(PaintEventArgs e)
+	private void PaintMain(Graphics g, int cw, int ch)
 	{
-		Graphics g = e.Graphics; Chrome.Frame(g, ClientSize.Width, ClientSize.Height); Gfx.HQ(g); g.ScaleTransform(sc, sc); g.InterpolationMode = InterpolationMode.Bilinear; DateTime now = DateTime.Now;
-		FUi.Text(g, "오늘의 운세 · 사주", FUi.F(15f, 1), PInk, new RectangleF(16, 10, 215, 28), StringAlignment.Near, StringAlignment.Center, false); Chrome.Hub(g, false, PRed, PCard, Color.White, PSub); FHist.DrawChips(g, false, PRed, PCard, PSub, Color.White);
+		if (exporting) g.Clear(PPage); else Chrome.Frame(g, cw, ch); Gfx.HQ(g); g.ScaleTransform(sc, sc); g.InterpolationMode = InterpolationMode.Bilinear; DateTime now = DateTime.Now;
+		FUi.Text(g, "오늘의 운세 · 사주", FUi.F(15f, 1), PInk, new RectangleF(16, 10, 215, 28), StringAlignment.Near, StringAlignment.Center, false); if (!exporting) { Chrome.Hub(g, false, PRed, PCard, Color.White, PSub); FHist.DrawChips(g, false, PRed, PCard, PSub, Color.White); }
 		FUi.Text(g, (tab == 8 ? "상대방의 사주를 넣으면 궁합을 봐 드려요" : now.ToString("yyyy.MM.dd") + " · 재미로 보는 운세예요"), FUi.F(8.5f, 0), PMut, new RectangleF(16, 38, 215, 18), StringAlignment.Near, StringAlignment.Center, false);
 		if (tab == 8) DrawMeCard(g); else DrawFields(g);
 		g.TranslateTransform(0, 38f);
 		float tx = 14f; for (int i = 0; i < 9; i++) { tabR[i] = new RectangleF(tx, 98, TabW[i], 28); using (GraphicsPath gp = Gfx.Round(tabR[i], 14)) using (SolidBrush b = new SolidBrush(i == tab ? PRed : PCard)) g.FillPath(b, gp); FUi.Text(g, Tabs[i], FUi.F(9f, 1), i == tab ? Color.White : PSub, tabR[i], StringAlignment.Center, StringAlignment.Center, false); tx += tabR[i].Width + 6f; }
-		using (GraphicsPath gp = Gfx.Round(new RectangleF(12, 136, 396, 604), 16)) { using (SolidBrush b = new SolidBrush(PPage)) g.FillPath(b, gp); using (Pen p = new Pen(PLine, 1f)) g.DrawPath(p, gp); }
+		using (GraphicsPath gp = Gfx.Round(new RectangleF(12, 136, 396, exporting ? Math.Max(604f, contentH - 136f + 12f) : 604f), 16)) { using (SolidBrush b = new SolidBrush(PPage)) g.FillPath(b, gp); using (Pen p = new Pen(PLine, 1f)) g.DrawPath(p, gp); }
 		int me = Saju.SE(DM); string who = "내 일간 " + Saju.SK[DM] + "(" + Saju.EN[me] + ")";
-		if (tab < 4) contentH = 740f; GraphicsState gsC = g.Save(); g.SetClip(tab == 8 ? new RectangleF(12, 244, 396, 496) : new RectangleF(12, 136, 396, 604)); g.TranslateTransform(0, -Math.Min(ySc, MaxY()));
+		if (tab < 4) contentH = 740f; GraphicsState gsC = g.Save(); if (exporting) g.SetClip(new RectangleF(12, tab == 8 ? 244 : 136, 396, Math.Max(604f, contentH + 12f))); else { g.SetClip(tab == 8 ? new RectangleF(12, 244, 396, 496) : new RectangleF(12, 136, 396, 604)); g.TranslateTransform(0, -Math.Min(ySc, MaxY())); }
 		try { if (tab == 7) DrawToji(g, now); else if (tab == 5) DrawSaju(g, me); else if (tab == 4) DrawNext(g, now); else if (tab == 6) DrawLife(g, now); else if (tab == 8) DrawMatch(g, now); else DrawReading(g, tab, me, who, now); } catch (Exception ex) { Program.LogErr(ex); }
-		g.Restore(gsC); if (ySc > MaxY()) ySc = MaxY(); DrawYearArrows(g); DrawScrollbar(g);
+		g.Restore(gsC); if (!exporting) { if (ySc > MaxY()) ySc = MaxY(); DrawYearArrows(g); DrawScrollbar(g); }
 		if (tab == 8) { g.ResetTransform(); g.ScaleTransform(sc, sc); g.TranslateTransform(0, 38f); FUi.Text(g, "상대방 사주 입력", FUi.F(11f, 1), PRed, new RectangleF(26, 142, 200, 22), StringAlignment.Near, StringAlignment.Center, false); FUi.Text(g, pSet ? "바꾸면 자동 저장돼요" : "생일과 성별을 골라 주세요", FUi.F(8.5f, 0), pSet ? PMut : PRed, new RectangleF(200, 142, 196, 22), StringAlignment.Far, StringAlignment.Center, false); g.ResetTransform(); g.ScaleTransform(sc, sc); DrawFields(g, 212f, 246f); g.ResetTransform(); g.ScaleTransform(sc, sc); g.TranslateTransform(0, 38f); }
-		g.ResetTransform(); g.ScaleTransform(sc, sc); DrawPicker(g);
+		g.ResetTransform(); g.ScaleTransform(sc, sc); if (!exporting) DrawPicker(g);
+	}
+	// 저장용: 스크롤 없이 내용 전체를 2배 크기로 그려요 (한 번 그려서 전체 높이를 잰 뒤 다시 그림)
+	private Bitmap RenderFull()
+	{
+		float keep = sc; const float k = 2f;
+		try
+		{
+			exporting = true; sc = k;
+			using (Bitmap probe = new Bitmap(10, 10)) using (Graphics pg = Graphics.FromImage(probe)) PaintMain(pg, 10, 10);
+			int H = (int)Math.Ceiling((38f + Math.Max(740f, contentH) + 20f) * k), W = (int)Math.Ceiling(420f * k);
+			Bitmap b = new Bitmap(W, H, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+			using (Graphics g = Graphics.FromImage(b)) PaintMain(g, W, H);
+			return b;
+		}
+		finally { exporting = false; sc = keep; Invalidate(); }
 	}
 	private void DrawReading(Graphics g, int period, int me, string who, DateTime now)
 	{

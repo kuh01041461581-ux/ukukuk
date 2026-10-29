@@ -29,12 +29,12 @@
 
 앱은 이 저장소의 릴리스 중 **태그가 `ot-`로 시작**하는 가장 새 것을 찾고, 그 안의 **`OvertimeReminder.exe`** 를 받아요.
 
-1. 버전 올리기: `Updater.cs`의 `AppVersion`과 `AssemblyInfo.cs`의 두 버전 숫자를 같이 올려요 (예: `1.4.4` / `1.4.4.0`).
+1. 버전 올리기: `Updater.cs`의 `AppVersion`과 `AssemblyInfo.cs`의 두 버전 숫자를 같이 올려요 (예: `1.4.5` / `1.4.5.0`).
 2. 빌드해서 `OvertimeReminder.exe`를 만들어요.
 3. GitHub → 이 저장소 → 오른쪽 **Releases** → **Draft a new release**
-   - **Choose a tag**: `ot-v1.4.4` 처럼 입력 → *Create new tag*
+   - **Choose a tag**: `ot-v1.4.5` 처럼 입력 → *Create new tag*
    - **Target**: `overtime-reminder` 브랜치 선택 ← 중요 (다른 브랜치를 고르면 달력 빌드가 같이 돌아요)
-   - **Release title**: `초과근무 알리미 v1.4.4`
+   - **Release title**: `초과근무 알리미 v1.4.5`
    - 설명칸: 바뀐 점 몇 줄 (앱의 업데이트 창에 앞부분이 보여요)
    - 아래 칸에 `OvertimeReminder.exe` 끌어다 놓기 (파일 이름은 영어로 — GitHub는 한글 이름을 바꿔 버려요)
    - **Set as a pre-release** 는 체크하지 않아요 (체크하면 앱이 무시해요)

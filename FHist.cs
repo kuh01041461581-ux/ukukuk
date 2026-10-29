@@ -63,20 +63,31 @@ internal static class FHist
 		}
 		g.Restore(gs);
 	}
-	public static void SavePng(Form f)
+	// 저장: 스크롤해야 보이는 내용까지 전부 그린 긴 그림을 PDF(쪽 나눔) 또는 PNG 한 장으로 저장해요
+	public static void SaveFull(Form f, Func<Bitmap> render, string title)
 	{
 		try
 		{
 			using (SaveFileDialog d = new SaveFileDialog())
 			{
-				d.Filter = "PNG 그림|*.png"; d.FileName = "마룡이운세_" + DateTime.Now.ToString("yyyyMMdd_HHmm") + ".png";
-				try { d.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures); } catch { }
+				d.Filter = "PDF 문서 (전체 내용)|*.pdf|PNG 그림 (긴 한 장)|*.png"; d.FileName = title.Replace(" ", "") + "_" + DateTime.Now.ToString("yyyyMMdd_HHmm");
+				try { d.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); } catch { }
 				if (d.ShowDialog(f) != DialogResult.OK) return;
-				using (Bitmap bmp = new Bitmap(f.ClientSize.Width, f.ClientSize.Height)) { f.DrawToBitmap(bmp, new Rectangle(0, 0, bmp.Width, bmp.Height)); bmp.Save(d.FileName, System.Drawing.Imaging.ImageFormat.Png); }
+				Cursor old = f.Cursor; f.Cursor = Cursors.WaitCursor;
+				try
+				{
+					using (Bitmap bmp = render())
+					{
+						if (d.FileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) bmp.Save(d.FileName, System.Drawing.Imaging.ImageFormat.Png);
+						else Pdf.SaveTall(bmp, d.FileName, title + " " + DateTime.Now.ToString("yyyy.MM.dd"));
+					}
+				}
+				finally { f.Cursor = old; }
+				try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(d.FileName) { UseShellExecute = true }); } catch { }
 			}
 			Note = "✓ 저장했어요"; Sfx.Play("ok");
 		}
-		catch { Note = "저장 실패"; }
+		catch (Exception ex) { Note = "저장 실패"; Program.LogErr(ex); }
 		Timer t = new Timer(); t.Interval = 2500; t.Tick += delegate { t.Stop(); t.Dispose(); Note = ""; try { f.Invalidate(); } catch { } }; t.Start(); f.Invalidate();
 	}
 }

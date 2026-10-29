@@ -11,23 +11,23 @@ using System.Windows.Forms;
 internal sealed class SoliGame : MiniGame
 {
 	public override bool NoLimit { get { return true; } }
-	public override string Name { get { return "마룡이 솔리테어"; } }
+	public override string Name { get { return "마룡이 발라트로"; } }
 	public override string Key { get { return "soli"; } }
 	public override string Desc { get { return "발라트로식 포커 · 족보로 목표 점수 넘기기"; } }
-	public override string Help { get { return "손패 카드를 위쪽 판으로 끌어 올려요 (눌러도 올라가요 · 최대 5장)\n[내기]를 누르면 포커 족보로 점수! 점수 = (족보 칩 + 카드 칩) × 배수\n판마다 핸드 4번 · 버리기 3번 안에 목표 점수를 넘기면 다음 판으로 가고 부적을 하나 골라요\n필요 없는 카드는 판에 올리고 [버리기] → 새 카드로 바꿔요\n카드는 마룡이 타로 마이너 카드예요: 검=♠ · 컵=♥ · 펜타클=♦ · 완드=♣ · J=기사 · Q=여왕 · K=왕"; } }
+	public override string Help { get { return "손패 카드를 위쪽 [내는 판]으로 끌어 올려요 (눌러도 올라가요 · 최대 5장) → [내기]로 포커 족보 점수!\n점수 = (족보 칩 + 카드 칩) × 배수 · 족보: 하이카드 < 원페어 < 투페어 < 트리플 < 스트레이트 < 플러시 < 풀하우스 < 포카드 < 스트레이트 플러시 < 로열 플러시\n필요 없는 카드는 아래 [쓰레기통]으로 끌어 넣고 쓰레기통을 누르면 버리고 새 카드를 받아요 (한 번에 5장까지)\n판·쓰레기통의 카드를 누르면 원래 자리로 돌아가요 · [모두 내리기]로 한꺼번에\n판마다 내기 4번 · 버리기 3번 안에 목표 점수를 넘기면 다음 판 + 부적 하나"; } }
 	public override string RightText { get { return "판 " + (round + 1); } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{
 		CardFace(g, new RectangleF(cx - 20, cy - 16, 22, 30), 14, 1, false, 1f); CardFace(g, new RectangleF(cx - 2, cy - 12, 22, 30), 13, 0, false, 1f);
 	}
-	private class Cd { public int R, Su; public float X, Y, A = 1f, Lift; public bool Fly; public float Vy; }
-	private readonly List<Cd> deck = new List<Cd>(), hand = new List<Cd>(), staged = new List<Cd>(), flying = new List<Cd>(); private readonly List<int> jok = new List<int>();
+	private class Cd { public int R, Su, Home; public float X, Y, A = 1f, Lift; public bool Fly; public float Vy; }
+	private readonly List<Cd> deck = new List<Cd>(), hand = new List<Cd>(), staged = new List<Cd>(), trash = new List<Cd>(), flying = new List<Cd>(); private readonly List<int> jok = new List<int>();
 	private int round, hands, discards, phase, sortMode; private bool autoSort = true; private long roundScore, target; private float shownScore, popT, msgT; private string pop = "", msg = ""; private int[] offer = new int[3];
-	private Cd drag; private bool dragFromStage, dragging; private float grabX, grabY, downX, downY, shake; private Cd hover;
+	private Cd drag; private bool dragFromStage, dragFromTrash, dragging; private string bestHint = ""; private int bestSig = -1; private float grabX, grabY, downX, downY, shake; private Cd hover;
 	private bool showRules, showTable; private static bool rulesSeen;
-	private static readonly string[] HName = { "하이 카드", "원 페어", "투 페어", "트리플", "스트레이트", "플러시", "풀 하우스", "포카드", "스트레이트 플러시" };
-	private static readonly string[] HEx = { "가장 높은 카드 1장", "같은 숫자 2장", "같은 숫자 2장 × 2쌍", "같은 숫자 3장", "숫자 5장이 연속 (5 6 7 8 9)", "같은 무늬 5장", "트리플 + 원 페어", "같은 숫자 4장", "같은 무늬로 연속 5장" };
-	private static readonly int[] HChip = { 5, 10, 20, 30, 30, 35, 40, 60, 100 }, HMult = { 1, 2, 2, 3, 4, 4, 4, 7, 8 };
+	private static readonly string[] HName = { "하이 카드", "원 페어", "투 페어", "트리플", "스트레이트", "플러시", "풀 하우스", "포카드", "스트레이트 플러시", "로열 플러시" };
+	private static readonly string[] HEx = { "가장 높은 카드 1장", "같은 숫자 2장", "같은 숫자 2장 × 2쌍", "같은 숫자 3장", "숫자 5장이 연속 (5 6 7 8 9)", "같은 무늬 5장", "트리플 + 원 페어", "같은 숫자 4장", "같은 무늬로 연속 5장", "같은 무늬 10 J Q K A" };
+	private static readonly int[] HChip = { 5, 10, 20, 30, 30, 35, 40, 60, 100, 150 }, HMult = { 1, 2, 2, 3, 4, 4, 4, 7, 8, 10 };
 	private static readonly string[] JName = { "마룡이 미소", "볼터치", "날개", "지팡이 뿔", "공무원증", "커피 한 잔", "별사탕", "결재 도장", "야근 수당", "1등 마룡", "짝수 좋아", "홀수 좋아" };
 	private static readonly string[] JDesc = { "항상 +4 배수", "페어가 들어간 족보면 +8 배수", "플러시면 배수 ×2", "스트레이트면 +15 배수", "항상 +50 칩", "점수 낸 컵(♥) 카드마다 +3 배수", "점수 낸 그림 카드(J·Q·K)마다 +20 칩", "판의 마지막 핸드면 배수 ×3", "남은 버리기 1번마다 +20 칩", "점수 낸 A 카드마다 +5 배수", "점수 낸 짝수 카드마다 +4 배수", "점수 낸 홀수 카드(A 포함)마다 +25 칩" };
 	private const int HandMax = 8;
@@ -38,7 +38,7 @@ internal sealed class SoliGame : MiniGame
 	}
 	private void NewRound()
 	{
-		deck.Clear(); hand.Clear(); staged.Clear(); flying.Clear(); drag = null;
+		deck.Clear(); hand.Clear(); staged.Clear(); trash.Clear(); flying.Clear(); drag = null; bestSig = -1;
 		for (int s = 0; s < 4; s++) for (int r = 2; r <= 14; r++) deck.Add(new Cd { R = r, Su = s });
 		for (int i = deck.Count - 1; i > 0; i--) { int j = Rnd.Next(i + 1); Cd t = deck[i]; deck[i] = deck[j]; deck[j] = t; }
 		int ante = round / 3, kind = round % 3; target = (long)(Math.Round(300 * Math.Pow(1.8, ante) * (kind == 0 ? 1.0 : (kind == 1 ? 1.5 : 2.0)) / 10.0) * 10);
@@ -48,7 +48,7 @@ internal sealed class SoliGame : MiniGame
 	}
 	private void DrawUp()
 	{
-		int k = 0; while (hand.Count < HandMax && deck.Count > 0) { Cd d = deck[deck.Count - 1]; deck.RemoveAt(deck.Count - 1); d.X = 430f + k * 20f; d.Y = HandY; d.A = 1f; d.Fly = false; hand.Add(d); k++; }
+		int k = 0; while (hand.Count + staged.Count + trash.Count < HandMax && deck.Count > 0) { Cd d = deck[deck.Count - 1]; deck.RemoveAt(deck.Count - 1); d.X = 430f + k * 20f; d.Y = HandY; d.A = 1f; d.Fly = false; hand.Add(d); k++; }
 		if (autoSort) SortHand();
 	}
 	private void SortHand()
@@ -66,7 +66,7 @@ internal sealed class SoliGame : MiniGame
 		bool flush = n == 5 && cs.All(c => c.Su == cs[0].Su);
 		List<int> rs = cs.Select(c => c.R).Distinct().OrderBy(r => r).ToList(); bool straight = false;
 		if (n == 5 && rs.Count == 5) { if (rs[4] - rs[0] == 4) straight = true; else if (rs[4] == 14 && rs[0] == 2 && rs[3] == 5) straight = true; }
-		if (straight && flush) { scoring.AddRange(cs); return 8; }
+		if (straight && flush) { scoring.AddRange(cs); return rs[0] == 10 ? 9 : 8; }
 		if (groups[0].Count() >= 4) { scoring.AddRange(groups[0].Take(4)); return 7; }
 		if (groups[0].Count() == 3 && groups.Count > 1 && groups[1].Count() >= 2) { scoring.AddRange(cs); return 6; }
 		if (flush) { scoring.AddRange(cs); return 5; }
@@ -86,8 +86,8 @@ internal sealed class SoliGame : MiniGame
 			{
 				case 0: mult += 4; break;
 				case 1: if (pairish) mult += 8; break;
-				case 2: if (ht == 5 || ht == 8) xm *= 2; break;
-				case 3: if (ht == 4 || ht == 8) mult += 15; break;
+				case 2: if (ht == 5 || ht >= 8) xm *= 2; break;
+				case 3: if (ht == 4 || ht >= 8) mult += 15; break;
 				case 4: chips += 50; break;
 				case 5: mult += 3 * sc.Count(c => c.Su == 1); break;
 				case 6: chips += 20 * sc.Count(c => c.R >= 11 && c.R <= 13); break;
@@ -109,12 +109,14 @@ internal sealed class SoliGame : MiniGame
 		FlyAway(staged, true); staged.Clear();
 		if (roundScore >= target) { phase = 1; Sfx.Play("fanfare"); MakeOffer(); msg = "목표 달성! 부적을 하나 골라요"; msgT = 3f; return; }
 		DrawUp();
-		if (hands <= 0 || hand.Count == 0) { phase = 2; msg = "목표 " + target.ToString("N0") + "점에 못 미쳤어요"; msgT = 9f; Sfx.Play("bad2"); Over = true; }
+		if (hands <= 0 || hand.Count + trash.Count == 0) { phase = 2; msg = "목표 " + target.ToString("N0") + "점에 못 미쳤어요"; msgT = 9f; Sfx.Play("bad2"); Over = true; }
 	}
 	private void Discard()
 	{
-		if (phase != 0 || staged.Count == 0 || discards <= 0) return;
-		discards--; FlyAway(staged, false); staged.Clear(); DrawUp(); Sfx.Play("swing");
+		if (phase != 0) return;
+		if (trash.Count == 0) { msg = "버릴 카드를 아래 쓰레기통으로 끌어 넣어요"; msgT = 1.8f; return; }
+		if (discards <= 0) { msg = "이번 판에는 더 버릴 수 없어요"; msgT = 1.6f; Sfx.Play("bad"); return; }
+		discards--; FlyAway(trash, false); trash.Clear(); DrawUp(); Sfx.Play("swing");
 	}
 	private void MakeOffer()
 	{
@@ -128,16 +130,19 @@ internal sealed class SoliGame : MiniGame
 	private PointF HandPos(int i) { int n = hand.Count; float st = HandStep, total = st * (n - 1) + HCW, x0 = 200f - total / 2f; float mid = (n - 1) / 2f, off = i - mid; return new PointF(x0 + st * i, HandY + off * off * 1.1f); }
 	private PointF StagePos(int i) { int n = staged.Count; float st = SCW + 6f, total = st * (n - 1) + SCW, x0 = 200f - total / 2f; return new PointF(x0 + st * i, StageY); }
 	private RectangleF PlayBtn { get { return new RectangleF(16, 500, 178, 46); } }
-	private RectangleF DiscBtn { get { return new RectangleF(206, 500, 178, 46); } }
-	private RectangleF TableBtn { get { return new RectangleF(16, 554, 118, 32); } }
-	private RectangleF SortBtn { get { return new RectangleF(141, 554, 118, 32); } }
-	private RectangleF RuleBtn { get { return new RectangleF(266, 554, 118, 32); } }
+	private static readonly RectangleF TrashR = new RectangleF(204, 486, 182, 62);   // 쓰레기통 (끌어 넣고 누르면 버려요)
+	private PointF TrashPos(int i) { return new PointF(250f + i * 26f, 491f); }
+	private RectangleF RecallBtn { get { return new RectangleF(16, 554, 88, 32); } }
+	private RectangleF TableBtn { get { return new RectangleF(110, 554, 88, 32); } }
+	private RectangleF SortBtn { get { return new RectangleF(204, 554, 88, 32); } }
+	private RectangleF RuleBtn { get { return new RectangleF(298, 554, 86, 32); } }
 	private RectangleF OfferR(int i) { return new RectangleF(22 + i * 122, 230, 112, 170); }
 	private RectangleF SkipBtn { get { return new RectangleF(130, 420, 140, 40); } }
 	private RectangleF CardRect(Cd c, bool stagedCard) { float w = stagedCard ? SCW : HCW, h = stagedCard ? SCH : HCH; return new RectangleF(c.X, c.Y - c.Lift, w, h); }
 	private Cd HitCard(float x, float y, out bool fromStage)
 	{
-		fromStage = false;
+		fromStage = false; dragFromTrash = false;
+		for (int i = trash.Count - 1; i >= 0; i--) if (new RectangleF(trash[i].X, trash[i].Y, 28, 40).Contains(x, y)) { dragFromTrash = true; return trash[i]; }
 		for (int i = staged.Count - 1; i >= 0; i--) if (CardRect(staged[i], true).Contains(x, y)) { fromStage = true; return staged[i]; }
 		for (int i = hand.Count - 1; i >= 0; i--) { RectangleF r = CardRect(hand[i], false); r.Height += hand[i].Lift; if (r.Contains(x, y)) return hand[i]; }
 		return null;
@@ -154,41 +159,82 @@ internal sealed class SoliGame : MiniGame
 		}
 		if (phase != 0) return;
 		if (PlayBtn.Contains(x, y)) { Play(); return; }
-		if (DiscBtn.Contains(x, y)) { Discard(); return; }
+		if (RecallBtn.Contains(x, y)) { RecallAll(); return; }
 		if (TableBtn.Contains(x, y)) { showTable = true; Sfx.Play("ui_click"); return; }
 		if (RuleBtn.Contains(x, y)) { showRules = true; Sfx.Play("ui_click"); return; }
 		if (SortBtn.Contains(x, y)) { sortMode = 1 - sortMode; autoSort = true; SortHand(); Sfx.Play("flip"); msg = sortMode == 0 ? "숫자 순으로 정렬" : "무늬 순으로 정렬"; msgT = 1.2f; return; }
-		bool fs; Cd c = HitCard(x, y, out fs); if (c == null) return;
-		drag = c; dragFromStage = fs; dragging = false; downX = x; downY = y; grabX = x - c.X; grabY = y - (c.Y - c.Lift);
+		bool fs; Cd c = HitCard(x, y, out fs); bool ft = dragFromTrash;
+		if (c == null) { if (TrashR.Contains(x, y)) Discard(); return; }
+		drag = c; dragFromStage = fs; dragFromTrash = ft; dragging = false; downX = x; downY = y; grabX = x - c.X; grabY = y - (c.Y - c.Lift);
 	}
 	// 놓았을 때: 거의 안 움직였으면 '눌러서 올리기/내리기', 끌었으면 놓은 자리에 따라 판에 올리기 · 손으로 내리기 · 손패 순서 바꾸기
 	private void Release(float x, float y)
 	{
 		Cd c = drag; drag = null; if (c == null) return;
-		bool inZone = y < Zone.Bottom + 12f;
-		if (!dragging) inZone = !dragFromStage;   // 그냥 누른 경우: 손에 있으면 올리고, 판에 있으면 내려요
-		if (inZone)
+		bool fromHand = !dragFromStage && !dragFromTrash;
+		if (!dragging)
 		{
-			if (dragFromStage) { Sfx.Play("ui_click"); return; }
-			if (staged.Count >= 5) { msg = "판에는 5장까지 올릴 수 있어요"; msgT = 1.6f; shake = 0.3f; Sfx.Play("bad"); return; }
-			hand.Remove(c); int at = staged.Count; for (int i = 0; i < staged.Count; i++) if (x < staged[i].X + SCW / 2f) { at = i; break; } if (!dragging) at = staged.Count;
-			staged.Insert(at, c); Sfx.Play("flip");
+			// 그냥 눌렀을 때: 손패 → 판으로 · 판/쓰레기통 → 원래 자리로
+			if (fromHand) ToStage(c, staged.Count); else ReturnHome(c);
+			return;
 		}
-		else
+		if (TrashR.Contains(x, y) || (y > TrashR.Y - 4f && x > TrashR.X - 6f && y < TrashR.Bottom + 10f))
 		{
-			if (dragFromStage) { staged.Remove(c); hand.Add(c); }
-			else hand.Remove(c);
-			int at = hand.Count; for (int i = 0; i < hand.Count; i++) if (x < hand[i].X + HCW / 2f) { at = i; break; }
-			hand.Insert(at, c); if (dragging) autoSort = false; else if (autoSort) SortHand();
-			Sfx.Play("ui_click");
+			if (dragFromTrash) { Sfx.Play("ui_click"); return; }
+			if (trash.Count >= 5) { msg = "쓰레기통에는 5장까지 넣을 수 있어요"; msgT = 1.6f; Sfx.Play("bad"); return; }
+			if (fromHand) c.Home = hand.IndexOf(c);
+			hand.Remove(c); staged.Remove(c); trash.Add(c); Sfx.Play("flip"); return;
 		}
+		if (y < Zone.Bottom + 12f)
+		{
+			if (dragFromStage) { staged.Remove(c); int at2 = staged.Count; for (int i = 0; i < staged.Count; i++) if (x < staged[i].X + SCW / 2f) { at2 = i; break; } staged.Insert(at2, c); Sfx.Play("ui_click"); return; }
+			int at = staged.Count; for (int i = 0; i < staged.Count; i++) if (x < staged[i].X + SCW / 2f) { at = i; break; }
+			ToStage(c, at); return;
+		}
+		// 손패 쪽에 놓으면 놓은 자리에 끼워 넣어요
+		staged.Remove(c); trash.Remove(c); hand.Remove(c);
+		int hi = hand.Count; for (int i = 0; i < hand.Count; i++) if (x < hand[i].X + HCW / 2f) { hi = i; break; }
+		hand.Insert(hi, c); autoSort = false; Sfx.Play("ui_click");
+	}
+	private void ToStage(Cd c, int at)
+	{
+		if (staged.Count >= 5) { msg = "판에는 5장까지 올릴 수 있어요"; msgT = 1.6f; shake = 0.3f; Sfx.Play("bad"); return; }
+		if (hand.Contains(c)) { c.Home = hand.IndexOf(c); hand.Remove(c); }
+		trash.Remove(c);
+		staged.Insert(Math.Min(at, staged.Count), c); Sfx.Play("flip");
+	}
+	// 판·쓰레기통의 카드를 원래 손패 자리로 (정렬 중이면 정렬된 자리로)
+	private void ReturnHome(Cd c)
+	{
+		staged.Remove(c); trash.Remove(c); if (hand.Contains(c)) return;
+		if (autoSort) { hand.Add(c); SortHand(); } else hand.Insert(Math.Max(0, Math.Min(c.Home, hand.Count)), c);
+		Sfx.Play("ui_click");
+	}
+	private void RecallAll()
+	{
+		List<Cd> all = staged.Concat(trash).OrderBy(c => c.Home).ToList(); if (all.Count == 0) return;
+		foreach (Cd c in all) ReturnHome(c);
+		msg = "모두 손으로 돌아왔어요"; msgT = 1f;
+	}
+	// 지금 카드(손패+판+쓰레기통)로 만들 수 있는 가장 높은 족보
+	private void UpdateBest()
+	{
+		List<Cd> pool = hand.Concat(staged).Concat(trash).ToList(); int sig = pool.Count; foreach (Cd c in pool) sig = sig * 31 + c.R * 4 + c.Su;
+		if (sig == bestSig) return; bestSig = sig; int best = -1, n = pool.Count;
+		for (int m = 1; m < (1 << n); m++)
+		{
+			int bits = 0; for (int q = m; q != 0; q &= q - 1) bits++; if (bits > 5 || bits < 2) continue;
+			List<Cd> cs = new List<Cd>(); for (int q = 0; q < n; q++) if ((m & (1 << q)) != 0) cs.Add(pool[q]);
+			List<Cd> sc; int h = Eval(cs, out sc); if (h > best) best = h;
+		}
+		bestHint = best > 0 ? "지금 카드로 만들 수 있는 최고 족보: " + HName[best] : "";
 	}
 	private void Next() { round++; NewRound(); }
 	public override void Press(Keys k)
 	{
 		if (showRules || showTable) { showRules = showTable = false; return; }
 		if (k == Keys.Enter || k == Keys.Space) Play(); else if (k == Keys.D || k == Keys.Back) Discard();
-		else if (k >= Keys.D1 && k <= Keys.D8 && phase == 0) { int i = k - Keys.D1; if (i < hand.Count) { if (staged.Count < 5) { Cd c = hand[i]; hand.RemoveAt(i); staged.Add(c); Sfx.Play("flip"); } else { msg = "판에는 5장까지 올릴 수 있어요"; msgT = 1.6f; } } }
+		else if (k >= Keys.D1 && k <= Keys.D8 && phase == 0) { int i = k - Keys.D1; if (i < hand.Count) ToStage(hand[i], staged.Count); }
 	}
 	public override void Update(float dt, GameInput inp, double t)
 	{
@@ -206,6 +252,8 @@ internal sealed class SoliGame : MiniGame
 		float k = 1f - (float)Math.Exp(-dt * 16f);
 		for (int i = 0; i < hand.Count; i++) { Cd c = hand[i]; float lt = c == hover ? 12f : 0f; c.Lift += (lt - c.Lift) * k; if (c == drag && dragging) continue; PointF p = HandPos(i); c.X += (p.X - c.X) * k; c.Y += (p.Y - c.Y) * k; }
 		for (int i = 0; i < staged.Count; i++) { Cd c = staged[i]; c.Lift += (0f - c.Lift) * k; if (c == drag && dragging) continue; PointF p = StagePos(i); c.X += (p.X - c.X) * k; c.Y += (p.Y - c.Y) * k; }
+		for (int i = 0; i < trash.Count; i++) { Cd c = trash[i]; c.Lift += (0f - c.Lift) * k; if (c == drag && dragging) continue; PointF p = TrashPos(i); c.X += (p.X - c.X) * k; c.Y += (p.Y - c.Y) * k; }
+		if (phase == 0) UpdateBest();
 		for (int i = flying.Count - 1; i >= 0; i--) { Cd c = flying[i]; c.Y += c.Vy * dt; c.A -= dt * 2.2f; if (c.A <= 0f) flying.RemoveAt(i); }
 	}
 	// ── 그리기 ──
@@ -321,15 +369,15 @@ internal sealed class SoliGame : MiniGame
 			Txt(g, ch + " 칩  ×  " + (mu % 1 == 0 ? mu.ToString("0") : mu.ToString("0.#")) + " 배수  =  " + ((long)Math.Round(ch * mu)).ToString("N0") + "점", 10.5f, 2, Color.White, Zone.X, Zone.Bottom - 32, Zone.Width, 22, StringAlignment.Center);
 		}
 		// 손패
-		Txt(g, "내 손패 · 아래로 끌면 손으로 돌아와요", 8.5f, 1, Color.FromArgb(120, 220, 235, 225), 14, 362, 372, 18, StringAlignment.Center);
+		Txt(g, bestHint.Length > 0 ? bestHint : "내 손패 · 판의 카드를 누르면 원래 자리로 돌아와요", 8.5f, bestHint.Length > 0 ? 2 : 1, bestHint.Length > 0 ? Color.FromArgb(200, 255, 226, 140) : Color.FromArgb(120, 220, 235, 225), 14, 362, 372, 18, StringAlignment.Center);
 		foreach (Cd c in hand) { if (c == drag && dragging) continue; CardFace(g, CardRect(c, false), c.R, c.Su, c == hover, 1f); }
 		foreach (Cd c in flying) { RectangleF r = new RectangleF(c.X, c.Y, SCW, SCH); GraphicsState gs = g.Save(); CardFace(g, r, c.R, c.Su, false, c.A); g.Restore(gs); }
-		if (drag != null && dragging) { RectangleF r = CardRect(drag, dragFromStage); r.Inflate(3, 4); CardFace(g, r, drag.R, drag.Su, true, 1f); }
+		if (drag != null && dragging) { RectangleF r = CardRect(drag, dragFromStage); if (dragFromTrash) r = new RectangleF(drag.X, drag.Y, HCW, HCH); r.Inflate(3, 4); CardFace(g, r, drag.R, drag.Su, true, 1f); }
 		if (phase == 0)
 		{
 			Button(g, PlayBtn, "내기 ▶ (" + hands + ")", Color.FromArgb(40, 150, 240), staged.Count > 0 && hands > 0);
-			Button(g, DiscBtn, "버리기 (" + discards + ")", Color.FromArgb(230, 90, 90), staged.Count > 0 && discards > 0);
-			SmallBtn(g, TableBtn, "족보표"); SmallBtn(g, SortBtn, sortMode == 0 ? "정렬: 숫자" : "정렬: 무늬"); SmallBtn(g, RuleBtn, "규칙");
+			DrawTrash(g, t);
+			SmallBtn(g, RecallBtn, "모두 내리기"); SmallBtn(g, TableBtn, "족보표"); SmallBtn(g, SortBtn, sortMode == 0 ? "정렬: 숫자" : "정렬: 무늬"); SmallBtn(g, RuleBtn, "규칙");
 		}
 		if (popT > 0f) { float a = Math.Min(1f, popT * 2f), yy = 250f - (2.2f - popT) * 18f; Panel(g, new RectangleF(24, yy - 24, 352, 48), (int)(210 * a)); Txt(g, pop, 13f, 2, Color.FromArgb((int)(255 * a), 255, 230, 120), 24, yy - 24, 352, 48, StringAlignment.Center); }
 		if (msgT > 0f && popT <= 0f && phase != 1 && !showRules) Hint(g, msg, Zone.Y + 18, 10.5f, true, Math.Min(1f, msgT * 2f));
@@ -355,11 +403,11 @@ internal sealed class SoliGame : MiniGame
 	private void DrawTable(Graphics g)
 	{
 		using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 6, 14, 26))) g.FillRectangle(b, 0, 0, W, H);
-		RectangleF pr = new RectangleF(16, 70, 368, 470); Panel(g, pr, 240);
+		RectangleF pr = new RectangleF(16, 50, 368, 500); Panel(g, pr, 240);
 		Txt(g, "족보표 (위로 갈수록 점수가 커요)", 13f, 2, Color.FromArgb(255, 226, 130), pr.X, pr.Y + 10, pr.Width, 26, StringAlignment.Center);
-		for (int i = 8; i >= 0; i--)
+		for (int i = 9; i >= 0; i--)
 		{
-			float y = pr.Y + 46 + (8 - i) * 44f;
+			float y = pr.Y + 42 + (9 - i) * 41f;
 			Txt(g, HName[i], 11f, 2, Color.White, pr.X + 16, y, 150, 22, StringAlignment.Near);
 			Txt(g, HChip[i] + " × " + HMult[i], 11f, 2, Color.FromArgb(140, 210, 255), pr.Right - 116, y, 100, 22, StringAlignment.Far);
 			Txt(g, HEx[i], 9f, 1, Color.FromArgb(200, 215, 225), pr.X + 16, y + 20, pr.Width - 32, 18, StringAlignment.Near);
@@ -371,7 +419,7 @@ internal sealed class SoliGame : MiniGame
 		using (SolidBrush b = new SolidBrush(Color.FromArgb(205, 6, 14, 26))) g.FillRectangle(b, 0, 0, W, H);
 		RectangleF pr = new RectangleF(20, 110, 360, 380); Panel(g, pr, 245);
 		Txt(g, "이렇게 해요", 15f, 2, Color.FromArgb(255, 226, 130), pr.X, pr.Y + 14, pr.Width, 28, StringAlignment.Center);
-		string[] st = { "손패에서 카드를 위쪽 판으로 끌어 올려요\n(눌러도 올라가요 · 최대 5장)", "포커 족보를 만들면 점수가 커져요\n점수 = 칩 × 배수 (판에 바로 보여요)", "[내기]는 4번! 그 안에 목표 점수를 넘기면\n다음 판으로 가고 부적을 하나 받아요", "필요 없는 카드는 판에 올리고 [버리기]\n→ 새 카드로 바꿔요 (3번)" };
+		string[] st = { "손패에서 카드를 위쪽 판으로 끌어 올려요\n(눌러도 올라가요 · 최대 5장)", "포커 족보를 만들면 점수가 커져요\n점수 = 칩 × 배수 (판에 바로 보여요)", "[내기]는 4번! 그 안에 목표 점수를 넘기면\n다음 판으로 가고 부적을 하나 받아요", "필요 없는 카드는 아래 쓰레기통으로 끌어 넣고\n쓰레기통을 누르면 버리고 새로 받아요 (3번)" };
 		for (int i = 0; i < st.Length; i++)
 		{
 			float y = pr.Y + 56 + i * 72f;
@@ -380,6 +428,31 @@ internal sealed class SoliGame : MiniGame
 			Txt(g, st[i], 10.5f, 1, Color.White, pr.X + 56, y, pr.Width - 70, 46, StringAlignment.Near, true);
 		}
 		Txt(g, "아무 곳이나 누르면 시작해요", 10f, 2, Color.FromArgb(200, 255, 230, 150), pr.X, pr.Bottom - 34, pr.Width, 22, StringAlignment.Center);
+	}
+	private void DrawTrash(Graphics g, double t)
+	{
+		RectangleF r = TrashR; bool hot = drag != null && dragging && !dragFromTrash && drag.Y > TrashR.Y - 70f && drag.X + HCW > TrashR.X;
+		bool can = trash.Count > 0 && discards > 0;
+		using (GraphicsPath gp = Gfx.Round(r, 16))
+		{
+			using (SolidBrush b = new SolidBrush(hot ? Color.FromArgb(150, 200, 60, 60) : (can ? Color.FromArgb(200, 210, 80, 80) : Color.FromArgb(110, 40, 20, 24)))) g.FillPath(b, gp);
+			using (Pen p = new Pen(Color.FromArgb(hot ? 230 : 120, 255, 200, 190), hot ? 2.4f : 1.4f) { DashStyle = trash.Count == 0 ? DashStyle.Dash : DashStyle.Solid }) g.DrawPath(p, gp);
+		}
+		// 쓰레기통 아이콘 (카드를 가져오면 뚜껑이 열려요)
+		float ix = r.X + 22f, iy = r.Y + 12f, lid = hot ? -5f : 0f;
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(235, 245, 235, 230)))
+		{
+			g.FillRectangle(b, ix - 12f, iy + lid, 24f, 4f); g.FillRectangle(b, ix - 4f, iy - 3f + lid, 8f, 3f);
+			g.FillPolygon(b, new PointF[] { new PointF(ix - 10f, iy + 6f), new PointF(ix + 10f, iy + 6f), new PointF(ix + 8f, iy + 30f), new PointF(ix - 8f, iy + 30f) });
+		}
+		using (Pen p = new Pen(Color.FromArgb(160, 150, 60, 60), 1.6f)) for (int q = -1; q <= 1; q++) g.DrawLine(p, ix + q * 4.5f, iy + 10f, ix + q * 3.8f, iy + 26f);
+		Txt(g, "남은 " + discards, 7.5f, 2, Color.White, r.X + 2, r.Bottom - 15, 40, 13, StringAlignment.Center);
+		if (trash.Count == 0) Txt(g, "버릴 카드를\n여기로 끌어 넣어요", 9.5f, 2, Color.FromArgb(220, 255, 230, 225), r.X + 44, r.Y, r.Width - 48, r.Height, StringAlignment.Center, true);
+		else
+		{
+			foreach (Cd c in trash) { if (c == drag && dragging) continue; CardFace(g, new RectangleF(c.X, c.Y, 28, 40), c.R, c.Su, false, 1f); }
+			Txt(g, discards > 0 ? "눌러서 버리기 (" + trash.Count + "장)" : "버리기 없음", 8.5f, 2, Color.White, r.X + 40, r.Bottom - 17, r.Width - 44, 15, StringAlignment.Center);
+		}
 	}
 	private static void SmallBtn(Graphics g, RectangleF r, string s)
 	{

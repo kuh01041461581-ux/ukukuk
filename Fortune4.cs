@@ -11,6 +11,7 @@ internal partial class FortuneForm
 
 	private void LuckIcon(Graphics g, int id, RectangleF r, Color c)
 	{
+		{ Bitmap ib = Spr.Get("ms_luck_" + id); if (ib != null) { float k = Math.Min(r.Width / ib.Width, r.Height / ib.Height) * 0.92f; Spr.Draw(g, "ms_luck_" + id, r.X + r.Width / 2f, r.Y + r.Height / 2f, ib.Width * k, ib.Height * k, 0f); return; } }   // 그림이 있으면 그림으로
 		float u = Math.Min(r.Width, r.Height) / 64f; float ox = r.X + (r.Width - 64f * u) / 2f, oy = r.Y + (r.Height - 64f * u) / 2f;
 		Func<float, float> X = v => ox + v * u; Func<float, float> Y = v => oy + v * u;
 		Color soft = Color.FromArgb(70, c), mid = Color.FromArgb(150, c), ink = Theme.Ink;

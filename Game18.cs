@@ -155,7 +155,13 @@ internal sealed class KartGame : MiniGame
 	private const float WALL = 1.7f;
 	private readonly sbyte[] gap = new sbyte[N];   // 벽이 트인 쪽: +1 오른쪽 · -1 왼쪽
 	private readonly List<int[]> shorts = new List<int[]>();   // {들어가는 칸, 나오는 칸, 쪽, 지름길 길이}
-	private float scT, scDur, wallCd, curbBump; private int scTo = -1, scSide, scHintLap = -1;
+	private float wallCd, curbBump; private int scSide, scHintLap = -1;
+	// 지름길: 벽이 트인 곳으로 빠지면 흙길(따로 그리는 곧은 길)을 직접 운전해서 앞쪽 본선에 합류해요
+	private bool scOn; private int[] scQ; private int scLen; private float scCam, scH0, scH1;
+	private const float PATHW = 0.8f, PATHOFF = 2.4f, JOIN = 1.4f;
+	private float PathHillAt(int v) { if (v < scLen) return Lerp(scH0, scH1, Clamp(v / (float)scLen, 0f, 1f)); return HillY((scQ[1] + v - scLen) * SEG); }
+	private float PathCurve(int v) { return v < 0 || v >= scLen ? 0f : 1.3f * (float)Math.Sin(2 * Math.PI * v / scLen) * scSide; }   // 흙길도 살짝 굽이쳐요
+	private float ScProg { get { return Clamp((scCam + PZ) / (scLen * SEG), 0f, 1f); } }
 	// 미니맵에서 길이 크게 돌았다가 다시 가까워지는 두 지점을 찾아 벽을 트고 지름길로 이어요
 	private void FindShortcuts()
 	{
@@ -203,13 +209,13 @@ internal sealed class KartGame : MiniGame
 		cars.Clear(); string[] nm = { "팀장님", "민원인", "주무관", "과장님", "신규 직원" }; Color[] cc = { Color.FromArgb(230, 70, 70), Color.FromArgb(70, 110, 230), Color.FromArgb(240, 190, 40), Color.FromArgb(150, 80, 210), Color.FromArgb(250, 130, 60) };
 		float[] sk = { 0.97f, 0.93f, 0.95f, 0.99f, 0.9f }; float dif = 0.97f + 0.015f * T0.Stars; for (int k = 0; k < 5; k++) cars.Add(new Car { Skill = sk[k] * dif, Z = PZ + 600f + k * 450f, X = (k % 2 == 0 ? -0.45f : 0.45f), V = 0f, C = cc[k], Name = nm[k], Tgt = (k % 2 == 0 ? -0.45f : 0.45f) });
 		bans.Clear(); pos = 0f; px = 0f; v = 0f; el = 0f; skyOff = 0f; drift = 0f; charge = 0f; boostT = 0f; spinT = 0f; msgT = 0f; bumpT = 0f; finT = 0f; hitT = 0f; lap = 0; item = -1; place = 6; finished = false; wasDrift = false; Score = 0; Over = false;
-		airH = 0f; airV = 0f; airT = 0f; padCd = 0f; latV = 0f; camPx = 0f; landT = 0f; wallHitT = 0f; steerRaw = 0f; brakeOn = false; bubT = 0f; getT = 0f; banSlip = false; pops.Clear(); lastSk = -1; dHop = 0f; gauge = 0f; bst = 0; driftVis = 0f; rollT = 0f; giantT = 0f; gS = 1f; gV = 0f; splashT = 0f; warnT = 0f; parts.Clear(); shots.Clear(); spls.Clear(); for (int q = 0; q < N; q++) skT[q] = -999f; scTo = -1; scT = 0f; wallCd = 0f; scHintLap = -1; cphase = 1; msg = T0.Name + " · 출발!"; msgT = 1.8f; Sfx.Play("ok");
+		airH = 0f; airV = 0f; airT = 0f; padCd = 0f; latV = 0f; camPx = 0f; scOn = false; landT = 0f; wallHitT = 0f; steerRaw = 0f; brakeOn = false; bubT = 0f; getT = 0f; banSlip = false; pops.Clear(); lastSk = -1; dHop = 0f; gauge = 0f; bst = 0; driftVis = 0f; rollT = 0f; giantT = 0f; gS = 1f; gV = 0f; splashT = 0f; warnT = 0f; parts.Clear(); shots.Clear(); spls.Clear(); for (int q = 0; q < N; q++) skT[q] = -999f; wallCd = 0f; scHintLap = -1; cphase = 1; msg = T0.Name + " · 출발!"; msgT = 1.8f; Sfx.Play("ok");
 	}
 	private int SegOf(float z) { int s = (int)(Wrap(z) / SEG); return s < 0 ? 0 : (s >= N ? N - 1 : s); }
 	private static float Wrap(float z) { z %= LEN; if (z < 0) z += LEN; return z; }
 	private float PlayerZ { get { return pos + PZ; } }
 	private float Dist(Car c) { return c.Lap * LEN + c.Z; }
-	private float MyDist { get { return lap * LEN + Wrap(PlayerZ); } }
+	private float MyDist { get { return lap * LEN + (scOn ? (scQ[0] + (scQ[1] - scQ[0]) * ScProg) * SEG : Wrap(PlayerZ)); } }
 	public override void Click(float x, float y)
 	{
 		if (cphase == 0) { int k = CardAt(x, y); if (k >= 0) StartRace(k); return; }
@@ -221,7 +227,7 @@ internal sealed class KartGame : MiniGame
 	public override void Press(Keys k) { if (cphase == 0) { if (k >= Keys.D1 && k <= Keys.D9) StartRace(k - Keys.D1); return; } if (k == Keys.X) UseBoost(); else if (k == Keys.Z || k == Keys.ControlKey || k == Keys.Enter) { if (item >= 0) UseItem(); else UseBoost(); } }
 	private void UseBoost()
 	{
-		if (bst <= 0 || finished || scTo >= 0) return; bst--; boostT = Math.Max(boostT, 1.5f); Sfx.Play("whoosh"); msg = "드리프트 부스터!"; msgT = 0.9f;
+		if (bst <= 0 || finished) return; bst--; boostT = Math.Max(boostT, 1.5f); Sfx.Play("whoosh"); msg = "드리프트 부스터!"; msgT = 0.9f;
 		for (int q = 0; q < 10; q++) Part(1, 200f + (float)(Rnd.NextDouble() - 0.5) * 80f, 560f, (float)(Rnd.NextDouble() - 0.5) * 160f, 80f + (float)Rnd.NextDouble() * 120f, 0.4f, 4f, Color.FromArgb(255, 200, 80));
 	}
 	private void UseItem()
@@ -245,14 +251,6 @@ internal sealed class KartGame : MiniGame
 		if (dt > 0.05f) dt = 0.05f; el += dt; if (msgT > 0f) msgT -= dt; if (bumpT > 0f) bumpT -= dt; if (hitT > 0f) hitT -= dt; if (itemRoll > 0f) { itemRoll -= dt; if (itemRoll <= 0f) Sfx.Play("ok2"); }
 		if (finished) { finT += dt; v *= (float)Math.Pow(0.4, dt); pos = Wrap(pos + v * dt); AiStep(dt); driftDir = 0; driftVis *= 0.9f; if (spinT > 0f) spinT -= dt; Fx(dt); if (finT > 3f) Over = true; return; }
 		if (wallCd > 0f) wallCd -= dt; if (dHop > 0f) dHop -= dt;
-		if (scTo >= 0)
-		{
-			// 지름길 통과 중: 흙먼지 속을 달리다가(화면이 가장 뿌옇을 때) 나오는 칸으로 옮겨요
-			float half = scDur * 0.5f, pT = scT; scT += dt; px += (scSide * 2.1f - px) * Math.Min(1f, dt * 4f); camPx += (px - camPx) * Math.Min(1f, dt * 7f);
-			if (pT < half && scT >= half) { pos = Wrap(scTo * SEG - PZ + SEG * 0.5f); px = scSide * 1.75f; camPx = px; latV = -scSide * 1.2f; }
-			if (scT >= scDur) scTo = -1;
-			AiStep(dt); float myd = MyDist; place = 1; foreach (Car c in cars) if (Dist(c) > myd) place++; return;
-		}
 		float sp = v / MAXV; bool left = inp.L, right = inp.R;
 		if (inp.MouseMoved || mouseSteer) { mouseSteer = !(left || right); }
 		float steer = (left ? -1f : 0f) + (right ? 1f : 0f);
@@ -274,13 +272,14 @@ internal sealed class KartGame : MiniGame
 		if (bubT > 0f) { bubT -= dt; steer = 0f; driftDir = 0; if (bubT <= 0f) { AddPop("ms_kfx_5", 200f, 490f, 190f, 0.4f); Sfx.Play("whoosh"); for (int q = 0; q < 16; q++) { double an = Rnd.NextDouble() * Math.PI * 2; Part(2, 200f, 490f, (float)Math.Cos(an) * 220f, (float)Math.Sin(an) * 220f - 120f, 0.6f, 6f, Color.FromArgb(230, 150, 215, 255)); } msg = "퐁! 빠져나왔어요"; msgT = 0.7f; } }
 		steerRaw = steer; float st = driftDir != 0 ? (driftDir * 0.75f + steer * 0.55f) : steer;
 		steerVis += (st - steerVis) * Math.Min(1f, dt * 10f);
-		int ps = SegOf(PlayerZ); float cv = curve[ps];
+		int ps = scOn ? scQ[0] : SegOf(PlayerZ); float cv = scOn ? PathCurve((int)((scCam + PZ) / SEG)) : curve[ps];
 		// 빙판은 핸들이 늦게 먹고(미끄러져요) 커브 바깥으로 더 밀려요 · 공중에서는 핸들이 반만 먹어요
-		float latT = st * 2.1f * Math.Max(0.25f, sp) * (driftDir != 0 ? 1.15f : 1f) * (airH > 0f ? 0.5f : 1f);
+		float latT = st * 2.6f * Math.Max(0.25f, sp) * (driftDir != 0 ? 1.15f : 1f) * (airH > 0f ? 0.5f : 1f);
 		latV += (latT - latV) * Math.Min(1f, dt * 14f * T0.Grip); px += latV * dt;
-		px -= dt * 2f * sp * cv * (driftDir != 0 ? 0.16f : 0.3f) * sp * (T0.Grip < 1f ? 1.25f : 1f);
+		// 커브 바깥으로 밀리는 힘: 핸들을 안 꺾으면 커브 바깥으로 밀려 나가요 (급커브는 드리프트가 필요해요)
+		float cfg = sp * sp * cv * (driftDir != 0 ? 0.3f : 0.6f) * (T0.Grip < 1f ? 1.25f : 1f); cfg = Clamp(cfg, -3.0f, 3.0f); px -= dt * cfg;
 		// 발판: 부스트 · 점프 · 감속 구역
-		if (padCd > 0f) padCd -= dt; byte pk = padK[ps]; bool onPad = pk != 0 && Math.Abs(padX[ps] - px) < padW[ps]; bool slowZone = false;
+		if (padCd > 0f) padCd -= dt; byte pk = scOn ? (byte)0 : padK[ps]; bool onPad = pk != 0 && Math.Abs(padX[ps] - px) < padW[ps]; bool slowZone = false;
 		if (airH <= 0f && onPad)
 		{
 			if (pk == 1 && padCd <= 0f) { boostT = Math.Max(boostT, 1.2f); padCd = 0.5f; Sfx.Play("whoosh"); msg = course == 8 ? "결재 완료! 부스트" : "부스트 발판!"; msgT = 0.8f; }
@@ -291,7 +290,7 @@ internal sealed class KartGame : MiniGame
 		// 속도
 		float top = MAXV * (boostT > 0f ? 1.32f : (giantT > 0f ? 1.08f : 1f));
 		// 차선 밖: 연석(살짝 느려지고 덜컹) → 그 바깥 풀밭(많이 느려짐) → 벽
-		float ax = Math.Abs(px); bool curb = ax > 1f && ax <= 1.15f && airH <= 0f, offRoad = ax > 1.15f && airH <= 0f;
+		float ax = Math.Abs(px), edge = scOn ? PATHW : 1f; bool curb = !scOn && ax > 1f && ax <= 1.15f && airH <= 0f, offRoad = ax > (scOn ? PATHW + 0.05f : 1.15f) && airH <= 0f;
 		if (curb) top = Math.Min(top, MAXV * (boostT > 0f ? 0.95f : 0.82f)); curbBump = curb || offRoad ? 1f : 0f;
 		if (offRoad) top = Math.Min(top, MAXV * (boostT > 0f ? 0.75f : T0.OffSlow));
 		if (slowZone) top = Math.Min(top, MAXV * (boostT > 0f ? 0.8f : 0.55f));
@@ -304,22 +303,36 @@ internal sealed class KartGame : MiniGame
 		if (driftDir != 0) v -= MAXV * 0.05f * dt;
 		v = Clamp(v, 0f, MAXV * 1.4f); if (boostT > 0f) boostT -= dt;
 		{
-			int gs = gap[ps], sd = px < 0f ? -1 : 1;
+			int gs = scOn ? 0 : gap[ps], sd = px < 0f ? -1 : 1; float wl = scOn ? 1.55f : WALL;
 			if (gs == sd && px * sd > WALL + 0.05f && v > MAXV * 0.2f)
 			{
-				// 벽이 트인 곳으로 빠지면 지름길
-				foreach (int[] q in shorts) if (q[2] == sd && ps >= q[0] - 48 && ps <= q[0] + 12) { scTo = q[1]; scSide = sd; scT = 0f; scDur = Clamp(q[3] * SEG / Math.Max(v, MAXV * 0.5f), 0.5f, 1.4f); msg = "지름길!"; msgT = 1.2f; Sfx.Play("whoosh"); driftDir = 0; charge = 0f; break; }
+				// 벽이 트인 곳으로 빠지면 지름길 흙길로 들어가요 (흙길 좌표로 바꿔요: 흙길 가운데가 본선보다 PATHOFF 만큼 바깥)
+				foreach (int[] q in shorts) if (q[2] == sd && ps >= q[0] - 48 && ps <= q[0] + 12)
+				{
+					scOn = true; scQ = q; scSide = sd; scLen = q[3] + 14; scCam = 0f; scH0 = HillY(PlayerZ); scH1 = HillY(q[1] * SEG);
+					px -= sd * PATHOFF; camPx -= sd * PATHOFF; msg = "지름길! 흙길을 따라 달려요"; msgT = 1.3f; Sfx.Play("whoosh"); lastSk = -1; break;
+				}
 			}
-			else if (gs != sd && Math.Abs(px) > WALL)
+			else if (gs != sd && Math.Abs(px) > wl)
 			{
 				// 벽에 부딪히면 튕겨 나오고 느려져요
-				px = sd * WALL; float hitV = latV * sd; if (latV * sd > 0f) latV = -latV * 0.35f;
-				if (wallCd <= 0f) { wallCd = 0.3f; v *= 0.8f; Shake = 0.3f; if (hitV > 0.3f) { wallHitT = 0.35f; wallSide = sd; } if (hitV > 0.5f) AddPop("ms_kfx_6", 200f + sd * 70f, 520f, 80f, 0.3f); Sfx.Play("thud_soft"); if (msgT <= 0f) { msg = "쿵! 벽에 부딪혔어요"; msgT = 0.8f; } }
+				px = sd * wl; float hitV = latV * sd; if (latV * sd > 0f) latV = -latV * 0.35f;
+				if (wallCd <= 0f) { wallCd = 0.3f; v *= 0.8f; Shake = 0.3f; if (hitV > 0.3f) { wallHitT = 0.35f; wallSide = sd; } if (hitV > 0.5f) AddPop("ms_kfx_6", 200f + sd * 70f, 520f, 80f, 0.3f); Sfx.Play("thud_soft"); if (msgT <= 0f) { msg = scOn ? "쿵! 나무에 부딪혔어요" : "쿵! 벽에 부딪혔어요"; msgT = 0.8f; } }
 			}
 		}
-		px = Clamp(px, -2.2f, 2.2f); camPx += (px - camPx) * Math.Min(1f, dt * 7f);
+		px = Clamp(px, -2.2f, 2.2f); camPx += (px * 0.72f - camPx) * Math.Min(1f, dt * 6f);   // 카메라는 길 가운데 쪽에 조금 남아 있어서, 카트가 길 위에서 좌우로 움직이는 게 보여요
 		{ // 지름길 안내 (바퀴마다 한 번)
-			foreach (int[] q in shorts) if (scHintLap != lap * 10 + shorts.IndexOf(q) && ps >= q[0] - 110 && ps < q[0] - 46) { scHintLap = lap * 10 + shorts.IndexOf(q); msg = (q[2] > 0 ? "오른쪽" : "왼쪽") + " 벽이 트인 곳 → 지름길!"; msgT = 1.6f; }
+			if (!scOn) foreach (int[] q in shorts) if (scHintLap != lap * 10 + shorts.IndexOf(q) && ps >= q[0] - 110 && ps < q[0] - 46) { scHintLap = lap * 10 + shorts.IndexOf(q); msg = (q[2] > 0 ? "오른쪽" : "왼쪽") + " 벽이 트인 곳 → 지름길!"; msgT = 1.6f; }
+		}
+		if (scOn)
+		{
+			scCam += v * dt;
+			if (scCam + PZ >= scLen * SEG)
+			{
+				// 본선 합류: 흙길 끝이 본선 바깥쪽 가장자리와 겹쳐요
+				pos = Wrap(scQ[1] * SEG + (scCam + PZ - scLen * SEG) - PZ); px += scSide * JOIN; camPx += scSide * JOIN; scOn = false; msg = "합류!"; msgT = 0.7f;
+			}
+			Fx(dt); AiStep(dt); { float myd = MyDist; place = 1; foreach (Car c in cars) if (Dist(c) > myd) place++; } return;
 		}
 		float before = PlayerZ; pos = Wrap(pos + v * dt); skyOff += cv * sp * dt * 0.02f;
 		if (Wrap(PlayerZ) < Wrap(before) - LEN * 0.5f) { lap++; if (lap >= Laps) { Finish(); return; } msg = lap == Laps - 1 ? "마지막 바퀴!" : (lap + 1) + "바퀴째!"; msgT = 1.6f; Sfx.Play("ok"); }
@@ -349,7 +362,7 @@ internal sealed class KartGame : MiniGame
 			int ns = SegOf(PlayerZ); bool sk = (driftDir != 0 || spinT > 0f) && airH <= 0f && v > MAXV * 0.25f;
 			if (sk) { float wob = spinT > 0f ? (float)Math.Sin(el * 20f) * 0.08f : driftVis * 0.05f; int from = lastSk >= 0 && ((ns - lastSk + N) % N) < 6 ? lastSk : ns; for (int q = from; ; q = (q + 1) % N) { skL[q] = px - 0.11f + wob; skR[q] = px + 0.11f + wob; skT[q] = el; if (q == ns) break; } lastSk = ns; } else lastSk = -1;
 			// 화면 아래 바퀴 자국 (카트 바로 뒤로 이어지는 검은 줄)
-			trK[trI] = 200f + Clamp((px - camPx) * 170f, -60f, 60f) - driftVis * 26f; trOn[trI] = sk; trI = (trI + 1) % trK.Length;
+			trK[trI] = 200f + Clamp((px - camPx) * 170f, -95f, 95f) - driftVis * 26f; trOn[trI] = sk; trI = (trI + 1) % trK.Length;
 		}
 		Fx(dt);
 		// 순위
@@ -365,7 +378,7 @@ internal sealed class KartGame : MiniGame
 	// 연출: 물풍선 · 튄 물방울 · 연기 · 불꽃 · 거대화 스프링 · 공중 회전
 	private void Fx(float dt)
 	{
-		float kx = 200f + Clamp((px - camPx) * 170f, -60f, 60f);
+		float kx = 200f + Clamp((px - camPx) * 170f, -95f, 95f);
 		if (rollT > 0f) rollT -= dt; if (getT > 0f) getT -= dt; if (landT > 0f) landT -= dt; if (wallHitT > 0f) wallHitT -= dt; for (int i = pops.Count - 1; i >= 0; i--) { pops[i].T += dt; if (pops[i].T >= pops[i].D) pops.RemoveAt(i); } if (splashT > 0f) splashT -= dt; if (warnT > 0f) warnT -= dt;
 		if (giantT > 0f) { giantT -= dt; if (giantT <= 0f) { AddPop("ms_kfx_11", 200f, 510f, 170f, 0.4f); Sfx.Play("ui_open"); msg = "원래 크기로"; msgT = 0.7f; } }
 		float gt = giantT > 0f ? 1.55f : 1f; gV += (gt - gS) * 160f * dt; gV *= (float)Math.Exp(-9f * dt); gS += gV * dt;   // 통통 튀는 스프링
@@ -480,27 +493,37 @@ internal sealed class KartGame : MiniGame
 		Hills(g, 0.25f, 230f, 60f, T0.HillF, 7);
 		Hills(g, 0.5f, 268f, 46f, T0.HillN, 5);
 		SmoothingMode sm0 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None;
-		int bs = SegOf(pos); float bp = (Wrap(pos) % SEG) / SEG; float camY = CAMH + Lerp(hill[bs], hill[(bs + 1) % N], bp) * 0 + HillY(PlayerZ) + airH * 4f;
-		float x = 0f, dx = -curve[bs] * bp, maxY = H; sps.Clear();
-		Pj[] p1s = new Pj[DRAW]; float[] clip = new float[DRAW];
+		// 지름길 흙길 위에서는 '흙길 칸들 → 합류 뒤 본선 칸들'을 이어 붙인 가상의 길을 그려요 (I < 0 = 흙길 칸)
+		bool vm = scOn; int vb = vm ? (int)(scCam / SEG) : 0;
+		int bs = vm ? 0 : SegOf(pos); float bp = vm ? (scCam % SEG) / SEG : (Wrap(pos) % SEG) / SEG;
+		float camY = CAMH + (vm ? Lerp(PathHillAt((int)((scCam + PZ) / SEG)), PathHillAt((int)((scCam + PZ) / SEG) + 1), ((scCam + PZ) % SEG) / SEG) : HillY(PlayerZ)) + airH * 4f;
+		Func<int, float> vcurve = vv => vv < scLen ? PathCurve(vv) : curve[(scQ[1] + vv - scLen) % N];
+		float x = 0f, dx = -(vm ? vcurve(vb) : curve[bs]) * bp, maxY = H; sps.Clear();
+		Pj[] p1s = new Pj[DRAW]; float[] clip = new float[DRAW]; int[] segOf = new int[DRAW];
 		for (int n = 0; n < DRAW; n++)
 		{
-			int i = (bs + n) % N; bool looped = i < bs; float camZ = Wrap(pos) - (looped ? LEN : 0f);
-			float y1 = HillY(i * SEG), y2 = HillY((i + 1) * SEG);
-			Pj a = Proj(0, y1, i * SEG, camPx * ROADW - x, camY, camZ), b = Proj(0, y2, (i + 1) * SEG, camPx * ROADW - x - dx, camY, camZ);
-			x += dx; dx += curve[i]; p1s[n] = a; clip[n] = maxY;
-			if (i * SEG - camZ <= DEPTH || b.Y >= maxY || b.Y >= a.Y - 0.01f) continue;
+			int i; float z, camZ, y1, y2, off = 0f, cvn;
+			if (vm)
+			{
+				int vv = vb + n; z = vv * SEG; camZ = scCam; y1 = PathHillAt(vv); y2 = PathHillAt(vv + 1); cvn = vcurve(vv);
+				if (vv < scLen) i = -1 - vv; else { i = (scQ[1] + vv - scLen) % N; off = -scSide * JOIN * ROADW; }
+			}
+			else { i = (bs + n) % N; bool looped = i < bs; camZ = Wrap(pos) - (looped ? LEN : 0f); z = i * SEG; y1 = HillY(i * SEG); y2 = HillY((i + 1) * SEG); cvn = curve[i]; }
+			Pj a = Proj(off, y1, z, camPx * ROADW - x, camY, camZ), b = Proj(off, y2, z + SEG, camPx * ROADW - x - dx, camY, camZ);
+			x += dx; dx += cvn; p1s[n] = a; clip[n] = maxY; segOf[n] = i;
+			if (z - camZ <= DEPTH || b.Y >= maxY || b.Y >= a.Y - 0.01f) continue;
 			rows.Add(new Row { A = a, B = b, I = i });
 			maxY = b.Y;
 		}
 		// 먼 칸부터 가까운 칸 순서로 그려요. 칸 경계는 정수 픽셀에 맞추고 길은 위로 1픽셀 겹쳐서, 칸 사이로 잔디색 줄이 비치지 않게 해요
 		for (int r = rows.Count - 1; r >= 0; r--)
 		{
-			Pj a = rows[r].A, b = rows[r].B; int i = rows[r].I; bool alt = (i / 3) % 2 == 0;
+			Pj a = rows[r].A, b = rows[r].B; int i = rows[r].I; bool alt = ((i < 0 ? -1 - i : i) / 3) % 2 == 0;
 			float yb = (float)Math.Round(b.Y), ya = (float)Math.Round(a.Y); if (r == 0) ya = Math.Max(ya, a.Y);
 			if (ya <= yb) continue;
 			a.Y = ya; b.Y = yb;
 			g.FillRectangle(alt ? grass1 : grass2, 0, yb, W, ya - yb);
+			if (i < 0) { PathRow(g, a, b, -1 - i, alt); continue; }
 			if (course != 0 && i >= 3) { RoadStyle(g, a, b, i, alt, t); if (padK[i] != 0) PadRow(g, a, b, i, t); SkidRow(g, a, b, i); WallRow(g, a, b, i, alt); continue; }
 			Quad(g, alt ? rum1 : rum2, a.X, a.Y, a.W * 1.12f, b.X, b.Y, b.W * 1.12f);
 			Quad(g, (i < 3) ? chk : (alt ? road1 : road2), a.X, a.Y, a.W, b.X, b.Y, b.W);
@@ -518,7 +541,7 @@ internal sealed class KartGame : MiniGame
 			{
 				List<PointF> L = new List<PointF>(), Rr = new List<PointF>(); float lastY = -1f;
 				Action flush = () => { if (L.Count > 1) { g.DrawLines(ep, L.ToArray()); g.DrawLines(ep, Rr.ToArray()); } L.Clear(); Rr.Clear(); };
-				for (int r = rows.Count - 1; r >= 0; r--) { Pj a = rows[r].A, b = rows[r].B; if (L.Count > 0 && Math.Abs(b.Y - lastY) > 2.5f) flush(); float ew = course == 0 ? 1.12f : 1.13f; if (L.Count == 0) { L.Add(new PointF(b.X - b.W * ew, b.Y)); Rr.Add(new PointF(b.X + b.W * ew, b.Y)); } L.Add(new PointF(a.X - a.W * ew, a.Y)); Rr.Add(new PointF(a.X + a.W * ew, a.Y)); lastY = a.Y; }
+				for (int r = rows.Count - 1; r >= 0; r--) { Pj a = rows[r].A, b = rows[r].B; if (rows[r].I < 0) { flush(); continue; } if (L.Count > 0 && Math.Abs(b.Y - lastY) > 2.5f) flush(); float ew = course == 0 ? 1.12f : 1.13f; if (L.Count == 0) { L.Add(new PointF(b.X - b.W * ew, b.Y)); Rr.Add(new PointF(b.X + b.W * ew, b.Y)); } L.Add(new PointF(a.X - a.W * ew, a.Y)); Rr.Add(new PointF(a.X + a.W * ew, a.Y)); lastY = a.Y; }
 				flush();
 			}
 		}
@@ -527,7 +550,8 @@ internal sealed class KartGame : MiniGame
 		// 길가 장식 · 아이템 상자 · 바나나 · 다른 차 (먼 것부터)
 		for (int n = DRAW - 1; n > 2; n--)
 		{
-			int i = (bs + n) % N; Pj a = p1s[n]; if (a.Sc <= 0f || a.Y <= 0f) continue; float cl = clip[n];
+			int i = segOf[n]; Pj a = p1s[n]; if (a.Sc <= 0f || a.Y <= 0f) continue; float cl = clip[n];
+			if (i < 0) { int vv = -1 - i; if (vv % 4 == 0) { float sd2 = (vv / 4) % 2 == 0 ? -1f : 1f; Deco(g, a, sd2 * 1.75f, 0, cl, vv * 5); } if (vv % 4 == 2) Deco(g, a, ((vv / 4) % 2 == 0 ? 1f : -1f) * 2.3f, 0, cl, vv * 5 + 5); continue; }
 			if (i % 5 == 0)
 			{
 				int r = (i * 7) % 11; float side = ((i / 5) % 2 == 0) ? -1f : 1f; bool bend = Math.Abs(curve[i]) > 1.2f;
@@ -560,7 +584,7 @@ internal sealed class KartGame : MiniGame
 		}
 		DrawParts(g, 0);
 		float bob = (float)Math.Sin(t * 30) * (v > 100f ? 1.2f : 0f) + (curbBump > 0f && airH <= 0f ? (float)Math.Sin(t * 50) * 2f : 0f);
-		float kx = 200f + Clamp((px - camPx) * 170f, -60f, 60f) - driftVis * 26f;   // 카메라가 살짝 늦게 따라오고, 드리프트하면 뒤가 바깥으로 미끄러져요
+		float kx = 200f + Clamp((px - camPx) * 170f, -95f, 95f) - driftVis * 26f;   // 카메라가 살짝 늦게 따라오고, 드리프트하면 뒤가 바깥으로 미끄러져요
 		float yawM = 0f, hopM = 0f; if (spinT > 0f) { float pr = 1f - spinT / spinMax; yawM = (float)(Math.PI * 4 * (1 - (1 - pr) * (1 - pr))); hopM = (float)Math.Sin(Math.Min(1f, pr * 2.5f) * Math.PI) * 26f; }
 		if (dHop > 0f) hopM += (float)Math.Sin(Math.PI * (1f - dHop / 0.22f)) * 12f;   // 드리프트 시작할 때 살짝 뛰어올라요
 		float rollM = rollT > 0f ? 360f * (float)(0.5 - 0.5 * Math.Cos(Math.PI * (1f - rollT / rollDur))) : 0f;
@@ -610,13 +634,6 @@ internal sealed class KartGame : MiniGame
 		foreach (Pop pp in pops) { float k = pp.T / pp.D, sc = pp.S * (0.6f + 0.6f * (float)Math.Sin(Math.Min(1f, k * 1.6f) * Math.PI / 2)) * (k > 0.75f ? 1f - (k - 0.75f) * 2f : 1f); Spr.Draw(g, pp.N, pp.X, pp.Y, pp.F ? -sc : sc, sc, pp.R); }
 		if (splashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(110 * splashT / 0.7f), 120, 190, 255))) g.FillRectangle(b, 0, 0, W, H);
 		if (warnT > 0f && ((int)(t * 8)) % 2 == 0) { using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 240, 70, 70))) g.FillEllipse(b, 182, 590 - 14, 36, 36); Txt(g, "!", 16f, 2, Color.White, 182, 576, 36, 36, StringAlignment.Center); Balloon(g, 200f + (1f - warnT / 1.1f) * 0f, 600f - (1f - warnT / 1.1f) * 40f, 10f, t); }
-		if (scTo >= 0)
-		{
-			float k = (float)Math.Sin(Math.PI * Clamp(scT / scDur, 0f, 1f)); int al = (int)(235 * k);
-			using (SolidBrush b = new SolidBrush(Color.FromArgb(al, Sh(T0.G1, -30)))) g.FillRectangle(b, 0, 0, W, H);
-			using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(al * 0.8f), 255, 250, 235))) for (int q = 0; q < 14; q++) { float r0 = 30 + (q * 37) % 70, xq = (q * 83 + (float)t * 300f * (q % 2 == 0 ? 1 : -1)) % 460 - 30, yq = 380 + (q * 61) % 220; g.FillEllipse(b, xq - r0, yq - r0 * 0.6f, r0 * 2, r0 * 1.2f); }
-			if (k > 0.3f) Hint(g, "지름길 통과 중…", 300, 13f, true, Math.Min(1f, (k - 0.3f) * 3f));
-		}
 		// HUD
 		Panel(g, new RectangleF(10, 40, 120, 56)); Txt(g, place + "등", 22f, 2, place == 1 ? Color.FromArgb(255, 220, 90) : Color.White, 10, 40, 120, 56, StringAlignment.Center);
 		Panel(g, new RectangleF(140, 40, 250, 56)); Txt(g, Math.Min(Laps, lap + 1) + " / " + Laps + " 바퀴   " + ((int)(v / MAXV * 180)) + "km/h", 11f, 2, Color.White, 146, 42, 240, 24, StringAlignment.Center);
@@ -869,9 +886,23 @@ internal sealed class KartGame : MiniGame
 		}
 		g.Restore(st);
 	}
+	// 지름길 흙길 한 줄: 모래빛 길 + 바퀴 자국 두 줄
+	private void PathRow(Graphics g, Pj a, Pj b, int v, bool alt)
+	{
+		WallBrushes();
+		Quad(g, alt ? dirt2 : dirt1, a.X, a.Y, a.W * (PATHW + 0.12f), b.X, b.Y, b.W * (PATHW + 0.12f));
+		using (SolidBrush rb = new SolidBrush(Color.FromArgb(70, 90, 60, 30))) { Quad(g, rb, a.X - a.W * 0.35f, a.Y, a.W * 0.05f, b.X - b.W * 0.35f, b.Y, b.W * 0.05f); Quad(g, rb, a.X + a.W * 0.35f, a.Y, a.W * 0.05f, b.X + b.W * 0.35f, b.Y, b.W * 0.05f); }
+		if (v >= scLen - 3) using (SolidBrush jb = new SolidBrush(Color.FromArgb(200, 255, 200, 70))) Quad(g, jb, a.X - scSide * a.W * 0.5f, a.Y, a.W * 0.12f, b.X - scSide * b.W * 0.5f, b.Y, b.W * 0.12f);   // 합류 표시
+	}
 	// 벽(낮은 방호벽) · 벽이 트인 곳의 흙길
 	private int wbFor = -1; private SolidBrush wb1, wb2, wbTop, dirt1, dirt2;
 	private void WallRow(Graphics g, Pj a, Pj b, int i, bool alt)
+	{
+		WallBrushes();
+		if (a.W < 1.5f) return;
+		WallFaces(g, a, b, i, alt);
+	}
+	private void WallBrushes()
 	{
 		if (wbFor != course)
 		{
@@ -879,7 +910,9 @@ internal sealed class KartGame : MiniGame
 			wb1 = new SolidBrush(Sh(c1, -12)); wb2 = new SolidBrush(Sh(c2, -14)); wbTop = new SolidBrush(Sh(c2, 12));
 			Color d = Color.FromArgb(226, 196, 136); dirt1 = new SolidBrush(d); dirt2 = new SolidBrush(Sh(d, -10));
 		}
-		if (a.W < 1.5f) return;
+	}
+	private void WallFaces(Graphics g, Pj a, Pj b, int i, bool alt)
+	{
 		for (int sd = -1; sd <= 1; sd += 2)
 		{
 			if (gap[i] == sd)
@@ -905,7 +938,7 @@ internal sealed class KartGame : MiniGame
 		using (Pen p = new Pen(Color.FromArgb(255, 110, 112, 122), 2.2f) { LineJoin = LineJoin.Round }) g.DrawLines(p, line);
 		using (Pen p = new Pen(Color.FromArgb(240, 255, 170, 60), 2f) { DashStyle = DashStyle.Dash }) foreach (int[] s2 in shorts) g.DrawLine(p, at(s2[0]), at(s2[1]));
 		foreach (Car c in cars) { PointF q = at(SegOf(c.Z)); using (SolidBrush b = new SolidBrush(c.C)) g.FillEllipse(b, q.X - 3f, q.Y - 3f, 6f, 6f); }
-		PointF me = at(SegOf(PlayerZ)); using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 230, 90))) g.FillEllipse(b, me.X - 4.5f, me.Y - 4.5f, 9f, 9f); using (Pen p = new Pen(Color.FromArgb(30, 160, 140), 2f)) g.DrawEllipse(p, me.X - 4.5f, me.Y - 4.5f, 9f, 9f);
+		PointF me = at(SegOf(PlayerZ)); if (scOn) { PointF q0 = at(scQ[0]), q1 = at(scQ[1]); float pr = ScProg; me = new PointF(q0.X + (q1.X - q0.X) * pr, q0.Y + (q1.Y - q0.Y) * pr); } using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 230, 90))) g.FillEllipse(b, me.X - 4.5f, me.Y - 4.5f, 9f, 9f); using (Pen p = new Pen(Color.FromArgb(30, 160, 140), 2f)) g.DrawEllipse(p, me.X - 4.5f, me.Y - 4.5f, 9f, 9f);
 	}
 	private void ItemBox(Graphics g, Pj a, float bx, float clip, double t)
 	{

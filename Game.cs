@@ -619,10 +619,10 @@ internal sealed class BatGame : MiniGame
 		switch (ptype)
 		{
 			case 1: vyA = -0.95f; vyK = 3.0f; rise = 0.13f; break;                      // 커브: 느리게, 위로 살짝 솟았다가 크게 아래로
-			case 2: hxA = 0.60f; hxK = 3.0f; vyA = -0.05f; vyK = 2.4f; break;           // 슬라이더: 오른쪽으로 횡 이동
-			case 3: hxA = -0.14f; hxK = 2.2f; vyA = -0.22f; vyK = 2.2f; break;          // 체인지업: 느려지며 왼쪽 아래로 살짝
+			case 2: hxA = -0.60f; hxK = 3.0f; vyA = -0.05f; vyK = 2.4f; break;          // 슬라이더: 왼쪽으로 횡 이동 (투수 글러브 쪽)
+			case 3: hxA = 0.14f; hxK = 2.2f; vyA = -0.22f; vyK = 2.2f; break;           // 체인지업: 느려지며 오른쪽 아래로 살짝 (팔 쪽)
 			case 4: vyA = -0.78f; vyK = 4.6f; break;                                    // 포크볼: 직구처럼 오다 막판에 아래로 뚝
-			case 5: hxA = -0.45f; hxK = 2.8f; vyA = -0.06f; vyK = 2.2f; break;          // 투심: 왼쪽으로 횡 이동
+			case 5: hxA = 0.45f; hxK = 2.8f; vyA = -0.06f; vyK = 2.2f; break;           // 투심: 오른쪽으로 횡 이동 (팔 쪽)
 		}
 		PitchPos(0);
 	}
@@ -1242,7 +1242,7 @@ internal sealed class MaryongGame : Form
 		try
 		{
 			TextBox old = tb; TextBox n = new TextBox(); n.BorderStyle = BorderStyle.FixedSingle; n.Font = Fonts.Native(14f);
-			n.SetBounds((int)(20 * S), (int)((g != null ? g.InputY : 516f) * S), (int)(360 * S), (int)(34 * S)); Controls.Add(n); n.Visible = true; tb = n;
+			n.SetBounds(gx + (int)(20 * S), gy + (int)((g != null ? g.InputY : 516f) * S), (int)(360 * S), (int)(34 * S)); Controls.Add(n); n.Visible = true; tb = n;
 			if (old != null) { Controls.Remove(old); old.Dispose(); }
 			n.Focus();
 		}
@@ -1335,20 +1335,22 @@ internal sealed class MaryongGame : Form
 			if (playedN >= totalN || best[hid.Key] > 0 || best[hid2.Key] > 0) { List<MiniGame> l2 = new List<MiniGame>(games); l2.Add(hid); l2.Add(hid2); games = l2.ToArray(); hiddenOpen = true; }
 		}
 		catch (Exception ex) { Program.LogErr(ex); }
-		FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false; MinimizeBox = true; Text = "마룡이 오락실"; ShowInTaskbar = true; StartPosition = FormStartPosition.CenterScreen;
-		MaximizeBox = false; ClientSize = new Size((int)(MiniGame.W * S), (int)(MiniGame.H * S)); KeyPreview = true; TopMost = true;
+		FormBorderStyle = FormBorderStyle.Sizable; MaximizeBox = true; MinimizeBox = true; Text = "마룡이 오락실"; ShowInTaskbar = true; StartPosition = FormStartPosition.CenterScreen;
+		ClientSize = new Size((int)(MiniGame.W * S), (int)(MiniGame.H * S)); KeyPreview = true; TopMost = true; MinimumSize = new Size(240, 380);
+		LoadLayout(); Resize += delegate { Relayout(); }; Relayout();
 		SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
 		inp.Mx = MiniGame.W / 2f;
 		gated = !codeEntry && Runs < 3;
 		Shuffle();
 		tb = new TextBox(); tb.BorderStyle = BorderStyle.FixedSingle; tb.Font = Fonts.Native(14f); tb.Visible = false;
-		tb.SetBounds((int)(20 * S), (int)(516 * S), (int)(360 * S), (int)(34 * S)); Controls.Add(tb);
-		MouseMove += delegate(object o, MouseEventArgs e) { float nx = e.X / S, ny = e.Y / S; if (Math.Abs(nx - inp.Mx) + Math.Abs(ny - inp.My) > 0.5f) inp.MouseMoved = true; inp.Mx = nx; inp.My = ny; };
-		MouseDown += delegate(object o, MouseEventArgs e) { if (e.X / S > MiniGame.W - 46 && e.Y / S > 34 && e.Y / S < 66) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; } mouseHeld = true; dnX = e.X / S; dnY = e.Y / S; inp.Mx = dnX; inp.My = dnY; OnTap(e.X / S, e.Y / S); };
-		MouseUp += delegate(object o, MouseEventArgs e) { mouseHeld = false; if (state == 2 && g != null) { float ddx = e.X / S - dnX, ddy = e.Y / S - dnY; if (Math.Abs(ddx) + Math.Abs(ddy) > 24f) g.Swipe(ddx, ddy); } };
+		tb.SetBounds(gx + (int)(20 * S), gy + (int)(516 * S), (int)(360 * S), (int)(34 * S)); Controls.Add(tb);
+		MouseMove += delegate(object o, MouseEventArgs e) { float nx = (e.X - gx) / S, ny = (e.Y - gy) / S; if (Math.Abs(nx - inp.Mx) + Math.Abs(ny - inp.My) > 0.5f) inp.MouseMoved = true; inp.Mx = nx; inp.My = ny; };
+		MouseDown += delegate(object o, MouseEventArgs e) { if ((e.X - gx) / S > MiniGame.W - 46 && (e.Y - gy) / S > 34 && (e.Y - gy) / S < 66) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; } mouseHeld = true; dnX = (e.X - gx) / S; dnY = (e.Y - gy) / S; inp.Mx = dnX; inp.My = dnY; OnTap((e.X - gx) / S, (e.Y - gy) / S); };
+		MouseUp += delegate(object o, MouseEventArgs e) { mouseHeld = false; if (state == 2 && g != null) { float ddx = (e.X - gx) / S - dnX, ddy = (e.Y - gy) / S - dnY; if (Math.Abs(ddx) + Math.Abs(ddy) > 24f) g.Swipe(ddx, ddy); } };
 		Deactivate += delegate { mouseHeld = false; if (state == 2 && finT <= 0f) paused = true; };
 		KeyDown += delegate(object o, KeyEventArgs e)
 		{
+			if (e.KeyCode == Keys.F2) { ToggleWide(); e.Handled = true; return; }
 			if (state == 4) { if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Escape) { e.Handled = true; e.SuppressKeyPress = true; Commit(); } return; }
 			bool fresh = down.Add(e.KeyCode); if (!(state == 2 && g.NeedsInput)) e.Handled = true;
 			if (state == 5) { if (e.KeyCode == Keys.Escape) GoMenu(); else if (e.KeyCode == Keys.Left) RankTurn(-1); else if (e.KeyCode == Keys.Right) RankTurn(1); return; }
@@ -1365,6 +1367,7 @@ internal sealed class MaryongGame : Form
 		tm.Tick += delegate { Step(); };
 		Shown += delegate { sw.Restart(); last = 0; tm.Start(); };
 		try { Icon = MascotIcon(); ShowIcon = true; } catch { }
+		FormClosing += delegate { SaveLayout(); };
 		FormClosed += delegate { Anim.GameBusy = false; tm.Stop(); cur = null; Sfx.Stop(); try { Spr.ReleaseAll(); } catch { } Mem.Later(2500); };
 	}
 
@@ -1373,10 +1376,10 @@ internal sealed class MaryongGame : Form
 	{
 		try
 		{
-			string flag = Path.Combine(Program.DataDir, "rank_reset_v292.flag"); if (File.Exists(flag) || !Directory.Exists(Program.DataDir)) return;
-			foreach (string f in Directory.GetFiles(Program.DataDir, "ranking*.txt")) { try { File.Delete(f); } catch { } }
-			try { string pp = Path.Combine(Program.DataDir, "rank_pending.txt"); if (File.Exists(pp)) File.Delete(pp); } catch { }
-			File.WriteAllText(flag, DateTime.Now.ToString("s"));
+			// 예전에는 여기서 기록을 한 번 지웠어요. 이제는 버전이 바뀌어도 같은 게임의 기록은 그대로 둬요.
+			// 혹시 기록 파일이 사라졌으면 백업 폴더(rank_backup)에서 되살려요
+			string bk = Path.Combine(Program.DataDir, "rank_backup"); if (!Directory.Exists(Program.DataDir)) return; Directory.CreateDirectory(bk); foreach (string f in Directory.GetFiles(Program.DataDir, "ranking*.txt")) { string d2 = Path.Combine(bk, Path.GetFileName(f)); try { if (!File.Exists(d2)) File.Copy(f, d2); } catch { } }
+			foreach (string f in Directory.GetFiles(bk, "ranking*.txt")) { string dst = Path.Combine(Program.DataDir, Path.GetFileName(f)); try { if (!File.Exists(dst)) File.Copy(f, dst); } catch { } }
 		}
 		catch { }
 	}
@@ -1477,9 +1480,9 @@ internal sealed class MaryongGame : Form
 		thisKey = nm; board = LoadBoard(g.Key);
 		board.Add(new KeyValuePair<string, int>(thisKey, pendScore));
 		board = board.OrderByDescending(k => k.Value).Take(5).ToList();
-		try { Directory.CreateDirectory(Program.DataDir); File.WriteAllLines(RankPath(g.Key), board.Select(k => k.Key + "|" + k.Value).ToArray()); } catch { }
+		try { Directory.CreateDirectory(Program.DataDir); string[] ln = board.Select(k => k.Key + "|" + k.Value).ToArray(); File.WriteAllLines(RankPath(g.Key), ln); string bk = Path.Combine(Program.DataDir, "rank_backup"); Directory.CreateDirectory(bk); File.WriteAllLines(Path.Combine(bk, Path.GetFileName(RankPath(g.Key))), ln); } catch { }
 		best[g.Key] = board[0].Value; Rank.Submit(g.Key, nm, pendScore); if (gated) { AddRun(); if (Runs >= 3) { gated = false; try { Bubble.Say("게임 메뉴가 열렸어요!", 2.5); Confetti.Fire(Bounds); } catch { } } }
-		try { tb.Visible = false; tb.TextAlign = HorizontalAlignment.Left; tb.Font = Fonts.Native(14f); tb.MaxLength = 32767; tb.SetBounds((int)(20 * S), (int)(516 * S), (int)(360 * S), (int)(34 * S)); tb.Text = ""; } catch { }
+		try { tb.Visible = false; tb.TextAlign = HorizontalAlignment.Left; tb.Font = Fonts.Native(14f); tb.MaxLength = 32767; tb.SetBounds(gx + (int)(20 * S), gy + (int)(516 * S), (int)(360 * S), (int)(34 * S)); tb.Text = ""; } catch { }
 		state = 3; Sfx.Play("ok2"); this.Focus();
 	}
 
@@ -1510,7 +1513,7 @@ internal sealed class MaryongGame : Form
 			inp.L = down.Contains(Keys.Left) || down.Contains(Keys.A); inp.R = down.Contains(Keys.Right) || down.Contains(Keys.D);
 			if (g.NeedsInput)
 			{
-				if (!tb.Visible) { tb.Visible = true; tb.Text = ""; tb.Focus(); } int iy = (int)(g.InputY * S); if (tb.Top != iy) tb.Top = iy;
+				if (!tb.Visible) { tb.Visible = true; tb.Text = ""; tb.Focus(); } int iy = gy + (int)(g.InputY * S); if (tb.Top != iy) tb.Top = iy;
 				g.Typed = tb.Text; if (g.ClearTyped) { RebuildTb(); g.ClearTyped = false; g.Typed = ""; }
 			}
 			if (stopT > 0f) stopT -= dt;   // 강한 충격이 있으면 0.07초 정도 멈칫해서 타격감을 줘요
@@ -1523,7 +1526,7 @@ internal sealed class MaryongGame : Form
 	}
 	// 오락실 창이 뒤에 있거나(설정창 등을 쓰는 중) 멈춰 있을 땐 초당 8번만 다시 그려요 → 다른 창 반응이 느려지지 않아요
 	private double lastInv; private float stopCd;
-	private void InvSlow(double now) { if (WindowState == FormWindowState.Minimized) return; if (Form.ActiveForm != this && now - lastInv < 0.125) return; if ((state == 1 || state == 3 || state == 4) && now - lastInv < 0.030) return; lastInv = now; Invalidate(); }   // 설명·결과 화면은 초당 30번이면 충분해요
+	private void InvSlow(double now) { if (WindowState == FormWindowState.Minimized) return; if (Form.ActiveForm != this && now - lastInv < 0.125) return; if ((state == 1 || state == 3 || state == 4) && now - lastInv < 0.030) return; lastInv = now; if (!wide || SideSig() != sideSig) Invalidate(); else Invalidate(new Rectangle(gx, gy, GW + 1, GH + 1)); }   // 설명·결과 화면은 초당 30번이면 충분해요
 
 	private void Panel(Graphics gr, RectangleF r, Color c, float rad) { using (GraphicsPath p = Gfx.Round(r, rad)) using (SolidBrush b = new SolidBrush(c)) gr.FillPath(b, p); }
 	// 게임 시작 전 설명 카드: 제목 · 방법(번호/점 표시 줄) · 최고 기록 · 시작 안내를 깔끔하게 나눠서 보여줘요
@@ -1589,10 +1592,95 @@ internal sealed class MaryongGame : Form
 		MiniGame.Txt(gr, s, 12.5f, 2, main ? Color.FromArgb(60, 38, 8) : Color.White, r.X, r.Y, r.Width, r.Height, StringAlignment.Center);
 	}
 
+	// ── 창 크기 · 가로 모드 ──
+	// 창을 늘리고 줄이면 게임 화면이 비율 그대로 맞춰져요. 창이 가로로 넓으면 게임은 왼쪽에, 오른쪽엔 설명·기록 패널이 나와요 (F2 = 세로/가로 전환)
+	private int gx, gy; private bool wide; private Bitmap sideBmp; private string sideSig = "";
+	private int GW { get { return (int)Math.Round(MiniGame.W * S); } }
+	private int GH { get { return (int)Math.Round(MiniGame.H * S); } }
+	private static string LayoutPath { get { return Path.Combine(Program.DataDir, "arcade_layout.txt"); } }
+	private void LoadLayout()
+	{
+		try
+		{
+			if (!File.Exists(LayoutPath)) return; string[] p = File.ReadAllText(LayoutPath).Trim().Split(','); int w, h; if (p.Length < 2 || !int.TryParse(p[0], out w) || !int.TryParse(p[1], out h)) return;
+			Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea; w = Math.Max(240, Math.Min(w, wa.Width - 20)); h = Math.Max(380, Math.Min(h, wa.Height - 60)); ClientSize = new Size(w, h);
+		}
+		catch { }
+	}
+	private void SaveLayout() { try { if (WindowState != FormWindowState.Normal) return; Directory.CreateDirectory(Program.DataDir); File.WriteAllText(LayoutPath, ClientSize.Width + "," + ClientSize.Height); } catch { } }
+	private void Relayout()
+	{
+		int cw = ClientSize.Width, ch = ClientSize.Height; if (cw <= 0 || ch <= 0) return;
+		wide = cw > ch * 0.95f;
+		if (wide) { S = Math.Max(0.35f, Math.Min(ch / (float)MiniGame.H, (cw - 220f) / MiniGame.W)); gx = 0; gy = (int)((ch - MiniGame.H * S) / 2f); }
+		else { S = Math.Max(0.35f, Math.Min(cw / (float)MiniGame.W, ch / (float)MiniGame.H)); gx = (int)((cw - MiniGame.W * S) / 2f); gy = (int)((ch - MiniGame.H * S) / 2f); }
+		try { if (tb != null) tb.SetBounds(gx + (int)(20 * S), gy + (int)((g != null ? g.InputY : 516f) * S), (int)(360 * S), (int)(34 * S)); } catch { }
+		sideSig = ""; Invalidate();
+	}
+	private void ToggleWide()
+	{
+		if (WindowState != FormWindowState.Normal) WindowState = FormWindowState.Normal;
+		float s0 = S; Rectangle wa = Screen.FromControl(this).WorkingArea;
+		Size want = wide ? new Size((int)(MiniGame.W * s0), (int)(MiniGame.H * s0)) : new Size((int)(MiniGame.W * s0 + 380 * s0), (int)(MiniGame.H * s0));
+		if (want.Width > wa.Width - 20) { float k = (wa.Width - 20f) / want.Width; want = new Size((int)(want.Width * k), (int)(want.Height * k)); }
+		ClientSize = want; if (Right > wa.Right) Left = Math.Max(wa.Left, wa.Right - Width); Relayout();
+	}
+	// 게임 화면 바깥: 세로 모드는 어두운 여백, 가로 모드는 오른쪽 안내 패널
+	private string SideSig()
+	{
+		MiniGame cg = (state >= 1 && state <= 3) ? g : null; int bst = 0; if (cg != null) best.TryGetValue(cg.Key, out bst);
+		return (ClientSize.Width - GW) + "x" + ClientSize.Height + ":" + (cg == null ? "-" : cg.Key) + ":" + bst;
+	}
+	private void PaintAround(Graphics eg)
+	{
+		int cw = ClientSize.Width, ch = ClientSize.Height, gw = GW, gh = GH;
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(14, 18, 34)))
+		{
+			if (gy > 0) { eg.FillRectangle(b, 0, 0, cw, gy); eg.FillRectangle(b, 0, gy + gh, cw, ch - gy - gh + 1); }
+			if (gx > 0) eg.FillRectangle(b, 0, 0, gx, ch);
+			if (!wide && gx + gw < cw) eg.FillRectangle(b, gx + gw, 0, cw - gx - gw + 1, ch);
+		}
+		if (!wide) return;
+		int pw = cw - gw; if (pw < 40) return;
+		MiniGame cg = (state >= 1 && state <= 3) ? g : null; int bst = 0; if (cg != null) best.TryGetValue(cg.Key, out bst);
+		string sig = SideSig();
+		if (sideBmp == null || sig != sideSig)
+		{
+			sideSig = sig; if (sideBmp != null) sideBmp.Dispose(); sideBmp = new Bitmap(pw, ch, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+			using (Graphics sg = Graphics.FromImage(sideBmp))
+			{
+				Gfx.HQ(sg);
+				using (LinearGradientBrush lb = new LinearGradientBrush(new Rectangle(0, 0, pw, ch), Color.FromArgb(22, 28, 60), Color.FromArgb(40, 52, 110), 90f)) sg.FillRectangle(lb, 0, 0, pw, ch);
+				float k = S; sg.ScaleTransform(k, k); float lw = pw / k, y = 24f;
+				MiniGame.Txt(sg, "마룡이 오락실", 16f, 2, Color.FromArgb(255, 214, 90), 18, y, lw - 36, 28, StringAlignment.Near); y += 36f;
+				if (cg != null)
+				{
+					MiniGame.Txt(sg, cg.Name, 14f, 2, Color.White, 18, y, lw - 36, 26, StringAlignment.Near); y += 28f;
+					MiniGame.Txt(sg, cg.Desc, 10f, 1, Color.FromArgb(210, 225, 240), 18, y, lw - 36, 20, StringAlignment.Near); y += 30f;
+					MiniGame.Txt(sg, "하는 법", 10.5f, 2, Color.FromArgb(150, 220, 255), 18, y, lw - 36, 20, StringAlignment.Near); y += 22f;
+					float hh = Math.Min(300f, sg.MeasureString(cg.Help, Theme.F(9.5f, 1), (int)(lw - 36)).Height + 6f); MiniGame.Txt(sg, cg.Help, 9.5f, 1, Color.FromArgb(235, 240, 250), 18, y, lw - 36, hh, StringAlignment.Near, true); y += hh + 12f;
+					MiniGame.Txt(sg, "내 최고 기록  " + bst.ToString("N0"), 11f, 2, Color.FromArgb(255, 226, 140), 18, y, lw - 36, 22, StringAlignment.Near); y += 28f;
+					try
+					{
+						List<KeyValuePair<string, int>> rows = LoadBoard(cg.Key);
+						for (int i = 0; i < Math.Min(5, rows.Count); i++) { MiniGame.Txt(sg, (i + 1) + ".  " + rows[i].Key, 9.5f, 1, Color.FromArgb(220, 230, 245), 26, y, lw - 140, 20, StringAlignment.Near); MiniGame.Txt(sg, rows[i].Value.ToString("N0"), 9.5f, 2, Color.White, lw - 120, y, 100, 20, StringAlignment.Far); y += 21f; }
+					}
+					catch { }
+				}
+				else
+				{
+					MiniGame.Txt(sg, "게임을 고르면 여기에 하는 법과 기록이 나와요", 10f, 1, Color.FromArgb(210, 225, 240), 18, y, lw - 36, 40, StringAlignment.Near, true); y += 50f;
+				}
+				MiniGame.Txt(sg, "창 크기를 바꾸면 게임 화면이 맞춰져요 · F2 = 세로/가로 전환", 8.5f, 1, Color.FromArgb(150, 200, 210, 230), 18, ch / k - 30f, lw - 36, 20, StringAlignment.Near);
+			}
+		}
+		eg.DrawImageUnscaled(sideBmp, gw, 0);
+	}
 	private long pfT0, pfLast; private int pfN; private double pfCost, pfMaxCost, pfMaxGap;
 	protected override void OnPaint(PaintEventArgs e)
 	{
 		long t0 = Stopwatch.GetTimestamp();
+		try { PaintAround(e.Graphics); } catch (Exception ex) { Program.LogErr(ex); }
 		// 화면 배율이 큰 PC(고해상도)에서는 그림 그릴 픽셀이 너무 많아 느려져요 → 1.25배까지만 직접 그리고, 그 이상이면 작게 그려서 늘려 보여요
 		float rs = Math.Min(S, ql == 0 ? 1.25f : (ql == 1 ? 1.0f : 0.8f));
 		double tInner = 0, tBlit = 0; long tq = Stopwatch.GetTimestamp(); bool done = false;
@@ -1605,7 +1693,7 @@ internal sealed class MaryongGame : Form
 				using (Graphics og = Graphics.FromImage(dib.Bmp)) { MiniGame.PS = rs; paintScale = rs; try { OnPaintInner(og); DrawSpeaker(og); } catch (Exception ex) { Program.LogErr(ex); } }
 				MiniGame.PS = 0; long tm1 = Stopwatch.GetTimestamp(); tInner = (tm1 - tq) * 1000.0 / Stopwatch.Frequency;
 				IntPtr hdc = e.Graphics.GetHdc();
-				try { done = dib.Blit(hdc, ClientSize.Width, ClientSize.Height, ow != ClientSize.Width || oh != ClientSize.Height, ql >= 1); }
+				try { done = dib.Blit(hdc, gx, gy, GW, GH, ow != GW || oh != GH, ql >= 1); }
 				finally { e.Graphics.ReleaseHdc(hdc); }
 				tBlit = (Stopwatch.GetTimestamp() - tm1) * 1000.0 / Stopwatch.Frequency;
 				if (!done) { useGdi = false; Anim.PerfNote("GDI 출력 실패 → 예전 방식으로 전환"); }
@@ -1620,9 +1708,9 @@ internal sealed class MaryongGame : Form
 				if (offBmp == null || offBmp.Width != ow || offBmp.Height != oh) { if (offBmp != null) offBmp.Dispose(); offBmp = new Bitmap(ow, oh, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); offBmp.SetResolution(96f * rs, 96f * rs); }
 				using (Graphics og = Graphics.FromImage(offBmp)) { MiniGame.PS = rs; paintScale = rs; try { OnPaintInner(og); DrawSpeaker(og); } catch (Exception ex) { Program.LogErr(ex); } }
 				MiniGame.PS = 0; Graphics eg = e.Graphics; eg.InterpolationMode = InterpolationMode.Bilinear; eg.PixelOffsetMode = PixelOffsetMode.Half; eg.CompositingMode = CompositingMode.SourceCopy;
-				eg.DrawImage(offBmp, new Rectangle(0, 0, ClientSize.Width, ClientSize.Height), 0, 0, offBmp.Width, offBmp.Height, GraphicsUnit.Pixel);
+				eg.DrawImage(offBmp, new Rectangle(gx, gy, GW, GH), 0, 0, offBmp.Width, offBmp.Height, GraphicsUnit.Pixel); eg.CompositingMode = CompositingMode.SourceOver;
 			}
-			else { MiniGame.PS = 0; paintScale = S; OnPaintInner(e.Graphics); try { DrawSpeaker(e.Graphics); } catch { } }
+			else { MiniGame.PS = 0; paintScale = S; GraphicsState gs0 = e.Graphics.Save(); e.Graphics.TranslateTransform(gx, gy); OnPaintInner(e.Graphics); try { DrawSpeaker(e.Graphics); } catch { } e.Graphics.Restore(gs0); }
 		}
 		pInner += tInner; pBlit += tBlit;
 		if (Anim.PerfLog && state == 2 && g != null)   // perf.on 이 있을 때만: 게임 중 프레임 기록
@@ -1816,11 +1904,11 @@ internal sealed class GdiBuf : IDisposable
 		hbm = CreateDIBSection(dc, ref bi, 0, out bits, IntPtr.Zero, 0); if (hbm == IntPtr.Zero || bits == IntPtr.Zero) { DeleteDC(dc); throw new InvalidOperationException("dib"); }
 		old = SelectObject(dc, hbm); Bmp = new Bitmap(w, h, w * 4, System.Drawing.Imaging.PixelFormat.Format32bppPArgb, bits);
 	}
-	public bool Blit(IntPtr hdc, int cw, int ch, bool stretch, bool fast)
+	public bool Blit(IntPtr hdc, int x, int y, int cw, int ch, bool stretch, bool fast)
 	{
 		GdiFlush(); bool ok;
-		if (!stretch) ok = BitBlt(hdc, 0, 0, cw, ch, dc, 0, 0, 0x00CC0020);
-		else { SetStretchBltMode(hdc, fast ? 3 : 4); if (!fast) SetBrushOrgEx(hdc, 0, 0, IntPtr.Zero); ok = StretchBlt(hdc, 0, 0, cw, ch, dc, 0, 0, W, H, 0x00CC0020); }
+		if (!stretch) ok = BitBlt(hdc, x, y, cw, ch, dc, 0, 0, 0x00CC0020);
+		else { SetStretchBltMode(hdc, fast ? 3 : 4); if (!fast) SetBrushOrgEx(hdc, 0, 0, IntPtr.Zero); ok = StretchBlt(hdc, x, y, cw, ch, dc, 0, 0, W, H, 0x00CC0020); }
 		return ok;
 	}
 	public void Dispose() { try { Bmp.Dispose(); } catch { } if (dc != IntPtr.Zero) { SelectObject(dc, old); DeleteObject(hbm); DeleteDC(dc); dc = IntPtr.Zero; } }

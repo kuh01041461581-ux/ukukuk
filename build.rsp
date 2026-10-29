@@ -1157,4 +1157,10 @@ Vfx.cs
 -resource:spr\ms_fl_ob.png,spr.ms_fl_ob.png
 -resource:spr\ms_fl_bomb.png,spr.ms_fl_bomb.png
 -resource:spr\ms_fl_boom.png,spr.ms_fl_boom.png
+-resource:spr\ms_golf_sw0.png,spr.ms_golf_sw0.png
+-resource:spr\ms_golf_sw1.png,spr.ms_golf_sw1.png
+-resource:spr\ms_golf_sw2.png,spr.ms_golf_sw2.png
+-resource:spr\ms_golf_sw3.png,spr.ms_golf_sw3.png
+-resource:spr\ms_golf_sw4.png,spr.ms_golf_sw4.png
+-resource:spr\ms_golf_sw5.png,spr.ms_golf_sw5.png
 -resource:spr\ms_fl_heart.png,spr.ms_fl_heart.png

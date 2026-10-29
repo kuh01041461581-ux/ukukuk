@@ -401,6 +401,9 @@ internal partial class Program
 				if (alert != null && !alert.IsDisposed && !alert.Closing) alert.Dismiss();
 				AlertToast.ShowFor(s, again); AlertBanner.Pop(); return;
 			}
+			// 예전 알림창이 남아 있으면(닫히다 멈춘 창 포함) 모두 닫고 새 창 하나만 띄워요 → 창이 쌓여서 클릭이 막히지 않게
+			try { foreach (Form f in Application.OpenForms.Cast<Form>().ToList()) { AlertPopup ap = f as AlertPopup; if (ap != null && ap != alert && ap.Visible && !ap.IsDisposed) { try { ap.Close(); } catch { } } } } catch { }
+			if (alert != null && !alert.IsDisposed && alert.Closing) { try { alert.Close(); } catch { } alert = null; }
 			bool reuse = alert != null && !alert.IsDisposed && !alert.Closing;
 			if (reuse)
 			{

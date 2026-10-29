@@ -1149,3 +1149,12 @@ Vfx.cs
 -resource:spr\ms_kart_me_bump.png,spr.ms_kart_me_bump.png
 -resource:spr\ms_kart_me_wall.png,spr.ms_kart_me_wall.png
 -resource:spr\ms_kart_me_rev.png,spr.ms_kart_me_rev.png
+-resource:spr\ms_kart_me_bd.png,spr.ms_kart_me_bd.png
+-resource:spr\ms_kart_me_fd.png,spr.ms_kart_me_fd.png
+-resource:spr\ms_kart_me_sad.png,spr.ms_kart_me_sad.png
+-resource:spr\ms_fl_opt0.png,spr.ms_fl_opt0.png
+-resource:spr\ms_fl_opt1.png,spr.ms_fl_opt1.png
+-resource:spr\ms_fl_ob.png,spr.ms_fl_ob.png
+-resource:spr\ms_fl_bomb.png,spr.ms_fl_bomb.png
+-resource:spr\ms_fl_boom.png,spr.ms_fl_boom.png
+-resource:spr\ms_fl_heart.png,spr.ms_fl_heart.png

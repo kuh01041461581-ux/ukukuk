@@ -451,29 +451,38 @@ internal class AlertPopup : AlertForm
 
 	public void Dismiss()
 	{
-		if (Closing) return;
+		// 이미 닫히는 중인데 또 누르면 바로 닫아요 (닫힘 애니메이션이 멈춰서 창이 남아 있는 경우에도 지울 수 있게)
+		if (Closing) { try { anim.Stop(); Close(); } catch { } return; }
 		Closing = true;
 		outSw.Start();
 		Glow.FadeOut();
+		// 혹시 애니메이션이 돌지 않아도 0.7초 뒤에는 꼭 닫혀요
+		System.Windows.Forms.Timer hard = new System.Windows.Forms.Timer(); hard.Interval = 700;
+		hard.Tick += delegate { hard.Stop(); hard.Dispose(); try { if (!IsDisposed && Closing) { anim.Stop(); Close(); } } catch { } };
+		hard.Start();
 	}
+	// 닫히는 중인 창도 다시 누르면 바로 사라져요
+	protected override void OnMouseDown(MouseEventArgs e) { if (Closing) { Dismiss(); return; } base.OnMouseDown(e); }
 
 	private void Snooze(int min)
 	{
-		if (Closing) return;
+		if (Closing) { Dismiss(); return; }
 		Program.DoSnooze(Slot, min);
 		Dismiss();
 	}
 
 	private void Skip()
 	{
-		if (Closing || resultView) return;
+		if (Closing) { Dismiss(); return; }
+		if (resultView) return;
 		Program.SkipSlot(Slot);
 		Dismiss();
 	}
 
 	private void Confirm()
 	{
-		if (Closing || resultView) return;
+		if (Closing) { Dismiss(); return; }
+		if (resultView) { Dismiss(); return; }
 		bool added = false, dup = false;
 		if (!Slot.Test)
 		{

@@ -5,41 +5,56 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
 
-// ── 마룡이 솔리테어: 솔리테어(클론다이크) 판 + 발라트로식 포커 족보 점수 ──
-//  8줄 카드의 맨 위 카드로 족보를 만들어 내요(최대 5장). 칩 × 배수로 목표 점수를 넘기면 다음 판, 판을 깰 때마다 부적을 하나 골라요.
-//  카드를 끌어서 색이 다르고 숫자가 1 큰 카드 위에 놓으면(솔리테어 규칙) 공짜로 옮겨지고 밑에 숨은 카드가 열려요.
+// ── 마룡이 솔리테어 (발라트로식 포커) ──
+//  손패 8장 중 최대 5장을 위쪽 판으로 끌어 올려 포커 족보를 만들고 [내기]. 점수 = (족보 칩 + 카드 칩) × 배수.
+//  판마다 핸드 4번 · 버리기 3번 안에 목표 점수를 넘기면 다음 판 + 부적(조커) 하나. 낸·버린 만큼 덱에서 다시 받아요.
 internal sealed class SoliGame : MiniGame
 {
 	public override bool NoLimit { get { return true; } }
 	public override string Name { get { return "마룡이 솔리테어"; } }
 	public override string Key { get { return "soli"; } }
-	public override string Desc { get { return "솔리테어 + 포커 족보로 목표 점수 넘기기"; } }
-	public override string Help { get { return "8줄 카드의 맨 위 카드를 눌러 골라요 (최대 5장) → [내기]로 포커 족보 점수!\n점수 = (족보 칩 + 카드 칩) × 배수 · 판마다 핸드 5번(보스 판 4번)·버리기 3번 안에 목표 점수를 넘겨요\n솔리테어 규칙: 카드를 끌어서 색이 다르고 숫자가 1 큰 카드 위에 놓으면 공짜로 옮겨지고 밑의 카드가 열려요\n카드는 마룡이 타로 마이너 카드예요: 검=♠ · 컵=♥(빨강) · 펜타클=♦(빨강) · 완드=♣ · J=기사 · Q=여왕 · K=왕\n판을 깨면 마룡이 부적(조커)을 골라요 · 부적은 최대 5개 · 3판마다 목표가 커져요"; } }
+	public override string Desc { get { return "발라트로식 포커 · 족보로 목표 점수 넘기기"; } }
+	public override string Help { get { return "손패 카드를 위쪽 판으로 끌어 올려요 (눌러도 올라가요 · 최대 5장)\n[내기]를 누르면 포커 족보로 점수! 점수 = (족보 칩 + 카드 칩) × 배수\n판마다 핸드 4번 · 버리기 3번 안에 목표 점수를 넘기면 다음 판으로 가고 부적을 하나 골라요\n필요 없는 카드는 판에 올리고 [버리기] → 새 카드로 바꿔요\n카드는 마룡이 타로 마이너 카드예요: 검=♠ · 컵=♥ · 펜타클=♦ · 완드=♣ · J=기사 · Q=여왕 · K=왕"; } }
 	public override string RightText { get { return "판 " + (round + 1); } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{
 		CardFace(g, new RectangleF(cx - 20, cy - 16, 22, 30), 14, 1, false, 1f); CardFace(g, new RectangleF(cx - 2, cy - 12, 22, 30), 13, 0, false, 1f);
 	}
-	private class Cd { public int R, Su; public bool Up; }
-	private readonly List<Cd>[] col = new List<Cd>[8]; private readonly List<Cd> stock = new List<Cd>(); private readonly List<int> sel = new List<int>(); private readonly List<int> jok = new List<int>();
-	private int round, hands, discards, phase; private long roundScore, target; private float shownScore, popT, msgT; private string pop = "", msg = ""; private int[] offer = new int[3]; private float dragX, dragY; private int dragCol = -1; private float shakeCard;
+	private class Cd { public int R, Su; public float X, Y, A = 1f, Lift; public bool Fly; public float Vy; }
+	private readonly List<Cd> deck = new List<Cd>(), hand = new List<Cd>(), staged = new List<Cd>(), flying = new List<Cd>(); private readonly List<int> jok = new List<int>();
+	private int round, hands, discards, phase, sortMode; private bool autoSort = true; private long roundScore, target; private float shownScore, popT, msgT; private string pop = "", msg = ""; private int[] offer = new int[3];
+	private Cd drag; private bool dragFromStage, dragging; private float grabX, grabY, downX, downY, shake; private Cd hover;
+	private bool showRules, showTable; private static bool rulesSeen;
 	private static readonly string[] HName = { "하이 카드", "원 페어", "투 페어", "트리플", "스트레이트", "플러시", "풀 하우스", "포카드", "스트레이트 플러시" };
+	private static readonly string[] HEx = { "가장 높은 카드 1장", "같은 숫자 2장", "같은 숫자 2장 × 2쌍", "같은 숫자 3장", "숫자 5장이 연속 (5 6 7 8 9)", "같은 무늬 5장", "트리플 + 원 페어", "같은 숫자 4장", "같은 무늬로 연속 5장" };
 	private static readonly int[] HChip = { 5, 10, 20, 30, 30, 35, 40, 60, 100 }, HMult = { 1, 2, 2, 3, 4, 4, 4, 7, 8 };
 	private static readonly string[] JName = { "마룡이 미소", "볼터치", "날개", "지팡이 뿔", "공무원증", "커피 한 잔", "별사탕", "결재 도장", "야근 수당", "1등 마룡", "짝수 좋아", "홀수 좋아" };
-	private static readonly string[] JDesc = { "항상 +4 배수", "페어가 들어간 족보면 +8 배수", "플러시면 배수 ×2", "스트레이트면 +15 배수", "항상 +50 칩", "낸 하트 카드마다 +3 배수", "낸 그림 카드(J·Q·K)마다 +20 칩", "판의 마지막 핸드면 배수 ×3", "남은 버리기 1번마다 +20 칩", "낸 A 카드마다 +5 배수", "낸 짝수 카드마다 +4 배수", "낸 홀수 카드(A 포함)마다 +25 칩" };
+	private static readonly string[] JDesc = { "항상 +4 배수", "페어가 들어간 족보면 +8 배수", "플러시면 배수 ×2", "스트레이트면 +15 배수", "항상 +50 칩", "점수 낸 컵(♥) 카드마다 +3 배수", "점수 낸 그림 카드(J·Q·K)마다 +20 칩", "판의 마지막 핸드면 배수 ×3", "남은 버리기 1번마다 +20 칩", "점수 낸 A 카드마다 +5 배수", "점수 낸 짝수 카드마다 +4 배수", "점수 낸 홀수 카드(A 포함)마다 +25 칩" };
+	private const int HandMax = 8;
 	public override void Reset()
 	{
 		round = 0; jok.Clear(); Score = 0; Over = false; NewRound();
+		if (!rulesSeen) { rulesSeen = true; showRules = true; }
 	}
 	private void NewRound()
 	{
-		List<Cd> deck = new List<Cd>(); for (int s = 0; s < 4; s++) for (int r = 2; r <= 14; r++) deck.Add(new Cd { R = r, Su = s });
+		deck.Clear(); hand.Clear(); staged.Clear(); flying.Clear(); drag = null;
+		for (int s = 0; s < 4; s++) for (int r = 2; r <= 14; r++) deck.Add(new Cd { R = r, Su = s });
 		for (int i = deck.Count - 1; i > 0; i--) { int j = Rnd.Next(i + 1); Cd t = deck[i]; deck[i] = deck[j]; deck[j] = t; }
-		int k = 0; for (int c = 0; c < 8; c++) { col[c] = new List<Cd>(); for (int d = 0; d < 4; d++) { Cd cd = deck[k++]; cd.Up = d == 3; col[c].Add(cd); } }
-		stock.Clear(); while (k < deck.Count) stock.Add(deck[k++]);
-		int ante = round / 3, kind = round % 3; target = (long)(Math.Round(260 * Math.Pow(1.6, ante) * (kind == 0 ? 1.0 : (kind == 1 ? 1.4 : 1.8)) / 10.0) * 10);
-		hands = kind == 2 ? 4 : 5; discards = 3; roundScore = 0; shownScore = 0; sel.Clear(); phase = 0;
-		msg = kind == 2 ? "보스 판! 핸드가 4번뿐이에요" : (kind == 1 ? "큰 판" : "작은 판"); msgT = 2.2f;
+		int ante = round / 3, kind = round % 3; target = (long)(Math.Round(300 * Math.Pow(1.8, ante) * (kind == 0 ? 1.0 : (kind == 1 ? 1.5 : 2.0)) / 10.0) * 10);
+		hands = 4; discards = 3; roundScore = 0; shownScore = 0; phase = 0; autoSort = true;
+		DrawUp();
+		msg = kind == 2 ? "보스 판! 목표가 두 배예요" : (kind == 1 ? "큰 판" : "작은 판"); msgT = 2.2f;
+	}
+	private void DrawUp()
+	{
+		int k = 0; while (hand.Count < HandMax && deck.Count > 0) { Cd d = deck[deck.Count - 1]; deck.RemoveAt(deck.Count - 1); d.X = 430f + k * 20f; d.Y = HandY; d.A = 1f; d.Fly = false; hand.Add(d); k++; }
+		if (autoSort) SortHand();
+	}
+	private void SortHand()
+	{
+		List<Cd> s = sortMode == 0 ? hand.OrderByDescending(c => c.R).ThenBy(c => c.Su).ToList() : hand.OrderBy(c => c.Su).ThenByDescending(c => c.R).ToList();
+		hand.Clear(); hand.AddRange(s);
 	}
 	private static bool Red(int su) { return su == 1 || su == 2; }
 	private static int Chip(int r) { return r == 14 ? 11 : (r > 10 ? 10 : r); }
@@ -61,10 +76,9 @@ internal sealed class SoliGame : MiniGame
 		if (groups[0].Count() == 2) { scoring.AddRange(groups[0]); return 1; }
 		scoring.Add(cs.OrderByDescending(c => c.R).First()); return 0;
 	}
-	private List<Cd> Picked() { List<Cd> l = new List<Cd>(); foreach (int c in sel) if (col[c].Count > 0) l.Add(col[c][col[c].Count - 1]); return l; }
-	private void Calc(List<Cd> cs, out int ht, out long chips, out double mult)
+	private void Calc(List<Cd> cs, out int ht, out long chips, out double mult, out List<Cd> sc)
 	{
-		List<Cd> sc; ht = Eval(cs, out sc); chips = 0; mult = 0; if (ht < 0) return;
+		ht = Eval(cs, out sc); chips = 0; mult = 0; if (ht < 0) return;
 		chips = HChip[ht]; mult = HMult[ht]; foreach (Cd c in sc) chips += Chip(c.R);
 		double xm = 1.0; bool pairish = ht == 1 || ht == 2 || ht == 3 || ht == 6 || ht == 7;
 		foreach (int j in jok)
@@ -85,50 +99,53 @@ internal sealed class SoliGame : MiniGame
 			}
 		mult *= xm;
 	}
-	private void Reveal(int c)
-	{
-		if (col[c].Count == 0 && stock.Count > 0) { Cd d = stock[stock.Count - 1]; stock.RemoveAt(stock.Count - 1); d.Up = true; col[c].Add(d); }
-		else if (col[c].Count > 0) col[c][col[c].Count - 1].Up = true;
-	}
-	private void Remove(List<int> cols) { foreach (int c in cols.OrderByDescending(x => x)) if (col[c].Count > 0) col[c].RemoveAt(col[c].Count - 1); foreach (int c in cols) Reveal(c); }
-	private bool AnyCard { get { for (int c = 0; c < 8; c++) if (col[c].Count > 0) return true; return false; } }
+	private void FlyAway(List<Cd> cs, bool up) { foreach (Cd c in cs) { c.Fly = true; c.Vy = up ? -520f : 260f; flying.Add(c); } }
 	private void Play()
 	{
-		if (phase != 0 || sel.Count == 0 || hands <= 0) return;
-		int ht; long ch; double mu; Calc(Picked(), out ht, out ch, out mu); long pts = (long)Math.Round(ch * mu);
-		roundScore += pts; Score += (int)Math.Min(int.MaxValue / 4, pts); hands--; pop = HName[ht] + "  " + ch + " × " + (mu % 1 == 0 ? mu.ToString("0") : mu.ToString("0.#")) + " = " + pts; popT = 2.2f;
-		Sfx.Play(ht >= 4 ? "fanfare" : "ok2"); if (ht >= 5) { Shake = 0.35f; Fx.Burst(200, 300, Color.FromArgb(255, 220, 120), 24); }
-		Remove(new List<int>(sel)); sel.Clear();
+		if (phase != 0 || staged.Count == 0 || hands <= 0) return;
+		int ht; long ch; double mu; List<Cd> sc; Calc(staged, out ht, out ch, out mu, out sc); long pts = (long)Math.Round(ch * mu);
+		roundScore += pts; Score += (int)Math.Min(int.MaxValue / 4, pts); hands--; pop = HName[ht] + "   " + ch + " × " + (mu % 1 == 0 ? mu.ToString("0") : mu.ToString("0.#")) + " = " + pts.ToString("N0"); popT = 2.2f;
+		Sfx.Play(ht >= 4 ? "fanfare" : "ok2"); if (ht >= 5) { Shake = 0.35f; Fx.Burst(200, 250, Color.FromArgb(255, 220, 120), 24); }
+		FlyAway(staged, true); staged.Clear();
 		if (roundScore >= target) { phase = 1; Sfx.Play("fanfare"); MakeOffer(); msg = "목표 달성! 부적을 하나 골라요"; msgT = 3f; return; }
-		if (hands <= 0 || !AnyCard) { phase = 2; msg = "목표 " + target + "점에 못 미쳤어요"; msgT = 9f; Sfx.Play("bad2"); Over = true; }
+		DrawUp();
+		if (hands <= 0 || hand.Count == 0) { phase = 2; msg = "목표 " + target.ToString("N0") + "점에 못 미쳤어요"; msgT = 9f; Sfx.Play("bad2"); Over = true; }
 	}
 	private void Discard()
 	{
-		if (phase != 0 || sel.Count == 0 || discards <= 0) return;
-		discards--; Remove(new List<int>(sel)); sel.Clear(); Sfx.Play("swing");
+		if (phase != 0 || staged.Count == 0 || discards <= 0) return;
+		discards--; FlyAway(staged, false); staged.Clear(); DrawUp(); Sfx.Play("swing");
 	}
 	private void MakeOffer()
 	{
 		List<int> pool = Enumerable.Range(0, JName.Length).Where(j => !jok.Contains(j)).ToList();
 		for (int i = 0; i < 3; i++) { if (pool.Count == 0) { offer[i] = -1; continue; } int k = Rnd.Next(pool.Count); offer[i] = pool[k]; pool.RemoveAt(k); }
 	}
-	// 화면 배치
-	private const float CW = 44f, CH = 62f, TopY = 166f;
-	private float ColX(int c) { return 10f + c * (CW + 4f); }
-	private float Step(int c, int i) { int n = col[c].Count; float down = 9f, up = 19f; float need = 0; for (int k = 0; k < n - 1; k++) need += col[c][k].Up ? up : down; float room = 420f - TopY - CH; float sq = need > room ? room / need : 1f; return (col[c][i].Up ? up : down) * sq; }
-	private RectangleF CardR(int c, int i) { float y = TopY; for (int k = 0; k < i; k++) y += Step(c, k); bool lifted = i == col[c].Count - 1 && sel.Contains(c); return new RectangleF(ColX(c), y - (lifted ? 10f : 0f), CW, CH); }
-	private RectangleF PlayBtn { get { return new RectangleF(20, 512, 172, 46); } }
-	private RectangleF DiscBtn { get { return new RectangleF(208, 512, 172, 46); } }
+	// ── 화면 배치 ──
+	private const float HCW = 58f, HCH = 84f, HandY = 392f, SCW = 64f, SCH = 92f, StageY = 186f;
+	private static readonly RectangleF Zone = new RectangleF(14, 166, 372, 186);
+	private float HandStep { get { int n = Math.Max(1, hand.Count); return n <= 1 ? 0f : Math.Min(HCW + 6f, (372f - HCW) / (n - 1)); } }
+	private PointF HandPos(int i) { int n = hand.Count; float st = HandStep, total = st * (n - 1) + HCW, x0 = 200f - total / 2f; float mid = (n - 1) / 2f, off = i - mid; return new PointF(x0 + st * i, HandY + off * off * 1.1f); }
+	private PointF StagePos(int i) { int n = staged.Count; float st = SCW + 6f, total = st * (n - 1) + SCW, x0 = 200f - total / 2f; return new PointF(x0 + st * i, StageY); }
+	private RectangleF PlayBtn { get { return new RectangleF(16, 500, 178, 46); } }
+	private RectangleF DiscBtn { get { return new RectangleF(206, 500, 178, 46); } }
+	private RectangleF TableBtn { get { return new RectangleF(16, 554, 118, 32); } }
+	private RectangleF SortBtn { get { return new RectangleF(141, 554, 118, 32); } }
+	private RectangleF RuleBtn { get { return new RectangleF(266, 554, 118, 32); } }
 	private RectangleF OfferR(int i) { return new RectangleF(22 + i * 122, 230, 112, 170); }
 	private RectangleF SkipBtn { get { return new RectangleF(130, 420, 140, 40); } }
-	private int TopAt(float x, float y)
+	private RectangleF CardRect(Cd c, bool stagedCard) { float w = stagedCard ? SCW : HCW, h = stagedCard ? SCH : HCH; return new RectangleF(c.X, c.Y - c.Lift, w, h); }
+	private Cd HitCard(float x, float y, out bool fromStage)
 	{
-		for (int c = 0; c < 8; c++) { int n = col[c].Count; if (n == 0) continue; RectangleF r = CardR(c, n - 1); r.Inflate(2, 4); if (r.Contains(x, y)) return c; }
-		return -1;
+		fromStage = false;
+		for (int i = staged.Count - 1; i >= 0; i--) if (CardRect(staged[i], true).Contains(x, y)) { fromStage = true; return staged[i]; }
+		for (int i = hand.Count - 1; i >= 0; i--) { RectangleF r = CardRect(hand[i], false); r.Height += hand[i].Lift; if (r.Contains(x, y)) return hand[i]; }
+		return null;
 	}
 	public override void Click(float x, float y)
 	{
-		dragX = x; dragY = y; dragCol = -1;
+		if (showRules) { showRules = false; Sfx.Play("ui_click"); return; }
+		if (showTable) { showTable = false; Sfx.Play("ui_click"); return; }
 		if (phase == 1)
 		{
 			for (int i = 0; i < 3; i++) if (offer[i] >= 0 && OfferR(i).Contains(x, y)) { if (jok.Count < 5) jok.Add(offer[i]); else jok[jok.Count - 1] = offer[i]; Sfx.Play("ok"); Next(); return; }
@@ -138,30 +155,58 @@ internal sealed class SoliGame : MiniGame
 		if (phase != 0) return;
 		if (PlayBtn.Contains(x, y)) { Play(); return; }
 		if (DiscBtn.Contains(x, y)) { Discard(); return; }
-		int c = TopAt(x, y); if (c < 0) return; dragCol = c;
-		if (sel.Contains(c)) sel.Remove(c); else if (sel.Count < 5) sel.Add(c); else { shakeCard = 0.3f; Sfx.Play("bad"); return; }
-		Sfx.Play("ui_click");
+		if (TableBtn.Contains(x, y)) { showTable = true; Sfx.Play("ui_click"); return; }
+		if (RuleBtn.Contains(x, y)) { showRules = true; Sfx.Play("ui_click"); return; }
+		if (SortBtn.Contains(x, y)) { sortMode = 1 - sortMode; autoSort = true; SortHand(); Sfx.Play("flip"); msg = sortMode == 0 ? "숫자 순으로 정렬" : "무늬 순으로 정렬"; msgT = 1.2f; return; }
+		bool fs; Cd c = HitCard(x, y, out fs); if (c == null) return;
+		drag = c; dragFromStage = fs; dragging = false; downX = x; downY = y; grabX = x - c.X; grabY = y - (c.Y - c.Lift);
 	}
-	public override void Swipe(float dx, float dy)
+	// 놓았을 때: 거의 안 움직였으면 '눌러서 올리기/내리기', 끌었으면 놓은 자리에 따라 판에 올리기 · 손으로 내리기 · 손패 순서 바꾸기
+	private void Release(float x, float y)
 	{
-		// 카드를 끌어 다른 줄 위에 놓기 (솔리테어 규칙: 색이 다르고 숫자가 1 큰 카드 위)
-		if (phase != 0 || dragCol < 0) return; int from = dragCol; dragCol = -1; int to = TopAt(dragX + dx, dragY + dy); sel.Remove(from);
-		if (to < 0 || to == from || col[from].Count == 0) return;
-		Cd a = col[from][col[from].Count - 1], b = col[to][col[to].Count - 1];
-		if (b.R == a.R + 1 && Red(a.Su) != Red(b.Su)) { col[from].RemoveAt(col[from].Count - 1); col[to].Add(a); sel.Remove(to); Reveal(from); Sfx.Play("ok"); msg = "옮겼어요! 밑의 카드가 열렸어요"; msgT = 1.4f; }
-		else { msg = "색이 다르고 숫자가 1 큰 카드 위에만 놓을 수 있어요"; msgT = 2f; Sfx.Play("bad"); }
+		Cd c = drag; drag = null; if (c == null) return;
+		bool inZone = y < Zone.Bottom + 12f;
+		if (!dragging) inZone = !dragFromStage;   // 그냥 누른 경우: 손에 있으면 올리고, 판에 있으면 내려요
+		if (inZone)
+		{
+			if (dragFromStage) { Sfx.Play("ui_click"); return; }
+			if (staged.Count >= 5) { msg = "판에는 5장까지 올릴 수 있어요"; msgT = 1.6f; shake = 0.3f; Sfx.Play("bad"); return; }
+			hand.Remove(c); int at = staged.Count; for (int i = 0; i < staged.Count; i++) if (x < staged[i].X + SCW / 2f) { at = i; break; } if (!dragging) at = staged.Count;
+			staged.Insert(at, c); Sfx.Play("flip");
+		}
+		else
+		{
+			if (dragFromStage) { staged.Remove(c); hand.Add(c); }
+			else hand.Remove(c);
+			int at = hand.Count; for (int i = 0; i < hand.Count; i++) if (x < hand[i].X + HCW / 2f) { at = i; break; }
+			hand.Insert(at, c); if (dragging) autoSort = false; else if (autoSort) SortHand();
+			Sfx.Play("ui_click");
+		}
 	}
 	private void Next() { round++; NewRound(); }
 	public override void Press(Keys k)
 	{
+		if (showRules || showTable) { showRules = showTable = false; return; }
 		if (k == Keys.Enter || k == Keys.Space) Play(); else if (k == Keys.D || k == Keys.Back) Discard();
-		else if (k >= Keys.D1 && k <= Keys.D8 && phase == 0) Click(ColX(k - Keys.D1) + CW / 2f, CardR(k - Keys.D1, Math.Max(0, col[k - Keys.D1].Count - 1)).Y + 20f);
+		else if (k >= Keys.D1 && k <= Keys.D8 && phase == 0) { int i = k - Keys.D1; if (i < hand.Count) { if (staged.Count < 5) { Cd c = hand[i]; hand.RemoveAt(i); staged.Add(c); Sfx.Play("flip"); } else { msg = "판에는 5장까지 올릴 수 있어요"; msgT = 1.6f; } } }
 	}
 	public override void Update(float dt, GameInput inp, double t)
 	{
-		if (popT > 0f) popT -= dt; if (msgT > 0f) msgT -= dt; if (shakeCard > 0f) shakeCard -= dt;
+		if (popT > 0f) popT -= dt; if (msgT > 0f) msgT -= dt; if (shake > 0f) shake -= dt;
 		shownScore += (roundScore - shownScore) * Math.Min(1f, dt * 6f); if (Math.Abs(roundScore - shownScore) < 1f) shownScore = roundScore;
-		if (inp.MouseMoved && dragCol < 0) { }
+		// 끌기
+		if (drag != null)
+		{
+			if (!dragging && Math.Abs(inp.Mx - downX) + Math.Abs(inp.My - downY) > 7f) dragging = true;
+			if (inp.Hold) { if (dragging) { drag.X = inp.Mx - grabX; drag.Y = inp.My - grabY + drag.Lift; } }
+			else Release(inp.Mx, inp.My);
+		}
+		// 마우스를 올린 손패 카드는 살짝 들어요
+		hover = null; if (drag == null && phase == 0 && !showRules && !showTable) { bool fs; Cd h = HitCard(inp.Mx, inp.My, out fs); if (h != null && !fs) hover = h; }
+		float k = 1f - (float)Math.Exp(-dt * 16f);
+		for (int i = 0; i < hand.Count; i++) { Cd c = hand[i]; float lt = c == hover ? 12f : 0f; c.Lift += (lt - c.Lift) * k; if (c == drag && dragging) continue; PointF p = HandPos(i); c.X += (p.X - c.X) * k; c.Y += (p.Y - c.Y) * k; }
+		for (int i = 0; i < staged.Count; i++) { Cd c = staged[i]; c.Lift += (0f - c.Lift) * k; if (c == drag && dragging) continue; PointF p = StagePos(i); c.X += (p.X - c.X) * k; c.Y += (p.Y - c.Y) * k; }
+		for (int i = flying.Count - 1; i >= 0; i--) { Cd c = flying[i]; c.Y += c.Vy * dt; c.A -= dt * 2.2f; if (c.A <= 0f) flying.RemoveAt(i); }
 	}
 	// ── 그리기 ──
 	private static void Suit(Graphics g, int su, float cx, float cy, float s, Color c)
@@ -246,12 +291,12 @@ internal sealed class SoliGame : MiniGame
 		Panel(g, new RectangleF(10, 40, 380, 64), 150);
 		int kind = round % 3; string bn = (kind == 0 ? "작은 판" : (kind == 1 ? "큰 판" : "보스 판")) + "  ·  " + (round / 3 + 1) + "단계";
 		Txt(g, bn, 9.5f, 2, kind == 2 ? Color.FromArgb(255, 160, 160) : Color.FromArgb(200, 235, 255), 20, 44, 200, 18, StringAlignment.Near);
-		Txt(g, "목표 " + target.ToString("N0"), 10f, 2, Color.FromArgb(255, 220, 120), 200, 44, 180, 18, StringAlignment.Far);
+		Txt(g, "목표 " + target.ToString("N0") + "점", 10f, 2, Color.FromArgb(255, 220, 120), 200, 44, 180, 18, StringAlignment.Far);
 		float fr = (float)Math.Min(1.0, shownScore / Math.Max(1.0, target));
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(20, 66, 360, 12), 6)) using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 0, 0, 0))) g.FillPath(b, gp);
 		if (fr > 0.01f) using (GraphicsPath gp = Gfx.Round(new RectangleF(20, 66, 360 * fr, 12), 6)) using (SolidBrush b = new SolidBrush(fr >= 1f ? Color.FromArgb(120, 230, 140) : Color.FromArgb(90, 200, 255))) g.FillPath(b, gp);
 		Txt(g, ((long)shownScore).ToString("N0") + "점", 11f, 2, Color.White, 20, 80, 160, 22, StringAlignment.Near);
-		Txt(g, "핸드 " + hands + "  ·  버리기 " + discards + "  ·  더미 " + stock.Count, 9.5f, 1, Color.FromArgb(220, 230, 240), 170, 80, 210, 22, StringAlignment.Far);
+		Txt(g, "핸드 " + hands + "  ·  버리기 " + discards + "  ·  덱 " + deck.Count + "장", 9.5f, 1, Color.FromArgb(220, 230, 240), 150, 80, 230, 22, StringAlignment.Far);
 		// 부적
 		for (int i = 0; i < 5; i++)
 		{
@@ -259,36 +304,41 @@ internal sealed class SoliGame : MiniGame
 			if (i < jok.Count) { using (GraphicsPath gp = Gfx.Round(r, 10)) { using (LinearGradientBrush lb = new LinearGradientBrush(r, Color.FromArgb(250, 120, 90, 200), Color.FromArgb(250, 70, 50, 140), 90f)) g.FillPath(lb, gp); using (Pen p = new Pen(Color.FromArgb(200, 255, 220, 120), 1.4f)) g.DrawPath(p, gp); } Txt(g, JName[jok[i]], 8.5f, 2, Color.White, r.X + 2, r.Y + 2, r.Width - 4, r.Height - 4, StringAlignment.Center, true); }
 			else { using (GraphicsPath gp = Gfx.Round(r, 10)) using (Pen p = new Pen(Color.FromArgb(70, 255, 255, 255), 1.2f) { DashStyle = DashStyle.Dash }) g.DrawPath(p, gp); Txt(g, "부적", 8.5f, 1, Color.FromArgb(90, 255, 255, 255), r.X, r.Y, r.Width, r.Height, StringAlignment.Center); }
 		}
-		// 카드 판
-		for (int c = 0; c < 8; c++)
+		// 내는 판 (여기로 끌어 올려요)
+		bool hot = drag != null && dragging && !dragFromStage && drag.Y - drag.Lift < Zone.Bottom + 12f;
+		using (GraphicsPath gp = Gfx.Round(Zone, 16)) { using (SolidBrush b = new SolidBrush(Color.FromArgb(hot ? 70 : 40, 0, 0, 0))) g.FillPath(b, gp); using (Pen p = new Pen(Color.FromArgb(hot ? 220 : 90, 255, 230, 150), hot ? 2.4f : 1.4f) { DashStyle = DashStyle.Dash }) g.DrawPath(p, gp); }
+		List<Cd> sc = null; int ht = -1; long ch = 0; double mu = 0;
+		if (staged.Count > 0) Calc(staged, out ht, out ch, out mu, out sc);
+		if (staged.Count == 0 && phase == 0)
 		{
-			if (col[c] == null) continue;
-			if (col[c].Count == 0) { RectangleF r0 = new RectangleF(ColX(c), TopY, CW, CH); using (GraphicsPath gp = Gfx.Round(r0, 6)) using (Pen p = new Pen(Color.FromArgb(60, 255, 255, 255), 1.4f) { DashStyle = DashStyle.Dash }) g.DrawPath(p, gp); continue; }
-			for (int i = 0; i < col[c].Count; i++)
-			{
-				RectangleF r = CardR(c, i); Cd cd = col[c][i]; bool top = i == col[c].Count - 1, hi = top && sel.Contains(c);
-				if (hi && shakeCard > 0f) r.X += (float)Math.Sin(t * 60) * 2f;
-				if (cd.Up) CardFace(g, r, cd.R, cd.Su, hi, 1f); else CardBack(g, r);
-			}
+			Txt(g, "여기로 카드를 끌어 올려요", 13f, 2, Color.FromArgb(150, 255, 240, 200), Zone.X, Zone.Y + 50, Zone.Width, 26, StringAlignment.Center);
+			Txt(g, "(카드를 눌러도 올라가요 · 최대 5장)", 9.5f, 1, Color.FromArgb(120, 230, 240, 230), Zone.X, Zone.Y + 80, Zone.Width, 20, StringAlignment.Center);
 		}
-		// 고른 카드 미리 보기
-		List<Cd> pk = Picked();
+		foreach (Cd c in staged) { if (c == drag && dragging) continue; RectangleF r = CardRect(c, true); if (shake > 0f) r.X += (float)Math.Sin(t * 60) * 2f; CardFace(g, r, c.R, c.Su, sc != null && sc.Contains(c), 1f); }
+		if (ht >= 0)
+		{
+			Txt(g, HName[ht], 13f, 2, Color.FromArgb(255, 226, 130), Zone.X, Zone.Bottom - 56, Zone.Width, 24, StringAlignment.Center);
+			Txt(g, ch + " 칩  ×  " + (mu % 1 == 0 ? mu.ToString("0") : mu.ToString("0.#")) + " 배수  =  " + ((long)Math.Round(ch * mu)).ToString("N0") + "점", 10.5f, 2, Color.White, Zone.X, Zone.Bottom - 32, Zone.Width, 22, StringAlignment.Center);
+		}
+		// 손패
+		Txt(g, "내 손패 · 아래로 끌면 손으로 돌아와요", 8.5f, 1, Color.FromArgb(120, 220, 235, 225), 14, 362, 372, 18, StringAlignment.Center);
+		foreach (Cd c in hand) { if (c == drag && dragging) continue; CardFace(g, CardRect(c, false), c.R, c.Su, c == hover, 1f); }
+		foreach (Cd c in flying) { RectangleF r = new RectangleF(c.X, c.Y, SCW, SCH); GraphicsState gs = g.Save(); CardFace(g, r, c.R, c.Su, false, c.A); g.Restore(gs); }
+		if (drag != null && dragging) { RectangleF r = CardRect(drag, dragFromStage); r.Inflate(3, 4); CardFace(g, r, drag.R, drag.Su, true, 1f); }
 		if (phase == 0)
 		{
-			Panel(g, new RectangleF(10, 444, 380, 58), 140);
-			if (pk.Count > 0) { int ht; long ch; double mu; Calc(pk, out ht, out ch, out mu); Txt(g, HName[ht], 13f, 2, Color.FromArgb(255, 226, 130), 20, 448, 360, 24, StringAlignment.Center); Txt(g, ch + " 칩  ×  " + (mu % 1 == 0 ? mu.ToString("0") : mu.ToString("0.#")) + " 배수  =  " + ((long)Math.Round(ch * mu)).ToString("N0"), 10.5f, 1, Color.White, 20, 474, 360, 22, StringAlignment.Center); }
-			else Txt(g, "맨 위 카드를 눌러 골라요 · 끌어서 옮기면 솔리테어 이동", 10f, 1, Color.FromArgb(210, 230, 240), 20, 448, 360, 48, StringAlignment.Center, true);
-			Button(g, PlayBtn, "내기 (" + hands + ")", Color.FromArgb(40, 150, 240), sel.Count > 0 && hands > 0);
-			Button(g, DiscBtn, "버리기 (" + discards + ")", Color.FromArgb(230, 90, 90), sel.Count > 0 && discards > 0);
+			Button(g, PlayBtn, "내기 ▶ (" + hands + ")", Color.FromArgb(40, 150, 240), staged.Count > 0 && hands > 0);
+			Button(g, DiscBtn, "버리기 (" + discards + ")", Color.FromArgb(230, 90, 90), staged.Count > 0 && discards > 0);
+			SmallBtn(g, TableBtn, "족보표"); SmallBtn(g, SortBtn, sortMode == 0 ? "정렬: 숫자" : "정렬: 무늬"); SmallBtn(g, RuleBtn, "규칙");
 		}
-		if (popT > 0f) { float a = Math.Min(1f, popT * 2f), yy = 300f - (2.2f - popT) * 18f; Panel(g, new RectangleF(30, yy - 22, 340, 44), (int)(200 * a)); Txt(g, pop, 13f, 2, Color.FromArgb((int)(255 * a), 255, 230, 120), 30, yy - 22, 340, 44, StringAlignment.Center); }
-		if (msgT > 0f && popT <= 0f && phase != 1) Hint(g, msg, 425, 11f, true, Math.Min(1f, msgT * 2f));
+		if (popT > 0f) { float a = Math.Min(1f, popT * 2f), yy = 250f - (2.2f - popT) * 18f; Panel(g, new RectangleF(24, yy - 24, 352, 48), (int)(210 * a)); Txt(g, pop, 13f, 2, Color.FromArgb((int)(255 * a), 255, 230, 120), 24, yy - 24, 352, 48, StringAlignment.Center); }
+		if (msgT > 0f && popT <= 0f && phase != 1 && !showRules) Hint(g, msg, Zone.Y + 18, 10.5f, true, Math.Min(1f, msgT * 2f));
 		// 부적 고르기
 		if (phase == 1)
 		{
 			using (SolidBrush b = new SolidBrush(Color.FromArgb(170, 6, 14, 26))) g.FillRectangle(b, 0, 0, W, H);
 			Txt(g, "판 클리어! 부적을 하나 골라요", 15f, 2, Color.FromArgb(255, 230, 130), 0, 170, W, 34, StringAlignment.Center);
-			Txt(g, jok.Count >= 5 ? "부적이 꽉 찼어요 — 고르면 마지막 부적과 바뀌어요" : "부적은 최대 5개까지 가질 수 있어요", 9.5f, 1, Color.FromArgb(220, 230, 240), 0, 202, W, 20, StringAlignment.Center);
+			Txt(g, jok.Count >= 5 ? "부적이 꽉 찼어요 — 고르면 마지막 부적과 바뀌어요" : "부적은 다음 판부터 점수를 올려 줘요 (최대 5개)", 9.5f, 1, Color.FromArgb(220, 230, 240), 0, 202, W, 20, StringAlignment.Center);
 			for (int i = 0; i < 3; i++)
 			{
 				if (offer[i] < 0) continue; RectangleF r = OfferR(i); float bob = (float)Math.Sin(t * 2.4 + i) * 3f; r.Y += bob;
@@ -299,6 +349,42 @@ internal sealed class SoliGame : MiniGame
 			}
 			Button(g, SkipBtn, "건너뛰기", Color.FromArgb(110, 120, 140), true);
 		}
+		if (showTable) DrawTable(g);
+		if (showRules) DrawRules(g);
+	}
+	private void DrawTable(Graphics g)
+	{
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 6, 14, 26))) g.FillRectangle(b, 0, 0, W, H);
+		RectangleF pr = new RectangleF(16, 70, 368, 470); Panel(g, pr, 240);
+		Txt(g, "족보표 (위로 갈수록 점수가 커요)", 13f, 2, Color.FromArgb(255, 226, 130), pr.X, pr.Y + 10, pr.Width, 26, StringAlignment.Center);
+		for (int i = 8; i >= 0; i--)
+		{
+			float y = pr.Y + 46 + (8 - i) * 44f;
+			Txt(g, HName[i], 11f, 2, Color.White, pr.X + 16, y, 150, 22, StringAlignment.Near);
+			Txt(g, HChip[i] + " × " + HMult[i], 11f, 2, Color.FromArgb(140, 210, 255), pr.Right - 116, y, 100, 22, StringAlignment.Far);
+			Txt(g, HEx[i], 9f, 1, Color.FromArgb(200, 215, 225), pr.X + 16, y + 20, pr.Width - 32, 18, StringAlignment.Near);
+		}
+		Txt(g, "카드 칩: 2~10은 숫자대로 · J·Q·K 10 · A 11   (아무 곳이나 누르면 닫혀요)", 8.5f, 1, Color.FromArgb(170, 200, 215, 225), pr.X, pr.Bottom - 26, pr.Width, 18, StringAlignment.Center);
+	}
+	private void DrawRules(Graphics g)
+	{
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(205, 6, 14, 26))) g.FillRectangle(b, 0, 0, W, H);
+		RectangleF pr = new RectangleF(20, 110, 360, 380); Panel(g, pr, 245);
+		Txt(g, "이렇게 해요", 15f, 2, Color.FromArgb(255, 226, 130), pr.X, pr.Y + 14, pr.Width, 28, StringAlignment.Center);
+		string[] st = { "손패에서 카드를 위쪽 판으로 끌어 올려요\n(눌러도 올라가요 · 최대 5장)", "포커 족보를 만들면 점수가 커져요\n점수 = 칩 × 배수 (판에 바로 보여요)", "[내기]는 4번! 그 안에 목표 점수를 넘기면\n다음 판으로 가고 부적을 하나 받아요", "필요 없는 카드는 판에 올리고 [버리기]\n→ 새 카드로 바꿔요 (3번)" };
+		for (int i = 0; i < st.Length; i++)
+		{
+			float y = pr.Y + 56 + i * 72f;
+			using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 40, 150, 240))) g.FillEllipse(b, pr.X + 18, y + 6, 28, 28);
+			Txt(g, (i + 1).ToString(), 12f, 2, Color.White, pr.X + 18, y + 6, 28, 28, StringAlignment.Center);
+			Txt(g, st[i], 10.5f, 1, Color.White, pr.X + 56, y, pr.Width - 70, 46, StringAlignment.Near, true);
+		}
+		Txt(g, "아무 곳이나 누르면 시작해요", 10f, 2, Color.FromArgb(200, 255, 230, 150), pr.X, pr.Bottom - 34, pr.Width, 22, StringAlignment.Center);
+	}
+	private static void SmallBtn(Graphics g, RectangleF r, string s)
+	{
+		using (GraphicsPath gp = Gfx.Round(r, r.Height / 2f)) { using (SolidBrush b = new SolidBrush(Color.FromArgb(70, 0, 0, 0))) g.FillPath(b, gp); using (Pen p = new Pen(Color.FromArgb(110, 230, 240, 255), 1.2f)) g.DrawPath(p, gp); }
+		Txt(g, s, 9.5f, 2, Color.FromArgb(230, 240, 250), r.X, r.Y, r.Width, r.Height, StringAlignment.Center);
 	}
 	private static void Button(Graphics g, RectangleF r, string s, Color c, bool on)
 	{

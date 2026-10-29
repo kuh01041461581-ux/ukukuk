@@ -566,7 +566,7 @@ internal sealed class JumpGame : MiniGame
 internal sealed class BatGame : MiniGame
 {
 	public override bool NoLimit { get { return true; } }
-	private const int Pitches = 10; private static bool ringDone;   // 안타 이상을 한 번 치면 초록 링 도움이 사라져요
+	private const int Pitches = 10; private static bool ringDone; private static float calib = 0.03f; private float lastDtm = 9f;   // calib: 늘 늦게 누르는 만큼 스윙을 앞당겨 주는 자동 보정(초) · 화면·입력 지연도 함께 메워요   // 안타 이상을 한 번 치면 초록 링 도움이 사라져요
 	private const float CamX = -0.27f, CamY = 1.55f, CamZ = -1.57f, FL = 270f, HorY = 200f;     // 카메라(홈 뒤, 타자 눈높이보다 조금 위)
 	private const float BatL = 1.0f, SwT = 0.22f, Phi0 = -125f, Phi1 = 95f, Tilt = 0.17f;   // 방망이 길이(m) · 스윙 시간 · 시작/끝 각도 · 끝이 살짝 처짐
 	private const float AtkK0 = 0.0012f;   // (공 높이에 따라 달라져요: SetPlane)
@@ -590,7 +590,7 @@ internal sealed class BatGame : MiniGame
 	public override string Name { get { return "야구공 치기"; } }
 	public override string Key { get { return "bat"; } }
 	public override string Desc { get { return "타이밍을 맞춰 시원하게!"; } }
-	public override string Help { get { return "마우스를 위아래로 움직이면 방망이 높이(점선)가 따라와요 → 공 높이(노란 십자)에 맞춰요\n공이 노란 '문'을 지나는 순간 클릭(스페이스)해서 휘둘러요 (처음엔 초록 링이 뜨면 지금! · 안타를 치면 링이 사라져요)\n마우스 커서가 곧 방망이 중심(빨간 띠)이에요 → 점선 원 안으로 공이 지나가면 맞아요 (공이 지나갈 자리는 노란 십자)\n빠르면 왼쪽(당겨 치기) · 늦으면 오른쪽(밀어 치기)\n커브·포크볼·슬라이더 같은 변화구도 와요 (공 위에 구질 이름이 떠요)\n너무 빠르거나 늦으면 파울 · 10구 승부 · 홈런은 100점"; } }
+	public override string Help { get { return "마우스를 위아래로 움직이면 방망이 높이(점선)가 따라와요 → 공 높이(노란 십자)에 맞춰요\n공이 노란 '문'을 지나는 순간 클릭(스페이스)해서 휘둘러요 (초록 링이 줄어들다 공에 딱 닫히는 순간이 치는 때 · 늘 늦게 누르면 저절로 조금 앞당겨 줘요)\n마우스 커서가 곧 방망이 중심(빨간 띠)이에요 → 점선 원 안으로 공이 지나가면 맞아요 (공이 지나갈 자리는 노란 십자)\n빠르면 왼쪽(당겨 치기) · 늦으면 오른쪽(밀어 치기)\n커브·포크볼·슬라이더 같은 변화구도 와요 (공 위에 구질 이름이 떠요)\n너무 빠르거나 늦으면 파울 · 10구 승부 · 홈런은 100점"; } }
 	public override string RightText { get { return Math.Min(idx + 1, Pitches) + " / " + Pitches + "구"; } }
 	public override void Reset() { idx = 0; phase = 0; wait = 0.9; Score = 0; Over = false; res = ""; resT = 0; swinging = false; hit = false; bfOn = false; flKind = -1; hint = ""; fl.Clear(); trail.Clear(); fwT = -1f; }
 	public override void Icon(Graphics g, float cx, float cy)
@@ -634,7 +634,13 @@ internal sealed class BatGame : MiniGame
 		bx = px0 + (xp - hxA - px0) * tau + hxA * tk; by = PY0 + (yp - vyA - PY0) * tau + vyA * tv + rs; bz = PZ0 - pv * t;
 		bvx = ((xp - hxA - px0) + hxA * hxK * (float)Math.Pow(tau, hxK - 1f)) / ptPlate; bvy = ((yp - vyA - PY0) + vyA * vyK * (float)Math.Pow(tau, vyK - 1f) + drs) / ptPlate; bvz = -pv;
 	}
-	public override void Click(float x, float y) { if (phase == 1 && !swinging && !hit) { swinging = true; swT = 0; swingAt = pt; Sfx.Play("swing"); batYh = HandFor(mouseSeen ? mouseH : yp + (float)(Rnd.NextDouble() - 0.5) * 0.10f); } }
+	// 휘두를 때마다 '원래 누른 시각'이 늦은 만큼 보정을 조금씩 맞춰요 (빠르면 보정을 줄여요). 터무니없이 빗나간 건 빼요
+	private void Calibrate(float dtm)
+	{
+		lastDtm = dtm; float raw = dtm + calib; if (Math.Abs(dtm) > 0.25f) return;
+		calib += ((raw > 0f ? raw : 0f) - calib) * 0.35f; calib = Clamp(calib, 0f, 0.12f);
+	}
+	public override void Click(float x, float y) { if (phase == 1 && !swinging && !hit) { swinging = true; swT = calib; swingAt = pt - calib; Sfx.Play("swing"); batYh = HandFor(mouseSeen ? mouseH : yp + (float)(Rnd.NextDouble() - 0.5) * 0.10f); } }
 	public override void Press(Keys k) { if (k == Keys.Space || k == Keys.Enter) Click(0, 0); }
 	private void Phi(float t, out float phi, out float omega)
 	{
@@ -690,7 +696,7 @@ internal sealed class BatGame : MiniGame
 		else if (landD >= 25f) { res = "뜬공 아웃"; resScore = 0; flKind = 2; }
 		else { res = "빗맞았어요"; resScore = 0; flKind = 2; }
 		if (flKind != 3 && hint.Length == 0) hint = azim < -12 ? "당겨 쳤어요 (왼쪽)" : (azim > 12 ? "밀어 쳤어요 (오른쪽)" : "가운데로!");
-		{ float dtm = swingAt - (ptPlate - 0.5f * SwT - 0.015f); float ad = Math.Abs(dtm); if (ad < 0.022f) { timeMsg = "퍼펙트 타이밍!" + (resScore > 0 ? " +10" : ""); if (resScore > 0) Score += 10; Fx.Burst(W / 2f, 250f, Color.FromArgb(255, 226, 120), 8); } else { string ms = " (" + (dtm < 0 ? "-" : "+") + (int)Math.Round(ad * 1000f) + "ms)"; if (ad < 0.055f) timeMsg = (dtm < 0 ? "타이밍 약간 빠름" : "타이밍 약간 늦음") + ms; else timeMsg = (dtm < 0 ? "너무 빨라요" : "너무 늦어요") + ms; } } if (resScore >= 40) ringDone = true; Score += resScore; resT = 2.2f; Shake = resScore >= 100 ? 0.9f : (resScore > 0 ? 0.45f : 0.15f); { PointF hq = Proj(fl[0][1], fl[0][2], fl[0][3]); Fx.Burst(hq.X, hq.Y, resScore >= 100 ? Color.FromArgb(255, 214, 80) : (resScore > 0 ? Color.FromArgb(255, 244, 200) : Color.FromArgb(200, 210, 230)), resScore >= 100 ? 16 : (resScore > 0 ? 9 : 3)); if (resScore >= 100) Fx.Burst(W / 2f, 210f, Color.FromArgb(255, 120, 90), 18); } Sfx.Play(resScore >= 100 ? "homerun" : (resScore > 0 ? "thud" : "thud_soft"));
+		{ float dtm = swingAt - (ptPlate - 0.5f * SwT - 0.015f); Calibrate(dtm); float ad = Math.Abs(dtm); if (ad < 0.022f) { timeMsg = "퍼펙트 타이밍!" + (resScore > 0 ? " +10" : ""); if (resScore > 0) Score += 10; Fx.Burst(W / 2f, 250f, Color.FromArgb(255, 226, 120), 8); } else { string ms = " (" + (dtm < 0 ? "-" : "+") + (int)Math.Round(ad * 1000f) + "ms)"; if (ad < 0.055f) timeMsg = (dtm < 0 ? "타이밍 약간 빠름" : "타이밍 약간 늦음") + ms; else timeMsg = (dtm < 0 ? "너무 빨라요" : "너무 늦어요") + ms; } } if (resScore >= 40) ringDone = true; Score += resScore; resT = 2.2f; Shake = resScore >= 100 ? 0.9f : (resScore > 0 ? 0.45f : 0.15f); { PointF hq = Proj(fl[0][1], fl[0][2], fl[0][3]); Fx.Burst(hq.X, hq.Y, resScore >= 100 ? Color.FromArgb(255, 214, 80) : (resScore > 0 ? Color.FromArgb(255, 244, 200) : Color.FromArgb(200, 210, 230)), resScore >= 100 ? 16 : (resScore > 0 ? 9 : 3)); if (resScore >= 100) Fx.Burst(W / 2f, 210f, Color.FromArgb(255, 120, 90), 18); } Sfx.Play(resScore >= 100 ? "homerun" : (resScore > 0 ? "thud" : "thud_soft"));
 	}
 	public override void Update(float dt, GameInput inp, double tm)
 	{
@@ -712,7 +718,7 @@ internal sealed class BatGame : MiniGame
 				if (trail.Count == 0 || pt - trail[trail.Count - 1][3] > 0.012f) { trail.Add(new float[] { bx, by, bz, pt }); if (trail.Count > 10) trail.RemoveAt(0); }
 				if (bz < -1.3f)
 				{
-					if (swinging) { float ideal = ptPlate - 0.5f * SwT - 0.015f; hint = swingAt < ideal ? "조금 빨랐어요" : "조금 늦었어요"; res = "헛스윙! 반려!"; } else { hint = ""; res = "스트라이크! 결재 보류"; }
+					if (swinging) { float ideal = ptPlate - 0.5f * SwT - 0.015f; Calibrate(swingAt - ideal); hint = swingAt < ideal ? "조금 빨랐어요" : "조금 늦었어요"; res = "헛스윙! 반려!"; } else { hint = ""; res = "스트라이크! 결재 보류"; }
 					resScore = 0; resT = 1.5f; phase = 2; wait = 1.0; flKind = -1; Sfx.Play(swinging ? "bad" : "tick");
 				}
 			}
@@ -883,7 +889,8 @@ internal sealed class BatGame : MiniGame
 				PointF b0 = Proj(bx, 0f, bz), b1 = Proj(bx, by, bz);
 				using (Pen dp = new Pen(Color.FromArgb(60, 255, 255, 255), 1f) { DashStyle = DashStyle.Dot }) g.DrawLine(dp, b0, b1);   // 공 아래 선 (높이)
 				float br = Math.Max(2.2f, 0.12f * Scl(bz));
-				if (!ringDone && tw < 0.075f && dz > -0.6f) { float pr3 = br * (1.6f + 3f * tw / 0.075f); using (Pen rp = new Pen(Color.FromArgb(235, 120, 255, 150), 2.2f)) g.DrawEllipse(rp, b1.X - pr3, b1.Y - pr3, pr3 * 2, pr3 * 2); if (tw < 0.04f) Txt(g, "지금!", 12f, 2, Color.FromArgb(255, 150, 255, 170), b1.X - 30, b1.Y - pr3 - 18, 60, 16, StringAlignment.Center); }
+				if (dz > 0f && tw < 0.6f) { float u6 = tw / 0.6f, pr6 = br * 1.5f + 46f * u6; using (Pen rp6 = new Pen(Color.FromArgb((int)(120 + 130 * (1f - u6)), 120, 255, 150), 2f + 1.5f * (1f - u6))) g.DrawEllipse(rp6, b1.X - pr6, b1.Y - pr6, pr6 * 2, pr6 * 2); using (SolidBrush cb6 = new SolidBrush(Color.FromArgb((int)(60 * (1f - u6)), 120, 255, 150))) g.FillEllipse(cb6, b1.X - br * 1.5f, b1.Y - br * 1.5f, br * 3f, br * 3f); }   // 줄어드는 링: 링이 공에 딱 닫히는 순간 클릭!
+				if (false) { float pr3 = br; using (Pen rp = new Pen(Color.FromArgb(235, 120, 255, 150), 2.2f)) g.DrawEllipse(rp, b1.X - pr3, b1.Y - pr3, pr3 * 2, pr3 * 2); if (tw < 0.04f) Txt(g, "지금!", 12f, 2, Color.FromArgb(255, 150, 255, 170), b1.X - 30, b1.Y - pr3 - 18, 60, 16, StringAlignment.Center); }
 			}
 			for (int i = 0; i < trail.Count; i++) { float[] q = trail[i]; PointF qp = Proj(q[0], q[1], q[2]); float rr = Math.Max(1.6f, 0.07f * Scl(q[2])); using (SolidBrush b = new SolidBrush(Color.FromArgb(10 + i * 8, 255, 255, 255))) g.FillEllipse(b, qp.X - rr, qp.Y - rr, rr * 2, rr * 2); }
 			PointF sh = Proj(bx, 0, bz); using (SolidBrush b = new SolidBrush(Color.FromArgb(50, 0, 0, 0))) g.FillEllipse(b, sh.X - 5 - 0.05f * Scl(bz), sh.Y - 1.5f - 0.012f * Scl(bz), 10 + 0.1f * Scl(bz), 3 + 0.024f * Scl(bz));
@@ -916,11 +923,12 @@ internal sealed class BatGame : MiniGame
 			int al = (int)(255 * Math.Min(1f, resT)); Color c = resScore >= 100 ? Color.FromArgb(al, 255, 214, 90) : (resScore > 0 ? Color.FromArgb(al, 255, 255, 255) : Color.FromArgb(al, 255, 150, 160));
 			Txt(g, res, 22f, 2, c, 0, 150, W, 44, StringAlignment.Center); if (resScore > 0) Txt(g, "+" + resScore, 15f, 2, Color.FromArgb(al, 255, 226, 120), 0, 192, W, 26, StringAlignment.Center);
 			{ float ta = Math.Min(1f, resT), tp = 0.8f + 0.2f * Math.Min(1f, (1.5f - resT) * 5f); if (resScore >= 100 && Spr.Get("ms_pr_trophy") != null) Spr.Draw(g, "ms_pr_trophy", 52f, 130f, 56f * tp, 69f * tp, (float)Math.Sin(Environment.TickCount / 120.0) * 6f); else if (resScore >= 40 && resScore < 100 && Spr.Get("ms_pr_helmet") != null) Spr.Draw(g, "ms_pr_helmet", 52f, 134f, 54f * tp, 49f * tp, 6f); else if (resScore == 0 && res.Contains("아웃") && Spr.Get("ms_pr_glove") != null) Spr.Draw(g, "ms_pr_glove", 52f, 134f, 58f * tp, 59f * tp, 10f); }
+			if (lastDtm < 1f) { float ta2 = Math.Min(1f, resT); RectangleF tb2 = new RectangleF(80, 284, 240, 10); using (GraphicsPath gp = Gfx.Round(tb2, 5)) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(120 * ta2), 0, 0, 0))) g.FillPath(b, gp); using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(150 * ta2), 120, 255, 150))) g.FillRectangle(b, tb2.X + tb2.Width / 2f - 10f, tb2.Y, 20f, tb2.Height); using (Pen p = new Pen(Color.FromArgb((int)(200 * ta2), 255, 255, 255), 1.4f)) g.DrawLine(p, tb2.X + tb2.Width / 2f, tb2.Y - 3, tb2.X + tb2.Width / 2f, tb2.Bottom + 3); float mk = tb2.X + tb2.Width / 2f + Clamp(lastDtm / 0.12f, -1f, 1f) * tb2.Width / 2f; using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(255 * ta2), 255, 214, 90))) g.FillEllipse(b, mk - 6, tb2.Y - 2, 12, 14); Txt(g, "빠름", 9f, 2, Color.FromArgb((int)(200 * ta2), 200, 220, 255), tb2.X - 44, tb2.Y - 5, 40, 20, StringAlignment.Far); Txt(g, "늦음", 9f, 2, Color.FromArgb((int)(200 * ta2), 255, 190, 190), tb2.Right + 4, tb2.Y - 5, 40, 20, StringAlignment.Near); }
 			if (timeMsg.Length > 0) Txt(g, timeMsg, 12f, 2, Color.FromArgb((int)(255 * Math.Min(1f, resT)), timeMsg.StartsWith("퍼펙트") ? Color.FromArgb(255, 226, 120) : Color.FromArgb(200, 220, 255)), 0, 258, W, 22, StringAlignment.Center);
 				if (hint.Length > 0) Txt(g, hint, 11f, 1, Color.FromArgb((int)(220 * Math.Min(1f, resT)), 255, 255, 255), 0, 232, W, 22, StringAlignment.Center);
 		}
 		if (phase == 1 && nameT > 0 && !hit) Txt(g, pname, 13f, 2, Color.FromArgb((int)(255 * Math.Min(1f, nameT)), 255, 236, 150), 0, 104, W, 24, StringAlignment.Center);
-		if (phase == 0 && idx == 0 && wait > 0.2) Hint(g, "공이 노란 문을 지날 때 클릭!", 150 + 13.0, 13f, false, 1f);
+		if (phase == 0 && idx == 0 && wait > 0.2) Hint(g, "초록 링이 줄어들어 공에 딱 닫힐 때 클릭!", 150 + 13.0, 13f, false, 1f);
 	}
 }
 // ── 4. 수박 합치기 ──────────────────────────────────────────

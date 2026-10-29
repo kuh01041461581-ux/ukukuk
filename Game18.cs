@@ -18,12 +18,22 @@ internal sealed class KartGame : MiniGame
 
 	private const int N = 1260, DRAW = 140, Laps = 3; private const float SEG = 200f, ROADW = 2000f, CAMH = 1000f, DEPTH = 0.84f, MAXV = 10000f, LEN = N * SEG;
 	private readonly float[] curve = new float[N], hill = new float[N]; private readonly List<PointF> mapPts = new List<PointF>();
-	private class Car { public float Z, X, V, Tgt, TgtT, Spin, Skill, Boost, ItemT, Drift; public int Lap, Item = -1; public Color C; public string Name; public bool Done; public float DoneT; }
+	private class Car { public float Z, X, V, Tgt, TgtT, Spin, SpinMax = 1f, Skill, Boost, ItemT, Drift, Giant, GS = 1f, GV; public int Lap, Item = -1; public Color C; public string Name; public bool Done; public float DoneT; }
 	private class Box { public int Seg; public float X, Hide; }
 	private class Ban { public float Z, X; }
 	private readonly List<Car> cars = new List<Car>(); private readonly List<Box> boxes = new List<Box>(); private readonly List<Ban> bans = new List<Ban>();
 	private float pos, px, v, el, skyOff, drift, charge, boostT, spinT, msgT, bumpT, steerVis, finT, hitT; private int lap, item = -1, place = 6, driftDir; private bool finished, wasDrift; private string msg = ""; private float itemRoll;
-	private static readonly string[] ItemName = { "부스터", "바나나", "물풍선" };
+	private static readonly string[] ItemName = { "부스터", "바나나", "물풍선", "거대화" };
+	// ── 움직임 연출 ──
+	private float gauge, driftVis, spinMax = 1f, rollT, rollDur, giantT, gS = 1f, gV, splashT, warnT; private int bst;
+	private class Pt { public float X, Y, VX, VY, Life, Max, Size; public int K; public Color C; }
+	private readonly List<Pt> parts = new List<Pt>();
+	private class Shot { public float Z, X, V, T, Dur, Z0, X0; public Car Tgt, From; public bool AtMe; }
+	private readonly List<Shot> shots = new List<Shot>();
+	private class Spl { public float Z, X, T; }
+	private readonly List<Spl> spls = new List<Spl>();
+	private readonly float[] skL = new float[N], skR = new float[N], skT = new float[N];   // 바닥 스키드 자국 (칸마다 왼/오른 바퀴 위치 · 남긴 시각)
+	private void Part(int k, float x, float y, float vx, float vy, float life, float size, Color c) { if (parts.Count > 160) return; parts.Add(new Pt { K = k, X = x, Y = y, VX = vx, VY = vy, Life = life, Max = life, Size = size, C = c }); }
 	private float PZ { get { return CAMH * DEPTH; } }   // 카메라에서 플레이어까지 거리
 	// ── 코스 · 테마 ──
 	private sealed class Thm
@@ -40,12 +50,15 @@ internal sealed class KartGame : MiniGame
 		new Thm { Name = "요정의 꽃길", Sub = "요정", Tags = "부스트 꽃밭 · 무지개 점프", Stars = 1, SkyA = Color.FromArgb(250, 190, 230), SkyB = Color.FromArgb(255, 236, 246), Sun = Color.FromArgb(255, 255, 230), HillF = Color.FromArgb(210, 190, 240), HillN = Color.FromArgb(170, 220, 180), G1 = Color.FromArgb(160, 220, 150), G2 = Color.FromArgb(150, 210, 146), R1 = Color.FromArgb(232, 206, 230), R2 = Color.FromArgb(224, 196, 224), Ru1 = Color.FromArgb(255, 150, 200), Ru2 = Color.FromArgb(255, 250, 250), Ln = Color.FromArgb(255, 255, 255), Slow = Color.FromArgb(200, 160, 220) },
 		new Thm { Name = "일본 신사 언덕길", Sub = "일본", Tags = "급 헤어핀 · 대나무 숲", Stars = 3, SkyA = Color.FromArgb(240, 200, 170), SkyB = Color.FromArgb(250, 236, 214), Sun = Color.FromArgb(250, 120, 90), HillF = Color.FromArgb(170, 170, 160), HillN = Color.FromArgb(100, 140, 100), G1 = Color.FromArgb(110, 156, 90), G2 = Color.FromArgb(100, 146, 84), R1 = Color.FromArgb(120, 110, 104), R2 = Color.FromArgb(112, 104, 98), Ru1 = Color.FromArgb(200, 40, 40), Ru2 = Color.FromArgb(30, 30, 34), Ln = Color.FromArgb(230, 220, 200), Slow = Color.FromArgb(150, 120, 90) },
 		new Thm { Name = "청사 민원 대행진", Sub = "민원", Tags = "서류 더미 · 결재 부스트", Stars = 2, SkyA = Color.FromArgb(150, 200, 240), SkyB = Color.FromArgb(230, 240, 250), Sun = Color.FromArgb(255, 252, 230), HillF = Color.FromArgb(170, 186, 206), HillN = Color.FromArgb(150, 170, 190), G1 = Color.FromArgb(206, 210, 214), G2 = Color.FromArgb(196, 200, 206), R1 = Color.FromArgb(236, 226, 206), R2 = Color.FromArgb(228, 218, 198), Ru1 = Color.FromArgb(14, 138, 124), Ru2 = Color.FromArgb(250, 250, 250), Ln = Color.FromArgb(200, 180, 150), Slow = Color.FromArgb(250, 250, 244) },
+		new Thm { Name = "미륵사지 석탑길", Sub = "익산 · 미륵사지", Tags = "석탑 모양 · 계단 커브", Stars = 3, SkyA = Color.FromArgb(150, 196, 236), SkyB = Color.FromArgb(232, 240, 248), Sun = Color.FromArgb(255, 250, 220), HillF = Color.FromArgb(150, 170, 190), HillN = Color.FromArgb(120, 160, 120), G1 = Color.FromArgb(120, 172, 100), G2 = Color.FromArgb(110, 160, 94), R1 = Color.FromArgb(196, 186, 170), R2 = Color.FromArgb(186, 176, 160), Ru1 = Color.FromArgb(150, 140, 126), Ru2 = Color.FromArgb(226, 220, 206), Ln = Color.FromArgb(240, 236, 226), Slow = Color.FromArgb(150, 130, 100) },
+		new Thm { Name = "왕궁리 오층석탑길", Sub = "익산 · 왕궁리", Tags = "탑 모양 · 지그재그", Stars = 3, SkyA = Color.FromArgb(240, 150, 110), SkyB = Color.FromArgb(252, 214, 170), Sun = Color.FromArgb(255, 220, 160), HillF = Color.FromArgb(190, 140, 130), HillN = Color.FromArgb(140, 150, 100), G1 = Color.FromArgb(170, 170, 96), G2 = Color.FromArgb(160, 160, 90), R1 = Color.FromArgb(176, 160, 140), R2 = Color.FromArgb(166, 150, 132), Ru1 = Color.FromArgb(140, 120, 100), Ru2 = Color.FromArgb(230, 214, 190), Ln = Color.FromArgb(240, 230, 210), Slow = Color.FromArgb(140, 110, 80) },
+		new Thm { Name = "사리장엄구 둘레길", Sub = "익산 · 사리호", Tags = "둥근 사리호 모양 · 금빛 길", Stars = 2, SkyA = Color.FromArgb(40, 50, 100), SkyB = Color.FromArgb(120, 100, 150), Sun = Color.FromArgb(255, 236, 170), HillF = Color.FromArgb(80, 80, 130), HillN = Color.FromArgb(60, 100, 90), G1 = Color.FromArgb(70, 110, 90), G2 = Color.FromArgb(64, 102, 84), R1 = Color.FromArgb(200, 170, 100), R2 = Color.FromArgb(190, 160, 92), Ru1 = Color.FromArgb(150, 110, 50), Ru2 = Color.FromArgb(250, 230, 160), Ln = Color.FromArgb(255, 240, 180), Slow = Color.FromArgb(120, 90, 60), Night = true },
 	};
 	private int course, cphase, hovCard = -1; private Thm T0 = Th[0];
 	private static readonly List<PointF>[] courseMap = new List<PointF>[Th.Length];
 	// 발판: K 1 부스트 · 2 점프 · 3 감속 구역
 	private readonly byte[] padK = new byte[N]; private readonly float[] padX = new float[N], padW = new float[N];
-	private float airH, airV, airT, padCd, latV;
+	private float airH, airV, airT, padCd, latV, camPx;
 	public override void Reset()
 	{
 		for (int c = 0; c < Th.Length; c++) if (courseMap[c] == null) { Build(c); courseMap[c] = new List<PointF>(mapPts); }
@@ -66,6 +79,24 @@ internal sealed class KartGame : MiniGame
 				mx0 += (float)Math.Sin(hd); my0 -= (float)Math.Cos(hd); mapPts.Add(new PointF(mx0, my0));
 			}
 		};
+		// 외곽선(꼭짓점 목록)을 따라 도는 코스: 변은 직선, 꼭짓점은 꺾이는 각도만큼 커브 (미니맵에 그 모양이 그대로 보여요)
+		Action<float[]> outline = xy =>
+		{
+			int n = xy.Length / 2; List<PointF> P = new List<PointF>(); for (int k = 0; k < n; k++) P.Add(new PointF(xy[k * 2], xy[k * 2 + 1]));
+			Func<List<PointF>, double[]> heads = Q => { double[] h = new double[Q.Count]; for (int k = 0; k < Q.Count; k++) { PointF p0 = Q[k], p1 = Q[(k + 1) % Q.Count]; h[k] = Math.Atan2(p1.X - p0.X, -(p1.Y - p0.Y)) * 57.29578; } return h; };
+			Func<double, double> norm = d => { while (d > 180) d -= 360; while (d <= -180) d += 360; return d; };
+			double[] hh = heads(P); double tsum = 0; for (int k = 0; k < n; k++) tsum += norm(hh[(k + 1) % n] - hh[k]);
+			if (tsum < 0) { P.Reverse(); hh = heads(P); }
+			// 가장 긴 변을 출발 직선으로
+			int best = 0; double bl = -1; for (int k = 0; k < n; k++) { double l = Math.Sqrt(Math.Pow(P[(k + 1) % n].X - P[k].X, 2) + Math.Pow(P[(k + 1) % n].Y - P[k].Y, 2)); if (l > bl) { bl = l; best = k; } }
+			List<PointF> R = new List<PointF>(); for (int k = 0; k < n; k++) R.Add(P[(best + k) % n]); hh = heads(R);
+			double[] len = new double[n], turn = new double[n], cl = new double[n]; double sl = 0, sc0 = 0;
+			for (int k = 0; k < n; k++) { len[k] = Math.Sqrt(Math.Pow(R[(k + 1) % n].X - R[k].X, 2) + Math.Pow(R[(k + 1) % n].Y - R[k].Y, 2)); turn[k] = norm(hh[(k + 1) % n] - hh[k]); cl[k] = Math.Max(8, Math.Abs(turn[k]) * 0.2); sl += len[k]; sc0 += cl[k]; }
+			double scale = (N - 30 - sc0) / sl;
+			hd = (float)(hh[0] / 57.29578);
+			for (int k = 0; k < n; k++) { sec(Math.Max(3, (int)Math.Round(len[k] * scale - (cl[k] + cl[(k + n - 1) % n]) * 0.3)), 0); sec((int)Math.Round(cl[k]), (float)turn[k]); }
+		};
+		Func<float[], float[]> mirror = rside => { int n = rside.Length / 2; List<float> o = new List<float>(rside); for (int k = n - 1; k >= 0; k--) { if (rside[k * 2] == 0f) continue; o.Add(-rside[k * 2]); o.Add(rside[k * 2 + 1]); } return o.ToArray(); };
 		int[] bx = { 100, 210, 430, 560, 780, 960, 1150 };
 		switch (id)
 		{
@@ -96,13 +127,60 @@ internal sealed class KartGame : MiniGame
 			case 7:   // 일본: 신사 언덕을 오르내리는 급 헤어핀과 S자
 				sec(100, 0); sec(45, 150); sec(30, 0); sec(45, -120); sec(40, 0); sec(40, 60); sec(40, -60); sec(50, 150); sec(50, 0); sec(40, -50); sec(40, 50); sec(50, 90); sec(30, 0); sec(30, -40); sec(30, 40); sec(40, 90); sec(N - i, 0);
 				AutoPads(id, 1, 4, 2, 28f); break;
+			case 9:   // 미륵사지 석탑: 넓은 기단과 여섯 층 지붕돌이 계단처럼 (넓고 낮은 탑 모양)
+				outline(mirror(Sx(new float[] { 60, 100, 60, 95, 54, 95, 54, 90, 48, 90, 56, 82, 44, 80, 52, 72, 41, 70, 48, 63, 38, 61, 44, 55, 35, 53, 40, 48, 32, 46, 36, 42, 28, 40, 10, 38, 8, 30, 0, 26 }, 1.7f))); sec(N - i, 0);
+				AutoPads(id, 2, 4, 2, 16f); break;
+			case 10:   // 왕궁리 오층석탑: 날씬하게 솟은 다섯 층 지붕돌
+				outline(mirror(Sx(new float[] { 40, 100, 40, 92, 26, 92, 36, 81, 22, 79, 32, 68, 19, 66, 28, 56, 16, 54, 24, 45, 13, 43, 20, 35, 8, 33, 4, 22, 0, 16 }, 0.75f))); sec(N - i, 0);
+				AutoPads(id, 2, 4, 2, 20f); break;
+			case 11:   // 사리장엄구(사리호): 둥근 몸통 · 잘록한 목 · 뚜껑과 꼭지
+				{
+					List<float> r = new List<float> { 16, 104, 18, 98 };
+					for (int a2 = -55; a2 <= 60; a2 += 15) { double ra = a2 * Math.PI / 180; r.Add((float)(30 * Math.Cos(ra))); r.Add((float)(72 - 30 * Math.Sin(ra))); }
+					r.AddRange(new float[] { 11, 42, 11, 36, 16, 33, 14, 26, 8, 21, 3, 19, 4, 14, 0, 9 });
+					outline(mirror(r.ToArray())); sec(N - i, 0);
+				}
+				AutoPads(id, 2, 4, 1, 12f); break;
 			default:   // 청사 민원 대행진: 복도를 도는 미로 같은 직각 코스 · 서류 더미 · 결재 완료 발판
 				sec(90, 0); sec(30, 90); sec(50, 0); sec(30, 90); sec(30, 0); sec(30, -90); sec(30, 0); sec(30, -90); sec(40, 0); sec(30, 90); sec(60, 0); sec(30, 90); sec(70, 0); sec(30, 90); sec(40, 0); sec(30, -90); sec(30, 90); sec(40, 0); sec(30, 90); sec(N - i, 0);
 				AutoPads(id, 1, 5, 4, 8f); break;
 		}
 		// 미니맵은 끝점이 출발점과 정확히 만나도록 조금씩 나눠 맞춰요 (주행에는 영향 없음)
 		{ int n0 = mapPts.Count; PointF e0 = mapPts[n0 - 1]; for (int k = 0; k < n0; k++) { float f = k / (float)(n0 - 1); mapPts[k] = new PointF(mapPts[k].X - e0.X * f, mapPts[k].Y - e0.Y * f); } }
+		FindShortcuts();
 		boxes.Clear(); foreach (int sq in bx) { if (padK[sq] != 0) continue; for (int k = -1; k <= 1; k++) boxes.Add(new Box { Seg = sq, X = k * 0.55f }); }
+	}
+	private static float[] Sx(float[] a, float k) { float[] o = (float[])a.Clone(); for (int q = 0; q < o.Length; q += 2) o[q] *= k; return o; }
+	// ── 벽 · 지름길 ──
+	private const float WALL = 1.7f;
+	private readonly sbyte[] gap = new sbyte[N];   // 벽이 트인 쪽: +1 오른쪽 · -1 왼쪽
+	private readonly List<int[]> shorts = new List<int[]>();   // {들어가는 칸, 나오는 칸, 쪽, 지름길 길이}
+	private float scT, scDur, wallCd, curbBump; private int scTo = -1, scSide, scHintLap = -1;
+	// 미니맵에서 길이 크게 돌았다가 다시 가까워지는 두 지점을 찾아 벽을 트고 지름길로 이어요
+	private void FindShortcuts()
+	{
+		Array.Clear(gap, 0, N); shorts.Clear(); if (mapPts.Count < N) return;
+		for (int pass = 0; pass < 3 && shorts.Count < 2; pass++)
+		{
+			int b0 = -1, b1 = -1; double bs = 0, bd = 0;
+			for (int s0 = 70; s0 < N - 100; s0 += 3)
+			{
+				bool near = false; foreach (int[] q in shorts) if (Math.Abs(q[0] - s0) < 160 || (s0 > q[0] && s0 < q[1])) near = true; if (near) continue;
+				if (padK[s0] != 0) continue;
+				bool loose = pass == 2 || (pass == 1 && shorts.Count == 0);
+				for (int s1 = s0 + 60; s1 < Math.Min(N - 12, s0 + (loose ? 320 : 240)); s1 += 2)
+				{
+					// 한 바퀴의 1/6 이하만 줄여 주는 적당한 지름길 (너무 큰 건 재미가 없어요)
+					float dx = mapPts[s1].X - mapPts[s0].X, dy = mapPts[s1].Y - mapPts[s0].Y; double d = Math.Sqrt(dx * dx + dy * dy);
+					if (d < (loose ? 0.62 : 0.5) * (s1 - s0) && d > 14 && d < (loose ? 120 : 90)) { double sv = Math.Min((s1 - s0) - d * 1.3, 170); if (sv > bs + 4) { bs = sv; b0 = s0; b1 = s1; bd = d; } }
+				}
+			}
+			if (b0 < 0 || bs < 30) continue;
+			float hx = mapPts[b0 + 1].X - mapPts[b0].X, hy = mapPts[b0 + 1].Y - mapPts[b0].Y, vx = mapPts[b1].X - mapPts[b0].X, vy = mapPts[b1].Y - mapPts[b0].Y;
+			float cs = 0f; for (int q = b0; q < b1; q++) cs += curve[q];
+			int side = Math.Abs(cs) > 1f ? (cs > 0f ? 1 : -1) : (hx * vy - hy * vx > 0 ? 1 : -1);   // 길이 도는 안쪽으로 질러가요
+			shorts.Add(new[] { b0, b1, side, (int)Math.Round(bd) }); for (int q = b0 - 46; q <= b0 + 10; q++) gap[(q + N) % N] = (sbyte)side;
+		}
 	}
 	// 발판 자동 배치: 긴 직선 가운데에 점프, 직선 들머리에 부스트, 커브 바깥쪽에 감속 구역 · 언덕은 코스마다 다르게
 	private void AutoPads(int id, int nJump, int nBoost, int nSlow, float hillAmp)
@@ -125,7 +203,7 @@ internal sealed class KartGame : MiniGame
 		cars.Clear(); string[] nm = { "팀장님", "민원인", "주무관", "과장님", "신규 직원" }; Color[] cc = { Color.FromArgb(230, 70, 70), Color.FromArgb(70, 110, 230), Color.FromArgb(240, 190, 40), Color.FromArgb(150, 80, 210), Color.FromArgb(250, 130, 60) };
 		float[] sk = { 0.97f, 0.93f, 0.95f, 0.99f, 0.9f }; float dif = 0.97f + 0.015f * T0.Stars; for (int k = 0; k < 5; k++) cars.Add(new Car { Skill = sk[k] * dif, Z = PZ + 600f + k * 450f, X = (k % 2 == 0 ? -0.45f : 0.45f), V = 0f, C = cc[k], Name = nm[k], Tgt = (k % 2 == 0 ? -0.45f : 0.45f) });
 		bans.Clear(); pos = 0f; px = 0f; v = 0f; el = 0f; skyOff = 0f; drift = 0f; charge = 0f; boostT = 0f; spinT = 0f; msgT = 0f; bumpT = 0f; finT = 0f; hitT = 0f; lap = 0; item = -1; place = 6; finished = false; wasDrift = false; Score = 0; Over = false;
-		airH = 0f; airV = 0f; airT = 0f; padCd = 0f; latV = 0f; cphase = 1; msg = T0.Name + " · 출발!"; msgT = 1.8f; Sfx.Play("ok");
+		airH = 0f; airV = 0f; airT = 0f; padCd = 0f; latV = 0f; camPx = 0f; gauge = 0f; bst = 0; driftVis = 0f; rollT = 0f; giantT = 0f; gS = 1f; gV = 0f; splashT = 0f; warnT = 0f; parts.Clear(); shots.Clear(); spls.Clear(); for (int q = 0; q < N; q++) skT[q] = -999f; scTo = -1; scT = 0f; wallCd = 0f; scHintLap = -1; cphase = 1; msg = T0.Name + " · 출발!"; msgT = 1.8f; Sfx.Play("ok");
 	}
 	private int SegOf(float z) { int s = (int)(Wrap(z) / SEG); return s < 0 ? 0 : (s >= N ? N - 1 : s); }
 	private static float Wrap(float z) { z %= LEN; if (z < 0) z += LEN; return z; }
@@ -136,38 +214,62 @@ internal sealed class KartGame : MiniGame
 	{
 		if (cphase == 0) { int k = CardAt(x, y); if (k >= 0) StartRace(k); return; }
 		if (new RectangleF(316, 486, 64, 64).Contains(x, y)) UseItem();
+		else if (new RectangleF(316, 432, 64, 34).Contains(x, y)) UseBoost();
 	}
-	private RectangleF CardR(int k) { return new RectangleF(12 + (k % 3) * 128f, 92 + (k / 3) * 160f, 120f, 152f); }
+	private RectangleF CardR(int k) { return new RectangleF(12 + (k % 3) * 128f, 90 + (k / 3) * 126f, 120f, 120f); }
 	private int CardAt(float x, float y) { for (int k = 0; k < Th.Length; k++) if (CardR(k).Contains(x, y)) return k; return -1; }
-	public override void Press(Keys k) { if (cphase == 0) { if (k >= Keys.D1 && k <= Keys.D9) StartRace(k - Keys.D1); return; } if (k == Keys.Z || k == Keys.X || k == Keys.ControlKey || k == Keys.Enter) UseItem(); }
+	public override void Press(Keys k) { if (cphase == 0) { if (k >= Keys.D1 && k <= Keys.D9) StartRace(k - Keys.D1); return; } if (k == Keys.X) UseBoost(); else if (k == Keys.Z || k == Keys.ControlKey || k == Keys.Enter) { if (item >= 0) UseItem(); else UseBoost(); } }
+	private void UseBoost()
+	{
+		if (bst <= 0 || finished || scTo >= 0) return; bst--; boostT = Math.Max(boostT, 1.5f); Sfx.Play("whoosh"); msg = "드리프트 부스터!"; msgT = 0.9f;
+		for (int q = 0; q < 10; q++) Part(1, 200f + (float)(Rnd.NextDouble() - 0.5) * 80f, 560f, (float)(Rnd.NextDouble() - 0.5) * 160f, 80f + (float)Rnd.NextDouble() * 120f, 0.4f, 4f, Color.FromArgb(255, 200, 80));
+	}
 	private void UseItem()
 	{
 		if (item < 0 || finished || itemRoll > 0f) return; int it = item; item = -1;
 		if (it == 0) { boostT = 1.6f; Sfx.Play("whoosh"); msg = "부스터!"; msgT = 1f; }
 		else if (it == 1) { bans.Add(new Ban { Z = Wrap(PlayerZ - SEG * 3f), X = px }); Sfx.Play("tick"); msg = "바나나를 놓았어요"; msgT = 1f; }
+		else if (it == 3) { giantT = 5f; gV = 6f; Sfx.Play("fanfare"); msg = "거대화!"; msgT = 1f; }
 		else
 		{
+			// 물풍선: 바로 앞 차를 향해 포물선으로 날아가요
 			Car best = null; float bd = 1e9f; float me = MyDist; foreach (Car c in cars) { float d = Dist(c) - me; if (d > 0f && d < bd) { bd = d; best = c; } }
-			if (best != null && bd < SEG * 160f) { best.Spin = 1.4f; Sfx.Play("glass"); msg = best.Name + " 명중!"; } else msg = "앞에 아무도 없어요"; msgT = 1.2f;
+			if (best != null && bd < SEG * 160f) { shots.Add(new Shot { Z0 = Wrap(PlayerZ), X0 = px, Z = Wrap(PlayerZ), X = px, Tgt = best, T = 0f, Dur = 0.35f + bd / (SEG * 160f) * 0.5f }); Sfx.Play("swing"); msg = "물풍선 발사!"; }
+			else { shots.Add(new Shot { Z0 = Wrap(PlayerZ), X0 = px, Z = Wrap(PlayerZ), X = px, Tgt = null, T = 0f, Dur = 0.6f }); msg = "앞에 아무도 없어요"; }
+			msgT = 1f;
 		}
 	}
 	public override void Update(float dt, GameInput inp, double t)
 	{
 		if (cphase == 0) { hovCard = CardAt(inp.Mx, inp.My); return; }
 		if (dt > 0.05f) dt = 0.05f; el += dt; if (msgT > 0f) msgT -= dt; if (bumpT > 0f) bumpT -= dt; if (hitT > 0f) hitT -= dt; if (itemRoll > 0f) { itemRoll -= dt; if (itemRoll <= 0f) Sfx.Play("ok2"); }
-		if (finished) { finT += dt; v *= (float)Math.Pow(0.4, dt); pos = Wrap(pos + v * dt); AiStep(dt); if (finT > 3f) Over = true; return; }
+		if (finished) { finT += dt; v *= (float)Math.Pow(0.4, dt); pos = Wrap(pos + v * dt); AiStep(dt); driftDir = 0; driftVis *= 0.9f; if (spinT > 0f) spinT -= dt; Fx(dt); if (finT > 3f) Over = true; return; }
+		if (wallCd > 0f) wallCd -= dt;
+		if (scTo >= 0)
+		{
+			// 지름길 통과 중: 흙먼지 속을 달리다가(화면이 가장 뿌옇을 때) 나오는 칸으로 옮겨요
+			float half = scDur * 0.5f, pT = scT; scT += dt; px += (scSide * 2.1f - px) * Math.Min(1f, dt * 4f); camPx += (px - camPx) * Math.Min(1f, dt * 7f);
+			if (pT < half && scT >= half) { pos = Wrap(scTo * SEG - PZ + SEG * 0.5f); px = scSide * 1.75f; camPx = px; latV = -scSide * 1.2f; }
+			if (scT >= scDur) scTo = -1;
+			AiStep(dt); float myd = MyDist; place = 1; foreach (Car c in cars) if (Dist(c) > myd) place++; return;
+		}
 		float sp = v / MAXV; bool left = inp.L, right = inp.R;
 		if (inp.MouseMoved || mouseSteer) { mouseSteer = !(left || right); }
 		float steer = (left ? -1f : 0f) + (right ? 1f : 0f);
 		if (mouseSteer && steer == 0f) { float want = Clamp((inp.Mx - 200f) / 140f, -1f, 1f); steer = Math.Abs(want) < 0.08f ? 0f : want; }
 		bool dHeld = inp.Down != null && (inp.Down.Contains(Keys.Space) || inp.Down.Contains(Keys.ShiftKey) || inp.Down.Contains(Keys.LShiftKey)) || (inp.Hold && mouseSteer && inp.Down != null && !inp.Down.Contains(Keys.Up));
 		// 드리프트: 누른 채로 꺾으면 시작 → 게이지가 차요 → 놓으면 부스터
-		if (dHeld && sp > 0.45f && (steer != 0f || driftDir != 0) && spinT <= 0f) { if (driftDir == 0) { driftDir = steer < 0 ? -1 : 1; Sfx.Play("swing"); } charge = Math.Min(2.2f, charge + dt * (0.6f + Math.Abs(steer) * 0.7f) * sp); drift = Math.Min(1f, drift + dt * 4f); }
+		if (dHeld && sp > 0.45f && (steer != 0f || driftDir != 0) && spinT <= 0f && airH <= 0f) { if (driftDir == 0) { driftDir = steer < 0 ? -1 : 1; Sfx.Play("swing"); } charge = Math.Min(2.2f, charge + dt * (0.6f + Math.Abs(steer) * 0.7f) * sp); drift = Math.Min(1f, drift + dt * 4f);
+			// 드리프트하는 동안 부스터 게이지가 차요 → 가득 차면 부스터 아이템 1개 (최대 2개)
+			if (bst < 2) { gauge += dt * 0.34f * sp * (0.7f + 0.5f * Math.Abs(steer)); if (gauge >= 1f) { gauge = 0f; bst++; msg = "부스터 충전! (X 키)"; msgT = 1.1f; Sfx.Play("ok2"); } } }
+		else if (driftDir != 0 && airH > 0f) { }
 		else
 		{
-			if (driftDir != 0 && charge > 0.55f) { boostT = Math.Max(boostT, 0.45f + charge * 0.55f); msg = charge > 1.6f ? "슈퍼 부스터!" : "부스터!"; msgT = 0.9f; Sfx.Play(charge > 1.6f ? "fanfare" : "whoosh"); }
+			// 드리프트를 길게 했다가 놓으면 짧은 순간 부스터
+			if (driftDir != 0 && charge > 0.7f) { boostT = Math.Max(boostT, 0.35f); msg = "순간 부스터!"; msgT = 0.6f; Sfx.Play("whoosh"); }
 			driftDir = 0; charge = 0f; drift = Math.Max(0f, drift - dt * 5f);
 		}
+		driftVis += (driftDir - driftVis) * Math.Min(1f, dt * (driftDir != 0 ? 7f : 5f));
 		if (spinT > 0f) { spinT -= dt; steer = 0f; }
 		float st = driftDir != 0 ? (driftDir * 0.75f + steer * 0.55f) : steer;
 		steerVis += (st - steerVis) * Math.Min(1f, dt * 10f);
@@ -181,13 +283,16 @@ internal sealed class KartGame : MiniGame
 		if (airH <= 0f && onPad)
 		{
 			if (pk == 1 && padCd <= 0f) { boostT = Math.Max(boostT, 1.2f); padCd = 0.5f; Sfx.Play("whoosh"); msg = course == 8 ? "결재 완료! 부스트" : "부스트 발판!"; msgT = 0.8f; }
-			else if (pk == 2 && padCd <= 0f && v > MAXV * 0.3f) { airV = 430f * (0.6f + 0.4f * sp); airH = 0.01f; airT = 0f; padCd = 0.6f; Sfx.Play("swing"); msg = "점프!"; msgT = 0.7f; }
+			else if (pk == 2 && padCd <= 0f && v > MAXV * 0.3f) { airV = 430f * (0.6f + 0.4f * sp); airH = 0.01f; airT = 0f; padCd = 0.6f; Sfx.Play("swing"); float ft = 2f * airV / (1150f * T0.Grav); if (ft > 0.55f) { rollDur = ft * 0.9f; rollT = rollDur; msg = "점프! 한 바퀴~"; } else msg = "점프!"; msgT = 0.7f; }
 			else if (pk == 3) slowZone = true;
 		}
 		if (airH > 0f) { airT += dt; airV -= 1150f * T0.Grav * dt; airH += airV * dt; if (airH <= 0f) { airH = 0f; Shake = 0.22f; Sfx.Play("thud_soft"); if (airT > 0.7f) { boostT = Math.Max(boostT, 0.7f); msg = "착지 부스트!"; msgT = 0.8f; } } }
 		// 속도
-		float top = MAXV * (boostT > 0f ? 1.32f : 1f);
-		bool offRoad = Math.Abs(px) > 1f && airH <= 0f; if (offRoad) top = Math.Min(top, MAXV * (boostT > 0f ? 0.75f : T0.OffSlow));
+		float top = MAXV * (boostT > 0f ? 1.32f : (giantT > 0f ? 1.08f : 1f));
+		// 차선 밖: 연석(살짝 느려지고 덜컹) → 그 바깥 풀밭(많이 느려짐) → 벽
+		float ax = Math.Abs(px); bool curb = ax > 1f && ax <= 1.15f && airH <= 0f, offRoad = ax > 1.15f && airH <= 0f;
+		if (curb) top = Math.Min(top, MAXV * (boostT > 0f ? 0.95f : 0.82f)); curbBump = curb || offRoad ? 1f : 0f;
+		if (offRoad) top = Math.Min(top, MAXV * (boostT > 0f ? 0.75f : T0.OffSlow));
 		if (slowZone) top = Math.Min(top, MAXV * (boostT > 0f ? 0.8f : 0.55f));
 		bool brake = inp.Down != null && (inp.Down.Contains(Keys.Down) || inp.Down.Contains(Keys.S));
 		if (spinT > 0f) v -= MAXV * 1.1f * dt;
@@ -196,7 +301,24 @@ internal sealed class KartGame : MiniGame
 		else v -= (offRoad ? MAXV * 1.1f : MAXV * 0.5f) * dt;
 		if (driftDir != 0) v -= MAXV * 0.05f * dt;
 		v = Clamp(v, 0f, MAXV * 1.4f); if (boostT > 0f) boostT -= dt;
-		px = Clamp(px, -2.2f, 2.2f);
+		{
+			int gs = gap[ps], sd = px < 0f ? -1 : 1;
+			if (gs == sd && px * sd > WALL + 0.05f && v > MAXV * 0.2f)
+			{
+				// 벽이 트인 곳으로 빠지면 지름길
+				foreach (int[] q in shorts) if (q[2] == sd && ps >= q[0] - 48 && ps <= q[0] + 12) { scTo = q[1]; scSide = sd; scT = 0f; scDur = Clamp(q[3] * SEG / Math.Max(v, MAXV * 0.5f), 0.5f, 1.4f); msg = "지름길!"; msgT = 1.2f; Sfx.Play("whoosh"); driftDir = 0; charge = 0f; break; }
+			}
+			else if (gs != sd && Math.Abs(px) > WALL)
+			{
+				// 벽에 부딪히면 튕겨 나오고 느려져요
+				px = sd * WALL; if (latV * sd > 0f) latV = -latV * 0.35f;
+				if (wallCd <= 0f) { wallCd = 0.3f; v *= 0.8f; Shake = 0.3f; Sfx.Play("thud_soft"); if (msgT <= 0f) { msg = "쿵! 벽에 부딪혔어요"; msgT = 0.8f; } }
+			}
+		}
+		px = Clamp(px, -2.2f, 2.2f); camPx += (px - camPx) * Math.Min(1f, dt * 7f);
+		{ // 지름길 안내 (바퀴마다 한 번)
+			foreach (int[] q in shorts) if (scHintLap != lap * 10 + shorts.IndexOf(q) && ps >= q[0] - 110 && ps < q[0] - 46) { scHintLap = lap * 10 + shorts.IndexOf(q); msg = (q[2] > 0 ? "오른쪽" : "왼쪽") + " 벽이 트인 곳 → 지름길!"; msgT = 1.6f; }
+		}
 		float before = PlayerZ; pos = Wrap(pos + v * dt); skyOff += cv * sp * dt * 0.02f;
 		if (Wrap(PlayerZ) < Wrap(before) - LEN * 0.5f) { lap++; if (lap >= Laps) { Finish(); return; } msg = lap == Laps - 1 ? "마지막 바퀴!" : (lap + 1) + "바퀴째!"; msgT = 1.6f; Sfx.Play("ok"); }
 		// 아이템 상자 · 바나나
@@ -204,18 +326,71 @@ internal sealed class KartGame : MiniGame
 		foreach (Box b in boxes)
 		{
 			if (b.Hide > 0f) { b.Hide -= dt; continue; }
-			float bz = b.Seg * SEG; if (Math.Abs(bz - pz) < SEG * 0.8f && Math.Abs(b.X - px) < 0.28f) { b.Hide = 3f; if (item < 0) { item = Rnd.Next(3); if (place >= 4 && Rnd.NextDouble() < 0.5) item = 0; itemRoll = 0.7f; Sfx.Play("ui_open"); } }
+			float bz = b.Seg * SEG; if (Math.Abs(bz - pz) < SEG * 0.8f && Math.Abs(b.X - px) < 0.28f) { b.Hide = 3f; if (item < 0) { item = Rnd.Next(4); if (place >= 4 && Rnd.NextDouble() < 0.5) item = Rnd.Next(2) == 0 ? 0 : 3; itemRoll = 0.7f; Sfx.Play("ui_open"); } }
 		}
-		for (int i = bans.Count - 1; i >= 0; i--) { Ban b = bans[i]; if (Math.Abs(Wrap(b.Z - pz + LEN * 0.5f) - LEN * 0.5f) < SEG * 0.7f && Math.Abs(b.X - px) < 0.22f && spinT <= 0f && el > 1f && airH <= 0f) { spinT = 1.0f; Shake = 0.4f; Sfx.Play("bad2"); msg = "바나나에 미끄러졌어요!"; msgT = 1.2f; bans.RemoveAt(i); } }
+		for (int i = bans.Count - 1; i >= 0; i--) { Ban b = bans[i]; if (Math.Abs(Wrap(b.Z - pz + LEN * 0.5f) - LEN * 0.5f) < SEG * 0.7f && Math.Abs(b.X - px) < 0.22f * gS && spinT <= 0f && el > 1f && airH <= 0f) { bans.RemoveAt(i); if (giantT > 0f) { Sfx.Play("thud_soft"); msg = "바나나를 밟아 버렸어요!"; msgT = 0.8f; continue; } Spin(1.2f); Sfx.Play("bad2"); msg = "바나나에 미끄러졌어요!"; msgT = 1.2f; } }
 		AiStep(dt);
 		// 다른 차와 부딪치기
 		foreach (Car c in cars)
 		{
 			float dz = Wrap(c.Z - pz + LEN * 0.5f) - LEN * 0.5f;
-			if (dz > -SEG * 0.6f && dz < SEG * 1.4f && Math.Abs(c.X - px) < 0.32f && bumpT <= 0f) { bumpT = 0.4f; v = Math.Min(v, c.V * 0.92f); px += px < c.X ? -0.18f : 0.18f; Shake = 0.25f; Sfx.Play("thud_soft"); }
+			if (dz > -SEG * 0.6f * gS && dz < SEG * 1.4f * gS && Math.Abs(c.X - px) < 0.32f * (gS + c.GS) * 0.5f && bumpT <= 0f)
+			{
+				bumpT = 0.4f;
+				if (giantT > 0f && c.Giant <= 0f) { HitCar(c, 1.2f); c.X += c.X < px ? -0.5f : 0.5f; Shake = 0.3f; Sfx.Play("thud"); msg = c.Name + " 꽝!"; msgT = 0.8f; }
+				else if (c.Giant > 0f && giantT <= 0f) { Spin(1.1f); px += px < c.X ? -0.4f : 0.4f; Sfx.Play("bad2"); msg = "거대한 " + c.Name + "에 튕겨났어요!"; msgT = 1.2f; }
+				else { v = Math.Min(v, c.V * 0.92f); px += px < c.X ? -0.18f : 0.18f; Shake = 0.25f; Sfx.Play("thud_soft"); for (int q = 0; q < 5; q++) Part(1, 200f + (c.X < px ? -50f : 50f), 520f, (float)(Rnd.NextDouble() - 0.5) * 200f, -(float)Rnd.NextDouble() * 150f, 0.3f, 3f, Color.FromArgb(255, 240, 160)); }
+			}
 		}
+		// 스키드 자국: 드리프트 · 미끄러질 때 바퀴 자리에 남겨요
+		if ((driftDir != 0 || spinT > 0f) && airH <= 0f && v > MAXV * 0.25f) { float wob = spinT > 0f ? (float)Math.Sin(el * 20f) * 0.08f : driftVis * 0.04f; skL[ps] = px - 0.11f + wob; skR[ps] = px + 0.11f + wob; skT[ps] = el; }
+		Fx(dt);
 		// 순위
 		float my = MyDist; place = 1; foreach (Car c in cars) if (Dist(c) > my) place++;
+	}
+	private void Spin(float d) { if (spinT > 0f) return; spinT = d; spinMax = d; Shake = 0.4f; driftDir = 0; charge = 0f; }
+	private void HitCar(Car c, float d) { if (c.Giant > 0f) return; c.Spin = d; c.SpinMax = d; spls.Add(new Spl { Z = c.Z, X = c.X, T = 0f }); }
+	// 연출: 물풍선 · 튄 물방울 · 연기 · 불꽃 · 거대화 스프링 · 공중 회전
+	private void Fx(float dt)
+	{
+		float kx = 200f + Clamp((px - camPx) * 170f, -60f, 60f);
+		if (rollT > 0f) rollT -= dt; if (splashT > 0f) splashT -= dt; if (warnT > 0f) warnT -= dt;
+		if (giantT > 0f) { giantT -= dt; if (giantT <= 0f) { Sfx.Play("ui_open"); msg = "원래 크기로"; msgT = 0.7f; } }
+		float gt = giantT > 0f ? 1.55f : 1f; gV += (gt - gS) * 160f * dt; gV *= (float)Math.Exp(-9f * dt); gS += gV * dt;   // 통통 튀는 스프링
+		foreach (Car c in cars) { if (c.Giant > 0f) c.Giant -= dt; float ct = c.Giant > 0f ? 1.55f : 1f; c.GV += (ct - c.GS) * 160f * dt; c.GV *= (float)Math.Exp(-9f * dt); c.GS += c.GV * dt; }
+		// 타이어 연기 · 불꽃
+		if (driftDir != 0 && airH <= 0f)
+		{
+			Color sc = charge > 1.6f ? Color.FromArgb(255, 160, 50) : (charge > 0.55f ? Color.FromArgb(110, 200, 255) : Color.FromArgb(255, 250, 220));
+			for (int sd = -1; sd <= 1; sd += 2) { if (Rnd.NextDouble() < 0.6) Part(0, kx + sd * 40f * gS, 560f, -driftDir * 60f + (float)(Rnd.NextDouble() - 0.5) * 40f, -30f - (float)Rnd.NextDouble() * 30f, 0.55f, 9f * gS, Color.FromArgb(235, 240, 240, 240)); if (Rnd.NextDouble() < 0.5) Part(1, kx + sd * 40f * gS, 562f, (float)(Rnd.NextDouble() - 0.5) * 220f - driftDir * 80f, -60f - (float)Rnd.NextDouble() * 140f, 0.25f, 3f, sc); }
+		}
+		if (curbBump > 0f && airH <= 0f && v > MAXV * 0.3f && Rnd.NextDouble() < 0.25) Part(0, kx + (px > 0 ? 44f : -44f), 562f, (float)(Rnd.NextDouble() - 0.5) * 60f, -20f, 0.5f, 7f, Color.FromArgb(200, Sh(T0.G1, -10)));
+		for (int i = parts.Count - 1; i >= 0; i--)
+		{
+			Pt q = parts[i]; q.Life -= dt; if (q.Life <= 0f) { parts.RemoveAt(i); continue; }
+			q.X += q.VX * dt; q.Y += q.VY * dt; if (q.K == 2) q.VY += 900f * dt; else if (q.K == 0) { q.VX *= 0.96f; q.Size += dt * 30f; q.Y += 40f * dt * (v / MAXV); } else q.VY += 300f * dt;
+		}
+		// 물풍선 날아가기 · 맞기
+		for (int i = shots.Count - 1; i >= 0; i--)
+		{
+			Shot sh = shots[i]; sh.T += dt; float k = Math.Min(1f, sh.T / sh.Dur);
+			if (sh.AtMe)
+			{
+				float tz = Wrap(PlayerZ); sh.Z = sh.Z0 + (Wrap(tz - sh.Z0 + LEN) % LEN) * k; sh.X = Lerp(sh.X0, sh.X0 * 0.3f + px * 0.7f, k);
+				if (k >= 1f)
+				{
+					shots.RemoveAt(i); if (finished) continue;
+					if (giantT > 0f) { msg = "거대해서 물풍선이 튕겨 나갔어요!"; msgT = 1f; Sfx.Play("thud_soft"); }
+					else if (Math.Abs(sh.X - px) > 0.42f || airH > 30f) { msg = "휴~ 피했어요!"; msgT = 1f; Sfx.Play("ok"); }
+					else { Spin(1.1f); splashT = 0.7f; Sfx.Play("glass"); msg = (sh.From != null ? sh.From.Name + "의 " : "") + "물풍선에 맞았어요!"; msgT = 1.3f; for (int q = 0; q < 26; q++) { double an = Rnd.NextDouble() * Math.PI * 2; float sp2 = 120f + (float)Rnd.NextDouble() * 260f; Part(2, kx, 520f, (float)Math.Cos(an) * sp2, (float)Math.Sin(an) * sp2 - 200f, 0.7f, 4f + (float)Rnd.NextDouble() * 5f, Color.FromArgb(230, 120, 200, 255)); } }
+				}
+				continue;
+			}
+			if (sh.Tgt != null) { float tz = sh.Tgt.Z; sh.Z = sh.Z0 + (Wrap(tz - sh.Z0 + LEN) % LEN) * k; sh.X = Lerp(sh.X0, sh.Tgt.X, k); }
+			else { sh.Z = Wrap(sh.Z0 + SEG * 60f * k); }
+			if (k >= 1f) { shots.RemoveAt(i); if (sh.Tgt != null) { HitCar(sh.Tgt, 1.4f); if (sh.From == null) { Sfx.Play("glass"); msg = sh.Tgt.Giant > 0f ? sh.Tgt.Name + "는 거대해서 안 통해요" : sh.Tgt.Name + " 명중!"; msgT = 1f; } } else spls.Add(new Spl { Z = sh.Z, X = sh.X, T = 0f }); }
+		}
+		for (int i = spls.Count - 1; i >= 0; i--) { spls[i].T += dt; if (spls[i].T > 0.6f) spls.RemoveAt(i); }
 	}
 	private bool mouseSteer;
 	private void Finish()
@@ -246,22 +421,23 @@ internal sealed class KartGame : MiniGame
 			c.TgtT -= dt; if (c.TgtT <= 0f) { c.TgtT = 1.5f + (float)Rnd.NextDouble() * 2f; c.Tgt = (float)(Rnd.NextDouble() * 1.3 - 0.65); }
 			c.X += (c.Tgt - cv * 0.06f - c.X) * Math.Min(1f, dt * 1.2f);
 			float nz = c.Z + c.V * dt; if (nz >= LEN) { nz -= LEN; c.Lap++; } c.Z = nz;
-			foreach (Box bx in boxes) if (bx.Hide <= 0f && Math.Abs(bx.Seg * SEG - c.Z) < SEG * 0.8f && Math.Abs(bx.X - c.X) < 0.3f) { bx.Hide = 3f; if (c.Item < 0) { c.Item = Rnd.Next(3); c.ItemT = 1.5f + (float)Rnd.NextDouble() * 4f; } }
-			for (int i = bans.Count - 1; i >= 0; i--) { Ban b = bans[i]; if (Math.Abs(b.Z - c.Z) < SEG * 0.7f && Math.Abs(b.X - c.X) < 0.25f) { c.Spin = 1.1f; bans.RemoveAt(i); } }
+			foreach (Box bx in boxes) if (bx.Hide <= 0f && Math.Abs(bx.Seg * SEG - c.Z) < SEG * 0.8f && Math.Abs(bx.X - c.X) < 0.3f) { bx.Hide = 3f; if (c.Item < 0) { c.Item = Rnd.Next(4); c.ItemT = 1.5f + (float)Rnd.NextDouble() * 4f; } }
+			for (int i = bans.Count - 1; i >= 0; i--) { Ban b = bans[i]; if (Math.Abs(b.Z - c.Z) < SEG * 0.7f && Math.Abs(b.X - c.X) < 0.25f) { if (c.Giant <= 0f) { c.Spin = 1.1f; c.SpinMax = 1.1f; } bans.RemoveAt(i); } }
 		}
 	}
 	private void AiItem(Car c)
 	{
 		int it = c.Item; c.Item = -1; float me = MyDist, cd = Dist(c);
 		if (it == 0) c.Boost = 1.3f;
+		else if (it == 3) c.Giant = 5f;
 		else if (it == 1) bans.Add(new Ban { Z = Wrap(c.Z - SEG * 3f), X = c.X });
 		else
 		{
 			// 바로 앞 차를 노려요 (그게 마룡이면 마룡이가 맞아요)
 			Car best = null; float bd = 1e9f; foreach (Car o in cars) { if (o == c) continue; float d = Dist(o) - cd; if (d > 0f && d < bd) { bd = d; best = o; } }
 			float dm = me - cd;
-			if (dm > 0f && dm < bd && dm < SEG * 160f && !finished) { if (spinT <= 0f) { spinT = 0.9f; Shake = 0.35f; Sfx.Play("bad2"); msg = c.Name + "의 물풍선에 맞았어요!"; msgT = 1.4f; } }
-			else if (best != null && bd < SEG * 160f) best.Spin = 1.1f;
+			if (dm > 0f && dm < bd && dm < SEG * 160f && !finished) { shots.Add(new Shot { AtMe = true, From = c, Z0 = c.Z, X0 = c.X * 0.4f + px * 0.6f, Z = c.Z, X = c.X, Dur = 1.1f }); warnT = 1.1f; msg = "뒤에서 물풍선이 날아와요! 옆으로 피해요"; msgT = 1.1f; Sfx.Play("tick"); }
+			else if (best != null && bd < SEG * 160f) shots.Add(new Shot { From = c, Tgt = best, Z0 = c.Z, X0 = c.X, Z = c.Z, X = c.X, Dur = 0.5f });
 		}
 	}
 	// ── 그리기 ──
@@ -297,7 +473,7 @@ internal sealed class KartGame : MiniGame
 		{
 			int i = (bs + n) % N; bool looped = i < bs; float camZ = Wrap(pos) - (looped ? LEN : 0f);
 			float y1 = HillY(i * SEG), y2 = HillY((i + 1) * SEG);
-			Pj a = Proj(0, y1, i * SEG, px * ROADW - x, camY, camZ), b = Proj(0, y2, (i + 1) * SEG, px * ROADW - x - dx, camY, camZ);
+			Pj a = Proj(0, y1, i * SEG, camPx * ROADW - x, camY, camZ), b = Proj(0, y2, (i + 1) * SEG, camPx * ROADW - x - dx, camY, camZ);
 			x += dx; dx += curve[i]; p1s[n] = a; clip[n] = maxY;
 			if (i * SEG - camZ <= DEPTH || b.Y >= maxY || b.Y >= a.Y - 0.01f) continue;
 			rows.Add(new Row { A = a, B = b, I = i });
@@ -311,12 +487,26 @@ internal sealed class KartGame : MiniGame
 			if (ya <= yb) continue;
 			a.Y = ya; b.Y = yb;
 			g.FillRectangle(alt ? grass1 : grass2, 0, yb, W, ya - yb);
-			if (course != 0 && i >= 3) { RoadStyle(g, a, b, i, alt, t); if (padK[i] != 0) PadRow(g, a, b, i, t); continue; }
+			if (course != 0 && i >= 3) { RoadStyle(g, a, b, i, alt, t); if (padK[i] != 0) PadRow(g, a, b, i, t); SkidRow(g, a, b, i); WallRow(g, a, b, i, alt); continue; }
 			Quad(g, alt ? rum1 : rum2, a.X, a.Y, a.W * 1.12f, b.X, b.Y, b.W * 1.12f);
 			Quad(g, (i < 3) ? chk : (alt ? road1 : road2), a.X, a.Y, a.W, b.X, b.Y, b.W);
 			if (i < 3) { for (int k = 0; k < 8; k++) if ((k + i) % 2 == 0) { float u0 = -1f + k * 0.25f; Quad(g, rum2, a.X + a.W * (u0 + 0.125f), a.Y, a.W * 0.125f, b.X + b.W * (u0 + 0.125f), b.Y, b.W * 0.125f); } }
 			else if (alt) { Quad(g, lane, a.X - a.W * 0.33f, a.Y, a.W * 0.02f, b.X - b.W * 0.33f, b.Y, b.W * 0.02f); Quad(g, lane, a.X + a.W * 0.33f, a.Y, a.W * 0.02f, b.X + b.W * 0.33f, b.Y, b.W * 0.02f); }
 			if (padK[i] != 0) PadRow(g, a, b, i, t);
+			SkidRow(g, a, b, i);
+			WallRow(g, a, b, i, alt);
+		}
+		// 도로 가장자리를 부드러운 선으로 한 번 더 그어 계단 모양을 감춰요 (이어진 줄끼리만)
+		if (rows.Count > 2)
+		{
+			g.SmoothingMode = SmoothingMode.AntiAlias; Color ec = course == 0 ? Color.FromArgb(150, T0.Ru2) : Color.FromArgb(150, Sh(T0.G1, -18));
+			using (Pen ep = new Pen(ec, 1.3f))
+			{
+				List<PointF> L = new List<PointF>(), Rr = new List<PointF>(); float lastY = -1f;
+				Action flush = () => { if (L.Count > 1) { g.DrawLines(ep, L.ToArray()); g.DrawLines(ep, Rr.ToArray()); } L.Clear(); Rr.Clear(); };
+				for (int r = rows.Count - 1; r >= 0; r--) { Pj a = rows[r].A, b = rows[r].B; if (L.Count > 0 && Math.Abs(b.Y - lastY) > 2.5f) flush(); float ew = course == 0 ? 1.12f : 1.13f; if (L.Count == 0) { L.Add(new PointF(b.X - b.W * ew, b.Y)); Rr.Add(new PointF(b.X + b.W * ew, b.Y)); } L.Add(new PointF(a.X - a.W * ew, a.Y)); Rr.Add(new PointF(a.X + a.W * ew, a.Y)); lastY = a.Y; }
+				flush();
+			}
 		}
 		rows.Clear();
 		g.SmoothingMode = sm0;
@@ -329,27 +519,65 @@ internal sealed class KartGame : MiniGame
 				int r = (i * 7) % 11; float side = ((i / 5) % 2 == 0) ? -1f : 1f; bool bend = Math.Abs(curve[i]) > 1.2f;
 				int kind = bend ? 3 : (i % 60 == 0 ? 1 : (r < 4 ? 2 : (r < 8 ? 0 : 4)));
 				if (bend) side = curve[i] > 0f ? -1f : 1f;   // 급커브 바깥쪽에 울타리
-				Deco(g, a, side * (kind == 2 ? 2.2f : (kind == 3 ? 1.3f : 1.5f)), kind, cl, i);
+				if (gap[i] == (int)side || gap[(i + 6) % N] == (int)side) { } else   // 지름길 입구는 비워 둬요
+				Deco(g, a, side * (kind == 2 ? 2.6f : (kind == 3 ? 1.85f : 2.05f)), kind, cl, i);
 			}
 			foreach (Box bx in boxes) if (bx.Seg == i && bx.Hide <= 0f) ItemBox(g, a, bx.X, cl, t);
 			foreach (Ban bn in bans) if (SegOf(bn.Z) == i) Banana(g, a, bn.X, cl);
-			foreach (Car c in cars) if (SegOf(c.Z) == i) { float sx = a.X + a.Sc * c.X * ROADW * W / 2f, sz = a.Sc * 900f * W / 2f; if (a.Y - sz * 0.8f < cl) DrawKart(g, sx, a.Y, Math.Min(150f, sz), c.C, false, c.Spin > 0f ? (float)(t * 900 % 360) : 0f, 0f, "ms_kart_cpu" + cars.IndexOf(c)); }
+			foreach (Car c in cars) if (SegOf(c.Z) == i)
+			{
+				float sx = a.X + a.Sc * c.X * ROADW * W / 2f, sz = a.Sc * 900f * W / 2f * c.GS; if (a.Y - sz * 0.8f >= cl) continue;
+				float yaw = 0f, hp = 0f; if (c.Spin > 0f) { float pr = 1f - c.Spin / c.SpinMax; yaw = (float)(Math.PI * 4 * (1 - (1 - pr) * (1 - pr))); hp = (float)Math.Sin(Math.Min(1f, pr * 2.5f) * Math.PI) * sz * 0.25f; }
+				float cs = (float)Math.Cos(yaw); DrawKart(g, sx, a.Y, Math.Min(240f, sz), c.C, false, c.Spin > 0f ? (float)Math.Sin(yaw * 2) * 6f : 0f, 0f, "ms_kart_cpu" + cars.IndexOf(c), Math.Sin(yaw) > 0, Math.Max(0.15f, Math.Abs(cs)), hp);
+				if (c.Spin > c.SpinMax * 0.3f && sz > 30f) Dizzy(g, sx, a.Y - sz * 1.15f - hp, sz * 0.4f, t);
+			}
+			foreach (Shot sh in shots) if (!sh.AtMe && SegOf(sh.Z) == i) { float k2 = Math.Min(1f, sh.T / sh.Dur), arc = (float)Math.Sin(k2 * Math.PI) * 700f + 250f; float sx = a.X + a.Sc * sh.X * ROADW * W / 2f, sy = a.Y - a.Sc * arc * W / 2f, r2 = Math.Max(3f, a.Sc * 220f * W / 2f); if (sy < cl) Balloon(g, sx, sy, r2, t); }
+			foreach (Spl sp2 in spls) if (SegOf(sp2.Z) == i) { float sx = a.X + a.Sc * sp2.X * ROADW * W / 2f, r2 = a.Sc * 700f * W / 2f * (0.3f + sp2.T * 1.6f); int al = (int)(220 * (1f - sp2.T / 0.6f)); if (a.Y - r2 < cl) using (Pen pp = new Pen(Color.FromArgb(al, 140, 210, 255), Math.Max(1.5f, r2 * 0.12f))) { g.DrawEllipse(pp, sx - r2, a.Y - r2 * 1.1f, r2 * 2f, r2 * 1.1f); using (SolidBrush bb = new SolidBrush(Color.FromArgb(al, 190, 235, 255))) for (int q = 0; q < 8; q++) { double an = q * Math.PI / 4 + 0.3; g.FillEllipse(bb, sx + (float)Math.Cos(an) * r2 * 1.1f - r2 * 0.08f, a.Y - r2 * 0.6f - (float)Math.Abs(Math.Sin(an)) * r2 * 0.9f, r2 * 0.16f, r2 * 0.16f); } } }
 		}
 		// 내 카트
-		float bob = (float)Math.Sin(t * 30) * (v > 100f ? 1.2f : 0f) + (Math.Abs(px) > 1f ? (float)Math.Sin(t * 50) * 2f : 0f);
-		if (driftDir != 0) Sparks(g, 200f + driftDir * -38f, 548f - airH, charge, t);
-		if (boostT > 0f) Flame(g, 200f, 556f - airH, t);
-		if (airH > 0f) { float sw0 = 110f * Math.Max(0.4f, 1f - airH / 220f); using (SolidBrush sb0 = new SolidBrush(Color.FromArgb(80, 0, 0, 0))) g.FillEllipse(sb0, 200f - sw0 / 2f, 550f, sw0, 14f); bob -= airH; }
-		{ string ks = driftDir < 0 ? "ms_kart_me3" : (driftDir > 0 ? "ms_kart_me4" : (Math.Abs(steerVis) > 0.35f ? "ms_kart_me1" : "ms_kart_me0")); bool kf = driftDir == 0 && steerVis > 0.35f;   // 오른쪽 핸들은 왼쪽 그림을 뒤집어 써요
-			DrawKart(g, 200f, 556f + bob, 120f, Color.FromArgb(30, 160, 140), true, spinT > 0f ? (float)(t * 1100 % 360) : steerVis * 3f, steerVis, ks, kf); }
+		DrawParts(g, 0);
+		float bob = (float)Math.Sin(t * 30) * (v > 100f ? 1.2f : 0f) + (curbBump > 0f && airH <= 0f ? (float)Math.Sin(t * 50) * 2f : 0f);
+		float kx = 200f + Clamp((px - camPx) * 170f, -60f, 60f) - driftVis * 14f;   // 카메라가 살짝 늦게 따라오고, 드리프트하면 뒤가 바깥으로 미끄러져요
+		float yawM = 0f, hopM = 0f; if (spinT > 0f) { float pr = 1f - spinT / spinMax; yawM = (float)(Math.PI * 4 * (1 - (1 - pr) * (1 - pr))); hopM = (float)Math.Sin(Math.Min(1f, pr * 2.5f) * Math.PI) * 26f; }
+		float rollM = rollT > 0f ? 360f * (float)(0.5 - 0.5 * Math.Cos(Math.PI * (1f - rollT / rollDur))) : 0f;
+		float gsv = Math.Max(0.6f, gS); if (giantT > 0f && giantT < 1f && ((int)(t * 12)) % 2 == 0) gsv = 1f + (gsv - 1f) * 0.6f;
+		if (driftDir != 0 && airH <= 0f) Sparks(g, kx - driftVis * 36f * gsv, 548f, charge, t);
+		if (boostT > 0f) Flame(g, kx, 556f - airH - hopM, t);
+		if (airH > 0f) bob -= airH;
+		{
+			string ks = spinT > 0f ? "ms_kart_me0" : (driftDir < 0 ? "ms_kart_me3" : (driftDir > 0 ? "ms_kart_me4" : (Math.Abs(steerVis) > 0.35f ? "ms_kart_me1" : "ms_kart_me0"))); bool kf = driftDir == 0 && spinT <= 0f && steerVis > 0.35f;   // 오른쪽 핸들은 왼쪽 그림을 뒤집어 써요
+			if (spinT > 0f && Math.Cos(yawM) < 0f && Spr.Get("ms_kart_me_f") != null) ks = "ms_kart_me_f";   // 앞모습 그림이 있으면 돌 때 써요
+			float rot = spinT > 0f ? (float)Math.Sin(yawM * 2) * 8f : (rollT > 0f ? rollM : steerVis * 3f + driftVis * 5f);
+			float sxs = spinT > 0f ? Math.Max(0.15f, (float)Math.Abs(Math.Cos(yawM))) : 1f;
+			if (spinT > 0f && Math.Sin(yawM) > 0) kf = !kf;
+			float ky = 556f + bob, rcy = rollT > 0f ? 60f * gsv : 0f;
+			if (rollT > 0f) { GraphicsState rs = g.Save(); g.TranslateTransform(kx, ky - rcy); g.RotateTransform(rollM); DrawKart(g, 0f, rcy, 120f * gsv, Color.FromArgb(30, 160, 140), true, 0f, steerVis, ks, kf); g.Restore(rs); }
+			else DrawKart(g, kx, ky, 120f * gsv, Color.FromArgb(30, 160, 140), true, rot, steerVis, ks, kf, sxs, hopM, -driftVis * 0.18f);
+			if (spinT > spinMax * 0.25f) Dizzy(g, kx, ky - 150f * gsv - hopM, 40f, t);
+			if (giantT > 0f) using (Pen gp = new Pen(Color.FromArgb((int)(90 + 60 * Math.Sin(t * 10)), 255, 230, 120), 3f)) g.DrawEllipse(gp, kx - 70f * gsv, ky - 150f * gsv, 140f * gsv, 160f * gsv);
+		}
+		DrawParts(g, 1);
+		if (splashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(110 * splashT / 0.7f), 120, 190, 255))) g.FillRectangle(b, 0, 0, W, H);
+		if (warnT > 0f && ((int)(t * 8)) % 2 == 0) { using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 240, 70, 70))) g.FillEllipse(b, 182, 590 - 14, 36, 36); Txt(g, "!", 16f, 2, Color.White, 182, 576, 36, 36, StringAlignment.Center); Balloon(g, 200f + (1f - warnT / 1.1f) * 0f, 600f - (1f - warnT / 1.1f) * 40f, 10f, t); }
+		if (scTo >= 0)
+		{
+			float k = (float)Math.Sin(Math.PI * Clamp(scT / scDur, 0f, 1f)); int al = (int)(235 * k);
+			using (SolidBrush b = new SolidBrush(Color.FromArgb(al, Sh(T0.G1, -30)))) g.FillRectangle(b, 0, 0, W, H);
+			using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(al * 0.8f), 255, 250, 235))) for (int q = 0; q < 14; q++) { float r0 = 30 + (q * 37) % 70, xq = (q * 83 + (float)t * 300f * (q % 2 == 0 ? 1 : -1)) % 460 - 30, yq = 380 + (q * 61) % 220; g.FillEllipse(b, xq - r0, yq - r0 * 0.6f, r0 * 2, r0 * 1.2f); }
+			if (k > 0.3f) Hint(g, "지름길 통과 중…", 300, 13f, true, Math.Min(1f, (k - 0.3f) * 3f));
+		}
 		// HUD
 		Panel(g, new RectangleF(10, 40, 120, 56)); Txt(g, place + "등", 22f, 2, place == 1 ? Color.FromArgb(255, 220, 90) : Color.White, 10, 40, 120, 56, StringAlignment.Center);
 		Panel(g, new RectangleF(140, 40, 250, 56)); Txt(g, Math.Min(Laps, lap + 1) + " / " + Laps + " 바퀴   " + ((int)(v / MAXV * 180)) + "km/h", 11f, 2, Color.White, 146, 42, 240, 24, StringAlignment.Center);
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(152, 70, 226, 12), 6)) using (SolidBrush b = new SolidBrush(Color.FromArgb(110, 0, 0, 0))) g.FillPath(b, gp);
-		float cf = Math.Min(1f, charge / 2.2f); if (cf > 0.02f) using (GraphicsPath gp = Gfx.Round(new RectangleF(152, 70, 226 * cf, 12), 6)) using (SolidBrush b = new SolidBrush(charge > 1.6f ? Color.FromArgb(255, 150, 40) : (charge > 0.55f ? Color.FromArgb(80, 190, 255) : Color.FromArgb(200, 220, 230)))) g.FillPath(b, gp);
-		Txt(g, "드리프트 게이지", 7.5f, 1, Color.FromArgb(220, 255, 255, 255), 152, 82, 226, 12, StringAlignment.Center);
+		float cf = bst >= 2 ? 1f : Math.Min(1f, gauge); if (cf > 0.02f) using (GraphicsPath gp = Gfx.Round(new RectangleF(152, 70, 226 * cf, 12), 6)) using (LinearGradientBrush b = new LinearGradientBrush(new RectangleF(150, 70, 230, 12), Color.FromArgb(80, 190, 255), Color.FromArgb(255, 150, 40), 0f)) g.FillPath(b, gp);
+		if (driftDir != 0 && bst < 2) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(120 + 100 * Math.Sin(t * 20)), 255, 255, 255))) g.FillRectangle(b, 152 + 226 * cf - 3, 70, 3, 12);
+		Txt(g, bst >= 2 ? "부스터 가득 · X 키로 써요" : "드리프트하면 부스터 게이지가 차요", 7.5f, 1, Color.FromArgb(220, 255, 255, 255), 152, 82, 226, 12, StringAlignment.Center);
+		// 드리프트 부스터 칸 (2개까지)
+		for (int q = 0; q < 2; q++) { RectangleF br = new RectangleF(316 + q * 34, 432, 30, 34); Panel(g, br); if (q < bst) BoostIcon(g, br.X + 15, br.Y + 17, 1f + (q == bst - 1 ? (float)Math.Sin(t * 6) * 0.06f : 0f)); }
+		Txt(g, "X 부스터", 7f, 1, Color.FromArgb(220, 255, 255, 255), 316, 467, 64, 14, StringAlignment.Center);
 		RectangleF ib = new RectangleF(316, 486, 64, 64); Panel(g, ib);
-		if (item >= 0) { int shown = itemRoll > 0f ? ((int)(t * 14)) % 3 : item; ItemIcon(g, ib.X + 32, ib.Y + 28, shown); Txt(g, itemRoll > 0f ? "" : ItemName[item], 8f, 2, Color.White, ib.X, ib.Y + 44, ib.Width, 18, StringAlignment.Center); }
+		if (item >= 0) { int shown = itemRoll > 0f ? ((int)(t * 14)) % 4 : item; ItemIcon(g, ib.X + 32, ib.Y + 28, shown); Txt(g, itemRoll > 0f ? "" : ItemName[item], 8f, 2, Color.White, ib.X, ib.Y + 44, ib.Width, 18, StringAlignment.Center); }
 		else Txt(g, "아이템", 8.5f, 1, Color.FromArgb(150, 255, 255, 255), ib.X, ib.Y, ib.Width, ib.Height, StringAlignment.Center);
 		// 순위표 (작게)
 		List<KeyValuePair<string, float>> rk = new List<KeyValuePair<string, float>>(); rk.Add(new KeyValuePair<string, float>("마룡이", MyDist)); foreach (Car c in cars) rk.Add(new KeyValuePair<string, float>(c.Name, Dist(c)));
@@ -357,7 +585,7 @@ internal sealed class KartGame : MiniGame
 		for (int i = 0; i < rk.Count; i++) Txt(g, (i + 1) + " " + rk[i].Key, 8f, rk[i].Key == "마룡이" ? 2 : 1, rk[i].Key == "마룡이" ? Color.FromArgb(255, 230, 120) : Color.FromArgb(225, 255, 255, 255), 16, 108 + i * 15, 86, 15, StringAlignment.Near);
 		{ RectangleF mr = new RectangleF(10, 470, 112, 104); Panel(g, mr); MiniMap(g, mr); }
 		if (msgT > 0f) Hint(g, msg, 170, 14f, true, Math.Min(1f, msgT * 2f));
-		if (el < 5f) Hint(g, course == 2 ? "빙판이라 미끄러워요! 핸들을 미리 꺾어요" : (course == 4 ? "중력이 약해요! 점프하면 오래 날아요" : "←→ 핸들 · 노란 화살표 발판은 부스트 · 줄무늬 발판은 점프"), 432, 10.5f, false, Math.Min(1f, (5f - el) * 2f));
+		if (el < 5f) Hint(g, course == 2 ? "빙판이라 미끄러워요! 핸들을 미리 꺾어요" : (course == 4 ? "중력이 약해요! 점프하면 오래 날아요" : "←→ 핸들 · Shift 드리프트로 부스터 모으기 · X 부스터 · Z 아이템"), 432, 10.5f, false, Math.Min(1f, (5f - el) * 2f));
 	}
 	private static float Lerp(float a, float b, float k) { return a + (b - a) * k; }
 	private float HillY(float z) { float s = Wrap(z) / SEG; int i = (int)s; float k = s - i; i %= N; return Lerp(hill[i], hill[(i + 1) % N], k) * 20f; }
@@ -411,6 +639,8 @@ internal sealed class KartGame : MiniGame
 	private void RoadStyle(Graphics g, Pj a, Pj b, int i, bool alt, double t)
 	{
 		Color r1 = T0.R1, r2 = T0.R2;
+		// 먼 칸(화면에서 2픽셀도 안 되는 줄)은 무늬를 빼고 바닥색만 → 멀리서 무늬가 지글거리지 않아요
+		if (a.Y - b.Y < 2f) { Span(g, Sh(T0.G1, course == 2 ? 6 : -10), a, b, -1.13f, 1.13f); Span(g, Color.FromArgb((r1.R + r2.R) / 2, (r1.G + r2.G) / 2, (r1.B + r2.B) / 2), a, b, -1f, 1f); if (course == 4 && i % 8 == 0) Span(g, Color.FromArgb(90, 120, 255, 220), a, b, -1f, 1f); return; }
 		switch (course)
 		{
 			case 1:   // 사막: 모래 흙길 · 부드러운 모래 턱 · 바퀴 자국 두 줄
@@ -439,7 +669,7 @@ internal sealed class KartGame : MiniGame
 				{ int pulse = (int)(t * 10) % 6; Span(g, ((i + pulse) % 6) < 3 ? Color.FromArgb(160, 255, 230) : Color.FromArgb(70, 160, 150), a, b, -0.03f, 0.03f); }
 				Span(g, Color.FromArgb(120, 200, 120, 255), a, b, -0.82f, -0.78f); Span(g, Color.FromArgb(120, 200, 120, 255), a, b, 0.78f, 0.82f);
 				break;
-			case 5:   // 중세: 엇갈려 쌓은 돌바닥 (벽돌 무늬) · 돌 경계석
+			case 5: case 11:   // 중세(사리호는 금빛): 엇갈려 쌓은 돌바닥 (벽돌 무늬) · 돌 경계석
 				Span(g, alt ? Color.FromArgb(170, 170, 176) : Color.FromArgb(120, 120, 128), a, b, -1.1f, 1.1f);
 				{ int row = i / 2; float off = row % 2 == 0 ? 0f : 0.14f; for (int k = -1; k < 8; k++) { float u0 = -1f + k * 0.286f + off, u1 = u0 + 0.272f; if (u1 <= -1f || u0 >= 1f) continue; float h = Hash(row, k); Span(g, h < 0.33f ? r1 : (h < 0.66f ? r2 : Sh(r1, 14)), a, b, Math.Max(-1f, u0), Math.Min(1f, u1)); } }
 				break;
@@ -448,7 +678,7 @@ internal sealed class KartGame : MiniGame
 				{ Color[] pc = { Color.FromArgb(255, 206, 228), Color.FromArgb(222, 206, 255), Color.FromArgb(200, 244, 226), Color.FromArgb(255, 240, 200) }; Span(g, pc[(i / 4) % 4], a, b, -1f, 1f); }
 				if (Hash(i, 13) < 0.2f) { float u = Hash(i, 14) * 1.6f - 0.8f; Span(g, Color.FromArgb(180, 255, 255, 255), a, b, u - 0.03f, u + 0.03f); }   // 반짝
 				break;
-			case 7:   // 일본: 큼직한 판석을 깐 돌길 · 자갈 가장자리
+			case 7: case 9: case 10:   // 일본·석탑길: 큼직한 판석을 깐 돌길 · 자갈 가장자리
 				Span(g, alt ? Color.FromArgb(200, 196, 186) : Color.FromArgb(186, 182, 172), a, b, -1.14f, 1.14f);
 				{ int row = i / 4; float off = row % 2 == 0 ? 0f : 0.33f; Span(g, Sh(r1, -30), a, b, -1f, 1f); if (i % 4 != 0) for (int k = -1; k < 4; k++) { float u0 = -1f + k * 0.667f + off + 0.02f, u1 = u0 + 0.627f; if (u1 <= -1f || u0 >= 1f) continue; Span(g, Hash(row, k) < 0.5f ? r1 : r2, a, b, Math.Max(-1f, u0), Math.Min(1f, u1)); } }
 				break;
@@ -463,28 +693,28 @@ internal sealed class KartGame : MiniGame
 	private void DrawSelect(Graphics g, double t)
 	{
 		Bg(g, Color.FromArgb(40, 70, 120), Color.FromArgb(20, 36, 70));
-		Txt(g, "코스를 골라요", 17f, 2, Color.White, 0, 46, W, 30, StringAlignment.Center);
-		Txt(g, "카드를 누르거나 숫자 1~9", 9f, 1, Color.FromArgb(180, 220, 235, 255), 0, 72, W, 16, StringAlignment.Center);
+		Txt(g, "코스를 골라요", 16f, 2, Color.White, 0, 42, W, 28, StringAlignment.Center);
+		Txt(g, "카드를 눌러 골라요 · 숫자 1~9", 9f, 1, Color.FromArgb(180, 220, 235, 255), 0, 68, W, 16, StringAlignment.Center);
 		for (int k = 0; k < Th.Length; k++)
 		{
 			Thm th = Th[k]; RectangleF r = CardR(k); bool hv = k == hovCard; if (hv) r.Inflate(3, 3);
 			using (GraphicsPath gp = Gfx.Round(r, 14))
 			{
 				GraphicsState gs = g.Save(); g.SetClip(gp);
-				using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(r.X, r.Y - 1, r.Width, 70), th.SkyA, th.SkyB, 90f)) g.FillRectangle(lb, r.X, r.Y, r.Width, 70);
-				using (SolidBrush b = new SolidBrush(th.HillN)) g.FillEllipse(b, r.X - 20, r.Y + 52, r.Width * 0.8f, 40); using (SolidBrush b = new SolidBrush(th.HillF)) g.FillEllipse(b, r.X + r.Width * 0.4f, r.Y + 50, r.Width * 0.8f, 40);
-				using (SolidBrush b = new SolidBrush(th.G1)) g.FillRectangle(b, r.X, r.Y + 68, r.Width, r.Height - 68);
-				using (SolidBrush b = new SolidBrush(th.R1)) g.FillPolygon(b, new PointF[] { new PointF(r.X + r.Width / 2f - 6, r.Y + 68), new PointF(r.X + r.Width / 2f + 6, r.Y + 68), new PointF(r.Right - 8, r.Y + 112), new PointF(r.X + 8, r.Y + 112) });
-				using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 10, 20, 40))) g.FillRectangle(b, r.X, r.Y + 104, r.Width, r.Height - 104);
+				using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(r.X, r.Y - 1, r.Width, 56), th.SkyA, th.SkyB, 90f)) g.FillRectangle(lb, r.X, r.Y, r.Width, 56);
+				using (SolidBrush b = new SolidBrush(th.HillN)) g.FillEllipse(b, r.X - 20, r.Y + 40, r.Width * 0.8f, 32); using (SolidBrush b = new SolidBrush(th.HillF)) g.FillEllipse(b, r.X + r.Width * 0.4f, r.Y + 38, r.Width * 0.8f, 32);
+				using (SolidBrush b = new SolidBrush(th.G1)) g.FillRectangle(b, r.X, r.Y + 54, r.Width, r.Height - 54);
+				using (SolidBrush b = new SolidBrush(th.R1)) g.FillPolygon(b, new PointF[] { new PointF(r.X + r.Width / 2f - 6, r.Y + 54), new PointF(r.X + r.Width / 2f + 6, r.Y + 54), new PointF(r.Right - 8, r.Y + 80), new PointF(r.X + 8, r.Y + 80) });
+				using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 10, 20, 40))) g.FillRectangle(b, r.X, r.Y + 74, r.Width, r.Height - 74);
 				g.Restore(gs);
 				using (Pen p = new Pen(hv ? Color.FromArgb(255, 255, 220, 110) : Color.FromArgb(110, 255, 255, 255), hv ? 2.6f : 1.2f)) g.DrawPath(p, gp);
 			}
 			// 코스 모양 (위에서 본 고리)
-			List<PointF> mp = courseMap[k]; if (mp != null && mp.Count > 2) { RectangleF mr = new RectangleF(r.X + r.Width - 50, r.Y + 6, 44, 40); using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 0, 0, 0))) using (GraphicsPath gp2 = Gfx.Round(mr, 8)) g.FillPath(b, gp2); DrawLoop(g, mp, mr, 1.6f); }
+			List<PointF> mp = courseMap[k]; if (mp != null && mp.Count > 2) { RectangleF mr = new RectangleF(r.X + r.Width - 46, r.Y + 5, 40, 40); using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 0, 0, 0))) using (GraphicsPath gp2 = Gfx.Round(mr, 8)) g.FillPath(b, gp2); DrawLoop(g, mp, mr, 1.6f); }
 			Txt(g, (k + 1).ToString(), 10f, 2, Color.White, r.X + 6, r.Y + 4, 20, 18, StringAlignment.Near);
-			Txt(g, th.Sub, 8.5f, 2, Color.FromArgb(255, 230, 140), r.X + 6, r.Y + 106, r.Width - 12, 14, StringAlignment.Near);
-			Txt(g, th.Name, 9.5f, 2, Color.White, r.X + 6, r.Y + 119, r.Width - 12, 16, StringAlignment.Near);
-			Txt(g, new string('★', th.Stars) + new string('☆', 3 - th.Stars) + "  " + th.Tags, 7f, 1, Color.FromArgb(220, 230, 240, 250), r.X + 6, r.Y + 135, r.Width - 10, 14, StringAlignment.Near);
+			Txt(g, th.Sub, 8f, 2, Color.FromArgb(255, 230, 140), r.X + 6, r.Y + 76, r.Width - 12, 13, StringAlignment.Near);
+			Txt(g, th.Name, 9f, 2, Color.White, r.X + 6, r.Y + 88, r.Width - 12, 15, StringAlignment.Near);
+			Txt(g, new string('★', th.Stars) + new string('☆', 3 - th.Stars) + "  " + th.Tags, 7f, 1, Color.FromArgb(220, 230, 240, 250), r.X + 6, r.Y + 103, r.Width - 10, 14, StringAlignment.Near);
 		}
 	}
 	private static void DrawLoop(Graphics g, List<PointF> pts, RectangleF r, float wpen)
@@ -518,6 +748,8 @@ internal sealed class KartGame : MiniGame
 		using (SolidBrush sb = new SolidBrush(Color.FromArgb(235, T0.Slow))) Quad(g, sb, ax, a.Y, a.W * w, bxx, b.Y, b.W * w);
 		if (course == 8 && i % 2 == 0) using (SolidBrush sb = new SolidBrush(Color.FromArgb(200, 180, 190, 200))) Quad(g, sb, ax - a.W * w * 0.5f, a.Y, a.W * w * 0.3f, bxx - b.W * w * 0.5f, b.Y, b.W * w * 0.3f);
 	}
+	private static Bitmap pagodaBmp; private static bool pagodaTried;
+	private static Bitmap Pagoda() { if (!pagodaTried) { pagodaTried = true; try { using (System.IO.Stream st = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("pagoda.png")) if (st != null) using (Bitmap t = new Bitmap(st)) pagodaBmp = new Bitmap(t); } catch { } } return pagodaBmp; }
 	// 테마 길가 소품: 그림(ms_kt{코스}_{번호})이 있으면 그걸 쓰고, 없으면 간단히 그려요
 	//  0·1 큰 건물(집 자리) · 2 큰 식물(나무 자리) · 3 작은 식물/바위 · 4 급커브 울타리 · 5 가로등 자리 소품
 	private void DecoTheme(Graphics g, Pj a, float side, int kind, float clip, int seg)
@@ -539,6 +771,7 @@ internal sealed class KartGame : MiniGame
 			case 5: c1 = Color.FromArgb(150, 150, 160); c2 = Color.FromArgb(70, 80, 160); c3 = Color.FromArgb(230, 220, 200); break;
 			case 6: c1 = Color.FromArgb(255, 150, 200); c2 = Color.FromArgb(180, 140, 240); c3 = Color.FromArgb(255, 240, 120); break;
 			case 7: c1 = Color.FromArgb(90, 160, 80); c2 = Color.FromArgb(200, 40, 40); c3 = Color.FromArgb(150, 150, 140); break;
+			case 9: case 10: case 11: c1 = Color.FromArgb(70, 140, 80); c2 = Color.FromArgb(120, 110, 100); c3 = Color.FromArgb(170, 164, 150); break;
 			default: c1 = Color.FromArgb(250, 250, 245); c2 = Color.FromArgb(14, 138, 124); c3 = Color.FromArgb(150, 160, 170); break;
 		}
 		using (SolidBrush b1 = new SolidBrush(c1)) using (SolidBrush b2 = new SolidBrush(c2)) using (SolidBrush b3 = new SolidBrush(c3))
@@ -552,7 +785,8 @@ internal sealed class KartGame : MiniGame
 			{
 				// 큰 건물 자리: 테마별 모양
 				float w = h * 0.8f;
-				if (course == 5) { g.FillRectangle(b1, sx - w * 0.3f, a.Y - h * 0.8f, w * 0.6f, h * 0.8f); g.FillPolygon(b2, new PointF[] { new PointF(sx - w * 0.38f, a.Y - h * 0.8f), new PointF(sx, a.Y - h * 1.15f), new PointF(sx + w * 0.38f, a.Y - h * 0.8f) }); }
+				if (course >= 9 && Pagoda() != null) { Bitmap pg = Pagoda(); float ph = h * 1.15f, pw = ph * pg.Width / pg.Height; g.DrawImage(pg, sx - pw / 2f, a.Y - ph, pw, ph); }
+				else if (course == 5) { g.FillRectangle(b1, sx - w * 0.3f, a.Y - h * 0.8f, w * 0.6f, h * 0.8f); g.FillPolygon(b2, new PointF[] { new PointF(sx - w * 0.38f, a.Y - h * 0.8f), new PointF(sx, a.Y - h * 1.15f), new PointF(sx + w * 0.38f, a.Y - h * 0.8f) }); }
 				else if (course == 7) { g.FillRectangle(b2, sx - w * 0.45f, a.Y - h, w * 0.1f, h); g.FillRectangle(b2, sx + w * 0.35f, a.Y - h, w * 0.1f, h); g.FillRectangle(b2, sx - w * 0.6f, a.Y - h, w * 1.2f, h * 0.1f); g.FillRectangle(b2, sx - w * 0.5f, a.Y - h * 0.8f, w, h * 0.06f); }
 				else if (course == 8) { g.FillRectangle(b3, sx - w * 0.5f, a.Y - h * 0.5f, w, h * 0.08f); g.FillRectangle(b3, sx - w * 0.45f, a.Y - h * 0.42f, w * 0.06f, h * 0.42f); g.FillRectangle(b3, sx + w * 0.39f, a.Y - h * 0.42f, w * 0.06f, h * 0.42f); g.FillRectangle(b1, sx - w * 0.3f, a.Y - h * 0.62f, w * 0.4f, h * 0.12f); using (SolidBrush mb = new SolidBrush(Color.FromArgb(40, 50, 60))) g.FillRectangle(mb, sx + w * 0.1f, a.Y - h * 0.82f, w * 0.3f, h * 0.3f); }
 				else if (course == 2) { g.FillPie(b2, sx - w * 0.5f, a.Y - h * 0.6f, w, h * 1.2f, 180, 180); using (Pen p = new Pen(c3, Math.Max(1f, h * 0.02f))) g.DrawArc(p, sx - w * 0.5f, a.Y - h * 0.6f, w, h * 1.2f, 180, 180); }
@@ -563,7 +797,8 @@ internal sealed class KartGame : MiniGame
 			else if (slot == 2 || slot == 3)
 			{
 				// 큰 식물 자리: 선인장 · 눈 덮인 침엽수 · 큰 나무 · 수정 기둥 · 깃발 · 큰 꽃 · 대나무 · 화분
-				if (course == 1) { g.FillRectangle(b1, sx - h * 0.07f, a.Y - h, h * 0.14f, h); g.FillRectangle(b1, sx - h * 0.25f, a.Y - h * 0.6f, h * 0.1f, h * 0.3f); g.FillRectangle(b1, sx + h * 0.15f, a.Y - h * 0.75f, h * 0.1f, h * 0.35f); g.FillRectangle(b1, sx - h * 0.25f, a.Y - h * 0.35f, h * 0.2f, h * 0.07f); g.FillRectangle(b1, sx + h * 0.05f, a.Y - h * 0.45f, h * 0.2f, h * 0.07f); }
+				if (course >= 9) { using (SolidBrush tb = new SolidBrush(Color.FromArgb(110, 80, 50))) g.FillRectangle(tb, sx - h * 0.05f, a.Y - h * 0.4f, h * 0.1f, h * 0.4f); g.FillEllipse(b1, sx - h * 0.3f, a.Y - h, h * 0.6f, h * 0.65f); using (SolidBrush lb4 = new SolidBrush(Color.FromArgb(90, 160, 90))) g.FillEllipse(lb4, sx - h * 0.2f, a.Y - h * 0.95f, h * 0.3f, h * 0.3f); }
+				else if (course == 1) { g.FillRectangle(b1, sx - h * 0.07f, a.Y - h, h * 0.14f, h); g.FillRectangle(b1, sx - h * 0.25f, a.Y - h * 0.6f, h * 0.1f, h * 0.3f); g.FillRectangle(b1, sx + h * 0.15f, a.Y - h * 0.75f, h * 0.1f, h * 0.35f); g.FillRectangle(b1, sx - h * 0.25f, a.Y - h * 0.35f, h * 0.2f, h * 0.07f); g.FillRectangle(b1, sx + h * 0.05f, a.Y - h * 0.45f, h * 0.2f, h * 0.07f); }
 				else if (course == 2 || course == 3) { using (SolidBrush tb = new SolidBrush(Color.FromArgb(110, 80, 50))) g.FillRectangle(tb, sx - h * 0.05f, a.Y - h * 0.25f, h * 0.1f, h * 0.25f); for (int k = 0; k < 3; k++) { float yy = a.Y - h * (0.25f + k * 0.25f), ww = h * (0.42f - k * 0.1f); g.FillPolygon(b1, new PointF[] { new PointF(sx - ww, yy), new PointF(sx, yy - h * 0.38f), new PointF(sx + ww, yy) }); if (course == 2) g.FillPolygon(b2, new PointF[] { new PointF(sx - ww * 0.4f, yy - h * 0.23f), new PointF(sx, yy - h * 0.38f), new PointF(sx + ww * 0.4f, yy - h * 0.23f) }); } }
 				else if (course == 4) { g.FillPolygon(b1, new PointF[] { new PointF(sx - h * 0.12f, a.Y), new PointF(sx - h * 0.02f, a.Y - h), new PointF(sx + h * 0.1f, a.Y) }); g.FillPolygon(b2, new PointF[] { new PointF(sx + h * 0.05f, a.Y), new PointF(sx + h * 0.15f, a.Y - h * 0.6f), new PointF(sx + h * 0.25f, a.Y) }); }
 				else if (course == 5) { g.FillRectangle(b3, sx - h * 0.02f, a.Y - h, h * 0.04f, h); g.FillPolygon(b2, new PointF[] { new PointF(sx + h * 0.02f, a.Y - h), new PointF(sx + h * 0.36f, a.Y - h * 0.9f), new PointF(sx + h * 0.02f, a.Y - h * 0.78f) }); }
@@ -576,11 +811,36 @@ internal sealed class KartGame : MiniGame
 				// 작은 소품: 바위 · 얼음 · 버섯 · 수정 · 돌 · 꽃 · 석등 · 서류 더미
 				if (course == 3) { g.FillRectangle(Brushes.White, sx - h * 0.06f, a.Y - h * 0.3f, h * 0.12f, h * 0.3f); g.FillPie(b2, sx - h * 0.25f, a.Y - h * 0.5f, h * 0.5f, h * 0.4f, 180, 180); }
 				else if (course == 8) { for (int k = 0; k < 5; k++) g.FillRectangle(k % 2 == 0 ? b1 : Brushes.WhiteSmoke, sx - h * 0.3f + (k % 2) * h * 0.03f, a.Y - h * 0.1f * (k + 1), h * 0.6f, h * 0.1f); }
-				else if (course == 7) { g.FillRectangle(b3, sx - h * 0.06f, a.Y - h * 0.5f, h * 0.12f, h * 0.5f); g.FillRectangle(b3, sx - h * 0.18f, a.Y - h * 0.62f, h * 0.36f, h * 0.14f); using (SolidBrush lb3 = new SolidBrush(Color.FromArgb(255, 230, 150))) g.FillRectangle(lb3, sx - h * 0.08f, a.Y - h * 0.48f, h * 0.16f, h * 0.1f); }
+				else if (course == 7 || course >= 9) { g.FillRectangle(b3, sx - h * 0.06f, a.Y - h * 0.5f, h * 0.12f, h * 0.5f); g.FillRectangle(b3, sx - h * 0.18f, a.Y - h * 0.62f, h * 0.36f, h * 0.14f); using (SolidBrush lb3 = new SolidBrush(Color.FromArgb(255, 230, 150))) g.FillRectangle(lb3, sx - h * 0.08f, a.Y - h * 0.48f, h * 0.16f, h * 0.1f); }
 				else g.FillEllipse(course == 6 ? b1 : b3, sx - h * 0.35f, a.Y - h * 0.4f, h * 0.7f, h * 0.45f);
 			}
 		}
 		g.Restore(st);
+	}
+	// 벽(낮은 방호벽) · 벽이 트인 곳의 흙길
+	private int wbFor = -1; private SolidBrush wb1, wb2, wbTop, dirt1, dirt2;
+	private void WallRow(Graphics g, Pj a, Pj b, int i, bool alt)
+	{
+		if (wbFor != course)
+		{
+			wbFor = course; Color c1 = T0.Ru1, c2 = T0.Ru2;
+			wb1 = new SolidBrush(Sh(c1, -12)); wb2 = new SolidBrush(Sh(c2, -14)); wbTop = new SolidBrush(Sh(c2, 12));
+			Color d = Color.FromArgb(226, 196, 136); dirt1 = new SolidBrush(d); dirt2 = new SolidBrush(Sh(d, -10));
+		}
+		if (a.W < 1.5f) return;
+		for (int sd = -1; sd <= 1; sd += 2)
+		{
+			if (gap[i] == sd)
+			{
+				float cA = a.X + sd * a.W * 1.62f, cB = b.X + sd * b.W * 1.62f; Quad(g, alt ? dirt1 : dirt2, cA, a.Y, a.W * 0.62f, cB, b.Y, b.W * 0.62f);
+				if (i % 4 == 0 && a.Y - b.Y > 2f) { float ca = a.X + sd * a.W * 0.78f, cb = b.X + sd * b.W * 0.78f, wa = a.W * 0.1f, wb = b.W * 0.1f; using (SolidBrush cbr = new SolidBrush(Color.FromArgb(235, 255, 170, 60))) g.FillPolygon(cbr, new PointF[] { new PointF(ca - sd * wa, a.Y), new PointF((ca + cb) / 2f + sd * (wa + wb) / 2f, (a.Y + b.Y) / 2f), new PointF(cb - sd * wb, b.Y), new PointF((ca + cb) / 2f - sd * (wa + wb) * 0.1f, (a.Y + b.Y) / 2f) }); }
+				continue;
+			}
+			float xa = a.X + sd * a.W * WALL, xb = b.X + sd * b.W * WALL, ha = a.W * 0.16f, hb = b.W * 0.16f;
+			if (Math.Abs(xa - xb) < 2.5f && ha > 12f) continue;   // 바로 앞에서 모서리만 보이는 벽은 세로 줄처럼 보여서 생략해요
+			g.FillPolygon(alt ? wb1 : wb2, new PointF[] { new PointF(xa, a.Y), new PointF(xa, a.Y - ha), new PointF(xb, b.Y - hb - 1f), new PointF(xb, b.Y - 1f) });
+			if (ha > 3f) g.FillPolygon(wbTop, new PointF[] { new PointF(xa, a.Y - ha), new PointF(xa, a.Y - ha - ha * 0.18f), new PointF(xb, b.Y - hb * 1.18f - 1f), new PointF(xb, b.Y - hb - 1f) });
+		}
 	}
 	// 미니맵: 위에서 본 코스 + 차 위치
 	private void MiniMap(Graphics g, RectangleF r)
@@ -591,6 +851,7 @@ internal sealed class KartGame : MiniGame
 		PointF[] line = new PointF[(mapPts.Count + 3) / 4 + 1]; for (int k = 0; k < line.Length; k++) line[k] = at(Math.Min(mapPts.Count - 1, k * 4)); line[line.Length - 1] = at(0);
 		using (Pen p = new Pen(Color.FromArgb(200, 255, 255, 255), 4f) { LineJoin = LineJoin.Round }) g.DrawLines(p, line);
 		using (Pen p = new Pen(Color.FromArgb(255, 110, 112, 122), 2.2f) { LineJoin = LineJoin.Round }) g.DrawLines(p, line);
+		using (Pen p = new Pen(Color.FromArgb(240, 255, 170, 60), 2f) { DashStyle = DashStyle.Dash }) foreach (int[] s2 in shorts) g.DrawLine(p, at(s2[0]), at(s2[1]));
 		foreach (Car c in cars) { PointF q = at(SegOf(c.Z)); using (SolidBrush b = new SolidBrush(c.C)) g.FillEllipse(b, q.X - 3f, q.Y - 3f, 6f, 6f); }
 		PointF me = at(SegOf(PlayerZ)); using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 230, 90))) g.FillEllipse(b, me.X - 4.5f, me.Y - 4.5f, 9f, 9f); using (Pen p = new Pen(Color.FromArgb(30, 160, 140), 2f)) g.DrawEllipse(p, me.X - 4.5f, me.Y - 4.5f, 9f, 9f);
 	}
@@ -611,6 +872,8 @@ internal sealed class KartGame : MiniGame
 	}
 	private static void ItemIcon(Graphics g, float cx, float cy, int k)
 	{
+		string isp = k == 0 ? "ms_kt_boost" : (k == 2 ? "ms_kt_balloon" : (k == 3 ? "ms_kt_giant" : null)); if (isp != null && Spr.Get(isp) != null) { Spr.Draw(g, isp, cx, cy, 34f, 34f, 0f); return; }
+		if (k == 3) { using (GraphicsPath gp = Gfx.Round(new RectangleF(cx - 10, cy - 8, 20, 22), 6)) using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 200, 60))) g.FillPath(b, gp); using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 200, 120))) g.FillRectangle(b, cx - 6, cy - 15, 12, 7); using (SolidBrush b = new SolidBrush(Color.White)) g.FillRectangle(b, cx - 7, cy - 1, 14, 8); using (SolidBrush b = new SolidBrush(Color.FromArgb(240, 90, 90))) g.FillPolygon(b, new PointF[] { new PointF(cx, cy - 1), new PointF(cx + 5, cy + 4), new PointF(cx + 2, cy + 4), new PointF(cx + 2, cy + 7), new PointF(cx - 2, cy + 7), new PointF(cx - 2, cy + 4), new PointF(cx - 5, cy + 4) }); return; }   // 쑥쑥 비타민 병
 		if (k == 0) { using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 150, 40))) g.FillPolygon(b, new PointF[] { new PointF(cx - 6, cy - 16), new PointF(cx + 10, cy - 2), new PointF(cx + 1, cy - 2), new PointF(cx + 6, cy + 14), new PointF(cx - 10, cy - 1), new PointF(cx - 1, cy - 1) }); }
 		else if (k == 1 && Spr.Get("ms_kp_7") != null) Spr.Draw(g, "ms_kp_7", cx, cy, 34f, 26f, 0f);
 		else if (k == 1) { using (Pen p = new Pen(Color.FromArgb(250, 220, 60), 6f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(p, cx - 14, cy - 16, 28, 26, 20, 140); }
@@ -619,6 +882,46 @@ internal sealed class KartGame : MiniGame
 	private static void Panel(Graphics g, RectangleF r)
 	{
 		using (GraphicsPath gp = Gfx.Round(r, 12)) { using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 12, 24, 46))) g.FillPath(b, gp); using (Pen p = new Pen(Color.FromArgb(80, 255, 255, 255), 1.2f)) g.DrawPath(p, gp); }
+	}
+	private void DrawParts(Graphics g, int layer)
+	{
+		foreach (Pt q in parts)
+		{
+			if ((q.K == 0) != (layer == 0)) continue; float f = q.Life / q.Max; int al = (int)(q.C.A * Math.Min(1f, f * 1.5f));
+			using (SolidBrush b = new SolidBrush(Color.FromArgb(al, q.C))) { if (q.K == 2) g.FillEllipse(b, q.X - q.Size / 2f, q.Y - q.Size * 0.7f, q.Size, q.Size * 1.4f); else g.FillEllipse(b, q.X - q.Size / 2f, q.Y - q.Size / 2f, q.Size, q.Size); }
+		}
+	}
+	// 어지러운 별 (빙글빙글 돌고 난 뒤)
+	private static void Dizzy(Graphics g, float cx, float cy, float r, double t)
+	{
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(240, 255, 225, 80))) for (int k = 0; k < 3; k++)
+		{
+			double an = t * 6 + k * Math.PI * 2 / 3; float x = cx + (float)Math.Cos(an) * r, y = cy + (float)Math.Sin(an) * r * 0.35f, s = Math.Max(3f, r * 0.28f) * (0.8f + 0.2f * (float)Math.Sin(an));
+			PointF[] st = new PointF[10]; for (int j = 0; j < 10; j++) { double a2 = -Math.PI / 2 + j * Math.PI / 5; float rr = j % 2 == 0 ? s : s * 0.45f; st[j] = new PointF(x + (float)Math.Cos(a2) * rr, y + (float)Math.Sin(a2) * rr); }
+			g.FillPolygon(b, st);
+		}
+	}
+	private static void Balloon(Graphics g, float cx, float cy, float r, double t)
+	{
+		if (Spr.Get("ms_kt_balloon") != null) { Spr.Draw(g, "ms_kt_balloon", cx, cy, r * 2.2f, r * 2.2f, (float)Math.Sin(t * 8) * 10f); return; }
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 90, 170, 245))) g.FillEllipse(b, cx - r, cy - r, r * 2f, r * 2.1f);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 230, 248, 255))) g.FillEllipse(b, cx - r * 0.55f, cy - r * 0.6f, r * 0.6f, r * 0.45f);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 60, 130, 210))) g.FillPolygon(b, new PointF[] { new PointF(cx - r * 0.2f, cy + r * 1.25f), new PointF(cx, cy + r * 1.0f), new PointF(cx + r * 0.2f, cy + r * 1.25f) });
+	}
+	// 바닥 스키드 자국: 남긴 지 오래될수록 옅어져요
+	private readonly SolidBrush skB = new SolidBrush(Color.Black);
+	private void SkidRow(Graphics g, Pj a, Pj b, int i)
+	{
+		float age = el - skT[i]; if (age > 30f || a.W < 2f) return; int j = (i + 1) % N; bool nb = el - skT[j] <= 30f;
+		int al = (int)(90 * (1f - age / 30f)); if (al < 6) return; skB.Color = Color.FromArgb(al, 30, 26, 30);
+		float w1 = Math.Max(0.6f, a.W * 0.022f), w2 = Math.Max(0.5f, b.W * 0.022f);
+		float l2 = nb ? skL[j] : skL[i], r2 = nb ? skR[j] : skR[i];
+		Quad(g, skB, a.X + a.W * skL[i], a.Y, w1, b.X + b.W * l2, b.Y, w2); Quad(g, skB, a.X + a.W * skR[i], a.Y, w1, b.X + b.W * r2, b.Y, w2);
+	}
+	private static void BoostIcon(Graphics g, float cx, float cy, float sc)
+	{
+		if (Spr.Get("ms_kt_boost") != null) { Spr.Draw(g, "ms_kt_boost", cx, cy, 26f * sc, 26f * sc, 0f); return; }
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 140, 40))) g.FillPolygon(b, new PointF[] { new PointF(cx - 4 * sc, cy - 12 * sc), new PointF(cx + 8 * sc, cy - 1 * sc), new PointF(cx + 1 * sc, cy - 1 * sc), new PointF(cx + 5 * sc, cy + 11 * sc), new PointF(cx - 8 * sc, cy), new PointF(cx - 1 * sc, cy) });
 	}
 	private static void Sparks(Graphics g, float x, float y, float charge, double t)
 	{
@@ -630,14 +933,17 @@ internal sealed class KartGame : MiniGame
 		for (int k = -1; k <= 1; k += 2) { float l = 22f + (float)Math.Sin(t * 40 + k) * 6f; using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 255, 140, 40))) g.FillEllipse(b, x + k * 22 - 7, y - 4, 14, l); using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 255, 230, 120))) g.FillEllipse(b, x + k * 22 - 4, y - 2, 8, l * 0.6f); }
 	}
 	// 카트 그림: me=true 면 뒤에서 본 마룡이 (머리·귀·뿔·날개), 아니면 색 헬멧 운전자
-	internal static void DrawKart(Graphics g, float cx, float by, float w, Color c, bool me, float rot, float steer, string spr = null, bool flip = false)
+	internal static void DrawKart(Graphics g, float cx, float by, float w, Color c, bool me, float rot, float steer, string spr = null, bool flip = false, float sxs = 1f, float hop = 0f, float shear = 0f)
 	{
 		if (w < 3f) return;
 		if (spr != null && Spr.Get(spr) != null)
 		{
 			// 그림(스프라이트) 카트: 바닥 그림자 + 원본 비율 그대로 (모든 카트가 같은 배율)
-			float k = w / 120f; using (SolidBrush sb = new SolidBrush(Color.FromArgb(70, 0, 0, 0))) g.FillEllipse(sb, cx - w * 0.5f, by - w * 0.08f, w, w * 0.18f);
-			GraphicsState s0 = g.Save(); g.TranslateTransform(cx, by); g.RotateTransform(rot); Spr.Frame(g, spr, 0f, 0f, k, 0f, flip); g.Restore(s0); return;
+			// sxs: 가로 배율(제자리 회전할 때 옆으로 도는 느낌) · hop: 떠오른 높이 · shear: 드리프트할 때 앞머리가 꺾이는 기울기
+			float k = w / 120f, sw = w * Math.Max(0.7f, 1f - hop / 300f); using (SolidBrush sb = new SolidBrush(Color.FromArgb(70, 0, 0, 0))) g.FillEllipse(sb, cx - sw * 0.5f, by - w * 0.08f, sw, w * 0.18f);
+			GraphicsState s0 = g.Save(); g.TranslateTransform(cx, by - hop); g.RotateTransform(rot);
+			if (sxs != 1f || shear != 0f) using (Matrix m = new Matrix(sxs, 0f, shear, 1f, 0f, 0f)) g.MultiplyTransform(m);
+			Spr.Frame(g, spr, 0f, 0f, k, 0f, flip); g.Restore(s0); return;
 		}
 		float h = w * 0.62f;
 		GraphicsState st = g.Save(); g.TranslateTransform(cx, by); g.RotateTransform(rot);

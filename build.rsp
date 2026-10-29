@@ -202,7 +202,6 @@
 -resource:spr\ms_kp_7.png,spr.ms_kp_7.png
 -resource:spr\ms_kart_me0.png,spr.ms_kart_me0.png
 -resource:spr\ms_kart_me1.png,spr.ms_kart_me1.png
--resource:spr\ms_kart_me2.png,spr.ms_kart_me2.png
 -resource:spr\ms_kart_me3.png,spr.ms_kart_me3.png
 -resource:spr\ms_kart_me4.png,spr.ms_kart_me4.png
 -resource:spr\ms_kart_cpu0.png,spr.ms_kart_cpu0.png
@@ -273,8 +272,6 @@
 -resource:spr\ms_hd_crk0.png,spr.ms_hd_crk0.png
 -resource:spr\ms_hd_crk1.png,spr.ms_hd_crk1.png
 -resource:spr\ms_hd_brk.png,spr.ms_hd_brk.png
--resource:spr\ms_bk_h0.png,spr.ms_bk_h0.png
--resource:spr\ms_bk_h2.png,spr.ms_bk_h2.png
 -resource:spr\ms_bk_s0.png,spr.ms_bk_s0.png
 -resource:spr\ms_bk_s1.png,spr.ms_bk_s1.png
 -resource:spr\ms_bk_s2.png,spr.ms_bk_s2.png
@@ -423,7 +420,6 @@
 -resource:spr\ms_hd5.png,spr.ms_hd5.png
 -resource:spr\ms_m_cl_red.png,spr.ms_m_cl_red.png
 -resource:spr\ms_m_cl_blue.png,spr.ms_m_cl_blue.png
--resource:spr\ms_m_bw_ball.png,spr.ms_m_bw_ball.png
 -resource:spr\ms_m_bw_pin.png,spr.ms_m_bw_pin.png
 -resource:spr\ms_m_mo1.png,spr.ms_m_mo1.png
 -resource:spr\ms_m_mo2.png,spr.ms_m_mo2.png

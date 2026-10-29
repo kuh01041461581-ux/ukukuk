@@ -173,10 +173,12 @@ internal sealed class KartGame : MiniGame
 	}
 	private static void Quad(Graphics g, SolidBrush b, float x1, float y1, float w1, float x2, float y2, float w2)
 	{
-		y2 -= 0.8f; y1 += 0.4f; g.FillPolygon(b, new PointF[] { new PointF(x1 - w1, y1), new PointF(x2 - w2, y2), new PointF(x2 + w2, y2), new PointF(x1 + w1, y1) });
+		y2 -= 1f; g.FillPolygon(b, new PointF[] { new PointF(x1 - w1, y1), new PointF(x2 - w2, y2), new PointF(x2 + w2, y2), new PointF(x1 + w1, y1) });
 	}
 	private readonly SolidBrush grass1 = new SolidBrush(Color.FromArgb(96, 182, 92)), grass2 = new SolidBrush(Color.FromArgb(86, 168, 84)), road1 = new SolidBrush(Color.FromArgb(110, 112, 122)), road2 = new SolidBrush(Color.FromArgb(104, 106, 116)), rum1 = new SolidBrush(Color.FromArgb(230, 70, 70)), rum2 = new SolidBrush(Color.FromArgb(245, 245, 245)), lane = new SolidBrush(Color.FromArgb(235, 235, 220)), chk = new SolidBrush(Color.FromArgb(30, 30, 40));
 	private class Sp { public float X, Y, Sc, Clip; public int K; public object O; }
+	private struct Row { public Pj A, B; public int I; }
+	private readonly List<Row> rows = new List<Row>(96);
 	private readonly List<Sp> sps = new List<Sp>();
 	public override void Draw(Graphics g, double t)
 	{
@@ -196,14 +198,23 @@ internal sealed class KartGame : MiniGame
 			Pj a = Proj(0, y1, i * SEG, px * ROADW - x, camY, camZ), b = Proj(0, y2, (i + 1) * SEG, px * ROADW - x - dx, camY, camZ);
 			x += dx; dx += curve[i]; p1s[n] = a; clip[n] = maxY;
 			if (i * SEG - camZ <= DEPTH || b.Y >= maxY || b.Y >= a.Y - 0.01f) continue;
-			bool alt = (i / 3) % 2 == 0;
-			g.FillRectangle(alt ? grass1 : grass2, 0, b.Y, W, a.Y - b.Y + 1);
+			rows.Add(new Row { A = a, B = b, I = i });
+			maxY = b.Y;
+		}
+		// 먼 칸부터 가까운 칸 순서로 그려요. 칸 경계는 정수 픽셀에 맞추고 길은 위로 1픽셀 겹쳐서, 칸 사이로 잔디색 줄이 비치지 않게 해요
+		for (int r = rows.Count - 1; r >= 0; r--)
+		{
+			Pj a = rows[r].A, b = rows[r].B; int i = rows[r].I; bool alt = (i / 3) % 2 == 0;
+			float yb = (float)Math.Round(b.Y), ya = (float)Math.Round(a.Y); if (r == 0) ya = Math.Max(ya, a.Y);
+			if (ya <= yb) continue;
+			a.Y = ya; b.Y = yb;
+			g.FillRectangle(alt ? grass1 : grass2, 0, yb, W, ya - yb);
 			Quad(g, alt ? rum1 : rum2, a.X, a.Y, a.W * 1.12f, b.X, b.Y, b.W * 1.12f);
 			Quad(g, (i < 3) ? chk : (alt ? road1 : road2), a.X, a.Y, a.W, b.X, b.Y, b.W);
 			if (i < 3) { for (int k = 0; k < 8; k++) if ((k + i) % 2 == 0) { float u0 = -1f + k * 0.25f; Quad(g, rum2, a.X + a.W * (u0 + 0.125f), a.Y, a.W * 0.125f, b.X + b.W * (u0 + 0.125f), b.Y, b.W * 0.125f); } }
 			else if (alt) { Quad(g, lane, a.X - a.W * 0.33f, a.Y, a.W * 0.02f, b.X - b.W * 0.33f, b.Y, b.W * 0.02f); Quad(g, lane, a.X + a.W * 0.33f, a.Y, a.W * 0.02f, b.X + b.W * 0.33f, b.Y, b.W * 0.02f); }
-			maxY = b.Y;
 		}
+		rows.Clear();
 		g.SmoothingMode = sm0;
 		// 길가 장식 · 아이템 상자 · 바나나 · 다른 차 (먼 것부터)
 		for (int n = DRAW - 1; n > 2; n--)

@@ -311,6 +311,7 @@ internal sealed class KartGame : MiniGame
 			if (ya <= yb) continue;
 			a.Y = ya; b.Y = yb;
 			g.FillRectangle(alt ? grass1 : grass2, 0, yb, W, ya - yb);
+			if (course != 0 && i >= 3) { RoadStyle(g, a, b, i, alt, t); if (padK[i] != 0) PadRow(g, a, b, i, t); continue; }
 			Quad(g, alt ? rum1 : rum2, a.X, a.Y, a.W * 1.12f, b.X, b.Y, b.W * 1.12f);
 			Quad(g, (i < 3) ? chk : (alt ? road1 : road2), a.X, a.Y, a.W, b.X, b.Y, b.W);
 			if (i < 3) { for (int k = 0; k < 8; k++) if ((k + i) % 2 == 0) { float u0 = -1f + k * 0.25f; Quad(g, rum2, a.X + a.W * (u0 + 0.125f), a.Y, a.W * 0.125f, b.X + b.W * (u0 + 0.125f), b.Y, b.W * 0.125f); } }
@@ -401,6 +402,62 @@ internal sealed class KartGame : MiniGame
 			for (int k = 0; k < 6; k++) using (SolidBrush b = new SolidBrush(fl[k % 3])) g.FillEllipse(b, sx - h * 0.3f + k * h * 0.11f, a.Y - h * 0.08f - (k % 2) * h * 0.04f, h * 0.08f, h * 0.08f);
 		}
 		g.Restore(st);
+	}
+	// ── 테마별 길바닥: 마을만 아스팔트+차선, 나머지는 테마에 맞는 바닥 ──
+	private readonly SolidBrush sbr = new SolidBrush(Color.White);
+	private void Span(Graphics g, Color c, Pj a, Pj b, float u0, float u1) { sbr.Color = c; float m = (u0 + u1) * 0.5f, h = (u1 - u0) * 0.5f; Quad(g, sbr, a.X + a.W * m, a.Y, a.W * h, b.X + b.W * m, b.Y, b.W * h); }
+	private static Color Sh(Color c, int d) { return Color.FromArgb(c.A, Math.Max(0, Math.Min(255, c.R + d)), Math.Max(0, Math.Min(255, c.G + d)), Math.Max(0, Math.Min(255, c.B + d))); }
+	private static float Hash(int i, int k) { unchecked { int h = i * 73856093 ^ k * 19349663; h = (h ^ (h >> 13)) * 1274126177; return ((h >> 8) & 0xFFFF) / 65535f; } }
+	private void RoadStyle(Graphics g, Pj a, Pj b, int i, bool alt, double t)
+	{
+		Color r1 = T0.R1, r2 = T0.R2;
+		switch (course)
+		{
+			case 1:   // 사막: 모래 흙길 · 부드러운 모래 턱 · 바퀴 자국 두 줄
+				Span(g, alt ? T0.G2 : Sh(T0.G2, -12), a, b, -1.14f, 1.14f);
+				Span(g, (i / 4) % 2 == 0 ? r1 : r2, a, b, -1f, 1f);
+				Span(g, Sh(r1, -22), a, b, -0.46f, -0.3f); Span(g, Sh(r1, -22), a, b, 0.3f, 0.46f);
+				if (Hash(i, 1) < 0.18f) { float u = Hash(i, 2) * 1.6f - 0.8f; Span(g, Sh(r1, 26), a, b, u - 0.05f, u + 0.05f); }
+				break;
+			case 2:   // 빙하: 반짝이는 얼음판 · 하얀 광택 줄무늬 · 가장자리 눈 둑
+				Span(g, alt ? Color.FromArgb(250, 252, 255) : Color.FromArgb(232, 242, 252), a, b, -1.16f, 1.16f);
+				Span(g, alt ? r1 : Sh(r1, 6), a, b, -1f, 1f);
+				{ float u = Hash(i / 2, 3) * 1.5f - 0.75f, w = 0.12f + Hash(i / 2, 4) * 0.2f; if (Hash(i / 2, 5) < 0.55f) Span(g, Color.FromArgb(150, 255, 255, 255), a, b, u - w, u + w); }
+				if (Hash(i, 6) < 0.25f) { float u = Hash(i, 7) * 1.7f - 0.85f; Span(g, Color.FromArgb(200, 120, 170, 210), a, b, u - 0.015f, u + 0.015f); }   // 얼음 금
+				break;
+			case 3:   // 숲: 흙 오솔길 · 가운데가 닳아 밝은 길 · 군데군데 풀
+				Span(g, alt ? Sh(T0.G1, -14) : Sh(T0.G2, -14), a, b, -1.12f, 1.12f);
+				Span(g, (i / 3) % 2 == 0 ? r1 : r2, a, b, -1f, 1f);
+				Span(g, Sh(r1, 14), a, b, -0.34f, 0.34f);
+				if (Hash(i, 8) < 0.22f) { float u = (Hash(i, 9) < 0.5f ? -1f : 1f) * (0.62f + Hash(i, 10) * 0.3f); Span(g, Sh(T0.G1, 10), a, b, u - 0.07f, u + 0.07f); }
+				if (Hash(i, 11) < 0.1f) { float u = Hash(i, 12) * 1.2f - 0.6f; Span(g, Sh(r1, -26), a, b, u - 0.04f, u + 0.04f); }   // 돌멩이
+				break;
+			case 4:   // 외계: 어두운 금속판 · 빛나는 가운데 선 · 가로 빛줄
+				Span(g, alt ? T0.Ru1 : T0.Ru2, a, b, -1.1f, 1.1f);
+				Span(g, alt ? r1 : r2, a, b, -1f, 1f);
+				if (i % 8 == 0) Span(g, Color.FromArgb(150, 120, 255, 220), a, b, -1f, 1f);
+				{ int pulse = (int)(t * 10) % 6; Span(g, ((i + pulse) % 6) < 3 ? Color.FromArgb(160, 255, 230) : Color.FromArgb(70, 160, 150), a, b, -0.03f, 0.03f); }
+				Span(g, Color.FromArgb(120, 200, 120, 255), a, b, -0.82f, -0.78f); Span(g, Color.FromArgb(120, 200, 120, 255), a, b, 0.78f, 0.82f);
+				break;
+			case 5:   // 중세: 엇갈려 쌓은 돌바닥 (벽돌 무늬) · 돌 경계석
+				Span(g, alt ? Color.FromArgb(170, 170, 176) : Color.FromArgb(120, 120, 128), a, b, -1.1f, 1.1f);
+				{ int row = i / 2; float off = row % 2 == 0 ? 0f : 0.14f; for (int k = -1; k < 8; k++) { float u0 = -1f + k * 0.286f + off, u1 = u0 + 0.272f; if (u1 <= -1f || u0 >= 1f) continue; float h = Hash(row, k); Span(g, h < 0.33f ? r1 : (h < 0.66f ? r2 : Sh(r1, 14)), a, b, Math.Max(-1f, u0), Math.Min(1f, u1)); } }
+				break;
+			case 6:   // 요정: 분홍·보라·민트 파스텔 줄무늬 길 · 꽃 경계
+				Span(g, alt ? Color.FromArgb(255, 255, 255) : Color.FromArgb(255, 186, 220), a, b, -1.12f, 1.12f);
+				{ Color[] pc = { Color.FromArgb(255, 206, 228), Color.FromArgb(222, 206, 255), Color.FromArgb(200, 244, 226), Color.FromArgb(255, 240, 200) }; Span(g, pc[(i / 4) % 4], a, b, -1f, 1f); }
+				if (Hash(i, 13) < 0.2f) { float u = Hash(i, 14) * 1.6f - 0.8f; Span(g, Color.FromArgb(180, 255, 255, 255), a, b, u - 0.03f, u + 0.03f); }   // 반짝
+				break;
+			case 7:   // 일본: 큼직한 판석을 깐 돌길 · 자갈 가장자리
+				Span(g, alt ? Color.FromArgb(200, 196, 186) : Color.FromArgb(186, 182, 172), a, b, -1.14f, 1.14f);
+				{ int row = i / 4; float off = row % 2 == 0 ? 0f : 0.33f; Span(g, Sh(r1, -30), a, b, -1f, 1f); if (i % 4 != 0) for (int k = -1; k < 4; k++) { float u0 = -1f + k * 0.667f + off + 0.02f, u1 = u0 + 0.627f; if (u1 <= -1f || u0 >= 1f) continue; Span(g, Hash(row, k) < 0.5f ? r1 : r2, a, b, Math.Max(-1f, u0), Math.Min(1f, u1)); } }
+				break;
+			default:   // 청사: 바둑판 바닥 타일 · 청록 카펫 가장자리
+				Span(g, alt ? T0.Ru1 : Sh(T0.Ru1, -12), a, b, -1.12f, 1.12f);
+				{ int row = i / 2; for (int k = 0; k < 6; k++) { float u0 = -1f + k / 3f, u1 = u0 + 1f / 3f; Span(g, (k + row) % 2 == 0 ? r1 : Color.FromArgb(250, 248, 244), a, b, u0, u1); } }
+				if (i % 2 == 0) Span(g, Color.FromArgb(60, 120, 110, 100), a, b, -1f, 1f);   // 타일 줄눈
+				break;
+		}
 	}
 	// ── 코스 고르기 화면 ──
 	private void DrawSelect(Graphics g, double t)

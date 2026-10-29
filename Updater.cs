@@ -48,7 +48,7 @@ internal partial class Program
 				string json; using (WebClient wc = new WebClient()) { wc.Encoding = Encoding.UTF8; wc.Headers["User-Agent"] = "OvertimeReminder-Updater"; wc.Headers["Accept"] = "application/vnd.github+json"; json = wc.DownloadString("https://api.github.com/repos/" + repo + "/releases?per_page=30"); }
 				// 같은 저장소에 다른 프로그램(데스크톱 캘린더 등) 릴리스가 섞여 있어도, 이 앱 것만 골라요:
 				// 태그가 ot- 로 시작하거나(예: ot-v1.4.1) 첨부 파일 이름에 OvertimeReminder 가 들어간 가장 새 릴리스
-				Match mt = Match.Empty, mu = Match.Empty; string seg = ""; MatchCollection tags = Regex.Matches(json, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
+				Match mt = Match.Empty, mu = Match.Empty; string seg = ""; Version bestV = null; MatchCollection tags = Regex.Matches(json, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
 				for (int ti = 0; ti < tags.Count; ti++)
 				{
 					int a0 = tags[ti].Index, a1 = ti + 1 < tags.Count ? tags[ti + 1].Index : json.Length; string sg = json.Substring(a0, a1 - a0);
@@ -62,7 +62,10 @@ internal partial class Program
 						if (otTag && !other.Success && !Regex.IsMatch(fnm, "Calendar|Seomu|Setup|Suite", RegexOptions.IgnoreCase)) other = um;
 					}
 					if (!u2.Success) u2 = other; if (!u2.Success) continue;
-					mt = tags[ti]; mu = u2; seg = sg; break;
+					// 태그에 버전 숫자가 없으면(예: 'overtime') 건너뛰고, 그중 가장 높은 버전을 골라요
+					Version tv; if (!TryVer(tg, out tv)) continue;
+					if (bestV != null && tv <= bestV) continue;
+					bestV = tv; mt = tags[ti]; mu = u2; seg = sg;
 				}
 				if (seg.Length > 0) json = seg;
 				if (!mt.Success || !mu.Success) { if (manual) Post(ctx, delegate { MessageBox.Show("이 앱의 릴리스를 찾지 못했어요.\r\n(태그가 ot-v1.4.1 처럼 ot- 로 시작하거나 OvertimeReminder.exe 가 첨부된 릴리스)", "초과근무 알리미"); }); return; }

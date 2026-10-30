@@ -209,8 +209,16 @@
 		}
 		public override void Draw(Graphics g, double t)
 		{
-			if (backC == null) { backC = new Bitmap(W, H, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); using (Graphics bg = Graphics.FromImage(backC)) { bg.SmoothingMode = SmoothingMode.AntiAlias; DrawBack(bg); } }
-			g.DrawImageUnscaled(backC, 0, 0);
+			// 배경은 화면 배율에 맞춰 한 번만 그려 두고, 크기를 지정해서 찍어요 (창 크기·배율이 바뀌어도 깨지지 않게)
+			float bk = Math.Max(1f, ImgCache.Scale(g));
+			if (backC == null || Math.Abs(backK - bk) > 0.01f || backBad)
+			{
+				if (backC != null) { backC.Dispose(); backC = null; } backBad = false;
+				try { backC = new Bitmap((int)Math.Ceiling(W * bk), (int)Math.Ceiling(H * bk), System.Drawing.Imaging.PixelFormat.Format32bppPArgb); backK = bk; using (Graphics bg = Graphics.FromImage(backC)) { bg.SmoothingMode = SmoothingMode.AntiAlias; bg.ScaleTransform(bk, bk); DrawBack(bg); } }
+				catch { backC = null; }
+			}
+			if (backC != null) { InterpolationMode bi = g.InterpolationMode; g.InterpolationMode = InterpolationMode.Bilinear; g.DrawImage(backC, new RectangleF(0, 0, W, H), new RectangleF(0, 0, backC.Width, backC.Height), GraphicsUnit.Pixel); g.InterpolationMode = bi; }
+			else DrawBack(g);
 			if (itemMode >= 0) { for (int c = 0; c < NC; c++) { Tw q = TwAt(c); bool ok = itemMode == 0 ? (itemSel < 0 ? q != null : q == null) : q != null; if (!ok) continue; PointF p = Cell(c); using (Pen pe = new Pen(Color.FromArgb((int)(150 + 100 * Math.Sin(t * 8)), ICol[itemMode]), 3f) { DashStyle = DashStyle.Dash }) g.DrawRectangle(pe, p.X - 28, p.Y - 28, 56, 56); } }
 			Tw st = sel >= 0 ? TwAt(sel) : null;
 			if (st != null) { PointF p = Cell(st.Cell); float rg = (GRange[st.Grade] + (st.Type == 1 ? 14f : 0f)) * (mod == 5 ? 0.85f : 1f); using (SolidBrush b = new SolidBrush(Color.FromArgb(34, 255, 255, 255))) g.FillEllipse(b, p.X - rg, p.Y - rg, rg * 2, rg * 2); using (Pen pe = new Pen(Color.FromArgb(120, 255, 255, 255), 1.5f)) g.DrawEllipse(pe, p.X - rg, p.Y - rg, rg * 2, rg * 2); }
@@ -233,7 +241,7 @@
 			}
 			DrawHud(g, t, st);
 		}
-		private static Bitmap backC;
+		private static Bitmap backC; private static float backK; private static bool backBad;
 		private void DrawBack(Graphics g)
 		{
 			g.Clear(Color.FromArgb(90, 150, 90));

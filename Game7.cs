@@ -587,7 +587,7 @@ internal sealed class RunGame : MiniGame
 		DrawHud(g, t);
 		{ int ms = (int)(dist / 10f) / 100; if (ms < runMs) runMs = ms; if (ms > runMs) { runMs = ms; runFlag = Environment.TickCount; }
 		  int fa = Environment.TickCount - runFlag; if (fa >= 0 && fa < 1800 && runMs > 0 && Spr.Get("ms_tr_flag") != null) { float fk = Math.Min(1f, fa / 200f), fo = fa > 1300 ? 1f - (fa - 1300) / 500f : 1f; Spr.Draw(g, "ms_tr_flag", W / 2f - 54f, 92f, 30f * fk, 51f * fk, (float)Math.Sin(fa / 90.0) * 6f); Txt(g, runMs * 100 + "m 돌파!", 15f, 2, Color.FromArgb((int)(255 * fo), 255, 226, 100), W / 2f - 30f, 78f, 130, 26, StringAlignment.Near); } }
-		if (msgT > 0) Txt(g, msg, msg.Length > 12 ? 16f : 22f, 2, Color.FromArgb(220, 60, 60), 0, 440, W, 36, StringAlignment.Center);
+		if (msgT > 0) Hint(g, msg, 128.0, msg.Length > 12 ? 12f : 14f, false, Math.Min(1f, msgT * 3f));   // 어두운 알약 위에 흰 글씨 + 길 위가 아니라 하늘 쪽에 띄워서 겹치지 않게
 		if (flash > 0f) using (SolidBrush fb = new SolidBrush(Color.FromArgb((int)(200 * Math.Min(1f, flash)), 255, 255, 255))) g.FillRectangle(fb, 0, 0, W, H);
 		if (bannerT > 0f) Hint(g, banner, 250 + 20.0, 20f, true, Math.Min(1f, bannerT * 2f));
 	}
@@ -630,7 +630,7 @@ internal sealed class FlapGame : MiniGame
 	private class Pt { public float X, Y, Vx, Vy, Life, Max, R; public Color C; }
 	private readonly List<Bl> bls = new List<Bl>(); private readonly List<Eb> ebs = new List<Eb>(); private readonly List<Fo> fos = new List<Fo>(); private readonly List<It> its = new List<It>(); private readonly List<Pt> pts = new List<Pt>();
 	private float bombX, bombY; private float px = 70f, py = 300f, inv, shootT, spawnT, el, bombT, flash, msgT, bossT, deadT, scrollX, optPh, wormT;
-	private int lives, power, opts, spd, bombs, bossN, kills; private bool useMouse, bossOn, dying; private string msg = "";
+	private int lives, power, opts, spd, bombs, bossN, kills, shotN; private bool useMouse, bossOn, dying; private string msg = "";
 	private readonly List<PointF> trail = new List<PointF>(); private Bitmap skyFlip; private System.Drawing.Image skyFlipSrc;
 	public override string Costume { get { return "g_plane"; } }
 	public override string Name { get { return "마룡이 날기"; } }
@@ -660,7 +660,7 @@ internal sealed class FlapGame : MiniGame
 	private void Spark(float x, float y, Color c, float sp)
 	{
 		float a = (float)(Rnd.NextDouble() * 6.283), v = sp * (0.3f + (float)Rnd.NextDouble() * 0.7f);
-		pts.Add(new Pt { X = x, Y = y, Vx = (float)Math.Cos(a) * v, Vy = (float)Math.Sin(a) * v, Life = 0.5f, Max = 0.5f, R = 2f + (float)Rnd.NextDouble() * 2.5f, C = c });
+		if (pts.Count > 150) pts.RemoveAt(0); pts.Add(new Pt { X = x, Y = y, Vx = (float)Math.Cos(a) * v, Vy = (float)Math.Sin(a) * v, Life = 0.5f, Max = 0.5f, R = 2f + (float)Rnd.NextDouble() * 2.5f, C = c });
 	}
 	private void Dmg(Fo f, float d)
 	{
@@ -711,7 +711,7 @@ internal sealed class FlapGame : MiniGame
 		shootT -= dt;
 		if (shootT <= 0f)
 		{
-			shootT = 0.17f; float x = px + 26f; Sfx.Play("tick");
+			shootT = 0.17f; float x = px + 26f; if ((++shotN % 3) == 0) Sfx.Play("tick");
 			switch (power)
 			{
 				case 1: Shoot(x, py, 560f, 0f, 1f, 0); break;
@@ -736,13 +736,13 @@ internal sealed class FlapGame : MiniGame
 			else { f.X += f.Vx * dt * (f.X > 330f ? 1f : 0.2f); f.Fire -= dt; if (f.Fire <= 0f && f.X < 410f) { f.Fire = 2.8f; for (int k = 0; k < 8; k++) EShot(f.X, f.Y, k * 0.7854f + f.T, BSp * 0.58f, 1); } }
 			if (f.X < -50f || f.Y < -50f || f.Y > 650f) { fos.RemoveAt(i); continue; }
 			// 몸통 충돌
-			float rr = f.Boss ? 34f : 13f; float ddx = f.X - px, ddy = f.Y - py; if (inv <= 0f && ddx * ddx + ddy * ddy < (rr + 4f) * (rr + 4f)) HitPlayer();
+			float bhw, bhh; FoeBox(f, out bhw, out bhh); float ddx = (f.X - px) / (bhw * 0.72f + 3f), ddy = (f.Y - py) / (bhh * 0.72f + 3f); if (inv <= 0f && ddx * ddx + ddy * ddy < 1f) HitPlayer();
 		}
 		// 내 미사일 이동·피격
 		for (int i = bls.Count - 1; i >= 0; i--)
 		{
 			Bl b = bls[i]; b.X += b.Vx * dt; b.Y += b.Vy * dt; if (b.X > 430f || b.Y < -10f || b.Y > 610f) { bls.RemoveAt(i); continue; }
-			bool gone = false; foreach (Fo f in fos) { float rr = f.Boss ? 42f : 17f; float dx = f.X - b.X, dy = f.Y - b.Y; if (dx * dx + dy * dy < rr * rr) { Dmg(f, b.Dmg); Spark(b.X, b.Y, Color.FromArgb(180, 240, 255), 90f); gone = true; break; } }
+			bool gone = false; foreach (Fo f in fos) { float fhw, fhh; FoeBox(f, out fhw, out fhh); float dx = (f.X - b.X) / (fhw + 4f), dy = (f.Y - b.Y) / (fhh + 3f); if (dx * dx + dy * dy < 1f) { Dmg(f, b.Dmg); Spark(b.X, b.Y, Color.FromArgb(180, 240, 255), 90f); gone = true; break; } }
 			if (gone) bls.RemoveAt(i);
 		}
 		fos.RemoveAll(f => f.Hp <= 0f);
@@ -750,7 +750,7 @@ internal sealed class FlapGame : MiniGame
 		for (int i = ebs.Count - 1; i >= 0; i--)
 		{
 			Eb e = ebs[i]; e.X += e.Vx * dt; e.Y += e.Vy * dt; if (e.X < -20f || e.X > 420f || e.Y < -20f || e.Y > 620f) { ebs.RemoveAt(i); continue; }
-			float rr = e.Kind == 1 ? 7f : 4.5f; float dx = e.X - px, dy = e.Y - py; if (inv <= 0f && dx * dx + dy * dy < rr * rr) { HitPlayer(); break; }
+			float rr = EbR(e.Kind) * 0.85f + 2.5f; float dx = e.X - px, dy = e.Y - py; if (inv <= 0f && dx * dx + dy * dy < rr * rr) { HitPlayer(); break; }
 		}
 		// 아이템
 		for (int i = its.Count - 1; i >= 0; i--)
@@ -759,6 +759,52 @@ internal sealed class FlapGame : MiniGame
 			if (it.X < -20f) { its.RemoveAt(i); continue; }
 			if (d2 < 24f * 24f) { Pick(it.K); its.RemoveAt(i); }
 		}
+	}
+
+	private SolidBrush ptBr; private Bitmap[] ebS = new Bitmap[3]; private Bitmap blS; private float ebK;
+	private static float EbR(int k) { return k == 1 ? 8f : (k == 2 ? 4.6f : 5.6f); }
+	// 적 탄환·내 미사일은 한 번만 그려 두고 찍어요 (프레임마다 도형 3개씩 그리면 탄막에서 느려져요)
+	private Bitmap EbSpr(int kind, float K)
+	{
+		if (Math.Abs(ebK - K) > 0.01f) { for (int i = 0; i < 3; i++) if (ebS[i] != null) { ebS[i].Dispose(); ebS[i] = null; } if (blS != null) { blS.Dispose(); blS = null; } ebK = K; }
+		kind = Math.Max(0, Math.Min(2, kind)); if (ebS[kind] != null) return ebS[kind];
+		float r = EbR(kind), hs = r + 2.2f; int px0 = (int)Math.Ceiling(hs * 2f * K); Bitmap b = new Bitmap(px0, px0, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+		using (Graphics q = Graphics.FromImage(b))
+		{
+			q.SmoothingMode = SmoothingMode.AntiAlias; q.ScaleTransform(px0 / (hs * 2f), px0 / (hs * 2f)); q.TranslateTransform(hs, hs);
+			Color c = kind == 2 ? Color.FromArgb(255, 80, 190) : (kind == 1 ? Color.FromArgb(255, 70, 70) : Color.FromArgb(255, 110, 50));
+			using (SolidBrush ob = new SolidBrush(Color.FromArgb(200, 60, 0, 30))) q.FillEllipse(ob, -r - 1.8f, -r - 1.8f, (r + 1.8f) * 2, (r + 1.8f) * 2);
+			using (SolidBrush cb = new SolidBrush(c)) q.FillEllipse(cb, -r, -r, r * 2, r * 2);
+			using (SolidBrush wb = new SolidBrush(Color.FromArgb(255, 255, 235, 235))) q.FillEllipse(wb, -r * 0.45f, -r * 0.45f, r * 0.9f, r * 0.9f);
+		}
+		ebS[kind] = b; return b;
+	}
+	private Bitmap BlSpr(float K)
+	{
+		if (blS != null) return blS; EbSpr(0, K); if (blS != null) return blS;
+		int w = (int)Math.Ceiling(30f * K), h = (int)Math.Ceiling(13.2f * K); Bitmap b = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+		using (Graphics q = Graphics.FromImage(b))
+		{
+			q.SmoothingMode = SmoothingMode.AntiAlias; q.ScaleTransform(w / 30f, h / 13.2f); q.TranslateTransform(15f, 6.6f); float l = 12f, th = 3.6f;
+			using (SolidBrush gb = new SolidBrush(Color.FromArgb(70, 120, 220, 255))) q.FillEllipse(gb, -l - 3, -th - 3, l * 2 + 6, th * 2 + 6);
+			using (SolidBrush mb = new SolidBrush(Color.FromArgb(150, 230, 255))) q.FillEllipse(mb, -l, -th, l * 2, th * 2);
+			using (SolidBrush wb = new SolidBrush(Color.White)) q.FillEllipse(wb, -l * 0.6f, -th * 0.5f, l * 1.4f, th);
+		}
+		blS = b; return b;
+	}
+	// 크기가 계속 바뀌는 그림: 가장 큰 크기로 한 번만 줄여 두고 늘였다 줄였다 해서 그려요
+	private static void DrawFixed(Graphics g, string n, float cx, float cy, float w, float h, float refW)
+	{
+		Bitmap b = Spr.Get(n); if (b == null) return; System.Drawing.Image im = ImgCache.Get(b, refW * ImgCache.Scale(g), refW * ImgCache.Scale(g) * b.Height / b.Width);
+		InterpolationMode m0 = g.InterpolationMode; g.InterpolationMode = InterpolationMode.Bilinear; g.DrawImage(im, new RectangleF(cx - w / 2f, cy - h / 2f, w, h), new RectangleF(0, 0, im.Width, im.Height), GraphicsUnit.Pixel); g.InterpolationMode = m0;
+	}
+	// 적 몸통의 실제 판정 크기: 그림 크기에 맞춰요 (그림 가로·세로 절반 × 비율)
+	private readonly float[] hbw = new float[5], hbh = new float[5];
+	private void FoeBox(Fo f, out float hw, out float hh)
+	{
+		int k = f.Boss ? 4 : Math.Min(3, f.Kind);
+		if (hbw[k] == 0f) { Bitmap b = Spr.Get("ms_fl_e" + k); float sw = f.Boss ? 118f : (f.Kind == 3 ? 66f : 44f), sh = b != null ? sw * b.Height / b.Width : sw * 0.8f; hbw[k] = sw * 0.44f; hbh[k] = sh * 0.42f; }
+		hw = hbw[k]; hh = hbh[k];
 	}
 	private PointF OptPos(int i) { float a = optPh * 0.9f + i * 3.1416f; return new PointF(px - 4f + (float)Math.Cos(a) * 30f, py + (float)Math.Sin(a) * 40f); }   // 마룡이 주위를 타원으로 빙글빙글
 	private void Pick(int k)
@@ -865,6 +911,7 @@ internal sealed class FlapGame : MiniGame
 	}
 	public override void Draw(Graphics g, double t)
 	{
+		float bK = Math.Max(1f, ImgCache.Scale(g));
 		Bitmap skyB = Spr.Get("bg_fly"); bool sky = skyB != null;
 		if (!sky) Bg(g, Color.FromArgb(24, 30, 70), Color.FromArgb(86, 70, 130));
 		else
@@ -883,9 +930,9 @@ internal sealed class FlapGame : MiniGame
 		foreach (Fo f in fos) Foe(g, f, t);
 		// 내 미사일 (하늘·흰색 길쭉한 탄)
 		foreach (Bl b in bls) if (b.Kind == 1) { if (Spr.Get("ms_fl_ob") != null) { Spr.Draw(g, "ms_fl_ob", b.X - 4f, b.Y, 30f, 16f, 0f); continue; } Star5(g, b.X, b.Y, 6.5f, (float)(t * 6), Color.FromArgb(180, 255, 120), Color.FromArgb(255, 255, 250, 200)); }
-		foreach (Bl b in bls) if (b.Kind != 1) { float ang = (float)(Math.Atan2(b.Vy, b.Vx) * 57.3); GraphicsState st = g.Save(); g.TranslateTransform(b.X, b.Y); g.RotateTransform(ang); float l = b.Kind == 1 ? 8f : 12f, th = b.Kind == 1 ? 2.6f : 3.6f; using (SolidBrush gb = new SolidBrush(Color.FromArgb(70, 120, 220, 255))) g.FillEllipse(gb, -l - 3, -th - 3, l * 2 + 6, th * 2 + 6); using (SolidBrush mb = new SolidBrush(Color.FromArgb(150, 230, 255))) g.FillEllipse(mb, -l, -th, l * 2, th * 2); using (SolidBrush wb = new SolidBrush(Color.White)) g.FillEllipse(wb, -l * 0.6f, -th * 0.5f, l * 1.4f, th); g.Restore(st); }
+		foreach (Bl b in bls) if (b.Kind != 1) { Bitmap mb0 = BlSpr(bK); if (b.Vy == 0f) g.DrawImage(mb0, b.X - 15f, b.Y - 6.6f, 30f, 13.2f); else { float ang = (float)(Math.Atan2(b.Vy, b.Vx) * 57.3); GraphicsState st = g.Save(); g.TranslateTransform(b.X, b.Y); g.RotateTransform(ang); g.DrawImage(mb0, -15f, -6.6f, 30f, 13.2f); g.Restore(st); } }
 		// 적 탄환 (빨강·분홍, 어두운 테두리 + 흰 중심)
-		foreach (Eb e in ebs) { float r = e.Kind == 1 ? 8f : (e.Kind == 2 ? 4.6f : 5.6f); Color c = e.Kind == 2 ? Color.FromArgb(255, 80, 190) : (e.Kind == 1 ? Color.FromArgb(255, 70, 70) : Color.FromArgb(255, 110, 50)); using (SolidBrush ob = new SolidBrush(Color.FromArgb(200, 60, 0, 30))) g.FillEllipse(ob, e.X - r - 1.8f, e.Y - r - 1.8f, (r + 1.8f) * 2, (r + 1.8f) * 2); using (SolidBrush cb = new SolidBrush(c)) g.FillEllipse(cb, e.X - r, e.Y - r, r * 2, r * 2); using (SolidBrush wb = new SolidBrush(Color.FromArgb(255, 255, 235, 235))) g.FillEllipse(wb, e.X - r * 0.45f, e.Y - r * 0.45f, r * 0.9f, r * 0.9f); }
+		foreach (Eb e in ebs) { Bitmap eb0 = EbSpr(e.Kind, bK); float hs = EbR(e.Kind) + 2.2f; g.DrawImage(eb0, e.X - hs, e.Y - hs, hs * 2f, hs * 2f); }
 		// 애드온
 		for (int i = 0; i < opts; i++) { PointF o = OptPos(i); bool front = Math.Sin(optPh * 0.9f + i * 3.1416f) > 0; Buddy(g, o.X, o.Y, front ? 1f : 0.82f, t + i); }
 		// 마룡이
@@ -895,9 +942,9 @@ internal sealed class FlapGame : MiniGame
 			if (!blink) { if (fb != null) Spr.Draw(g, "ms_n_fy" + (((int)(t * 9) & 1) == 0 ? 1 : 4), px, py, Spr.OW("ms_n_fy1", fb) * fsc, Spr.OH("ms_n_fy1", fb) * fsc, rot); else DrawMascot(g, px, py + 24f, 60f, rot); }
 			using (SolidBrush b = new SolidBrush(Color.FromArgb(inv > 0f ? 255 : 200, 255, 255, 255))) g.FillEllipse(b, px - 3.5f, py - 3.5f, 7f, 7f); using (Pen p = new Pen(Color.FromArgb(220, 255, 90, 90), 1.4f)) g.DrawEllipse(p, px - 4.5f, py - 4.5f, 9f, 9f);
 		}
-		foreach (Pt p in pts) { using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(220 * Math.Max(0f, p.Life / p.Max)), p.C))) g.FillEllipse(b, p.X - p.R, p.Y - p.R, p.R * 2, p.R * 2); }
+		if (ptBr == null) ptBr = new SolidBrush(Color.White); foreach (Pt p in pts) { ptBr.Color = Color.FromArgb((int)(220 * Math.Max(0f, p.Life / p.Max)), p.C); g.FillEllipse(ptBr, p.X - p.R, p.Y - p.R, p.R * 2, p.R * 2); }
 		if (bombT > 0.82f) { float u = (1.1f - bombT) / 0.28f; float bx2 = bombX + (230f - bombX) * u, by2 = bombY + (300f - bombY) * u - (float)Math.Sin(u * Math.PI) * 90f; BombIcon(g, bx2, by2, 26f + u * 10f, (float)(u * 540), t); }   // 폭탄이 날아가서
-		if (bombT <= 0.82f && bombT > 0.5f && Spr.Get("ms_fl_boom") != null) { float u = 1f - (bombT - 0.5f) / 0.32f; Spr.Draw(g, "ms_fl_boom", 230f, 300f, (150f + u * 170f) * 1.3f, 150f + u * 170f, 0f); }
+		if (bombT <= 0.82f && bombT > 0.5f && Spr.Get("ms_fl_boom") != null) { float u = 1f - (bombT - 0.5f) / 0.32f; DrawFixed(g, "ms_fl_boom", 230f, 300f, (150f + u * 170f) * 1.3f, 150f + u * 170f, 420f); }
 		else if (bombT <= 0.82f && bombT > 0.5f) { float u = 1f - (bombT - 0.5f) / 0.32f; using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(220 * (1f - u)), 255, 230, 140))) g.FillEllipse(b, 230 - 60 - u * 200, 300 - 60 - u * 200, 120 + u * 400, 120 + u * 400); }   // 펑!
 		if (bombT > 0.5f) { float u = 1f - (bombT - 0.5f) / 0.6f; using (Pen p = new Pen(Color.FromArgb((int)(200 * (1f - u)), 170, 235, 255), 10f * (1f - u) + 2f)) g.DrawEllipse(p, px - u * 520f, py - u * 520f, u * 1040f, u * 1040f); }
 		if (flash > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(150 * Math.Min(1f, flash)), 255, 255, 255))) g.FillRectangle(b, 0, 0, W, H);

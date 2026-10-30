@@ -149,7 +149,12 @@ internal sealed class CoverGame : MiniGame
 	private float ShootBottom() { float e1 = peek * peek * (3f - 2f * peek); float hop = (float)Math.Sin(Math.Min(1f, peek) * Math.PI) * 10f + (pop > 0f ? pop * 30f : 0f); return WallTop + 100f + (WallTop + 30f - (WallTop + 100f)) * e1 - hop; }
 	private void Hold(int h, float a, out float hx, out float hy, out float mx, out float my)
 	{
-		float sgn = aimX < OX ? -1f : 1f; if (gun == 0 && h == 1) sgn = -sgn; float w = gun == 0 ? 108f : 111f; mx = OX + sgn * (w * 0.48f - kick * 0.4f); my = ShootBottom() - 150f * (1f - (gun == 0 ? 0.41f : 0.49f)) - kick * 0.15f; hx = mx - sgn * 30f; hy = my + 8f;
+		if (gun == 0 && h == 1)
+		{
+			// 반대쪽 손 권총: 마룡이 몸 옆(손 위치)에서 조준 방향으로 나가요
+			float sg2 = aimX < OX ? -1f : 1f; hx = OX - sg2 * 36f - kick * 0.15f * -sg2; hy = ShootBottom() - 66f; mx = hx + (float)Math.Cos(a) * 40f; my = hy + (float)Math.Sin(a) * 40f; return;
+		}
+		float sgn = aimX < OX ? -1f : 1f; float w = gun == 0 ? 108f : 111f; mx = OX + sgn * (w * 0.48f - kick * 0.4f); my = ShootBottom() - 150f * (1f - (gun == 0 ? 0.41f : 0.49f)) - kick * 0.15f; hx = mx - sgn * 30f; hy = my + 8f;
 	}
 	private void Fire(float spread, float dmgK, bool free)
 	{
@@ -241,12 +246,13 @@ internal sealed class CoverGame : MiniGame
 		using (LinearGradientBrush b = new LinearGradientBrush(new RectangleF(x, y - 0.5f, w, h + 1f), Color.FromArgb(186, 126, 78), Color.FromArgb(104, 62, 38), 90f)) Rr(g, b, x, y, w, h, r);
 	}
 	// 총 그림 (뒤쪽 끝이 원점, 앞쪽이 +x). 정면에서 본 옆모습이에요
+	private bool vecGun;   // true 면 그림 대신 도형으로 그린 검은 권총 (마룡이 그림 속 총과 색을 맞춰요)
 	private void DrawGun(Graphics g, int k, float x, float y, float ang, float sc, Color acc)
 	{
 		GraphicsState st = g.Save(); g.TranslateTransform(x, y); g.RotateTransform(ang * 180f / (float)Math.PI); g.ScaleTransform(sc, sc);
 		if (k == 0 || k == 2)
 		{
-			Bitmap gb = Spr.Get(k == 0 ? "ms_g_pistol" : "ms_g_rifle");
+			Bitmap gb = vecGun ? null : Spr.Get(k == 0 ? "ms_g_pistol" : "ms_g_rifle");
 			if (gb != null) { float gw = k == 0 ? 40f : 74f, gh = gw * gb.Height / gb.Width; g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.DrawImage(gb, k == 0 ? -4f : -6f, k == 0 ? -10f : -gh * 0.52f, gw, gh); g.Restore(st); return; }
 		}
 		using (SolidBrush acb = new SolidBrush(acc)) using (SolidBrush dk = new SolidBrush(Color.FromArgb(34, 38, 50))) using (SolidBrush lt = new SolidBrush(Color.FromArgb(220, 228, 240)))
@@ -338,8 +344,8 @@ internal sealed class CoverGame : MiniGame
 			{
 				// 쌍권총: 반대쪽 손에도 권총을 하나 더 들고, 번갈아 양쪽에서 쏴요
 				float g2x, g2y, m2x, m2y; Hold(1, a, out g2x, out g2y, out m2x, out m2y); float a2 = (float)Math.Atan2(aimY - m2y, aimX - m2x); if (a2 > -0.12f) a2 = -0.12f; if (a2 < -3.02f) a2 = -3.02f;
-				float recoil2 = hand == 1 ? kick * 0.5f : 0f; GraphicsState gs2 = g.Save(); g.TranslateTransform(g2x - (float)Math.Cos(a2) * recoil2, g2y - (float)Math.Sin(a2) * recoil2);
-				if (Math.Cos(a2) < 0) { g.ScaleTransform(1f, -1f); DrawGun(g, 0, 0f, 0f, -a2, 1.25f, GC[0]); } else DrawGun(g, 0, 0f, 0f, a2, 1.25f, GC[0]); g.Restore(gs2);
+				float recoil2 = hand == 1 ? kick * 0.5f : 0f; GraphicsState gs2 = g.Save(); g.TranslateTransform(g2x - (float)Math.Cos(a2) * (10f + recoil2), g2y - (float)Math.Sin(a2) * (10f + recoil2)); vecGun = true;
+				if (Math.Cos(a2) < 0) { g.ScaleTransform(1f, -1f); DrawGun(g, 0, 0f, 0f, -a2, 1.25f, GC[0]); } else DrawGun(g, 0, 0f, 0f, a2, 1.25f, GC[0]); vecGun = false; g.Restore(gs2);
 			}
 		}
 		List<object> all = new List<object>(); foreach (En e in en) all.Add(e); foreach (Ob o in ob) all.Add(o);

@@ -1442,7 +1442,7 @@ internal sealed class MaryongGame : Form
 		catch { }
 		finally { MiniGame.PS = 0; Sfx.GameOn = so; try { m.Fx.Clear(); m.Reset(); } catch { } }
 	}
-	private void StartGame() { ql = 0; qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
+	private void StartGame() { qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
 
 	private void OnTap(float x, float y)
 	{
@@ -1615,7 +1615,7 @@ internal sealed class MaryongGame : Form
 		if (wide) { S = Math.Max(0.35f, Math.Min(ch / (float)MiniGame.H, (cw - 220f) / MiniGame.W)); gx = 0; gy = (int)((ch - MiniGame.H * S) / 2f); }
 		else { S = Math.Max(0.35f, Math.Min(cw / (float)MiniGame.W, ch / (float)MiniGame.H)); gx = (int)((cw - MiniGame.W * S) / 2f); gy = (int)((ch - MiniGame.H * S) / 2f); }
 		try { if (tb != null) tb.SetBounds(gx + (int)(20 * S), gy + (int)((g != null ? g.InputY : 516f) * S), (int)(360 * S), (int)(34 * S)); } catch { }
-		sideSig = ""; Invalidate();
+		sideSig = ""; ql = 0; qSum = 0; qN = 0; qBad = 0; Invalidate();
 	}
 	private void ToggleWide()
 	{
@@ -1682,7 +1682,7 @@ internal sealed class MaryongGame : Form
 		long t0 = Stopwatch.GetTimestamp();
 		try { PaintAround(e.Graphics); } catch (Exception ex) { Program.LogErr(ex); }
 		// 화면 배율이 큰 PC(고해상도)에서는 그림 그릴 픽셀이 너무 많아 느려져요 → 1.25배까지만 직접 그리고, 그 이상이면 작게 그려서 늘려 보여요
-		float rs = Math.Min(S, ql == 0 ? 1.25f : (ql == 1 ? 1.0f : 0.8f));
+		float rs = Math.Min(S, ql == 0 ? 1.25f : (ql == 1 ? 1.0f : (ql == 2 ? 0.8f : 0.65f)));
 		double tInner = 0, tBlit = 0; long tq = Stopwatch.GetTimestamp(); bool done = false;
 		if (useGdi && ClientSize.Width > 0 && ClientSize.Height > 0)
 		{
@@ -1713,6 +1713,12 @@ internal sealed class MaryongGame : Form
 			else { MiniGame.PS = 0; paintScale = S; GraphicsState gs0 = e.Graphics.Save(); e.Graphics.TranslateTransform(gx, gy); OnPaintInner(e.Graphics); try { DrawSpeaker(e.Graphics); } catch { } e.Graphics.Restore(gs0); }
 		}
 		pInner += tInner; pBlit += tBlit;
+		// 그리기가 오래 걸리는 PC(큰 창·고해상도)에서는 스스로 화질을 한 단계씩 낮춰서 끊김을 줄여요 (창 크기를 바꾸면 다시 처음부터 재 봐요)
+		if (state == 2 && g != null && !paused)
+		{
+			double qc = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency; qSum += qc; qN++;
+			if (qN >= 24) { double qa = qSum / qN; qSum = 0; qN = 0; if (qa > 9.0 && ql < 3) { qBad++; if (qBad >= 2) { ql++; qBad = 0; Anim.PerfNote("화질 낮춤 → " + ql + " (평균 " + qa.ToString("0.0") + "ms)"); } } else qBad = 0; }
+		}
 		if (Anim.PerfLog && state == 2 && g != null)   // perf.on 이 있을 때만: 게임 중 프레임 기록
 		{
 			long t1 = Stopwatch.GetTimestamp(); double f = 1000.0 / Stopwatch.Frequency, cost = (t1 - t0) * f;

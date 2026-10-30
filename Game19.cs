@@ -42,11 +42,13 @@ internal sealed class VolleyGame : MiniGame
 		if (k == Keys.Up || k == Keys.W) { mouseMode = false; Jump(me); }
 	}
 	private bool keyUp, keyDown;
-	private void Jump(Pl p) { if (!p.Air && p.Dive <= 0f && p.Rec <= 0f && !matchOver) { p.Vy = -650f; Sfx.Play("swing"); } }
+	private bool upLatch;
+	private void Jump(Pl p) { if (!p.Air && p.Dive <= 0f && p.Rec <= 0f && !matchOver) { p.Vy = -650f; Sfx.Play("swing"); if (p == me) upLatch = keyUp; } }
 	private void Spike(Pl p, bool up, bool down)
 	{
 		if (matchOver) return;
-		if (p.Air) { if (p.Spike <= 0f) p.Spike = 0.3f; }
+		if (p.Air) { if (p.Spike <= 0f) p.Spike = 0.42f; }
+		else if (p.Dive <= 0f && p.Rec <= 0f && Math.Abs(p.Vx) <= 40f && by < GY - 150f && Math.Abs(bx - p.X) < 120f && (p == me ? bx < NX + 40f : bx > NX - 40f)) { Jump(p); p.Spike = 0.55f; }   // 공이 높이 떠 있으면 점프+스파이크를 한 번에
 		else if (p.Dive <= 0f && p.Rec <= 0f && Math.Abs(p.Vx) > 40f) { p.Dive = 0.45f; p.DiveDir = Math.Sign(p.Vx); p.Vy = -160f; Sfx.Play("whoosh"); }
 	}
 	private void Act(Pl p, bool up, bool down, bool click) { if (p.Air) Spike(p, up, down); else Jump(p); }
@@ -66,7 +68,8 @@ internal sealed class VolleyGame : MiniGame
 		AiMove(dt);
 		if (pauseT > 0f) { pauseT -= dt; return; }
 		// 공: 1/240초씩 잘게 나눠 계산해요 (빠른 스파이크가 네트나 몸을 뚫고 지나가지 않게)
-		me.KH = (kl ? -1f : 0f) + (kr ? 1f : 0f); me.KV = (keyUp ? -1f : 0f) + (keyDown ? 1f : 0f);
+		if (!keyUp) upLatch = false; me.KH = (kl ? -1f : 0f) + (kr ? 1f : 0f); me.KV = ((keyUp && !upLatch) ? -1f : 0f) + (keyDown ? 1f : 0f);
+		if (mouseMode) { me.KH = 0f; me.KV = inp.My > me.Y - 20f ? 1f : (inp.My < me.Y - 190f ? -1f : 0f); }
 		int nsub = Math.Max(1, (int)Math.Ceiling(dt * 240f)); float h = dt / nsub;
 		for (int k = 0; k < nsub; k++)
 		{
@@ -128,11 +131,11 @@ internal sealed class VolleyGame : MiniGame
 	//  스파이크 방향: 그냥 = 빠르고 낮게 · ↓ = 내리꽂기 · ↑ = 높게 넘기기 · 뒤쪽 키 = 짧게 띄우기 · 앞쪽 키 = 가장 빠르게
 	private void Touch(Pl p)
 	{
-		if (p.HitCd > 0f) return; float cx = p.X, cy = p.Dive > 0f || p.Rec > 0f ? p.Y - 24f : p.Y - 54f, rr = PR + BR + (p.Dive > 0f ? 8f : 0f);
+		if (p.HitCd > 0f) return; bool arm = p.Spike > 0f && p.Air; float cx = p.X, cy = p.Dive > 0f || p.Rec > 0f ? p.Y - 24f : (arm ? p.Y - 48f : p.Y - 54f), rr = PR + BR + (p.Dive > 0f ? 8f : 0f) + (arm ? 14f : 0f);
 		float dx = bx - cx, dy = by - cy; float d2 = dx * dx + dy * dy; if (d2 > rr * rr) return;
 		float d = (float)Math.Sqrt(d2) + 0.001f, nx = dx / d, ny = dy / d;
 		int dir = p == me ? 1 : -1; p.HitCd = 0.2f;
-		if (p.Spike > 0f && p.Air && by < p.Y - 40f)
+		if (arm && by < p.Y + 12f)
 		{
 			float kh = p.KH * dir, kv = p.KV;   // kh: +1 = 네트 쪽(앞), -1 = 뒤쪽
 			float vx, vy;

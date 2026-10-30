@@ -11,7 +11,7 @@ using System.Windows.Forms;
 // 배포 방법: 저장소에 새 Release를 만들고 태그를 ot-v1.4.1 처럼 붙인 뒤 OvertimeReminder.exe 를 첨부하면 끝. (같은 저장소의 다른 앱 릴리스와 섞여도 이 앱 것만 골라요)
 internal partial class Program
 {
-	internal const string AppVersion = "1.4.20";
+	internal const string AppVersion = "1.4.21";
 	// ← 본인 GitHub 저장소로 바꾸세요 (예: "uk/overtime-reminder"). 'OWNER'가 들어 있으면 업데이트 확인을 하지 않아요.
 	private const string UpdateRepo = "kuh01041461581-ux/ukukuk";
 	private static int updBusy; private static MenuItem updItem;

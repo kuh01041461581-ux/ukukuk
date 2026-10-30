@@ -94,6 +94,11 @@ internal abstract class MiniGame
 	}
 	internal static float PS;   // 지금 그리는 화면 배율 (0이면 시스템 배율)
 	private static readonly Dictionary<string, Bitmap> txtCache = new Dictionary<string, Bitmap>();
+	public static readonly Dictionary<string, string> IconSpr = new Dictionary<string, string> {
+		{"catch","ms_pr_glove"},{"jump","ms_pet_jumpup0"},{"bat","ms_bat0"},{"tower2","ms_planks"},{"kick","ms_n_sball"},{"cover","ms_g_pistol"},{"golf","ms_golf_sw0"},
+		{"rtd","ms_am_fire1"},{"hall","ms_ow_cert"},{"kart","ms_kart_me0"},{"volley","ms_vb_m0"},{"time","ms_tm0"},{"memory","ms_mem"},{"type","ms_ty0"},{"shoot","ms_sh0"},
+		{"hoop","ms_bk_s0"},{"bowl","ms_bwp0"},{"sling","ms_rk"},{"mole","ms_m_mo1"},{"archery","ms_ar_tgt"},{"climb","ms_cp_carab"},{"ice","ms_blk_ice"},{"curl","ms_m_cl_red"},
+		{"run","ms_rn0"},{"flap","ms_pet_fly0"},{"surv","ms_emg0"},{"complaint","ms_of_tel"},{"stamp","ms_fo_stamp"} };
 	public static void ClearTxt() { foreach (Bitmap o in txtCache.Values) o.Dispose(); txtCache.Clear(); }
 	// 경기장 조명탑: 격자 기둥 · 램프 패널(전구 격자) · 빛 번짐 · 빛줄기. 탑 그림은 한 번만 그려 두고 재사용해요
 	private static readonly Dictionary<string, Bitmap> towerCache = new Dictionary<string, Bitmap>();
@@ -1783,7 +1788,9 @@ internal sealed class MaryongGame : Form
 				}
 				using (GraphicsPath tp = Gfx.Round(new RectangleF(r.X + 22, r.Y + 4, r.Width - 44, 4), 2)) using (SolidBrush tb = new SolidBrush(Color.FromArgb((int)(150 + 90 * hv), ac))) gr.FillPath(tb, tp);
 				if (m.Mascot != null) { float mh = 50f + 3f * hv, mw = mh * m.Mascot.Width / m.Mascot.Height; gr.InterpolationMode = InterpolationMode.Bilinear; gr.DrawImage(ImgCache.Get(m.Mascot, mw * paintScale, mh * paintScale), r.X + 16, r.Y + 6 - 1.5f * hv, mw, mh); gr.InterpolationMode = InterpolationMode.HighQualityBicubic; }
-				m.Icon(gr, r.X + r.Width - 46, r.Y + 36 - 2f * hv);
+				{ string isn; Bitmap isb = null; if (MiniGame.IconSpr.TryGetValue(m.Key, out isn)) isb = Spr.Get(isn);
+					if (isb != null) { float ih = 50f + 4f * hv, iw = ih * isb.Width / isb.Height; if (iw > 56f) { iw = 56f; ih = iw * isb.Height / isb.Width; } Spr.Draw(gr, isn, r.X + r.Width - 40, r.Y + 34 - 2f * hv, iw, ih, hv * (float)Math.Sin(tt * 9) * 5f); }
+					else m.Icon(gr, r.X + r.Width - 46, r.Y + 36 - 2f * hv); }
 				MiniGame.Txt(gr, m.Name, 14f, 2, Color.White, r.X, r.Y + 58, r.Width, 26, StringAlignment.Center);
 				MiniGame.Txt(gr, m.Desc, 9.5f, 0, Color.FromArgb(205, 255, 255, 255), r.X + 6, r.Y + 82, r.Width - 12, 22, StringAlignment.Center);
 				bool has = best[m.Key] > 0;

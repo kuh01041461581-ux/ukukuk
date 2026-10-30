@@ -629,14 +629,14 @@ internal sealed class FlapGame : MiniGame
 	private class It { public float X, Y, Age; public int K; }
 	private class Pt { public float X, Y, Vx, Vy, Life, Max, R; public Color C; }
 	private readonly List<Bl> bls = new List<Bl>(); private readonly List<Eb> ebs = new List<Eb>(); private readonly List<Fo> fos = new List<Fo>(); private readonly List<It> its = new List<It>(); private readonly List<Pt> pts = new List<Pt>();
-	private float bombX, bombY; private float px = 70f, py = 300f, inv, shootT, spawnT, el, bombT, flash, msgT, bossT, deadT, scrollX, optPh, wormT;
+	private float rideT; private float bombX, bombY; private float px = 70f, py = 300f, inv, shootT, spawnT, el, bombT, flash, msgT, bossT, deadT, scrollX, optPh, wormT;
 	private int lives, power, opts, spd, bombs, bossN, kills, shotN; private bool useMouse, bossOn, dying; private string msg = "";
 	private readonly List<PointF> trail = new List<PointF>(); private Bitmap skyFlip; private System.Drawing.Image skyFlipSrc;
 	public override string Costume { get { return "g_plane"; } }
 	public override string Name { get { return "마룡이 날기"; } }
 	public override string Key { get { return "flap"; } }
 	public override string Desc { get { return "탄막을 뚫고 보스를 쓰러뜨려요"; } }
-	public override string Help { get { return "마우스(또는 방향키·WASD)로 마룡이를 움직여요 · 미사일은 자동 발사!\n적의 빨강·분홍 탄환만 피하세요 (몸통 판정은 가운데 흰 점뿐)\n맞을 때 필살기가 남아 있으면 자동으로 발동해 막아 줘요\n클릭(스페이스) = 필살기: 탄환을 지우고 화면 전체에 큰 피해 (남은 개수만큼)\n아이템: P 미사일 강화 · A 애드온(보조 포대 최대 2) · S 이동 속도 · B 필살기 +1 · ★ 점수\n일정 시간마다 보스가 나타나요 · 보스를 잡으면 아이템이 우수수!"; } }
+	public override string Help { get { return "마우스(또는 방향키·WASD)로 마룡이를 움직여요 · 미사일은 자동 발사!\n적의 빨강·분홍 탄환만 피하세요 (몸통 판정은 가운데 흰 점뿐)\n맞을 때 필살기가 남아 있으면 자동으로 발동해 막아 줘요\n클릭(스페이스) = 필살기: 탄환을 지우고 화면 전체에 큰 피해 (남은 개수만큼)\n아이템: P 미사일 강화 · A 애드온(보조 포대 최대 2) · S 이동 속도 · B 필살기 +1 · ★ 점수\n일정 시간마다 보스가 나타나요 · 보스를 잡으면 아이템이 우수수!\n필살기를 쓰면 마룡이가 종이비행기에 올라타요 (5초 · 닿는 적은 부서지고 탄은 막아요)"; } }
 	public override string RightText { get { return "필살기 " + bombs; } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{
@@ -645,7 +645,7 @@ internal sealed class FlapGame : MiniGame
 	}
 	public override void Reset()
 	{
-		bls.Clear(); ebs.Clear(); fos.Clear(); its.Clear(); pts.Clear(); trail.Clear(); px = 70f; py = 300f; inv = 1.5f; shootT = 0f; spawnT = 1f; el = 0f; bombT = 0f; flash = 0f; msgT = 0f; bossT = 28f; deadT = 0f;
+		bls.Clear(); ebs.Clear(); fos.Clear(); its.Clear(); pts.Clear(); trail.Clear(); px = 70f; py = 300f; inv = 1.5f; shootT = 0f; spawnT = 1f; el = 0f; bombT = 0f; rideT = 0f; flash = 0f; msgT = 0f; bossT = 28f; deadT = 0f;
 		lives = 4; power = 1; opts = 0; spd = 0; bombs = 3; bossN = 0; kills = 0; bossOn = false; dying = false; Score = 0; Over = false; msg = ""; wormT = 0f;
 	}
 	public override void Click(float x, float y) { Bomb(); }
@@ -656,6 +656,16 @@ internal sealed class FlapGame : MiniGame
 		bombs--; bombT = 1.1f; bombX = px + 20f; bombY = py; inv = Math.Max(inv, 1.3f); flash = 1f; ebs.Clear(); Shake = 0.6f; Sfx.Play("fanfare");
 		foreach (Fo f in fos) Dmg(f, f.Boss ? 40f : 30f);
 		for (int i = 0; i < 24; i++) Spark(px + 20f, py, Color.FromArgb(160, 230, 255), 260f);
+		rideT = 5f; msg = "종이비행기 탑승! 닿는 적은 부서지고 탄은 막아요"; msgT = 2f;
+	}
+	// 마룡이가 타는 큰 종이비행기 (깔끔한 접힌 면 + 흰 선)
+	private static void PaperPlane(Graphics g, double t)
+	{
+		float wob = (float)Math.Sin(t * 8) * 1.5f; PointF[] body = { new PointF(70f, -4f + wob), new PointF(-62f, -22f), new PointF(-30f, 2f), new PointF(-62f, 22f) };
+		using (GraphicsPath gp = new GraphicsPath()) { gp.AddPolygon(body); using (SolidBrush b = new SolidBrush(Color.FromArgb(235, 245, 252, 255))) g.FillPath(b, gp); }
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(210, 170, 205, 235))) g.FillPolygon(b, new[] { new PointF(70f, -4f + wob), new PointF(-30f, 2f), new PointF(-62f, 22f) });
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 120, 170, 225))) g.FillPolygon(b, new[] { new PointF(-30f, 2f), new PointF(8f, 6f), new PointF(-62f, 22f) });
+		using (Pen p = new Pen(Color.FromArgb(220, 90, 140, 200), 1.5f) { LineJoin = LineJoin.Round }) { g.DrawPolygon(p, body); g.DrawLine(p, 70f, -4f + wob, -30f, 2f); }
 	}
 	private void Spark(float x, float y, Color c, float sp)
 	{
@@ -707,11 +717,20 @@ internal sealed class FlapGame : MiniGame
 		else { if (inp.MouseMoved) useMouse = true; if (useMouse) { float dx = inp.Mx - 18f - px, dy = inp.My - py, d = (float)Math.Sqrt(dx * dx + dy * dy); if (d > 1f) { float st = Math.Min(d, ms * dt * Math.Min(1.6f, 0.4f + d / 40f)); px += dx / d * st; py += dy / d * st; } } }
 		px = Clamp(px, 22f, 378f); py = Clamp(py, 62f, 570f);
 		trail.Insert(0, new PointF(px, py)); if (trail.Count > 40) trail.RemoveAt(40);
+		if (rideT > 0f)
+		{
+			rideT -= dt; inv = Math.Max(inv, 0.25f); px = Clamp(px, 62f, 340f);
+			float rx0 = px - 60f, rx1 = px + 64f, ry0 = py - 30f, ry1 = py + 40f;
+			ebs.RemoveAll(e => e.X > rx0 && e.X < rx1 && e.Y > ry0 && e.Y < ry1);
+			foreach (Fo f in fos) { float bhw, bhh; FoeBox(f, out bhw, out bhh); if (f.X + bhw > rx0 && f.X - bhw < rx1 && f.Y + bhh > ry0 && f.Y - bhh < ry1) Dmg(f, (f.Boss ? 6f : 40f) * dt * 6f); }
+			if (((int)(el * 40f) & 1) == 0) Spark(px - 44f, py + 22f, Color.FromArgb(235, 245, 255), 90f);
+			if (rideT <= 0f) { for (int i = 0; i < 14; i++) Spark(px, py + 20f, Color.FromArgb(220, 240, 255), 200f); msg = "비행기에서 내렸어요"; msgT = 1f; }
+		}
 		// 내 미사일
 		shootT -= dt;
 		if (shootT <= 0f)
 		{
-			shootT = 0.17f; float x = px + 26f; if ((++shotN % 3) == 0) Sfx.Play("tick");
+			shootT = rideT > 0f ? 0.085f : 0.17f; float x = px + 26f; if (rideT > 0f) { Shoot(x + 20f, py + 12f, 640f, 0f, 1.4f, 0); Shoot(x, py + 12f, 600f, -120f, 1f, 0); Shoot(x, py + 12f, 600f, 120f, 1f, 0); } if ((++shotN % 3) == 0) Sfx.Play("tick");
 			switch (power)
 			{
 				case 1: Shoot(x, py, 560f, 0f, 1f, 0); break;
@@ -936,9 +955,10 @@ internal sealed class FlapGame : MiniGame
 		// 애드온
 		for (int i = 0; i < opts; i++) { PointF o = OptPos(i); bool front = Math.Sin(optPh * 0.9f + i * 3.1416f) > 0; Buddy(g, o.X, o.Y, front ? 1f : 0.82f, t + i); }
 		// 마룡이
+		if (rideT > 0f && (!dying || deadT < 0.4f)) { float pu = rideT < 1f ? (((int)(t * 14) & 1) == 0 ? 0.5f : 1f) : 1f; GraphicsState pgs = g.Save(); g.TranslateTransform(px + 6f, py + 18f); g.RotateTransform(Clamp((py - (trail.Count > 3 ? trail[3].Y : py)) * 0.8f, -12f, 12f)); g.ScaleTransform(pu, pu); PaperPlane(g, t); g.Restore(pgs); }
 		if (!dying || deadT < 0.4f)
 		{
-			bool blink = inv > 0f && ((int)(t * 16) & 1) == 0 && !dying; Bitmap fb = Spr.Get("ms_n_fy1"); float fsc = 0.4f, rot = Clamp((py - (trail.Count > 3 ? trail[3].Y : py)) * 1.2f, -18f, 18f);
+			bool blink = inv > 0f && rideT <= 0f && ((int)(t * 16) & 1) == 0 && !dying; Bitmap fb = Spr.Get("ms_n_fy1"); float fsc = 0.4f, rot = Clamp((py - (trail.Count > 3 ? trail[3].Y : py)) * 1.2f, -18f, 18f);
 			if (!blink) { if (fb != null) Spr.Draw(g, "ms_n_fy" + (((int)(t * 9) & 1) == 0 ? 1 : 4), px, py, Spr.OW("ms_n_fy1", fb) * fsc, Spr.OH("ms_n_fy1", fb) * fsc, rot); else DrawMascot(g, px, py + 24f, 60f, rot); }
 			using (SolidBrush b = new SolidBrush(Color.FromArgb(inv > 0f ? 255 : 200, 255, 255, 255))) g.FillEllipse(b, px - 3.5f, py - 3.5f, 7f, 7f); using (Pen p = new Pen(Color.FromArgb(220, 255, 90, 90), 1.4f)) g.DrawEllipse(p, px - 4.5f, py - 4.5f, 9f, 9f);
 		}

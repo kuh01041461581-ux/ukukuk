@@ -70,7 +70,7 @@ internal sealed partial class TarotForm
 	{
 		if (i < 0 || i >= slots.Length) return RectangleF.Empty; RectangleF r = sR[i];
 		float w = Math.Min(170f, Math.Max(150f, r.Width * 2f)), h = w / CAR, cx = r.X + r.Width / 2f;
-		float x = Math.Max(10f, Math.Min(LW - 10f - w, cx - w / 2f)), y = r.Bottom + (noLab ? 10f : 38f); if (y + h > LH - 8f) y = Math.Max(8f, r.Y - h - 10f); if (y < 8f) y = 8f;
+		float x = Math.Max(10f, Math.Min(CW - 10f - w, cx - w / 2f)), y = r.Bottom + (noLab ? 10f : 38f); if (y + h > LH - 8f) y = Math.Max(8f, r.Y - h - 10f); if (y < 8f) y = 8f;
 		return new RectangleF(x, y, w, h);
 	}
 	private static void Star(Graphics g, float x, float y, float r, float rot, Color c)

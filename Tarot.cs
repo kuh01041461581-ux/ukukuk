@@ -50,10 +50,11 @@ internal sealed partial class TarotForm : Form
 
 	// ───────── 색 · 상태 ─────────
 	private static Color PInk { get { return Theme.Ink; } } private static Color PSub { get { return Theme.Sub; } } private static Color PMut { get { return Theme.Muted; } } private static Color PRed { get { return Theme.AccentBtn; } } private static Color PCard { get { return Theme.Raised; } } private static Color PLine { get { return Theme.LineStrong; } } private static Color PSoft { get { return Theme.AccentSoft; } }
-	private const int LW = 420, LH = 700; private const float CAR = 176f / 252f;
+	private const int CW = 420, LH0 = 700; private float lw = 420f, lh = 700f, cmp = 1f; private int LW { get { return (int)Math.Ceiling(lw); } } private int LH { get { return (int)Math.Ceiling(lh); } } private float CDX { get { return (lw - CW) / 2f; } } private float CTX { get { return CDX + 210f * (1f - cmp); } }
+	private PointF ColPt(float x, float y) { return new PointF((x - CTX) / cmp, y / cmp); } private const float CAR = 176f / 252f;
 	private enum St { Idle, Shuffle, Pick, Read }
 	private sealed class Slot { public int Card = -1; public bool Rev; public int State; public float T; public RectangleF From; public float FromRot; }
-	private float sc = FUi.Scale(LW, LH), ox, oy;
+	private float sc = FUi.Scale(CW, LH0), ox, oy;
 	private St st = St.Idle; private int mode = 1, topic; private bool full = true, spOpen; private string[] posN = PosNames(1, 0); private readonly RectangleF[] tR = new RectangleF[5], spRows = new RectangleF[12]; private RectangleF spR;
 	private readonly List<int> rest = new List<int>(); private readonly bool[] revAll = new bool[78]; private Slot[] slots = new Slot[3]; private int nPick;
 	private float scroll, spreadT, shufT, rscroll; private int hover = -1, zoom = -1; private float zoomT;
@@ -76,7 +77,7 @@ internal sealed partial class TarotForm : Form
 	private const float FW = 56f, FH = 80f;
 	private float Sp { get { return full ? 17f : 29f; } }
 	private float TotalW { get { return (rest.Count - 1) * Sp * spreadT + FW; } }
-	private float MaxScroll { get { return Math.Max(0f, TotalW - (LW - 28f)); } }
+	private float MaxScroll { get { return Math.Max(0f, TotalW - (CW - 28f)); } }
 
 	private TarotForm()
 	{
@@ -103,6 +104,7 @@ internal sealed partial class TarotForm : Form
 	private void Step()
 	{
 		double now = clock.Elapsed.TotalSeconds; float dt = (float)Math.Min(0.05, now - lastT); lastT = now; bool busy = false;
+		{ float tg = st == St.Read ? 0.72f : 1f; if (Math.Abs(cmp - tg) > 0.004f) { cmp += (tg - cmp) * Math.Min(1f, dt * 9f); busy = true; } else cmp = tg; }
 		if (st == St.Shuffle) { shufT += dt / 2.0f; if (shufT >= 1f) { st = St.Pick; spreadT = 0f; Sfx.Play("ok"); } busy = true; }
 		if (st == St.Pick && spreadT < 1f) { spreadT = Math.Min(1f, spreadT + dt / 0.5f); busy = true; }
 				bool allDone = true;
@@ -120,10 +122,10 @@ internal sealed partial class TarotForm : Form
 	}
 	private void LayoutGrid()
 	{
-		int n = Math.Max(1, rest.Count); float y0 = SlotsBottom + 40f, H = LH - 14f - y0, W = LW - 28f, bw = 0f; int bc = 13;
+		int n = Math.Max(1, rest.Count); float y0 = SlotsBottom + 40f, H = LH - 14f - y0, W = CW - 28f, bw = 0f; int bc = 13;
 		for (int c = 4; c <= 26; c++) { int r = (n + c - 1) / c; float w = (W - (c - 1) * gGap) / c, h = w / CAR; if (r * h + (r - 1) * gGap <= H && w > bw) { bw = w; bc = c; } }
 		if (bw <= 0f) { bc = 15; bw = (W - 14 * gGap) / 15f; }
-		gCols = bc; gw = Math.Min(bw, 62f); gh = gw / CAR; int rows = (n + bc - 1) / bc; gx0 = (LW - (bc * gw + (bc - 1) * gGap)) / 2f; gy0 = y0 + Math.Max(0f, (H - (rows * gh + (rows - 1) * gGap)) / 3f);
+		gCols = bc; gw = Math.Min(bw, 62f); gh = gw / CAR; int rows = (n + bc - 1) / bc; gx0 = (CW - (bc * gw + (bc - 1) * gGap)) / 2f; gy0 = y0 + Math.Max(0f, (H - (rows * gh + (rows - 1) * gGap)) / 3f);
 		int tw = (int)Math.Round(gw * sc); if (backTiny == null || tinyW != tw) { if (backTiny != null) backTiny.Dispose(); backTiny = RoundedScaled(back, tw, (int)Math.Round(gh * sc)); tinyW = tw; }
 	}
 	private RectangleF GridRect(int i) { int c = i % gCols, r = i / gCols; return new RectangleF(gx0 + c * (gw + gGap), gy0 + r * (gh + gGap), gw, gh); }
@@ -134,14 +136,14 @@ internal sealed partial class TarotForm : Form
 	}
 	private void OnMove(object s, MouseEventArgs e)
 	{
-		float x = (e.X - ox) / sc, y = (e.Y - oy) / sc; if (UiMove(x, y)) return; int h = HitGrid(x, y);
+		float rx = (e.X - ox) / sc, ry = (e.Y - oy) / sc; if (UiMove(rx, ry)) return; PointF cp = ColPt(rx, ry); float x = cp.X, y = cp.Y; int h = HitGrid(x, y);
 		if (h != hover) { hover = h; Invalidate(); }
 		int hs = HitSlot(x, y); if (hs != hoverSlot) { hoverSlot = hs; Wake(); Invalidate(); }
 		Cursor = (h >= 0 || hs >= 0 || uiHand || btn.Contains(x, y) || spR.Contains(x, y)) ? Cursors.Hand : Cursors.Default;
 	}
 	private void OnDown(object s, MouseEventArgs e)
 	{
-		float x = (e.X - ox) / sc, y = (e.Y - oy) / sc; if (e.Button == MouseButtons.Left && UiDown(x, y)) return; down = true; dragging = false; downX = x; downScroll = scroll; if (zoom >= 0) return; if (hist && e.Button == MouseButtons.Left) { down = false; if (FHist.ChipHit(x, y) == 1) { hist = false; Invalidate(); } return; } if (e.Button == MouseButtons.Left) { int hc = FHist.ChipHit(x, y); if (hc == 1) { down = false; hist = true; hScroll = 0; FHist.Refresh(); Invalidate(); return; } if (hc == 2) { down = false; FHist.SaveFull(this, RenderFull, "마룡이 타로"); return; } int hb = Chrome.HubHit(x, y); if (hb == 1) { down = false; FortuneForm.Open(); Close(); return; } if (hb == 2) { down = false; return; } } if (y < 54f && e.Button == MouseButtons.Left) { down = false; Chrome.Drag(this); return; }
+		float rx = (e.X - ox) / sc, ry = (e.Y - oy) / sc; if (e.Button == MouseButtons.Left && UiDown(rx, ry)) return; PointF cp = ColPt(rx, ry); float x = cp.X, y = cp.Y; down = true; dragging = false; downX = x; downScroll = scroll; if (zoom >= 0) return; if (hist && e.Button == MouseButtons.Left) { down = false; if (FHist.ChipHit(x, y) == 1) { hist = false; Invalidate(); } return; } if (e.Button == MouseButtons.Left) { int hc = FHist.ChipHit(x, y); if (hc == 1) { down = false; hist = true; hScroll = 0; FHist.Refresh(); Invalidate(); return; } if (hc == 2) { down = false; FHist.SaveFull(this, RenderFull, "마룡이 타로"); return; } int hb = Chrome.HubHit(x, y); if (hb == 1) { down = false; FortuneForm.Open(); Close(); return; } if (hb == 2) { down = false; return; } } if (ry < 54f && e.Button == MouseButtons.Left) { down = false; Chrome.Drag(this); return; }
 		if (spOpen) { down = false; for (int i = 0; i < SpreadName.Length; i++) if (spRows[i].Contains(x, y)) { SetMode(i); spOpen = false; Invalidate(); return; } spOpen = false; Invalidate(); return; }
 		if (spR.Contains(x, y)) { spOpen = true; Sfx.Play("tick"); Invalidate(); down = false; return; }
 		for (int i = 0; i < 5; i++) if (tR[i].Contains(x, y)) { topic = i; Sfx.Play("tick"); Invalidate(); down = false; return; }
@@ -150,7 +152,7 @@ internal sealed partial class TarotForm : Form
 	}
 	private void OnUp(object s, MouseEventArgs e)
 	{
-		float x = (e.X - ox) / sc, y = (e.Y - oy) / sc; if (UiUp()) { down = false; dragging = false; return; } bool wasDrag = dragging; down = false; dragging = false;
+		float rx = (e.X - ox) / sc, ry = (e.Y - oy) / sc; PointF cp = ColPt(rx, ry); float x = cp.X, y = cp.Y; if (UiUp()) { down = false; dragging = false; return; } bool wasDrag = dragging; down = false; dragging = false;
 		if (zoom >= 0) { zoom = -1; Invalidate(); return; }
 		if (st == St.Pick && !wasDrag) { int h = HitGrid(x, y); if (h >= 0 && nPick < slots.Length) Pick(h); return; }
 		if ((st == St.Read || (st == St.Pick)) && !wasDrag) for (int i = slots.Length - 1; i >= 0; i--) if (slots[i].State == 3 && sR[i].Contains(x, y)) { zoom = i; zoomT = 0f; Wake(); Invalidate(); return; }
@@ -266,11 +268,12 @@ internal sealed partial class TarotForm : Form
 	private void Draw(Graphics g)
 	{
 		DrawMain(g);
-		if (hist) { FHist.DrawOverlay(g, LW, LH, hScroll); Chrome.Hub(g, true, PRed, PCard, Color.White, PSub); }
-		FHist.DrawChips(g, hist, PRed, PCard, PSub, Color.White);
+		if (hist) { FHist.DrawOverlay(g, LW, LH, hScroll); GraphicsState cg3 = g.Save(); g.TranslateTransform(CTX, 0f); g.ScaleTransform(cmp, cmp); Chrome.Hub(g, true, PRed, PCard, Color.White, PSub); g.Restore(cg3); }
+		{ GraphicsState cg2 = g.Save(); g.TranslateTransform(CTX, 0f); g.ScaleTransform(cmp, cmp); FHist.DrawChips(g, hist, PRed, PCard, PSub, Color.White); g.Restore(cg2); }
 	}
 	private void DrawMain(Graphics g)
 	{
+		GraphicsState cgs = g.Save(); g.TranslateTransform(CTX, 0f); g.ScaleTransform(cmp, cmp);
 		FUi.Text(g, "마룡이 타로", FUi.F(15f, 1), PInk, new RectangleF(16, 8, 215, 28), StringAlignment.Near, StringAlignment.Center, false); if (!exporting) Chrome.Hub(g, true, PRed, PCard, Color.White, PSub);
 		FUi.Text(g, "직접 고르는 타로 · 재미로 보는 풀이", FUi.F(8.5f, 0), PMut, new RectangleF(16, 36, 212, 16), StringAlignment.Near, StringAlignment.Center, false);
 		spR = new RectangleF(14, 58, 262, 28);
@@ -283,15 +286,17 @@ internal sealed partial class TarotForm : Form
 		LayoutSlots();
 		for (int i = 0; i < slots.Length; i++) DrawSlot(g, i);
 		if (noLab) for (int i = 0; i < slots.Length; i++) if (slots[i].State >= 2) Badge(g, i);
-		if (exporting) { if (st == St.Read) DrawReadRaw(g, ReadTop); return; }
-		if (st == St.Idle) DrawIdle(g); else if (st == St.Shuffle) DrawShuffleMagic(g); else if (st == St.Pick) DrawPick(g); else DrawRead(g);
+		if (exporting) { g.Restore(cgs); if (st == St.Read) DrawReadRaw(g, ReadTop); return; }
+		if (st == St.Idle) DrawIdle(g); else if (st == St.Shuffle) DrawShuffleMagic(g); else if (st == St.Pick) DrawPick(g);
 		DrawSlotHover(g); DrawMotes(g);
-		if (zoom >= 0) DrawZoom(g);
 		if (spOpen) DrawSpreadMenu(g);
+		g.Restore(cgs);
+		if (st == St.Read) DrawRead(g);
+		if (zoom >= 0) DrawZoom(g);
 	}
 	private void DrawSpreadMenu(Graphics g)
 	{
-		using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 30, 20, 10))) g.FillRectangle(b, 0, 0, LW, LH);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 30, 20, 10))) g.FillRectangle(b, -600f, -10f, 1800f, LH + 20f);
 		RectangleF pr = new RectangleF(14, 90, 392, SpreadName.Length * 46 + 16);
 		using (GraphicsPath gp = Gfx.Round(pr, 14)) { using (SolidBrush b = new SolidBrush(Theme.Raised)) g.FillPath(b, gp); using (Pen p = new Pen(PRed, 1.8f)) g.DrawPath(p, gp); }
 		for (int i = 0; i < SpreadName.Length; i++)
@@ -341,7 +346,7 @@ internal sealed partial class TarotForm : Form
 		float y = SlotsBottom + 4f; FUi.Text(g, nPick < slots.Length ? "마음이 끌리는 카드를 눌러 주세요 (" + nPick + " / " + slots.Length + ")" : "카드를 뒤집는 중이에요…", FUi.F(10.5f, 1), PRed, new RectangleF(20, y, 380, 22), StringAlignment.Center, StringAlignment.Center, false);
 		if (nPick >= slots.Length) return;
 		FUi.Text(g, "카드에 마우스를 올리면 커져요 · " + (slots.Length - nPick) + "장 더 고르세요", FUi.F(8.5f, 0), PMut, new RectangleF(20, y + 20, 380, 16), StringAlignment.Center, StringAlignment.Center, false);
-		LayoutGrid(); int n = rest.Count; float e = 1f - (float)Math.Pow(1f - spreadT, 3); float cx = LW / 2f - gw / 2f, cy = gy0 + (gh * 2f) - gh / 2f; InterpolationMode im = g.InterpolationMode; g.InterpolationMode = InterpolationMode.NearestNeighbor;
+		LayoutGrid(); int n = rest.Count; float e = 1f - (float)Math.Pow(1f - spreadT, 3); float cx = CW / 2f - gw / 2f, cy = gy0 + (gh * 2f) - gh / 2f; InterpolationMode im = g.InterpolationMode; g.InterpolationMode = InterpolationMode.NearestNeighbor;
 		for (int i = 0; i < n; i++)
 		{
 			if (taken[i] || i == hover) continue; RectangleF r = GridRect(i); float rx = cx + (r.X - cx) * e, ry = cy + (r.Y - cy) * e; g.DrawImage(backTiny, rx, ry, gw, gh);
@@ -349,7 +354,7 @@ internal sealed partial class TarotForm : Form
 		g.InterpolationMode = im;
 		if (hover >= 0 && hover < n && spreadT >= 1f)
 		{
-			RectangleF rc = GridRect(hover); float pw = Math.Max(gw * 2.3f, 62f), ph = pw / CAR; float px = Math.Max(6f, Math.Min(LW - 6f - pw, rc.X + gw / 2 - pw / 2)), py = Math.Max(SlotsBottom + 38f, Math.Min(LH - 6f - ph, rc.Y + gh / 2 - ph / 2));
+			RectangleF rc = GridRect(hover); float pw = Math.Max(gw * 2.3f, 62f), ph = pw / CAR; float px = Math.Max(6f, Math.Min(CW - 6f - pw, rc.X + gw / 2 - pw / 2)), py = Math.Max(SlotsBottom + 38f, Math.Min(LH - 6f - ph, rc.Y + gh / 2 - ph / 2));
 			DrawCard(g, backSm, new RectangleF(px, py, pw, ph), 1f); using (Pen p = new Pen(PRed, 2f)) g.DrawRectangle(p, px, py, pw, ph);
 		}
 	}
@@ -377,10 +382,10 @@ internal sealed partial class TarotForm : Form
 			}
 			else { title = (mode >= 3 && mode != 8 ? (i + 1) + ". " : "") + posN[i] + " · " + CardName(s.Card) + Dir(s) + " · " + CardKw(s.Card); body = Body(s.Card, s.Rev, topic); }
 			Ent e = new Ent { Title = title, Frame = frame, Body = body, Red = s.Rev, Hi = (mode == 6 && i == 9) || (mode == 3 && i == 4) || (mode == 10 && i == 6) };
-			e.FH = MH(frame, 8.5f * tm, 356f); e.H = 26f * tm + e.FH + MH(body, 9f * tm, 356f) + 10f; L.Add(e);
+			e.FH = MH(frame, 8.5f * tm, (LW - 64f)); e.H = 26f * tm + e.FH + MH(body, 9f * tm, (LW - 64f)) + 10f; L.Add(e);
 		}
 		string sum = Summary();
-		L.Add(new Ent { Title = "한 줄 요약", Body = sum, Hi = true, H = 26f * tm + MH(sum, 9f * tm, 356f) + 10f });
+		L.Add(new Ent { Title = "한 줄 요약", Body = sum, Hi = true, H = 26f * tm + MH(sum, 9f * tm, (LW - 64f)) + 10f });
 		return L;
 	}
 	private string Summary()
@@ -402,17 +407,17 @@ internal sealed partial class TarotForm : Form
 		string last = mode == 6 ? " 최종 결과 카드(" + CardName(slots[9].Card) + ")를 마음에 새겨 두세요." : (mode == 3 ? " 결과 카드(" + CardName(slots[4].Card) + ")가 향하는 방향을 기억하세요." : "");
 		return a1 + b2 + c2 + d2 + c + last;
 	}
-	private float ReadMax() { float need = 10f; foreach (Ent e in Ents) need += e.H + 6f; float avail = LH - 6f - (SlotsBottom + 38f); return Math.Max(0f, need - avail); }
+	private float ReadMax() { float need = 10f; foreach (Ent e in Ents) need += e.H + 6f; float avail = LH - 6f - ReadTop; return Math.Max(0f, need - avail); }
 	private void DrawReadRaw(Graphics g, float y0)
 	{
 		float y = y0, tm = textMul;
 		foreach (Ent e in Ents)
 		{
-			using (GraphicsPath gp = Gfx.Round(new RectangleF(20, y, 372, e.H), 10)) { using (SolidBrush b = new SolidBrush(e.Hi ? PSoft : PCard)) g.FillPath(b, gp); if (e.Hi) using (Pen p = new Pen(PRed, 1.2f)) g.DrawPath(p, gp); }
-			FUi.Text(g, e.Title, FUi.F(9.5f * tm, 1), e.Red || e.Hi ? PRed : PInk, new RectangleF(30, y + 3, 356, 20f * tm), StringAlignment.Near, StringAlignment.Center, false);
+			using (GraphicsPath gp = Gfx.Round(new RectangleF(20, y, LW - 48f, e.H), 10)) { using (SolidBrush b = new SolidBrush(e.Hi ? PSoft : PCard)) g.FillPath(b, gp); if (e.Hi) using (Pen p = new Pen(PRed, 1.2f)) g.DrawPath(p, gp); }
+			FUi.Text(g, e.Title, FUi.F(9.5f * tm, 1), e.Red || e.Hi ? PRed : PInk, new RectangleF(30, y + 3, LW - 64f, 20f * tm), StringAlignment.Near, StringAlignment.Center, false);
 			float yy = y + 24f * tm;
-			if (e.Frame != null) { float h = e.FH; FUi.Text(g, e.Frame, FUi.F(8.5f * tm, 0), PMut, new RectangleF(30, yy, 356, h + 2), StringAlignment.Near, StringAlignment.Near, true); yy += h; }
-			FUi.Text(g, e.Body, FUi.F(9f * tm, 0), PInk, new RectangleF(30, yy, 356, e.H - (yy - y) + 2), StringAlignment.Near, StringAlignment.Near, true);
+			if (e.Frame != null) { float h = e.FH; FUi.Text(g, e.Frame, FUi.F(8.5f * tm, 0), PMut, new RectangleF(30, yy, LW - 64f, h + 2), StringAlignment.Near, StringAlignment.Near, true); yy += h; }
+			FUi.Text(g, e.Body, FUi.F(9f * tm, 0), PInk, new RectangleF(30, yy, LW - 64f, e.H - (yy - y) + 2), StringAlignment.Near, StringAlignment.Near, true);
 			y += e.H + 6f;
 		}
 	}

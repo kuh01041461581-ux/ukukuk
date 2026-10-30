@@ -94,6 +94,7 @@ internal abstract class MiniGame
 	}
 	internal static float PS;   // 지금 그리는 화면 배율 (0이면 시스템 배율)
 	private static readonly Dictionary<string, Bitmap> txtCache = new Dictionary<string, Bitmap>();
+	public static void ClearTxt() { foreach (Bitmap o in txtCache.Values) o.Dispose(); txtCache.Clear(); }
 	// 경기장 조명탑: 격자 기둥 · 램프 패널(전구 격자) · 빛 번짐 · 빛줄기. 탑 그림은 한 번만 그려 두고 재사용해요
 	private static readonly Dictionary<string, Bitmap> towerCache = new Dictionary<string, Bitmap>();
 	protected static void FloodTower(Graphics g, float cx, float topY, float groundY, int cols, int rows, float beamX, float beamY, double tm)
@@ -1419,7 +1420,7 @@ internal sealed class MaryongGame : Form
 	private static string lastKey = "";
 	private void OpenRank(int i) { rkIdx = Math.Max(0, Math.Min(games.Length - 1, i)); state = 5; Sfx.Play("ui_open"); Rank.Fetch(games[rkIdx].Key, true); }
 	private void RankTurn(int d) { rkIdx = (rkIdx + d + games.Length) % games.Length; Sfx.Play("ui_click"); Rank.Fetch(games[rkIdx].Key, false); }
-	private void GoMenu() { if (gated) { if (Runs >= 3) gated = false; else { g.Fx.Clear(); Shuffle(); paused = false; down.Clear(); mouseHeld = false; try { tb.Visible = false; } catch { } Sfx.Play("ui_click"); return; } } g.Fx.Clear(); try { Spr.ReleaseAll(); } catch { } state = 0; paused = false; down.Clear(); mouseHeld = false; try { tb.Visible = false; } catch { } Sfx.Play("ui_click"); }
+	private void GoMenu() { if (gated) { if (Runs >= 3) gated = false; else { g.Fx.Clear(); Shuffle(); paused = false; down.Clear(); mouseHeld = false; try { tb.Visible = false; } catch { } Sfx.Play("ui_click"); return; } } g.Fx.Clear(); try { Spr.ReleaseAll(); ImgCache.Clear(); MiniGame.ClearTxt(); GC.Collect(); } catch { } state = 0; paused = false; down.Clear(); mouseHeld = false; try { tb.Visible = false; } catch { } Sfx.Play("ui_click"); }
 	private void Shuffle()
 	{
 		Random r = new Random(); MiniGame n;
@@ -1442,7 +1443,7 @@ internal sealed class MaryongGame : Form
 		catch { }
 		finally { MiniGame.PS = 0; Sfx.GameOn = so; try { m.Fx.Clear(); m.Reset(); } catch { } }
 	}
-	private void StartGame() { qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
+	private string lastGKey = ""; private void StartGame() { try { if (lastGKey != g.Key) { if (lastGKey != "") { ImgCache.Clear(); MiniGame.ClearTxt(); GC.Collect(); } lastGKey = g.Key; } } catch { } try { if (Rank.On) Rank.Fetch(g.Key, false); } catch { } qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
 
 	private void OnTap(float x, float y)
 	{
@@ -1467,7 +1468,7 @@ internal sealed class MaryongGame : Form
 		// 5위 안에 들면 옛 오락실처럼 이름을 직접 적어요
 		if (g.Score > 0 && (board.Count < 5 || g.Score > board[board.Count - 1].Value))
 		{
-			pendScore = g.Score; state = 4; Sfx.Play(newRecord ? "record" : "ok2"); if (newRecord) Confetti.Fire(Bounds);
+			pendScore = g.Score; state = 4; try { if (Rank.On) Rank.Fetch(g.Key, true); } catch { } Sfx.Play(newRecord ? "record" : "ok2"); if (newRecord) Confetti.Fire(Bounds);
 			try { tb.Text = Rank.LastName; tb.Visible = true; tb.SelectAll(); tb.Focus(); } catch { }
 			return;
 		}
@@ -1826,13 +1827,28 @@ internal sealed class MaryongGame : Form
 			{
 				Card(gr, new RectangleF(22f, 52f, MiniGame.W - 44f, 408f));
 				if (newRecord) { Spr.Draw(gr, "ms_cstar", MiniGame.W / 2f, -140f + (float)((tt * 70) % 760), 300f, 316f, 0f); } if (newRecord) { float cp0 = 1f + 0.06f * (float)Math.Sin(tt * 6); Spr.Draw(gr, "ms_cray", MiniGame.W / 2f, 96f, 330f, 330f, (float)(tt * 25) % 360f); Spr.Draw(gr, "ms_cf", MiniGame.W / 2f, 120f, 340f * cp0, 340f * cp0 * 198f / 300f, 0f); } if (newRecord) { float wob = (float)Math.Sin(tt * 4) * 4f; Spr.Draw(gr, "ms_glow", 56f, 92f + wob, 80f, 80f, wob); Spr.Draw(gr, "ms_glow", MiniGame.W - 56f, 92f - wob, -80f, 80f, -wob); Spr.Draw(gr, "ms_medal", MiniGame.W / 2f, 42f, 34f, 39f, wob * 0.8f); }
-				if (newRecord && Spr.Get("ms_ui_medal") != null) Spr.Draw(gr, "ms_ui_medal", MiniGame.W / 2f, 232f, 62f, 76f, (float)Math.Sin(tt * 3) * 6f);
+				if (newRecord && Spr.Get("ms_ui_medal") != null) Spr.Draw(gr, "ms_ui_medal", MiniGame.W - 66f, 176f, 40f, 49f, (float)Math.Sin(tt * 3) * 6f);
 				if (newRecord) Spr.Draw(gr, "ms_rib", MiniGame.W / 2f, 96f, 270f, 127f, 0f); else Spr.Draw(gr, "ms_crn", MiniGame.W / 2f, 40f, 52f, 42f, (float)Math.Sin(tt * 3) * 4f); if (newRecord) MiniGame.Txt(gr, "신기록!", 28f, 2, Color.FromArgb(150, 8, 30, 100), 1.5f, 56.5f, MiniGame.W, 50, StringAlignment.Center); MiniGame.Txt(gr, newRecord ? "신기록!" : "랭킹 진입!", 28f, 2, newRecord ? Color.White : Color.FromArgb(255, 214, 90), 0, newRecord ? 55 : 70, MiniGame.W, 50, StringAlignment.Center);
-				MiniGame.Txt(gr, pendScore + "점", 38f, 2, Color.White, 0, 130, MiniGame.W, 62, StringAlignment.Center);
-				MiniGame.Txt(gr, g.Name, 11.5f, 1, Color.FromArgb(180, 255, 255, 255), 0, 202, MiniGame.W, 22, StringAlignment.Center);
+				MiniGame.Txt(gr, pendScore + "점", 34f, 2, Color.White, 0, 114, MiniGame.W, 54, StringAlignment.Center);
+				MiniGame.Txt(gr, g.Name, 11f, 1, Color.FromArgb(180, 255, 255, 255), 0, 166, MiniGame.W, 20, StringAlignment.Center);
 				float blink = 0.55f + 0.45f * (float)Math.Sin(tt * 6);
-				MiniGame.Txt(gr, "이름을 적어 주세요", 15f, 2, Color.FromArgb((int)(255 * blink), 140, 235, 200), 0, 270, MiniGame.W, 30, StringAlignment.Center);
-				MiniGame.Txt(gr, "최대 8글자 · Enter 로 등록", 10f, 0, Color.FromArgb(170, 255, 255, 255), 0, 362, MiniGame.W, 20, StringAlignment.Center);
+				MiniGame.Txt(gr, "이름을 적어 주세요", 14f, 2, Color.FromArgb((int)(255 * blink), 140, 235, 200), 0, 186, MiniGame.W, 26, StringAlignment.Center);
+				// 다른 사람들 기록: 온라인 순위(받아오면) 또는 이 PC의 기록 위에 내 점수가 어디 끼는지 미리 보여 줘요
+				{
+					bool onl = Rank.On && Rank.Status(g.Key) == 2; List<KeyValuePair<string, int>> src = onl ? Rank.Get(g.Key) : LoadBoard(g.Key);
+					MiniGame.Txt(gr, (onl ? "다른 사람들 기록 (온라인 TOP)" : (Rank.On && Rank.Status(g.Key) == 1 ? "다른 사람들 기록 불러오는 중…" : (Rank.On ? "서버에 연결 못 했어요 · 이 PC의 기록" : "이 PC의 기록"))), 9.5f, 1, Color.FromArgb(200, 170, 200, 255), 0, 214, MiniGame.W, 18, StringAlignment.Center);
+					List<KeyValuePair<string, int>> pv = new List<KeyValuePair<string, int>>(src); int mi = 0; while (mi < pv.Count && pv[mi].Value >= pendScore) mi++; pv.Insert(mi, new KeyValuePair<string, int>("(나) 이름 입력 중", pendScore));
+					for (int i = 0; i < Math.Min(8, pv.Count); i++)
+					{
+						bool me = i == mi; RectangleF rr = new RectangleF(40f, 234f + i * 17f, MiniGame.W - 80f, 16f);
+						if (me) using (GraphicsPath rp = Gfx.Round(rr, 9f)) { using (SolidBrush rb = new SolidBrush(Color.FromArgb(80, 120, 230, 190))) gr.FillPath(rb, rp); using (Pen rpn = new Pen(Color.FromArgb(160, 140, 235, 200), 1f)) gr.DrawPath(rpn, rp); }
+						Color tc = me ? Color.FromArgb(150, 245, 210) : (i == 0 ? Color.FromArgb(255, 220, 110) : Color.White);
+						MiniGame.Txt(gr, (i + 1).ToString(), 9.5f, 2, i < 3 ? Color.FromArgb(255, 220, 110) : Color.FromArgb(190, 255, 255, 255), rr.X + 4f, rr.Y, 20f, rr.Height, StringAlignment.Center);
+						MiniGame.Txt(gr, pv[i].Key, 9.5f, me ? 1 : 0, tc, rr.X + 28f, rr.Y, 150f, rr.Height, StringAlignment.Near);
+						MiniGame.Txt(gr, pv[i].Value + "점", 9.5f, 1, tc, rr.Right - 86f, rr.Y, 80f, rr.Height, StringAlignment.Far);
+					}
+				}
+				MiniGame.Txt(gr, "최대 8글자 · Enter 로 등록", 10f, 0, Color.FromArgb(170, 255, 255, 255), 0, 372, MiniGame.W, 20, StringAlignment.Center);
 				Btn(gr, OkBtn, "등록하기", true);
 				if (Rank.On) MiniGame.Txt(gr, "온라인 랭킹에도 올라가요", 9.5f, 0, Color.FromArgb(140, 255, 226, 140), 0, 448, MiniGame.W, 18, StringAlignment.Center);
 			}

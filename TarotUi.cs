@@ -22,7 +22,7 @@ internal sealed partial class TarotForm
 	private void Relayout()
 	{
 		if (ClientSize.Width < 50 || ClientSize.Height < 50) return;
-		sc = Math.Min(ClientSize.Width / (float)LW, ClientSize.Height / (float)LH); ox = (ClientSize.Width - LW * sc) / 2f; oy = (ClientSize.Height - LH * sc) / 2f;
+		sc = Math.Min(ClientSize.Width / (float)CW, ClientSize.Height / (float)LH0); ox = 0f; oy = 0f; lw = ClientSize.Width / sc; lh = ClientSize.Height / sc; entsCache = null;
 		try { if (back != null) { if (backSm != null) backSm.Dispose(); backSm = RoundedScaled(back, (int)(FW * sc * 1.2f), (int)(FH * sc * 1.2f)); } } catch { }
 		tinyW = -1; readKey = null;
 		List<Control> btns = new List<Control>(); foreach (Control c in Controls) if (c is WinBtn) btns.Add(c);
@@ -41,21 +41,21 @@ internal sealed partial class TarotForm
 			if (hit != 0) m.Result = (IntPtr)hit;
 		}
 	}
-	private float ReadTop { get { return SlotsBottom + 38f; } }
+	private float ReadTop { get { return SlotsBottom * cmp + 34f; } }
 	private bool exporting;
 	// 저장용: 카드 배치 + 풀이 글 전체를 스크롤 없이 2배 크기로 한 장에 그려요
 	private Bitmap RenderFull()
 	{
-		const float k = 2f; float total = 4f; if (st == St.Read) foreach (Ent e in Ents) total += e.H + 6f;
-		float lh = st == St.Read ? ReadTop + total + 16f : LH;
-		int W = (int)Math.Ceiling(LW * k), H = (int)Math.Ceiling(lh * k);
+		const float k = 2f; float scmp = cmp; cmp = 1f; float total = 4f; if (st == St.Read) foreach (Ent e in Ents) total += e.H + 6f;
+		float lh2 = st == St.Read ? ReadTop + total + 16f : LH;
+		int W = (int)Math.Ceiling(LW * k), H = (int)Math.Ceiling(lh2 * k);
 		Bitmap b = new Bitmap(W, H, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 		try
 		{
 			exporting = true;
 			using (Graphics g = Graphics.FromImage(b)) { g.Clear(Theme.Page); Gfx.HQ(g); g.ScaleTransform(k, k); g.InterpolationMode = InterpolationMode.HighQualityBicubic; DrawMain(g); }
 		}
-		finally { exporting = false; }
+		finally { exporting = false; cmp = scmp; }
 		return b;
 	}
 	private RectangleF TsBtn(int i) { return new RectangleF(LW - 136f + i * 40f, ReadTop - 30f, 36f, 22f); }

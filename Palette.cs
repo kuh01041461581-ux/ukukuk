@@ -71,6 +71,7 @@ internal partial class Program
 		add("쉬는 시간", "오늘 뭐 먹지?", "점심 저녁 메뉴 식당 밥 맛집", "", delegate { SuggestMenu(); });
 		add("쉬는 시간", "마룡이 운세 · 사주", "운세 오늘의운세 사주 띠 별자리", "", delegate { FortuneForm.Open(); });
 		add("쉬는 시간", "마룡이 타로", "타로 카드 점 켈틱", "", delegate { TarotForm.Open(); });
+		add("공문 도우미", "수강후기 도우미 (200자)", "수강 후기 교육 강의 연수 소감 후기작성 200자", "강의명을 넣으면 200~210자 후기를 만들어요", delegate { ReviewForm.Open(); });
 		add("쉬는 시간", "로또 추첨기", "로또 번호 복권 추첨", "재미용", delegate { LottoForm.Open(); });
 		add("쉬는 시간", "마룡이 펫 꺼내기 / 넣기", "펫 마룡이 캐릭터 바탕화면", "", delegate { PetWin.Toggle(); });
 		add("쉬는 시간", "마룡이 돌보기", "다마고치 키우기 밥 먹이기 돌봄", "", delegate { RaiseForm.Open(); });

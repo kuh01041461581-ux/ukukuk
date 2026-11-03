@@ -619,9 +619,9 @@ internal static class AdminText
 		}
 		if (ds.Count < 2) return null;
 		DateTime a = ds[0], b = ds[1]; if (b < a) { DateTime x = a; a = b; b = x; }
-		int days = (int)(b - a).TotalDays + 1, wk = 0; for (DateTime d = a; d <= b; d = d.AddDays(1)) if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday) wk++;
+		int days = (int)(b - a).TotalDays + 1, wk = 0, wd = 0; for (DateTime d = a; d <= b; d = d.AddDays(1)) { if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday) wk++; if (!Program.OffDay(d)) wd++; }
 		string[] kd = { "일", "월", "화", "수", "목", "금", "토" };
-		return a.ToString("yyyy.M.d.") + "(" + kd[(int)a.DayOfWeek] + ") ~ " + b.ToString("yyyy.M.d.") + "(" + kd[(int)b.DayOfWeek] + ")\n" + days + "일간 (양끝 포함) · 평일 " + wk + "일 (공휴일 제외 전)\n" + (int)(b - a).TotalDays + "일 차이";
+		return a.ToString("yyyy.M.d.") + "(" + kd[(int)a.DayOfWeek] + ") ~ " + b.ToString("yyyy.M.d.") + "(" + kd[(int)b.DayOfWeek] + ")\n" + days + "일간 (양끝 포함) · 평일 " + wk + "일\n근무일(주말·휴일 제외) " + wd + "일\n" + (int)(b - a).TotalDays + "일 차이";
 	}
 
 	internal static readonly string[] Units = { "원", "천원", "만원", "백만원", "억원" };

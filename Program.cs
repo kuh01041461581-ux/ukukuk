@@ -489,6 +489,7 @@ internal partial class Program
 		contextMenu.MenuItems.Add("오늘 뭐 먹지? (메뉴·근처 식당)", delegate { SuggestMenu(); });
 		contextMenu.MenuItems.Add("마룡이 운세 · 사주 · 타로", delegate { FortuneForm.Open(); });
 		MenuItem bondTray = new MenuItem(Bond.Info()); bondTray.Enabled = false; contextMenu.MenuItems.Add(bondTray); contextMenu.Popup += delegate { bondTray.Text = Bond.Info(); };
+		contextMenu.MenuItems.Add("수강후기 도우미 (200자)", delegate { ReviewForm.Open(); });
 		contextMenu.MenuItems.Add("로또 추첨기 (재미용)", delegate { LottoForm.Open(); });
 		MenuItem widgetItem = new MenuItem("공항 시계 (끌어서 옮겨요 · 우클릭으로 위치 설정)"); widgetItem.Checked = widgetOn;
 		toggleWidget = delegate { widgetOn = !widgetOn; widgetItem.Checked = widgetOn; ClockWidget.Toggle(widgetOn); SaveSettings(); };
@@ -644,6 +645,7 @@ internal partial class Program
 		catch (Exception ex) { LogError(ex); }
 	}
 
+	internal static bool OffDay(DateTime d) { try { return IsOffDay(d); } catch { return d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday; } }
 	private static bool IsOffDay(DateTime d)
 	{
 		return IsWeekend(d) || IsHoliday(d);

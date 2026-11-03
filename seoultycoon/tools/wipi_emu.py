@@ -6,6 +6,7 @@ from unicorn.arm_const import *
 
 BASE = 0x01000000; IMG = 0x600000
 STACK = 0x20000000; STACK_SZ = 0x200000
+HEAP2 = 0x50000000; HEAP2_SZ = 0x10000000
 HEAP = 0x02000000; HEAP_SZ = 0x1800000        # (Class<<5) 가 32비트 부호 양수로 들어가도록 0x4000000 미만
 MAGIC = 0x40000000; MAGIC_SZ = 0x100000
 RET = MAGIC + 0x80000
@@ -17,10 +18,10 @@ class Emu:
         self.mu = Uc(UC_ARCH_ARM, UC_MODE_THUMB)
         d = open(path, 'rb').read()
         self.mu.mem_map(BASE, IMG); self.mu.mem_write(BASE, d)
-        self.mu.mem_map(STACK, STACK_SZ); self.mu.mem_map(HEAP, HEAP_SZ); self.mu.mem_map(MAGIC, MAGIC_SZ)
+        self.mu.mem_map(STACK, STACK_SZ); self.mu.mem_map(HEAP, HEAP_SZ); self.mu.mem_map(HEAP2, HEAP2_SZ); self.mu.mem_map(MAGIC, MAGIC_SZ)
         self.mu.mem_write(MAGIC, b'\x70\x47' * (MAGIC_SZ // 2))     # bx lr
         self.mu.mem_map(0, 0x1000)
-        self.heap_ptr = HEAP; self.magic_ptr = MAGIC; self.hosts = {}; self.names = {}
+        self.heap_ptr = HEAP2; self.low_ptr = HEAP; self.magic_ptr = MAGIC; self.hosts = {}; self.names = {}
         self.calls = collections.Counter()
         self.mu.hook_add(UC_HOOK_CODE, self._code, begin=MAGIC, end=MAGIC + MAGIC_SZ)
         self.mu.hook_add(UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED | UC_HOOK_MEM_FETCH_UNMAPPED, self._unmapped)
@@ -35,6 +36,8 @@ class Emu:
     def w32(self, a, v): self.mu.mem_write(a, struct.pack('<I', v & 0xffffffff))
     def cstr(self, a, n=256):
         b = bytes(self.mu.mem_read(a, n)); return b.split(b'\0')[0]
+    def alloc_low(self, n):
+        n = (n + 15) & ~15; a = self.low_ptr; self.low_ptr += n; return a
     def alloc(self, n):
         n = (n + 15) & ~15; a = self.heap_ptr; self.heap_ptr += n; return a
     def host(self, name, fn=None):
@@ -66,9 +69,8 @@ class Emu:
                 print('     backtrace(file offs):', ' '.join(bt))
             if self.verbose: print('  [host?] %s(%s | %s) lr=%#x' % (name, ','.join('%#x' % a for a in args), ','.join('%#x' % a for a in sargs), uc.reg_read(UC_ARM_REG_LR) - BASE))
         rt = RETT.get(name)
-        if rt in ('J', 'D'):
-            if self.ret64 is None: self.ret64 = self.alloc(16)
-            self.mu.mem_write(self.ret64, struct.pack('<Q', (ret or 0) & (2**64 - 1))); ret = 0
+        if rt in ('J', 'D'):                         # ARM EABI: 64비트 반환은 r0(하위):r1(상위)
+            v = (ret or 0) & (2**64 - 1); self.setr(1, v >> 32); self.setr(0, v & 0xffffffff); return
         self.setr(0, ret or 0)
     def _unmapped(self, uc, access, addr, size, val, ud):
         pc = uc.reg_read(UC_ARM_REG_PC)

@@ -51,6 +51,17 @@ internal sealed class CoverGame : MiniGame
 	public override bool NoLimit { get { return true; } }
 	public override bool Crosshair { get { return true; } }
 		public override string Help { get { return "먼저 총을 골라요 (쌍권총·샷건·돌격소총·저격총)\n마우스를 누르고 있으면 벽 위로 올라와 (뒷모습) 쏘고, 떼면 벽 앞에 숨어서 (앞모습) 장전해요\n왼쪽에서 오른쪽으로 걸어가는 적을 막아요 · 오른쪽 끝에 닿으면 하트 -1\n상자 뒤의 적은 총알이 막혀요 · 게이지가 차면 스페이스(또는 필살 버튼)로 필살기"; } }
+	// 에너지 하트: 에셋 하트(가득) / 흑백으로 흐려진 하트(빈 칸)
+	private static System.Drawing.Imaging.ImageAttributes emptyHeart;
+	private static void HeartIcon(Graphics g, float cx, float cy, bool full, bool hit)
+	{
+		Bitmap hb = Spr.Get("ms_fl_heart");
+		if (hb == null) { using (SolidBrush b = new SolidBrush(full ? Color.FromArgb(240, 80, 100) : Color.FromArgb(90, 255, 255, 255))) g.FillEllipse(b, cx - 9f, cy - 8f, 18f, 16f); return; }
+		float w = 24f, h = w * hb.Height / hb.Width;
+		if (full) { float k = hit ? 1.15f : 1f; Spr.Draw(g, "ms_fl_heart", cx, cy, w * k, h * k, 0f); return; }
+		if (emptyHeart == null) { emptyHeart = new System.Drawing.Imaging.ImageAttributes(); emptyHeart.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(new float[][] { new[] { 0.3f, 0.3f, 0.3f, 0, 0 }, new[] { 0.59f, 0.59f, 0.59f, 0, 0 }, new[] { 0.11f, 0.11f, 0.11f, 0, 0 }, new[] { 0, 0, 0, 0.4f, 0 }, new[] { 0, 0, 0, 0, 1f } })); }
+		g.DrawImage(hb, new Rectangle((int)(cx - w / 2f), (int)(cy - h / 2f), (int)w, (int)h), 0, 0, hb.Width, hb.Height, GraphicsUnit.Pixel, emptyHeart);
+	}
 	public override string RightText { get { return "하트 " + lives + " · 처치 " + kills; } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{
@@ -392,7 +403,7 @@ internal sealed class CoverGame : MiniGame
 		g.Restore(world);
 		if (flash > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(120 * flash / 0.5f), 255, 255, 255))) g.FillRectangle(b, 0, 0, W, H);
 		// HUD
-		for (int i = 0; i < 3; i++) using (SolidBrush b = new SolidBrush(i < lives ? Color.FromArgb(240, 80, 100) : Color.FromArgb(90, 255, 255, 255))) g.FillEllipse(b, 14 + i * 22, 44, 18, 16);
+		for (int i = 0; i < 3; i++) HeartIcon(g, 28f + i * 26f, 52f, i < lives, i == lives - 1 && hurtT > 0f);
 		DrawGun(g, gun, 14, 570, 0f, gun == 0 ? 0.7f : 0.45f, GC[gun]);
 		Txt(g, GN[gun] + "  " + (ultT > 0f && gun == 2 ? "∞" : ammo + "/" + Mag[gun]) + (reloading ? "  장전 중…" : ""), 10.5f, 700, GC[gun], 14 + (gun == 0 ? 36 : 54), 558, 200, 20, StringAlignment.Near);
 		using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 0, 0, 0))) g.FillRectangle(b, 12, 590, 220, 6);

@@ -1688,7 +1688,7 @@ internal sealed class MaryongGame : Form
 		long t0 = Stopwatch.GetTimestamp();
 		try { PaintAround(e.Graphics); } catch (Exception ex) { Program.LogErr(ex); }
 		// 화면 배율이 큰 PC(고해상도)에서는 그림 그릴 픽셀이 너무 많아 느려져요 → 1.25배까지만 직접 그리고, 그 이상이면 작게 그려서 늘려 보여요
-		float rs = Math.Min(S, ql == 0 ? 1.25f : (ql == 1 ? 1.0f : (ql == 2 ? 0.8f : 0.65f)));
+		float rs = Math.Min(S, ql == 0 ? (state == 2 ? 1.5f : 2.0f) : (ql == 1 ? 1.25f : (ql == 2 ? 1.0f : (ql == 3 ? 0.8f : 0.65f))));   // 메뉴·설명·결과 화면은 글씨가 또렷하도록 최대 2배까지 직접 그려요
 		double tInner = 0, tBlit = 0; long tq = Stopwatch.GetTimestamp(); bool done = false;
 		if (useGdi && ClientSize.Width > 0 && ClientSize.Height > 0)
 		{
@@ -1699,7 +1699,7 @@ internal sealed class MaryongGame : Form
 				using (Graphics og = Graphics.FromImage(dib.Bmp)) { MiniGame.PS = rs; paintScale = rs; try { OnPaintInner(og); DrawSpeaker(og); } catch (Exception ex) { Program.LogErr(ex); } }
 				MiniGame.PS = 0; long tm1 = Stopwatch.GetTimestamp(); tInner = (tm1 - tq) * 1000.0 / Stopwatch.Frequency;
 				IntPtr hdc = e.Graphics.GetHdc();
-				try { done = dib.Blit(hdc, gx, gy, GW, GH, ow != GW || oh != GH, ql >= 1); }
+				try { done = dib.Blit(hdc, gx, gy, GW, GH, ow != GW || oh != GH, ql >= 3); }
 				finally { e.Graphics.ReleaseHdc(hdc); }
 				tBlit = (Stopwatch.GetTimestamp() - tm1) * 1000.0 / Stopwatch.Frequency;
 				if (!done) { useGdi = false; Anim.PerfNote("GDI 출력 실패 → 예전 방식으로 전환"); }
@@ -1723,7 +1723,7 @@ internal sealed class MaryongGame : Form
 		if (state == 2 && g != null && !paused)
 		{
 			double qc = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency; qSum += qc; qN++;
-			if (qN >= 24) { double qa = qSum / qN; qSum = 0; qN = 0; if (qa > 9.0 && ql < 3) { qBad++; if (qBad >= 2) { ql++; qBad = 0; Anim.PerfNote("화질 낮춤 → " + ql + " (평균 " + qa.ToString("0.0") + "ms)"); } } else qBad = 0; }
+			if (qN >= 24) { double qa = qSum / qN; qSum = 0; qN = 0; if (qa > 9.0 && ql < 4) { qBad++; if (qBad >= 2) { ql++; qBad = 0; Anim.PerfNote("화질 낮춤 → " + ql + " (평균 " + qa.ToString("0.0") + "ms)"); } } else qBad = 0; }
 		}
 		if (Anim.PerfLog && state == 2 && g != null)   // perf.on 이 있을 때만: 게임 중 프레임 기록
 		{
@@ -1738,7 +1738,7 @@ internal sealed class MaryongGame : Form
 	private Bitmap offBmp; private float paintScale = 1f; private int ql, qBad, qGood; private double qSum; private int qN;
 	private void OnPaintInner(Graphics gr)
 	{
-		GameFrameStamp(); Gfx.HQ(gr); gr.InterpolationMode = InterpolationMode.Bilinear; if (ql >= 2) { gr.SmoothingMode = SmoothingMode.HighSpeed; gr.PixelOffsetMode = PixelOffsetMode.HighSpeed; }
+		GameFrameStamp(); Gfx.HQ(gr); gr.InterpolationMode = InterpolationMode.Bilinear; if (ql >= 3) { gr.SmoothingMode = SmoothingMode.HighSpeed; gr.PixelOffsetMode = PixelOffsetMode.HighSpeed; }
 		gr.ScaleTransform(paintScale, paintScale);
 			if (state == 2 && g != null && g.Shake > 0f) gr.TranslateTransform((float)(Rz.NextDouble() * 2 - 1) * g.Shake * 7f, (float)(Rz.NextDouble() * 2 - 1) * g.Shake * 7f);
 		if (state == 5)
@@ -1800,7 +1800,7 @@ internal sealed class MaryongGame : Form
 			if (!hiddenOpen) MiniGame.Txt(gr, "? 비밀 게임 2종 : 모든 게임을 한 번씩 해보면 열려요 (" + playedN + " / " + totalN + ")", 9.5f, 1, Color.FromArgb(190, 255, 226, 140), 0, 502, MiniGame.W, 20, StringAlignment.Center);
 			if (Pages > 1) { Btn(gr, PrevBtn, "◀ 이전", false); Btn(gr, NextBtn, "다음 ▶", false); MiniGame.Txt(gr, (page + 1) + " / " + Pages, 11f, 1, Color.FromArgb(200, 255, 255, 255), 0, 528, MiniGame.W, 34, StringAlignment.Center); }
 			MiniGame.Txt(gr, "Esc : 닫기  ·  M : 소리", 9.5f, 0, Color.FromArgb(130, 255, 255, 255), 0, MiniGame.H - 28, MiniGame.W, 20, StringAlignment.Center);
-			{ bool rh = RankBtn.Contains(inp.Mx, inp.My); Panel(gr, RankBtn, Color.FromArgb(rh ? 90 : 55, 255, 214, 90), 15); gr.FillPolygon(Brushes.Gold, new PointF[] { new PointF(24, 49), new PointF(40, 49), new PointF(38, 59), new PointF(26, 59) }); gr.FillRectangle(Brushes.Gold, 30, 59, 4, 4); gr.FillRectangle(Brushes.Gold, 26, 63, 12, 2); MiniGame.Txt(gr, "랭킹", 10.5f, 2, Color.FromArgb(255, 236, 170), 44, 40, 50, 30, StringAlignment.Near); }
+			{ bool rh = RankBtn.Contains(inp.Mx, inp.My); Panel(gr, RankBtn, Color.FromArgb(rh ? 90 : 55, 255, 214, 90), 15); if (Spr.Get("ms_ui_cup") != null) Spr.Draw(gr, "ms_ui_cup", 32f, 54f + (rh ? -1f : 0f), 24f, 26f, rh ? (float)Math.Sin(tt * 10) * 6f : 0f); else { gr.FillPolygon(Brushes.Gold, new PointF[] { new PointF(24, 49), new PointF(40, 49), new PointF(38, 59), new PointF(26, 59) }); gr.FillRectangle(Brushes.Gold, 30, 59, 4, 4); gr.FillRectangle(Brushes.Gold, 26, 63, 12, 2); } MiniGame.Txt(gr, "랭킹", 10.5f, 2, Color.FromArgb(255, 236, 170), 44, 40, 50, 30, StringAlignment.Near); }
 			return;
 		}
 		g.Draw(gr, tt); g.Fx.Draw(gr);

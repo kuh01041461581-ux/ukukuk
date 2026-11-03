@@ -288,10 +288,11 @@ internal sealed partial class TarotForm : Form
 		if (noLab) for (int i = 0; i < slots.Length; i++) if (slots[i].State >= 2) Badge(g, i);
 		if (exporting) { g.Restore(cgs); if (st == St.Read) DrawReadRaw(g, ReadTop); return; }
 		if (st == St.Idle) DrawIdle(g); else if (st == St.Shuffle) DrawShuffleMagic(g); else if (st == St.Pick) DrawPick(g);
-		DrawSlotHover(g); DrawMotes(g);
+		DrawMotes(g);
 		if (spOpen) DrawSpreadMenu(g);
 		g.Restore(cgs);
 		if (st == St.Read) DrawRead(g);
+		{ GraphicsState hgs = g.Save(); g.TranslateTransform(CTX, 0f); g.ScaleTransform(cmp, cmp); DrawSlotHover(g); g.Restore(hgs); }   // 카드 설명은 풀이 글자 위에 떠요
 		if (zoom >= 0) DrawZoom(g);
 	}
 	private void DrawSpreadMenu(Graphics g)

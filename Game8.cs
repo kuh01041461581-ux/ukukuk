@@ -154,7 +154,7 @@ internal sealed class SurvivalGame : MiniGame
 		LoadProg(); LoadDiff(); usedRev = 0; Array.Clear(rel, 0, rel.Length);
 		vfs.Clear(); cps.Clear(); hitStop = 0f; en.Clear(); eps.Clear(); stp.Clear(); pud.Clear(); hzs.Clear(); dns.Clear(); Array.Clear(evDone, 0, evDone.Length); stress = 0f; cdP = cdC = cdK = 0.5f; beamA = 0f; beamT = 0f; surgeT = 0f; hzT = 6f; clockT = 0f; dnT = 0f; Array.Clear(bossSeen, 0, 4); cdS = 0.5f; eliteT = 45f; waveN = 0; bossKills = 0; pr.Clear(); gm.Clear(); pk.Clear(); bolts.Clear(); Array.Clear(wl, 0, wl.Length); Array.Clear(pl, 0, pl.Length); Array.Clear(evo, 0, evo.Length); Array.Clear(wCons, 0, wCons.Length); Array.Clear(pCons, 0, pCons.Length);
 		px = py = 0f; maxHp = 100f; hp = maxHp; el = 0f; spawnT = 1f; relicT = 28f; heartT = 22f; waveT = 38f; hurtT = 0f; msgT = 0f; freezeT = 0f; dmgBonus = 0f; orbA = 0f; cdF = cdL = cdB = 0.3f; auraT = 0f;
-		lvl = 1; xp = 0; kills = 0; mode = 2; Score = 0; Over = false; won = false; msg = ""; wl[0] = 2; fx = 0f; fy = 1f;
+		lvl = 1; xp = 0; kills = 0; mode = 2; Score = 0; Over = false; won = false; msg = ""; wl[0] = 1; fx = 0f; fy = 1f;
 	}
 	private int XpNeed { get { return 3 + lvl * 3 + lvl * lvl / 8; } }
 	private float Dm { get { return 1f + 0.15f * pl[3] + dmgBonus; } }

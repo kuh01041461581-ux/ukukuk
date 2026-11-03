@@ -11,7 +11,7 @@ using System.Windows.Forms;
 // 배포 방법: 저장소에 새 Release를 만들고 태그를 ot-v1.4.1 처럼 붙인 뒤 OvertimeReminder.exe 를 첨부하면 끝. (같은 저장소의 다른 앱 릴리스와 섞여도 이 앱 것만 골라요)
 internal partial class Program
 {
-	internal const string AppVersion = "1.4.21";
+	internal const string AppVersion = "1.4.22";
 	// ← 본인 GitHub 저장소로 바꾸세요 (예: "uk/overtime-reminder"). 'OWNER'가 들어 있으면 업데이트 확인을 하지 않아요.
 	private const string UpdateRepo = "kuh01041461581-ux/ukukuk";
 	private static int updBusy; private static MenuItem updItem;
@@ -76,7 +76,7 @@ internal partial class Program
 				if (!manual && skip == tag) return;
 				Uri u = new Uri(url); if (u.Scheme != "https" || !(u.Host.EndsWith("github.com") || u.Host.EndsWith("githubusercontent.com"))) return;
 				if (body.Length > 300) body = body.Substring(0, 300) + "…";
-				Post(ctx, delegate { AskUpdate(tag, url, body); });
+				Post(ctx, delegate { AskUpdate(tag, url, body, manual); });
 			}
 			catch (Exception ex) { if (manual) Post(ctx, delegate { MessageBox.Show("업데이트를 확인하지 못했어요.\r\n" + ex.Message, "초과근무 알리미"); }); }
 			finally { Interlocked.Exchange(ref updBusy, 0); }
@@ -85,11 +85,19 @@ internal partial class Program
 	}
 	private static void Post(SynchronizationContext c, Action a) { if (c != null) c.Post(delegate { try { a(); } catch { } }, null); else a(); }
 	private static bool TryVer(string s, out Version v) { s = (s ?? "").Trim(); if (s.StartsWith("ot-", StringComparison.OrdinalIgnoreCase)) s = s.Substring(3); s = s.TrimStart('v', 'V'); int i = 0; while (i < s.Length && (char.IsDigit(s[i]) || s[i] == '.')) i++; s = s.Substring(0, i).Trim('.'); if (s.IndexOf('.') < 0) s += ".0"; return Version.TryParse(s, out v); }
-	private static void AskUpdate(string tag, string url, string body)
+	private static string AutoPref() { try { string f = Path.Combine(Dir, "update.auto"); return File.Exists(f) ? File.ReadAllText(f).Trim() : ""; } catch { return ""; } }
+	private static void SetAutoPref(string v) { try { Directory.CreateDirectory(Dir); File.WriteAllText(Path.Combine(Dir, "update.auto"), v); } catch { } }
+	private static void AskUpdate(string tag, string url, string body, bool manual)
 	{
+		if (!manual && AutoPref() == "1") { try { tray.ShowBalloonTip(3000, "초과근무 알리미", "새 버전 " + tag + " 을(를) 받아서 업데이트해요. 곧 다시 켜져요.", ToolTipIcon.Info); } catch { } DoUpdate(url); return; }
 		DialogResult r = MessageBox.Show("새 버전 " + tag + " 이(가) 나왔어요 (지금 v" + AppVersion + ").\r\n" + (body.Length > 0 ? "\r\n" + body + "\r\n" : "") + "\r\n지금 받아서 업데이트할까요? (끝나면 자동으로 다시 켜져요)\r\n[아니요]를 누르면 이 버전은 다시 묻지 않아요.", "초과근무 알리미 업데이트", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
 		if (r == DialogResult.Cancel) return;
 		if (r == DialogResult.No) { try { Directory.CreateDirectory(Dir); File.WriteAllText(Path.Combine(Dir, "update.skip"), tag); } catch { } return; }
+		if (AutoPref() == "") { DialogResult ar = MessageBox.Show("앞으로 GitHub에 새 버전이 올라오면 물어보지 않고 자동으로 받아서 업데이트할까요?\r\n\r\n[예] 새 버전이 나오면 자동으로 받고 다시 켜요\r\n[아니요] 지금처럼 올라올 때마다 물어봐요\r\n\r\n(바꾸고 싶으면 %AppData%\\OvertimeReminder\\update.auto 파일을 지우면 다시 물어봐요)", "초과근무 알리미 업데이트", MessageBoxButtons.YesNo, MessageBoxIcon.Question); SetAutoPref(ar == DialogResult.Yes ? "1" : "0"); }
+		DoUpdate(url);
+	}
+	private static void DoUpdate(string url)
+	{
 		SynchronizationContext ctx = SynchronizationContext.Current;
 		Thread th = new Thread(delegate()
 		{

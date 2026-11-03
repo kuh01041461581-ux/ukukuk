@@ -62,6 +62,7 @@ internal sealed class KartGame : MiniGame
 	private readonly float[] rw = new float[N]; private readonly bool[] wet = new bool[N];
 	private float RWAt(int i) { return i < 0 ? 1f : rw[i % N]; }
 	private float RWNow { get { return scOn ? 1f : rw[SegOf(PlayerZ)]; } }
+	private static float Va(float c) { float a = Math.Abs(c); return c * (1f + 0.5f * Math.Min(a, 4f)); }   // 급커브일수록 화면에서 더 크게 휘어 보이게
 	private const float VIS = 2.4f;   // 화면에 보이는 커브 휘어짐 (실제 꺾이는 각도에 맞게 크게)
 	private void Narrow(int st, int len, float w, bool water)
 	{
@@ -330,7 +331,7 @@ internal sealed class KartGame : MiniGame
 		else
 		{
 			// 드리프트를 길게 했다가 놓으면 짧은 순간 부스터
-			if (driftDir != 0 && charge > 0.7f) { boostT = Math.Max(boostT, 0.35f); msg = "순간 부스터!"; msgT = 0.6f; Sfx.Play("whoosh"); }
+			if (driftDir != 0 && charge > 0.7f) { int stg = charge > 2.0f ? 3 : (charge > 1.35f ? 2 : 1); boostT = Math.Max(boostT, stg == 3 ? 1.5f : (stg == 2 ? 0.95f : 0.5f)); msg = stg == 3 ? "보라 부스터!!" : (stg == 2 ? "주황 부스터!" : "파랑 부스터!"); msgT = 0.8f; Sfx.Play("whoosh"); Shake = Math.Max(Shake, 0.15f * stg); }
 			driftDir = 0; charge = 0f; drift = Math.Max(0f, drift - dt * 5f);
 		}
 		driftVis += (driftDir - driftVis) * Math.Min(1f, dt * (driftDir != 0 ? 7f : 5f));
@@ -570,7 +571,7 @@ internal sealed class KartGame : MiniGame
 		int bs = vm ? 0 : SegOf(pos); float bp = vm ? (scCam % SEG) / SEG : (Wrap(pos) % SEG) / SEG;
 		float camY = CAMH + (vm ? Lerp(PathHillAt((int)((scCam + PZ) / SEG)), PathHillAt((int)((scCam + PZ) / SEG) + 1), ((scCam + PZ) % SEG) / SEG) : HillY(PlayerZ)) + airH * 4f;
 		Func<int, float> vcurve = vv => vv < scLen ? PathCurve(vv) : curve[(scQ[1] + vv - scLen) % N];
-		float x = 0f, dx = -(vm ? vcurve(vb) : curve[bs]) * VIS * bp, maxY = H; sps.Clear();
+		float x = 0f, dx = -Va(vm ? vcurve(vb) : curve[bs]) * VIS * bp, maxY = H; sps.Clear();
 		Pj[] p1s = new Pj[DRAW]; float[] clip = new float[DRAW]; int[] segOf = new int[DRAW];
 		for (int n = 0; n < DRAW; n++)
 		{
@@ -583,7 +584,7 @@ internal sealed class KartGame : MiniGame
 			else { i = (bs + n) % N; bool looped = i < bs; camZ = Wrap(pos) - (looped ? LEN : 0f); z = i * SEG; y1 = HillY(i * SEG); y2 = HillY((i + 1) * SEG); cvn = curve[i]; }
 			Pj a = Proj(off, y1, z, (camPx + scVis) * ROADW - x, camY, camZ), b = Proj(off, y2, z + SEG, (camPx + scVis) * ROADW - x - dx, camY, camZ);
 			a.W *= RWAt(i); b.W *= RWAt(i < 0 ? i : i + 1);
-			x += dx; dx += cvn * VIS; p1s[n] = a; clip[n] = maxY; segOf[n] = i;
+			x += dx; dx += Va(cvn) * VIS; p1s[n] = a; clip[n] = maxY; segOf[n] = i;
 			if (z - camZ <= DEPTH || b.Y >= maxY || b.Y >= a.Y - 0.01f) continue;
 			rows.Add(new Row { A = a, B = b, I = i });
 			maxY = b.Y;
@@ -711,11 +712,11 @@ internal sealed class KartGame : MiniGame
 		if (warnT > 0f && ((int)(t * 8)) % 2 == 0) { using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 240, 70, 70))) g.FillEllipse(b, 182, 590 - 14, 36, 36); Txt(g, "!", 16f, 2, Color.White, 182, 576, 36, 36, StringAlignment.Center); Balloon(g, 200f + (1f - warnT / 1.1f) * 0f, 600f - (1f - warnT / 1.1f) * 40f, 10f, t); }
 		// HUD
 		Panel(g, new RectangleF(10, 40, 120, 56)); Txt(g, place + "등", 22f, 2, place == 1 ? Color.FromArgb(255, 220, 90) : Color.White, 10, 40, 120, 56, StringAlignment.Center);
-		Panel(g, new RectangleF(140, 40, 250, 56)); Txt(g, Math.Min(Laps, lap + 1) + " / " + Laps + " 바퀴   " + ((int)(v / MAXV * 180)) + "km/h", 11f, 2, Color.White, 146, 42, 240, 24, StringAlignment.Center);
-		using (GraphicsPath gp = Gfx.Round(new RectangleF(152, 70, 226, 12), 6)) using (SolidBrush b = new SolidBrush(Color.FromArgb(110, 0, 0, 0))) g.FillPath(b, gp);
-		float cf = bst >= 2 ? 1f : Math.Min(1f, gauge); if (cf > 0.02f) using (GraphicsPath gp = Gfx.Round(new RectangleF(152, 70, 226 * cf, 12), 6)) using (LinearGradientBrush b = new LinearGradientBrush(new RectangleF(150, 70, 230, 12), Color.FromArgb(80, 190, 255), Color.FromArgb(255, 150, 40), 0f)) g.FillPath(b, gp);
-		if (driftDir != 0 && bst < 2) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(120 + 100 * Math.Sin(t * 20)), 255, 255, 255))) g.FillRectangle(b, 152 + 226 * cf - 3, 70, 3, 12);
-		Txt(g, bst >= 2 ? "부스터 가득 · X 키로 써요" : "드리프트하면 부스터 게이지가 차요", 7.5f, 1, Color.FromArgb(220, 255, 255, 255), 152, 82, 226, 12, StringAlignment.Center);
+		Panel(g, new RectangleF(140, 40, 250, 56)); Txt(g, Math.Min(Laps, lap + 1) + " / " + Laps + " 바퀴", 11f, 2, Color.White, 214, 42, 164, 24, StringAlignment.Center); Dial(g, 176f, 90f, 33f, t);
+		using (GraphicsPath gp = Gfx.Round(new RectangleF(214, 70, 164, 12), 6)) using (SolidBrush b = new SolidBrush(Color.FromArgb(110, 0, 0, 0))) g.FillPath(b, gp);
+		float cf = bst >= 2 ? 1f : Math.Min(1f, gauge); if (cf > 0.02f) using (GraphicsPath gp = Gfx.Round(new RectangleF(214, 70, 164 * cf, 12), 6)) using (LinearGradientBrush b = new LinearGradientBrush(new RectangleF(212, 70, 168, 12), Color.FromArgb(80, 190, 255), Color.FromArgb(255, 150, 40), 0f)) g.FillPath(b, gp);
+		if (driftDir != 0 && bst < 2) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(120 + 100 * Math.Sin(t * 20)), 255, 255, 255))) g.FillRectangle(b, 214 + 164 * cf - 3, 70, 3, 12);
+		Txt(g, bst >= 2 ? "부스터 가득 · X 키로 써요" : "드리프트하면 부스터 게이지가 차요", 7.5f, 1, Color.FromArgb(220, 255, 255, 255), 214, 82, 164, 12, StringAlignment.Center);
 		// 드리프트 부스터 칸 (2개까지)
 		for (int q = 0; q < 2; q++) { RectangleF br = new RectangleF(316 + q * 34, 432, 30, 34); Panel(g, br); if (q < bst) BoostIcon(g, br.X + 15, br.Y + 17, 1f + (q == bst - 1 ? (float)Math.Sin(t * 6) * 0.06f : 0f)); }
 		Txt(g, "X 부스터", 7f, 1, Color.FromArgb(220, 255, 255, 255), 316, 467, 64, 14, StringAlignment.Center);
@@ -733,6 +734,17 @@ internal sealed class KartGame : MiniGame
 	}
 	private static float Lerp(float a, float b, float k) { return a + (b - a) * k; }
 	private float HillY(float z) { float s = Wrap(z) / SEG; int i = (int)s; float k = s - i; i %= N; return Lerp(hill[i], hill[(i + 1) % N], k) * 20f; }
+	private void Dial(Graphics g, float cx, float cy, float r, double t)
+	{
+		float u = Math.Min(1.2f, v / MAXV * (boostT > 0f ? 0.76f : 1f)); float sp = Math.Min(1f, v / MAXV);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 8, 14, 34))) g.FillPie(b, cx - r, cy - r, r * 2, r * 2, 180, 180);
+		using (Pen p = new Pen(Color.FromArgb(90, 255, 255, 255), 4f)) g.DrawArc(p, cx - r + 3, cy - r + 3, (r - 3) * 2, (r - 3) * 2, 180, 180);
+		float sw = 180f * Math.Min(1f, sp); if (sw > 1f) using (Pen p = new Pen(boostT > 0f ? Color.FromArgb(255, 150, 40) : (sp > 0.85f ? Color.FromArgb(255, 220, 90) : Color.FromArgb(90, 220, 255)), 4f)) g.DrawArc(p, cx - r + 3, cy - r + 3, (r - 3) * 2, (r - 3) * 2, 180, sw);
+		using (Pen p = new Pen(Color.FromArgb(200, 255, 255, 255), 1f)) for (int k = 0; k <= 6; k++) { double an = Math.PI * (1 + k / 6.0); float c0 = (float)Math.Cos(an), s0 = (float)Math.Sin(an); g.DrawLine(p, cx + c0 * (r - 8), cy + s0 * (r - 8), cx + c0 * (r - 3), cy + s0 * (r - 3)); }
+		double na = Math.PI * (1 + Math.Min(1.0, sp)); using (Pen p = new Pen(Color.FromArgb(255, 80, 70), 2f)) { p.EndCap = LineCap.Round; g.DrawLine(p, cx, cy, cx + (float)Math.Cos(na) * (r - 7), cy + (float)Math.Sin(na) * (r - 7)); }
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(240, 240, 240))) g.FillEllipse(b, cx - 3, cy - 3, 6, 6);
+		Txt(g, ((int)(sp * 180)).ToString(), 9f, 2, Color.White, cx - 24, cy - 17, 48, 14, StringAlignment.Center); Txt(g, "km/h", 6.5f, 1, Color.FromArgb(210, 255, 255, 255), cx - 24, cy - 6, 48, 10, StringAlignment.Center);
+	}
 	private void Hills(Graphics g, float par, float baseY, float amp, Color c, int n)
 	{
 		float off = (skyOff * par * 900f) % 400f; List<PointF> pts = new List<PointF>(); pts.Add(new PointF(-10, 300));

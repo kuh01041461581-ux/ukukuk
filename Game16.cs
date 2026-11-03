@@ -253,7 +253,7 @@ internal sealed class CityHallGame : MiniGame
 			Shot s = shots[i]; s.T += dt; if (s.T < 0f) continue; float u = Math.Min(1f, s.T / s.Dur); PointF e = Pr(s.Tx, s.Ty, s.Tz);
 			float e2 = (s.Kind == 1 || s.Kind == 4) ? u * u : (s.Kind == 2 ? u : 1f - (1f - u) * (1f - u));
 			s.Cur = new PointF(s.From.X + (e.X - s.From.X) * e2, s.From.Y + (e.Y - s.From.Y) * e2 - (s.Kind == 0 ? 90f * (float)Math.Sin(u * Math.PI) : 0f)); s.Tr.Add(s.Cur); if (s.Tr.Count > 12) s.Tr.RemoveAt(0);
-			if (u >= 1f) { Explode(s.Tx, s.Ty, s.Tz, s.R, s.Pow); if (s.Kind == 4) { nukeT = 0.01f; nx = s.Tx; ny = s.Ty; nz = s.Tz; Shake = 1.2f; Sfx.Play("glass_big"); for (int k = 0; k < 40; k++) puffs.Add(new Puff { X = s.Tx + ((float)Rnd.NextDouble() - 0.5f) * 8f, Y = s.Ty + (float)Rnd.NextDouble() * 9f, Z = s.Tz + ((float)Rnd.NextDouble() - 0.5f) * 8f, Life = 2.5f + (float)Rnd.NextDouble(), R = 2.2f }); } shots.RemoveAt(i); }
+			if (u >= 1f) { Explode(s.Tx, s.Ty, s.Tz, s.R, s.Pow); if (s.Kind == 4) { nukeT = 0.01f; nx = s.Tx; ny = s.Ty; nz = s.Tz; Shake = 1.2f; Sfx.Play("boom"); for (int k = 0; k < 40; k++) puffs.Add(new Puff { X = s.Tx + ((float)Rnd.NextDouble() - 0.5f) * 8f, Y = s.Ty + (float)Rnd.NextDouble() * 9f, Z = s.Tz + ((float)Rnd.NextDouble() - 0.5f) * 8f, Life = 2.5f + (float)Rnd.NextDouble(), R = 2.2f }); } shots.RemoveAt(i); }
 		}
 		for (int i = planes.Count - 1; i >= 0; i--)
 		{

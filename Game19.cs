@@ -145,7 +145,7 @@ internal sealed class VolleyGame : MiniGame
 			else if (kh > 0.5f) { vx = 980f; vy = 140f; }            // 가장 빠르게
 			else { vx = 860f; vy = 230f; }
 			bvx = dir * vx; bvy = vy;
-			flashT = 0.15f; fxKind = 1; fxX = bx; fxY = by; fxT = 0.25f; Shake = 0.22f; Sfx.Play("whoosh"); p.Spike = 0f;
+			flashT = 0.15f; fxKind = 1; fxX = bx; fxY = by; fxT = 0.25f; Shake = 0.22f; Sfx.Play("slam"); p.Spike = 0f;
 		}
 		else
 		{

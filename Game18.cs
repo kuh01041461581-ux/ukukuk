@@ -324,7 +324,7 @@ internal sealed class KartGame : MiniGame
 		if (mouseSteer && steer == 0f) { float want = Clamp((inp.Mx - 200f) / 140f, -1f, 1f); steer = Math.Abs(want) < 0.08f ? 0f : want; }
 		bool dHeld = inp.Down != null && (inp.Down.Contains(Keys.Space) || inp.Down.Contains(Keys.ShiftKey) || inp.Down.Contains(Keys.LShiftKey)) || (inp.Hold && mouseSteer && inp.Down != null && !inp.Down.Contains(Keys.Up));
 		// 드리프트: 누른 채로 꺾으면 시작 → 게이지가 차요 → 놓으면 부스터
-		if (dHeld && sp > 0.3f && (steer != 0f || driftDir != 0) && spinT <= 0f && airH <= 0f) { if (driftDir == 0) { driftDir = steer < 0 ? -1 : 1; dHop = 0.22f; Sfx.Play("swing"); } float into0 = steer * driftDir; bool pushing = into0 > 0.25f; if (pushing) charge = Math.Min(2.2f, charge + dt * (0.6f + Math.Abs(steer) * 0.7f) * sp); drift = Math.Min(1f, drift + dt * 4f);
+		if (dHeld && sp > 0.3f && (steer != 0f || driftDir != 0) && spinT <= 0f && airH <= 0f) { if (driftDir == 0) { driftDir = steer < 0 ? -1 : 1; dHop = 0.22f; Sfx.Play("screech"); } float into0 = steer * driftDir; bool pushing = into0 > 0.25f; if (pushing) charge = Math.Min(2.2f, charge + dt * (0.6f + Math.Abs(steer) * 0.7f) * sp); drift = Math.Min(1f, drift + dt * 4f);
 			// 드리프트하는 동안 부스터 게이지가 차요 → 가득 차면 부스터 아이템 1개 (최대 2개)
 			if (bst < 2 && pushing) { gauge += dt * 0.42f * sp * (0.7f + 0.5f * Math.Abs(steer)); if (gauge >= 1f) { gauge = 0f; bst++; msg = "부스터 충전! (X 키)"; msgT = 1.1f; Sfx.Play("ok2"); } } }
 		else if (driftDir != 0 && airH > 0f) { }

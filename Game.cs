@@ -1426,7 +1426,7 @@ internal sealed class MaryongGame : Form
 	private static string lastKey = "";
 	private void OpenRank(int i) { rkIdx = Math.Max(0, Math.Min(games.Length - 1, i)); state = 5; Sfx.Play("ui_open"); Rank.Fetch(games[rkIdx].Key, true); }
 	private void RankTurn(int d) { rkIdx = (rkIdx + d + games.Length) % games.Length; Sfx.Play("ui_click"); Rank.Fetch(games[rkIdx].Key, false); }
-	private void GoMenu() { if (gated) { if (Runs >= 3) gated = false; else { g.Fx.Clear(); Shuffle(); paused = false; down.Clear(); mouseHeld = false; try { tb.Visible = false; } catch { } Sfx.Play("ui_click"); return; } } g.Fx.Clear(); try { Spr.ReleaseAll(); ImgCache.Clear(); MiniGame.ClearTxt(); GC.Collect(); } catch { } state = 0; paused = false; down.Clear(); mouseHeld = false; try { tb.Visible = false; } catch { } Sfx.Play("ui_click"); }
+	private void GoMenu() { Sfx.Ctx = null; if (gated) { if (Runs >= 3) gated = false; else { g.Fx.Clear(); Shuffle(); paused = false; down.Clear(); mouseHeld = false; try { tb.Visible = false; } catch { } Sfx.Play("ui_click"); return; } } g.Fx.Clear(); try { Spr.ReleaseAll(); ImgCache.Clear(); MiniGame.ClearTxt(); GC.Collect(); } catch { } state = 0; paused = false; down.Clear(); mouseHeld = false; try { tb.Visible = false; } catch { } Sfx.Play("ui_click"); }
 	private void Shuffle()
 	{
 		Random r = new Random(); MiniGame n;
@@ -1449,7 +1449,7 @@ internal sealed class MaryongGame : Form
 		catch { }
 		finally { MiniGame.PS = 0; Sfx.GameOn = so; try { m.Fx.Clear(); m.Reset(); } catch { } }
 	}
-	private string lastGKey = ""; private void StartGame() { try { if (lastGKey != g.Key) { if (lastGKey != "") { ImgCache.Clear(); MiniGame.ClearTxt(); GC.Collect(); } lastGKey = g.Key; } } catch { } try { if (Rank.On) Rank.Fetch(g.Key, false); } catch { } qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
+	private string lastGKey = ""; private void StartGame() { try { if (lastGKey != g.Key) { if (lastGKey != "") { ImgCache.Clear(); MiniGame.ClearTxt(); GC.Collect(); } lastGKey = g.Key; } Sfx.Ctx = g.Key; } catch { } try { if (Rank.On) Rank.Fetch(g.Key, false); } catch { } qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
 
 	private void OnTap(float x, float y)
 	{

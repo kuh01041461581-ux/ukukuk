@@ -80,9 +80,19 @@ internal static class Sfx
 			catch { }
 		}
 	}
+	// 게임마다 어울리는 소리로 바꿔 줘요 (게임 이름:원래 소리 → 새 소리)
+	internal static string Ctx;
+	private static readonly Dictionary<string, string> Map = new Dictionary<string, string> {
+		{ "kick:thud", "kick" }, { "kick:thud_soft", "bounce" }, { "kick:bong", "clang" },
+		{ "cover:thud2", "gunshot" }, { "cover:glass_big", "boom" }, { "cover:bong", "clang" },
+		{ "golf:swing", "club" }, { "golf:glass", "splash" }, { "golf:thud2", "bounce" },
+		{ "volley:thud_soft", "bounce" }, { "hoop:bong", "clang" }, { "bowl:glass", "pins" },
+		{ "sling:thud_soft", "thwack" }, { "archery:swing", "bow" }, { "archery:thud2", "thwack" }, { "mole:thud2", "thwack" },
+		{ "hall:thud", "explode" }, { "hall:bad_big", "boom" }, { "kart:glass", "splash" } };
 	public static void Play(string n)
 	{
 		if (!GameOn || !Program.SoundOn) return;
+		if (Ctx != null) { string rn; if (Map.TryGetValue(Ctx + ":" + n, out rn)) n = rn; }
 		try
 		{
 			long now = Ms(); int pr = Prio(n);

@@ -1,0 +1,592 @@
+diff --git a/wie-backend/src/system/event_queue.rs b/wie-backend/src/system/event_queue.rs
+index 9a1da31..9910049 100644
+--- a/wie-backend/src/system/event_queue.rs
++++ b/wie-backend/src/system/event_queue.rs
+@@ -57,6 +57,10 @@ impl KeyCode {
+             "#" => KeyCode::HASH,
+             "*" => KeyCode::STAR,
+             "CLR" => KeyCode::CLEAR,
++            "LSOFT" => KeyCode::LEFT_SOFT_KEY,
++            "RSOFT" => KeyCode::RIGHT_SOFT_KEY,
++            "CALL" => KeyCode::CALL,
++            "HANGUP" => KeyCode::HANGUP,
+             _ => unimplemented!("Unknown key: {string}"),
+         }
+     }
+diff --git a/wie-web/Cargo.toml b/wie-web/Cargo.toml
+index 30704cf..f846e25 100644
+--- a/wie-web/Cargo.toml
++++ b/wie-web/Cargo.toml
+@@ -8,10 +8,10 @@ repository.workspace = true
+ publish = false
+ 
+ [package.metadata.wasm-pack.profile.release]
+-wasm-opt = ["-O", "-g", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
++wasm-opt = false
+ 
+ [package.metadata.wasm-pack.profile.release.wasm-bindgen]
+-dwarf-debug-info = true
++dwarf-debug-info = false
+ 
+ [package.metadata.wasm-pack.profile.profiling]
+ wasm-opt = ["-O", "-g", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
+diff --git a/wie-web/src/css/style.css b/wie-web/src/css/style.css
+index e178d36..47e08cb 100644
+--- a/wie-web/src/css/style.css
++++ b/wie-web/src/css/style.css
+@@ -923,3 +923,67 @@ kbd {
+     scroll-behavior: auto;
+   }
+ }
++
++/* ===== 가상 패드 (터치 패드 / 피처폰 키패드) ===== */
++.pads {
++  width: min(100%, 480px);
++  padding: 8px 0 max(10px, env(safe-area-inset-bottom));
++  touch-action: none;
++  user-select: none;
++  -webkit-user-select: none;
++  -webkit-touch-callout: none;
++}
++.pad-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
++.pad-tabs button {
++  flex: 1; height: 34px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
++  border: 1px solid #3a3a3a; background: #1b1b1b; color: #aaa;
++}
++.pad-tabs button[aria-selected="true"] { background: #2f6fed; border-color: #2f6fed; color: #fff; }
++
++.pads button[data-key], .pads .act, .pads .touch-numbers button {
++  touch-action: none; border: 1px solid #444; border-radius: 10px; color: #f2f2f2;
++  background: linear-gradient(#303030, #1e1e1e); font-weight: 700; font-size: 1rem;
++  box-shadow: 0 2px 0 #000; cursor: pointer;
++}
++.pads button[data-key]:active { background: #3c5fb5; transform: translateY(1px); }
++.pads button[data-key]:disabled { opacity: 0.45; }
++
++.touch-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 6px; }
++.joystick {
++  position: relative; flex: 0 0 auto; width: min(44vw, 190px); aspect-ratio: 1; touch-action: none;
++}
++.joystick-ring {
++  position: absolute; inset: 0; border-radius: 50%;
++  background: radial-gradient(circle at 50% 50%, #262626 0 55%, #1a1a1a 56% 100%);
++  border: 2px solid #4a4a4a; box-shadow: inset 0 0 18px #000;
++}
++.joystick-ring::before, .joystick-ring::after {
++  content: ""; position: absolute; background: #3a3a3a; left: 50%; top: 8%; width: 2px; height: 84%; transform: translateX(-50%);
++}
++.joystick-ring::after { left: 8%; top: 50%; width: 84%; height: 2px; transform: translateY(-50%); }
++.joystick-stick {
++  position: absolute; left: 50%; top: 50%; width: 38%; height: 38%; margin: -19% 0 0 -19%; border-radius: 50%;
++  background: radial-gradient(circle at 35% 30%, #7aa2ff, #2f56c0 70%); box-shadow: 0 3px 8px #000; pointer-events: none;
++}
++.touch-actions { flex: 1 1 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-width: 220px; }
++.touch-actions .act { height: 52px; font-size: 0.9rem; }
++.touch-actions .act-ok { grid-column: 1 / -1; height: 64px; background: linear-gradient(#3b7bff, #2152c4); font-size: 1.15rem; }
++.touch-actions .act-num-toggle { background: #222; }
++.touch-numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; padding: 0 6px; }
++.touch-numbers button { height: 44px; }
++.touch-numbers[hidden] { display: none; }
++.pad[hidden] { display: none; }
++
++.phone-top { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; padding: 0 6px; }
++.phone-side { display: grid; gap: 6px; }
++.phone-side .act { height: 46px; font-size: 0.9rem; }
++.phone-side .call { color: #5ee08a; }
++.dpad {
++  display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 44px); gap: 3px;
++}
++.dpad .up { grid-area: 1 / 2; } .dpad .left { grid-area: 2 / 1; } .dpad .ok { grid-area: 2 / 2; }
++.dpad .right { grid-area: 2 / 3; } .dpad .down { grid-area: 3 / 2; }
++.dpad button { font-size: 0.95rem; }
++.phone-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; padding: 0 6px; }
++.phone-keys button { height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
++.phone-keys small { font-size: 0.55rem; font-weight: 400; color: #999; }
+diff --git a/wie-web/src/html/index.html b/wie-web/src/html/index.html
+index ccad276..23ef238 100644
+--- a/wie-web/src/html/index.html
++++ b/wie-web/src/html/index.html
+@@ -20,29 +20,6 @@
+     <link rel="icon" type="image/png" href="../assets/favicon.png" />
+     <link rel="stylesheet" href="@css/style.css" />
+     <script src="@ts/index.ts" defer="defer"></script>
+-    <template id="advertising-scripts">
+-      <!-- webpackIgnore: true -->
+-      <script
+-        async
+-        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7838202724819744"
+-        crossorigin="anonymous"
+-      ></script>
+-      <!-- webpackIgnore: true -->
+-      <script>
+-        (adsbygoogle = window.adsbygoogle || []).push({});
+-      </script>
+-    </template>
+-    <!-- webpackIgnore: true -->
+-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-G6TBDLLPWK"></script>
+-    <!-- webpackIgnore: true -->
+-    <script>
+-      window.dataLayer = window.dataLayer || [];
+-      function gtag() {
+-        dataLayer.push(arguments);
+-      }
+-      gtag("js", new Date());
+-      gtag("config", "G-G6TBDLLPWK");
+-    </script>
+   </head>
+   <body>
+     <div id="library-view" class="library-view">
+@@ -80,15 +57,6 @@
+               <i data-lucide="circle-help"></i>
+               <span data-i18n-text="help">조작 도움말</span>
+             </button>
+-            <a href="https://github.com/dlunch/wie" target="_blank" rel="noopener noreferrer" role="menuitem" data-external-link>
+-              <!-- webpackIgnore: true -->
+-              <img src="https://cdn.simpleicons.org/github/0f172a" alt="" width="18" height="18" />
+-              <span>GitHub</span>
+-            </a>
+-            <a href="https://wie-site.dlunch.net/" target="_blank" rel="noopener noreferrer" role="menuitem" data-external-link>
+-              <i data-lucide="globe-2"></i>
+-              <span data-i18n-text="projectWebsite">웹사이트</span>
+-            </a>
+           </div>
+         </div>
+       </header>
+@@ -100,27 +68,6 @@
+         <div id="page-indicators" class="page-indicators" aria-label="라이브러리 페이지" data-i18n-aria-label="libraryPages"></div>
+       </main>
+ 
+-      <div class="library-ad">
+-        <ins
+-          class="adsbygoogle"
+-          aria-label="광고"
+-          data-i18n-aria-label="advertisement"
+-          style="display:block;width:100%;height:100%"
+-          data-ad-client="ca-pub-7838202724819744"
+-          data-ad-slot="8335895407"
+-          data-ad-format="auto"
+-          data-full-width-responsive="true"
+-        ></ins>
+-        <a
+-          class="library-sponsor"
+-          href="https://github.com/sponsors/dlunch"
+-          target="_blank"
+-          rel="noopener noreferrer"
+-          data-external-link
+-          data-i18n-text="supportDevelopment"
+-          hidden
+-        >개발을 후원해 주세요</a>
+-      </div>
+     </div>
+ 
+     <section id="player-view" class="player-view" hidden>
+@@ -143,39 +90,60 @@
+         </div>
+         <p id="player-warning" class="player-warning" role="status" hidden></p>
+ 
+-        <div class="button-container" aria-label="앱 키패드" data-i18n-aria-label="keypad">
+-          <p>
+-            <button data-key="UP" aria-label="위" data-i18n-aria-label="up"><i data-lucide="arrow-up"></i></button>
+-          </p>
+-          <p>
+-            <button data-key="LEFT" aria-label="왼쪽" data-i18n-aria-label="left"><i data-lucide="arrow-left"></i></button>
+-            <button data-key="OK">OK</button>
+-            <button data-key="RIGHT" aria-label="오른쪽" data-i18n-aria-label="right"><i data-lucide="arrow-right"></i></button>
+-          </p>
+-          <p>
+-            <button data-key="DOWN" aria-label="아래" data-i18n-aria-label="down"><i data-lucide="arrow-down"></i></button>
+-          </p>
+-          <p><button data-key="CLR">CLR</button></p>
+-          <p>
+-            <button data-key="1">1</button>
+-            <button data-key="2">2</button>
+-            <button data-key="3">3</button>
+-          </p>
+-          <p>
+-            <button data-key="4">4</button>
+-            <button data-key="5">5</button>
+-            <button data-key="6">6</button>
+-          </p>
+-          <p>
+-            <button data-key="7">7</button>
+-            <button data-key="8">8</button>
+-            <button data-key="9">9</button>
+-          </p>
+-          <p>
+-            <button data-key="*">*</button>
+-            <button data-key="0">0</button>
+-            <button data-key="#">#</button>
+-          </p>
++        <div id="pads" class="pads">
++          <div class="pad-tabs" role="tablist">
++            <button id="mode-touch" type="button" role="tab">터치 패드</button>
++            <button id="mode-phone" type="button" role="tab">피처폰 키패드</button>
++          </div>
++
++          <div id="pad-touch" class="pad pad-touch">
++            <div class="touch-main">
++              <div id="joystick" class="joystick" aria-label="조이스틱">
++                <div class="joystick-ring"></div>
++                <div id="joystick-stick" class="joystick-stick"></div>
++              </div>
++              <div class="touch-actions">
++                <button class="act act-ok" data-key="OK">확인</button>
++                <button class="act" data-key="LSOFT">좌메뉴</button>
++                <button class="act" data-key="RSOFT">우메뉴</button>
++                <button class="act" data-key="CLR">취소</button>
++                <button class="act act-5" data-key="5">5</button>
++                <button class="act act-num-toggle" id="num-toggle" type="button">숫자</button>
++              </div>
++            </div>
++            <div id="touch-numbers" class="touch-numbers" hidden>
++              <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
++              <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
++              <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
++              <button data-key="*">*</button><button data-key="0">0</button><button data-key="#">#</button>
++            </div>
++          </div>
++
++          <div id="pad-phone" class="pad pad-phone" hidden>
++            <div class="phone-top">
++              <div class="phone-side">
++                <button class="act" data-key="LSOFT">좌메뉴</button>
++                <button class="act call" data-key="CALL">통화</button>
++              </div>
++              <div class="dpad">
++                <button class="up" data-key="UP" aria-label="위">▲</button>
++                <button class="left" data-key="LEFT" aria-label="왼쪽">◀</button>
++                <button class="ok" data-key="OK">OK</button>
++                <button class="right" data-key="RIGHT" aria-label="오른쪽">▶</button>
++                <button class="down" data-key="DOWN" aria-label="아래">▼</button>
++              </div>
++              <div class="phone-side">
++                <button class="act" data-key="RSOFT">우메뉴</button>
++                <button class="act" data-key="CLR">취소</button>
++              </div>
++            </div>
++            <div class="phone-keys">
++              <button data-key="1">1<small>.</small></button><button data-key="2">2<small>ABC</small></button><button data-key="3">3<small>DEF</small></button>
++              <button data-key="4">4<small>GHI</small></button><button data-key="5">5<small>JKL</small></button><button data-key="6">6<small>MNO</small></button>
++              <button data-key="7">7<small>PQRS</small></button><button data-key="8">8<small>TUV</small></button><button data-key="9">9<small>WXYZ</small></button>
++              <button data-key="*">*</button><button data-key="0">0</button><button data-key="#">#</button>
++            </div>
++          </div>
+         </div>
+       </main>
+     </section>
+diff --git a/wie-web/src/ts/app.ts b/wie-web/src/ts/app.ts
+index ad69beb..292f9c4 100644
+--- a/wie-web/src/ts/app.ts
++++ b/wie-web/src/ts/app.ts
+@@ -25,6 +25,9 @@ const KEY_MAP: Record<string, string> = {
+   Enter: "OK",
+   NumpadEnter: "OK",
+   Space: "OK",
++  KeyV: "LSOFT",
++  KeyB: "RSOFT",
++  Escape: "CLR",
+ };
+ const icons = {
+   ArrowDown,
+@@ -83,18 +86,44 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
+     }
+   };
+ 
++  // 옛 게임은 키를 한 프레임 이상 눌러야 인식하므로, 톡 치는 짧은 터치도 최소 MIN_PRESS_MS 동안은 누른 것으로 전달한다.
++  const MIN_PRESS_MS = 110;
++  const pressedAt = new Map<string, number>();
++  const pendingRelease = new Map<string, ReturnType<typeof setTimeout>>();
++  const sendUp = (key: string) => {
++    pendingRelease.delete(key);
++    pressedAt.delete(key);
++    if (session && !ending && ![...inputs.values()].includes(key)) void session.key(key, false).catch(finish);
++  };
+   const setKey = (source: string, key?: string) => {
+     if (!session || preparing || suspended || ending) return;
+     const previous = inputs.get(source);
+     if (previous === key) return;
+     if (previous) {
+       inputs.delete(source);
+-      if (![...inputs.values()].includes(previous)) void session.key(previous, false).catch(finish);
++      if (![...inputs.values()].includes(previous)) {
++        const held = performance.now() - (pressedAt.get(previous) ?? 0);
++        if (held < MIN_PRESS_MS) {
++          pendingRelease.set(previous, setTimeout(() => sendUp(previous), MIN_PRESS_MS - held));
++        } else {
++          sendUp(previous);
++        }
++      }
+     }
+     if (key) {
+       const pressed = [...inputs.values()].includes(key);
+       inputs.set(source, key);
+-      if (!pressed) void session.key(key, true).catch(finish);
++      const timer = pendingRelease.get(key);
++      if (timer !== undefined) {
++        // 아직 떼지 않은 같은 키를 다시 누름: 먼저 떼고 새로 누른다
++        clearTimeout(timer);
++        pendingRelease.delete(key);
++        void session.key(key, false).catch(finish);
++      }
++      if (!pressed || timer !== undefined) {
++        pressedAt.set(key, performance.now());
++        void session.key(key, true).catch(finish);
++      }
+     }
+   };
+   const releaseKeys = () => {
+@@ -113,6 +142,52 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
+     if (document.hidden) releaseKeys();
+   }, { signal: abortController.signal });
+ 
++  // ---- 가상 조이스틱: 드래그 방향을 방향키(8방향)로 바꾼다 ----
++  const joystick = document.getElementById("joystick");
++  const stick = document.getElementById("joystick-stick");
++  if (joystick && stick) {
++    let activePointer: number | undefined;
++    const setStick = (dx: number, dy: number) => {
++      stick.style.transform = `translate(${dx}px, ${dy}px)`;
++    };
++    const update = (event: PointerEvent) => {
++      const rect = joystick.getBoundingClientRect();
++      const radius = rect.width / 2;
++      let dx = event.clientX - (rect.left + radius);
++      let dy = event.clientY - (rect.top + radius);
++      const dist = Math.hypot(dx, dy);
++      const max = radius * 0.6;
++      if (dist > max) { dx = (dx / dist) * max; dy = (dy / dist) * max; }
++      setStick(dx, dy);
++      const dead = radius * 0.22;
++      const x = Math.abs(dx) > dead && Math.abs(dx) > Math.abs(dy) * 0.4;
++      const y = Math.abs(dy) > dead && Math.abs(dy) > Math.abs(dx) * 0.4;
++      setKey("joystick:x", x ? (dx < 0 ? "LEFT" : "RIGHT") : undefined);
++      setKey("joystick:y", y ? (dy < 0 ? "UP" : "DOWN") : undefined);
++    };
++    const end = (event: PointerEvent) => {
++      if (event.pointerId !== activePointer) return;
++      activePointer = undefined;
++      setStick(0, 0);
++      setKey("joystick:x");
++      setKey("joystick:y");
++    };
++    const opts = { signal: abortController.signal };
++    joystick.addEventListener("pointerdown", event => {
++      if (activePointer !== undefined) return;
++      event.preventDefault();
++      activePointer = event.pointerId;
++      joystick.setPointerCapture(event.pointerId);
++      update(event);
++    }, opts);
++    joystick.addEventListener("pointermove", event => {
++      if (event.pointerId === activePointer) update(event);
++    }, opts);
++    joystick.addEventListener("pointerup", end, opts);
++    joystick.addEventListener("pointercancel", end, opts);
++    joystick.addEventListener("lostpointercapture", end, opts);
++  }
++
+   for (const button of buttons) {
+     const key = button.dataset.key!;
+     button.addEventListener(
+@@ -195,3 +270,29 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
+     updateControls();
+   }).catch(finish);
+ });
++
++// ---- 패드 전환: 터치 패드 / 피처폰 키패드 (선택은 기억해 둔다) ----
++const PAD_MODE_KEY = "wie:pad-mode";
++export const initializePads = () => {
++  const touch = document.getElementById("pad-touch");
++  const phone = document.getElementById("pad-phone");
++  const tabTouch = document.getElementById("mode-touch");
++  const tabPhone = document.getElementById("mode-phone");
++  const numToggle = document.getElementById("num-toggle");
++  const numbers = document.getElementById("touch-numbers");
++  if (!touch || !phone || !tabTouch || !tabPhone) return;
++
++  const apply = (mode: "touch" | "phone") => {
++    touch.hidden = mode !== "touch";
++    phone.hidden = mode !== "phone";
++    tabTouch.setAttribute("aria-selected", String(mode === "touch"));
++    tabPhone.setAttribute("aria-selected", String(mode === "phone"));
++    try { localStorage.setItem(PAD_MODE_KEY, mode); } catch { /* ignore */ }
++  };
++  let saved: string | null = null;
++  try { saved = localStorage.getItem(PAD_MODE_KEY); } catch { /* ignore */ }
++  apply(saved === "phone" ? "phone" : "touch");
++  tabTouch.addEventListener("click", () => apply("touch"));
++  tabPhone.addEventListener("click", () => apply("phone"));
++  numToggle?.addEventListener("click", () => { if (numbers) numbers.hidden = !numbers.hidden; });
++};
+diff --git a/wie-web/src/ts/i18n.ts b/wie-web/src/ts/i18n.ts
+index 1d32348..8975980 100644
+--- a/wie-web/src/ts/i18n.ts
++++ b/wie-web/src/ts/i18n.ts
+@@ -148,7 +148,7 @@ export function getLocale(): "ko" | "en" {
+ }
+ 
+ function updateLocalization(): void {
+-  const next = preference === "system" ? (/^ko(?:-|$)/i.test(navigator.language) ? "ko" : "en") : preference;
++  const next = preference === "system" ? "ko" : preference;
+   const changed = locale !== next;
+   locale = next;
+   document.documentElement.lang = locale;
+diff --git a/wie-web/src/ts/index.ts b/wie-web/src/ts/index.ts
+index 6ea129e..738781d 100644
+--- a/wie-web/src/ts/index.ts
++++ b/wie-web/src/ts/index.ts
+@@ -3,13 +3,45 @@ import * as Sentry from "@sentry/browser";
+ import { wasmIntegration } from "@sentry/wasm";
+ 
+ import { recordPageView } from "./analytics";
+-import { runApp } from "./app";
++import { initializePads, runApp } from "./app";
+ import { initializeWie, type LibraryApp } from "./backend";
+ import { getLocale, initializeLocalization, t } from "./i18n";
+ import { initializeLibrary } from "./library";
+ import { rustPanic } from "./panic";
+ import { initializeSettings } from "./settings";
+ 
++const BUNDLED_KEY = "wie:bundled-games";
++
++// 앱에 함께 들어 있는 게임(games/games.json)을 처음 실행할 때 라이브러리에 자동으로 설치한다.
++// 사용자가 지운 게임은 다시 설치하지 않는다.
++const preloadBundledGames = async (backend: Awaited<ReturnType<typeof initializeWie>>) => {
++  let done: string[] = [];
++  try { done = JSON.parse(localStorage.getItem(BUNDLED_KEY) ?? "[]"); } catch { /* ignore */ }
++  let manifest: { file: string; title?: string }[];
++  try {
++    const response = await fetch("games/games.json");
++    if (!response.ok) return;
++    manifest = await response.json();
++  } catch { return; }
++
++  const pending = manifest.filter(game => !done.includes(game.file));
++  const label = document.querySelector<HTMLElement>(".library-loading");
++  let index = 0;
++  for (const game of pending) {
++    index += 1;
++    if (label) label.textContent = `게임을 설치하는 중입니다 (${index}/${pending.length}) ${game.title ?? ""}`;
++    try {
++      const response = await fetch(`games/${game.file}`);
++      if (!response.ok) throw new Error(`HTTP ${response.status}`);
++      await backend.importApp(new File([await response.blob()], game.file));
++      done.push(game.file);
++      try { localStorage.setItem(BUNDLED_KEY, JSON.stringify(done)); } catch { /* ignore */ }
++    } catch (error) {
++      console.error("Bundled game import failed", game.file, error);
++    }
++  }
++};
++
+ const main = async () => {
+   Sentry.init({
+     dsn: process.env.SENTRY_DSN,
+@@ -18,6 +50,7 @@ const main = async () => {
+     integrations: [wasmIntegration()],
+   });
+   const native = isTauri();
++  initializePads();
+   const backend = await initializeWie();
+   document.documentElement.classList.add(backend.rendering === "native" ? "native" : "browser");
+   const output = document.getElementById("player-output") as HTMLDivElement;
+@@ -103,30 +136,10 @@ const main = async () => {
+     }
+   };
+ 
++  try { await navigator.storage?.persist?.(); } catch { /* ignore */ }
++  await preloadBundledGames(backend);
+   await initializeLibrary(backend, routeToApp, settings);
+ 
+-  const advertisingScripts = document.getElementById("advertising-scripts") as HTMLTemplateElement;
+-  try {
+-    const advertising = native
+-      ? await invoke<"adsense" | "adsense-test" | "sponsor">("initialize_advertising")
+-      : "adsense";
+-    if (advertising === "sponsor") {
+-      document.querySelector(".adsbygoogle")!.remove();
+-      document.querySelector<HTMLElement>(".library-sponsor")!.hidden = false;
+-    } else {
+-      document.querySelector(".library-sponsor")!.remove();
+-      if (advertising === "adsense-test" || process.env.NODE_ENV !== "production") {
+-        document.querySelector<HTMLElement>(".adsbygoogle")!.dataset.adtest = "on";
+-      }
+-      document.head.append(document.importNode(advertisingScripts.content, true));
+-    }
+-  } catch (error) {
+-    Sentry.captureException(error);
+-    console.error("Advertising initialization failed", error);
+-    document.querySelector(".library-ad")!.remove();
+-  } finally {
+-    advertisingScripts.remove();
+-  }
+ };
+ 
+ const start = () => {
+diff --git a/wie-web/src/ts/library.ts b/wie-web/src/ts/library.ts
+index b2c7ed2..7b7aebb 100644
+--- a/wie-web/src/ts/library.ts
++++ b/wie-web/src/ts/library.ts
+@@ -448,7 +448,10 @@ export const initializeLibrary = async (backend: Wie, launchApp: (app: LibraryAp
+ 
+   document.addEventListener("wie:languagechange", updateLabels);
+   renderLibrary();
++  // 환영 창은 개인용 빌드에서는 띄우지 않는다.
+   if (!settings.get("welcomeSeen")) {
+-    welcomeDialog.showModal();
++    void settings.set("welcomeSeen", true).catch(() => {});
++    hideHelp.checked = true;
++    void settings.set("helpDismissed", true).catch(() => {});
+   }
+ };
+diff --git a/wie-web/webpack.config.common.ts b/wie-web/webpack.config.common.ts
+index d594e81..6485633 100644
+--- a/wie-web/webpack.config.common.ts
++++ b/wie-web/webpack.config.common.ts
+@@ -41,16 +41,7 @@ class WasmPackPlugin {
+         proc.on("exit", code => code === 0 ? resolve() : reject(new Error(`wasm-pack exited with code ${code}`)));
+         proc.on("error", reject);
+       });
+-      if (!dev) {
+-        const debugDir = path.resolve(this.crateDir, "../target/sentry");
+-        await mkdir(debugDir, { recursive: true });
+-        await createSentrySDK()["wasm-split"]({
+-          input: path.join(this.crateDir, "pkg/wie_web_bg.wasm"),
+-          debugOut: path.join(debugDir, "wie_web.debug.wasm"),
+-          strip: true,
+-          stripNames: true,
+-        });
+-      }
++      // (배포용 디버그 분리 단계는 오프라인 빌드에서 생략)
+     });
+ 
+     compiler.hooks.afterCompile.tap("WasmPackPlugin", compilation => {
+diff --git a/wie-web/webpack.config.prod.ts b/wie-web/webpack.config.prod.ts
+index dd2c78e..8e00e7e 100644
+--- a/wie-web/webpack.config.prod.ts
++++ b/wie-web/webpack.config.prod.ts
+@@ -1,22 +1,13 @@
+ import webpack from "webpack";
+ import { merge } from "webpack-merge";
+-import { sentryWebpackPlugin } from "@sentry/webpack-plugin";
+ 
+ // @ts-ignore: allowImportingTsExtensions
+ import commonConfig from "./webpack.config.common.ts";
+ 
++// 오프라인(개인용) 빌드: Sentry 업로드 없음, 소스맵 없음
+ const config: webpack.Configuration = merge(commonConfig, {
+   mode: "production",
+-  devtool: "hidden-source-map",
+-  plugins: [
+-    sentryWebpackPlugin({
+-      // Fail the build on upload errors, which the plugin otherwise only logs.
+-      errorHandler(error) { throw error; },
+-      sourcemaps: {
+-        filesToDeleteAfterUpload: ["wie-web/dist/**/*.map"],
+-      },
+-    }),
+-  ],
++  devtool: false,
+ });
+ 
+ export default config;

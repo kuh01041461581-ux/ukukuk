@@ -20,6 +20,7 @@ public class GameActivity extends Activity implements GameView.Host {
         super.onCreate(b);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         com.xce.io.XFile.dir = getFilesDir();
+        try { javax.microedition.lcdui.Graphics.font = android.graphics.Typeface.createFromAsset(getAssets(), "galmuri11.ttf"); } catch (Throwable t) { }
         view = new GameView(this);
         view.host = this;
         view.mode = getSharedPreferences("st", MODE_PRIVATE).getInt("mode", GameView.MODE_PHONE);

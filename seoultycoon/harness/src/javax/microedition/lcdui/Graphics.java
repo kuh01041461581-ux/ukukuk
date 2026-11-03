@@ -3,7 +3,8 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 public class Graphics {
     public static final int HCENTER = 1, VCENTER = 2, LEFT = 4, RIGHT = 8, TOP = 16, BOTTOM = 32, BASELINE = 64;
-    public BufferedImage bi; public Graphics2D g; Font font = new Font("WenQuanYi Zen Hei", Font.PLAIN, 12);
+    public BufferedImage bi; public Graphics2D g; Font font = loadFont();
+    static Font loadFont() { try { return Font.createFont(Font.TRUETYPE_FONT, new java.io.File(System.getProperty("game.font", "/nonexistent"))).deriveFont(Font.PLAIN, 11f); } catch (Exception e) { return new Font("WenQuanYi Zen Hei", Font.PLAIN, 12); } }
     public Graphics(BufferedImage b) {
         bi = b; g = b.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);

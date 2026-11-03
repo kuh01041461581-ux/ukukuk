@@ -1,13 +1,15 @@
 package javax.microedition.lcdui;
 import android.graphics.*;
 public class Graphics {
+    public static volatile Typeface font;      // Galmuri11(도트 한글 글꼴) — GameActivity 가 설정
     public static final int HCENTER = 1, VCENTER = 2, LEFT = 4, RIGHT = 8, TOP = 16, BOTTOM = 32, BASELINE = 64;
     public final Bitmap bm; public final android.graphics.Canvas c; final Paint p = new Paint(); final Paint tp = new Paint();
     final int base; final Rect r = new Rect(), r2 = new Rect();
     public Graphics(Bitmap b) {
         bm = b; c = new android.graphics.Canvas(b); base = c.save();
         p.setAntiAlias(false); p.setFilterBitmap(false); p.setDither(false); p.setStyle(Paint.Style.FILL);
-        tp.setAntiAlias(false); tp.setTextSize(12); tp.setStyle(Paint.Style.FILL);
+        tp.setAntiAlias(false); tp.setSubpixelText(false); tp.setTextSize(11); tp.setStyle(Paint.Style.FILL);
+        if (font != null) tp.setTypeface(font);
         setColor(0);
     }
     public void setColor(int rgb) { int v = 0xFF000000 | rgb; p.setColor(v); tp.setColor(v); }
@@ -42,6 +44,6 @@ public class Graphics {
         if ((anchor & HCENTER) != 0) x -= (int) (w / 2); else if ((anchor & RIGHT) != 0) x -= (int) w;
         float base = y - tp.ascent();
         if ((anchor & BOTTOM) != 0) base = y - tp.descent();
-        c.drawText(s, x, base, tp);
+        c.drawText(s, Math.round(x), Math.round(base), tp);      // 정수 좌표 -> 도트가 번지지 않게
     }
 }

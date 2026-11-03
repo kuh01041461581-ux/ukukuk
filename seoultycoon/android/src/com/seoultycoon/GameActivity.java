@@ -12,7 +12,7 @@ import com.xce.lcdui.TextComponent;
 import com.xce.lcdui.TextComponentHandler;
 import javax.microedition.lcdui.Display;
 
-public class GameActivity extends Activity {
+public class GameActivity extends Activity implements GameView.Host {
     static boolean started;
     GameView view;
 
@@ -21,6 +21,9 @@ public class GameActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         com.xce.io.XFile.dir = getFilesDir();
         view = new GameView(this);
+        view.host = this;
+        view.mode = getSharedPreferences("st", MODE_PRIVATE).getInt("mode", GameView.MODE_PHONE);
+        Sound.ctx = getApplicationContext();
         setContentView(view);
         view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         TextComponentHandler.prompter = new TextComponentHandler.Prompter() {
@@ -35,6 +38,14 @@ public class GameActivity extends Activity {
                 } catch (Throwable t) { t.printStackTrace(); }
             } }, "game-start").start();
         }
+    }
+
+    public void openModeDialog() {
+        final String[] names = {"피처폰 버튼 (키패드)", "조이스틱 + 버튼", "터치 전용 (전체 화면)\n  탭=확인 · 쓸기=방향 · 길게/두 손가락=취소"};
+        new AlertDialog.Builder(this).setTitle("조작 방식").setSingleChoiceItems(names, view.mode, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface d, int w) {
+                view.setMode(w); getSharedPreferences("st", MODE_PRIVATE).edit().putInt("mode", w).apply(); d.dismiss();
+            } }).show();
     }
 
     void askName(final TextComponent tc) {

@@ -32,3 +32,10 @@ Unicorn 으로 재배치된 이미지를 올리고 호스트 함수를 "매직 �
 - 외부 메소드 호출 규약(this/인자/반환) 확정 후 `Graphics`/`Image`/`Display`/`Card` 를 안드로이드 레이어에 연결
 - 보조: Ghidra(ARM:LE:32:v8T, 로드주소 0x1000000)로 의사 C 확보 시 속도 향상 (github 릴리스 다운로드는 가능한 것으로 보임)
 - **가장 빠른 대안**: 서울타이쿤2의 *다른 통신사/기종용 jar*(KTF·LGT·SKT-GVM 등 자바 클래스가 평문으로 들어 있는 판)을 구하면 1편과 같은 방식(디컴파일 → 안드로이드 레이어)으로 며칠이 아니라 바로 실행 가능.
+
+## 진행 기록 2 (Ghidra 디컴파일 + 링커 통과)
+- **Ghidra 11.1.2 헤드리스**로 재배치 이미지를 디컴파일(`tools/ghidra/DecompAll.java`, 프로세서 `ARM:LE:32:v8`, 베이스 0x1000000, 함수 1,499개) → `docs/st2_decomp.c.gz` (함수 주석의 `file=` 은 파일 오프셋). 재현: `analyzeHeadless <proj> st2 -import st2_relocated.bin -processor ARM:LE:32:v8 -loader BinaryLoader -loader-baseAddr 0x1000000 -postScript DecompAll.java` (relocated.bin 은 `tools/st2_emu_probe.py` 가 만드는 재배치 이미지).
+- **클래스 디스크립터 레이아웃(추정, 링커 0x7ad64 해석)**: Class `C`: `+8→Info I`, `+0xc` vtable 배열, `+0x10`(u16) vtable 크기, `+0x12`(u16) 상태(0x80=링크됨, 0x10=인터페이스류). Info `I`: `+0` 이름 char*, `+8` 슈퍼(홀수=문자열표 인덱스·짝수=Class*), `+0xc` 메소드 배열(개수 u16 `+0x18`), `+0x10` 외부 참조 배열(개수 u16 `+0x1e`), `+0x14` 필드 배열(개수 u16 `+0x20`), `+0x1a`(u16) 인스턴스 크기. Method: `+0xc` 시그니처 문자열(앞 1바이트 + 이름), `+0x14`(u16) vtable 슬롯, `+0x16`(u16) 접근 플래그.
+- **호스트 인터페이스(확정)**: `env[0]`=이름 조회, `env[8](slot,name,tbl)`=심볼 링크(결과를 slot 에 기록), `env[11](n)`=힙 할당, `JB[11](utf8*)`=문자열 상수 객체 생성(437개), `JB[12]`(=+0x30) 저장됨.
+- **에뮬레이터 상태**: `python3 tools/wipi_run.py work/st2/client.bin1116 7b02c` → 로드 콜백(0x7b02c)이 **끝까지 성공(반환 0)**: 외부 클래스 132개 링크(고유 11종: Card, Exception, Object, String, [I, [B, Jlet, Thread, TextFieldComponent, Runnable, Image), 문자열 상수 437개 생성. 
+- **다음**: (1) 앱 메소드를 호스트가 부르는 경로(진입 `Seoul2`/Jlet.startApp, paint, keyNotify) 확정 — 진입 구조체 `+0x3c..0x58` 쪽 콜백과 JB 표 사용처 추적, (2) 외부 메소드(`Graphics.fillRect` 등)의 호출 규약 확정 후 호스트 구현, (3) 안드로이드 레이어에 연결.

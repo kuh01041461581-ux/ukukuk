@@ -58,6 +58,10 @@ class Emu:
         if fn: ret = fn(self, args, sargs)
         else:
             ret = 0
+            if self.verbose:
+                st = [self.u32(sp + 4 * i) for i in range(0, 64)]
+                bt = ['%#x' % (v - BASE - 1) for v in st if BASE + 0x100 < v < BASE + 0x82700 and v & 1][:8]
+                print('     backtrace(file offs):', ' '.join(bt))
             if self.verbose: print('  [host?] %s(%s | %s) lr=%#x' % (name, ','.join('%#x' % a for a in args), ','.join('%#x' % a for a in sargs), uc.reg_read(UC_ARM_REG_LR) - BASE))
         self.setr(0, ret or 0)
     def _unmapped(self, uc, access, addr, size, val, ud):

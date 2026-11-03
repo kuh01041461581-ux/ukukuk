@@ -39,3 +39,13 @@ Unicorn 으로 재배치된 이미지를 올리고 호스트 함수를 "매직 �
 - **호스트 인터페이스(확정)**: `env[0]`=이름 조회, `env[8](slot,name,tbl)`=심볼 링크(결과를 slot 에 기록), `env[11](n)`=힙 할당, `JB[11](utf8*)`=문자열 상수 객체 생성(437개), `JB[12]`(=+0x30) 저장됨.
 - **에뮬레이터 상태**: `python3 tools/wipi_run.py work/st2/client.bin1116 7b02c` → 로드 콜백(0x7b02c)이 **끝까지 성공(반환 0)**: 외부 클래스 132개 링크(고유 11종: Card, Exception, Object, String, [I, [B, Jlet, Thread, TextFieldComponent, Runnable, Image), 문자열 상수 437개 생성. 
 - **다음**: (1) 앱 메소드를 호스트가 부르는 경로(진입 `Seoul2`/Jlet.startApp, paint, keyNotify) 확정 — 진입 구조체 `+0x3c..0x58` 쪽 콜백과 JB 표 사용처 추적, (2) 외부 메소드(`Graphics.fillRect` 등)의 호출 규약 확정 후 호스트 구현, (3) 안드로이드 레이어에 연결.
+
+## 진행 기록 3 (앱 코드 실제 실행 시작)
+`python3 tools/wipi_run.py work/st2/client.bin1116 7b02c` 로 로드 콜백 후 `Seoul2.<init>` / `startApp` 을 직접 호출해 **앱 자체 코드가 실행됨**을 확인(호스트 호출이 순서대로 로그에 찍힘).
+- **앱 진입점**: 클래스 `Seoul2` = Class `C`@0xac804, Info `I`@0xab7d4. 메소드 5개(Method 구조체, `I+0xc` 배열): `<init>`, `startApp([String)`, `pauseApp`, `resumeApp`, `destroyApp(Z)`. **Method 구조체**: `+0` 코드 포인터(Thumb), `+4` 소속 Class, `+0xc` "접두1바이트+시그니처+이름" 문자열, `+0x14`(u16) vtable 슬롯(startApp=15, pause=16, resume=17, destroy=18), `+0x16`(u16) 플래그.
+- **호출 규약**: `r0`=무시(호출 시 대상 주소로 덮임), **`r1`=this**, `r2…`=인자. 정적/가상 호출은 헬퍼(0x7d76c 등)가 메소드 참조 슬롯을 해석한 뒤 `mov pc,r0`.
+- **메소드 참조 슬롯 인코딩**: `u32 = (멤버문자열idx << 16) | (클래스이름idx << 1) | 1` (문자열표 0x9cac0). 최초 호출 때 `JB[1](slot, 콜백)` 이 해석해 `slot[0] = Method*` 로 교체. 같은 `JB[1](Class*, …)` 은 `new`(인스턴스 할당)로도 쓰임.
+- **JB 표 슬롯(확정)**: `JB[1]` 메소드 해석/new, `JB[2](문자열, 0, …)` 예외 던지기(첫 인자가 이미지 주소이면 이름 문자열, 작은 수이면 `newarray(len, elemsize, class)`), `JB[10](Class)` 클래스 초기화(`<clinit>`), `JB[11](utf8*)` 문자열 상수 생성, `JB[12]` 저장.
+- **객체 모델**: 참조값은 **핸들**(몸체를 가리키는 포인터를 담은 칸의 주소). 몸체 `[0]` = 헤더(`classIndex<<5 | 플래그`), 배열은 `[4]`=길이, 원소는 `[8+i*크기]`; 인스턴스 필드는 `몸체+4+오프셋`. → 호스트가 만드는 객체/배열도 이 형식을 따라야 함(현재 에뮬레이터는 단순 객체라 이 지점에서 NPE).
+- 호스트 클래스 합성기(`HClass`) 구현됨: `Jlet`(vtable 19칸) 등 외부 클래스를 이미지 링커가 받아들이는 형식으로 생성.
+- **다음**: 핸들/헤더 규칙에 맞춘 `new`/`newarray`, 클래스 인덱스 표(`*0x10ad? + (hdr>>5)`) 구현 → `Card`/`Display`/`Graphics`/`Image` 호스트 메소드를 안드로이드 레이어에 연결.

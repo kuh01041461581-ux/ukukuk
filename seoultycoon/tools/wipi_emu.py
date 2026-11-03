@@ -6,10 +6,11 @@ from unicorn.arm_const import *
 
 BASE = 0x01000000; IMG = 0x600000
 STACK = 0x20000000; STACK_SZ = 0x200000
-HEAP = 0x30000000; HEAP_SZ = 0x4000000
+HEAP = 0x02000000; HEAP_SZ = 0x1800000        # (Class<<5) 가 32비트 부호 양수로 들어가도록 0x4000000 미만
 MAGIC = 0x40000000; MAGIC_SZ = 0x100000
 RET = MAGIC + 0x80000
 
+RETT = {}
 class Emu:
     def __init__(self, path, verbose=True):
         self.verbose = verbose
@@ -24,6 +25,7 @@ class Emu:
         self.mu.hook_add(UC_HOOK_CODE, self._code, begin=MAGIC, end=MAGIC + MAGIC_SZ)
         self.mu.hook_add(UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED | UC_HOOK_MEM_FETCH_UNMAPPED, self._unmapped)
         self.impl = {}
+        self.ret64 = None
         # relocation stub
         self.run(BASE + 0xc, [0x45c]); self.entry = self.r(0)
     # -- regs/mem
@@ -63,6 +65,10 @@ class Emu:
                 bt = ['%#x' % (v - BASE - 1) for v in st if BASE + 0x100 < v < BASE + 0x82700 and v & 1][:8]
                 print('     backtrace(file offs):', ' '.join(bt))
             if self.verbose: print('  [host?] %s(%s | %s) lr=%#x' % (name, ','.join('%#x' % a for a in args), ','.join('%#x' % a for a in sargs), uc.reg_read(UC_ARM_REG_LR) - BASE))
+        rt = RETT.get(name)
+        if rt in ('J', 'D'):
+            if self.ret64 is None: self.ret64 = self.alloc(16)
+            self.mu.mem_write(self.ret64, struct.pack('<Q', (ret or 0) & (2**64 - 1))); ret = 0
         self.setr(0, ret or 0)
     def _unmapped(self, uc, access, addr, size, val, ud):
         pc = uc.reg_read(UC_ARM_REG_PC)

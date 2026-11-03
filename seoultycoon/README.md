@@ -18,6 +18,15 @@
 - [x] 에셋 추출: `assets/st1`, `assets/st2`, `assets/st2_pak` (PNG/MMF/바이너리 분류), 시트 도구 `tools/contact_sheet.py`
 - [ ] Unity 포팅 (아래 계획) / 2편 ARM 로직 분석 / 익산 데이터(지도·건물·정책) 제작
 
+## 서울타이쿤2 분석 결과 (마일스톤 2)
+- `client.bin1116`: **자기 재배치형 ARM Thumb 이미지**. 시작 스텁(0x0~0x64)이 재배치 테이블(10,879개)을 적용하고 BSS(0x45c)를 0으로 채운 뒤 진입 구조체(함수 포인터 테이블, 파일오프셋 0xacac0)를 반환. `tools/st2_emu_probe.py`(Unicorn)로 스텁 실행·재배치 성공 확인.
+- 플랫폼(SKT "Stand Alone") API 규약은 문서가 없어 **아직 미해독** → 2편 코드를 그대로 에뮬레이션하려면 API 호출부를 역추적해 스텁을 만들어야 함(대규모 작업).
+- **데이터는 해독 완료**
+  - `P/data1.pak` = `u32 총크기 | u32 개수 | [name(8) offset(4) size(4)]×N | 데이터` → PNG 173개 (`tools/extract_pak.py`)
+  - 텍스트 `.d` 41개 = `u8[32] 문자열 길이표 + CP949 문자열` (대사 l*, 사건 ab*, 뉴스 m*/n*, 메뉴 y0) → `assets/st2_text/*.json` (`tools/extract_text_st2.py`)
+  - 이진 테이블 `abx/lx/lxs/mx/nx/yx.d`: 게임 수치/이벤트 테이블(포맷 미해독, 1편 `reference_src/st1` 의 `aj`·`s` 클래스와 구조가 유사 → 비교 해독 예정)
+- 방침: 2편은 에셋·텍스트를 모두 확보했으므로, **1편 디컴파일 코드를 기준 로직으로 삼아 Unity에서 재구현**하고 2편 데이터 테이블은 해독되는 대로 이식.
+
 ## 사용법
 ```
 ./play_st1.sh                 # PC 창에서 원본 1편 플레이 (Java 필요) 방향키/Enter, Z·X 소프트키

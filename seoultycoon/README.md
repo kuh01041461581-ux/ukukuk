@@ -20,7 +20,7 @@
 
 ## 서울타이쿤2 분석 결과 (마일스톤 2)
 - `client.bin1116`: **자기 재배치형 ARM Thumb 이미지**. 시작 스텁(0x0~0x64)이 재배치 테이블(10,879개)을 적용하고 BSS(0x45c)를 0으로 채운 뒤 진입 구조체(함수 포인터 테이블, 파일오프셋 0xacac0)를 반환. `tools/st2_emu_probe.py`(Unicorn)로 스텁 실행·재배치 성공 확인.
-- 플랫폼(SKT "Stand Alone") API 규약은 문서가 없어 **아직 미해독** → 2편 코드를 그대로 에뮬레이션하려면 API 호출부를 역추적해 스텁을 만들어야 함(대규모 작업).
+- **정체 확정: WIPI 플랫폼의 Java→ARM AOT 이미지**(자체 런타임 포함) — 상세는 `docs/ST2_ANALYSIS.md`. 커널/JB 인터페이스 규약은 **아직 미해독** → 2편 코드를 그대로 에뮬레이션하려면 API 호출부를 역추적해 스텁을 만들어야 함(대규모 작업).
 - **데이터는 해독 완료**
   - `P/data1.pak` = `u32 총크기 | u32 개수 | [name(8) offset(4) size(4)]×N | 데이터` → PNG 173개 (`tools/extract_pak.py`)
   - 텍스트 `.d` 41개 = `u8[32] 문자열 길이표 + CP949 문자열` (대사 l*, 사건 ab*, 뉴스 m*/n*, 메뉴 y0) → `assets/st2_text/*.json` (`tools/extract_text_st2.py`)

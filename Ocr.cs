@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -69,6 +70,11 @@ internal static class Ocr
 				outp = Path.Combine(dir, "c" + id + ".txt");
 				for (int vi = 0; vi < work.Count; vi++) { string pp = Path.Combine(dir, "c" + id + "_" + vi + ".png"); work[vi].Save(pp, ImageFormat.Png); pngs.Add(pp); work[vi].Dispose(); }
 				work.Clear(); png = string.Join("|", pngs.ToArray());
+				// 1차: 파워셸 없이 프로그램 안에서 바로 윈도우 글자 인식을 불러요 (회사 PC처럼 파워셸이 막힌 곳에서도 돼요)
+				string nerr = null; List<string> nat = null;
+				try { nat = Native(pngs, out nerr); } catch (Exception nex) { nerr = nex.Message; }
+				if (nat != null) { string bt = null; double bsc = -1; foreach (string tx in nat) { double sc2 = Score(tx); if (sc2 > bsc * 1.03 || bt == null) { bsc = sc2; bt = tx; } } text = Tidy(bt ?? ""); return; }
+				if (nerr == "NOENGINE") { err = "윈도우에 글자 인식 언어가 없어요\n설정 › 시간 및 언어 › 언어에서 '한국어'를 추가해 주세요"; return; }
 				ProcessStartInfo si = new ProcessStartInfo("powershell.exe", "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" + ps1 + "\" \"" + png + "\" \"" + outp + "\"");
 				si.CreateNoWindow = true; si.UseShellExecute = false; si.WindowStyle = ProcessWindowStyle.Hidden;
 				using (Process p = Process.Start(si))
@@ -90,6 +96,60 @@ internal static class Ocr
 			}
 		});
 		t.IsBackground = true; t.Start(); return true;
+	}
+	// ── 파워셸 없이 쓰는 방법: 윈도우 글자 인식(WinRT)을 리플렉션으로 직접 불러요. 안 되면 null 을 돌려주고 파워셸 방식으로 넘어가요
+	private static object Wait(MethodInfo asTask, object op, Type result)
+	{
+		object task = asTask.MakeGenericMethod(result).Invoke(null, new object[] { op });
+		task.GetType().GetMethod("Wait", Type.EmptyTypes).Invoke(task, null);
+		return task.GetType().GetProperty("Result").GetValue(task, null);
+	}
+	private static Type WT(string name) { return Type.GetType(name + ", Windows.Foundation, ContentType=WindowsRuntime"); }
+	private static object Prop(object o, string n)
+	{
+		PropertyInfo p = o.GetType().GetProperty(n); if (p != null) return p.GetValue(o, null);
+		FieldInfo f = o.GetType().GetField(n); if (f != null) return f.GetValue(o); throw new MissingMemberException(n);
+	}
+	private static List<string> Native(List<string> pngs, out string err)
+	{
+		err = null; if (Environment.OSVersion.Platform != PlatformID.Win32NT) return null;
+		Assembly sr = Assembly.Load("System.Runtime.WindowsRuntime, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089");
+		Type ext = sr.GetType("System.WindowsRuntimeSystemExtensions"); MethodInfo asTask = null;
+		foreach (MethodInfo m in ext.GetMethods()) { ParameterInfo[] ps = m.GetParameters(); if (m.Name == "AsTask" && ps.Length == 1 && ps[0].ParameterType.Name == "IAsyncOperation`1") { asTask = m; break; } }
+		if (asTask == null) { err = "AsTask"; return null; }
+		Type tEng = WT("Windows.Media.Ocr.OcrEngine"), tLang = WT("Windows.Globalization.Language"), tFile = WT("Windows.Storage.StorageFile"), tStream = WT("Windows.Storage.Streams.IRandomAccessStream"), tDec = WT("Windows.Graphics.Imaging.BitmapDecoder"), tBmp = WT("Windows.Graphics.Imaging.SoftwareBitmap"), tRes = WT("Windows.Media.Ocr.OcrResult"), tAcc = WT("Windows.Storage.FileAccessMode");
+		if (tEng == null || tLang == null || tFile == null || tStream == null || tDec == null || tBmp == null || tRes == null || tAcc == null) { err = "TYPES"; return null; }
+		object eng = null;
+		try { object lang = Activator.CreateInstance(tLang, new object[] { "ko" }); eng = tEng.GetMethod("TryCreateFromLanguage").Invoke(null, new object[] { lang }); } catch { }
+		if (eng == null) eng = tEng.GetMethod("TryCreateFromUserProfileLanguages").Invoke(null, null);
+		if (eng == null) { err = "NOENGINE"; return null; }
+		MethodInfo getFile = tFile.GetMethod("GetFileFromPathAsync"), create = null, openAsync = tFile.GetMethod("OpenAsync", new Type[] { tAcc }), getBmp = tDec.GetMethod("GetSoftwareBitmapAsync", Type.EmptyTypes), recog = tEng.GetMethod("RecognizeAsync");
+		foreach (MethodInfo m in tDec.GetMethods()) if (m.Name == "CreateAsync" && m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType == tStream) { create = m; break; }
+		if (getFile == null || create == null || openAsync == null || getBmp == null || recog == null) { err = "METHODS"; return null; }
+		List<string> outs = new List<string>(); object read = Enum.ToObject(tAcc, 0);
+		foreach (string path in pngs)
+		{
+			object file = Wait(asTask, getFile.Invoke(null, new object[] { path }), tFile);
+			object stream = Wait(asTask, openAsync.Invoke(file, new object[] { read }), tStream);
+			object dec = Wait(asTask, create.Invoke(null, new object[] { stream }), tDec);
+			object bmp = Wait(asTask, getBmp.Invoke(dec, null), tBmp);
+			object res = Wait(asTask, recog.Invoke(eng, new object[] { bmp }), tRes);
+			StringBuilder sb = new StringBuilder();
+			foreach (object line in (System.Collections.IEnumerable)Prop(res, "Lines"))
+			{
+				StringBuilder t = new StringBuilder(); bool has = false; double px = 0;
+				foreach (object w in (System.Collections.IEnumerable)Prop(line, "Words"))
+				{
+					string wt = (string)Prop(w, "Text"); object r = Prop(w, "BoundingRect"); double bx = Convert.ToDouble(Prop(r, "X")), bw = Convert.ToDouble(Prop(r, "Width")), bh = Convert.ToDouble(Prop(r, "Height"));
+					if (has && wt.Length > 0) { double gap = bx - px, h = Math.Max(4.0, bh); bool hg = wt[0] >= 0xAC00 && wt[0] <= 0xD7A3; if (!hg || gap > h * 0.2) t.Append(' '); }
+					t.Append(wt); px = bx + bw; has = true;
+				}
+				sb.AppendLine(t.ToString());
+			}
+			outs.Add(sb.ToString());
+			try { IDisposable d = stream as IDisposable; if (d != null) d.Dispose(); } catch { }
+		}
+		return outs;
 	}
 	private static void Post(SynchronizationContext ctx, Action<string, string> done, string text, string err)
 	{

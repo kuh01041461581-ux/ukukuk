@@ -548,6 +548,9 @@ internal partial class Program
 			if (cv == null) { if (saved != null) WriteClip(saved); ToolNote("바꿀 금액이 없어요", "원 · 천원 · 만원 · 백만원 · 억원이 붙은 금액을 선택해 주세요 (단위 없는 숫자만 선택해도 돼요)"); return; }
 			PasteText(cv, saved); return;
 		}
+		if (id == 12) { if (saved != null) WriteClip(saved); ToolNote("글자 수", AdminText.Count(sel), 6000); return; }
+		if (id == 14) { if (saved != null) WriteClip(saved); string dd = AdminText.DateSpan(sel); if (dd == null) { ToolNote("날짜가 2개 필요해요", "예: 2026. 11. 4. ~ 2026. 11. 20. 처럼 두 날짜가 든 글을 선택해 주세요"); return; } ToolNote("기간 계산", dd, 7000); return; }
+		if (id == 11 || id == 13) { string r2 = id == 11 ? AdminText.Reflow(sel) : AdminText.Hyphen(sel); if (r2 == null || r2 == sel) { if (saved != null) WriteClip(saved); ToolNote(id == 11 ? "정리할 줄바꿈이 없어요" : "하이픈을 넣을 번호가 없어요", id == 11 ? "PDF·메신저에서 복사해 줄이 끊긴 글을 선택해 주세요" : "하이픈 없는 전화번호·사업자번호를 선택해 주세요"); return; } PasteText(r2, saved); return; }
 		string res = id == 5 ? AdminText.Area(sel) : (id == 6 ? AdminText.Mask(sel) : AdminText.Items(sel));
 		if (res == null) { if (saved != null) WriteClip(saved); ToolNote(id == 5 ? "바꿀 면적이 없어요" : (id == 6 ? "가릴 개인정보가 없어요" : "정리할 항목이 없어요"), id == 5 ? "숫자(㎡ 또는 평)를 선택해 주세요" : (id == 6 ? "주민번호·전화번호·계좌번호·이메일을 선택해 주세요" : "1. 가. 1) 같은 항목부호가 있는 글이나 들여쓴 글을 선택해 주세요")); return; }
 		PasteText(res, saved);
@@ -579,6 +582,48 @@ internal partial class Program
 // ═════ 행정 글 도우미: 면적 변환 · 개인정보 가리기 · 항목부호 정리 · 법령 주소 ═════
 internal static class AdminText
 {
+	internal static string Count(string t)
+	{
+		string n = t.Replace("\r", ""); int all = n.Length, ns = 0, by = 0, ln = n.Split('\n').Length; foreach (char c in n) { if (!char.IsWhiteSpace(c)) ns++; by += c > 127 ? 2 : 1; }
+		int words = System.Text.RegularExpressions.Regex.Matches(n, @"\S+").Count;
+		return "공백 포함 " + all + "자 · 공백 제외 " + ns + "자\n" + by + "바이트(한글 2) · " + words + "어절 · " + ln + "줄";
+	}
+	internal static string Reflow(string t)
+	{
+		string[] ps = System.Text.RegularExpressions.Regex.Split(t.Replace("\r", ""), @"\n\s*\n"); System.Text.StringBuilder o = new System.Text.StringBuilder();
+		for (int p = 0; p < ps.Length; p++)
+		{
+			string[] ls = ps[p].Split('\n'); System.Text.StringBuilder b = new System.Text.StringBuilder();
+			foreach (string l0 in ls) { string l = l0.Trim(); if (l.Length == 0) continue; if (b.Length > 0) { char e = b[b.Length - 1]; bool br = (e == '.' || e == '?' || e == '!' || e == ':' || e == '다') && false; bool item = System.Text.RegularExpressions.Regex.IsMatch(l, @"^([0-9]+[.)]|[가-힣][.)]|[○◦ㅇ□■▪※\-–•·]|\([0-9가-힣]+\))"); if (item) b.Append('\n'); else b.Append(b[b.Length - 1] == '-' ? "" : " "); } b.Append(l); }
+			if (p > 0) o.Append("\n\n"); o.Append(b.ToString());
+		}
+		return System.Text.RegularExpressions.Regex.Replace(o.ToString(), @"[ \t]{2,}", " ").Replace("\n", "\r\n");
+	}
+	internal static string Hyphen(string t)
+	{
+		return System.Text.RegularExpressions.Regex.Replace(t, @"(?<![0-9-])([0-9]{9,11})(?![0-9-])", m =>
+		{
+			string d = m.Value;
+			if (d.StartsWith("02")) return d.Length == 9 ? d.Substring(0, 2) + "-" + d.Substring(2, 3) + "-" + d.Substring(5) : d.Substring(0, 2) + "-" + d.Substring(2, 4) + "-" + d.Substring(6);
+			if (d[0] == '0') return d.Length == 10 ? d.Substring(0, 3) + "-" + d.Substring(3, 3) + "-" + d.Substring(6) : d.Substring(0, 3) + "-" + d.Substring(3, 4) + "-" + d.Substring(7);
+			return d.Length == 10 ? d.Substring(0, 3) + "-" + d.Substring(3, 2) + "-" + d.Substring(5) : d;
+		});
+	}
+	internal static string DateSpan(string t)
+	{
+		System.Collections.Generic.List<DateTime> ds = new System.Collections.Generic.List<DateTime>();
+		foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(t, @"(?:(20[0-9]{2})\s*[.\-/년]\s*)?([0-9]{1,2})\s*[.\-/월]\s*([0-9]{1,2})"))
+		{
+			int y = m.Groups[1].Success ? int.Parse(m.Groups[1].Value) : DateTime.Now.Year, mo = int.Parse(m.Groups[2].Value), d = int.Parse(m.Groups[3].Value);
+			if (mo < 1 || mo > 12 || d < 1 || d > DateTime.DaysInMonth(y, mo)) continue; ds.Add(new DateTime(y, mo, d));
+		}
+		if (ds.Count < 2) return null;
+		DateTime a = ds[0], b = ds[1]; if (b < a) { DateTime x = a; a = b; b = x; }
+		int days = (int)(b - a).TotalDays + 1, wk = 0; for (DateTime d = a; d <= b; d = d.AddDays(1)) if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday) wk++;
+		string[] kd = { "일", "월", "화", "수", "목", "금", "토" };
+		return a.ToString("yyyy.M.d.") + "(" + kd[(int)a.DayOfWeek] + ") ~ " + b.ToString("yyyy.M.d.") + "(" + kd[(int)b.DayOfWeek] + ")\n" + days + "일간 (양끝 포함) · 평일 " + wk + "일 (공휴일 제외 전)\n" + (int)(b - a).TotalDays + "일 차이";
+	}
+
 	internal static readonly string[] Units = { "원", "천원", "만원", "백만원", "억원" };
 	private static readonly double[] UnitF = { 1, 1e3, 1e4, 1e6, 1e8 };
 	private static string FmtN(double v)

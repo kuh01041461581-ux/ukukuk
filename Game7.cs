@@ -656,7 +656,7 @@ internal sealed class FlapGame : MiniGame
 		bombs--; bombT = 1.1f; bombX = px + 20f; bombY = py; inv = Math.Max(inv, 1.3f); flash = 1f; ebs.Clear(); Shake = 0.6f; Sfx.Play("fanfare");
 		foreach (Fo f in fos) Dmg(f, f.Boss ? 40f : 30f);
 		for (int i = 0; i < 24; i++) Spark(px + 20f, py, Color.FromArgb(160, 230, 255), 260f);
-		rideT = 5f; msg = "종이비행기 탑승! 닿는 적은 부서지고 탄은 막아요"; msgT = 2f;
+		rideT = 5f; msg = "마룡이 비행기 탑승! 닿는 적은 부서지고 탄은 막아요"; msgT = 2f;
 	}
 	// 마룡이가 타는 큰 종이비행기 (깔끔한 접힌 면 + 흰 선)
 	private static void PaperPlane(Graphics g, double t)
@@ -955,11 +955,11 @@ internal sealed class FlapGame : MiniGame
 		// 애드온
 		for (int i = 0; i < opts; i++) { PointF o = OptPos(i); bool front = Math.Sin(optPh * 0.9f + i * 3.1416f) > 0; Buddy(g, o.X, o.Y, front ? 1f : 0.82f, t + i); }
 		// 마룡이
-		if (rideT > 0f && (!dying || deadT < 0.4f)) { float pu = rideT < 1f ? (((int)(t * 14) & 1) == 0 ? 0.5f : 1f) : 1f; GraphicsState pgs = g.Save(); g.TranslateTransform(px + 6f, py + 18f); g.RotateTransform(Clamp((py - (trail.Count > 3 ? trail[3].Y : py)) * 0.8f, -12f, 12f)); g.ScaleTransform(pu, pu); PaperPlane(g, t); g.Restore(pgs); }
+		if (rideT > 0f && (!dying || deadT < 0.4f)) { float pu = rideT < 1f ? (((int)(t * 14) & 1) == 0 ? 0.5f : 1f) : 1f; GraphicsState pgs = g.Save(); g.TranslateTransform(px + 8f, py + 4f); g.RotateTransform(Clamp((py - (trail.Count > 3 ? trail[3].Y : py)) * 0.8f, -12f, 12f)); g.ScaleTransform(pu, pu); if (Mascot != null) { float pw = 132f, ph = pw * Mascot.Height / Mascot.Width; float bob = (float)Math.Sin(t * 9) * 2f; g.DrawImage(Mascot, -pw * 0.5f, -ph * 0.55f + bob, pw, ph); } else PaperPlane(g, t); g.Restore(pgs); }
 		if (!dying || deadT < 0.4f)
 		{
 			bool blink = inv > 0f && rideT <= 0f && ((int)(t * 16) & 1) == 0 && !dying; Bitmap fb = Spr.Get("ms_n_fy1"); float fsc = 0.4f, rot = Clamp((py - (trail.Count > 3 ? trail[3].Y : py)) * 1.2f, -18f, 18f);
-			if (!blink) { if (fb != null) Spr.Draw(g, "ms_n_fy" + (((int)(t * 9) & 1) == 0 ? 1 : 4), px, py, Spr.OW("ms_n_fy1", fb) * fsc, Spr.OH("ms_n_fy1", fb) * fsc, rot); else DrawMascot(g, px, py + 24f, 60f, rot); }
+			if (!blink && rideT <= 0f) { if (fb != null) Spr.Draw(g, "ms_n_fy" + (((int)(t * 9) & 1) == 0 ? 1 : 4), px, py, Spr.OW("ms_n_fy1", fb) * fsc, Spr.OH("ms_n_fy1", fb) * fsc, rot); else DrawMascot(g, px, py + 24f, 60f, rot); }
 			using (SolidBrush b = new SolidBrush(Color.FromArgb(inv > 0f ? 255 : 200, 255, 255, 255))) g.FillEllipse(b, px - 3.5f, py - 3.5f, 7f, 7f); using (Pen p = new Pen(Color.FromArgb(220, 255, 90, 90), 1.4f)) g.DrawEllipse(p, px - 4.5f, py - 4.5f, 9f, 9f);
 		}
 		if (ptBr == null) ptBr = new SolidBrush(Color.White); foreach (Pt p in pts) { ptBr.Color = Color.FromArgb((int)(220 * Math.Max(0f, p.Life / p.Max)), p.C); g.FillEllipse(ptBr, p.X - p.R, p.Y - p.R, p.R * 2, p.R * 2); }

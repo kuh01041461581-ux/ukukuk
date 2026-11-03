@@ -633,6 +633,7 @@ internal sealed class FlapGame : MiniGame
 	private int lives, power, opts, spd, bombs, bossN, kills, shotN; private bool useMouse, bossOn, dying; private string msg = "";
 	private readonly List<PointF> trail = new List<PointF>(); private Bitmap skyFlip; private System.Drawing.Image skyFlipSrc;
 	public override string Costume { get { return "g_plane"; } }
+	public override int LW { get { return 720; } }
 	public override string Name { get { return "마룡이 날기"; } }
 	public override string Key { get { return "flap"; } }
 	public override string Desc { get { return "탄막을 뚫고 보스를 쓰러뜨려요"; } }
@@ -696,11 +697,11 @@ internal sealed class FlapGame : MiniGame
 	private void Spawn()
 	{
 		double r = Rnd.NextDouble(); float y = 80f + (float)Rnd.NextDouble() * 440f;
-		if (el < 8f || r < 0.45) { int n = el < 20f ? 3 : 5; float dy = (float)(Rnd.NextDouble() < 0.5 ? -1 : 1); for (int i = 0; i < n; i++) fos.Add(new Fo { X = 430f + i * 42f, Y = y, Y0 = y, Vx = -105f, Hp = 2f + (el > 40f ? 1f : 0f), MaxHp = 2f, Kind = 0, Ph = i * 0.5f, Ang = dy }); }
-		else if (r < 0.70) fos.Add(new Fo { X = 430f, Y = y, Y0 = y, Vx = -80f, Hp = 5f + el / 25f, MaxHp = 5f + el / 25f, Kind = 1, Fire = 1.0f });
-		else if (r < 0.88 && el > 14f) fos.Add(new Fo { X = 430f, Y = y < 300f ? 70f : 530f, Y0 = y, Vx = -140f, Hp = 3f, MaxHp = 3f, Kind = 2, Fire = 0.7f });
-		else if (el > 24f) fos.Add(new Fo { X = 440f, Y = y, Y0 = y, Vx = -45f, Hp = 16f + el / 8f, MaxHp = 16f + el / 8f, Kind = 3, Fire = 1.2f });
-		else fos.Add(new Fo { X = 430f, Y = y, Y0 = y, Vx = -80f, Hp = 5f, MaxHp = 5f, Kind = 1, Fire = 1.0f });
+		if (el < 8f || r < 0.45) { int n = el < 20f ? 3 : 5; float dy = (float)(Rnd.NextDouble() < 0.5 ? -1 : 1); for (int i = 0; i < n; i++) fos.Add(new Fo { X = LW + 30f + i * 42f, Y = y, Y0 = y, Vx = -105f, Hp = 2f + (el > 40f ? 1f : 0f), MaxHp = 2f, Kind = 0, Ph = i * 0.5f, Ang = dy }); }
+		else if (r < 0.70) fos.Add(new Fo { X = LW + 30f, Y = y, Y0 = y, Vx = -80f, Hp = 5f + el / 25f, MaxHp = 5f + el / 25f, Kind = 1, Fire = 1.0f });
+		else if (r < 0.88 && el > 14f) fos.Add(new Fo { X = LW + 30f, Y = y < 300f ? 70f : 530f, Y0 = y, Vx = -140f, Hp = 3f, MaxHp = 3f, Kind = 2, Fire = 0.7f });
+		else if (el > 24f) fos.Add(new Fo { X = LW + 40f, Y = y, Y0 = y, Vx = -45f, Hp = 16f + el / 8f, MaxHp = 16f + el / 8f, Kind = 3, Fire = 1.2f });
+		else fos.Add(new Fo { X = LW + 30f, Y = y, Y0 = y, Vx = -80f, Hp = 5f, MaxHp = 5f, Kind = 1, Fire = 1.0f });
 	}
 	public override void Update(float dt, GameInput inp, double t)
 	{
@@ -715,11 +716,11 @@ internal sealed class FlapGame : MiniGame
 		float ms = 240f + 55f * spd;
 		if (kx != 0f || ky != 0f) { useMouse = false; float l = (float)Math.Sqrt(kx * kx + ky * ky); px += kx / l * ms * dt; py += ky / l * ms * dt; }
 		else { if (inp.MouseMoved) useMouse = true; if (useMouse) { float dx = inp.Mx - 18f - px, dy = inp.My - py, d = (float)Math.Sqrt(dx * dx + dy * dy); if (d > 1f) { float st = Math.Min(d, ms * dt * Math.Min(1.6f, 0.4f + d / 40f)); px += dx / d * st; py += dy / d * st; } } }
-		px = Clamp(px, 22f, 378f); py = Clamp(py, 62f, 570f);
+		px = Clamp(px, 22f, LW - 22f); py = Clamp(py, 62f, 570f);
 		trail.Insert(0, new PointF(px, py)); if (trail.Count > 40) trail.RemoveAt(40);
 		if (rideT > 0f)
 		{
-			rideT -= dt; inv = Math.Max(inv, 0.25f); px = Clamp(px, 62f, 340f);
+			rideT -= dt; inv = Math.Max(inv, 0.25f); px = Clamp(px, 62f, LW - 60f);
 			float rx0 = px - 60f, rx1 = px + 64f, ry0 = py - 30f, ry1 = py + 40f;
 			ebs.RemoveAll(e => e.X > rx0 && e.X < rx1 && e.Y > ry0 && e.Y < ry1);
 			foreach (Fo f in fos) { float bhw, bhh; FoeBox(f, out bhw, out bhh); if (f.X + bhw > rx0 && f.X - bhw < rx1 && f.Y + bhh > ry0 && f.Y - bhh < ry1) Dmg(f, (f.Boss ? 6f : 40f) * dt * 6f); }
@@ -743,16 +744,16 @@ internal sealed class FlapGame : MiniGame
 		}
 		// 적 등장
 		spawnT -= dt; if (spawnT <= 0f) { spawnT = Math.Max(0.8f, 1.9f - el * 0.009f) * (bossOn ? 2.4f : 1f) * (0.8f + (float)Rnd.NextDouble() * 0.4f); if (!bossOn || fos.Count < 5) Spawn(); }
-		if (!bossOn && el >= bossT) { bossOn = true; msg = "WARNING! 보스 접근"; msgT = 2.4f; Sfx.Play("bad2"); float hp = 70f + 45f * bossN; fos.Add(new Fo { X = 480f, Y = 300f, Y0 = 300f, Vx = -90f, Hp = hp, MaxHp = hp, Kind = 9, Boss = true, Fire = 1.5f }); }
+		if (!bossOn && el >= bossT) { bossOn = true; msg = "WARNING! 보스 접근"; msgT = 2.4f; Sfx.Play("bad2"); float hp = 70f + 45f * bossN; fos.Add(new Fo { X = LW + 80f, Y = 300f, Y0 = 300f, Vx = -90f, Hp = hp, MaxHp = hp, Kind = 9, Boss = true, Fire = 1.5f }); }
 		// 적
 		for (int i = fos.Count - 1; i >= 0; i--)
 		{
 			Fo f = fos[i]; f.T += dt; if (f.Hit > 0f) f.Hit -= dt;
 			if (f.Boss) { BossAi(f, dt); }
 			else if (f.Kind == 0) { f.X += f.Vx * dt; f.Y = f.Y0 + (float)Math.Sin(f.T * 3f + f.Ph) * 55f * f.Ang; }
-			else if (f.Kind == 1) { if (f.X > 300f) f.X += f.Vx * dt * 2f; else f.X += f.Vx * dt * 0.15f; f.Y += (float)Math.Sin(f.T * 1.6f) * 30f * dt; f.Fire -= dt; if (f.Fire <= 0f && f.X < 400f) { f.Fire = Math.Max(1.3f, 2.2f - el * 0.008f); EShot(f.X - 14f, f.Y, AimAng(f.X, f.Y), BSp, 0); } }
+			else if (f.Kind == 1) { if (f.X > LW - 100f) f.X += f.Vx * dt * 2f; else f.X += f.Vx * dt * 0.15f; f.Y += (float)Math.Sin(f.T * 1.6f) * 30f * dt; f.Fire -= dt; if (f.Fire <= 0f && f.X < LW) { f.Fire = Math.Max(1.3f, 2.2f - el * 0.008f); EShot(f.X - 14f, f.Y, AimAng(f.X, f.Y), BSp, 0); } }
 			else if (f.Kind == 2) { f.X += f.Vx * dt; f.Y += (f.Y0 > f.Y ? 1f : -1f) * 70f * dt * (f.Y < 90f || f.Y > 510f ? 1.6f : 0.6f); f.Fire -= dt; if (f.Fire <= 0f && f.X < 380f && f.X > 80f) { f.Fire = 2.0f; float a = AimAng(f.X, f.Y); for (int k = -1; k <= 1; k++) EShot(f.X - 10f, f.Y, a + k * 0.32f, BSp * 0.9f, 2); } }
-			else { f.X += f.Vx * dt * (f.X > 330f ? 1f : 0.2f); f.Fire -= dt; if (f.Fire <= 0f && f.X < 410f) { f.Fire = 2.8f; for (int k = 0; k < 8; k++) EShot(f.X, f.Y, k * 0.7854f + f.T, BSp * 0.58f, 1); } }
+			else { f.X += f.Vx * dt * (f.X > LW - 70f ? 1f : 0.2f); f.Fire -= dt; if (f.Fire <= 0f && f.X < LW + 10f) { f.Fire = 2.8f; for (int k = 0; k < 8; k++) EShot(f.X, f.Y, k * 0.7854f + f.T, BSp * 0.58f, 1); } }
 			if (f.X < -50f || f.Y < -50f || f.Y > 650f) { fos.RemoveAt(i); continue; }
 			// 몸통 충돌
 			float bhw, bhh; FoeBox(f, out bhw, out bhh); float ddx = (f.X - px) / (bhw * 0.72f + 3f), ddy = (f.Y - py) / (bhh * 0.72f + 3f); if (inv <= 0f && ddx * ddx + ddy * ddy < 1f) HitPlayer();
@@ -760,7 +761,7 @@ internal sealed class FlapGame : MiniGame
 		// 내 미사일 이동·피격
 		for (int i = bls.Count - 1; i >= 0; i--)
 		{
-			Bl b = bls[i]; b.X += b.Vx * dt; b.Y += b.Vy * dt; if (b.X > 430f || b.Y < -10f || b.Y > 610f) { bls.RemoveAt(i); continue; }
+			Bl b = bls[i]; b.X += b.Vx * dt; b.Y += b.Vy * dt; if (b.X > LW + 30f || b.Y < -10f || b.Y > 610f) { bls.RemoveAt(i); continue; }
 			bool gone = false; foreach (Fo f in fos) { float fhw, fhh; FoeBox(f, out fhw, out fhh); float dx = (f.X - b.X) / (fhw + 4f), dy = (f.Y - b.Y) / (fhh + 3f); if (dx * dx + dy * dy < 1f) { Dmg(f, b.Dmg); Spark(b.X, b.Y, Color.FromArgb(180, 240, 255), 90f); gone = true; break; } }
 			if (gone) bls.RemoveAt(i);
 		}
@@ -768,7 +769,7 @@ internal sealed class FlapGame : MiniGame
 		// 적 탄환
 		for (int i = ebs.Count - 1; i >= 0; i--)
 		{
-			Eb e = ebs[i]; e.X += e.Vx * dt; e.Y += e.Vy * dt; if (e.X < -20f || e.X > 420f || e.Y < -20f || e.Y > 620f) { ebs.RemoveAt(i); continue; }
+			Eb e = ebs[i]; e.X += e.Vx * dt; e.Y += e.Vy * dt; if (e.X < -20f || e.X > LW + 20f || e.Y < -20f || e.Y > 620f) { ebs.RemoveAt(i); continue; }
 			float rr = EbR(e.Kind) * 0.85f + 2.5f; float dx = e.X - px, dy = e.Y - py; if (inv <= 0f && dx * dx + dy * dy < rr * rr) { HitPlayer(); break; }
 		}
 		// 아이템
@@ -845,7 +846,7 @@ internal sealed class FlapGame : MiniGame
 	}
 	private void BossAi(Fo f, float dt)
 	{
-		if (f.X > 300f) { f.X += f.Vx * dt; return; }
+		if (f.X > LW - 100f) { f.X += f.Vx * dt; return; }
 		f.Y = 300f + (float)Math.Sin(f.T * 0.9f) * 190f; float frac = f.Hp / f.MaxHp; f.Phase = frac > 0.66f ? 0 : (frac > 0.33f ? 1 : 2);
 		f.Fire -= dt; float sp = BSp;
 		if (f.Phase == 0 && f.Fire <= 0f) { f.Fire = 1.6f; float a = AimAng(f.X, f.Y); for (int k = -2; k <= 2; k++) EShot(f.X - 30f, f.Y, a + k * 0.2f, sp, 0); }
@@ -938,12 +939,12 @@ internal sealed class FlapGame : MiniGame
 			// 하늘이 옆으로 천천히 흘러가요 (한 장을 번갈아 뒤집어 이어 붙여서 이음새가 안 보여요)
 			float bsc = ImgCache.Scale(g); System.Drawing.Image sim = ImgCache.Get(skyB, W * bsc, H * bsc); float off = (scrollX * 0.35f) % (W * 2f);
 			InterpolationMode m0 = g.InterpolationMode; PixelOffsetMode po0 = g.PixelOffsetMode; g.InterpolationMode = InterpolationMode.Bilinear; g.PixelOffsetMode = PixelOffsetMode.Half;
-			using (SolidBrush sb0 = new SolidBrush(Color.FromArgb(92, 156, 222))) g.FillRectangle(sb0, 0, 0, W, H);   // 이음새가 비치지 않게 바탕을 먼저 채워요
-			for (int k = 0; k < 3; k++) { float x0 = k * W - off; if (x0 > W || x0 + W < 0) continue; if (k % 2 == 0) g.DrawImage(sim, new RectangleF(x0 - 1f, 0, W + 2f, H), new RectangleF(4, 0, sim.Width - 8, sim.Height), GraphicsUnit.Pixel); else { if (skyFlip == null || skyFlipSrc != sim) { if (skyFlip != null) skyFlip.Dispose(); skyFlip = new Bitmap(sim); skyFlip.RotateFlip(RotateFlipType.RotateNoneFlipX); skyFlipSrc = sim; } g.DrawImage(skyFlip, new RectangleF(x0 - 1f, 0, W + 2f, H), new RectangleF(4, 0, skyFlip.Width - 8, skyFlip.Height), GraphicsUnit.Pixel); } }
+			using (SolidBrush sb0 = new SolidBrush(Color.FromArgb(92, 156, 222))) g.FillRectangle(sb0, 0, 0, LW, H);   // 이음새가 비치지 않게 바탕을 먼저 채워요
+			for (int k = 0; k < 5; k++) { float x0 = k * W - off; if (x0 > LW || x0 + W < 0) continue; if (k % 2 == 0) g.DrawImage(sim, new RectangleF(x0 - 2f, 0, W + 4f, H), new RectangleF(4, 0, sim.Width - 8, sim.Height), GraphicsUnit.Pixel); else { if (skyFlip == null || skyFlipSrc != sim) { if (skyFlip != null) skyFlip.Dispose(); skyFlip = new Bitmap(sim); skyFlip.RotateFlip(RotateFlipType.RotateNoneFlipX); skyFlipSrc = sim; } g.DrawImage(skyFlip, new RectangleF(x0 - 2f, 0, W + 4f, H), new RectangleF(4, 0, skyFlip.Width - 8, skyFlip.Height), GraphicsUnit.Pixel); } }
 			g.InterpolationMode = m0; g.PixelOffsetMode = po0;
 		}
-		if (sky) using (SolidBrush dim = new SolidBrush(Color.FromArgb(40, 10, 20, 60))) g.FillRectangle(dim, 0, 0, W, H);   // 탄환이 잘 보이게 살짝 어둡게
-		if (!sky) for (int i = 0; i < 40; i++) { float sx = ((i * 97f) % 420f) - (scrollX * (0.2f + (i % 3) * 0.2f)) % 420f; if (sx < -5f) sx += 420f; float sy = (i * 53f) % 600f; using (SolidBrush b = new SolidBrush(Color.FromArgb(70 + (i % 3) * 40, 255, 255, 255))) g.FillEllipse(b, sx, sy, 1.5f + i % 3, 1.5f + i % 3); }
+		if (sky) using (SolidBrush dim = new SolidBrush(Color.FromArgb(40, 10, 20, 60))) g.FillRectangle(dim, 0, 0, LW, H);   // 탄환이 잘 보이게 살짝 어둡게
+		if (!sky) for (int i = 0; i < 40; i++) { float sx = ((i * 97f) % (LW + 20f)) - (scrollX * (0.2f + (i % 3) * 0.2f)) % (LW + 20f); if (sx < -5f) sx += (LW + 20f); float sy = (i * 53f) % 600f; using (SolidBrush b = new SolidBrush(Color.FromArgb(70 + (i % 3) * 40, 255, 255, 255))) g.FillEllipse(b, sx, sy, 1.5f + i % 3, 1.5f + i % 3); }
 		for (int i = 0; i < 5; i++) { float cx = (i * 160f - scrollX * 0.6f) % 640f; if (cx < -120f) cx += 640f; float cy = 100f + i * 105f; using (SolidBrush b = new SolidBrush(Color.FromArgb(26, 220, 220, 255))) { g.FillEllipse(b, cx - 50, cy, 110, 28); g.FillEllipse(b, cx - 20, cy - 12, 70, 30); } }
 		foreach (It it in its) { if (Spr.Get("ms_fl_i" + it.K) != null) { float bob2 = (float)Math.Sin(it.Age * 5f) * 3f; Bitmap ib = Spr.Get("ms_fl_i" + it.K); float iw = it.K == 4 ? 26f : 36f; Spr.Draw(g, "ms_fl_i" + it.K, it.X, it.Y + bob2, iw, iw * ib.Height / ib.Width, 0f); continue; } Color ic = it.K == 0 ? Color.FromArgb(70, 140, 255) : (it.K == 1 ? Color.FromArgb(70, 200, 120) : (it.K == 2 ? Color.FromArgb(40, 190, 200) : (it.K == 3 ? Color.FromArgb(150, 90, 230) : Color.FromArgb(235, 190, 60)))); float bob = (float)Math.Sin(it.Age * 5f) * 3f; using (GraphicsPath gp = Gfx.Round(new RectangleF(it.X - 12, it.Y - 12 + bob, 24, 24), 7)) { using (SolidBrush b = new SolidBrush(ic)) g.FillPath(b, gp); using (Pen p = new Pen(Color.White, 2f)) g.DrawPath(p, gp); } Txt(g, it.K == 0 ? "P" : (it.K == 1 ? "A" : (it.K == 2 ? "S" : (it.K == 3 ? "B" : "★"))), 10f, 2, Color.White, it.X - 14, it.Y - 11 + bob, 28, 22, StringAlignment.Center); }
 		foreach (Fo f in fos) Foe(g, f, t);
@@ -967,13 +968,13 @@ internal sealed class FlapGame : MiniGame
 		if (bombT <= 0.82f && bombT > 0.5f && Spr.Get("ms_fl_boom") != null) { float u = 1f - (bombT - 0.5f) / 0.32f; DrawFixed(g, "ms_fl_boom", 230f, 300f, (150f + u * 170f) * 1.3f, 150f + u * 170f, 420f); }
 		else if (bombT <= 0.82f && bombT > 0.5f) { float u = 1f - (bombT - 0.5f) / 0.32f; using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(220 * (1f - u)), 255, 230, 140))) g.FillEllipse(b, 230 - 60 - u * 200, 300 - 60 - u * 200, 120 + u * 400, 120 + u * 400); }   // 펑!
 		if (bombT > 0.5f) { float u = 1f - (bombT - 0.5f) / 0.6f; using (Pen p = new Pen(Color.FromArgb((int)(200 * (1f - u)), 170, 235, 255), 10f * (1f - u) + 2f)) g.DrawEllipse(p, px - u * 520f, py - u * 520f, u * 1040f, u * 1040f); }
-		if (flash > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(150 * Math.Min(1f, flash)), 255, 255, 255))) g.FillRectangle(b, 0, 0, W, H);
+		if (flash > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(150 * Math.Min(1f, flash)), 255, 255, 255))) g.FillRectangle(b, 0, 0, LW, H);
 		// HUD
 		for (int i = 0; i < lives; i++) Heart(g, 24f + i * 26f, 54f, 9f, Color.FromArgb(255, 90, 120));
-		for (int i = 0; i < bombs; i++) BombIcon(g, W - 24f - i * 24f, 84f, 18f, 0f, t);
+		for (int i = 0; i < bombs; i++) BombIcon(g, LW - 24f - i * 24f, 84f, 18f, 0f, t);
 		Txt(g, "미사일 Lv." + power + "   애드온 " + opts + "/2   속도 " + (spd + 1) + "   필살기 " + bombs, 9.5f, 2, Color.FromArgb(230, 255, 255, 255), 10, 574, 380, 20, StringAlignment.Near);
 		foreach (Fo f in fos) if (f.Boss) { using (GraphicsPath gp = Gfx.Round(new RectangleF(60, 74, 280, 10), 5)) using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 10, 10, 30))) g.FillPath(b, gp); float fr = Math.Max(0.02f, f.Hp / f.MaxHp); using (GraphicsPath gp = Gfx.Round(new RectangleF(60, 74, 280f * fr, 10), 5)) using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 120, 255))) g.FillPath(b, gp); }
-		if (msgT > 0f) Txt(g, msg, 17f, 2, Color.FromArgb((int)(255 * Math.Min(1f, msgT)), 255, 236, 130), 0, 120, W, 30, StringAlignment.Center);
+		if (msgT > 0f) Txt(g, msg, 17f, 2, Color.FromArgb((int)(255 * Math.Min(1f, msgT)), 255, 236, 130), 0, 120, LW, 30, StringAlignment.Center);
 		if (el < 4f) Hint(g, "마우스로 움직이고 · 클릭=필살기", 520 + 15.0, 13f, false, 1f);
 	}
 }

@@ -34,7 +34,8 @@ internal abstract class MiniGame
 	public virtual void Swipe(float dx, float dy) { }   // 마우스로 끌었다 놓았을 때 (2048 등)
 	public virtual string RightText { get { return ""; } }
 	public virtual bool NoLimit { get { return false; } }   // true면 60초 제한 없이 끝날 때까지 (2048·수박처럼 시간이 필요 없는 게임)
-	public virtual string Costume { get { return null; } }   // 이 게임에서 입는 마룡이 옷 (outfits 파일 이름)
+	public virtual string Costume { get { return null; } }
+	public virtual int LW { get { return W; } }   // 이 게임의 가로 칸 수 (기본 400, 가로로 긴 게임은 더 크게)   // 이 게임에서 입는 마룡이 옷 (outfits 파일 이름)
 	public virtual void Icon(Graphics g, float cx, float cy) { }
 
 	// 안내 문구: 어떤 배경 위에서도 읽히는 둥근 반투명 알약 (게임 안 모든 안내를 같은 모양으로)
@@ -1351,7 +1352,7 @@ internal sealed class MaryongGame : Form
 		tb = new TextBox(); tb.BorderStyle = BorderStyle.FixedSingle; tb.Font = Fonts.Native(14f); tb.Visible = false;
 		tb.SetBounds(gx + (int)(20 * S), gy + (int)(516 * S), (int)(360 * S), (int)(34 * S)); Controls.Add(tb);
 		MouseMove += delegate(object o, MouseEventArgs e) { float nx = (e.X - gx) / S, ny = (e.Y - gy) / S; if (Math.Abs(nx - inp.Mx) + Math.Abs(ny - inp.My) > 0.5f) inp.MouseMoved = true; inp.Mx = nx; inp.My = ny; };
-		MouseDown += delegate(object o, MouseEventArgs e) { if ((e.X - gx) / S > MiniGame.W - 46 && (e.Y - gy) / S > 34 && (e.Y - gy) / S < 66) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; } mouseHeld = true; dnX = (e.X - gx) / S; dnY = (e.Y - gy) / S; inp.Mx = dnX; inp.My = dnY; OnTap((e.X - gx) / S, (e.Y - gy) / S); };
+		MouseDown += delegate(object o, MouseEventArgs e) { if ((e.X - gx) / S > CW - 46 && (e.Y - gy) / S > 34 && (e.Y - gy) / S < 66) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; } mouseHeld = true; dnX = (e.X - gx) / S; dnY = (e.Y - gy) / S; inp.Mx = dnX; inp.My = dnY; OnTap((e.X - gx) / S, (e.Y - gy) / S); };
 		MouseUp += delegate(object o, MouseEventArgs e) { mouseHeld = false; if (state == 2 && g != null) { float ddx = (e.X - gx) / S - dnX, ddy = (e.Y - gy) / S - dnY; if (Math.Abs(ddx) + Math.Abs(ddy) > 24f) g.Swipe(ddx, ddy); } };
 		Deactivate += delegate { mouseHeld = false; if (state == 2 && finT <= 0f) paused = true; };
 		KeyDown += delegate(object o, KeyEventArgs e)
@@ -1496,7 +1497,7 @@ internal sealed class MaryongGame : Form
 	// 오른쪽 위 스피커 버튼 (눌러서 소리 켜기/끄기 · M 키)
 	private void DrawSpeaker(Graphics gr)
 	{
-		bool on = Sfx.GameOn && Program.SoundOn; float x = MiniGame.W - 34, y = 40;
+		bool on = Sfx.GameOn && Program.SoundOn; float x = CW - 34, y = 40;
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(x - 8, y - 5, 30, 26), 8)) using (SolidBrush b = new SolidBrush(Color.FromArgb(on ? 70 : 40, 255, 255, 255))) gr.FillPath(b, gp);
 		using (SolidBrush b = new SolidBrush(Color.FromArgb(on ? 235 : 140, 255, 255, 255))) { gr.FillPolygon(b, new PointF[] { new PointF(x, y + 5), new PointF(x + 5, y + 5), new PointF(x + 11, y), new PointF(x + 11, y + 16), new PointF(x + 5, y + 11), new PointF(x, y + 11) }); }
 		using (Pen p = new Pen(Color.FromArgb(on ? 235 : 140, 255, 255, 255), 1.6f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
@@ -1601,7 +1602,9 @@ internal sealed class MaryongGame : Form
 	// ── 창 크기 · 가로 모드 ──
 	// 창을 늘리고 줄이면 게임 화면이 비율 그대로 맞춰져요. 창이 가로로 넓으면 게임은 왼쪽에, 오른쪽엔 설명·기록 패널이 나와요 (F2 = 세로/가로 전환)
 	private int gx, gy; private bool wide; private Bitmap sideBmp; private string sideSig = "";
-	private int GW { get { return (int)Math.Round(MiniGame.W * S); } }
+	private int CW { get { return (state == 2 && g != null) ? g.LW : MiniGame.W; } }   // 지금 화면의 가로 칸 수
+	private int lastCW = MiniGame.W; private bool autoWide;
+	private int GW { get { return (int)Math.Round(CW * S); } }
 	private int GH { get { return (int)Math.Round(MiniGame.H * S); } }
 	private static string LayoutPath { get { return Path.Combine(Program.DataDir, "arcade_layout.txt"); } }
 	private void LoadLayout()
@@ -1617,9 +1620,9 @@ internal sealed class MaryongGame : Form
 	private void Relayout()
 	{
 		int cw = ClientSize.Width, ch = ClientSize.Height; if (cw <= 0 || ch <= 0) return;
-		wide = cw > ch * 0.95f;
-		if (wide) { S = Math.Max(0.35f, Math.Min(ch / (float)MiniGame.H, (cw - 220f) / MiniGame.W)); gx = 0; gy = (int)((ch - MiniGame.H * S) / 2f); }
-		else { S = Math.Max(0.35f, Math.Min(cw / (float)MiniGame.W, ch / (float)MiniGame.H)); gx = (int)((cw - MiniGame.W * S) / 2f); gy = (int)((ch - MiniGame.H * S) / 2f); }
+		int vw = CW; wide = vw == MiniGame.W ? cw > ch * 0.95f : cw > ch * (vw / (float)MiniGame.H) + 240f;
+		if (wide) { S = Math.Max(0.35f, Math.Min(ch / (float)MiniGame.H, (cw - 220f) / vw)); gx = 0; gy = (int)((ch - MiniGame.H * S) / 2f); }
+		else { S = Math.Max(0.35f, Math.Min(cw / (float)vw, ch / (float)MiniGame.H)); gx = (int)((cw - vw * S) / 2f); gy = (int)((ch - MiniGame.H * S) / 2f); }
 		try { if (tb != null) tb.SetBounds(gx + (int)(20 * S), gy + (int)((g != null ? g.InputY : 516f) * S), (int)(360 * S), (int)(34 * S)); } catch { }
 		sideSig = ""; ql = 0; qSum = 0; qN = 0; qBad = 0; Invalidate();
 	}
@@ -1686,6 +1689,7 @@ internal sealed class MaryongGame : Form
 	protected override void OnPaint(PaintEventArgs e)
 	{
 		long t0 = Stopwatch.GetTimestamp();
+		{ int cwN = CW; if (cwN != lastCW) { bool grow = cwN > lastCW; lastCW = cwN; try { Rectangle wa = Screen.FromControl(this).WorkingArea; if (grow && !wide && WindowState == FormWindowState.Normal) { int nw = (int)(cwN * S), nh = (int)(MiniGame.H * S); if (nw > wa.Width - 20) { float k = (wa.Width - 20f) / nw; nw = (int)(nw * k); nh = (int)(nh * k); } ClientSize = new Size(nw, nh); if (Right > wa.Right) Left = Math.Max(wa.Left, wa.Right - Width); autoWide = true; } else if (!grow && autoWide && WindowState == FormWindowState.Normal) { ClientSize = new Size((int)(MiniGame.W * S), (int)(MiniGame.H * S)); autoWide = false; } } catch { } Relayout(); } }
 		try { PaintAround(e.Graphics); } catch (Exception ex) { Program.LogErr(ex); }
 		// 화면 배율이 큰 PC(고해상도)에서는 그림 그릴 픽셀이 너무 많아 느려져요 → 1.25배까지만 직접 그리고, 그 이상이면 작게 그려서 늘려 보여요
 		float rs = Math.Min(S, ql == 0 ? (state == 2 ? 1.5f : 2.0f) : (ql == 1 ? 1.25f : (ql == 2 ? 1.0f : (ql == 3 ? 0.8f : 0.65f))));   // 메뉴·설명·결과 화면은 글씨가 또렷하도록 최대 2배까지 직접 그려요
@@ -1694,7 +1698,7 @@ internal sealed class MaryongGame : Form
 		{
 			try
 			{
-				int ow = (int)Math.Ceiling(MiniGame.W * rs), oh = (int)Math.Ceiling(MiniGame.H * rs);
+				int ow = (int)Math.Ceiling(CW * rs), oh = (int)Math.Ceiling(MiniGame.H * rs);
 				if (dib == null || dib.W != ow || dib.H != oh) { if (dib != null) dib.Dispose(); dib = new GdiBuf(ow, oh); dib.Bmp.SetResolution(96f * rs, 96f * rs); }
 				using (Graphics og = Graphics.FromImage(dib.Bmp)) { MiniGame.PS = rs; paintScale = rs; try { OnPaintInner(og); DrawSpeaker(og); } catch (Exception ex) { Program.LogErr(ex); } }
 				MiniGame.PS = 0; long tm1 = Stopwatch.GetTimestamp(); tInner = (tm1 - tq) * 1000.0 / Stopwatch.Frequency;
@@ -1710,7 +1714,7 @@ internal sealed class MaryongGame : Form
 		{
 			if (S > rs + 0.01f && ClientSize.Width > 0 && ClientSize.Height > 0)
 			{
-				int ow = (int)Math.Ceiling(MiniGame.W * rs), oh = (int)Math.Ceiling(MiniGame.H * rs);
+				int ow = (int)Math.Ceiling(CW * rs), oh = (int)Math.Ceiling(MiniGame.H * rs);
 				if (offBmp == null || offBmp.Width != ow || offBmp.Height != oh) { if (offBmp != null) offBmp.Dispose(); offBmp = new Bitmap(ow, oh, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); offBmp.SetResolution(96f * rs, 96f * rs); }
 				using (Graphics og = Graphics.FromImage(offBmp)) { MiniGame.PS = rs; paintScale = rs; try { OnPaintInner(og); DrawSpeaker(og); } catch (Exception ex) { Program.LogErr(ex); } }
 				MiniGame.PS = 0; Graphics eg = e.Graphics; eg.InterpolationMode = InterpolationMode.Bilinear; eg.PixelOffsetMode = PixelOffsetMode.Half; eg.CompositingMode = CompositingMode.SourceCopy;
@@ -1808,16 +1812,16 @@ internal sealed class MaryongGame : Form
 			MiniGame.Txt(gr, "점수 " + (state == 2 ? (int)Math.Round(Math.Abs(dispScore - g.Score) < 0.6f ? g.Score : dispScore) : g.Score), 16f + 5f * Math.Max(0f, hudBump), 2, hudBump > 0 ? Color.FromArgb(255, 226, 120) : Color.White, 14, 8, 180, 30, StringAlignment.Near);
 		if (state == 2) foreach (float[] fp in floats) { float a = 1f - fp[0] / 0.9f; MiniGame.Txt(gr, (fp[1] > 0 ? "+" : "") + (int)fp[1], 13f, 2, fp[1] > 0 ? Color.FromArgb((int)(255 * a), 255, 226, 120) : Color.FromArgb((int)(255 * a), 255, 130, 140), 112, 30 - fp[0] * 26f, 80, 22, StringAlignment.Near); }
 		string rt = g.RightText;
-		if (state == 2 && introT <= 0f && !g.NoLimit) { float fr0 = Math.Max(0f, 1f - g.PlayT / 60f); using (SolidBrush tb2 = new SolidBrush(Color.FromArgb(70, 0, 0, 0))) gr.FillRectangle(tb2, 0, 0, MiniGame.W, 4); using (SolidBrush tb2 = new SolidBrush(fr0 > 0.2f ? Color.FromArgb(200, 120, 230, 200) : Color.FromArgb(230, 255, 130, 120))) gr.FillRectangle(tb2, 0, 0, MiniGame.W * fr0, 4); }
-		if (state == 2 && rt.Length > 0) MiniGame.Txt(gr, rt, 14f, 2, Color.White, MiniGame.W - 190, 8, 176, 30, StringAlignment.Far);
-			if (state == 2 && introT > 0) 			{ 				float ph = (introT * 1000f) % 650f / 650f; float sc = 1f + 0.9f * ph; string s = introNum > 0 ? introNum.ToString() : "시작!"; int a = introNum > 0 ? (int)(255 * (1f - ph * 0.6f)) : 255; 				using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 8, 10, 30))) gr.FillRectangle(b, 0, 190, MiniGame.W, 150); 				MiniGame.Txt(gr, s, 54f * sc / 1.5f, 2, introNum > 0 ? Color.FromArgb(a, 255, 255, 255) : Color.FromArgb(255, 255, 214, 90), 0, 214, MiniGame.W, 100, StringAlignment.Center); 				MiniGame.Txt(gr, g.Name, 13f, 1, Color.FromArgb(220, 255, 255, 255), 0, 302, MiniGame.W, 24, StringAlignment.Center); 			} 			if (state == 2 && finT > 0) 			{ 				float u = Math.Min(1f, (1.25f - finT) / 0.22f); float sc = 2.2f - 1.2f * (1f - (1f - u) * (1f - u)); 				using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 8, 10, 30))) gr.FillRectangle(b, 0, 230, MiniGame.W, 110); 				MiniGame.Txt(gr, "끝!", 40f * sc / 1.5f, 2, Color.FromArgb(255, 255, 214, 90), 0, 244, MiniGame.W, 80, StringAlignment.Center); 			}
+		if (state == 2 && introT <= 0f && !g.NoLimit) { float fr0 = Math.Max(0f, 1f - g.PlayT / 60f); using (SolidBrush tb2 = new SolidBrush(Color.FromArgb(70, 0, 0, 0))) gr.FillRectangle(tb2, 0, 0, CW, 4); using (SolidBrush tb2 = new SolidBrush(fr0 > 0.2f ? Color.FromArgb(200, 120, 230, 200) : Color.FromArgb(230, 255, 130, 120))) gr.FillRectangle(tb2, 0, 0, CW * fr0, 4); }
+		if (state == 2 && rt.Length > 0) MiniGame.Txt(gr, rt, 14f, 2, Color.White, CW - 190, 8, 176, 30, StringAlignment.Far);
+			if (state == 2 && introT > 0) 			{ 				float ph = (introT * 1000f) % 650f / 650f; float sc = 1f + 0.9f * ph; string s = introNum > 0 ? introNum.ToString() : "시작!"; int a = introNum > 0 ? (int)(255 * (1f - ph * 0.6f)) : 255; 				using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 8, 10, 30))) gr.FillRectangle(b, 0, 190, CW, 150); 				MiniGame.Txt(gr, s, 54f * sc / 1.5f, 2, introNum > 0 ? Color.FromArgb(a, 255, 255, 255) : Color.FromArgb(255, 255, 214, 90), 0, 214, MiniGame.W, 100, StringAlignment.Center); 				MiniGame.Txt(gr, g.Name, 13f, 1, Color.FromArgb(220, 255, 255, 255), 0, 302, MiniGame.W, 24, StringAlignment.Center); 			} 			if (state == 2 && finT > 0) 			{ 				float u = Math.Min(1f, (1.25f - finT) / 0.22f); float sc = 2.2f - 1.2f * (1f - (1f - u) * (1f - u)); 				using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 8, 10, 30))) gr.FillRectangle(b, 0, 230, MiniGame.W, 110); 				MiniGame.Txt(gr, "끝!", 40f * sc / 1.5f, 2, Color.FromArgb(255, 255, 214, 90), 0, 244, MiniGame.W, 80, StringAlignment.Center); 			}
 		if (state == 2 && paused)
 		{
-			using (SolidBrush b = new SolidBrush(Color.FromArgb(170, 8, 10, 30))) gr.FillRectangle(b, 0, 0, MiniGame.W, MiniGame.H);
-			Card(gr, new RectangleF(50f, 200f, MiniGame.W - 100f, 132f));
-			MiniGame.Txt(gr, "일시정지", 24f, 2, Color.White, 0, 214f, MiniGame.W, 44, StringAlignment.Center);
-			using (Pen dp = new Pen(Color.FromArgb(120, 255, 205, 80), 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) gr.DrawLine(dp, MiniGame.W / 2f - 22f, 262f, MiniGame.W / 2f + 22f, 262f);
-			MiniGame.Txt(gr, "화면을 누르거나 아무 키나 누르면 계속해요", 11f, 1, Color.FromArgb(255, 255, 222, 120), 56f, 274f, MiniGame.W - 112f, 40f, StringAlignment.Center, true);
+			using (SolidBrush b = new SolidBrush(Color.FromArgb(170, 8, 10, 30))) gr.FillRectangle(b, 0, 0, CW, MiniGame.H);
+			Card(gr, new RectangleF(50f, 200f, CW - 100f, 132f));
+			MiniGame.Txt(gr, "일시정지", 24f, 2, Color.White, 0, 214f, CW, 44, StringAlignment.Center);
+			using (Pen dp = new Pen(Color.FromArgb(120, 255, 205, 80), 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) gr.DrawLine(dp, CW / 2f - 22f, 262f, CW / 2f + 22f, 262f);
+			MiniGame.Txt(gr, "화면을 누르거나 아무 키나 누르면 계속해요", 11f, 1, Color.FromArgb(255, 255, 222, 120), 56f, 274f, CW - 112f, 40f, StringAlignment.Center, true);
 		}
 		if (state == 1 || state == 3 || state == 4)
 		{

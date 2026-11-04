@@ -1,0 +1,35 @@
+import com.seoultycoon.st2.*;
+import java.awt.*; import java.awt.image.*; import java.io.*; import java.nio.file.*; import javax.imageio.ImageIO;
+
+/** JVM 에서 ST2 부팅 테스트: java JvmRun <client.bin> <resdir> <outdir> <font.ttf> [rounds] [keys round:type:key,...] */
+public class JvmRun {
+    public static void main(String[] a) throws Exception {
+        final Path res = Paths.get(a[1]), out = Paths.get(a[2]); Files.createDirectories(out.resolve("save"));
+        final Font font = Font.createFont(Font.TRUETYPE_FONT, new File(a[3])).deriveFont(11f);
+        Platform pf = new Platform() {
+            public byte[] resource(String n) { try { return Files.readAllBytes(res.resolve(n)); } catch (IOException e) { return null; } }
+            public int[] decodePng(byte[] d, int[] o) { try { BufferedImage im = ImageIO.read(new ByteArrayInputStream(d)); if (im == null) return null; o[0] = im.getWidth(); o[1] = im.getHeight(); return im.getRGB(0, 0, o[0], o[1], null, 0, o[0]); } catch (Exception e) { return null; } }
+            public byte[] renderText(String s, int[] dims) {
+                BufferedImage m = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB); Graphics2D g = m.createGraphics(); g.setFont(font); FontMetrics fm = g.getFontMetrics(); int w = fm.stringWidth(s) + 1, h = 14; g.dispose();
+                BufferedImage im = new BufferedImage(Math.max(w, 1), h, BufferedImage.TYPE_INT_ARGB); g = im.createGraphics(); g.setFont(font); g.setColor(Color.WHITE); g.drawString(s, 0, 11); g.dispose();
+                byte[] r = new byte[w * h]; for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) r[y * w + x] = (byte) (im.getRGB(x, y) >>> 24 >= 128 ? 255 : 0); dims[0] = w; dims[1] = h; return r; }
+            public byte[] readFile(String n) { try { return Files.readAllBytes(out.resolve("save").resolve(n)); } catch (IOException e) { return null; } }
+            public void writeFile(String n, byte[] d) { try { Files.write(out.resolve("save").resolve(n), d); } catch (IOException e) {} }
+            public boolean fileExists(String n) { return Files.exists(out.resolve("save").resolve(n)); }
+            public void log(String s) { System.out.println(s); }
+        };
+        Host H = new Host(pf, Files.readAllBytes(Paths.get(a[0])));
+        if (System.getenv("VERBOSE") != null) { H.setVerbose(true); H.trace = new java.io.PrintStream(new java.io.FileOutputStream("/tmp/jtrace.txt")); }
+        H.boot(); try { H.startApp(); } catch (Exception e) { for (String x : H.recent) System.out.println(x); throw e; }
+        int rounds = a.length > 4 ? Integer.parseInt(a[4]) : 100;
+        java.util.Map<Integer, int[]> keys = new java.util.HashMap<>();
+        if (a.length > 5 && !a[5].isEmpty()) for (String k : a[5].split(",")) { String[] p = k.split(":"); keys.put(Integer.parseInt(p[0]), new int[]{Integer.parseInt(p[1]), Integer.parseInt(p[2])}); }
+        for (int r = 1; r <= rounds; r++) {
+            if (keys.containsKey(r)) H.postKey(keys.get(r)[0], keys.get(r)[1]);
+            H.tick(50);
+            if (r % Math.max(1, rounds / 10) == 0 || keys.containsKey(r - 3)) {
+                BufferedImage im = new BufferedImage(240, 320, BufferedImage.TYPE_INT_ARGB); im.setRGB(0, 0, 240, 296, H.screen.px, 0, H.screen.w); ImageIO.write(im, "png", out.resolve("f" + r + ".png").toFile()); }
+        }
+        System.out.println("done");
+    }
+}

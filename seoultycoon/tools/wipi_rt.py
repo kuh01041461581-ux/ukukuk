@@ -198,6 +198,9 @@ def esz_of_class(C):
 def jb_throw(e, a, s):
     if a[0] < 0x100:                                         # (atype*4, length, 콜백) = 기본형 배열 생성
         C = e.u32(primtab + a[0]); return new_array(C, a[1], PRIM[a[0] >> 2][1])
+    if a[2] == BASE + 0x7bded:                               # (클래스포인터, 길이, 콜백) = 참조형 배열 생성
+        nm = e.cstr(e.u32(e.u32(a[0] + 8)), 100).decode('latin1')
+        return new_array(classfor('[' + (nm if nm.startswith('[') else 'L' + nm + ';')), a[1], 4)
     if a[2] == BASE + 0x7be75:                               # (클래스참조, 길이, 콜백) = 참조형 배열 생성
         w = e.u32(a[0]); nm = strtab(w >> 1).decode('latin1') if (w & 1) else e.cstr(e.u32(e.u32(w + 8)), 100).decode('latin1')
         an = '[' + (nm if nm.startswith('[') else 'L' + nm + ';')
@@ -208,6 +211,26 @@ def jb_throw(e, a, s):
 e.threw = False
 e.impl['WIPI_JBInterface[1]'] = jb_resolve
 e.impl['WIPI_JBInterface[2]'] = jb_throw
+def jb_aastore(e, a, s):
+    arr, idx, val = a[0], a[1], a[2]
+    if a[3] == BASE + 0x7bf5d:                                 # multianewarray(arrayClass, ndims, dimsPtr)
+        C, nd, dp = a[0], a[1], a[2]; dims = [e.u32(dp + 4 * i) for i in range(nd)]
+        def mk(C, dims):
+            nm = e.cstr(e.u32(e.u32(C + 8)), 100).decode('latin1'); n = dims[0]
+            if len(dims) == 1: return new_array(C, n, esz_of_class(C))
+            arr = new_array(C, n, 4); body = AR[arr][0]; sub = classfor(nm[1:])
+            for i in range(n): e.w32(body + 8 + 4 * i, mk(sub, dims[1:]))
+            return arr
+        return mk(C, dims)
+    if a[3] == BASE + 0x7cbb1 and arr:
+        body, n, esz = arr_info(arr)
+        if 0 <= idx < n: e.w32(body + 8 + 4 * idx, val); return 0
+        print('  aastore OOB', idx, n)
+    else: print('  !!! JB[3] (OOM?)', [hex(x) for x in a])
+    return 0
+e.impl['WIPI_JBInterface[3]'] = jb_aastore
+e.impl['WIPI_JBInterface[8]'] = lambda e, a, s: 0     # monitorenter
+e.impl['WIPI_JBInterface[9]'] = lambda e, a, s: 0     # monitorexit
 e.impl['WIPI_JBInterface[6]'] = lambda e, a, s: new_array(a[0], a[1], esz_of_class(a[0]))
 def nested_call(code, args):
     """훅 안에서 이미지 코드를 중첩 실행(레지스터 컨텍스트 보존)"""
@@ -457,10 +480,14 @@ def _(this): ST[this] = time.time()
 def _(this, d): ST[this] = time.localtime(ST[d])
 
 SAVE = os.path.join(OUT, 'save'); os.makedirs(SAVE, exist_ok=True)
+import shutil
+if os.path.exists(os.path.join(RES, 'data1.pak')) and not os.path.exists(os.path.join(SAVE, 'data1.pak')): shutil.copy(os.path.join(RES, 'data1.pak'), os.path.join(SAVE, 'data1.pak'))
 @impl_s('org/kwis/msp/io/FileSystem', '(Ljava/lang/String;)Z+exists')
-def _(name): return 1 if os.path.exists(os.path.join(SAVE, pystr(name).strip('/'))) else 0
+def _(name):
+    ok = os.path.exists(os.path.join(SAVE, pystr(name).strip('/'))); print('  FileSystem.exists', repr(pystr(name)), ok); return 1 if ok else 0
 @impl('org/kwis/msp/io/File', '(Ljava/lang/String;I)V+<init>')
 def _(this, name, mode):
+    print('  File.open', repr(pystr(name)), mode)
     p = os.path.join(SAVE, pystr(name).strip('/')); ST[this] = {'p': p, 'mode': mode, 'pos': 0, 'buf': bytearray(open(p, 'rb').read()) if (os.path.exists(p) and mode != 3) else bytearray()}
 @impl('org/kwis/msp/io/File', '([BII)I+write')
 def _(this, b, o, l):
@@ -507,6 +534,9 @@ def rgb(c): return ((c >> 16) & 255, (c >> 8) & 255, c & 255, 255)
 current_card = [0]
 @impl_s('org/kwis/msp/lcdui/Display', '()Lorg/kwis/msp/lcdui/Display;+getDefaultDisplay')
 def _(): return single('org/kwis/msp/lcdui/Display')
+GA = {50: 1, 52: 2, 54: 5, 56: 6, 53: 8, -1: 1, -2: 6, -3: 2, -4: 5, -5: 8}
+@impl('org/kwis/msp/lcdui/Display', '(I)I+getGameAction')
+def _(this, k): return GA.get(k, 0)
 @impl('org/kwis/msp/lcdui/Display', '(Lorg/kwis/msp/lcdui/Card;)V+pushCard')
 def _(this, c): current_card[0] = c; print('  pushCard', hex(c), cname_of(c))
 @impl('org/kwis/msp/lcdui/Card', '()I+getWidth')
@@ -614,7 +644,9 @@ def _(this, im, x, y, anchor):
     clipped(s, (x, y, x + src.width, y + src.height), lambda: s.img.paste(src, (x, y), src))
 @impl(G, '(Ljava/lang/String;III)V+drawString')
 def _(this, st, x, y, anchor):
-    s = ST[this].s; t = pystr(st); w = int(s.d.textlength(t, font=FONT))
+    s = ST[this].s; t = pystr(st)
+    if t is None: return
+    w = int(s.d.textlength(t, font=FONT))
     if anchor & 1: x -= w // 2
     if anchor & 8: x -= w
     if anchor & 32: y -= 12
@@ -644,8 +676,10 @@ def vcall(h, suffix, args=()):
         if M and e.cstr(e.u32(M + 0xc), 200).decode('latin1')[1:].endswith('+' + suffix.split('+')[-1]) and suffix.split('+')[0] in e.cstr(e.u32(M + 0xc), 200).decode('latin1'):
             return e.run(e.u32(M) & ~1, [0, h] + list(args), count=20_000_000)
     print('  vcall: not found', suffix, cname_of(h)); return None
-def run_slice(t, count=20_000_000):
+def run_slice(t, count=None):
     cur_thread[0] = t
+    if count is None: count = 300_000 if getattr(t, 'idle', False) else 20_000_000
+    c0 = sum(e.calls.values())
     if t.ctx is None:
         code = find_code(t.target, '()V+run')
         if code is None: print('  thread: run() not found for', cname_of(t.target)); t.done = True; return
@@ -660,6 +694,7 @@ def run_slice(t, count=20_000_000):
     else:
         t.ctx = e.mu.context_save()
         if TRACE: print('  slice end pc=%#x lr=%#x' % (e.mu.reg_read(UC_ARM_REG_PC) - BASE, e.mu.reg_read(UC_ARM_REG_LR) - BASE))
+    t.idle = (sum(e.calls.values()) == c0)
     cur_thread[0] = None
 def snapshot(name):
     surf = Surf(SCREEN_W, SCREEN_H); g = make_gfx(surf)
@@ -694,13 +729,20 @@ if __name__ == '__main__':
         w = e.u32(R)
         if w & 1: print('  word ->', strtab((w & 0xffff) >> 1), strtab(w >> 16))
         print('HOT blocks:', [(hex(a), n) for a, n in hist.most_common(12)]); sys.exit(0)
+    if os.environ.get('KEYDUMP'):
+        c = find_code(current_card[0], '(II)Z+keyNotify'); print('keyNotify code at %#x' % (c - BASE)); sys.exit(0)
     COVER = os.environ.get('COVER')
     seen = set()
     if COVER: e.mu.hook_add(UC_HOOK_CODE, lambda uc, a, sz, ud: seen.add((a, sz)), begin=BASE, end=BASE + 0x83000)
-    NR = int(os.environ.get('ROUNDS', '300')); shots = set(range(1, NR + 1, max(1, NR // 20)))
+    NR = int(os.environ.get('ROUNDS', '300')); shots = set(range(1, NR + 1, max(1, NR // 20))) | {int(x.split(':')[0]) + d for x in filter(None, os.environ.get('KEYS', '').split(',')) for d in (3, 10, 25)}
     print('allocated MB', (e.heap_ptr - 0x50000000) >> 20)
+    EV = {}
+    for it in filter(None, os.environ.get('KEYS', '').split(',')):          # 예: 150:1:53  (라운드:유형:키코드)
+        r_, t_, k_ = map(int, it.split(':')); EV.setdefault(r_, []).append((t_, k_))
     for rnd in range(1, NR + 1):
-        vnow[0] += 33
+        for t_, k_ in EV.get(rnd, []):
+            vcall(current_card[0], '(II)Z+keyNotify', [t_, k_]); print('key', t_, k_)
+        vnow[0] += 120 if any(getattr(t, 'idle', False) for t in THREADS) else 33
         for t in list(THREADS):
             if not t.done and t.wake <= vnow[0]: run_slice(t)
         if rnd < 6: print('round', rnd, 'heapMB', (e.heap_ptr - 0x50000000) >> 20, [(t.n, t.done) for t in THREADS])

@@ -81,3 +81,25 @@ def load_week(monday):
 def save_week(monday, data):
     with open(week_file(monday), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+# ---- 위젯 화면 설정(마지막 탭, 최근 쓴 양식·기호) — 이 PC 에만
+def load_ui():
+    try:
+        with open(_path("ui.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_ui(data):
+    try:
+        with open(_path("ui.json"), "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+def push_recent(ui, key, value, limit):
+    lst = [v for v in ui.get(key, []) if v != value]
+    ui[key] = ([value] + lst)[:limit]

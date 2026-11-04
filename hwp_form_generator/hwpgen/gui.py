@@ -637,11 +637,81 @@ class DetailWindow(tk.Toplevel):
 
 
 # ===================================================================== 옆에 뜨는 위젯
-WIDGET_W = 230
+WIDGET_W = 250
+C_BG = "#f4f6fa"
+C_HEAD = "#1f4e8c"
+C_CARD = "#ffffff"
+C_LINE = "#d6dce6"
+C_HOVER = "#e6effb"
+C_PRESS = "#cfe0f7"
+C_TEXT = "#1d2733"
+C_SUB = "#6b7785"
+C_OK = "#1a7f37"
+C_BAD = "#b3261e"
+
+
+class Tip:
+    """마우스를 올리면 잠깐 뜨는 설명"""
+
+    def __init__(self, widget, text):
+        self.w, self.text, self.tw, self.job = widget, text, None, None
+        widget.bind("<Enter>", self.enter, add="+")
+        widget.bind("<Leave>", self.leave, add="+")
+        widget.bind("<ButtonPress>", self.leave, add="+")
+
+    def enter(self, _e=None):
+        self.job = self.w.after(450, self.show)
+
+    def show(self):
+        if self.tw or not self.text:
+            return
+        x, y = self.w.winfo_rootx() + 8, self.w.winfo_rooty() + self.w.winfo_height() + 4
+        self.tw = tk.Toplevel(self.w)
+        self.tw.wm_overrideredirect(True)
+        self.tw.attributes("-topmost", True)
+        self.tw.geometry("+%d+%d" % (x, y))
+        tk.Label(self.tw, text=self.text, bg="#2b3340", fg="white", font=FONT_S, padx=7, pady=3).pack()
+
+    def leave(self, _e=None):
+        if self.job:
+            self.w.after_cancel(self.job)
+            self.job = None
+        if self.tw:
+            self.tw.destroy()
+            self.tw = None
+
+
+class Btn(tk.Label):
+    """둥근 느낌의 납작한 단추(마우스 올림·눌림 반응)"""
+
+    def __init__(self, master, text, command, kind="card", font=FONT, tip=None, width=None, anchor="w", sub=None):
+        self.kind = kind
+        self.base = {"card": C_CARD, "accent": C_HEAD, "flat": C_BG}[kind]
+        self.fg = "white" if kind == "accent" else C_TEXT
+        super().__init__(master, text=text, bg=self.base, fg=self.fg, font=font, anchor=anchor, cursor="hand2",
+                         padx=10, pady=7, bd=0, highlightthickness=1,
+                         highlightbackground=C_LINE if kind != "accent" else C_HEAD, width=width)
+        self.cmd = command
+        self.bind("<Enter>", lambda e: self.config(bg=self._hover()))
+        self.bind("<Leave>", lambda e: self.config(bg=self.base))
+        self.bind("<ButtonPress-1>", lambda e: self.config(bg=C_PRESS if self.kind != "accent" else "#163a69"))
+        self.bind("<ButtonRelease-1>", self._release)
+        if tip:
+            Tip(self, tip)
+
+    def _hover(self):
+        return "#2a63ad" if self.kind == "accent" else C_HOVER
+
+    def _release(self, e):
+        self.config(bg=self._hover())
+        if 0 <= e.x <= self.winfo_width() and 0 <= e.y <= self.winfo_height():
+            self.cmd()
 
 
 class Widget(tk.Tk):
-    """한글 옆에 떠 있는 양식 단추 모음. 단추를 누르면 한글에 바로 만들어 넣는다."""
+    """한글 옆에 떠 있는 양식 단추 모음. 단추를 누르면 열려 있는 한글 문서에 바로 만들어 넣는다."""
+
+    TABS = [("보고", "report"), ("주간", "week"), ("기호", "sym"), ("겹치기", "cmp"), ("더보기", "more")]
 
     def __init__(self, bridge=None):
         super().__init__()
@@ -649,138 +719,227 @@ class Widget(tk.Tk):
         self.bridge = bridge or B.HwpBridge()
         self.out = Output(self)
         self.detail = None
+        self.ui = PR.load_ui()
+        self.tab = self.ui.get("tab", "report")
+        self.collapsed = False
+        self.docked = False
+        self._msg_job = None
+        self.configure(bg=C_BG)
         self.attributes("-topmost", True)
         self.resizable(False, True)
-        self.geometry("%dx%d+%d+%d" % (WIDGET_W, 640, max(0, self.winfo_screenwidth() - WIDGET_W - 10), 60))
+        self.minsize(WIDGET_W, 300)
+        self.geometry("%dx%d+%d+%d" % (WIDGET_W, 680, self.ui.get("x", max(0, self.winfo_screenwidth() - WIDGET_W - 10)),
+                                       self.ui.get("y", 60)))
         try:
             ttk.Style().theme_use("vista" if sys.platform == "win32" else "clam")
         except tk.TclError:
             pass
-        st = ttk.Style()
-        st.configure("Form.TButton", font=FONT, padding=(8, 7), anchor="w")
-        st.configure("Wk.TButton", font=FONT_B, padding=(8, 7), anchor="w")
-        top = ttk.Frame(self, padding=(6, 4))
-        top.pack(fill="x")
-        self.conn = ttk.Label(top, text="●", foreground="#a33")
-        self.conn.pack(side="left")
-        self.conn_txt = ttk.Label(top, text="한글 연결 안 됨", font=FONT_S)
-        self.conn_txt.pack(side="left", padx=3)
-        ttk.Button(top, text="붙이기", width=6, command=self.dock).pack(side="right")
-        self.body = ttk.Frame(self, padding=(6, 0))
-        self.body.pack(fill="both", expand=True)
-        self.status = ttk.Label(self, text="양식을 클릭하면 한글에 만들어져요", font=FONT_S, wraplength=WIDGET_W - 12,
-                                relief="sunken", anchor="w")
-        self.status.pack(fill="x", side="bottom")
-        self.rebuild()
+        self.shape = tk.IntVar(value=self.ui.get("shape", 0))
+        self.cmp_text = tk.StringVar()
+        self.q = tk.StringVar()
+        self._build_frame()
+        self.show_tab(self.tab)
+        self.protocol("WM_DELETE_WINDOW", self.close)
         self.after(300, self.auto_connect)
         self.after(1500, self.tick)
 
-    def say(self, msg):
-        self.status.config(text=msg)
+    # ---------------------------------------------------------------- 뼈대
+    def _build_frame(self):
+        head = tk.Frame(self, bg=C_HEAD)
+        head.pack(fill="x")
+        tk.Label(head, text="양식 도우미", bg=C_HEAD, fg="white", font=("맑은 고딕", 11, "bold"), padx=10, pady=7).pack(side="left")
+        for txt, cmd, tip in (("–", self.toggle, "접기·펴기"), ("⇥", self.dock, "한글 옆에 붙이기")):
+            l = tk.Label(head, text=txt, bg=C_HEAD, fg="white", font=("맑은 고딕", 12), padx=8, cursor="hand2")
+            l.pack(side="right")
+            l.bind("<Button-1>", lambda e, c=cmd: c())
+            l.bind("<Enter>", lambda e, w=l: w.config(bg="#2a63ad"))
+            l.bind("<Leave>", lambda e, w=l: w.config(bg=C_HEAD))
+            Tip(l, tip)
+        self.chip = tk.Label(self, text="", bg=C_BG, font=FONT_S, anchor="w", padx=10, pady=3, cursor="hand2")
+        self.chip.pack(fill="x")
+        self.chip.bind("<Button-1>", lambda e: self.connect() if not self.bridge.connected else None)
+        self.tabbar = tk.Frame(self, bg=C_BG)
+        self.tabbar.pack(fill="x", padx=6)
+        self.tab_lbl = {}
+        for name, key in self.TABS:
+            l = tk.Label(self.tabbar, text=name, bg=C_BG, fg=C_SUB, font=FONT_B, padx=7, pady=5, cursor="hand2")
+            l.pack(side="left")
+            l.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
+            self.tab_lbl[key] = l
+        tk.Frame(self, bg=C_LINE, height=1).pack(fill="x", padx=6)
+        self.body = tk.Frame(self, bg=C_BG)
+        self.body.pack(fill="both", expand=True, padx=8, pady=6)
+        self.status = tk.Label(self, text="", bg="#e9edf3", fg=C_SUB, font=FONT_S, anchor="w", padx=10, pady=5,
+                               wraplength=WIDGET_W - 24, justify="left")
+        self.status.pack(fill="x", side="bottom")
+        self.hint()
+        self.update_conn()
 
-    def rebuild(self):
-        """범정부 오피스처럼 탭(보고 / 주간 / 더보기) 안에 단추를 둔다"""
+    def show_tab(self, key):
+        self.tab = key
+        for k, l in self.tab_lbl.items():
+            l.config(fg=C_HEAD if k == key else C_SUB, bg=C_BG, relief="flat",
+                     font=("맑은 고딕", 10, "bold") if k == key else FONT)
+        self.unbind_all("<MouseWheel>")
+        self.unbind_all("<Button-4>")
+        self.unbind_all("<Button-5>")
         for w in self.body.winfo_children():
             w.destroy()
-        nb = ttk.Notebook(self.body)
-        nb.pack(fill="both", expand=True)
-        t_rep, t_wk, t_sym, t_cmp, t_more = (ttk.Frame(nb, padding=4) for _ in range(5))
-        nb.add(t_rep, text="보고")
-        nb.add(t_wk, text="주간")
-        nb.add(t_sym, text="기호")
-        nb.add(t_cmp, text="겹치기")
-        nb.add(t_more, text="더보기")
-        groups = {}
+        {"report": self.build_report, "week": self.build_week, "sym": self.build_symbols,
+         "cmp": self.build_compose, "more": self.build_more}[key](self.body)
+        self.ui["tab"] = key
+
+    def section(self, parent, text):
+        tk.Label(parent, text=text, bg=C_BG, fg=C_HEAD, font=FONT_B, anchor="w").pack(fill="x", pady=(8, 3))
+
+    def rebuild(self):
+        self.show_tab(self.tab)
+
+    # ---------------------------------------------------------------- 알림
+    def hint(self):
+        self.status.config(text="양식을 누르면 열려 있는 한글에 만들어져요", fg=C_SUB, bg="#e9edf3")
+
+    def say(self, msg, ok=True):
+        self.status.config(text=("✔ " if ok else "⚠ ") + msg, fg="white", bg=C_OK if ok else C_BAD)
+        if self._msg_job:
+            self.after_cancel(self._msg_job)
+        self._msg_job = self.after(3500, self.hint)
+
+    # ---------------------------------------------------------------- 보고 탭
+    def build_report(self, parent):
+        prof = PR.load_profile()
+        if not (prof.get("dept") or prof.get("staff_name")):
+            box = tk.Frame(parent, bg="#fff6dd", highlightthickness=1, highlightbackground="#f0d98a")
+            box.pack(fill="x", pady=(0, 4))
+            tk.Label(box, text="내 정보(과·담당자)를 한 번 적어 두면\n양식에 자동으로 채워져요", bg="#fff6dd", fg="#6a5300",
+                     font=FONT_S, justify="left", padx=8, pady=5).pack(anchor="w")
+            Btn(box, "내 정보 입력", self.open_profile, kind="card", font=FONT_S).pack(fill="x", padx=8, pady=(0, 7))
+        forms = {}
         for fid, folder, meta in registry.list_forms():
             if meta["kind"] == "report":
-                groups.setdefault(meta.get("audience", "기타"), []).append((fid, meta))
+                forms[fid] = meta
+        if len(forms) > 6:
+            e = tk.Entry(parent, textvariable=self.q, font=FONT, relief="flat", highlightthickness=1,
+                         highlightbackground=C_LINE, highlightcolor=C_HEAD)
+            e.pack(fill="x", ipady=4, pady=(0, 2))
+            self.q.trace_add("write", lambda *a: self._fill_forms(forms))
+        self.forms_box = tk.Frame(parent, bg=C_BG)
+        self.forms_box.pack(fill="both", expand=True)
+        self._fill_forms(forms)
+
+    def _fill_forms(self, forms):
+        for w in self.forms_box.winfo_children():
+            w.destroy()
+        q = self.q.get().strip() if self.winfo_exists() else ""
+        recent = [f for f in self.ui.get("recent_forms", []) if f in forms]
+        if recent and not q:
+            self.section(self.forms_box, "최근 사용")
+            for fid in recent[:3]:
+                self._form_btn(forms[fid], fid)
+        groups = {}
+        for fid, meta in forms.items():
+            if q and q not in meta["name"] and q not in meta.get("audience", ""):
+                continue
+            groups.setdefault(meta.get("audience", "기타"), []).append((fid, meta))
         for g, lst in groups.items():
-            ttk.Label(t_rep, text=g, font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
+            self.section(self.forms_box, g)
             for fid, meta in lst:
-                ttk.Button(t_rep, text=meta["name"].split(" (")[0], style="Form.TButton",
-                           command=lambda f=fid: self.make_report(f)).pack(fill="x", pady=1)
-        ttk.Label(t_wk, text="주간 업무 (이번 주)", font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
-        for txt, which in (("주간업무계획 표지", "cover"), ("주간업무계획", "plan"), ("주간 주요일정", "schedule")):
-            ttk.Button(t_wk, text=txt, style="Wk.TButton", command=lambda w=which: self.make_week(w)).pack(fill="x", pady=1)
-        self.build_symbols(t_sym)
-        self.build_compose(t_cmp)
-        ttk.Label(t_more, text="양식 추가·상세 입력", font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
-        ttk.Button(t_more, text="상세 입력 · 양식 추가…", command=self.open_detail).pack(fill="x", pady=1)
+                self._form_btn(meta, fid)
+        if not groups:
+            tk.Label(self.forms_box, text="맞는 양식이 없어요", bg=C_BG, fg=C_SUB, font=FONT_S).pack(pady=10)
+
+    def _form_btn(self, meta, fid):
+        Btn(self.forms_box, meta["name"].split(" (")[0], lambda f=fid: self.make_report(f),
+            tip=meta.get("note", ""), font=FONT).pack(fill="x", pady=2)
+
+    # ---------------------------------------------------------------- 주간 탭
+    def build_week(self, parent):
+        monday = T.week_monday(datetime.date.today())
+        end = monday + datetime.timedelta(days=6)
+        n = len(PR.load_week(monday).get("items", []))
+        self.section(parent, "이번 주  %s ~ %s" % (T.fmt_date_short(monday), T.fmt_date_short(end)))
+        tk.Label(parent, text="입력한 일정 %d건" % n, bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w").pack(fill="x")
+        for txt, which, tip in (("주간업무계획 표지", "cover", "날짜 상자·제목 배너·순서 목차"),
+                                ("주간업무계획", "plan", "이번 주 일정을 ❶ 행사명 + ◦ 일시/장소로"),
+                                ("주간 주요일정", "schedule", "월~일 표에 시간·일정명·장소")):
+            Btn(parent, txt, lambda w=which: self.make_week(w), tip=tip).pack(fill="x", pady=2)
+        self.section(parent, "일정 입력")
+        Btn(parent, "이번 주 일정 입력·가져오기…", lambda: self.open_detail("weekly"), kind="flat",
+            tip="한 번 적으면 계획과 주요일정이 같이 나와요").pack(fill="x", pady=2)
+
+    # ---------------------------------------------------------------- 기호 탭
+    def scroll_area(self, parent):
+        """길어지는 탭용 스크롤 영역 (마우스 휠 지원) → 안쪽 프레임"""
+        cv = tk.Canvas(parent, bg=C_BG, highlightthickness=0)
+        sb = ttk.Scrollbar(parent, orient="vertical", command=cv.yview)
+        inner = tk.Frame(cv, bg=C_BG)
+        win = cv.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind("<Configure>", lambda e: cv.configure(scrollregion=cv.bbox("all")))
+        cv.bind("<Configure>", lambda e: cv.itemconfigure(win, width=e.width))
+        cv.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        cv.pack(side="left", fill="both", expand=True)
+
+        def wheel(e):
+            cv.yview_scroll(-1 if (e.delta > 0 or e.num == 4) else 1, "units")
+        for ev in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            cv.bind_all(ev, wheel)
+        return inner
 
     def build_symbols(self, parent):
+        parent = self.scroll_area(parent)
+        recent = self.ui.get("recent_syms", [])
+        if recent:
+            self.section(parent, "최근")
+            self._sym_grid(parent, [(c, "") for c in recent[:12]])
         for name, items in SYMBOL_GROUPS:
-            ttk.Label(parent, text=name, font=FONT_S, foreground=ACCENT).pack(anchor="w", pady=(6, 1))
-            grid = ttk.Frame(parent)
-            grid.pack(anchor="w")
-            for i, (ch, tip) in enumerate(items):
-                ttk.Button(grid, text=ch, width=3, command=lambda c=ch, t=tip: self.put_symbol(c, t)).grid(
-                    row=i // 6, column=i % 6, padx=1, pady=1)
+            self.section(parent, name)
+            self._sym_grid(parent, items)
 
+    def _sym_grid(self, parent, items):
+        grid = tk.Frame(parent, bg=C_BG)
+        grid.pack(anchor="w")
+        for i, (ch, tip) in enumerate(items):
+            b = Btn(grid, ch, lambda c=ch, t=tip: self.put_symbol(c, t), font=("맑은 고딕", 12), anchor="center",
+                    width=2, tip=tip or None)
+            b.config(padx=4, pady=3)
+            b.grid(row=i // 6, column=i % 6, padx=1, pady=1)
+
+    # ---------------------------------------------------------------- 겹치기 탭
     def build_compose(self, parent):
-        ttk.Label(parent, text="한글 '글자 겹치기'로 넣어요", font=FONT_S, foreground=ACCENT).pack(anchor="w", pady=(6, 1))
-        self.shape = tk.IntVar(value=0)
+        self.section(parent, "글자 겹치기 모양")
         for i, (name, _t, _n) in enumerate(CMP.SHAPES):
-            ttk.Radiobutton(parent, text=name, variable=self.shape, value=i).pack(anchor="w")
-        grid = ttk.Frame(parent)
-        grid.pack(anchor="w", pady=4)
+            tk.Radiobutton(parent, text=name, variable=self.shape, value=i, bg=C_BG, font=FONT, anchor="w",
+                           activebackground=C_BG, command=lambda: self.ui.__setitem__("shape", self.shape.get())).pack(fill="x")
+        self.section(parent, "숫자")
+        grid = tk.Frame(parent, bg=C_BG)
+        grid.pack(anchor="w")
         for n in range(1, 21):
-            ttk.Button(grid, text=str(n), width=3, command=lambda t=str(n): self.put_compose(t)).grid(
-                row=(n - 1) // 5, column=(n - 1) % 5, padx=1, pady=1)
-        row = ttk.Frame(parent)
-        row.pack(fill="x", pady=2)
-        self.cmp_text = tk.StringVar()
-        ttk.Entry(row, textvariable=self.cmp_text, width=8).pack(side="left")
-        ttk.Button(row, text="이 글자로 넣기", command=lambda: self.put_compose(self.cmp_text.get())).pack(side="left", padx=4)
+            b = Btn(grid, str(n), lambda t=str(n): self.put_compose(t), anchor="center", width=3, font=FONT_B)
+            b.config(padx=2, pady=4)
+            b.grid(row=(n - 1) // 5, column=(n - 1) % 5, padx=1, pady=1)
+        self.section(parent, "다른 글자")
+        row = tk.Frame(parent, bg=C_BG)
+        row.pack(fill="x")
+        e = tk.Entry(row, textvariable=self.cmp_text, width=8, font=FONT, relief="flat", highlightthickness=1,
+                     highlightbackground=C_LINE, highlightcolor=C_HEAD)
+        e.pack(side="left", ipady=4)
+        e.bind("<Return>", lambda ev: self.put_compose(self.cmp_text.get()))
+        Btn(row, "넣기", lambda: self.put_compose(self.cmp_text.get()), kind="accent", anchor="center").pack(side="left", padx=4)
 
-    def put_compose(self, text):
-        text = (text or "").strip()
-        if not text:
-            return
-        br = self.bridge
-        if not br.connected:
-            try:
-                br.connect(launch=False)
-            except Exception:                            # noqa: BLE001
-                pass
-        if not br.connected:
-            messagebox.showwarning("글자 겹치기", "열려 있는 한글에 연결하지 못했어요")
-            return
-        name, ctype, shape_no = CMP.SHAPES[self.shape.get()]
-        try:                                             # 1) 한글의 '글자 겹치기' 명령을 직접 실행
-            br.compose_chars(text, shape_no)
-            self.say("%s: %s 넣음" % (name, text))
-            return
-        except B.BridgeError as e1:
-            err = str(e1)
-        path = None
-        try:                                             # 2) 명령이 안 되면 겹침 글자 조각을 끼워 넣기
-            pkg = CMP.compose_package(text, ctype, CMP.base_template())
-            path = pkg.save(tmp_hwpx("compose"))
-            br.insert_file(path)
-            self.say("%s: %s 넣음(조각)" % (name, text))
-        except Exception as e2:                          # noqa: BLE001
-            messagebox.showerror("글자 겹치기", "%s\n%s" % (err, e2))
-        finally:
-            if path and os.path.exists(path):
-                os.remove(path)
+    # ---------------------------------------------------------------- 더보기 탭
+    def build_more(self, parent):
+        self.section(parent, "상세 입력")
+        Btn(parent, "상세 입력 창 열기", self.open_detail, tip="칸을 직접 채워 만들기·본문 입력").pack(fill="x", pady=2)
+        Btn(parent, "새 양식 추가 (한글 파일로)", lambda: self.open_detail("forms")).pack(fill="x", pady=2)
+        self.section(parent, "설정")
+        Btn(parent, "내 정보 (과·담당자)", self.open_profile).pack(fill="x", pady=2)
+        Btn(parent, "한글에 다시 연결", self.connect, kind="flat").pack(fill="x", pady=2)
+        tk.Label(parent, justify="left", anchor="w", bg=C_BG, fg=C_SUB, font=FONT_S, wraplength=WIDGET_W - 30, text=(
+            "\n· 양식을 누르면 한글에서 커서가 있는 곳에 들어가요\n· 한글을 먼저 열어 두세요\n"
+            "· 모양이 어긋나면 한글에서 Ctrl+Z 로 되돌릴 수 있어요")).pack(fill="x", pady=8)
 
-    def put_symbol(self, ch, tip=""):
-        br = self.bridge
-        if not br.connected:
-            try:
-                br.connect(launch=False)
-            except Exception:                            # noqa: BLE001
-                pass
-        if not br.connected:
-            messagebox.showwarning("기호", "열려 있는 한글에 연결하지 못했어요")
-            return
-        try:
-            br.insert_text(ch)
-            self.say("%s 넣음%s" % (ch, " (%s)" % tip if tip else ""))
-        except B.BridgeError as e:
-            messagebox.showerror("기호", str(e))
-
-    # ---- 한 번 클릭으로 만들기
+    # ---------------------------------------------------------------- 동작
     def make_report(self, fid):
         try:
             f = registry.load_form(fid)
@@ -797,7 +956,8 @@ class Widget(tk.Tk):
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
-        self.out.insert(pkg, f.id)
+        PR.push_recent(self.ui, "recent_forms", fid, 5)
+        self.busy(lambda: self.out.insert(pkg, f.id))
 
     def make_week(self, which):
         monday = T.week_monday(datetime.date.today())
@@ -815,36 +975,108 @@ class Widget(tk.Tk):
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
-        self.out.insert(pkg, {"cover": "주간업무계획표지", "plan": "주간업무계획"}.get(which, "주간주요일정"))
+        self.busy(lambda: self.out.insert(pkg, {"cover": "주간업무계획표지", "plan": "주간업무계획"}.get(which, "주간주요일정")))
 
-    def open_detail(self):
-        if self.detail is not None:
-            self.detail.lift()
-        else:
+    def busy(self, fn):
+        self.config(cursor="watch")
+        self.update_idletasks()
+        try:
+            fn()
+        finally:
+            self.config(cursor="")
+
+    def _need_hwp(self, title):
+        br = self.bridge
+        if not br.connected:
+            try:
+                br.connect(launch=False)
+            except Exception:                            # noqa: BLE001
+                pass
+        if not br.connected:
+            self.say("한글에 연결되지 않았어요. 한글을 먼저 열어 주세요", ok=False)
+            self.update_conn()
+            return False
+        return True
+
+    def put_symbol(self, ch, tip=""):
+        if not self._need_hwp("기호"):
+            return
+        try:
+            self.bridge.insert_text(ch)
+            PR.push_recent(self.ui, "recent_syms", ch, 12)
+            self.say("%s 넣음%s" % (ch, " (%s)" % tip if tip else ""))
+        except B.BridgeError as e:
+            messagebox.showerror("기호", str(e))
+
+    def put_compose(self, text):
+        text = (text or "").strip()
+        if not text or not self._need_hwp("글자 겹치기"):
+            return
+        name, ctype, shape_no = CMP.SHAPES[self.shape.get()]
+        try:                                             # 1) 한글의 '글자 겹치기' 명령을 직접 실행
+            self.bridge.compose_chars(text, shape_no)
+            self.say("%s: %s" % (name, text))
+            return
+        except B.BridgeError as e1:
+            err = str(e1)
+        path = None
+        try:                                             # 2) 명령이 안 되면 겹침 글자 조각을 끼워 넣기
+            pkg = CMP.compose_package(text, ctype, CMP.base_template())
+            path = pkg.save(tmp_hwpx("compose"))
+            self.bridge.insert_file(path)
+            self.say("%s: %s (조각)" % (name, text))
+        except Exception as e2:                          # noqa: BLE001
+            messagebox.showerror("글자 겹치기", "%s\n%s" % (err, e2))
+        finally:
+            if path and os.path.exists(path):
+                os.remove(path)
+
+    def open_detail(self, tab=None):
+        if self.detail is None:
             DetailWindow(self)
+        self.detail.lift()
+        if tab:
+            self.detail.nb.select({"weekly": 1, "forms": 2}.get(tab, 0))
 
-    # ---- 한글 연결·배치
+    def open_profile(self):
+        d = ProfileDialog(self)
+        self.wait_window(d)
+        self.rebuild()
+
+    # ---------------------------------------------------------------- 창·연결
+    def toggle(self):
+        self.collapsed = not self.collapsed
+        if self.collapsed:
+            self._h = self.winfo_height()
+            for w in (self.tabbar, self.body, self.chip):
+                w.pack_forget()
+            self.geometry("%dx%d" % (WIDGET_W, 70))
+        else:
+            self.chip.pack(fill="x", after=self.winfo_children()[0])
+            self.tabbar.pack(fill="x", padx=6, after=self.chip)
+            self.body.pack(fill="both", expand=True, padx=8, pady=6)
+            self.geometry("%dx%d" % (WIDGET_W, getattr(self, "_h", 680)))
+
     def auto_connect(self):
         if B.IS_WIN:
             try:
                 self.bridge.connect(launch=False)
             except Exception:                            # noqa: BLE001
                 pass
-        self.update_conn()
-        if B.IS_WIN:
             self.dock()
+        self.update_conn()
 
     def update_conn(self):
         ok = self.bridge.connected
-        self.conn.config(foreground="#1a7f37" if ok else "#a33")
-        self.conn_txt.config(text="한글 연결됨" if ok else "한글 연결 안 됨 (누르면 연결)")
-        self.conn_txt.bind("<Button-1>", lambda e: self.connect() if not self.bridge.connected else None)
+        self.chip.config(text=("●  한글에 연결됨" if ok else "●  한글 연결 안 됨 — 눌러서 연결"),
+                         fg=C_OK if ok else C_BAD)
 
     def connect(self):
         try:
             self.bridge.connect()
+            self.say("한글에 연결했어요")
         except B.BridgeError as e:
-            messagebox.showwarning("한글 연결", str(e))
+            self.say(str(e), ok=False)
         self.update_conn()
 
     def tick(self):
@@ -858,9 +1090,17 @@ class Widget(tk.Tk):
 
     def dock(self):
         if not B.IS_WIN:
+            self.say("한글 옆 붙이기는 Windows 에서만 돼요", ok=False)
             return
         x, y, w, h = B.dock_beside(WIDGET_W + 6)
         self.geometry("%dx%d+%d+%d" % (WIDGET_W, h, x, y))
+        self.docked = True
+
+    def close(self):
+        self.ui["x"], self.ui["y"] = self.winfo_x(), self.winfo_y()
+        self.ui["shape"] = self.shape.get()
+        PR.save_ui(self.ui)
+        self.destroy()
 
 
 App = Widget

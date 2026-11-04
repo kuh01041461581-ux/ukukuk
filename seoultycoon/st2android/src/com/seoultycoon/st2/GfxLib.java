@@ -94,7 +94,7 @@ final class GfxLib {
     }
 
     // ---- 라벨 시트(글자가 겹쳐 있어 원본 조각 경계로는 잘리지 않음)는 글자 단위로 다시 그린다
-    static final String[] MENU_LABELS = {"현황", "비서실", "행사장", "정보"};
+    static final String[] MENU_LABELS = {"현황", "비서", "행사", "정보"};
     static int menuIdx = 0;
     static final int[] daysDigit = {-1, -1, -1, -1};
     static void label(Host H, Surf dst, String t, int x, int y) {
@@ -119,7 +119,7 @@ final class GfxLib {
         }
         if (src.w == 70 && src.h == 9) {                                                                 // 시청 팝업 메뉴 라벨
             int n = cx == 169 ? 0 : menuIdx + 1; menuIdx = Math.min(3, n);
-            label(H, dst, MENU_LABELS[menuIdx], cx, cy - 1); return true; }
+            label(H, dst, MENU_LABELS[menuIdx], cx - 4, cy - 2); return true; }
         if (src.w == 48 && src.h == 34 && cx == 143) menuIdx = -1;                                       // 첫 항목 막대: 순서 초기화
         if (src.w == 10 && src.h == 36) {                                                                // 아이콘: 12행 칸에 맞춰 자르기
             int k = Math.round((float) (cy - y) / 12f); if (k < 0 || k > 2) return true;

@@ -109,22 +109,26 @@ public class St2View extends View {
             float lx = pad.left + m, rx = pad.right - m - sw, cx = pad.left + W / 2 - 1.5f * cell;
             set(0, lx, top, sw, rh * 0.9f); set(2, lx, top + rh + m, sw, rh * 0.9f);
             set(1, rx, top, sw, rh * 0.9f); set(3, rx, top + rh + m, sw, rh * 0.9f);
-            set(4, cx + cell, top, cell, cell); set(5, cx, top + cell, cell, cell); set(6, cx + cell, top + cell, cell, cell);
-            set(7, cx + 2 * cell, top + cell, cell, cell); set(8, cx + cell, top + 2 * cell, cell, cell);
+            float pcx = cx + 1.5f * cell, pcy = top + 1.5f * cell, as = cell * 0.82f, os = cell * 0.70f, off = cell * 1.05f;   // 확인은 작게, 방향키와 간격
+            set(4, pcx - as / 2, pcy - off - as / 2, as, as); set(5, pcx - off - as / 2, pcy - as / 2, as, as); set(6, pcx - os / 2, pcy - os / 2, os, os);
+            set(7, pcx + off - as / 2, pcy - as / 2, as, as); set(8, pcx - as / 2, pcy + off - as / 2, as, as);
             float ny = top + 3 * rh + 2 * m, nw = (W - 4 * m) / 3f;
             for (int i = 0; i < 12; i++) set(9 + i, pad.left + m + (i % 3) * (nw + m), ny + (i / 3) * (rh + m), nw, rh);
             tp.setTextSize(Math.min(nw, rh) * 0.40f); sp.setTextSize(Math.min(nw, rh) * 0.20f);
-        } else {                                        // 조이스틱
-            btns = new Btn[]{ new Btn("확인", "", OK), new Btn("취소", "", CLR),
+        } else {                                        // 방향키 버튼 모드: 십자 방향 버튼 + 확인/취소 + 필요한 숫자·기호 버튼
+            btns = new Btn[]{ new Btn("▲", "", UP), new Btn("◀", "", LEFT), new Btn("▶", "", RIGHT), new Btn("▼", "", DOWN),
+                              new Btn("확인", "", OK), new Btn("취소", "", CLR),
                               new Btn("좌메뉴", "", SOFT_L), new Btn("*", "", '*'), new Btn("0", "", '0'), new Btn("#", "", '#') };
-            jr = Math.min(W * 0.22f, H * 0.36f); jcx0 = pad.left + W * 0.27f; jcy0 = pad.top + H * 0.46f; jcx = jcx0; jcy = jcy0; kx = jcx; ky = jcy; zoneRight = pad.left + W * 0.52f;
-            float ro = Math.min(W * 0.15f, H * 0.27f);
-            circ(0, pad.left + W * 0.80f, pad.top + H * 0.36f, ro);
-            circ(1, pad.left + W * 0.59f, pad.top + H * 0.58f, ro * 0.72f);
+            float s = Math.min(W * 0.13f, H * 0.21f), o = s * 1.12f, dcx = pad.left + W * 0.24f, dcy = pad.top + H * 0.42f;
+            set(0, dcx - s / 2, dcy - o - s / 2, s, s); set(1, dcx - o - s / 2, dcy - s / 2, s, s);
+            set(2, dcx + o - s / 2, dcy - s / 2, s, s); set(3, dcx - s / 2, dcy + o - s / 2, s, s);
+            float ro = Math.min(W * 0.14f, H * 0.24f);
+            circ(4, pad.left + W * 0.80f, pad.top + H * 0.34f, ro);
+            circ(5, pad.left + W * 0.58f, pad.top + H * 0.62f, ro * 0.72f);
             float bw = (W * 0.52f - 5 * m) / 4f, bh = Math.min(H * 0.18f, bw * 0.8f), by = pad.bottom - m - bh;
             float bx = pad.left + W * 0.46f;
-            for (int i = 0; i < 4; i++) set(2 + i, bx + i * (bw + m), by, bw, bh);
-            tp.setTextSize(ro * 0.5f); sp.setTextSize(ro * 0.25f);
+            for (int i = 0; i < 4; i++) set(6 + i, bx + i * (bw + m), by, bw, bh);
+            tp.setTextSize(Math.min(s, ro) * 0.5f); sp.setTextSize(ro * 0.25f);
         }
     }
 
@@ -138,11 +142,6 @@ public class St2View extends View {
             cv.drawBitmap(big, new Rect(0, 0, 240 * k, 296 * k), game, sm);
         }
         bp.setStyle(Paint.Style.FILL);
-        if (mode == MODE_JOY) {                          // 조이스틱 판
-            bp.setColor(joyPtr >= 0 ? 0xFF2A3050 : 0x881C1E27); cv.drawCircle(jcx, jcy, jr, bp);
-            bp.setStyle(Paint.Style.STROKE); bp.setStrokeWidth(4); bp.setColor(0xFF4B4F5E); cv.drawCircle(jcx, jcy, jr, bp);
-            bp.setStyle(Paint.Style.FILL); bp.setColor(joyPtr >= 0 ? 0xFF5B7CFA : 0xFF3A3F55); cv.drawCircle(kx, ky, jr * 0.42f, bp);
-        }
         for (int i = 0; i < btns.length; i++) {
             Btn b = btns[i]; boolean down = false;
             for (int k : ptrBtn) if (k >= 0 && btns[k] == b) down = true;
@@ -240,7 +239,7 @@ public class St2View extends View {
             if (game.contains(x, y)) {
                 if (gesturePtr < 0) { gesturePtr = id; gx = x; gy = y; gdown = System.currentTimeMillis(); gmoved = false; glong = false; gtwo = false; }
                 else if (!gmoved && System.currentTimeMillis() - gdown < 400) { gtwo = true; tapKey(CLR); buzz(); }   // 두 손가락 탭 = 취소
-            } else if (mode == MODE_JOY && joyPtr < 0 && x < zoneRight && y > pad.top && btnAt(x, y) < 0) {
+            } else if (false) {
                 joyPtr = id;                                                                 // 플로팅: 터치한 자리가 스틱 중심
                 jcx = Math.max(pad.left + jr, Math.min(zoneRight - jr * 0.2f, x)); jcy = Math.max(pad.top + jr, Math.min(pad.bottom - jr, y));
                 kx = x; ky = y; joyUpdate(x, y); invalidate();

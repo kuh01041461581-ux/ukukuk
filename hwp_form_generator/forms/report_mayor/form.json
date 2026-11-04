@@ -1,0 +1,55 @@
+{
+  "id": "report_mayor",
+  "name": "시장님 보고 (보고 표지 + 세부 추진계획)",
+  "audience": "시장님 보고",
+  "kind": "report",
+  "note": "'보 고' 머리표 + 제목 상자 + □ 본문. 시장님 보고용 (본문은 표 안에 들어갑니다)",
+  "fields": [
+    {
+      "key": "title",
+      "label": "제목"
+    },
+    {
+      "key": "date",
+      "label": "보고일시",
+      "type": "date",
+      "fmt": "long",
+      "default": "today"
+    },
+    {
+      "key": "head",
+      "label": "담당과장 (이름 내선 / 휴대폰)",
+      "profile": "head_full"
+    },
+    {
+      "key": "lead",
+      "label": "담당계장 (이름 내선 / 휴대폰)",
+      "profile": "lead_full"
+    },
+    {
+      "key": "dept",
+      "label": "담당부서",
+      "profile": "dept_team"
+    },
+    {
+      "key": "staff",
+      "label": "담 당 자 (이름 내선 / 휴대폰)",
+      "profile": "staff_full"
+    }
+  ],
+  "style": {
+    "heading_prefix": " □ ",
+    "heading_pad2": true,
+    "item1_prefix": "   ◦",
+    "item2_prefix": "  -",
+    "kv": {
+      "fmt": "paren",
+      "bullet": "56",
+      "label": "68",
+      "gap": "57",
+      "value": "63"
+    }
+  },
+  "starter": "□ 개요\n◦ 일시: \n◦ 장소: \n◦ 주제: \n◦ 참석인원: \n\n□ 시간계획\n| 시 간 | 소요 | 주 요 내 용 | 비 고 |\n| 14:00 ~ 14:05 | 5′ | ◦ 개회 및 안내 | 사회자 |",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

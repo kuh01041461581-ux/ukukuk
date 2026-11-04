@@ -1,0 +1,60 @@
+{
+  "id": "report_dept",
+  "name": "행사·사업 계획 보고 (국장님 보고)",
+  "audience": "문화교육국 보고",
+  "kind": "report",
+  "note": "제목 상자 + 담당자 한 줄 + □ 본문. 문화교육국(국장님) 보고용",
+  "fields": [
+    {
+      "key": "title",
+      "label": "제목"
+    },
+    {
+      "key": "dept",
+      "label": "부서(과)",
+      "profile": "dept"
+    },
+    {
+      "key": "team",
+      "label": "계(팀)",
+      "profile": "team"
+    },
+    {
+      "key": "date",
+      "label": "보고일",
+      "type": "date",
+      "fmt": "ymd",
+      "default": "today"
+    },
+    {
+      "key": "head",
+      "label": "과장 (이름(내선))",
+      "profile": "head"
+    },
+    {
+      "key": "lead",
+      "label": "계장 (이름(내선))",
+      "profile": "lead"
+    },
+    {
+      "key": "staff",
+      "label": "담당자 (이름(내선))",
+      "profile": "staff"
+    }
+  ],
+  "style": {
+    "heading_prefix": " ",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "item2_prefix": "  -",
+    "kv": {
+      "fmt": "colon",
+      "bullet": "35",
+      "label": "35",
+      "gap": "35",
+      "value": "35"
+    }
+  },
+  "starter": "□ 행사개요\n◦ 사업명: \n◦ 일시: \n◦ 장소: \n◦ 사업내용: \n\n□ 주요내용\n| 등록 및 개회 | 사회: |\n| 13:00~13:30(30') | 참석자 등록 |\n\n□ 국장님 하실 일\n◦ ",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

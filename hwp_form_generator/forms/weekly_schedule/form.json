@@ -1,0 +1,8 @@
+{
+  "id": "weekly_schedule",
+  "name": "주간 주요일정 (표)",
+  "audience": "주간 업무",
+  "kind": "weekly_schedule",
+  "note": "월~일 날짜별 표. 일정이 많으면 그날 줄이 늘어납니다",
+  "row_height": 2049
+}

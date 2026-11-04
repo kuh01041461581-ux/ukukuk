@@ -1,0 +1,164 @@
+# -*- coding: utf-8 -*-
+"""실행 중인 한글(HWP)에 붙어서 문서를 넣는 다리 (Windows 전용, pywin32 필요).
+
+ - connect()       : 실행 중인 한글에 연결 (없으면 새로 띄움)
+ - insert_file()   : 열려 있는 문서의 커서 위치에 hwpx 내용을 서식째 끼워 넣음
+ - open_file()     : 새 문서(창)로 열기
+ - get_text()      : 지금 열린 문서 전체 글자 (주간업무계획에서 일정 발췌용)
+ - dock_beside()   : 한글 창을 줄이고 이 프로그램 창을 오른쪽에 붙임 (범정부 오피스 같은 옆 창)
+
+한글이 보안 승인 창('접근을 허용하시겠습니까')을 띄우면 '모두 허용'을 누른다.
+(한컴 자동화용 FilePathCheckerModule DLL 을 레지스트리에 등록해 두면 창이 뜨지 않는다 — README 참고)
+"""
+import os
+import sys
+
+IS_WIN = sys.platform == "win32"
+
+
+class BridgeError(Exception):
+    pass
+
+
+class HwpBridge:
+    def __init__(self):
+        self.hwp = None
+
+    @property
+    def connected(self):
+        if self.hwp is None:
+            return False
+        try:
+            _ = self.hwp.Version
+            return True
+        except Exception:
+            self.hwp = None
+            return False
+
+    def connect(self, launch=True):
+        if not IS_WIN:
+            raise BridgeError("한글 연결은 Windows 에서만 돼요")
+        try:
+            import pythoncom
+            import win32com.client as wc
+        except ImportError:
+            raise BridgeError("pywin32 가 없어요 (pip install pywin32)")
+        hwp = None
+        try:                                              # 실행 중인 한글을 먼저 찾는다
+            rot = pythoncom.GetRunningObjectTable()
+            ctx = pythoncom.CreateBindCtx(0)
+            for mk in rot.EnumRunning():
+                if mk.GetDisplayName(ctx, None).startswith("!HwpObject"):
+                    obj = rot.GetObject(mk).QueryInterface(pythoncom.IID_IDispatch)
+                    hwp = wc.Dispatch(obj)
+                    break
+        except Exception:
+            hwp = None
+        if hwp is None:
+            if not launch:
+                raise BridgeError("실행 중인 한글을 찾지 못했어요")
+            try:
+                hwp = wc.Dispatch("HWPFrame.HwpObject")
+            except Exception as e:
+                raise BridgeError("한글을 연결하지 못했어요: %s" % e)
+        for name in ("FilePathCheckerModule", "FilePathCheckerModuleExample"):
+            try:
+                if hwp.RegisterModule("FilePathCheckerModuleExample", name):
+                    break
+            except Exception:
+                pass
+        try:
+            hwp.XHwpWindows.Item(0).Visible = True
+        except Exception:
+            pass
+        self.hwp = hwp
+        return True
+
+    def _need(self):
+        if not self.connected:
+            raise BridgeError("한글에 연결되어 있지 않아요")
+        return self.hwp
+
+    def insert_file(self, path):
+        hwp = self._need()
+        path = os.path.abspath(path)
+        last = None
+        for fmt in ("HWPX", ""):
+            try:
+                if hwp.Insert(path, fmt, ""):
+                    return True
+            except Exception as e:
+                last = e
+        raise BridgeError("한글에 끼워 넣지 못했어요%s — '새 문서로 열기'를 써 보세요" % (" (%s)" % last if last else ""))
+
+    def open_file(self, path):
+        hwp = self._need()
+        path = os.path.abspath(path)
+        last = None
+        for fmt in ("HWPX", ""):
+            try:
+                if hwp.Open(path, fmt, "forceopen:true"):
+                    return True
+            except Exception as e:
+                last = e
+        raise BridgeError("한글에서 열지 못했어요%s" % (" (%s)" % last if last else ""))
+
+    def get_text(self):
+        hwp = self._need()
+        try:
+            hwp.InitScan(0x0000, 0x0077, 0, 0, 0, 0)
+            out = []
+            while True:
+                state, text = hwp.GetText()
+                if state in (0, 1):
+                    break
+                out.append(text)
+            hwp.ReleaseScan()
+            return "".join(out)
+        except Exception as e:
+            raise BridgeError("한글 문서 글자를 읽지 못했어요: %s" % e)
+
+
+# ---------------------------------------------------------------- 창 배치 (ctypes, Windows 전용)
+def _user32():
+    import ctypes
+    return ctypes.windll.user32
+
+
+def find_hwp_window():
+    """보이는 한글 본창 핸들 (창 종류 이름이 HwpApp 으로 시작하는 것)"""
+    if not IS_WIN:
+        return None
+    import ctypes
+    from ctypes import wintypes
+    u = _user32()
+    found = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def cb(hwnd, _):
+        if u.IsWindowVisible(hwnd):
+            buf = ctypes.create_unicode_buffer(64)
+            u.GetClassNameW(hwnd, buf, 64)
+            if buf.value.startswith("HwpApp") or buf.value.startswith("Hwp"):
+                found.append(hwnd)
+        return True
+
+    u.EnumWindows(cb, 0)
+    return found[0] if found else None
+
+
+def work_area():
+    import ctypes
+    from ctypes import wintypes
+    r = wintypes.RECT()
+    ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(r), 0)    # SPI_GETWORKAREA
+    return r.left, r.top, r.right, r.bottom
+
+
+def dock_beside(panel_width):
+    """한글 창을 작업 영역 왼쪽으로 줄이고, 오른쪽 panel_width 만큼을 비워 (x, y, w, h) 로 돌려준다."""
+    l, t, r, b = work_area()
+    hwnd = find_hwp_window()
+    if hwnd:
+        _user32().MoveWindow(hwnd, l, t, max(400, r - l - panel_width), b - t, True)
+    return r - panel_width, t, panel_width, b - t

@@ -1,0 +1,22 @@
+{
+  "id": "weekly_plan",
+  "name": "주간업무계획 (국 쪽)",
+  "audience": "주간 업무",
+  "kind": "weekly_plan",
+  "note": "국 이름표 + ❶ 행사명 (부서 담당자 내선) + ◦ 일시/장소/… 줄",
+  "style": {
+    "head": {
+      "sym": "24",
+      "title": "74",
+      "paren": "75"
+    },
+    "kv": {
+      "fmt": "colon",
+      "bullet": "23",
+      "label": "71",
+      "gap": "71",
+      "value": "23"
+    },
+    "prefix": "◦"
+  }
+}

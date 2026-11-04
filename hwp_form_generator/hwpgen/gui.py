@@ -677,23 +677,29 @@ class Widget(tk.Tk):
         self.status.config(text=msg)
 
     def rebuild(self):
+        """범정부 오피스처럼 탭(보고 / 주간 / 더보기) 안에 단추를 둔다"""
         for w in self.body.winfo_children():
             w.destroy()
+        nb = ttk.Notebook(self.body)
+        nb.pack(fill="both", expand=True)
+        t_rep, t_wk, t_more = (ttk.Frame(nb, padding=4) for _ in range(3))
+        nb.add(t_rep, text="보고")
+        nb.add(t_wk, text="주간")
+        nb.add(t_more, text="더보기")
         groups = {}
         for fid, folder, meta in registry.list_forms():
             if meta["kind"] == "report":
                 groups.setdefault(meta.get("audience", "기타"), []).append((fid, meta))
         for g, lst in groups.items():
-            ttk.Label(self.body, text=g, font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
+            ttk.Label(t_rep, text=g, font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
             for fid, meta in lst:
-                ttk.Button(self.body, text=meta["name"].split(" (")[0], style="Form.TButton",
+                ttk.Button(t_rep, text=meta["name"].split(" (")[0], style="Form.TButton",
                            command=lambda f=fid: self.make_report(f)).pack(fill="x", pady=1)
-        ttk.Label(self.body, text="주간 업무 (이번 주)", font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(10, 2))
-        ttk.Button(self.body, text="주간업무계획 표지", style="Wk.TButton", command=lambda: self.make_week("cover")).pack(fill="x", pady=1)
-        ttk.Button(self.body, text="주간업무계획", style="Wk.TButton", command=lambda: self.make_week("plan")).pack(fill="x", pady=1)
-        ttk.Button(self.body, text="주간 주요일정", style="Wk.TButton", command=lambda: self.make_week("schedule")).pack(fill="x", pady=1)
-        ttk.Separator(self.body).pack(fill="x", pady=10)
-        ttk.Button(self.body, text="상세 입력 · 양식 추가…", command=self.open_detail).pack(fill="x")
+        ttk.Label(t_wk, text="주간 업무 (이번 주)", font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
+        for txt, which in (("주간업무계획 표지", "cover"), ("주간업무계획", "plan"), ("주간 주요일정", "schedule")):
+            ttk.Button(t_wk, text=txt, style="Wk.TButton", command=lambda w=which: self.make_week(w)).pack(fill="x", pady=1)
+        ttk.Label(t_more, text="양식 추가·상세 입력", font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
+        ttk.Button(t_more, text="상세 입력 · 양식 추가…", command=self.open_detail).pack(fill="x", pady=1)
 
     # ---- 한 번 클릭으로 만들기
     def make_report(self, fid):

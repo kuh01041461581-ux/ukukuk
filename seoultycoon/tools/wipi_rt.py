@@ -755,7 +755,7 @@ if __name__ == '__main__':
         c = find_code(current_card[0], '(II)Z+keyNotify'); print('keyNotify code at %#x' % (c - BASE)); sys.exit(0)
     COVER = os.environ.get('COVER')
     seen = set()
-    if COVER: e.mu.hook_add(UC_HOOK_CODE, lambda uc, a, sz, ud: seen.add((a, sz)), begin=BASE, end=BASE + 0x83000)
+    if COVER: e.mu.hook_add(UC_HOOK_BLOCK, lambda uc, a, sz, ud: seen.add((a, sz)), begin=BASE, end=BASE + 0x83000)
     NR = int(os.environ.get('ROUNDS', '300')); shots = set(range(1, NR + 1, max(1, NR // 20))) | {int(x.split(':')[0]) + d for x in filter(None, os.environ.get('KEYS', '').split(',')) for d in (3, 10, 25)}
     print('allocated MB', (e.heap_ptr - 0x50000000) >> 20)
     EV = {}
@@ -779,5 +779,5 @@ if __name__ == '__main__':
         for a, sz in sorted(seen):
             for i in md.disasm(img[a - BASE:a - BASE + sz], a):
                 cnt[i.mnemonic] += 1
-            if sz == 4: wide += 1
-        print('COVER distinct instrs', len(seen), 'wide(32bit)', wide); print(sorted(cnt.items(), key=lambda x: -x[1]))
+                if i.size == 4: wide += 1
+        print('COVER blocks', len(seen), 'wide', wide); print(sorted(cnt.items(), key=lambda x: -x[1]))

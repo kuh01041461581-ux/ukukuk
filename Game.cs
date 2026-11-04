@@ -1431,9 +1431,12 @@ internal sealed class MaryongGame : Form
 	{
 		Random r = new Random(); MiniGame n;
 		do { n = games[r.Next(games.Length)]; } while (games.Length > 1 && (n.Key == lastKey || n == g));
-		g = n; lastKey = n.Key; g.Reset(); Warm(g); state = 1;
+		g = n; lastKey = n.Key; g.Reset(); WarmLater(); state = 1;
 	}
 	// 게임을 고르는 순간 한 번 미리 그려 보고 돌려 봐서, 그림 읽기·크기 맞추기 같은 첫 프레임 준비를 시작 화면 전에 끝내요 (게임 중 버벅임 방지)
+	private bool warmPend;
+	private void WarmLater() { warmPend = true; Preload.Start(g.Key); }   // 그림은 뒤에서 읽고, 다 읽은 뒤에 한 번만 미리 그려 봐요 (클릭 순간 멈춤 방지)
+	private void PumpWarm() { if (warmPend && g != null && Preload.Ready(g.Key)) { warmPend = false; Warm(g); } }
 	private void Warm(MiniGame m)
 	{
 		bool so = Sfx.GameOn; Sfx.GameOn = false;
@@ -1449,13 +1452,13 @@ internal sealed class MaryongGame : Form
 		catch { }
 		finally { MiniGame.PS = 0; Sfx.GameOn = so; try { m.Fx.Clear(); m.Reset(); } catch { } }
 	}
-	private string lastGKey = ""; private void StartGame() { try { if (lastGKey != g.Key) { if (lastGKey != "") { ImgCache.Clear(); MiniGame.ClearTxt(); GC.Collect(); } lastGKey = g.Key; } Sfx.Ctx = g.Key; } catch { } try { if (Rank.On) Rank.Fetch(g.Key, false); } catch { } qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
+	private string lastGKey = ""; private void StartGame() { if (warmPend) { warmPend = false; try { Warm(g); } catch { } } try { if (lastGKey != g.Key) { if (lastGKey != "") { ImgCache.Clear(); MiniGame.ClearTxt(); } lastGKey = g.Key; } Sfx.Ctx = g.Key; } catch { } try { if (Rank.On) Rank.Fetch(g.Key, false); } catch { } qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
 
 	private void OnTap(float x, float y)
 	{
 		if (state == 0)
 		{
-			for (int i = page * PerPage; i < Math.Min(games.Length, (page + 1) * PerPage); i++) if (CardRect(i).Contains(x, y)) { g = games[i]; g.Reset(); Warm(g); state = 1; Sfx.Play("ui_open"); return; }
+			for (int i = page * PerPage; i < Math.Min(games.Length, (page + 1) * PerPage); i++) if (CardRect(i).Contains(x, y)) { g = games[i]; g.Reset(); WarmLater(); state = 1; Sfx.Play("ui_open"); return; }
 			if (RankBtn.Contains(x, y)) { OpenRank(page * PerPage); return; }
 			if (PrevBtn.Contains(x, y)) Turn(-1); else if (NextBtn.Contains(x, y)) Turn(1);
 		}
@@ -1689,6 +1692,7 @@ internal sealed class MaryongGame : Form
 	protected override void OnPaint(PaintEventArgs e)
 	{
 		long t0 = Stopwatch.GetTimestamp();
+		if (warmPend) { try { PumpWarm(); } catch { } }
 		{ int cwN = CW; if (cwN != lastCW) { bool grow = cwN > lastCW; lastCW = cwN; try { Rectangle wa = Screen.FromControl(this).WorkingArea; if (grow && !wide && WindowState == FormWindowState.Normal) { int nw = (int)(cwN * S), nh = (int)(MiniGame.H * S); if (nw > wa.Width - 20) { float k = (wa.Width - 20f) / nw; nw = (int)(nw * k); nh = (int)(nh * k); } ClientSize = new Size(nw, nh); if (Right > wa.Right) Left = Math.Max(wa.Left, wa.Right - Width); autoWide = true; } else if (!grow && autoWide && WindowState == FormWindowState.Normal) { ClientSize = new Size((int)(MiniGame.W * S), (int)(MiniGame.H * S)); autoWide = false; } } catch { } Relayout(); } }
 		try { PaintAround(e.Graphics); } catch (Exception ex) { Program.LogErr(ex); }
 		// 화면 배율이 큰 PC(고해상도)에서는 그림 그릴 픽셀이 너무 많아 느려져요 → 1.25배까지만 직접 그리고, 그 이상이면 작게 그려서 늘려 보여요

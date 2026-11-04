@@ -92,7 +92,7 @@ internal static class Spr
 	public static void NoteSz(System.Drawing.Image b, float w) { float o; if (!LogSzB.TryGetValue(b, out o) || w > o) LogSzB[b] = w; }
 	public static string[] DumpSizes() { List<string> r = new List<string>(); foreach (KeyValuePair<string, Bitmap> kv in cache) { float o; if (kv.Value != null && LogSzB.TryGetValue(kv.Value, out o)) r.Add(kv.Key + " " + kv.Value.Width + " " + kv.Value.Height + " " + o.ToString("0.0")); } return r.ToArray(); }
 	// 메뉴로 돌아가거나 오락실을 닫을 때, 불러 둔 그림을 놓아줘서 메모리를 돌려줘요 (다음 게임을 시작할 때 필요한 것만 다시 불러와요)
-	public static void ReleaseAll() { cache.Clear(); ImgCache.Clear(); try { Vfx.ClearTint(); } catch { } GC.Collect(); GC.WaitForPendingFinalizers(); }
+	public static void ReleaseAll() { lock (cache) cache.Clear(); ImgCache.Clear(); try { Vfx.ClearTint(); } catch { } try { Preload.Forget(); System.Threading.ThreadPool.QueueUserWorkItem(delegate { try { GC.Collect(); } catch { } }); } catch { } }
 	public static readonly HashSet<string> LogReq = new HashSet<string>(); public static bool LogOn;
 	// 용량을 줄이려고 작게 저장한 그림은 처음 불러올 때 원래 크기로 되돌려요 (코드가 그림 크기를 기준으로 계산하는 곳이 있어서)
 	private static Dictionary<string, int[]> dims;
@@ -110,6 +110,10 @@ internal static class Spr
 	public static float OH(string n, Bitmap b) { OrigEnsure(); int[] d; return dims.TryGetValue(n, out d) ? d[1] : b.Height; }
 	private static void OrigEnsure() { if (dims == null) { int w = 0, h = 0; OrigDim("", ref w, ref h); } }
 	public static Bitmap Get(string n)
+	{
+		lock (cache) { return GetLocked(n); }
+	}
+	private static Bitmap GetLocked(string n)
 	{
 		if (LogOn) LogReq.Add(n);
 		Bitmap b; if (cache.TryGetValue(n, out b)) return b;

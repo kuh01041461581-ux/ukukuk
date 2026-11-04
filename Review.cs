@@ -48,7 +48,7 @@ internal static class ReviewGen
 		"소중한 배움의 기회를 주셔서 감사드리며, 이어지는 심화 과정이 있다면 꼭 다시 수강하고 싶습니다.",
 		"값진 시간을 만들어 주신 강사님과 운영진께 진심으로 감사드립니다.",
 		"앞으로도 이런 유익한 교육 기회가 많이 마련되기를 기대합니다. 감사합니다." };
-	private static readonly Random R = new Random();
+	private static readonly Random R = new Random(Guid.NewGuid().GetHashCode()); private static readonly List<string> recent = new List<string>();   // 같은 강의명이라도 누를 때마다 다른 글이 나오도록, 최근에 낸 글은 다시 내지 않아요
 	// 나라배움터 등 공무원 온라인 교육의 주요 분야별로 핵심 학습 내용(K)과 실천 다짐(U)을 가진 표예요
 	private sealed class Tp { public string Name; public string[] Kw, K, U; }
 	private static readonly Tp[] Tps = {
@@ -114,7 +114,7 @@ internal static class ReviewGen
 		for (int tr = 0; tr < 600; tr++)
 		{
 			string s0 = A[R.Next(A.Length)] + " " + Bs[R.Next(Bs.Count)] + " " + Cs[R.Next(Cs.Count)] + " " + D[R.Next(D.Length)]; s0 = none ? s0.Replace("「{n}」", "이번") : s0.Replace("{n}", name);
-			if (s0.Length >= min && s0.Length <= max) return s0;
+			if (s0.Length >= min && s0.Length <= max && !recent.Contains(s0)) { recent.Add(s0); if (recent.Count > 30) recent.RemoveAt(0); return s0; }
 		}
 		foreach (string a in A) foreach (string b in Bs) foreach (string c in Cs) foreach (string d in D)
 		{

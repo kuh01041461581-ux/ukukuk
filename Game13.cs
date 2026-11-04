@@ -9,7 +9,7 @@ internal sealed class JumpRopeGame : MiniGame
 {
 	public override bool NoLimit { get { return true; } }
 	private float phi, jt, jdur = 0.5f, speedMul = 1f, mulT, mulTo = 1f, tripT, msgT, ropeFlash, gleam; private int jumps, combo, perfects; private bool jumping, queued, tripped, passed; private string msg = "";
-	private const float Floor = 470f, HandY = 396f, LX = 58f, RX = 342f, Amp = 96f, JH = 74f;
+	private const float Floor = 470f, HandY = 396f, LX = 90f, RX = 630f, Amp = 96f, JH = 74f;
 	public override string Costume { get { return "g_rope"; } }
 	public override string Name { get { return "마룡이 줄넘기"; } }
 	public override string Key { get { return "rope"; } }
@@ -41,22 +41,23 @@ internal sealed class JumpRopeGame : MiniGame
 		if (cross)
 		{
 			float h = Height;
-			if (h < 24f) { tripped = true; tripT = 0f; Sfx.Play("bad2"); Shake = 0.5f; msg = "걸렸어요! " + jumps + "회"; msgT = 3f; Fx.Burst(200f, Floor, Color.FromArgb(255, 200, 150), 10); }
+			if (h < 24f) { tripped = true; tripT = 0f; Sfx.Play("bad2"); Shake = 0.5f; msg = "걸렸어요! " + jumps + "회"; msgT = 3f; Fx.Burst(360f, Floor, Color.FromArgb(255, 200, 150), 10); }
 			else
 			{
 				jumps++; combo++; int pts = 1; float u = jumping ? jt / jdur : 0f;
-				if (u > 0.3f && u < 0.7f) { pts++; perfects++; msg = "굿 타이밍! +2"; msgT = 0.6f; Sfx.Play("ok2"); Fx.Burst(200f, Floor - 20f, Color.FromArgb(255, 226, 120), 6); } else { Sfx.Play("tick"); }
-				if (jumps % 10 == 0) { pts += 5; msg = jumps + "회! 보너스 +5"; msgT = 1.2f; Sfx.Play("fanfare"); Fx.Burst(200f, 300f, Color.FromArgb(255, 220, 90), 16); }
+				if (u > 0.3f && u < 0.7f) { pts++; perfects++; msg = "굿 타이밍! +2"; msgT = 0.6f; Sfx.Play("ok2"); Fx.Burst(360f, Floor - 20f, Color.FromArgb(255, 226, 120), 6); } else { Sfx.Play("tick"); }
+				if (jumps % 10 == 0) { pts += 5; msg = jumps + "회! 보너스 +5"; msgT = 1.2f; Sfx.Play("fanfare"); Fx.Burst(360f, 300f, Color.FromArgb(255, 220, 90), 16); }
 				Score += pts; ropeFlash = 0.15f;
 			}
 		}
 	}
+	public override int LW { get { return 720; } }
 	public override void Draw(Graphics g, double t)
 	{
-		BgImg(g, "bg_hjump", Color.FromArgb(110, 180, 240), Color.FromArgb(200, 230, 200));
-		using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 216, 190, 140))) g.FillRectangle(b, 0, Floor + 6, W, H - Floor);
-		using (Pen p = new Pen(Color.FromArgb(80, 120, 90, 50), 3f)) g.DrawLine(p, 0, Floor + 6, W, Floor + 6);
-		float h = Height; float px = 200f;
+		BgWide(g, "bg_hjump", Color.FromArgb(110, 180, 240), Color.FromArgb(200, 230, 200));
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 216, 190, 140))) g.FillRectangle(b, 0, Floor + 6, LW, H - Floor);
+		using (Pen p = new Pen(Color.FromArgb(80, 120, 90, 50), 3f)) g.DrawLine(p, 0, Floor + 6, LW, Floor + 6);
+		float h = Height; float px = 360f;
 		using (SolidBrush b = new SolidBrush(Color.FromArgb(70, 0, 0, 0))) g.FillEllipse(b, px - 26 + h * 0.15f, Floor + 2, 52 - h * 0.3f, 10);
 		// 줄: 뒤쪽(올라가는 중)은 얇고 흐리게, 앞쪽(내려오는 중)은 굵고 진하게
 		float ph = phi % 6.2832f; bool front = ph > 3.1416f; float midY = HandY - Amp * (float)Math.Cos(ph) - (float)(Floor - HandY) * 0f;
@@ -67,10 +68,10 @@ internal sealed class JumpRopeGame : MiniGame
 		float sq = jumping ? 1f + 0.05f * (float)Math.Sin(jt / jdur * 3.14f) : (tripped ? 1f : 1f); float tilt = tripped ? Math.Min(80f, tripT * 160f) : 0f;
 		DrawMascot(g, px, Floor - h + (tripped ? 6f : 0f), 92f * sq, tilt);
 		if (front) DrawRope(g, midY, true, tripDraw);
-		Txt(g, jumps.ToString(), 44f, 2, Color.White, 0, 80, W, 70, StringAlignment.Center);
-		Txt(g, "점프", 11f, 2, Color.FromArgb(220, 255, 255, 255), 0, 150, W, 20, StringAlignment.Center);
-		if (combo >= 2 && !tripped) Txt(g, combo + "연속", 12f, 2, Color.FromArgb(255, 236, 130), 0, 172, W, 22, StringAlignment.Center);
-		if (msgT > 0f) Txt(g, msg, 18f, 2, Color.FromArgb((int)(255 * Math.Min(1f, msgT * 2f)), 255, 236, 130), 0, 250, W, 30, StringAlignment.Center);
+		Txt(g, jumps.ToString(), 44f, 2, Color.White, 0, 80, LW, 70, StringAlignment.Center);
+		Txt(g, "점프", 11f, 2, Color.FromArgb(220, 255, 255, 255), 0, 150, LW, 20, StringAlignment.Center);
+		if (combo >= 2 && !tripped) Txt(g, combo + "연속", 12f, 2, Color.FromArgb(255, 236, 130), 0, 172, LW, 22, StringAlignment.Center);
+		if (msgT > 0f) Txt(g, msg, 18f, 2, Color.FromArgb((int)(255 * Math.Min(1f, msgT * 2f)), 255, 236, 130), 0, 250, LW, 30, StringAlignment.Center);
 		if (jumps == 0 && !tripped) Hint(g, "클릭! 줄이 내려올 때 점프", 540 + 15.0, 13f, false, 1f);
 	}
 	private void DrawRope(Graphics g, float midY, bool front, bool trip)

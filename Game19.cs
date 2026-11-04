@@ -15,7 +15,7 @@ internal sealed class VolleyGame : MiniGame
 	public override string RightText { get { return me.Pts + " : " + cpu.Pts; } }
 	public override void Icon(Graphics g, float cx, float cy) { if (!Spr.Draw(g, "ms_pet_toy_ball", cx, cy, 30f, 30f, 0f)) using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 170, 245))) g.FillEllipse(b, cx - 14, cy - 14, 28, 28); }
 
-	private const float GY = 490f, NX = 200f, NTOP = 382f, NW = 5f, BR = 17f, SC = 0.78f, PR = 34f;
+	private const float GY = 490f, NX = 360f, NTOP = 382f, NW = 5f, BR = 17f, SC = 0.78f, PR = 34f;
 	private class Pl { public float X, Y, Vx, Vy, Spike, Dive, DiveDir, HitCd, Anim, Rec, KH, KV; public int Pts, Face; public bool Air { get { return Y < GY - 0.5f; } } }
 	private readonly Pl me = new Pl(), cpu = new Pl();
 	private float bx, by, bvx, bvy, brot, pauseT, fxT, flashT, msgT, el, aiReact; private int fxKind = -1, lastScorer, serveTo; private float fxX, fxY; private string msg = ""; private bool matchOver, mouseMode; private float lastMx;
@@ -29,8 +29,8 @@ internal sealed class VolleyGame : MiniGame
 	}
 	private void Place()
 	{
-		me.X = 90f; me.Y = GY; me.Vx = me.Vy = 0f; me.Spike = me.Dive = me.Rec = 0f; me.Face = 1;
-		cpu.X = 310f; cpu.Y = GY; cpu.Vx = cpu.Vy = 0f; cpu.Spike = cpu.Dive = cpu.Rec = 0f; cpu.Face = -1;
+		me.X = 150f; me.Y = GY; me.Vx = me.Vy = 0f; me.Spike = me.Dive = me.Rec = 0f; me.Face = 1;
+		cpu.X = 570f; cpu.Y = GY; cpu.Vx = cpu.Vy = 0f; cpu.Spike = cpu.Dive = cpu.Rec = 0f; cpu.Face = -1;
 	}
 	// 공은 방금 점수를 낸 쪽 머리 위에서 떨어져요
 	private void Serve(int who) { serveTo = who; bx = who == 0 ? me.X : cpu.X; by = 150f; bvx = 0f; bvy = 0f; pauseT = 0.8f; fxKind = -1; aiReact = 0.25f; }
@@ -74,7 +74,7 @@ internal sealed class VolleyGame : MiniGame
 		for (int k = 0; k < nsub; k++)
 		{
 			bvy += 780f * h; bx += bvx * h; by += bvy * h; brot += bvx * h * 1.6f;
-			if (bx < BR) { bx = BR; bvx = Math.Abs(bvx) * 0.85f; } if (bx > W - BR) { bx = W - BR; bvx = -Math.Abs(bvx) * 0.85f; }
+			if (bx < BR) { bx = BR; bvx = Math.Abs(bvx) * 0.85f; } if (bx > LW - BR) { bx = LW - BR; bvx = -Math.Abs(bvx) * 0.85f; }
 			if (by < BR) { by = BR; bvy = Math.Abs(bvy) * 0.5f; }
 			Net(); Touch(me); Touch(cpu);
 			if (by >= GY - BR) break;
@@ -99,7 +99,7 @@ internal sealed class VolleyGame : MiniGame
 	// 몸 움직임: 좌우 · 점프 · 몸 던지기
 	private void Body(Pl p, float mv, float dt)
 	{
-		bool left = p == me; float lo = left ? 26f : NX + NW + 26f, hi = left ? NX - NW - 26f : W - 26f;
+		bool left = p == me; float lo = left ? 26f : NX + NW + 26f, hi = left ? NX - NW - 26f : LW - 26f;
 		if (p.Dive > 0f) { p.Dive -= dt; p.Vx = p.DiveDir * 340f * Math.Min(1f, p.Dive / 0.45f + 0.35f); if (p.Dive <= 0f) p.Rec = 0.28f; }
 		else if (p.Rec > 0f) { p.Rec -= dt; p.Vx *= (float)Math.Pow(0.02, dt); }   // 몸 던진 뒤 잠깐 엎드려 있다 일어나요
 		else
@@ -159,14 +159,14 @@ internal sealed class VolleyGame : MiniGame
 	}
 	// 상대(컴퓨터): 공의 궤적(벽·네트 포함)을 미리 따라가 보고 떨어질 자리 조금 뒤에 서요.
 	//  공이 점프하면 닿을 높이로 올 때쯤 뛰어서, 가까우면 스파이크 (방향은 섞어서)
-	private float aiThink, aiTx = 300f, aiJumpT = -1f; private bool aiMine;
+	private float aiThink, aiTx = 540f, aiJumpT = -1f; private bool aiMine;
 	private void Predict(float hgt, out float px, out float tt)
 	{
 		float sx = bx, sy = by, svx = bvx, svy = bvy, h = 1f / 120f; px = sx; tt = 0f;
 		for (int k = 0; k < 360; k++)
 		{
 			svy += 780f * h; sx += svx * h; sy += svy * h; tt += h;
-			if (sx < BR) { sx = BR; svx = Math.Abs(svx) * 0.85f; } if (sx > W - BR) { sx = W - BR; svx = -Math.Abs(svx) * 0.85f; }
+			if (sx < BR) { sx = BR; svx = Math.Abs(svx) * 0.85f; } if (sx > LW - BR) { sx = LW - BR; svx = -Math.Abs(svx) * 0.85f; }
 			if (sy > NTOP && Math.Abs(sx - NX) < NW + BR) { svx = -svx * 0.6f; sx = sx < NX ? NX - NW - BR : NX + NW + BR; }
 			if (svy > 0f && sy >= hgt) { px = sx; return; }
 		}
@@ -179,7 +179,7 @@ internal sealed class VolleyGame : MiniGame
 		{
 			aiThink = 0.06f; float lx, lt; Predict(GY - 54f - PR * 0.6f, out lx, out lt);
 			aiMine = lx > NX && (pauseT <= 0f || serveTo == 1);
-			aiTx = aiMine ? lx + 14f + (float)Math.Sin(el * 3) * 4f : 300f;
+			aiTx = aiMine ? lx + 14f + (float)Math.Sin(el * 3) * 4f : 540f;
 			// 점프 타이밍: 스파이크 높이를 지나갈 때가 점프 꼭대기(약 0.43초 뒤)가 되게
 			float sxp, st; Predict(GY - 54f - 125f, out sxp, out st);
 			aiJumpT = (aiMine && sxp > NX + 20f && Math.Abs(sxp - cpu.X) < 60f && by < GY - 200f) ? st : -1f;
@@ -195,12 +195,13 @@ internal sealed class VolleyGame : MiniGame
 		if (!cpu.Air && aiMine && Math.Abs(d) > 60f && by > GY - 170f && bvy > 0f && cpu.Dive <= 0f && cpu.Rec <= 0f) { cpu.Dive = 0.45f; cpu.DiveDir = Math.Sign(d); cpu.Vy = -160f; }
 	}
 
+	public override int LW { get { return 720; } }
 	public override void Draw(Graphics g, double t)
 	{
-		BgImg(g, "ms_vb_bg", Color.FromArgb(120, 190, 250), Color.FromArgb(250, 220, 150));
+		BgStretch(g, "ms_vb_bg", Color.FromArgb(120, 190, 250), Color.FromArgb(250, 220, 150));
 		if (Spr.Get("ms_vb_bg") == null)
 		{
-			using (SolidBrush b = new SolidBrush(Color.FromArgb(240, 214, 150))) g.FillRectangle(b, 0, GY, W, H - GY);
+			using (SolidBrush b = new SolidBrush(Color.FromArgb(240, 214, 150))) g.FillRectangle(b, 0, GY, LW, H - GY);
 			using (SolidBrush b = new SolidBrush(Color.FromArgb(70, 110, 200))) g.FillRectangle(b, NX - 4, NTOP, 8, GY - NTOP);
 		}
 		// 그림자
@@ -222,12 +223,12 @@ internal sealed class VolleyGame : MiniGame
 		// 점수판
 		for (int s = 0; s < 2; s++)
 		{
-			RectangleF r = new RectangleF(s == 0 ? 20 : W - 120, 20, 100, 64);
+			RectangleF r = new RectangleF(s == 0 ? 20 : LW - 120, 20, 100, 64);
 			using (GraphicsPath gp = Gfx.Round(r, 14)) using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 12, 24, 46))) g.FillPath(b, gp);
 			Txt(g, s == 0 ? "마룡이" : "분홍이", 9f, 2, s == 0 ? Color.FromArgb(150, 240, 220) : Color.FromArgb(255, 200, 180), r.X, r.Y + 4, r.Width, 18, StringAlignment.Center);
 			Txt(g, (s == 0 ? me.Pts : cpu.Pts).ToString(), 22f, 2, Color.White, r.X, r.Y + 20, r.Width, 42, StringAlignment.Center);
 		}
-		if (flashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(flashT / 0.15f * 90), 255, 250, 200))) g.FillRectangle(b, 0, 0, W, H);
+		if (flashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(flashT / 0.15f * 90), 255, 250, 200))) g.FillRectangle(b, 0, 0, LW, H);
 		if (msgT > 0f) Hint(g, msg, 130, 14f, true, Math.Min(1f, msgT * 2f));
 		if (el < 4f && !matchOver) Hint(g, "←→ 이동 · ↑ 점프 · 공중에서 스페이스 = 스파이크", 560, 10f, false, Math.Min(1f, (4f - el) * 2f));
 	}

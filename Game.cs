@@ -173,6 +173,18 @@ internal abstract class MiniGame
 		InterpolationMode m0 = g.InterpolationMode; PixelOffsetMode po0 = g.PixelOffsetMode; CompositingMode cm0 = g.CompositingMode; g.InterpolationMode = InterpolationMode.Bilinear; g.PixelOffsetMode = PixelOffsetMode.Half; g.CompositingMode = CompositingMode.SourceCopy;
 		g.DrawImage(bim, new Rectangle(0, 0, W, H), 0, 0, bim.Width, bim.Height, GraphicsUnit.Pixel); g.InterpolationMode = m0; g.PixelOffsetMode = po0; g.CompositingMode = cm0;
 	}
+	// 가로 모드용 배경: 세로 그림을 좌우로 뒤집어 이어 붙여요 (이음새가 안 보여요)
+	// 그림 속 물체(네트 등) 위치를 가로 비율대로 옮기고 싶을 때: 가로로 늘려 그려요
+	protected void BgStretch(Graphics g, string pic, Color a, Color b)
+	{
+		GraphicsState gs = g.Save(); g.ScaleTransform((float)LW / W, 1f); BgImg(g, pic, a, b); g.Restore(gs);
+	}
+	protected void BgWide(Graphics g, string pic, Color a, Color b)
+	{
+		Bitmap p = Spr.Get(pic); if (p == null) { Bg(g, a, b); return; }
+		float bsc = ImgCache.Scale(g); System.Drawing.Image sim = ImgCache.Get(p, W * bsc, H * bsc); InterpolationMode m0 = g.InterpolationMode; g.InterpolationMode = InterpolationMode.Bilinear;
+		g.DrawImage(sim, new RectangleF(0, 0, W, H), new RectangleF(0, 0, sim.Width, sim.Height), GraphicsUnit.Pixel); GraphicsState gs = g.Save(); g.TranslateTransform(2 * W - 1f, 0); g.ScaleTransform(-1f, 1f); g.DrawImage(sim, new RectangleF(0, 0, W + 1, H), new RectangleF(0, 0, sim.Width, sim.Height), GraphicsUnit.Pixel); g.Restore(gs); g.InterpolationMode = m0;
+	}
 	protected static void Bg(Graphics g, Color a, Color b)
 	{
 		// 배경(그라데이션+가장자리 음영)은 한 번만 만들어 두고 매 프레임 복사만 해요

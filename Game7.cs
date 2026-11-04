@@ -633,7 +633,7 @@ internal sealed class FlapGame : MiniGame
 	private int lives, power, opts, spd, bombs, bossN, kills, shotN; private bool useMouse, bossOn, dying; private string msg = "";
 	private readonly List<PointF> trail = new List<PointF>(); private Bitmap skyFlip; private System.Drawing.Image skyFlipSrc;
 	public override string Costume { get { return "g_plane"; } }
-	public override int LW { get { return 720; } }
+	public override bool WideCap { get { return true; } }
 	public override string Name { get { return "마룡이 날기"; } }
 	public override string Key { get { return "flap"; } }
 	public override string Desc { get { return "탄막을 뚫고 보스를 쓰러뜨려요"; } }

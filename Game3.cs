@@ -8,6 +8,8 @@ using System.Windows.Forms;
 // 공을 뒤로 당겼다 놓으면 그 힘과 방향대로 포물선을 그리며 날아가요. 림(테두리)과 백보드에 튕기고, 골대 위에서 아래로 통과해야 득점이에요.
 internal sealed class BasketGame : MiniGame
 {
+	public override bool WideCap { get { return true; } }
+	public override bool CenterPlay { get { return true; } }
 	private const float R = 14f, G = 1500f, SY = 505f, HoopX = 326f, RimHalfBase = 34f, HoopY = 300f, Apex = 70f, VxMin = 60f, VxMax = 300f;
 	private static readonly float[] Spots = { 95f, 130f, 165f, 200f, 235f };   // 슛 자리 (왼쪽일수록 멀어서 3점)
 	private float sx = 165f, gv, gT, wind, angD = 72f, lastPw = -1f, hoopBob; private bool rimT, boardT; private readonly List<PointF> lastPath = new List<PointF>(), curPath = new List<PointF>(); private bool charging; private int lastSpot = -1;
@@ -111,11 +113,11 @@ internal sealed class BasketGame : MiniGame
 	}
 	public override void Draw(Graphics g, double tm)
 	{
-		BgImg(g, "bg_plaza", Color.FromArgb(38, 30, 80), Color.FromArgb(120, 86, 150)); if (Spr.Get("bg_plaza") != null) using (SolidBrush ob = new SolidBrush(Color.FromArgb(110, 30, 24, 70))) g.FillRectangle(ob, 0, 0, W, H);
+		BgImg(g, "bg_plaza", Color.FromArgb(38, 30, 80), Color.FromArgb(120, 86, 150)); if (Spr.Get("bg_plaza") != null) using (SolidBrush ob = new SolidBrush(Color.FromArgb(110, 30, 24, 70))) g.FillRectangle(ob, -curOX, 0, curLW, H);
 		using (Pen p = new Pen(Color.FromArgb(30, 255, 255, 255), 2f)) for (int i = 0; i <= 8; i++) g.DrawLine(p, i * 50f, 0, i * 50f, 560);
 		for (int i = 0; i < 4; i++) { float lx = 50 + i * 100; using (SolidBrush b = new SolidBrush(Color.FromArgb(30, 255, 240, 190))) g.FillPolygon(b, new PointF[] { new PointF(lx - 10, 0), new PointF(lx + 10, 0), new PointF(lx + 46, 560), new PointF(lx - 46, 560) }); using (SolidBrush b = new SolidBrush(Color.FromArgb(220, 255, 244, 210))) g.FillEllipse(b, lx - 9, 6, 18, 9); }
 		if (Spr.Get("ms_bk_crowd") != null) { float cj = ((made > 0 && popT > 0) || streak >= 3) ? -Math.Abs((float)Math.Sin(tm * 8)) * 4f : 0f; Bitmap cb = Spr.Get("ms_bk_crowd"); float cw = 392f, chh = cw * cb.Height / cb.Width; Spr.Draw(g, "ms_bk_crowd", W / 2f, 512f - chh / 2f + cj, cw, chh, 0f); } else for (int row = 0; row < 3; row++) for (int k = 0; k < 14; k++) { float cxp = k * 31f + (row % 2) * 15f + 8f, cyp = 470 + row * 28f; bool cheer = (made > 0 && popT > 0) || streak >= 3; float jmp = cheer ? -Math.Abs((float)Math.Sin(tm * 8 + k + row)) * 6f : 0f; Color hc = Color.FromArgb(60, 30 + (k * 53) % 120, 50 + (k * 29 + row * 40) % 120, 120); using (SolidBrush cb = new SolidBrush(Color.FromArgb(70, 22, 16, 50))) g.FillEllipse(cb, cxp - 11, cyp + 4 + jmp, 22, 34); using (SolidBrush hb2 = new SolidBrush(hc)) g.FillEllipse(hb2, cxp - 6, cyp - 6 + jmp, 12, 12); }
-		using (LinearGradientBrush fl = new LinearGradientBrush(new RectangleF(0, 560, W, 40), Color.FromArgb(176, 112, 64), Color.FromArgb(120, 76, 44), 90f)) g.FillRectangle(fl, 0, 560, W, 40);
+		using (LinearGradientBrush fl = new LinearGradientBrush(new RectangleF(-curOX, 560, curLW, 40), Color.FromArgb(176, 112, 64), Color.FromArgb(120, 76, 44), 90f)) g.FillRectangle(fl, -curOX, 560, curLW, 40);
 		using (Pen wp = new Pen(Color.FromArgb(40, 60, 30, 10), 1.4f)) for (int k = 0; k < 9; k++) g.DrawLine(wp, k * 46f, 560, k * 46f - 18f, 600);
 		using (Pen cp = new Pen(Color.FromArgb(70, 255, 255, 255), 2f)) g.DrawArc(cp, 180, 548, 320, 90, 180, 180);
 		using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 2f)) g.DrawLine(p, 0, 560, W, 560);
@@ -433,6 +435,8 @@ internal sealed class BowlGame : MiniGame
 // 공을 당겼다 놓아 날려요. 통나무와 '악성 민원'이 중력으로 굴러떨어지고 서로 부딪혀요. 충돌이 클수록 민원이 사라져요.
 internal sealed class SlingGame : MiniGame
 {
+	public override bool WideCap { get { return true; } }
+	public override bool CenterPlay { get { return true; } }
 	public override bool NoLimit { get { return true; } }
 	private class Bd { public float X, Y, Vx, Vy, R, M, Rot; public int Kind, Sk, Am; public bool Alive = true; public float Hit; }   // 0 공 · 1 통나무 · 2 민원
 	private class Pt { public float X, Y, Vx, Vy, Age, Rot, Spin; public int Sp = -1; public Color C; }

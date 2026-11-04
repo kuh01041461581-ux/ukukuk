@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -15,7 +15,8 @@ internal sealed class VolleyGame : MiniGame
 	public override string RightText { get { return me.Pts + " : " + cpu.Pts; } }
 	public override void Icon(Graphics g, float cx, float cy) { if (!Spr.Draw(g, "ms_pet_toy_ball", cx, cy, 30f, 30f, 0f)) using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 170, 245))) g.FillEllipse(b, cx - 14, cy - 14, 28, 28); }
 
-	private const float GY = 490f, NX = 360f, NTOP = 382f, NW = 5f, BR = 17f, SC = 0.78f, PR = 34f;
+	private float NX { get { return LW * 0.5f; } }
+	private const float GY = 490f, NTOP = 382f, NW = 5f, BR = 17f, SC = 0.78f, PR = 34f;
 	private class Pl { public float X, Y, Vx, Vy, Spike, Dive, DiveDir, HitCd, Anim, Rec, KH, KV; public int Pts, Face; public bool Air { get { return Y < GY - 0.5f; } } }
 	private readonly Pl me = new Pl(), cpu = new Pl();
 	private float bx, by, bvx, bvy, brot, pauseT, fxT, flashT, msgT, el, aiReact; private int fxKind = -1, lastScorer, serveTo; private float fxX, fxY; private string msg = ""; private bool matchOver, mouseMode; private float lastMx;
@@ -29,8 +30,8 @@ internal sealed class VolleyGame : MiniGame
 	}
 	private void Place()
 	{
-		me.X = 150f; me.Y = GY; me.Vx = me.Vy = 0f; me.Spike = me.Dive = me.Rec = 0f; me.Face = 1;
-		cpu.X = 570f; cpu.Y = GY; cpu.Vx = cpu.Vy = 0f; cpu.Spike = cpu.Dive = cpu.Rec = 0f; cpu.Face = -1;
+		me.X = LW * 150f / 720f; me.Y = GY; me.Vx = me.Vy = 0f; me.Spike = me.Dive = me.Rec = 0f; me.Face = 1;
+		cpu.X = LW * 570f / 720f; cpu.Y = GY; cpu.Vx = cpu.Vy = 0f; cpu.Spike = cpu.Dive = cpu.Rec = 0f; cpu.Face = -1;
 	}
 	// 공은 방금 점수를 낸 쪽 머리 위에서 떨어져요
 	private void Serve(int who) { serveTo = who; bx = who == 0 ? me.X : cpu.X; by = 150f; bvx = 0f; bvy = 0f; pauseT = 0.8f; fxKind = -1; aiReact = 0.25f; }
@@ -159,7 +160,7 @@ internal sealed class VolleyGame : MiniGame
 	}
 	// 상대(컴퓨터): 공의 궤적(벽·네트 포함)을 미리 따라가 보고 떨어질 자리 조금 뒤에 서요.
 	//  공이 점프하면 닿을 높이로 올 때쯤 뛰어서, 가까우면 스파이크 (방향은 섞어서)
-	private float aiThink, aiTx = 540f, aiJumpT = -1f; private bool aiMine;
+	private float aiThink, aiTx = 300f, aiJumpT = -1f; private bool aiMine;
 	private void Predict(float hgt, out float px, out float tt)
 	{
 		float sx = bx, sy = by, svx = bvx, svy = bvy, h = 1f / 120f; px = sx; tt = 0f;
@@ -179,7 +180,7 @@ internal sealed class VolleyGame : MiniGame
 		{
 			aiThink = 0.06f; float lx, lt; Predict(GY - 54f - PR * 0.6f, out lx, out lt);
 			aiMine = lx > NX && (pauseT <= 0f || serveTo == 1);
-			aiTx = aiMine ? lx + 14f + (float)Math.Sin(el * 3) * 4f : 540f;
+			aiTx = aiMine ? lx + 14f + (float)Math.Sin(el * 3) * 4f : LW * 0.75f;
 			// 점프 타이밍: 스파이크 높이를 지나갈 때가 점프 꼭대기(약 0.43초 뒤)가 되게
 			float sxp, st; Predict(GY - 54f - 125f, out sxp, out st);
 			aiJumpT = (aiMine && sxp > NX + 20f && Math.Abs(sxp - cpu.X) < 60f && by < GY - 200f) ? st : -1f;
@@ -195,7 +196,7 @@ internal sealed class VolleyGame : MiniGame
 		if (!cpu.Air && aiMine && Math.Abs(d) > 60f && by > GY - 170f && bvy > 0f && cpu.Dive <= 0f && cpu.Rec <= 0f) { cpu.Dive = 0.45f; cpu.DiveDir = Math.Sign(d); cpu.Vy = -160f; }
 	}
 
-	public override int LW { get { return 720; } }
+	public override bool WideCap { get { return true; } }
 	public override void Draw(Graphics g, double t)
 	{
 		BgStretch(g, "ms_vb_bg", Color.FromArgb(120, 190, 250), Color.FromArgb(250, 220, 150));

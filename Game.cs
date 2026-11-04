@@ -39,7 +39,15 @@ internal abstract class MiniGame
 	public virtual string RightText { get { return ""; } }
 	public virtual bool NoLimit { get { return false; } }   // true면 60초 제한 없이 끝날 때까지 (2048·수박처럼 시간이 필요 없는 게임)
 	public virtual string Costume { get { return null; } }
-	public virtual int LW { get { return W; } }   // 이 게임의 가로 칸 수 (기본 400, 가로로 긴 게임은 더 크게)   // 이 게임에서 입는 마룡이 옷 (outfits 파일 이름)
+	public virtual bool WideCap { get { return false; } }
+	public virtual bool CenterPlay { get { return false; } }   // 가로 화면에서도 놀이판은 세로 크기 그대로 가운데에 두고, 양옆은 배경으로 채워요
+	public float PlayOX { get { return CenterPlay && LW > W ? (LW - W) / 2f : 0f; } }
+	internal static float curOX = 0f;   // 가로 화면도 지원하는 게임인지
+	internal static bool WantWide = LoadWide();   // 가로로 보기 (게임 화면 오른쪽 위 버튼 · R 키)
+	private static string WidePath { get { return System.IO.Path.Combine(Environment.GetEnvironmentVariable("OT_DIR") ?? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OvertimeReminder"), "orient.txt"); } }
+	private static bool LoadWide() { try { return !(System.IO.File.Exists(WidePath) && System.IO.File.ReadAllText(WidePath).Trim() == "p"); } catch { return true; } }
+	internal static void SaveWide() { try { System.IO.File.WriteAllText(WidePath, WantWide ? "w" : "p"); } catch { } }
+	public virtual int LW { get { return WideCap && WantWide ? 720 : W; } }   // 이 게임의 가로 칸 수 (기본 400, 가로로 긴 게임은 더 크게)   // 이 게임에서 입는 마룡이 옷 (outfits 파일 이름)
 	public virtual void Icon(Graphics g, float cx, float cy) { }
 
 	// 안내 문구: 어떤 배경 위에서도 읽히는 둥근 반투명 알약 (게임 안 모든 안내를 같은 모양으로)
@@ -172,7 +180,7 @@ internal abstract class MiniGame
 		Bitmap p = Spr.Get(pic); if (p == null) { Bg(g, a, b); return; }
 		float bsc = ImgCache.Scale(g); System.Drawing.Image bim = ImgCache.Get(p, W * bsc, H * bsc);   // 화면 크기로 한 번만 줄여 두고 재사용
 		InterpolationMode m0 = g.InterpolationMode; PixelOffsetMode po0 = g.PixelOffsetMode; CompositingMode cm0 = g.CompositingMode; g.InterpolationMode = InterpolationMode.Bilinear; g.PixelOffsetMode = PixelOffsetMode.Half; g.CompositingMode = CompositingMode.SourceCopy;
-		GraphicsState wst = g.Save(); if (curLW != W) g.ScaleTransform((float)curLW / W, 1f); g.DrawImage(bim, new Rectangle(0, 0, W, H), 0, 0, bim.Width, bim.Height, GraphicsUnit.Pixel); g.Restore(wst); g.InterpolationMode = m0; g.PixelOffsetMode = po0; g.CompositingMode = cm0;
+		GraphicsState wst = g.Save(); if (curLW != W) { g.TranslateTransform(-curOX, 0f); g.ScaleTransform((float)curLW / W, 1f); } g.DrawImage(bim, new Rectangle(0, 0, W, H), 0, 0, bim.Width, bim.Height, GraphicsUnit.Pixel); g.Restore(wst); g.InterpolationMode = m0; g.PixelOffsetMode = po0; g.CompositingMode = cm0;
 	}
 	// 가로 모드용 배경: 세로 그림을 좌우로 뒤집어 이어 붙여요 (이음새가 안 보여요)
 	// 그림 속 물체(네트 등) 위치를 가로 비율대로 옮기고 싶을 때: 가로로 늘려 그려요
@@ -205,7 +213,7 @@ internal abstract class MiniGame
 		}
 		InterpolationMode im0 = g.InterpolationMode; CompositingMode cm0 = g.CompositingMode; PixelOffsetMode po0 = g.PixelOffsetMode;
 		g.InterpolationMode = InterpolationMode.NearestNeighbor; g.CompositingMode = CompositingMode.SourceCopy; g.PixelOffsetMode = PixelOffsetMode.Half;
-		GraphicsState wst = g.Save(); if (curLW != W) g.ScaleTransform((float)curLW / W, 1f); g.DrawImage(bg, new RectangleF(0, 0, bg.Width / S, bg.Height / S), new RectangleF(0, 0, bg.Width, bg.Height), GraphicsUnit.Pixel); g.Restore(wst);
+		GraphicsState wst = g.Save(); if (curLW != W) { g.TranslateTransform(-curOX, 0f); g.ScaleTransform((float)curLW / W, 1f); } g.DrawImage(bg, new RectangleF(0, 0, bg.Width / S, bg.Height / S), new RectangleF(0, 0, bg.Width, bg.Height), GraphicsUnit.Pixel); g.Restore(wst);
 		g.InterpolationMode = im0; g.CompositingMode = cm0; g.PixelOffsetMode = po0;
 	}
 	private static readonly Dictionary<long, Bitmap> bgCache = new Dictionary<long, Bitmap>();
@@ -284,7 +292,7 @@ internal abstract class MiniGame
 // ── 1. 별 받기 ──────────────────────────────────────────────
 internal sealed class CatchGame : MiniGame
 {
-	public override int LW { get { return 720; } }
+	public override bool WideCap { get { return true; } }
 	private class It { public float X, Y, V, Vy, R, Vr, Ph; public int Kind; }   // V = 최종 낙하 속도(공기저항과 균형), Vy = 지금 속도
 	private readonly List<It> items = new List<It>();
 	private class Rp { public float X, Y, T, Mx; public Color C; public bool Ring; }
@@ -414,7 +422,7 @@ internal sealed class CatchGame : MiniGame
 // ── 2. 장애물 점프 ──────────────────────────────────────────
 internal sealed class JumpGame : MiniGame
 {
-	public override int LW { get { return 720; } }
+	public override bool WideCap { get { return true; } }
 	private class Ob { public float X, W, H, Clear = 99f; public int Kind; public bool Done; }   // Kind 0 작은 돌 · 1 높은 기둥 · 2 긴 울타리 · 3 낭떠러지
 	private class Coin { public float X, Y; public float Ph; }
 	private class Pop { public float X, Y, Age; public string S = "+10"; }
@@ -1382,8 +1390,8 @@ internal sealed class MaryongGame : Form
 		Shuffle();
 		tb = new TextBox(); tb.BorderStyle = BorderStyle.FixedSingle; tb.Font = Fonts.Native(14f); tb.Visible = false;
 		tb.SetBounds(gx + (int)(20 * S), gy + (int)(516 * S), (int)(360 * S), (int)(34 * S)); Controls.Add(tb);
-		MouseMove += delegate(object o, MouseEventArgs e) { float nx = (e.X - gx) / S, ny = (e.Y - gy) / S; if (Math.Abs(nx - inp.Mx) + Math.Abs(ny - inp.My) > 0.5f) inp.MouseMoved = true; inp.Mx = nx; inp.My = ny; };
-		MouseDown += delegate(object o, MouseEventArgs e) { if ((e.X - gx) / S > CW - 46 && (e.Y - gy) / S > 34 && (e.Y - gy) / S < 66) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; } mouseHeld = true; dnX = (e.X - gx) / S; dnY = (e.Y - gy) / S; inp.Mx = dnX; inp.My = dnY; OnTap((e.X - gx) / S, (e.Y - gy) / S); };
+		MouseMove += delegate(object o, MouseEventArgs e) { float nx = (e.X - gx) / S - POX, ny = (e.Y - gy) / S; if (Math.Abs(nx - inp.Mx) + Math.Abs(ny - inp.My) > 0.5f) inp.MouseMoved = true; inp.Mx = nx; inp.My = ny; };
+		MouseDown += delegate(object o, MouseEventArgs e) { if (state == 2 && g != null && g.WideCap && (e.X - gx) / S > CW - 46 && (e.Y - gy) / S > 70 && (e.Y - gy) / S < 100) { ToggleOrient(); return; } if ((e.X - gx) / S > CW - 46 && (e.Y - gy) / S > 34 && (e.Y - gy) / S < 66) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; } mouseHeld = true; dnX = (e.X - gx) / S; dnY = (e.Y - gy) / S; inp.Mx = dnX - POX; inp.My = dnY; OnTap((e.X - gx) / S - POX, (e.Y - gy) / S); };
 		MouseUp += delegate(object o, MouseEventArgs e) { mouseHeld = false; if (state == 2 && g != null) { float ddx = (e.X - gx) / S - dnX, ddy = (e.Y - gy) / S - dnY; if (Math.Abs(ddx) + Math.Abs(ddy) > 24f) g.Swipe(ddx, ddy); } };
 		Deactivate += delegate { mouseHeld = false; if (state == 2 && finT <= 0f) paused = true; };
 		KeyDown += delegate(object o, KeyEventArgs e)
@@ -1392,7 +1400,7 @@ internal sealed class MaryongGame : Form
 			if (state == 4) { if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Escape) { e.Handled = true; e.SuppressKeyPress = true; Commit(); } return; }
 			bool fresh = down.Add(e.KeyCode); if (!(state == 2 && g.NeedsInput)) e.Handled = true;
 			if (state == 5) { if (e.KeyCode == Keys.Escape) GoMenu(); else if (e.KeyCode == Keys.Left) RankTurn(-1); else if (e.KeyCode == Keys.Right) RankTurn(1); return; }
-			if (e.KeyCode == Keys.Escape) { Close(); return; } if (e.KeyCode == Keys.M && !(state == 2 && g != null && g.NeedsInput)) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; }
+			if (e.KeyCode == Keys.Escape) { Close(); return; } if (e.KeyCode == Keys.R && state == 2 && g != null && g.WideCap && !g.NeedsInput) { ToggleOrient(); return; } if (e.KeyCode == Keys.M && !(state == 2 && g != null && g.NeedsInput)) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; }
 			if (!fresh) return;
 			if (state == 2 && paused) { paused = false; if (tb.Visible) tb.Focus(); return; }
 			if (e.KeyCode == Keys.P && state == 2 && introT <= 0f && !g.NeedsInput) { paused = true; return; }
@@ -1483,6 +1491,8 @@ internal sealed class MaryongGame : Form
 		catch { }
 		finally { MiniGame.PS = 0; Sfx.GameOn = so; try { m.Fx.Clear(); m.Reset(); } catch { } }
 	}
+	private float POX { get { return (state == 2 && g != null) ? g.PlayOX : 0f; } }
+	private void ToggleOrient() { MiniGame.WantWide = !MiniGame.WantWide; MiniGame.SaveWide(); try { MiniGame.ClearTxt(); } catch { } StartGame(); }   // 가로/세로를 바꾸면 처음부터 다시 시작해요
 	private string lastGKey = ""; private void StartGame() { if (warmPend) { warmPend = false; try { Warm(g); } catch { } } try { if (lastGKey != g.Key) { if (lastGKey != "") { ImgCache.Clear(); MiniGame.ClearTxt(); } lastGKey = g.Key; } Sfx.Ctx = g.Key; } catch { } try { if (Rank.On) Rank.Fetch(g.Key, false); } catch { } qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
 
 	private void OnTap(float x, float y)
@@ -1529,6 +1539,12 @@ internal sealed class MaryongGame : Form
 
 	private static void GameFrameStamp() { Program.FrameStamp(); }
 	// 오른쪽 위 스피커 버튼 (눌러서 소리 켜기/끄기 · M 키)
+	private void DrawRotate(Graphics gr)
+	{
+		if (state != 2 || g == null || !g.WideCap) return; bool w = CW > MiniGame.W; float x = CW - 34, y = 74;
+		using (GraphicsPath gp = Gfx.Round(new RectangleF(x - 8, y - 5, 30, 26), 8)) using (SolidBrush b = new SolidBrush(Color.FromArgb(60, 255, 255, 255))) gr.FillPath(b, gp);
+		using (Pen p = new Pen(Color.FromArgb(235, 255, 255, 255), 1.8f)) { if (w) gr.DrawRectangle(p, x - 1, y + 2, 20, 12); else gr.DrawRectangle(p, x + 4, y - 2, 12, 20); }
+	}
 	private void DrawSpeaker(Graphics gr)
 	{
 		bool on = Sfx.GameOn && Program.SoundOn; float x = CW - 34, y = 40;
@@ -1735,7 +1751,7 @@ internal sealed class MaryongGame : Form
 			{
 				int ow = (int)Math.Ceiling(CW * rs), oh = (int)Math.Ceiling(MiniGame.H * rs);
 				if (dib == null || dib.W != ow || dib.H != oh) { if (dib != null) dib.Dispose(); dib = new GdiBuf(ow, oh); dib.Bmp.SetResolution(96f * rs, 96f * rs); }
-				using (Graphics og = Graphics.FromImage(dib.Bmp)) { MiniGame.PS = rs; paintScale = rs; try { OnPaintInner(og); DrawSpeaker(og); } catch (Exception ex) { Program.LogErr(ex); } }
+				using (Graphics og = Graphics.FromImage(dib.Bmp)) { MiniGame.PS = rs; paintScale = rs; try { OnPaintInner(og); DrawSpeaker(og); DrawRotate(og); } catch (Exception ex) { Program.LogErr(ex); } }
 				MiniGame.PS = 0; long tm1 = Stopwatch.GetTimestamp(); tInner = (tm1 - tq) * 1000.0 / Stopwatch.Frequency;
 				IntPtr hdc = e.Graphics.GetHdc();
 				try { done = dib.Blit(hdc, gx, gy, GW, GH, ow != GW || oh != GH, ql >= 3); }
@@ -1751,11 +1767,11 @@ internal sealed class MaryongGame : Form
 			{
 				int ow = (int)Math.Ceiling(CW * rs), oh = (int)Math.Ceiling(MiniGame.H * rs);
 				if (offBmp == null || offBmp.Width != ow || offBmp.Height != oh) { if (offBmp != null) offBmp.Dispose(); offBmp = new Bitmap(ow, oh, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); offBmp.SetResolution(96f * rs, 96f * rs); }
-				using (Graphics og = Graphics.FromImage(offBmp)) { MiniGame.PS = rs; paintScale = rs; try { OnPaintInner(og); DrawSpeaker(og); } catch (Exception ex) { Program.LogErr(ex); } }
+				using (Graphics og = Graphics.FromImage(offBmp)) { MiniGame.PS = rs; paintScale = rs; try { OnPaintInner(og); DrawSpeaker(og); DrawRotate(og); } catch (Exception ex) { Program.LogErr(ex); } }
 				MiniGame.PS = 0; Graphics eg = e.Graphics; eg.InterpolationMode = InterpolationMode.Bilinear; eg.PixelOffsetMode = PixelOffsetMode.Half; eg.CompositingMode = CompositingMode.SourceCopy;
 				eg.DrawImage(offBmp, new Rectangle(gx, gy, GW, GH), 0, 0, offBmp.Width, offBmp.Height, GraphicsUnit.Pixel); eg.CompositingMode = CompositingMode.SourceOver;
 			}
-			else { MiniGame.PS = 0; paintScale = S; GraphicsState gs0 = e.Graphics.Save(); e.Graphics.TranslateTransform(gx, gy); OnPaintInner(e.Graphics); try { DrawSpeaker(e.Graphics); } catch { } e.Graphics.Restore(gs0); }
+			else { MiniGame.PS = 0; paintScale = S; GraphicsState gs0 = e.Graphics.Save(); e.Graphics.TranslateTransform(gx, gy); OnPaintInner(e.Graphics); try { DrawSpeaker(e.Graphics); DrawRotate(e.Graphics); } catch { } e.Graphics.Restore(gs0); }
 		}
 		pInner += tInner; pBlit += tBlit;
 		// 그리기가 오래 걸리는 PC(큰 창·고해상도)에서는 스스로 화질을 한 단계씩 낮춰서 끊김을 줄여요 (창 크기를 바꾸면 다시 처음부터 재 봐요)
@@ -1855,7 +1871,7 @@ internal sealed class MaryongGame : Form
 			{ bool rh = RankBtn.Contains(inp.Mx, inp.My); Panel(gr, RankBtn, Color.FromArgb(rh ? 90 : 55, 255, 214, 90), 15); if (Spr.Get("ms_ui_cup") != null) Spr.Draw(gr, "ms_ui_cup", 32f, 54f + (rh ? -1f : 0f), 24f, 26f, rh ? (float)Math.Sin(tt * 10) * 6f : 0f); else { gr.FillPolygon(Brushes.Gold, new PointF[] { new PointF(24, 49), new PointF(40, 49), new PointF(38, 59), new PointF(26, 59) }); gr.FillRectangle(Brushes.Gold, 30, 59, 4, 4); gr.FillRectangle(Brushes.Gold, 26, 63, 12, 2); } MiniGame.Txt(gr, "랭킹", 10.5f, 2, Color.FromArgb(255, 236, 170), 44, 40, 50, 30, StringAlignment.Near); }
 			return;
 		}
-		MiniGame.curLW = g.LW; g.Draw(gr, tt); g.Fx.Draw(gr);
+		MiniGame.curLW = g.LW; MiniGame.curOX = g.PlayOX; GraphicsState pst = gr.Save(); if (MiniGame.curOX != 0f) gr.TranslateTransform(MiniGame.curOX, 0f); g.Draw(gr, tt); g.Fx.Draw(gr); gr.Restore(pst);
 		// 점수판
 			MiniGame.Txt(gr, "점수 " + (state == 2 ? (int)Math.Round(Math.Abs(dispScore - g.Score) < 0.6f ? g.Score : dispScore) : g.Score), 16f + 5f * Math.Max(0f, hudBump), 2, hudBump > 0 ? Color.FromArgb(255, 226, 120) : Color.White, 14, 8, 180, 30, StringAlignment.Near);
 		if (state == 2) foreach (float[] fp in floats) { float a = 1f - fp[0] / 0.9f; MiniGame.Txt(gr, (fp[1] > 0 ? "+" : "") + (int)fp[1], 13f, 2, fp[1] > 0 ? Color.FromArgb((int)(255 * a), 255, 226, 120) : Color.FromArgb((int)(255 * a), 255, 130, 140), 112, 30 - fp[0] * 26f, 80, 22, StringAlignment.Near); }

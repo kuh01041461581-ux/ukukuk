@@ -175,6 +175,19 @@ class RenderTests(unittest.TestCase):
         self.assertIn("(일)", txt)
 
 
+class ComposeTests(unittest.TestCase):
+    def test_compose_package(self):
+        from hwpgen import compose
+        for name, ctype, _n in compose.SHAPES:
+            pkg = compose.compose_package("12", ctype, os.path.join(FORMS, "report_dept", "template.hwpx"))
+            pkg2 = Package.load(pkg.to_bytes())
+            comps = list(pkg2.section(0).iter(HP + "compose"))
+            self.assertEqual(len(comps), 1)
+            self.assertEqual(comps[0].get("circleType"), ctype)
+            self.assertEqual(comps[0].get("composeText"), "12")
+            self.assertEqual(len(comps[0]), 2)
+
+
 class OutlineTests(unittest.TestCase):
     def test_pad_label(self):
         self.assertEqual(T.pad_label("일시"), "일    시")

@@ -54,6 +54,12 @@ class GuiTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.widget.destroy()
 
+    def test_compose(self):
+        n0 = len(self.br.inserted)
+        self.widget.shape.set(1)
+        self.widget.put_compose("3")
+        self.assertEqual(len(self.br.inserted) - n0, 1)
+
     def test_symbols(self):
         self.widget.put_symbol('○')
         self.widget.put_symbol('❶')

@@ -17,6 +17,7 @@ from . import bridge as B
 from . import profile as PR
 from . import registry, weekly
 from .symbols import SYMBOL_GROUPS
+from . import compose as CMP
 from . import textfmt as T
 from .package import Package, HP, local, own_text
 
@@ -683,10 +684,11 @@ class Widget(tk.Tk):
             w.destroy()
         nb = ttk.Notebook(self.body)
         nb.pack(fill="both", expand=True)
-        t_rep, t_wk, t_sym, t_more = (ttk.Frame(nb, padding=4) for _ in range(4))
+        t_rep, t_wk, t_sym, t_cmp, t_more = (ttk.Frame(nb, padding=4) for _ in range(5))
         nb.add(t_rep, text="보고")
         nb.add(t_wk, text="주간")
         nb.add(t_sym, text="기호")
+        nb.add(t_cmp, text="겹치기")
         nb.add(t_more, text="더보기")
         groups = {}
         for fid, folder, meta in registry.list_forms():
@@ -701,6 +703,7 @@ class Widget(tk.Tk):
         for txt, which in (("주간업무계획 표지", "cover"), ("주간업무계획", "plan"), ("주간 주요일정", "schedule")):
             ttk.Button(t_wk, text=txt, style="Wk.TButton", command=lambda w=which: self.make_week(w)).pack(fill="x", pady=1)
         self.build_symbols(t_sym)
+        self.build_compose(t_cmp)
         ttk.Label(t_more, text="양식 추가·상세 입력", font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
         ttk.Button(t_more, text="상세 입력 · 양식 추가…", command=self.open_detail).pack(fill="x", pady=1)
 
@@ -712,6 +715,52 @@ class Widget(tk.Tk):
             for i, (ch, tip) in enumerate(items):
                 ttk.Button(grid, text=ch, width=3, command=lambda c=ch, t=tip: self.put_symbol(c, t)).grid(
                     row=i // 6, column=i % 6, padx=1, pady=1)
+
+    def build_compose(self, parent):
+        ttk.Label(parent, text="한글 '글자 겹치기'로 넣어요", font=FONT_S, foreground=ACCENT).pack(anchor="w", pady=(6, 1))
+        self.shape = tk.IntVar(value=0)
+        for i, (name, _t, _n) in enumerate(CMP.SHAPES):
+            ttk.Radiobutton(parent, text=name, variable=self.shape, value=i).pack(anchor="w")
+        grid = ttk.Frame(parent)
+        grid.pack(anchor="w", pady=4)
+        for n in range(1, 21):
+            ttk.Button(grid, text=str(n), width=3, command=lambda t=str(n): self.put_compose(t)).grid(
+                row=(n - 1) // 5, column=(n - 1) % 5, padx=1, pady=1)
+        row = ttk.Frame(parent)
+        row.pack(fill="x", pady=2)
+        self.cmp_text = tk.StringVar()
+        ttk.Entry(row, textvariable=self.cmp_text, width=8).pack(side="left")
+        ttk.Button(row, text="이 글자로 넣기", command=lambda: self.put_compose(self.cmp_text.get())).pack(side="left", padx=4)
+
+    def put_compose(self, text):
+        text = (text or "").strip()
+        if not text:
+            return
+        br = self.bridge
+        if not br.connected:
+            try:
+                br.connect(launch=False)
+            except Exception:                            # noqa: BLE001
+                pass
+        if not br.connected:
+            messagebox.showwarning("글자 겹치기", "열려 있는 한글에 연결하지 못했어요")
+            return
+        name, ctype, shape_no = CMP.SHAPES[self.shape.get()]
+        path = None
+        try:
+            pkg = CMP.compose_package(text, ctype, CMP.base_template())
+            path = pkg.save(tmp_hwpx("compose"))
+            br.insert_file(path)
+            self.say("%s: %s 넣음" % (name, text))
+        except Exception as e1:                          # noqa: BLE001
+            try:
+                br.compose_chars(text, shape_no)
+                self.say("%s: %s 넣음(명령)" % (name, text))
+            except B.BridgeError as e2:
+                messagebox.showerror("글자 겹치기", "%s\n%s" % (e1, e2))
+        finally:
+            if path and os.path.exists(path):
+                os.remove(path)
 
     def put_symbol(self, ch, tip=""):
         br = self.bridge

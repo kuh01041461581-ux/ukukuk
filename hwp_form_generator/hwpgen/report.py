@@ -168,10 +168,10 @@ def frame_texts(section, body):
     if lst is not None:
         for p in lst.findall(HP + "p")[a:b]:
             for t in p.iter(HP + "t"):
-                skip.add(id(t))
+                skip.add(t)
     out = []
     for i, t in enumerate(section.iter(HP + "t")):
-        if id(t) in skip:
+        if t in skip:
             continue
         if (t.text or "").strip():
             out.append((i, t.text))

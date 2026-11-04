@@ -111,6 +111,30 @@ class HwpBridge:
         except Exception as e:
             raise BridgeError("기호를 넣지 못했어요: %s" % e)
 
+    def compose_chars(self, text, shape_no, char_size=-3):
+        """한글 명령(ComposeChars)으로 글자 겹치기를 직접 넣는다 (hwpx 끼워 넣기가 안 될 때)."""
+        hwp = self._need()
+        errs = []
+        for use_hset in (True, False):
+            try:
+                if use_hset:
+                    ps = hwp.HParameterSet.HChCompose
+                    hwp.HAction.GetDefault("ComposeChars", ps.HSet)
+                    ps.Chars = text
+                    ps.CharSize = char_size
+                    ps.CheckBorder = shape_no
+                    return bool(hwp.HAction.Execute("ComposeChars", ps.HSet))
+                act = hwp.CreateAction("ComposeChars")
+                st = act.CreateSet()
+                act.GetDefault(st)
+                st.SetItem("Chars", text)
+                st.SetItem("CharSize", char_size)
+                st.SetItem("CheckBorder", shape_no)
+                return bool(act.Execute(st))
+            except Exception as e:                         # noqa: BLE001
+                errs.append(str(e))
+        raise BridgeError("글자 겹치기 명령을 쓰지 못했어요: %s" % "; ".join(errs))
+
     def open_file(self, path):
         hwp = self._need()
         path = os.path.abspath(path)

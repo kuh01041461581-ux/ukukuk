@@ -655,6 +655,9 @@ ICON_DIR = os.path.join(registry.app_dir(), "assets", "icons")
 FONT_FILES = ("NotoSansKR-Regular.otf", "NotoSansKR-Bold.otf")
 
 
+FONT_BTN = ("맑은 고딕", 11)
+
+
 def init_fonts(root):
     """노토 산스(SIL OFL)를 프로그램 안에서만 등록해 쓰고, 못 쓰면 맑은 고딕"""
     global FONT, FONT_B, FONT_S
@@ -676,6 +679,8 @@ def init_fonts(root):
     except Exception:                                    # noqa: BLE001
         pass
     FONT, FONT_B, FONT_S = (fam, 10), (fam, 10, "bold"), (fam, 9)
+    global FONT_BTN
+    FONT_BTN = (fam, 11)
     return fam
 
 
@@ -743,107 +748,144 @@ def round_rect(cv, x0, y0, x1, y1, r, **kw):
     return cv.create_polygon(pts, smooth=True, **kw)
 
 
-class Btn(tk.Canvas):
-    """둥근 모서리 납작한 단추: 왼쪽 아이콘 + 글자, 마우스 올림/눌림 반응.
-    kind: card(흰 카드) / accent(그라데이션 강조) / flat(투명)"""
+class _Anim:
+    """호버·눌림을 부드럽게 오가게 하는 보간기: t(0=평소 → 1=올림)가 목표값으로 천천히 다가간다."""
 
-    def __init__(self, master, text, command, kind="card", font=None, tip=None, icon_name=None, w=None, h=36,
-                 anchor="w", radius=9):
-        super().__init__(master, height=h, width=w or 10, bg=C_BG, highlightthickness=0, bd=0, cursor="hand2")
-        self.kind, self.cmd, self.text, self.fnt, self.anchor, self.rad = kind, command, text, font, anchor, radius
-        self.icon_name = icon_name
-        self.state = "idle"
-        self._grad = None
-        if w is None:
-            self.pack_propagate(False)
-        self.bind("<Configure>", lambda e: self.draw())
-        self.bind("<Enter>", lambda e: self.set_state("hover"))
-        self.bind("<Leave>", lambda e: self.set_state("idle"))
-        self.bind("<ButtonPress-1>", lambda e: self.set_state("press"))
+    def _anim_init(self):
+        self.t, self.target, self._job, self.pressed = 0.0, 0.0, None, False
+
+    def _go(self, target):
+        self.target = target
+        if self._job is None:
+            self._step()
+
+    def _step(self):
+        d = self.target - self.t
+        if abs(d) < 0.03:
+            self.t, self._job = self.target, None
+            self.draw()
+            return
+        self.t += d * 0.32
+        self.draw()
+        self._job = self.after(16, self._step)
+
+    def _bind_anim(self):
+        self.bind("<Enter>", lambda e: self._go(1.0))
+        self.bind("<Leave>", lambda e: (setattr(self, "pressed", False), self._go(0.0)))
+        self.bind("<ButtonPress-1>", self._press)
         self.bind("<ButtonRelease-1>", self._release)
-        if tip:
-            Tip(self, tip)
 
-    def set_state(self, s):
-        self.state = s
+    def _press(self, _e):
+        self.pressed = True
         self.draw()
 
     def _release(self, e):
-        self.set_state("hover")
-        if 0 <= e.x <= self.winfo_width() and 0 <= e.y <= self.winfo_height():
+        was = self.pressed
+        self.pressed = False
+        self.draw()
+        if was and 0 <= e.x <= self.winfo_width() and 0 <= e.y <= self.winfo_height():
             self.cmd()
+
+
+def pill(cv, x0, y0, x1, y1, **kw):
+    return round_rect(cv, x0, y0, x1, y1, (y1 - y0) / 2, **kw)
+
+
+class Btn(_Anim, tk.Canvas):
+    """알약(pill) 모양 단추. 마우스를 올리면 테두리·배경·아이콘 원·화살표가 부드럽게 바뀌고 눌리면 살짝 눌림.
+    kind: card(흰 알약) / accent(그라데이션 알약) / flat(투명)"""
+
+    def __init__(self, master, text, command, kind="card", font=None, tip=None, icon_name=None, w=None, h=42,
+                 anchor="w", radius=None):
+        super().__init__(master, height=h, width=w or 10, bg=C_BG, highlightthickness=0, bd=0, cursor="hand2")
+        self.kind, self.cmd, self.text, self.fnt, self.anchor = kind, command, text, font, anchor
+        self.icon_name = icon_name
+        self._anim_init()
+        if w is None:
+            self.pack_propagate(False)
+        self.bind("<Configure>", lambda e: self.draw())
+        self._bind_anim()
+        if tip:
+            Tip(self, tip)
 
     def draw(self):
         self.delete("all")
         w, h = self.winfo_width(), self.winfo_height()
         if w < 4:
             return
-        acc = self.kind == "accent"
+        t, acc = self.t, self.kind == "accent"
+        dy = 1 if self.pressed else 0
         if acc:
-            if self._grad is None or self._grad.width() != w:
-                self._grad = gradient_image(w, h, C_G1, C_G2)
-            self.create_image(0, 0, image=self._grad, anchor="nw")
-            if self.state == "press":
-                self.create_rectangle(0, 0, w, h, fill="#000000", stipple="gray25", outline="")
-            elif self.state == "hover":
-                self.create_rectangle(0, 0, w, h, fill="#ffffff", stipple="gray12", outline="")
+            lift = 0.10 * t - (0.12 if self.pressed else 0)
+            r = (h - 2) / 2
+            for x in range(1, w - 1):
+                edge = max(0.0, r - min(x - 1, w - 2 - x))
+                inset = r - (r * r - edge * edge) ** 0.5 if edge > 0 else 0
+                col = _mix(C_G1, C_G2, x / max(1, w - 1))
+                col = _mix(col, "#ffffff" if lift >= 0 else "#000000", abs(lift))
+                self.create_line(x, 1 + inset, x, h - 1 - inset, fill=col)
             fg = "white"
         else:
-            fill = {"idle": C_CARD if self.kind == "card" else C_BG, "hover": C_HOVER, "press": C_PRESS}[self.state]
-            line = C_LINE if self.kind == "card" else fill
-            round_rect(self, 1, 1, w - 2, h - 2, self.rad, fill=fill, outline=line)
-            fg = C_TEXT
-        ic = icon(self.icon_name, white=acc) if self.icon_name else None
-        x = 12
-        if ic is not None and self.anchor == "w":
-            self.create_image(x, h // 2, image=ic, anchor="w")
-            x += 28
+            idle = C_CARD if self.kind == "card" else C_BG
+            fill = _mix(idle, C_HOVER, t)
+            if self.pressed:
+                fill = C_PRESS
+            line = _mix(C_LINE if self.kind == "card" else C_BG, "#aeb6f2", t)
+            pill(self, 1, 1 + dy * 0, w - 2, h - 2, fill=fill, outline=line)
+            fg = _mix(C_TEXT, "#2b3470", t)
+        ic = icon(self.icon_name, white=acc or t > 0.5) if self.icon_name else None
+        x = 10
         if self.anchor == "w":
-            self.create_text(x, h // 2, text=self.text, anchor="w", fill=fg, font=self.fnt or FONT)
+            if ic is not None:
+                d = h - 14
+                cy = h // 2 + dy
+                if not acc:               # 아이콘 둥근 바탕: 평소 옅은 보라 → 올리면 진한 인디고
+                    self.create_oval(x, cy - d // 2, x + d, cy + d // 2, fill=_mix("#eef0fd", C_ACC, t), outline="")
+                self.create_image(x + d // 2, cy, image=ic)
+                x += d + 10
+            else:
+                x = 18
+            self.create_text(x, h // 2 + dy, text=self.text, anchor="w", fill=fg, font=self.fnt or FONT_BTN)
+            if not acc and self.kind != "flat" or self.kind == "flat":
+                # 올리면 오른쪽에서 슬며시 나타나는 화살표
+                self.create_text(w - 18 - (1 - t) * 8, h // 2 + dy, text="›", anchor="e",
+                                 fill=_mix(C_CARD if self.kind == "card" else C_BG, C_ACC, t), font=(FONT[0], 14, "bold"))
         else:
             if ic is not None:
-                self.create_image(w // 2, h // 2, image=ic)
+                self.create_image(w // 2, h // 2 + dy, image=ic)
             else:
-                self.create_text(w // 2, h // 2, text=self.text, fill=fg, font=self.fnt or FONT)
+                self.create_text(w // 2, h // 2 + dy, text=self.text, fill=fg, font=self.fnt or FONT_BTN)
 
 
-class Chip(tk.Canvas):
-    """작은 정사각 단추(기호·숫자)"""
+class Chip(_Anim, tk.Canvas):
+    """작은 둥근 단추(기호·숫자): 올리면 테두리가 인디고로, 살짝 커지는 느낌"""
 
     def __init__(self, master, text, command, tip=None, size=34, font=None, badge=None):
         super().__init__(master, width=size, height=size, bg=C_BG, highlightthickness=0, bd=0, cursor="hand2")
-        self.text, self.cmd, self.size, self.fnt, self.state = text, command, size, font, "idle"
+        self.text, self.cmd, self.size, self.fnt = text, command, size, font
         self.badge = badge            # (숫자, 속이 찼는지) — 원 숫자는 글꼴마다 크기가 달라 직접 그린다
-        self.bind("<Enter>", lambda e: self.set_state("hover"))
-        self.bind("<Leave>", lambda e: self.set_state("idle"))
-        self.bind("<ButtonPress-1>", lambda e: self.set_state("press"))
-        self.bind("<ButtonRelease-1>", self._release)
+        self._anim_init()
+        self._bind_anim()
         self.draw()
         if tip:
             Tip(self, tip)
 
-    def set_state(self, s):
-        self.state = s
-        self.draw()
-
-    def _release(self, e):
-        self.set_state("hover")
-        if 0 <= e.x <= self.size and 0 <= e.y <= self.size:
-            self.cmd()
-
     def draw(self):
         self.delete("all")
-        fill = {"idle": C_CARD, "hover": C_HOVER, "press": C_PRESS}[self.state]
-        round_rect(self, 1, 1, self.size - 2, self.size - 2, 7, fill=fill, outline=C_LINE)
-        c = self.size // 2
+        s, t = self.size, self.t
+        grow = 1.5 * t - (1.5 if self.pressed else 0)
+        fill = C_PRESS if self.pressed else _mix(C_CARD, C_HOVER, t)
+        round_rect(self, 1 - grow, 1 - grow, s - 2 + grow, s - 2 + grow, 10, fill=fill, outline=_mix(C_LINE, C_ACC, t))
+        c = s // 2
         if self.badge:
             n, solid = self.badge
             r = 11
-            self.create_oval(c - r, c - r, c + r, c + r, outline=C_TEXT, width=1.6, fill=C_TEXT if solid else "")
-            self.create_text(c, c, text=str(n), fill="white" if solid else C_TEXT,
+            col = _mix(C_TEXT, C_ACC, t)
+            self.create_oval(c - r, c - r, c + r, c + r, outline=col, width=1.6, fill=col if solid else "")
+            self.create_text(c, c, text=str(n), fill="white" if solid else col,
                              font=(FONT[0], 9 if n < 10 else 8, "bold"))
             return
-        self.create_text(c, c, text=self.text, fill=C_TEXT, font=self.fnt or FONT)
+        self.create_text(c, c, text=self.text, fill=_mix(C_TEXT, C_ACC, t), font=self.fnt or FONT)
 
 
 class Widget(tk.Tk):
@@ -963,8 +1005,8 @@ class Widget(tk.Tk):
             bar = tk.Frame(col, bg=C_BG, height=2)
             bar.pack(fill="x", padx=6)
             l.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
-            l.bind("<Enter>", lambda e, w=l, k=key: w.config(fg=C_ACC) if k != self.tab else None)
-            l.bind("<Leave>", lambda e, w=l, k=key: w.config(fg=C_SUB) if k != self.tab else None)
+            l.bind("<Enter>", lambda e, w=l, k=key: (w.config(fg=C_ACC), self.tab_bar[k].config(bg="#c9cdf6")) if k != self.tab else None)
+            l.bind("<Leave>", lambda e, w=l, k=key: (w.config(fg=C_SUB), self.tab_bar[k].config(bg=C_BG)) if k != self.tab else None)
             self.tab_lbl[key], self.tab_bar[key] = l, bar
         tk.Frame(self, bg=C_LINE, height=1).pack(fill="x", padx=8)
         self.body = tk.Frame(self, bg=C_BG)
@@ -1055,7 +1097,7 @@ class Widget(tk.Tk):
 
     def _form_btn(self, meta, fid):
         Btn(self.forms_box, meta["name"].split(" (")[0], lambda f=fid: self.make_report(f),
-            tip=meta.get("note", ""), icon_name=self.FORM_ICONS.get(fid, "doc")).pack(fill="x", pady=3)
+            tip=meta.get("note", ""), icon_name=self.FORM_ICONS.get(fid, "doc")).pack(fill="x", pady=4)
 
     # ---------------------------------------------------------------- 주간 탭
     def build_week(self, parent):
@@ -1067,7 +1109,7 @@ class Widget(tk.Tk):
         for txt, which, ic, tip in (("주간업무계획 표지", "cover", "cover", "날짜 상자·제목 배너·순서 목차"),
                                     ("주간업무계획", "plan", "plan", "이번 주 일정을 ❶ 행사명 + ◦ 일시/장소로"),
                                     ("주간 주요일정", "schedule", "schedule", "월~일 표에 시간·일정명·장소")):
-            Btn(parent, txt, lambda w=which: self.make_week(w), tip=tip, icon_name=ic).pack(fill="x", pady=3)
+            Btn(parent, txt, lambda w=which: self.make_week(w), tip=tip, icon_name=ic).pack(fill="x", pady=4)
         self.section(parent, "일정 입력")
         Btn(parent, "이번 주 일정 입력·가져오기", lambda: self.open_detail("weekly"), kind="flat", icon_name="plus",
             tip="한 번 적으면 계획과 주요일정이 같이 나와요").pack(fill="x", pady=2)
@@ -1141,11 +1183,11 @@ class Widget(tk.Tk):
     # ---------------------------------------------------------------- 더보기 탭
     def build_more(self, parent):
         self.section(parent, "상세 입력")
-        Btn(parent, "상세 입력 창", self.open_detail, icon_name="sliders", tip="칸을 직접 채워 만들기·본문 입력").pack(fill="x", pady=3)
-        Btn(parent, "새 양식 추가 (한글 파일로)", lambda: self.open_detail("forms"), icon_name="plus").pack(fill="x", pady=3)
+        Btn(parent, "상세 입력 창", self.open_detail, icon_name="sliders", tip="칸을 직접 채워 만들기·본문 입력").pack(fill="x", pady=4)
+        Btn(parent, "새 양식 추가 (한글 파일로)", lambda: self.open_detail("forms"), icon_name="plus").pack(fill="x", pady=4)
         self.section(parent, "설정")
-        Btn(parent, "내 정보 (과·담당자)", self.open_profile, icon_name="user").pack(fill="x", pady=3)
-        Btn(parent, "한글에 다시 연결", self.connect, kind="flat", icon_name="link").pack(fill="x", pady=3)
+        Btn(parent, "내 정보 (과·담당자)", self.open_profile, icon_name="user").pack(fill="x", pady=4)
+        Btn(parent, "한글에 다시 연결", self.connect, kind="flat", icon_name="link").pack(fill="x", pady=4)
         self.section(parent, "창 투명도")
         row = tk.Frame(parent, bg=C_BG)
         row.pack(fill="x")

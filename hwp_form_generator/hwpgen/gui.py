@@ -16,6 +16,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from . import bridge as B
 from . import profile as PR
 from . import registry, weekly
+from .symbols import SYMBOL_GROUPS
 from . import textfmt as T
 from .package import Package, HP, local, own_text
 
@@ -682,9 +683,10 @@ class Widget(tk.Tk):
             w.destroy()
         nb = ttk.Notebook(self.body)
         nb.pack(fill="both", expand=True)
-        t_rep, t_wk, t_more = (ttk.Frame(nb, padding=4) for _ in range(3))
+        t_rep, t_wk, t_sym, t_more = (ttk.Frame(nb, padding=4) for _ in range(4))
         nb.add(t_rep, text="보고")
         nb.add(t_wk, text="주간")
+        nb.add(t_sym, text="기호")
         nb.add(t_more, text="더보기")
         groups = {}
         for fid, folder, meta in registry.list_forms():
@@ -698,8 +700,34 @@ class Widget(tk.Tk):
         ttk.Label(t_wk, text="주간 업무 (이번 주)", font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
         for txt, which in (("주간업무계획 표지", "cover"), ("주간업무계획", "plan"), ("주간 주요일정", "schedule")):
             ttk.Button(t_wk, text=txt, style="Wk.TButton", command=lambda w=which: self.make_week(w)).pack(fill="x", pady=1)
+        self.build_symbols(t_sym)
         ttk.Label(t_more, text="양식 추가·상세 입력", font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
         ttk.Button(t_more, text="상세 입력 · 양식 추가…", command=self.open_detail).pack(fill="x", pady=1)
+
+    def build_symbols(self, parent):
+        for name, items in SYMBOL_GROUPS:
+            ttk.Label(parent, text=name, font=FONT_S, foreground=ACCENT).pack(anchor="w", pady=(6, 1))
+            grid = ttk.Frame(parent)
+            grid.pack(anchor="w")
+            for i, (ch, tip) in enumerate(items):
+                ttk.Button(grid, text=ch, width=3, command=lambda c=ch, t=tip: self.put_symbol(c, t)).grid(
+                    row=i // 6, column=i % 6, padx=1, pady=1)
+
+    def put_symbol(self, ch, tip=""):
+        br = self.bridge
+        if not br.connected:
+            try:
+                br.connect(launch=False)
+            except Exception:                            # noqa: BLE001
+                pass
+        if not br.connected:
+            messagebox.showwarning("기호", "열려 있는 한글에 연결하지 못했어요")
+            return
+        try:
+            br.insert_text(ch)
+            self.say("%s 넣음%s" % (ch, " (%s)" % tip if tip else ""))
+        except B.BridgeError as e:
+            messagebox.showerror("기호", str(e))
 
     # ---- 한 번 클릭으로 만들기
     def make_report(self, fid):

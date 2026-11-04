@@ -91,6 +91,26 @@ class HwpBridge:
                 last = e
         raise BridgeError("한글에 끼워 넣지 못했어요%s — '새 문서로 열기'를 써 보세요" % (" (%s)" % last if last else ""))
 
+    def insert_text(self, text):
+        """커서 위치에 글자(기호) 넣기. 지금 글자 모양을 그대로 따른다."""
+        hwp = self._need()
+        try:
+            act = hwp.CreateAction("InsertText")
+            ps = act.CreateSet()
+            act.GetDefault(ps)
+            ps.SetItem("Text", text)
+            if act.Execute(ps):
+                return True
+        except Exception:
+            pass
+        try:
+            hwp.HAction.GetDefault("InsertText", hwp.HParameterSet.HInsertText.HSet)
+            hwp.HParameterSet.HInsertText.Text = text
+            hwp.HAction.Execute("InsertText", hwp.HParameterSet.HInsertText.HSet)
+            return True
+        except Exception as e:
+            raise BridgeError("기호를 넣지 못했어요: %s" % e)
+
     def open_file(self, path):
         hwp = self._need()
         path = os.path.abspath(path)

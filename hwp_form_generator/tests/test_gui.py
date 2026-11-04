@@ -27,6 +27,9 @@ class FakeBridge:
     def insert_file(self, p):
         self.inserted.append((p, os.path.getsize(p)))
 
+    def insert_text(self, s):
+        self.texts = getattr(self, 'texts', []) + [s]
+
     def open_file(self, p):
         self.opened.append(p)
 
@@ -50,6 +53,11 @@ class GuiTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.widget.destroy()
+
+    def test_symbols(self):
+        self.widget.put_symbol('○')
+        self.widget.put_symbol('❶')
+        self.assertEqual(self.br.texts[-2:], ['○', '❶'])
 
     def test_one_click(self):
         n0 = len(self.br.inserted)

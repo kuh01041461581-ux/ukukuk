@@ -135,6 +135,13 @@ def _(d, c):
     line(d, [(12, 3.8), (12, 16.2)], c)
 
 
+@icon("tray")         # 트레이로 보내기(아래 화살표 + 받침)
+def _(d, c):
+    line(d, [(10, 3.4), (10, 11.6)], c)
+    line(d, [(6.4, 8.2), (10, 11.8), (13.6, 8.2)], c)
+    line(d, [(3.6, 12.8), (3.6, 16.4), (16.4, 16.4), (16.4, 12.8)], c)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     for name, fn in ICONS.items():

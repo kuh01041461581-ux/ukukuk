@@ -810,9 +810,10 @@ class Btn(tk.Canvas):
 class Chip(tk.Canvas):
     """작은 정사각 단추(기호·숫자)"""
 
-    def __init__(self, master, text, command, tip=None, size=34, font=None):
+    def __init__(self, master, text, command, tip=None, size=34, font=None, badge=None):
         super().__init__(master, width=size, height=size, bg=C_BG, highlightthickness=0, bd=0, cursor="hand2")
         self.text, self.cmd, self.size, self.fnt, self.state = text, command, size, font, "idle"
+        self.badge = badge            # (숫자, 속이 찼는지) — 원 숫자는 글꼴마다 크기가 달라 직접 그린다
         self.bind("<Enter>", lambda e: self.set_state("hover"))
         self.bind("<Leave>", lambda e: self.set_state("idle"))
         self.bind("<ButtonPress-1>", lambda e: self.set_state("press"))
@@ -834,7 +835,15 @@ class Chip(tk.Canvas):
         self.delete("all")
         fill = {"idle": C_CARD, "hover": C_HOVER, "press": C_PRESS}[self.state]
         round_rect(self, 1, 1, self.size - 2, self.size - 2, 7, fill=fill, outline=C_LINE)
-        self.create_text(self.size // 2, self.size // 2, text=self.text, fill=C_TEXT, font=self.fnt or FONT)
+        c = self.size // 2
+        if self.badge:
+            n, solid = self.badge
+            r = 11
+            self.create_oval(c - r, c - r, c + r, c + r, outline=C_TEXT, width=1.6, fill=C_TEXT if solid else "")
+            self.create_text(c, c, text=str(n), fill="white" if solid else C_TEXT,
+                             font=(FONT[0], 9 if n < 10 else 8, "bold"))
+            return
+        self.create_text(c, c, text=self.text, fill=C_TEXT, font=self.fnt or FONT)
 
 
 class Widget(tk.Tk):
@@ -857,10 +866,11 @@ class Widget(tk.Tk):
         self._msg_job = None
         self.configure(bg=C_BG)
         self.attributes("-topmost", True)
-        try:
-            self.attributes("-alpha", 0.97)                # 살짝 비치는 유리 느낌
-        except tk.TclError:
-            pass
+        self.alpha = float(self.ui.get("alpha", 0.9))
+        self.sharp_hover = bool(self.ui.get("sharp_hover", True))
+        self.apply_alpha(self.alpha)
+        self.bind("<Enter>", lambda e: self._hover_alpha(True))
+        self.bind("<Leave>", lambda e: self._hover_alpha(False))
         self.resizable(False, True)
         self.minsize(WIDGET_W, 300)
         self.geometry("%dx%d+%d+%d" % (WIDGET_W, 700, self.ui.get("x", max(0, self.winfo_screenwidth() - WIDGET_W - 10)),
@@ -878,6 +888,34 @@ class Widget(tk.Tk):
         self.after(100, self.win11_style)
         self.after(300, self.auto_connect)
         self.after(1500, self.tick)
+
+    def apply_alpha(self, a):
+        try:
+            self.attributes("-alpha", max(0.4, min(1.0, a)))
+        except tk.TclError:
+            pass
+
+    def _hover_alpha(self, inside):
+        """창 위에 마우스가 있으면 선명하게, 벗어나면 설정한 투명도로"""
+        if not self.sharp_hover:
+            return
+        if inside:
+            self.apply_alpha(1.0)
+        else:
+            x, y = self.winfo_pointerxy()
+            w = self.winfo_containing(x, y)
+            if w is None or w.winfo_toplevel() is not self:
+                self.apply_alpha(self.alpha)
+
+    def set_alpha(self, pct):
+        self.alpha = float(pct) / 100.0
+        self.ui["alpha"] = self.alpha
+        self.apply_alpha(self.alpha)
+
+    def set_sharp(self):
+        self.sharp_hover = bool(self._sharp_var.get())
+        self.ui["sharp_hover"] = self.sharp_hover
+        self.apply_alpha(self.alpha)
 
     def win11_style(self):
         """윈도우 11: 둥근 창 모서리 + 어두운 제목줄 (되는 경우에만)"""
@@ -902,7 +940,8 @@ class Widget(tk.Tk):
         self.head.create_image(0, 0, image=self._hg, anchor="nw")
         self.head.create_text(14, 20, text="양식 도우미", anchor="w", fill="white", font=(FONT[0], 12, "bold"))
         self.head.create_text(14, 39, text="한글 옆에서 한 번에", anchor="w", fill="#dfe3ff", font=FONT_S)
-        for i, (nm, cmd, tip) in enumerate((("minus", self.toggle, "접기·펴기"), ("dock", self.dock, "한글 옆에 붙이기"))):
+        for i, (nm, cmd, tip) in enumerate((("minus", self.toggle, "접기·펴기"), ("dock", self.dock, "한글 옆에 붙이기"),
+                                            ("tray", self.to_tray, "트레이로 보내기"))):
             ic = icon(nm, white=True)
             x = W - 22 - i * 30
             self.head.create_oval(x - 13, 27 - 13, x + 13, 27 + 13, fill="", outline="", tags=("hb%d" % i,))
@@ -1063,11 +1102,18 @@ class Widget(tk.Tk):
             self._sym_grid(parent, items)
 
     def _sym_grid(self, parent, items):
+        import unicodedata
         grid = tk.Frame(parent, bg=C_BG)
         grid.pack(anchor="w")
         for i, (ch, tip) in enumerate(items):
+            badge = None
+            name = unicodedata.name(ch, "")
+            if "CIRCLED DIGIT" in name or "CIRCLED NUMBER" in name or "NEGATIVE CIRCLED" in name or "DINGBAT" in name and "CIRCLED" in name:
+                num = unicodedata.numeric(ch, None)
+                if num is not None and 1 <= num <= 20:
+                    badge = (int(num), "NEGATIVE" in name)
             Chip(grid, ch, lambda c=ch, t=tip: self.put_symbol(c, t), tip=tip or None, size=34,
-                 font=(FONT[0], 12)).grid(row=i // 6, column=i % 6, padx=2, pady=2)
+                 font=(FONT[0], 12), badge=badge).grid(row=i // 6, column=i % 6, padx=2, pady=2)
 
     # ---------------------------------------------------------------- 겹치기 탭
     def build_compose(self, parent):
@@ -1100,6 +1146,18 @@ class Widget(tk.Tk):
         self.section(parent, "설정")
         Btn(parent, "내 정보 (과·담당자)", self.open_profile, icon_name="user").pack(fill="x", pady=3)
         Btn(parent, "한글에 다시 연결", self.connect, kind="flat", icon_name="link").pack(fill="x", pady=3)
+        self.section(parent, "창 투명도")
+        row = tk.Frame(parent, bg=C_BG)
+        row.pack(fill="x")
+        sc = tk.Scale(row, from_=50, to=100, orient="horizontal", showvalue=True, command=self.set_alpha, bg=C_BG,
+                      troughcolor=C_LINE, highlightthickness=0, bd=0, fg=C_SUB, font=FONT_S, length=WIDGET_W - 40,
+                      activebackground=C_ACC)
+        sc.set(int(self.alpha * 100))
+        sc.pack(fill="x")
+        self._sharp_var = tk.IntVar(value=1 if self.sharp_hover else 0)
+        tk.Checkbutton(parent, text="마우스를 올리면 선명하게", variable=self._sharp_var, command=self.set_sharp, bg=C_BG,
+                       font=FONT_S, fg=C_TEXT, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0,
+                       anchor="w").pack(fill="x")
         tk.Label(parent, justify="left", anchor="w", bg=C_BG, fg=C_SUB, font=FONT_S, wraplength=WIDGET_W - 36, text=(
             "\n· 양식을 누르면 한글에서 커서가 있는 곳에 들어가요\n· 한글을 먼저 열어 두세요\n"
             "· 모양이 어긋나면 한글에서 Ctrl+Z 로 되돌릴 수 있어요")).pack(fill="x", pady=8)
@@ -1231,6 +1289,79 @@ class Widget(tk.Tk):
             self.body.pack(fill="both", expand=True, padx=10, pady=6)
             self.geometry("%dx%d" % (WIDGET_W, getattr(self, "_h", 700)))
 
+    # ---------------------------------------------------------------- 트레이
+    def _tray_image(self):
+        from PIL import Image
+        im = Image.new("RGBA", (64, 64))
+        a, b = (0x5e, 0x6a, 0xd2), (0x9a, 0x6b, 0xd6)
+        px = im.load()
+        for x in range(64):
+            for y in range(64):
+                t = (x + y) / 126
+                px[x, y] = tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3)) + (255,)
+        mask = Image.new("L", (64, 64), 0)
+        from PIL import ImageDraw
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, 63, 63), 14, fill=255)
+        im.putalpha(mask)
+        try:
+            ic = Image.open(os.path.join(ICON_DIR, "doc_w.png")).convert("RGBA").resize((40, 40), Image.LANCZOS)
+            im.alpha_composite(ic, (12, 12))
+        except Exception:                                # noqa: BLE001
+            pass
+        return im
+
+    def to_tray(self):
+        """창을 숨기고 알림 영역(트레이)에 아이콘만 남긴다. 아이콘을 누르면 다시 나타남."""
+        if getattr(self, "_tray", None) is not None:
+            return
+        try:
+            import pystray
+            import queue
+            self._tray_q = queue.Queue()
+            q = self._tray_q
+            menu = pystray.Menu(
+                pystray.MenuItem("열기", lambda icon, item: q.put("show"), default=True),
+                pystray.MenuItem("종료", lambda icon, item: q.put("quit")))
+            self._tray = pystray.Icon("hwpforms", self._tray_image(), "양식 도우미", menu)
+            self._tray.run_detached()
+        except Exception:                                # noqa: BLE001
+            self._tray = None
+            self.iconify()                               # 트레이를 못 쓰면 작업표시줄로 최소화
+            self.say("트레이를 쓸 수 없어 최소화했어요 (pystray 필요)", ok=False)
+            return
+        self.withdraw()
+        self.after(250, self._poll_tray)
+
+    def _poll_tray(self):
+        q = getattr(self, "_tray_q", None)
+        if q is None:
+            return
+        try:
+            while True:
+                cmd = q.get_nowait()
+                if cmd == "show":
+                    self.from_tray()
+                    return
+                if cmd == "quit":
+                    self.from_tray()
+                    self.close()
+                    return
+        except Exception:                                # noqa: BLE001
+            pass
+        self.after(250, self._poll_tray)
+
+    def from_tray(self):
+        t, self._tray = getattr(self, "_tray", None), None
+        self._tray_q = None
+        if t is not None:
+            try:
+                t.stop()
+            except Exception:                            # noqa: BLE001
+                pass
+        self.deiconify()
+        self.attributes("-topmost", True)
+        self.lift()
+
     def auto_connect(self):
         if B.IS_WIN:
             try:
@@ -1271,6 +1402,11 @@ class Widget(tk.Tk):
         self.docked = True
 
     def close(self):
+        if getattr(self, "_tray", None) is not None:
+            try:
+                self._tray.stop()
+            except Exception:                            # noqa: BLE001
+                pass
         self.ui["x"], self.ui["y"] = self.winfo_x(), self.winfo_y()
         self.ui["shape"] = self.shape.get()
         PR.save_ui(self.ui)

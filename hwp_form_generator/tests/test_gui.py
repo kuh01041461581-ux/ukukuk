@@ -69,6 +69,20 @@ class GuiTests(unittest.TestCase):
         self.widget.make_reference()
         self.assertEqual(len(self.br.inserted) - n0, 1)
 
+    def test_alpha_and_tray(self):
+        self.widget.set_alpha(70)
+        self.assertAlmostEqual(self.widget.alpha, 0.7)
+        # 트레이: 보내고 → 대기열 신호로 다시 나타남 (pystray 가 없거나 화면이 없으면 최소화로 대체됨)
+        self.widget.to_tray()
+        q = getattr(self.widget, "_tray_q", None)
+        if q is not None:
+            q.put("show")
+            for _ in range(10):
+                self.widget.update()
+                import time; time.sleep(0.1)
+            self.assertIsNone(self.widget._tray)
+        self.widget.deiconify()
+
     def test_symbols(self):
         self.widget.put_symbol('○')
         self.widget.put_symbol('❶')

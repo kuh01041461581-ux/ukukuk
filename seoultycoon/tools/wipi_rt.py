@@ -547,6 +547,7 @@ def _(this, c): return 1
 def _(this, a, b): pass
 
 # ================================================================== WIPI API
+TEXT_DY = int(os.environ.get('TEXT_DY', '2'))
 FONT = ImageFont.truetype(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'android', 'assets', 'galmuri11.ttf'), 11)
 class Surf:
     def __init__(s, w, h): s.img = PImage.new('RGBA', (w, h), (0, 0, 0, 255)); s.d = ImageDraw.Draw(s.img); s.color = (0, 0, 0, 255); s.clip = None
@@ -672,6 +673,7 @@ def _(this, st, x, y, anchor):
     if anchor & 1: x -= w // 2
     if anchor & 8: x -= w
     if anchor & 32: y -= 12
+    y -= TEXT_DY
     clipped(s, (x, y, x + w + 1, y + 14), lambda: s.d.text((x, y), t, font=FONT, fill=s.color))
 @impl(G, '(II)I+getPixel')
 def _(this, x, y): p = ST[this].s.img.getpixel((x, y)); return (p[0] << 16) | (p[1] << 8) | p[2]

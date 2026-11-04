@@ -84,17 +84,18 @@ internal sealed class CityHallGame : MiniGame
 	private static readonly Color NewWall = Color.FromArgb(236, 238, 242), NewGlass = Color.FromArgb(206, 220, 234), NewRoof = Color.FromArgb(150, 160, 176);
 	private void NewLayer(int y)
 	{
-		// 신청사 조감도: 3층 갈색 기단(곡선 현관) 위에 흰색 세로 살 모양 외벽의 높은 건물, 오른쪽에 금색 간판 별관, 앞쪽엔 정원과 벚나무
-		bool pod = y <= 2, slab = y == 2 || y == 9; int x0 = pod ? 6 : 8, z0 = 3, w = pod ? 16 : 11, d = pod ? 9 : 7;
-		Color pw = Color.FromArgb(204, 168, 126), tw = Color.FromArgb(240, 242, 246), tg = Color.FromArgb(196, 214, 232);
+		// 신청사: 2층까지 노란빛 넓은 기단 위에 회색 10층 건물, 가운데에 미륵사지 석탑처럼 층층이 좁아지는 홈, 옆에 4층 의회 건물, 앞쪽엔 정원과 벚나무
+		bool pod = y <= 1, slab = y == 1 || y == 9; int x0 = pod ? 4 : 8, z0 = 3, w = pod ? 18 : 12, d = pod ? 11 : 7;
+		int nw = y <= 3 ? 6 : (y <= 5 ? 4 : 2), nd = y <= 3 ? 2 : (y <= 6 ? 3 : 4), ncx = 14;   // 홈의 너비·깊이 (위로 갈수록 좁고 깊어져요)
+		Func<int, int, bool> inF = delegate(int x, int z) { if (x < x0 || x >= x0 + w || z < z0 || z >= z0 + d) return false; if (!pod && y < 9 && z >= z0 + d - nd && x >= ncx - nw / 2 && x < ncx + nw / 2) return false; return true; };
+		Color pw = Color.FromArgb(228, 206, 140), tw = Color.FromArgb(172, 176, 184), tg = Color.FromArgb(146, 168, 196);
 		for (int x = x0; x < x0 + w; x++) for (int z = z0; z < z0 + d; z++)
 		{
-			if (!pod && y >= 5 && x >= x0 + w - 3 && z <= z0 + 2) continue;   // 오른쪽 위쪽 테라스 비움
-			bool per = x == x0 || z == z0 || x == x0 + w - 1 || z == z0 + d - 1; if (!per && !slab) continue;
-			Color c = slab ? (y == 9 ? Color.FromArgb(96, 102, 116) : Color.FromArgb(214, 206, 190)) : (pod ? pw : ((x % 2 == 0) ? tw : tg));
+			if (!inF(x, z)) continue; bool per = !inF(x - 1, z) || !inF(x + 1, z) || !inF(x, z - 1) || !inF(x, z + 1); if (!per && !slab) continue;
+			Color c = slab ? (y == 9 ? Color.FromArgb(96, 102, 116) : Color.FromArgb(214, 196, 150)) : (pod ? pw : ((x % 2 == 0) ? tw : tg));
 			Put(x, y, z, c, 4, 99f, !slab && per && y >= 1 && (x + z) % 2 == 0, slab);
 		}
-		if (y <= 3) { for (int x = 22; x < 28; x++) for (int z = 6; z < 11; z++) { bool per = x == 22 || z == 6 || x == 27 || z == 10; if (!per && y < 3) continue; Put(x, y, z, y == 3 ? Color.FromArgb(96, 102, 116) : Color.FromArgb(238, 240, 244), 4, 99f, per && y >= 1 && (x + z) % 2 == 0, y == 3); } if (y == 2) for (int x = 24; x < 27; x++) Put(x, 2, 11, Color.FromArgb(214, 168, 50), 4, 99f, false, false); }
+		if (y <= 3) { for (int x = 22; x < 28; x++) for (int z = 6; z < 11; z++) { bool per = x == 22 || z == 6 || x == 27 || z == 10; if (!per && y < 3) continue; Put(x, y, z, y == 3 ? Color.FromArgb(110, 116, 128) : Color.FromArgb(206, 210, 216), 4, 99f, per && y >= 1 && (x + z) % 2 == 0, y == 3); } if (y == 2) for (int x = 24; x < 27; x++) Put(x, 2, 11, Color.FromArgb(214, 168, 50), 4, 99f, false, false); }
 		if (y == 0)
 		{
 			for (int x = 6; x < 20; x++) for (int z = 14; z < 19; z++) if ((x + z) % 3 != 0 || z == 14) Put(x, 0, z, Color.FromArgb(120, 184, 104), 4, 99f, false, true);   // 앞 정원 잔디

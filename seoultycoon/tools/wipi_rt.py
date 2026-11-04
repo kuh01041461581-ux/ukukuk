@@ -233,6 +233,14 @@ def alen_dbg(uc, a, sz, ud):
     if e.r(0) == 0 and e.cstr(0x1000000, 1) is not None:
         sp = uc.reg_read(UC_ARM_REG_SP); bt = [e.u32(sp + 4 * i) for i in range(0, 120)]
         print('  NULL arraylength: lr=%#x r4=%#x r5=%#x r6=%#x r7=%#x' % (uc.reg_read(UC_ARM_REG_LR) - BASE, e.r(4), e.r(5), e.r(6), uc.reg_read(UC_ARM_REG_R7)))
+def inv_dbg(uc, a, sz, ud):
+    if uc.reg_read(UC_ARM_REG_R4) == BASE + 0x1984f:
+        ref = (0xfffdfac8 + 0xad2a8 + BASE) & 0xffffffff; w = e.u32(ref); print('  ref slot %#x word %#x ->' % (ref, w), e.cstr(e.u32(w + 0xc), 80) if not (w & 1) else strtab(w >> 16)); M = e.r(0); print('  this r1=%#x vidx=%d' % (e.r(1), struct.unpack('<H', bytes(e.mu.mem_read(M + 0x14, 2)))[0])); print('  INVOKESPECIAL at 19850: M=%#x name=%r code=%#x cls=%r' % (M, e.cstr(e.u32(M + 0xc), 80), e.u32(M), e.cstr(e.u32(e.u32(e.u32(M + 4) + 8)), 60)))
+def ret_dbg(uc, a, sz, ud): print('  l.a returns r0=%#x (a=%#x)' % (e.r(0), a - BASE))
+e.mu.hook_add(UC_HOOK_CODE, ret_dbg, begin=BASE + 0x42fee, end=BASE + 0x42fee)
+def call_dbg(uc, a, sz, ud): print('  l.a: calling static ref=%#x r1=%#x r2=%#x lr=%#x' % (e.r(0), e.r(1), e.r(2), uc.reg_read(UC_ARM_REG_LR) - BASE))
+e.mu.hook_add(UC_HOOK_CODE, call_dbg, begin=BASE + 0x42fe6, end=BASE + 0x42fe6)
+e.mu.hook_add(UC_HOOK_CODE, inv_dbg, begin=BASE + 0x7d6c6, end=BASE + 0x7d6c6)
 e.mu.hook_add(UC_HOOK_CODE, alen_dbg, begin=BASE + 0x7d150, end=BASE + 0x7d150)
 e.impl['WIPI_JBInterface[8]'] = lambda e, a, s: 0     # monitorenter
 e.impl['WIPI_JBInterface[9]'] = lambda e, a, s: 0     # monitorexit
@@ -395,6 +403,7 @@ class BS:
 @impl('java/lang/Class', '(Ljava/lang/String;)Ljava/io/InputStream;+getResourceAsStream')
 def _(this, name):
     d = res(pystr(name))
+    print('  getResourceAsStream', repr(pystr(name)), None if d is None else len(d))
     if TRACE: print('  getResourceAsStream', repr(pystr(name)), None if d is None else len(d))
     if d is None: print('  resource not found', repr(pystr(name)), 'ST has', name in ST, [ (hex(k), v) for k, v in ST.items() if isinstance(v, str)][:0]); return 0
     h = hobj_of('java/io/InputStream'); ST[h] = BS(d); return h
@@ -513,7 +522,15 @@ def _(this):
     f = ST[this]
     if f['mode'] != 1: open(f['p'], 'wb').write(bytes(f['buf']))
 @impl('org/kwis/msp/io/File', '()Ljava/io/DataInputStream;+openDataInputStream')
-def _(this): h = hobj_of('java/io/DataInputStream'); ST[h] = BS(bytes(ST[this]['buf'])); return h
+def _(this):
+    f = ST[this]
+    class FBS(BS):                                    # File 과 읽기 위치를 공유하는 스트림
+        def __init__(s): s.b = f['buf']
+        @property
+        def p(s): return f['pos']
+        @p.setter
+        def p(s, v): f['pos'] = v
+    h = hobj_of('java/io/DataInputStream'); ST[h] = FBS(); return h
 @impl('java/io/DataOutputStream', '([BII)V+write')
 def _(this, b, o, l): ST[this].extend(array_bytes(b)[o:o + l])
 @impl('org/kwis/msp/media/Clip', '(Ljava/lang/String;)V+<init>')

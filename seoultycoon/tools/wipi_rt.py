@@ -13,7 +13,8 @@ SCREEN_W, SCREEN_H = 240, 320
 e = Emu(IMG, verbose=True)
 RETT = wipi_emu.RETT
 ST = {}            # 핸들 -> 파이썬 상태
-LOG = []
+import collections
+LOG = collections.deque(maxlen=40)
 TRACE = bool(os.environ.get('TRACE'))
 
 # ------------------------------------------------------------------ 인터페이스(env / knl / JB)
@@ -58,7 +59,7 @@ class HClass:
         nm = e.alloc_low(len(name) + 1); e.mu.mem_write(nm, name.encode() + b'\0')
         e.w32(self.I, nm); e.mu.mem_write(self.I + 0x1a, struct.pack('<H', size))
         e.w32(self.C + 8, self.I)
-        e.mu.mem_write(self.C + 0x10, struct.pack('<H', vt)); e.mu.mem_write(self.C + 0x12, struct.pack('<H', 0x80))
+        e.mu.mem_write(self.C + 0x10, struct.pack('<H', vt)); e.mu.mem_write(self.C + 0x12, struct.pack('<H', 0x88))
         self.vtab = e.alloc_low(4 * max(vt, 1)); e.w32(self.C + 0xc, self.vtab); self.nextv = 0
     def method(self, nameptr, key, vidx=None):
         if key not in self.methods:
@@ -161,8 +162,11 @@ def make_caller(ik, key):
         if fn is None:
             if e.verbose: print('  [UNIMPL] %s this=%s args=%s' % (ik, hex(this) if this else None, [hex(x) if isinstance(x, int) and x > 255 else x for x in args]))
             return 0
+        LOG.append('call %s this=%s args=%s' % (ik, hex(this) if this else None, [hex(x) if isinstance(x, int) and x > 255 else x for x in args]))
         if TRACE: print('  [call] %s this=%s args=%s' % (ik, hex(this) if this else None, [hex(x) if isinstance(x, int) and x > 255 else x for x in args]))
-        r = fn(this, *args) if not static else fn(*args)
+        try: r = fn(this, *args) if not static else fn(*args)
+        except Exception as ex:
+            print('  [IMPL-ERR] %s: %r' % (ik, ex)); r = 0
         return r if r is not None else 0
     return call
 STATIC = set()
@@ -194,12 +198,38 @@ def esz_of_class(C):
 def jb_throw(e, a, s):
     if a[0] < 0x100:                                         # (atype*4, length, 콜백) = 기본형 배열 생성
         C = e.u32(primtab + a[0]); return new_array(C, a[1], PRIM[a[0] >> 2][1])
-    print('  !!! THROW', e.cstr(a[0]).decode(), 'lr=%#x' % (e.mu.reg_read(UC_ARM_REG_LR) - BASE)); e.mu.emu_stop(); e.threw = True; return 0
+    if a[2] == BASE + 0x7be75:                               # (클래스참조, 길이, 콜백) = 참조형 배열 생성
+        w = e.u32(a[0]); nm = strtab(w >> 1).decode('latin1') if (w & 1) else e.cstr(e.u32(e.u32(w + 8)), 100).decode('latin1')
+        an = '[' + (nm if nm.startswith('[') else 'L' + nm + ';')
+        return new_array(classfor(an), a[1], 4)
+    sp = e.mu.reg_read(UC_ARM_REG_SP); bt = [e.u32(sp + 4 * i) for i in range(0, 200)]; bts = ['%#x' % (v - BASE - 1) for v in bt if BASE + 0x100 < v < BASE + 0x82700 and v & 1]; print('  backtrace:', ' '.join(bts[:14]))
+    print('  !!! THROW args', [hex(x) for x in a], 'sp', hex(e.mu.reg_read(UC_ARM_REG_SP)))
+    print('  !!! THROW', e.cstr(a[0]).decode(), 'lr=%#x' % (e.mu.reg_read(UC_ARM_REG_LR) - BASE)); print('  recent host calls:'); [print('    ', x) for x in list(LOG)[-14:]]; e.mu.emu_stop(); e.threw = True; return 0
 e.threw = False
 e.impl['WIPI_JBInterface[1]'] = jb_resolve
 e.impl['WIPI_JBInterface[2]'] = jb_throw
 e.impl['WIPI_JBInterface[6]'] = lambda e, a, s: new_array(a[0], a[1], esz_of_class(a[0]))
-e.impl['WIPI_JBInterface[10]'] = lambda e, a, s: 0
+def nested_call(code, args):
+    """훅 안에서 이미지 코드를 중첩 실행(레지스터 컨텍스트 보존)"""
+    ctx = e.mu.context_save(); sp = e.mu.reg_read(UC_ARM_REG_SP) - 0x400
+    e.mu.reg_write(UC_ARM_REG_SP, sp & ~7)
+    for i, v in enumerate(args): e.setr(i, v)
+    e.mu.reg_write(UC_ARM_REG_LR, RET | 1)
+    try: e.mu.emu_start(code | 1, RET, count=50_000_000)
+    finally: e.mu.context_restore(ctx)
+def init_class(C):
+    fl = struct.unpack('<H', bytes(e.mu.mem_read(C + 0x12, 2)))[0]
+    if fl & 8: return
+    e.mu.mem_write(C + 0x12, struct.pack('<H', fl | 8))
+    I = e.u32(C + 8); sup = e.u32(I + 8)
+    if sup and not (sup & 1) and in_heap_or_img(sup): init_class(sup)
+    ms = e.u32(I + 0xc); n = struct.unpack('<H', bytes(e.mu.mem_read(I + 0x18, 2)))[0]
+    for i in range(n):
+        M = e.u32(ms + 4 * i)
+        if e.cstr(e.u32(M + 0xc), 80).endswith(b'+<clinit>'):
+            if TRACE or e.verbose: print('  <clinit>', e.cstr(e.u32(I), 60))
+            nested_call(e.u32(M) & ~1, [0, 0]); break
+e.impl['WIPI_JBInterface[10]'] = lambda e, a, s: init_class(a[0]) or 0
 def jb_str(e, a, s):
     n = struct.unpack('<H', bytes(e.mu.mem_read(a[0], 2)))[0]            # u16 길이 + UTF-16LE
     return jstr(bytes(e.mu.mem_read(a[0] + 2, 2 * n)).decode('utf-16le', 'replace'))
@@ -220,11 +250,14 @@ def jb12(e, a, s):
         if t in 'IZBSC' and v >> 31: v -= 1 << 32
         if t == 'J' and v >> 63: v -= 1 << 64
         args.append(v)
+    LOG.append('native %s this=%s args=%s' % (ik, hex(this) if this else None, args))
     if TRACE: print('  [native] %s this=%s args=%s' % (ik, hex(this) if this else None, args))
     if fn is None:
         if e.verbose: print('  [UNIMPL-native] %s args=%s' % (ik, args))
         r = 0
-    else: r = (fn(this, *args) if not static else fn(*args)) or 0
+    else:
+        try: r = (fn(this, *args) if not static else fn(*args)) or 0
+        except Exception as ex: print('  [IMPL-ERR] %s: %r' % (ik, ex)); r = 0
     e.mu.mem_write(resbuf, struct.pack('<Q', r & (2**64 - 1)))
     return resbuf
 e.impl['WIPI_JBInterface[12]'] = jb12
@@ -523,6 +556,20 @@ def _(this): return make_gfx(ST[this])
 def make_gfx(surf):
     h = hobj_of('org/kwis/msp/lcdui/Graphics'); ST[h] = Gfx(surf); return h
 G = 'org/kwis/msp/lcdui/Graphics'
+def clipped(s, bbox, fn):
+    """클립 사각형 밖은 그리지 않도록: 그리기 전 영역을 저장하고 그린 뒤 클립 밖만 되돌린다"""
+    W, H = s.img.size
+    x0, y0, x1, y1 = max(bbox[0], 0), max(bbox[1], 0), min(bbox[2], W), min(bbox[3], H)
+    if x1 <= x0 or y1 <= y0: return
+    c = s.clip
+    if c is None: fn(); return
+    cx0, cy0, cx1, cy1 = c[0], c[1], c[0] + c[2], c[1] + c[3]
+    ix0, iy0, ix1, iy1 = max(x0, cx0), max(y0, cy0), min(x1, cx1), min(y1, cy1)
+    if ix1 <= ix0 or iy1 <= iy0: return
+    if (ix0, iy0, ix1, iy1) == (x0, y0, x1, y1): fn(); return
+    saved = s.img.crop((x0, y0, x1, y1)); fn()
+    mask = PImage.new('L', (x1 - x0, y1 - y0), 255); ImageDraw.Draw(mask).rectangle([ix0 - x0, iy0 - y0, ix1 - x0 - 1, iy1 - y0 - 1], fill=0)
+    s.img.paste(saved, (x0, y0), mask)
 @impl(G, '(I)V+setColor')
 def _(this, c): ST[this].s.color = rgb(c)
 @impl(G, '()I+getColor')
@@ -530,21 +577,32 @@ def _(this): c = ST[this].s.color; return (c[0] << 16) | (c[1] << 8) | c[2]
 @impl(G, '(I)V+setAlpha')
 def _(this, a): pass
 @impl(G, '(IIII)V+fillRect')
-def _(this, x, y, w, h): s = ST[this].s; s.d.rectangle([x, y, x + w - 1, y + h - 1], fill=s.color)
+def _(this, x, y, w, h):
+    s = ST[this].s
+    if w > 0 and h > 0: clipped(s, (x, y, x + w, y + h), lambda: s.d.rectangle([x, y, x + w - 1, y + h - 1], fill=s.color))
 @impl(G, '(IIII)V+drawRect')
-def _(this, x, y, w, h): s = ST[this].s; s.d.rectangle([x, y, x + w, y + h], outline=s.color)
+def _(this, x, y, w, h):
+    s = ST[this].s
+    if w >= 0 and h >= 0: clipped(s, (x, y, x + w + 1, y + h + 1), lambda: s.d.rectangle([x, y, x + w, y + h], outline=s.color))
 @impl(G, '(IIII)V+drawLine')
-def _(this, a, b, c, d_): s = ST[this].s; s.d.line([a, b, c, d_], fill=s.color)
+def _(this, a, b, c, d_):
+    s = ST[this].s; clipped(s, (min(a, c), min(b, d_), max(a, c) + 1, max(b, d_) + 1), lambda: s.d.line([a, b, c, d_], fill=s.color))
 @impl(G, '(IIII)V+setClip')
 def _(this, x, y, w, h): ST[this].s.clip = (x, y, w, h)
 @impl(G, '(IIIIII)V+fillRoundRect')
-def _(this, x, y, w, h, aw, ah): s = ST[this].s; s.d.rounded_rectangle([x, y, x + w - 1, y + h - 1], aw // 2, fill=s.color)
+def _(this, x, y, w, h, aw, ah):
+    s = ST[this].s
+    if w > 0 and h > 0: clipped(s, (x, y, x + w, y + h), lambda: s.d.rounded_rectangle([x, y, x + w - 1, y + h - 1], aw // 2, fill=s.color))
 @impl(G, '(IIIIII)V+drawRoundRect')
-def _(this, x, y, w, h, aw, ah): s = ST[this].s; s.d.rounded_rectangle([x, y, x + w, y + h], aw // 2, outline=s.color)
+def _(this, x, y, w, h, aw, ah):
+    s = ST[this].s
+    if w >= 0 and h >= 0: clipped(s, (x, y, x + w + 1, y + h + 1), lambda: s.d.rounded_rectangle([x, y, x + w, y + h], aw // 2, outline=s.color))
 @impl(G, '(IIIIII)V+fillArc')
-def _(this, x, y, w, h, sa, ea): s = ST[this].s; s.d.pieslice([x, y, x + w, y + h], -sa - ea, -sa, fill=s.color)
+def _(this, x, y, w, h, sa, ea):
+    s = ST[this].s; clipped(s, (x, y, x + w + 1, y + h + 1), lambda: s.d.pieslice([x, y, x + w, y + h], -sa - ea, -sa, fill=s.color))
 @impl(G, '(IIIIII)V+drawArc')
-def _(this, x, y, w, h, sa, ea): s = ST[this].s; s.d.arc([x, y, x + w, y + h], -sa - ea, -sa, fill=s.color)
+def _(this, x, y, w, h, sa, ea):
+    s = ST[this].s; clipped(s, (x, y, x + w + 1, y + h + 1), lambda: s.d.arc([x, y, x + w, y + h], -sa - ea, -sa, fill=s.color))
 @impl(G, '(Lorg/kwis/msp/lcdui/Image;III)V+drawImage')
 def _(this, im, x, y, anchor):
     if not im or im not in ST: return
@@ -553,18 +611,20 @@ def _(this, im, x, y, anchor):
     if anchor & 8: x -= src.width
     if anchor & 2: y -= src.height // 2
     if anchor & 32: y -= src.height
-    s.img.alpha_composite(src, (x, y)) if (x >= 0 and y >= 0) else s.img.paste(src, (x, y), src)
+    clipped(s, (x, y, x + src.width, y + src.height), lambda: s.img.paste(src, (x, y), src))
 @impl(G, '(Ljava/lang/String;III)V+drawString')
 def _(this, st, x, y, anchor):
-    s = ST[this].s; t = pystr(st); w = s.d.textlength(t, font=FONT)
-    if anchor & 1: x -= int(w) // 2
-    if anchor & 8: x -= int(w)
-    s.d.text((x, y), t, font=FONT, fill=s.color)
+    s = ST[this].s; t = pystr(st); w = int(s.d.textlength(t, font=FONT))
+    if anchor & 1: x -= w // 2
+    if anchor & 8: x -= w
+    if anchor & 32: y -= 12
+    clipped(s, (x, y, x + w + 1, y + 14), lambda: s.d.text((x, y), t, font=FONT, fill=s.color))
 @impl(G, '(II)I+getPixel')
 def _(this, x, y): p = ST[this].s.img.getpixel((x, y)); return (p[0] << 16) | (p[1] << 8) | p[2]
-for n in ('()I+getClipX', '()I+getClipY'): IMPL[G + '::' + n] = lambda this: 0
-IMPL[G + '::()I+getClipWidth'] = lambda this: SCREEN_W
-IMPL[G + '::()I+getClipHeight'] = lambda this: SCREEN_H
+def _clipget(i, dflt):
+    return lambda this: (ST[this].s.clip[i] if ST[this].s.clip else dflt)
+IMPL[G + '::()I+getClipX'] = _clipget(0, 0); IMPL[G + '::()I+getClipY'] = _clipget(1, 0)
+IMPL[G + '::()I+getClipWidth'] = _clipget(2, SCREEN_W); IMPL[G + '::()I+getClipHeight'] = _clipget(3, SCREEN_H)
 
 # ================================================================== 실행
 def find_code(h, suffix):
@@ -634,6 +694,9 @@ if __name__ == '__main__':
         w = e.u32(R)
         if w & 1: print('  word ->', strtab((w & 0xffff) >> 1), strtab(w >> 16))
         print('HOT blocks:', [(hex(a), n) for a, n in hist.most_common(12)]); sys.exit(0)
+    COVER = os.environ.get('COVER')
+    seen = set()
+    if COVER: e.mu.hook_add(UC_HOOK_CODE, lambda uc, a, sz, ud: seen.add((a, sz)), begin=BASE, end=BASE + 0x83000)
     NR = int(os.environ.get('ROUNDS', '300')); shots = set(range(1, NR + 1, max(1, NR // 20)))
     print('allocated MB', (e.heap_ptr - 0x50000000) >> 20)
     for rnd in range(1, NR + 1):
@@ -644,3 +707,13 @@ if __name__ == '__main__':
         if e.threw: break
         if rnd in shots and current_card[0]:
             snapshot('frame%03d' % rnd); print('round', rnd, 'threads', [(t.n, t.done, t.wake) for t in THREADS])
+
+    if COVER:
+        import capstone, collections
+        md = capstone.Cs(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB); cnt = collections.Counter(); wide = 0
+        img = bytes(e.mu.mem_read(BASE, 0x83000))
+        for a, sz in sorted(seen):
+            for i in md.disasm(img[a - BASE:a - BASE + sz], a):
+                cnt[i.mnemonic] += 1
+            if sz == 4: wide += 1
+        print('COVER distinct instrs', len(seen), 'wide(32bit)', wide); print(sorted(cnt.items(), key=lambda x: -x[1]))

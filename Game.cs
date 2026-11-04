@@ -55,9 +55,22 @@ internal abstract class MiniGame
 		Txt(g, s, pt, 1, gold ? Color.FromArgb(A, 255, 232, 150) : Color.FromArgb(A, 255, 255, 255), r.X + 22f, r.Y, r.Width - 28f, r.Height, StringAlignment.Center);
 	}
 	protected static float Clamp(float v, float a, float b) { return v < a ? a : (v > b ? b : v); }
+	private static readonly Dictionary<string, int> lineCache = new Dictionary<string, int>();
 	public static void Txt(Graphics g, string s, float pt, int wt, Color c, float x, float y, float w, float h, StringAlignment ha, bool wrap = false)
 	{
 		if (string.IsNullOrEmpty(s) || c.A < 6) return;
+		// 안내문이 너무 길어 한 줄에 못 담기면 글자를 깎아 잘라 보이게 하지 않고, 줄을 바꿔서(최대 3줄) 끝까지 보여줘요
+		if (!wrap && s.Length > 9 && h >= 12f && w >= 40f && s.IndexOf('\n') < 0)
+		{
+			int ln; string lk = pt + "/" + wt + "/" + (int)w + "/" + s;
+			if (!lineCache.TryGetValue(lk, out ln))
+			{
+				ln = 1;
+				try { float tw = g.MeasureString(s, Theme.F(pt, wt)).Width; if (tw > w * 1.3f) ln = Math.Min(3, (int)Math.Ceiling(tw / (w * 0.9f))); } catch { }
+				if (lineCache.Count > 600) lineCache.Clear(); lineCache[lk] = ln;
+			}
+			if (ln > 1) { float nh = h * ln * 0.92f; y -= (nh - h) / 2f; h = nh; pt *= 0.93f; wrap = true; }
+		}
 		// 지금 그리는 곳의 변환(배율·이동)을 그대로 따라가요: 카드처럼 옮기고 줄인 상태에서도 글씨가 제자리에 나와요
 		float[] el; using (Matrix mx = g.Transform) el = mx.Elements;
 		bool simple = Math.Abs(el[1]) < 1e-4f && Math.Abs(el[2]) < 1e-4f && el[0] > 0.05f && Math.Abs(el[0] - el[3]) < 1e-3f;

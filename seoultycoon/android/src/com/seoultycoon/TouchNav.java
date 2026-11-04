@@ -9,6 +9,7 @@ import javax.microedition.lcdui.Display;
  * 화면 객체(난독화 클래스)의 선택 필드를 리플렉션으로 읽어 현재 위치를 안다.
  *  - ae : 메인 메뉴(7항목, 선택 g)
  *  - v  : 확인/취소 대화창(선택 p, 왼쪽 s / 오른쪽 o)
+ *  - c  : 도시 지도(가운데=선택, 가장자리=그 방향 이동)
  */
 final class TouchNav {
     static final int UP = GameView.UP, DOWN = GameView.DOWN, LEFT = GameView.LEFT, RIGHT = GameView.RIGHT, OK = GameView.OK;
@@ -42,6 +43,12 @@ final class TouchNav {
                 int[] seq = new int[n + 1];
                 for (int i = 0; i < n; i++) seq[i] = dir;
                 seq[n] = OK; return seq;
+            }
+            if (cn.equals("c")) {                                     // 도시 지도: 가운데 탭=선택, 가장자리 탭=그쪽 방향으로 이동
+                int d = geti(sc, "d"), v = geti(sc, "v");
+                float dx = gx - d, dy = gy - v;
+                if (Math.abs(dx) < 22 && Math.abs(dy) < 22) return new int[]{OK};
+                return new int[]{Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? RIGHT : LEFT) : (dy > 0 ? DOWN : UP)};
             }
             if (cn.equals("v")) {                                     // 확인/취소 대화창
                 int s = geti(sc, "s"), o = geti(sc, "o"), p = geti(sc, "p"), d = geti(sc, "d");

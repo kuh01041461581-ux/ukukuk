@@ -6,6 +6,10 @@ cd "$(dirname "$0")"
 OUT=build; rm -rf $OUT; mkdir -p $OUT/classes $OUT/stage/assets/st2
 AJ=/usr/lib/android-sdk/platforms/android-23/android.jar
 javac -nowarn -source 8 -target 8 -encoding UTF-8 -cp $AJ -d $OUT/classes src/com/seoultycoon/st2/*.java app/com/seoultycoon/st2app/*.java 2>&1 | { grep -v "JAVA_TOOL\|warning\|^Note" || true; }
+# dx 는 람다를 처리하지 못하므로 먼저 익명 클래스로 풀어 준다(tools/Delambda.java)
+ASM=/usr/share/java/asm-9.7.jar:/usr/share/java/asm-tree-9.7.jar
+mkdir -p $OUT/tool && javac -nowarn -cp $ASM -d $OUT/tool ../tools/Delambda.java 2>&1 | { grep -v JAVA_TOOL || true; }
+java -cp $OUT/tool:$ASM Delambda $OUT/classes 2>&1 | { grep -v JAVA_TOOL || true; }
 /usr/lib/android-sdk/build-tools/debian/dx --dex --min-sdk-version=26 --output=$OUT/classes.dex $OUT/classes 2>&1 | { grep -v "JAVA_TOOL" || true; }
 cp ../work/st2/* $OUT/stage/assets/st2/ ; rm -f $OUT/stage/assets/st2/cc2     # 세이브(cc2)는 포함하지 않는다
 python3 -I ../tools/convert_audio_res.py $OUT/stage/assets/st2                  # MMF(s*.d) -> 표준 MIDI

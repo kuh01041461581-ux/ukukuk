@@ -229,6 +229,11 @@ def jb_aastore(e, a, s):
     else: print('  !!! JB[3] (OOM?)', [hex(x) for x in a])
     return 0
 e.impl['WIPI_JBInterface[3]'] = jb_aastore
+def alen_dbg(uc, a, sz, ud):
+    if e.r(0) == 0 and e.cstr(0x1000000, 1) is not None:
+        sp = uc.reg_read(UC_ARM_REG_SP); bt = [e.u32(sp + 4 * i) for i in range(0, 120)]
+        print('  NULL arraylength: lr=%#x r4=%#x r5=%#x r6=%#x r7=%#x' % (uc.reg_read(UC_ARM_REG_LR) - BASE, e.r(4), e.r(5), e.r(6), uc.reg_read(UC_ARM_REG_R7)))
+e.mu.hook_add(UC_HOOK_CODE, alen_dbg, begin=BASE + 0x7d150, end=BASE + 0x7d150)
 e.impl['WIPI_JBInterface[8]'] = lambda e, a, s: 0     # monitorenter
 e.impl['WIPI_JBInterface[9]'] = lambda e, a, s: 0     # monitorexit
 e.impl['WIPI_JBInterface[6]'] = lambda e, a, s: new_array(a[0], a[1], esz_of_class(a[0]))

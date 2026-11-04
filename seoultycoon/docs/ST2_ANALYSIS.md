@@ -49,3 +49,15 @@ Unicorn 으로 재배치된 이미지를 올리고 호스트 함수를 "매직 �
 - **객체 모델**: 참조값은 **핸들**(몸체를 가리키는 포인터를 담은 칸의 주소). 몸체 `[0]` = 헤더(`classIndex<<5 | 플래그`), 배열은 `[4]`=길이, 원소는 `[8+i*크기]`; 인스턴스 필드는 `몸체+4+오프셋`. → 호스트가 만드는 객체/배열도 이 형식을 따라야 함(현재 에뮬레이터는 단순 객체라 이 지점에서 NPE).
 - 호스트 클래스 합성기(`HClass`) 구현됨: `Jlet`(vtable 19칸) 등 외부 클래스를 이미지 링커가 받아들이는 형식으로 생성.
 - **다음**: 핸들/헤더 규칙에 맞춘 `new`/`newarray`, 클래스 인덱스 표(`*0x10ad? + (hdr>>5)`) 구현 → `Card`/`Display`/`Graphics`/`Image` 호스트 메소드를 안드로이드 레이어에 연결.
+
+
+## 진행 기록 4 — **원본 2편 코드가 실제로 실행되어 타이틀 화면까지 렌더링됨** (`tools/wipi_rt.py`)
+실행: `python3 tools/wipi_rt.py work/st2/client.bin1116 work/st2 /tmp/st2out` (환경변수 `ROUNDS`, `KEYS=라운드:유형:키,...`, `TRACE=1`, `PROF=1`, `COVER=1`). 프레임은 `/tmp/st2out/frame*.png`.
+결과: 넥슨모바일 로고 → 치즈케익 로고 → **SEOUL TYCOON 2 타이틀(PRESS ANY KEY)** → 키 입력 후 "추가다운로드" 안내/데이터팩 로딩 단계까지 진행. 스크린샷 `docs/st2_splash.png`, `docs/st2_title.png`.
+확정된 ABI(추가분):
+- **초기화 인자**: `init(r0=플래그바이트*, r1=GC루트 3단 구조체, r2=0(클래스베이스), r3=기본형배열 클래스표[atype*4])`, 5번째=env 표.
+- **JB 슬롯**: `[1]` 심볼 해석(콜백 0x7b3fd=메소드/정적필드, 0x7b469=필드, 0x7b4d5=클래스)·`new`, `[2]` 기본형/참조형 배열 생성(첫 인자 `<0x100`=atype*4, 그 외=클래스참조/포인터)·예외 던지기(첫 인자가 문자열 포인터), `[3]` aastore(콜백 0x7cbb1)/multianewarray(콜백 0x7bf5d), `[6]` newarray(Class,n), `[8/9]` monitorenter/exit, `[10]` 클래스 초기화(`<clinit>` 실행·중첩 호출), `[11]` 문자열 상수 생성(**u16 길이 + UTF-16LE**), `[12]` 네이티브 호출(정적 메소드): `JB[12](M+8 핸들, 인자배열*)` → 결과 8바이트 버퍼 포인터.
+- 인스턴스 메소드는 `M+0` 코드 포인터를 직접 호출(r1=this), 64비트 반환은 r0:r1. 객체 헤더 `(Class<<5)`, 클래스/호스트 구조체는 64MB 미만 주소 필요.
+- 키: `Card.keyNotify(type, key)` — type 1=눌림, 2=뗌, 4=길게. `Display.getGameAction(key)` 필요.
+- 저장소 파일 `cc2`, `data1.pak` 은 `org.kwis.msp.io.File` 로 접근 → 호스트 저장 폴더에 `data1.pak` 을 미리 배치.
+남은 일: (1) 키 입력 후 다음 화면(데이터 확인/메인 메뉴)에서 발생하는 NPE 원인(앱 메소드가 null 배열 반환) 추적, (2) 나머지 WIPI API(Font·TextField·Network 등) 구현, (3) **안드로이드 이식**: 이 런타임은 파이썬+Unicorn 이므로 폰에서는 `Thumb 인터프리터(Java)`로 재작성해야 함 — `COVER=1` 로 실제 쓰이는 명령어 범위를 먼저 측정.

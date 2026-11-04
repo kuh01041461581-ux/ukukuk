@@ -3,7 +3,8 @@ import 'dart:math';
 
 typedef Json = Map<String, dynamic>;
 
-const nonDateKeys = {'_inbox', '_deleted', '_work'}; // _work: 업무(공문·제출 현황) 묶음
+const metaKeys = {'_deleted', '_work', '_team'}; // 날짜 칸이 아닌 부가 데이터
+const nonDateKeys = {'_inbox', '_deleted', '_work', '_team'}; // _work: 업무(공문·제출 현황) 묶음, _team: 부서원 명단(이름·색)
 final _rnd = Random.secure();
 
 int nowMs() => DateTime.now().millisecondsSinceEpoch;
@@ -31,8 +32,12 @@ Json touch(Json t) {
   return t;
 }
 
+String? _author; // 부서 공유를 켠 사용자의 작성자 id. 켜져 있으면 새 일정에 'au' 로 붙는다
+void setAuthor(String? uid) => _author = (uid == null || uid.isEmpty) ? null : uid;
+
 Json newItem(String text, {Json? extra}) {
   final t = <String, dynamic>{'id': newId(), 'text': text, 'done': false, 'pri': 2, 'updated': nowMs()};
+  if (_author != null) t['au'] = _author;
   if (extra != null) t.addAll(extra);
   return t;
 }
@@ -40,7 +45,7 @@ Json newItem(String text, {Json? extra}) {
 bool ensureIds(Json data) {
   var changed = false;
   data.forEach((key, v) {
-    if (key == '_deleted' || key == '_work' || v is! Map) return;
+    if (metaKeys.contains(key) || v is! Map) return;
     for (final t in (v['todos'] as List? ?? const [])) {
       if (t['id'] == null || t['id'] == '') {
         t['id'] = newId();
@@ -227,7 +232,7 @@ int sortCompare(Json a, Json b) {
 (String?, List?) findOwner(Json data, Json t0) {
   final t = baseOf(t0);
   for (final e in data.entries) {
-    if (e.key == '_deleted' || e.key == '_work' || e.value is! Map) continue;
+    if (metaKeys.contains(e.key) || e.value is! Map) continue;
     final list = e.value['todos'] as List?;
     if (list == null) continue;
     for (final x in list) {
@@ -262,7 +267,7 @@ Json exportState(Json data) {
   final items = <Json>[];
   final memos = <String, dynamic>{};
   data.forEach((key, v) {
-    if (key == '_deleted' || key == '_work' || v is! Map) return;
+    if (metaKeys.contains(key) || v is! Map) return;
     for (final t in (v['todos'] as List? ?? const [])) {
       if (t['id'] == null) continue;
       final r = <String, dynamic>{};
@@ -285,11 +290,14 @@ Json exportState(Json data) {
     });
     work[i.toString()] = m;
   });
+  final team = <String, dynamic>{};
+  (data['_team'] as Map? ?? {}).forEach((u, m) => team[u.toString()] = Map<String, dynamic>.from(m as Map));
   return {
     'items': items,
     'memos': memos,
     'deleted': Map<String, dynamic>.from(data['_deleted'] as Map? ?? {}),
-    'work': work
+    'work': work,
+    'team': team
   };
 }
 
@@ -307,7 +315,7 @@ bool mergeState(Json data, Json remote) {
   });
   final idx = <String, (String, Json)>{};
   data.forEach((key, v) {
-    if (key == '_deleted' || key == '_work' || v is! Map) return;
+    if (metaKeys.contains(key) || v is! Map) return;
     for (final t in (v['todos'] as List? ?? const [])) {
       if (t['id'] != null) idx[t['id']] = (key, t as Json);
     }
@@ -331,6 +339,8 @@ bool mergeState(Json data, Json remote) {
     });
     final old = idx[id];
     if (old != null) {
+      final oau = old.$2['au'];
+      if (oau != null && oau != '' && r['au'] != oau) continue; // 작성자는 바뀌지 않는다: 남의 일정으로 바꾼 수정은 받지 않는다
       if (_i(r['updated']) > _i(old.$2['updated'])) {
         (data[old.$1]['todos'] as List).removeWhere((x) => identical(x, old.$2));
         addItem(data, key, t);
@@ -350,6 +360,16 @@ bool mergeState(Json data, Json remote) {
       changed = true;
     }
   });
+  // 부서원 명단: 사람마다 더 늦게 고친 쪽이 이김
+  final team = data['_team'] is Map ? Map<String, dynamic>.from(data['_team'] as Map) : <String, dynamic>{};
+  (remote['team'] as Map? ?? {}).forEach((u, m) {
+    final cur = team[u] as Map?;
+    if (_i((m as Map)['updated']) > (cur == null ? -1 : _i(cur['updated']))) {
+      team[u.toString()] = {'name': m['name'] ?? '', 'color': m['color'] ?? '', 'updated': _i(m['updated'])};
+      changed = true;
+    }
+  });
+  data['_team'] = team;
   // 업무 묶음: 통째로, 더 늦게 고친 쪽이 이김
   final work = Map<String, dynamic>.from(data['_work'] as Map? ?? {});
   final gone = work.keys.where((i) => _i(dele[i]) >= _i((work[i] as Map)['updated'])).toList();

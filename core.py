@@ -5,7 +5,8 @@ import datetime as dt
 import time
 import uuid
 
-NON_DATE_KEYS = ("_inbox", "_deleted", "_work")   # _work: 업무(공문·제출 현황) 묶음
+META_KEYS = ("_deleted", "_work", "_team")         # 날짜 칸이 아닌 부가 데이터
+NON_DATE_KEYS = ("_inbox",) + META_KEYS            # _work: 업무(공문·제출 현황) 묶음, _team: 부서원 명단(이름·색)
 
 
 # ── 항목 ──
@@ -22,8 +23,18 @@ def touch(t):
     return t
 
 
+_author = None      # 부서 공유를 켠 이 PC 사용자의 작성자 id. 켜져 있으면 새 일정에 'au' 로 붙는다
+
+
+def set_author(uid):
+    global _author
+    _author = uid or None
+
+
 def new_item(text, **kw):
     t = {"id": new_id(), "text": text, "done": False, "pri": 2, "updated": now_ms()}
+    if _author:
+        t["au"] = _author
     t.update(kw)
     return t
 
@@ -32,7 +43,7 @@ def ensure_ids(data):
     """예전 data.json 의 항목에 id / updated 를 채운다. 바뀐 게 있으면 True"""
     changed = False
     for key, v in data.items():
-        if key in ("_deleted", "_work"):
+        if key in META_KEYS:
             continue
         for t in v.get("todos", []):
             if not t.get("id"):
@@ -223,7 +234,7 @@ def find_owner(data, t):
     """항목이 들어 있는 (키, 리스트)"""
     t = base_of(t)
     for key, v in data.items():
-        if key in ("_deleted", "_work"):
+        if key in META_KEYS:
             continue
         for x in v.get("todos", []):
             if x is t:
@@ -258,7 +269,7 @@ def add_item(data, key, t):
 def export_state(data):
     items, memos = [], {}
     for key, v in data.items():
-        if key in ("_deleted", "_work"):
+        if key in META_KEYS:
             continue
         for t in v.get("todos", []):
             if not t.get("id"):
@@ -269,7 +280,8 @@ def export_state(data):
         if key != "_inbox" and (v.get("memo", "").strip() or v.get("memo_ts")):    # 지운 메모도 '비웠다'는 기록(ts)으로 보내야 다른 기기의 옛 메모가 되살아나지 않는다
             memos[key] = {"memo": v.get("memo", ""), "ts": v.get("memo_ts", 0)}
     work = {i: {k: val for k, val in c.items() if not k.startswith("_")} for i, c in (data.get("_work") or {}).items()}
-    return {"items": items, "memos": memos, "deleted": dict(data.get("_deleted", {})), "work": work}
+    team = {u: dict(m) for u, m in (data.get("_team") or {}).items()}
+    return {"items": items, "memos": memos, "deleted": dict(data.get("_deleted", {})), "work": work, "team": team}
 
 
 def merge_state(data, remote):
@@ -282,7 +294,7 @@ def merge_state(data, remote):
             changed = True
     idx = {}
     for key, v in data.items():
-        if key in ("_deleted", "_work"):
+        if key in META_KEYS:
             continue
         for t in v.get("todos", []):
             if t.get("id"):
@@ -300,6 +312,8 @@ def merge_state(data, remote):
         t = {k: val for k, val in r.items() if k != "date"}
         if i in idx:
             okey, ot = idx[i]
+            if ot.get("au") and r.get("au") != ot.get("au"):      # 작성자는 바뀌지 않는다: 남의 일정으로 바꾼 수정은 받지 않는다
+                continue
             if r.get("updated", 0) > ot.get("updated", 0):
                 data[okey]["todos"] = [x for x in data[okey]["todos"] if x is not ot]
                 add_item(data, key, t)
@@ -312,6 +326,11 @@ def merge_state(data, remote):
         if m.get("ts", 0) > (e.get("memo_ts", 0) if e else 0):
             e = data.setdefault(d, {"memo": "", "todos": []})
             e["memo"], e["memo_ts"] = m.get("memo", ""), m["ts"]
+            changed = True
+    team = data.setdefault("_team", {})                   # 부서원 명단: 사람마다 더 늦게 고친 쪽이 이김
+    for u, m in (remote.get("team") or {}).items():
+        if m.get("updated", 0) > team.get(u, {}).get("updated", -1):
+            team[u] = {"name": m.get("name", ""), "color": m.get("color", ""), "updated": m.get("updated", 0)}
             changed = True
     work = data.get("_work") or {}                        # 업무 묶음: 통째로, 더 늦게 고친 쪽이 이김
     for i in [i for i, c in work.items() if dele.get(i, 0) >= c.get("updated", 0)]:

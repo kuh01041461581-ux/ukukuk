@@ -1082,7 +1082,7 @@ class ItemSearch extends SearchDelegate<Object?> {
     if (q.isEmpty) return const Center(child: Text('찾을 말을 입력하세요', style: TextStyle(color: cDim)));
     final hits = <(DateTime?, String, String)>[];
     store.data.forEach((key, v) {
-      if (key == '_deleted' || v is! Map) return;
+      if (metaKeys.contains(key) || v is! Map) return;
       final d = parseDate(key);
       for (final t in (v['todos'] as List? ?? const [])) {
         final text = (t['text'] as String?) ?? '', note = (t['note'] as String?) ?? '';

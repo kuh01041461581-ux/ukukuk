@@ -54,6 +54,9 @@ Claude-Session: https://claude.ai/code/session_012anZ1Bdp8r3prMqVkFTmB4
 - 빠른 입력(Ctrl+Alt+Space): 달력을 앞으로 불러오지 않고 `CommandBar(anywhere=True)` 를 마우스가 있는 모니터(`work_area_at`)에 띄운다. 이미 열려 있으면 닫힘. 단축키가 이미 쓰이면 Ctrl+Shift+Space → Ctrl+Alt+Q 로 등록하고 알림. 입력 해석은 quickadd.py/quickadd.dart(붙여 쓴 날짜 261024·20261024, 끝에 붙인 중요/긴급/낮음). 시험: tests/test_quickbar.py, tests/quickadd_cases.json.
 - 날짜 상세 창(DayDetail, 더블클릭)은 일정이 많을 때 어느 줄 위에서든 휠로 스크롤(`_bind_wheel_tree`), 창도 더 크게. 오른쪽 패널·말풍선은 기존 그대로(말풍선은 14개까지, '날짜를 눌러 전체 보기').
 
+- **부서 공유(deptcalendar 통합 1단계)**: `team.py`(순수 규칙) + core 의 `au`(작성자 id)·`_team`(명단 id→{name,color,updated})·`META_KEYS`. 설정 `conf["team"]={on,uid,name,color}`, ☰ → '부서 공유' (`TeamDialog`). 켜면 새 일정에 `au` 가 붙고(`core.set_author`), 달력 글자·막대는 작성자 색(`item_color`, 중요는 ★), 내가 쓴 일정(또는 작성자 없는 예전 일정)만 수정·삭제·이동·완료(`App.can_edit`), 남의 일정은 읽기 전용 표시. 동기화는 켜면 입력 1.2초 뒤 업로드·8초마다 확인. 병합은 작성자를 바꾸는 수정을 받지 않는다. **앱이 막는 수준**(모두 같은 암호 키): 일부러 우회까지는 못 막음. 폰 앱은 core(작성자·명단 동기화)까지만 — 폰 화면의 작성자 색·읽기 전용·부서 공유 설정은 아직(다음 단계). 시험: tests/test_team.py, mobile/test/memo_revive_test.dart(teamTests).
+- 다음 단계: 부서원 초대(연결 코드 공유 안내), xdiary 기능(사용자가 기능 목록·화면을 보내 주면), 폰 화면의 부서 공유. 사용자의 로컬 PC에서 진행 중인 부서일정 공유달력 프로젝트와 합칠 예정이므로 부서 공유 로직은 team.py 로 분리해 두었다.
+
 ## 실행·시험
 ```
 python tests/test_fixtures.py ; python tests/test_work.py ; python tests/test_sticky.py ; python tests/test_sticky_inbox.py   # 뒤 둘은 Tk 필요

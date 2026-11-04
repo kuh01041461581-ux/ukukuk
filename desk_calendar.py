@@ -35,6 +35,7 @@ import quickadd
 import sticky
 import work
 import hwpdoc
+import team
 from core import item_end
 from holidays_kr import holiday_name
 
@@ -486,6 +487,18 @@ def next_pri(p):
 
 def pri_color(t):
     return PRIORITIES[pri_of(t)][1]
+
+
+_TEAM_APP = None      # 부서 공유 화면에서 작성자 색을 쓰려고 앱을 붙들어 둔다
+
+
+def item_color(t):
+    """일정 글자·막대 색: 부서 공유 중이면 작성자 색, 아니면 중요도 색"""
+    if _TEAM_APP is not None:
+        c = _TEAM_APP.author_color(t)
+        if c:
+            return c
+    return pri_color(t)
 
 
 def todo_order(todos):
@@ -1085,7 +1098,7 @@ class DayDetail:
         app = self.app
         S = app.S
         done = t.get("done", False)
-        col = pri_color(t)
+        col = item_color(t)
         card = tk.Frame(parent, bg=CARD, highlightthickness=1, highlightbackground=BORDER)
         card.pack(fill="x", pady=S(4))
         inner = tk.Frame(card, bg=CARD)
@@ -1110,6 +1123,9 @@ class DayDetail:
         if t.get("time"):
             tags.append(t["time"])
         tags.append(PRIORITIES[pri_of(t)][0])
+        who = app.author_name(t)                       # 부서 공유: 누가 쓴 일정인지 (내 것이 아니면 읽기 전용)
+        if who:
+            tags.insert(0, who + ("" if app.can_edit(t, warn=False) else " (읽기 전용)"))
         cid = core.base_of(t).get("case")
         if cid in (app.data.get("_work") or {}):
             tags.append("업무")
@@ -1125,10 +1141,11 @@ class DayDetail:
                      wraplength=S(260)).pack(fill="x", pady=(S(4), 0))
         btns = tk.Frame(inner, bg=CARD)
         btns.pack(side="right", anchor="n")
-        Pill(btns, "수정", lambda t=t: app.edit_item(t), app.f_tiny, parent_bg=CARD, bg=SURFACE, hover=BORDER,
-             padx=S(10), pady=S(3)).pack(side="top", pady=(0, S(4)))
-        Pill(btns, "삭제", lambda l=lst, t=t: self.act(app.delete_todo, l, t), app.f_tiny, parent_bg=CARD, bg=SURFACE,
-             hover=BORDER, fg=SUN, padx=S(10), pady=S(3)).pack(side="top")
+        if app.can_edit(t, warn=False):                 # 부서 공유: 다른 사람이 쓴 일정은 읽기만 (수정·삭제 버튼 없음)
+            Pill(btns, "수정", lambda t=t: app.edit_item(t), app.f_tiny, parent_bg=CARD, bg=SURFACE, hover=BORDER,
+                 padx=S(10), pady=S(3)).pack(side="top", pady=(0, S(4)))
+            Pill(btns, "삭제", lambda l=lst, t=t: self.act(app.delete_todo, l, t), app.f_tiny, parent_bg=CARD, bg=SURFACE,
+                 hover=BORDER, fg=SUN, padx=S(10), pady=S(3)).pack(side="top")
         for w in (card, inner, body, chk):
             w.bind("<MouseWheel>", scroll)
 
@@ -1428,6 +1445,121 @@ class NotifyPopup:
             self.top.destroy()
         except Exception:
             pass
+
+
+class TeamDialog:
+    """부서 공유 설정: 이름·내 색을 정하고, 부서원 색 명단을 본다. 켜면 새 일정에 내 이름이 붙고 달력 글자가 작성자 색으로 보인다"""
+
+    def __init__(self, app):
+        self.app = app
+        S = app.S
+        t = app.conf.get("team") or {}
+        self.uid = t.get("uid") or ""
+        self.color = t.get("color") or team.pick_color(app.data)
+        self.on = tk.BooleanVar(value=bool(t.get("on")))
+        top = self.top = _dialog(app, "부서 공유", S(480), S(640))
+        pad = S(24)
+        tk.Label(top, text="부서 일정 공유", font=app.f_h2, bg=SURFACE, fg=TEXT, anchor="w").pack(
+            fill="x", padx=pad, pady=(S(18), S(2)))
+        tk.Label(top, text="부서원이 같은 달력을 보고, 각자 쓴 일정은 자기 색으로 보여요.\n내가 쓴 일정은 나만 고칠 수 있고, 다른 사람 일정은 읽기만 돼요.",
+                 font=app.f_small, bg=SURFACE, fg=SUB, anchor="w", justify="left").pack(fill="x", padx=pad)
+        cb = tk.Checkbutton(top, text="부서 공유 사용", variable=self.on, bg=SURFACE, fg=TEXT, selectcolor=CARD,
+                            activebackground=SURFACE, activeforeground=TEXT, font=app.f_body, anchor="w",
+                            highlightthickness=0, bd=0)
+        cb.pack(fill="x", padx=pad, pady=(S(12), S(4)))
+        tk.Label(top, text="내 이름", font=app.f_small, bg=SURFACE, fg=SUB, anchor="w").pack(fill="x", padx=pad, pady=(S(6), S(2)))
+        self.name = tk.Entry(top, font=app.f_body, bg=CARD, fg=TEXT, insertbackground=TEXT, relief="flat",
+                             highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        self.name.insert(0, t.get("name", ""))
+        self.name.pack(fill="x", padx=pad, ipady=S(6))
+        tk.Label(top, text="내 글자 색", font=app.f_small, bg=SURFACE, fg=SUB, anchor="w").pack(fill="x", padx=pad, pady=(S(12), S(4)))
+        self.sw = tk.Canvas(top, height=S(38), bg=SURFACE, highlightthickness=0)
+        self.sw.pack(fill="x", padx=pad)
+        self.sw.bind("<Button-1>", self._pick)
+        self.sw.bind("<Configure>", lambda e: self._draw_sw())
+        tk.Label(top, text="부서원", font=app.f_small, bg=SURFACE, fg=SUB, anchor="w").pack(fill="x", padx=pad, pady=(S(14), S(2)))
+        self.roster = tk.Frame(top, bg=SURFACE)
+        self.roster.pack(fill="x", padx=pad)
+        self._draw_roster()
+        self.note = tk.Label(top, text="", font=app.f_tiny, bg=SURFACE, fg=ACCENT, anchor="w", justify="left", wraplength=S(430))
+        self.note.pack(fill="x", padx=pad, pady=(S(8), 0))
+        if not app.sync_cfg():
+            tk.Label(top, text="※ 부서원과 주고받으려면 먼저 ☰ → 휴대폰 연결 에서 같은 연결 코드로 동기화를 켜세요.", font=app.f_tiny,
+                     bg=SURFACE, fg=SUN, anchor="w", justify="left", wraplength=S(430)).pack(fill="x", padx=pad, pady=(S(6), 0))
+        foot = tk.Frame(top, bg=SURFACE)
+        foot.pack(side="bottom", fill="x", padx=pad, pady=S(16))
+        Pill(foot, "저장", self.save, app.f_body, fg="#ffffff", bg=ACCENT, hover=blend(ACCENT, "#ffffff", 0.25),
+             parent_bg=SURFACE, padx=S(22), pady=S(6)).pack(side="right")
+        Pill(foot, "취소", top.destroy, app.f_body, parent_bg=SURFACE, padx=S(16), pady=S(6)).pack(side="right", padx=S(8))
+        Pill(foot, "기존 일정을 내 것으로", self.claim, app.f_small, parent_bg=SURFACE, padx=S(12), pady=S(6)).pack(side="left")
+
+    def _draw_sw(self):
+        S = self.app.S
+        c = self.sw
+        c.delete("all")
+        used = {u: m.get("color") for u, m in team.members(self.app.data).items() if u != self.uid}
+        r = S(14)
+        for i, col in enumerate(team.PALETTE):
+            x = S(4) + i * (r * 2 + S(6))
+            c.create_oval(x, S(4), x + r * 2, S(4) + r * 2, fill=col, outline="#ffffff" if col == self.color else "",
+                          width=S(3) if col == self.color else 0)
+            if col in used.values():
+                c.create_text(x + r, S(4) + r, text="•", fill="#202020", font=self.app.f_small)
+
+    def _pick(self, e):
+        S = self.app.S
+        r = S(14)
+        i = (e.x - S(4)) // (r * 2 + S(6))
+        if 0 <= i < len(team.PALETTE):
+            self.color = team.PALETTE[int(i)]
+            self._draw_sw()
+
+    def _draw_roster(self):
+        app, S = self.app, self.app.S
+        for w in self.roster.winfo_children():
+            w.destroy()
+        mem = team.members(app.data)
+        if not mem:
+            tk.Label(self.roster, text="아직 없어요. 저장하면 내가 첫 부서원이 돼요.", font=app.f_small, bg=SURFACE, fg=DIM,
+                     anchor="w").pack(fill="x")
+        for u, m in sorted(mem.items(), key=lambda x: x[1].get("name", "")):
+            row = tk.Frame(self.roster, bg=SURFACE)
+            row.pack(fill="x", pady=S(2))
+            dot = tk.Canvas(row, width=S(14), height=S(14), bg=SURFACE, highlightthickness=0)
+            dot.create_oval(S(1), S(1), S(13), S(13), fill=m.get("color") or "#888888", outline="")
+            dot.pack(side="left")
+            tk.Label(row, text=m.get("name", "") + ("  (나)" if u == self.uid else ""), font=app.f_body, bg=SURFACE,
+                     fg=TEXT, anchor="w").pack(side="left", padx=S(8))
+
+    def claim(self):
+        if not self.uid:
+            self.note.config(text="먼저 이름을 적고 저장한 뒤 눌러 주세요.")
+            return
+        n = team.claim_legacy(self.app.data, self.uid)
+        if n:
+            self.app._after_todo_change()
+        self.note.config(text=f"작성자가 없던 일정 {n}개를 내 것으로 표시했어요." if n else "작성자가 없는 일정이 없어요.")
+
+    def save(self):
+        app = self.app
+        name = self.name.get().strip()
+        if self.on.get() and not name:
+            self.note.config(text="이름을 적어 주세요.")
+            return
+        first = not self.uid
+        if self.on.get() and first:
+            self.uid = team.new_uid()
+        app.conf["team"] = {"on": bool(self.on.get()), "uid": self.uid, "name": name, "color": self.color}
+        app._save_conf()
+        app._team_apply()
+        if self.on.get() and first and any(not t.get("au") for v in app.data.values() if isinstance(v, dict)
+                                          for t in v.get("todos", [])):
+            if messagebox.askyesno("기존 일정", "지금까지 쓴 일정(작성자 없음)을 모두 내가 쓴 것으로 표시할까요?\n"
+                                                "(표시하지 않으면 작성자 없는 일정은 부서원 누구나 고칠 수 있어요)", parent=self.top):
+                team.claim_legacy(app.data, self.uid)
+        app._after_todo_change()
+        app._schedule_sync()
+        self.top.destroy()
 
 
 class PhoneDialog:
@@ -2571,6 +2703,7 @@ class DeskCalendar:
             root.after(1500, lambda: self.import_path(open_pdfs[0]))
         root.after(300, self._apply_desktop_mode)
         self.stickers = sticky.StickyManager(self, sys.modules[__name__])
+        self._team_apply()
         root.after(500, self.stickers.restore)
         root.after(30_000, self._tick)
         root.after(2000, self._clip_watch)
@@ -3037,6 +3170,7 @@ class DeskCalendar:
         m.add_command(label="업무 관리 (기한·업무 폴더)…", command=self.open_work)
         m.add_command(label="반복 업무 추가 (정기 업무 모음)…", command=self.open_templates)
         m.add_separator()
+        m.add_command(label="부서 공유 (작성자 색 · 내 일정만 수정)…", command=lambda: TeamDialog(self))
         m.add_command(label="휴대폰 연결…", command=lambda: PhoneDialog(self))
         m.add_command(label="공문 가져오기 (PDF·한글)…", command=self.import_pdf)
         m.add_command(label="클립보드 내용으로 일정 만들기  (Ctrl+Shift+V)", command=self.analyze_clipboard)
@@ -3072,11 +3206,11 @@ class DeskCalendar:
             return
         if self._sync_job:
             self.root.after_cancel(self._sync_job)
-        self._sync_job = self.root.after(4000, self.sync_now)
+        self._sync_job = self.root.after(1200 if self.team_on() else 4000, self.sync_now)   # 부서 공유 중이면 입력하자마자 올린다
 
     def _sync_tick(self):
         self.sync_now()
-        self.root.after(30 * 1000, self._sync_tick)
+        self.root.after((8 if self.team_on() else 30) * 1000, self._sync_tick)   # 부서 공유 중이면 8초마다 부서원의 변경을 확인
 
     def sync_now(self):
         self._sync_job = None
@@ -3352,6 +3486,8 @@ class DeskCalendar:
         self._save_conf()
 
     def edit_item(self, t):
+        if not self.can_edit(t):
+            return
         EditDialog(self, t)
 
     def open_settings(self):
@@ -3609,15 +3745,18 @@ class DeskCalendar:
         S, c = self.S, self.cal
         h = units * self.unit - S(2)
         done = t.get("done", False)
-        col = DONE if done else pri_color(t)
+        col = DONE if done else item_color(t)
+        ac = self.author_color(t)
         bgc = CARD if in_month else CARD_DIM
         rrect(c, x1, yy + S(3), x1 + S(3), yy + h - S(3), S(2), fill=col, outline="")
         self._hits.append((x1, yy, x2, yy + h, t))
         fnt = self.f_chip_done if done else self.f_chip
-        fg = DIM if done else (TEXT if pri_of(t) >= 2 else blend(col, CHIP_MIX, 0.55 if CHIP_MIX == "#000000" else 0.6))
+        fg = DIM if done else (ac or (TEXT if pri_of(t) >= 2 else blend(col, CHIP_MIX, 0.55 if CHIP_MIX == "#000000" else 0.6)))
         tx = x1 + S(9)
         tm = t.get("time")
         label = self._label(t, more)
+        if ac and pri_of(t) < 2 and not done:
+            label = "★ " + label
         if tm and not done and units == 1 and label.startswith(tm):
             c.create_text(tx, yy + h / 2, anchor="w", font=fnt, text=tm, fill=DIM)
             tx += fnt.measure(tm + " ")
@@ -3635,7 +3774,7 @@ class DeskCalendar:
         cw, ch, gap = self.cw, self.ch, self.gap
         t = b["t"]
         done = t.get("done", False)
-        col = DONE if done else pri_color(t)
+        col = DONE if done else item_color(t)
         fill = blend(col, CARD, 0.30 if not done else 0.14)
         x1 = b["c1"] * (cw + gap) + S(3)
         x2 = b["c2"] * (cw + gap) + cw - S(3)
@@ -4032,10 +4171,13 @@ class DeskCalendar:
                 text = t["time"] + " " + text
             if e0:
                 text += f" ~{e0.month}.{e0.day}"
+            ac = self.author_color(t)                         # 부서 공유 중이면 작성자 색 (중요는 ★ 로 표시)
+            if ac and pri_of(t) < 2 and not done:
+                text = "★ " + text
             lines = self._wrap_lines(text, fdone if done else font, maxw, 99)
             p = pri_of(t)
-            fg = col["done"] if done else (col["pri"][p] if p < 2 else col["txt"])
-            dot_c = col["done"] if done else col["pri"][p] if p != 2 else ACCENT
+            fg = col["done"] if done else (ac or (col["pri"][p] if p < 2 else col["txt"]))
+            dot_c = col["done"] if done else (ac or (col["pri"][p] if p != 2 else ACCENT))
             if not done and d < today and not t.get("repeat") and "_src" not in t and (e0 is None or e0 < today):
                 fg = dot_c = col["sun"]                      # 지난 미완료는 붉게
             top = y
@@ -4154,8 +4296,9 @@ class DeskCalendar:
             done = t.get("done", False)
             e0 = item_end(t, s0)
             tag = (f"{t['time']} " if t.get("time") else "") + (f"[{s0.month}/{s0.day}~{e0.month}/{e0.day}] " if e0 else "")
-            tk.Label(card, text=("✔ " if done else "● ") + tag + t.get("text", ""),
-                     font=self.f_done if done else self.f_body, bg=SURFACE, fg=DONE if done else pri_color(t),
+            who = self.author_name(t)
+            tk.Label(card, text=("✔ " if done else "● ") + tag + t.get("text", "") + (f"   — {who}" if who else ""),
+                     font=self.f_done if done else self.f_body, bg=SURFACE, fg=DONE if done else item_color(t),
                      anchor="w", justify="left", wraplength=S(320)).pack(fill="x", pady=(S(3), 0))
         if len(rows) > 14:
             tk.Label(card, text=f"…외 {len(rows) - 14}개  (날짜를 눌러 전체 보기)", font=self.f_small, bg=SURFACE, fg=SUB,
@@ -4536,22 +4679,28 @@ class DeskCalendar:
     def _build_row(self, lst, t, start, inbox=False, jump=None, date_text=None):
         S = self.S
         done = t.get("done", False)
-        col = pri_color(t)
+        col = item_color(t)
         row = tk.Frame(self.todo_inner, bg=SURFACE)
         row.pack(fill="x", pady=S(3))
         chk = self._check_box(row, done, col, lambda t=t: self.toggle_todo(t))
         chk.pack(side="left", anchor="n", pady=S(1))
         dele = tk.Label(row, text="✕", font=self.f_tiny, bg=SURFACE, fg=DIM, cursor="hand2")
         dele.pack(side="right", anchor="n", padx=(S(4), 0), pady=S(3))
+        if not self.can_edit(t, warn=False):             # 부서 공유: 남이 쓴 일정은 지우기 버튼 없음
+            dele.pack_forget()
         dot = tk.Canvas(row, width=S(14), height=S(14), bg=SURFACE, highlightthickness=0,
                         cursor="hand2")
-        dot.create_oval(S(2), S(2), S(12), S(12), fill=DONE if done else col, outline="")
+        dot.create_oval(S(2), S(2), S(12), S(12), fill=DONE if done else pri_color(t), outline="")   # 점 = 중요도
         dot.pack(side="right", anchor="n", padx=(S(4), 0), pady=S(3))
         dot.bind("<Button-1>", lambda e, t=t: self.cycle_pri(t))
         body = tk.Frame(row, bg=SURFACE)
         body.pack(side="left", fill="x", expand=True, padx=(S(8), 0))
         if date_text:
             tk.Label(body, text=date_text, font=self.f_tiny, bg=SURFACE, fg=SUB, anchor="w").pack(fill="x")
+        who = self.author_name(t)
+        if who:                                       # 부서 공유: 작성자 이름을 작성자 색으로
+            tk.Label(body, text=who + ("" if self.can_edit(t, warn=False) else " · 읽기 전용"), font=self.f_tiny,
+                     bg=SURFACE, fg=item_color(t), anchor="w").pack(fill="x")
         e0 = item_end(t, start) if start else None
         if t.get("repeat"):
             lab = core.repeat_label(t["repeat"], start)
@@ -4714,6 +4863,8 @@ class DeskCalendar:
                 return
 
     def toggle_todo(self, t):
+        if not self.can_edit(t):
+            return
         src = t.get("_src")
         if src is not None:                       # 반복 일정: 날짜별로 완료 표시
             dd = src.setdefault("done_dates", [])
@@ -4729,22 +4880,30 @@ class DeskCalendar:
         self._after_todo_change()
 
     def cycle_pri(self, t):
+        if not self.can_edit(t):
+            return
         b = core.base_of(t)
         b["pri"] = next_pri(pri_of(b))
         core.touch(b)
         self._after_todo_change()
 
     def set_pri(self, t, p):
+        if not self.can_edit(t):
+            return
         b = core.base_of(t)
         b["pri"] = p
         core.touch(b)
         self._after_todo_change()
 
     def delete_todo(self, lst, t):
+        if not self.can_edit(t):
+            return
         core.delete_item(self.data, t)
         self._after_todo_change()
 
     def to_inbox(self, lst, t):
+        if not self.can_edit(t):
+            return
         b = core.base_of(t)
         core.remove_item(self.data, b)
         for k in ("time", "end", "repeat", "done_dates"):
@@ -4755,6 +4914,8 @@ class DeskCalendar:
         self._after_todo_change()
 
     def pull_from_inbox(self, t):
+        if not self.can_edit(t):
+            return
         core.remove_item(self.data, t)
         if self.sel_end and self.sel_end > self.selected:
             t["end"] = self.sel_end.isoformat()
@@ -4763,17 +4924,23 @@ class DeskCalendar:
         self._after_todo_change()
 
     def postpone(self, lst, t):
+        if not self.can_edit(t):
+            return
         core.remove_item(self.data, t)
         core.touch(t)
         core.add_item(self.data, (self.selected + dt.timedelta(days=1)).isoformat(), t)
         self._after_todo_change()
 
     def unspan(self, t):
+        if not self.can_edit(t):
+            return
         t.pop("end", None)
         core.touch(t)
         self._after_todo_change()
 
     def move_item(self, t, d_from, d_to):
+        if not self.can_edit(t):
+            return
         """달력에서 일정을 끌어 다른 날짜로 옮김 (기간 일정은 기간 전체가 같은 만큼 이동)"""
         b = core.base_of(t)
         key, _ = core.find_owner(self.data, b)
@@ -4790,6 +4957,8 @@ class DeskCalendar:
         self._after_todo_change()
 
     def unspan(self, t):
+        if not self.can_edit(t):
+            return
         t.pop("end", None)
         self._after_todo_change()
 
@@ -5102,10 +5271,52 @@ class DeskCalendar:
         m.tk_popup(x, y)
 
     # ── 저장 ──
+    # ── 부서 공유: 작성자 색 · 내가 쓴 일정만 수정 ──
+    def team_on(self):
+        c = self.conf.get("team") or {}
+        return bool(c.get("on") and c.get("uid") and c.get("name"))
+
+    def team_me(self):
+        return (self.conf.get("team") or {}).get("uid", "")
+
+    def _team_apply(self):
+        """설정을 데이터 규칙에 반영: 새 일정에 작성자를 붙이고, 내 이름·색을 명단에 올린다"""
+        global _TEAM_APP
+        _TEAM_APP = self
+        c = self.conf.get("team") or {}
+        if not self.team_on():
+            core.set_author(None)
+            return
+        core.set_author(c["uid"])
+        if team.register(self.data, c["uid"], c["name"], c.get("color") or team.pick_color(self.data)):
+            self._commit()
+
+    def author_color(self, t):
+        if not self.team_on():
+            return ""
+        au = team.author_of(t)
+        return team.color_of(self.data, au) if au else ""
+
+    def author_name(self, t):
+        if not self.team_on():
+            return ""
+        au = team.author_of(t)
+        return team.name_of(self.data, au) if au else ""
+
+    def can_edit(self, t, warn=True):
+        """내가 쓴 일정(또는 작성자 없는 예전 일정)만 고칠 수 있다. 막히면 알림을 띄운다"""
+        if team.can_edit(t, self.team_me(), self.team_on()):
+            return True
+        if warn:
+            who = self.author_name(t) or "다른 사람"
+            NotifyPopup(self, "수정할 수 없어요", f"{who}님이 쓴 일정이에요. 쓴 사람만 고치거나 지울 수 있어요.", beep=False,
+                        near_calendar=True)
+        return False
+
     def _commit(self):
         for k in list(self.data):
             v = self.data[k]
-            if k in ("_deleted", "_work"):
+            if k in core.META_KEYS:
                 continue
             keep_stamp = k != "_inbox" and v.get("memo_ts", 0) > core.now_ms() - 90 * 86400 * 1000   # 비운 메모의 '지웠다' 기록은 90일 보관
             if not v.get("memo", "").strip() and not v.get("todos") and not keep_stamp:

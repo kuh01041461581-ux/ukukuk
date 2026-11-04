@@ -54,7 +54,7 @@ dynamic _sortKeys(dynamic v) {
 String canon(Json s) {
   final items = (s['items'] as List? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList()
     ..sort((a, b) => (a['id'] ?? '').toString().compareTo((b['id'] ?? '').toString()));
-  return jsonEncode(_sortKeys({'items': items, 'memos': s['memos'] ?? {}, 'deleted': s['deleted'] ?? {}}));
+  return jsonEncode(_sortKeys({'items': items, 'memos': s['memos'] ?? {}, 'deleted': s['deleted'] ?? {}, 'team': s['team'] ?? {}}));
 }
 
 /// 중계 서버(relay/worker.js) 저장소: GitHubStore 와 같은 get/put 모양. 버전은 서버가 붙인 숫자.

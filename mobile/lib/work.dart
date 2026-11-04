@@ -31,7 +31,7 @@ String fmtDate(DateTime? d, {bool wd = true}) =>
 List<(String, Json)> caseItems(Json data, String cid) {
   final out = <(String, Json)>[];
   data.forEach((key, v) {
-    if (key == '_deleted' || key == '_work' || v is! Map) return;
+    if (metaKeys.contains(key) || v is! Map) return;
     for (final t in (v['todos'] as List? ?? const [])) {
       if ((t as Map)['case'] == cid) out.add((key, t as Json));
     }

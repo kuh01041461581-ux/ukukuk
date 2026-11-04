@@ -48,7 +48,7 @@ def decrypt(key_b64, blob):
 def canonical(state):
     """두 상태가 같은지 비교하기 위한 문자열"""
     s = {"items": sorted(state.get("items", []), key=lambda r: r.get("id", "")),
-         "memos": state.get("memos", {}), "deleted": state.get("deleted", {})}
+         "memos": state.get("memos", {}), "deleted": state.get("deleted", {}), "team": state.get("team", {})}
     return json.dumps(s, sort_keys=True, ensure_ascii=False)
 
 

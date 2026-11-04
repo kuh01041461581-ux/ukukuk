@@ -155,7 +155,7 @@ class ReportTab(ttk.Frame):
             val = ""
             if f.get("default") == "today":
                 val = datetime.date.today().isoformat()
-            if f.get("profile"):
+            if f.get("profile") and prof.get("autofill", True):
                 val = PR.profile_value(prof, f["profile"]) or val
             v.set(val)
             self.vars[f["key"]] = v
@@ -600,10 +600,16 @@ class ProfileDialog(tk.Toplevel):
             ttk.Label(self, text=lab).grid(row=i, column=0, sticky="w", padx=8, pady=2)
             self.v[k] = tk.StringVar(value=cur.get(k, ""))
             ttk.Entry(self, textvariable=self.v[k], width=26).grid(row=i, column=1, padx=8, pady=2)
-        ttk.Button(self, text="저장", command=self.ok).grid(row=len(PR.PROFILE_FIELDS), column=0, columnspan=2, pady=8)
+        self.auto = tk.BooleanVar(value=cur.get("autofill", True))
+        n = len(PR.PROFILE_FIELDS)
+        ttk.Checkbutton(self, text="양식에 이름·전화를 자동으로 채우기\n(끄면 담당자 칸을 빈칸으로 만들어요)", variable=self.auto).grid(
+            row=n, column=0, columnspan=2, sticky="w", padx=8, pady=(8, 0))
+        ttk.Button(self, text="저장", command=self.ok).grid(row=n + 1, column=0, columnspan=2, pady=8)
 
     def ok(self):
-        PR.save_profile({k: v.get().strip() for k, v in self.v.items()})
+        data = {k: v.get().strip() for k, v in self.v.items()}
+        data["autofill"] = bool(self.auto.get())
+        PR.save_profile(data)
         self.destroy()
 
 
@@ -1214,7 +1220,7 @@ class Widget(tk.Tk):
                 v = ""
                 if fl.get("default") == "today":
                     v = datetime.date.today().isoformat()
-                if fl.get("profile"):
+                if fl.get("profile") and prof.get("autofill", True):
                     v = PR.profile_value(prof, fl["profile"]) or v
                 vals[fl["key"]] = v
             pkg = f.render(vals, f.meta.get("starter") or T.DEFAULT_STARTER)

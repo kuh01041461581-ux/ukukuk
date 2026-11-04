@@ -107,6 +107,12 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(len(tbls), 1)
         self.assertEqual(int(tbls[0].get("rowCnt")), 5)
 
+    def test_blank_staff(self):
+        """이름·전화를 비워 두면 담당자 줄이 '(      )' 빈칸으로 나온다 (라벨 과장/계장/담당자는 양식이 만든다)"""
+        f = registry.load_form("report_event", ROOTS)
+        txt = ptext(check_package(self, f.render({"title": "t", "date": "2026-11-04"}, "")).section(0))
+        self.assertIn("과장 (      ), 계장 (      ), 담당자 (      )", txt)
+
     def test_mayor_report(self):
         f = registry.load_form("report_mayor", ROOTS)
         pkg = f.render({"title": "타운홀미팅 시험", "date": "2026-09-14", "head": "과장 1111", "lead": "계장 2222",

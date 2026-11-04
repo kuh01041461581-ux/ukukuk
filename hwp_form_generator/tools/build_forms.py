@@ -68,12 +68,12 @@ def build(dept_report, mayor_report, plan, schedule):
     s = detect_dept_fields(dept_report)
     fields = [
         {"key": "title", "label": "제목", "sample": s["title"]},
-        {"key": "dept", "label": "부서(과)", "sample": s["dept"], "profile": "dept"},
-        {"key": "team", "label": "계(팀)", "sample": s["team"], "profile": "team"},
+        {"key": "dept", "label": "부서(과)", "sample": s["dept"], "profile": "dept", "blank": "      "},
+        {"key": "team", "label": "계(팀)", "sample": s["team"], "profile": "team", "blank": "      "},
         {"key": "date", "label": "보고일", "sample": s["date"], "type": "date", "fmt": "ymd", "default": "today"},
-        {"key": "head", "label": "과장 (이름(내선))", "sample": s["head"], "profile": "head"},
-        {"key": "lead", "label": "계장 (이름(내선))", "sample": s["lead"], "profile": "lead"},
-        {"key": "staff", "label": "담당자 (이름(내선))", "sample": s["staff"], "profile": "staff"},
+        {"key": "head", "label": "과장 (이름(내선))", "sample": s["head"], "profile": "head", "blank": "(      )"},
+        {"key": "lead", "label": "계장 (이름(내선))", "sample": s["lead"], "profile": "lead", "blank": "(      )"},
+        {"key": "staff", "label": "담당자 (이름(내선))", "sample": s["staff"], "profile": "staff", "blank": "(      )"},
     ]
     out["report_event"] = report.register_report(
         dept_report, os.path.join(FORMS, "report_event"), "report_event", "행사 보고 (식순·시간표)", "문화교육국 보고",

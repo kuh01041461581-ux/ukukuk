@@ -607,7 +607,8 @@ class ReportForm:
 
         def sub(m):
             key = m.group(1)
-            return fmt_value(fields.get(key, {}), values.get(key, ""))
+            f = fields.get(key, {})
+            return fmt_value(f, values.get(key, "")) or f.get("blank", "")      # 비면 '(    )' 처럼 손으로 쓸 빈칸
 
         for t in section.iter(HP + "t"):
             if t.text and "{{" in t.text and BODY_MARK not in t.text:

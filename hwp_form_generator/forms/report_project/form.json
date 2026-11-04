@@ -12,12 +12,14 @@
     {
       "key": "dept",
       "label": "부서(과)",
-      "profile": "dept"
+      "profile": "dept",
+      "blank": "      "
     },
     {
       "key": "team",
       "label": "계(팀)",
-      "profile": "team"
+      "profile": "team",
+      "blank": "      "
     },
     {
       "key": "date",
@@ -29,17 +31,20 @@
     {
       "key": "head",
       "label": "과장 (이름(내선))",
-      "profile": "head"
+      "profile": "head",
+      "blank": "(      )"
     },
     {
       "key": "lead",
       "label": "계장 (이름(내선))",
-      "profile": "lead"
+      "profile": "lead",
+      "blank": "(      )"
     },
     {
       "key": "staff",
       "label": "담당자 (이름(내선))",
-      "profile": "staff"
+      "profile": "staff",
+      "blank": "(      )"
     }
   ],
   "style": {

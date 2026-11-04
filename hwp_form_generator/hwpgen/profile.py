@@ -25,7 +25,9 @@ def load_profile():
             data = json.load(f)
     except (OSError, ValueError):
         data = {}
-    return {k: data.get(k, d) for k, _, d in PROFILE_FIELDS}
+    out = {k: data.get(k, d) for k, _, d in PROFILE_FIELDS}
+    out["autofill"] = bool(data.get("autofill", True))      # 끄면 이름·전화는 늘 빈칸으로 만든다
+    return out
 
 
 def save_profile(data):

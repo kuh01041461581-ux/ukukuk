@@ -16,6 +16,7 @@ public class JvmRun {
             public byte[] readFile(String n) { try { return Files.readAllBytes(out.resolve("save").resolve(n)); } catch (IOException e) { return null; } }
             public void writeFile(String n, byte[] d) { try { Files.write(out.resolve("save").resolve(n), d); } catch (IOException e) {} }
             public boolean fileExists(String n) { return Files.exists(out.resolve("save").resolve(n)); }
+            public void playClip(int id, byte[] m, boolean loop) { System.out.println("PLAYCLIP id=" + id + " len=" + m.length + " head=" + new String(m, 0, 4) + " loop=" + loop); }
             public void log(String s) { System.out.println(s); }
         };
         Host H = new Host(pf, Files.readAllBytes(Paths.get(a[0])));

@@ -13,8 +13,8 @@ import com.seoultycoon.st2.Host;
  * 조작 방식 3가지:  MODE_PHONE=피처폰 버튼, MODE_JOY=조이스틱+버튼, MODE_TOUCH=터치 전용(전체 화면)
  */
 public class St2View extends View {
-    // ST2(WIPI) 키코드: 숫자키 '0'..'9', 2=위 4=왼 6=오 8=아래 5=확인. 소프트키/취소는 WIPI 표준값(-6/-7/-5 계열)을 함께 보낸다.
-    public static final int UP = 50, DOWN = 56, LEFT = 52, RIGHT = 54, OK = 53, CLR = -5, SOFT_L = -6;
+    // ST2(WIPI) 키코드: 숫자키 '0'..'9', 2=위 4=왼 6=오 8=아래 5=확인. 화면 하단 안내 \"0:EXIT\" 에 따라 취소=숫자 0, 확인=5. 좌메뉴는 '*' 로 보낸다.
+    public static final int UP = 50, DOWN = 56, LEFT = 52, RIGHT = 54, OK = 53, CLR = 48, SOFT_L = 42;
     public static final int MODE_PHONE = 0, MODE_JOY = 1, MODE_TOUCH = 2;
 
     static final class Btn {
@@ -31,6 +31,7 @@ public class St2View extends View {
     final Paint bp = new Paint(Paint.ANTI_ALIAS_FLAG), tp = new Paint(Paint.ANTI_ALIAS_FLAG), sp = new Paint(Paint.ANTI_ALIAS_FLAG), gp = new Paint();
     final RectF game = new RectF(), pad = new RectF(), gear = new RectF();
     final Rect src = new Rect(0, 0, 240, 296);
+    Bitmap big; Canvas bigC; int bigK; final Paint sm = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
     public volatile String err; public volatile int frames;
     public Host game_host; public android.graphics.Bitmap lcd;
     final Handler ui = new Handler(Looper.getMainLooper());
@@ -129,7 +130,13 @@ public class St2View extends View {
 
     @Override protected void onDraw(Canvas cv) {
         cv.drawColor(mode == MODE_TOUCH ? 0xFF000000 : 0xFF101018);
-        if (lcd != null) synchronized (lcd) { cv.drawBitmap(lcd, src, game, gp); }
+        if (lcd != null) {
+            // 픽셀 도트가 비정수 배율에서 일그러지지 않게: 정수 배율(올림)로 먼저 키운 뒤 부드럽게 줄여서 그린다
+            int k = Math.max(1, Math.min(8, (int) Math.ceil(game.width() / 240f)));
+            if (big == null || bigK != k) { if (big != null) big.recycle(); big = Bitmap.createBitmap(240 * k, 296 * k, Bitmap.Config.ARGB_8888); bigC = new Canvas(big); bigK = k; }
+            synchronized (lcd) { bigC.drawBitmap(lcd, src, new Rect(0, 0, 240 * k, 296 * k), gp); }
+            cv.drawBitmap(big, new Rect(0, 0, 240 * k, 296 * k), game, sm);
+        }
         bp.setStyle(Paint.Style.FILL);
         if (mode == MODE_JOY) {                          // 조이스틱 판
             bp.setColor(joyPtr >= 0 ? 0xFF2A3050 : 0x881C1E27); cv.drawCircle(jcx, jcy, jr, bp);

@@ -10,7 +10,7 @@ import java.io.*;
 /** 안드로이드용 Platform: 리소스=assets/st2/, 저장=filesDir, 글자=Galmuri11, 소리=MediaPlayer(MIDI) */
 public class AndroidPlatform implements Platform {
     final Context ctx; final AssetManager am; final File dir; final Paint paint = new Paint();
-    volatile MediaPlayer mp; int vol = 100; int seq;
+    int vol = 100; int seq;
     public AndroidPlatform(Context c, Typeface tf) {
         ctx = c; am = c.getAssets(); dir = c.getFilesDir();
         paint.setTypeface(tf); paint.setTextSize(11); paint.setAntiAlias(false); paint.setColor(Color.WHITE);
@@ -41,15 +41,16 @@ public class AndroidPlatform implements Platform {
         try { am.open("st2/" + n).close(); return n.equals("data1.pak"); } catch (IOException e) { return false; }
     }
     public void log(String s) { android.util.Log.d("st2", s); }
-    public synchronized void playClip(byte[] midi, boolean loop) {
-        stopClip();
+    final java.util.HashMap<Integer, MediaPlayer> players = new java.util.HashMap<>();
+    public synchronized void playClip(int id, byte[] midi, boolean loop) {
+        stopClip(id);
         try {
-            File f = new File(ctx.getCacheDir(), "bgm" + (seq++ & 3) + ".mid"); FileOutputStream o = new FileOutputStream(f); o.write(midi); o.close();
-            MediaPlayer m = new MediaPlayer(); m.setDataSource(f.getAbsolutePath()); m.setLooping(loop); float v = vol / 100f; m.setVolume(v, v); m.prepare(); m.start(); mp = m;
+            File f = new File(ctx.getCacheDir(), "snd" + (seq++ & 15) + ".mid"); FileOutputStream o = new FileOutputStream(f); o.write(midi); o.close();
+            MediaPlayer m = new MediaPlayer(); m.setDataSource(f.getAbsolutePath()); m.setLooping(loop); float v = vol / 100f; m.setVolume(v, v); m.prepare(); m.start(); players.put(id, m);
         } catch (Exception e) { log("clip " + e); }
     }
-    public synchronized void stopClip() { try { if (mp != null) { mp.stop(); mp.release(); } } catch (Exception e) { } mp = null; }
-    public synchronized void setClipVolume(int v) { vol = Math.max(0, Math.min(100, v * 5)); try { if (mp != null) mp.setVolume(vol / 100f, vol / 100f); } catch (Exception e) { } }
-    public void pause() { try { if (mp != null) mp.pause(); } catch (Exception e) { } }
-    public void resume() { try { if (mp != null) mp.start(); } catch (Exception e) { } }
+    public synchronized void stopClip(int id) { MediaPlayer m = players.remove(id); try { if (m != null) { m.stop(); m.release(); } } catch (Exception e) { } }
+    public synchronized void setClipVolume(int v) { vol = Math.max(0, Math.min(100, v * 5)); for (MediaPlayer m : players.values()) try { m.setVolume(vol / 100f, vol / 100f); } catch (Exception e) { } }
+    public synchronized void pause() { for (MediaPlayer m : players.values()) try { m.pause(); } catch (Exception e) { } }
+    public synchronized void resume() { for (MediaPlayer m : players.values()) try { m.start(); } catch (Exception e) { } }
 }

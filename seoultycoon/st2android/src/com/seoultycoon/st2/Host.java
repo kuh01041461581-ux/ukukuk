@@ -420,6 +420,7 @@ public final class Host {
     }
     /** 게임 한 프레임: 키 이벤트 전달 → 스레드 조각 실행 → 그리기. 반환: 화면이 갱신되었는가 */
     public boolean tick(int dtMs) {
+        if (verbose) pf.log("TICK " + vnow);
         vnow += dtMs;
         int[] k; while ((k = pollKey()) != null) { pf.log("key " + k[0] + " " + k[1] + " card=" + Integer.toHexString(currentCard) + " " + (currentCard != 0 ? cnameOf(currentCard) : "")); if (currentCard != 0) pf.log("-> " + vcall(currentCard, "(II)Z+keyNotify", k[0], k[1])); }
         boolean worked = false;

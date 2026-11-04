@@ -128,8 +128,8 @@ final class Lib {
         H.reg("org/kwis/msp/media/Clip", "(Ljava/lang/String;)V+<init>", (t, a) -> 0);
         H.reg("org/kwis/msp/media/Clip", "(Ljava/lang/String;[B)V+<init>", (t, a) -> { H.st.put(t, H.arrayBytes((int) a[1])); return 0; });
         H.reg("org/kwis/msp/media/Clip", "(I)Z+setVolume", (t, a) -> { H.pf.setClipVolume((int) a[0]); return 1; });
-        H.reg("org/kwis/msp/media/Player", "(Lorg/kwis/msp/media/Clip;Z)Z+play", (t, a) -> { Object d = H.st.get((int) a[0]); if (d instanceof byte[]) H.pf.playClip((byte[]) d, a[1] != 0); return 1; });
-        H.reg("org/kwis/msp/media/Player", "(Lorg/kwis/msp/media/Clip;)Z+stop", (t, a) -> { H.pf.stopClip(); return 1; });
+        H.reg("org/kwis/msp/media/Player", "(Lorg/kwis/msp/media/Clip;Z)Z+play", (t, a) -> { Object d = H.st.get(t); if (d instanceof byte[]) H.pf.playClip(t, (byte[]) d, a[0] != 0); return 1; });
+        H.reg("org/kwis/msp/media/Player", "(Lorg/kwis/msp/media/Clip;)Z+stop", (t, a) -> { H.pf.stopClip(t); return 1; });
         H.reg("org/kwis/msp/media/Vibrator", "(II)V+on", (t, a) -> 0);
         GfxLib.install(H);
     }

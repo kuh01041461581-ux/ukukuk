@@ -58,16 +58,18 @@ final class GfxLib {
             int im = (int) a[0]; if (im == 0 || !(H.st.get(im) instanceof Surf)) return 0;
             Surf dst = surf(H, t), src = surf(H, im); int x = (int) a[1], y = (int) a[2], anchor = (int) a[3];
             if ((anchor & 1) != 0) x -= src.w / 2; if ((anchor & 8) != 0) x -= src.w; if ((anchor & 2) != 0) y -= src.h / 2; if ((anchor & 32) != 0) y -= src.h;
+            if (H.verbose) H.pf.log("DI src=" + src.w + "x" + src.h + " x=" + x + " y=" + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none") + " anchor=" + anchor);
+            if (special(H, dst, src, x, y)) return 0;
             // --- 원본과 시트 간격이 달라 생기는 위치 보정(PC 에뮬레이터와 동일)
             boolean restore = false; int scx = dst.cx, scy = dst.cy, scw = dst.cw, sch = dst.ch;
             if (src.w == 56 && src.h == 96 && dst.hasClip && dst.ch == 12) { x -= 12; y -= 2; dst.cx -= 12; dst.cy -= 2; restore = true; }       // 메인 메뉴 글자 시트
             if (src.w == 37 && src.h == 31 && dst.hasClip && dst.cy - y >= 12) y += 3;                                                                  // 하단 바 라벨 시트
             dst.drawImage(src, x, y);
             if (restore) { dst.cx = scx; dst.cy = scy; dst.cw = scw; dst.ch = sch; }
-            if (src.w == 77 && src.h == 11 && y == 5 && dst.hasClip && dst.cx == 6 && dst.cy == 5 && dst.cw == 22 && dst.ch == 13) drawDateDigits(H, dst);   // 상단 바 임기 년·월
             return 0; });
         H.reg(G, "(Ljava/lang/String;III)V+drawString", (t, a) -> {
             String s = H.pystr((int) a[0]); if (s == null) return 0; Surf dst = surf(H, t); int x = (int) a[1], y = (int) a[2], anchor = (int) a[3];
+            if (H.verbose) H.pf.log("DS '" + s + "' x=" + x + " y=" + y + " anchor=" + anchor + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none"));
             int[] dims = new int[2]; byte[] mask = H.pf.renderText(s, dims); if (mask == null) return 0;
             if ((anchor & 1) != 0) x -= dims[0] / 2; if ((anchor & 8) != 0) x -= dims[0]; if ((anchor & 32) != 0) y -= 12;
             dst.drawMask(mask, dims[0], dims[1], x, y - 2); return 0; });
@@ -89,6 +91,41 @@ final class GfxLib {
         for (String n : new String[]{"()V+controlPopup", "(III)V+controlCursor", "(IIIII)V+configure", "(Lorg/kwis/msp/lcdui/Graphics;)V+paintContent", "(Z)V+focusNotify", "(II)V+delete", "([CIII)V+insert"}) H.reg(TF, n, (t, a) -> 0);
         H.reg(TF, "()I+getPreferredWidth", (t, a) -> 100); H.reg(TF, "()I+getPreferredHeight", (t, a) -> 16); H.reg(TF, "(I)I+getPreferredHeight", (t, a) -> 16); H.reg(TF, "(II)Z+keyNotify", (t, a) -> 0);
         H.regS("org/kwis/msp/lcdui/InputMethodHandler", "(I)Z+setCurrentMode", (t, a) -> 1);
+    }
+
+    // ---- 라벨 시트(글자가 겹쳐 있어 원본 조각 경계로는 잘리지 않음)는 글자 단위로 다시 그린다
+    static final String[] MENU_LABELS = {"현황", "비서실", "행사장", "정보"};
+    static int menuIdx = 0;
+    static final int[] daysDigit = {-1, -1, -1, -1};
+    static void label(Host H, Surf dst, String t, int x, int y) {
+        int[] dims = new int[2]; byte[] m = H.pf.renderText(t, dims); if (m == null) return;
+        int sc = dst.color; boolean hc = dst.hasClip; dst.hasClip = false;
+        dst.setColor(0x000000); dst.drawMask(m, dims[0], dims[1], x + 1, y + 1); dst.drawMask(m, dims[0], dims[1], x + 1, y);
+        dst.setColor(0xFFFFFF); dst.drawMask(m, dims[0], dims[1], x, y);
+        dst.color = sc; dst.hasClip = hc;
+    }
+    static boolean special(Host H, Surf dst, Surf src, int x, int y) {
+        if (!dst.hasClip) return false;
+        int cx = dst.cx, cy = dst.cy, cw = dst.cw, ch = dst.ch;
+        if (src.w == 50 && src.h == 9 && y == 6 && cx >= 200 && cx <= 218) {                         // 우상단 남은 일수 숫자: 날짜 계산용으로 읽어 둔다
+            daysDigit[(cx - 200) / 6] = (cx - x) / 5; return false; }
+        if (src.w == 77 && src.h == 11) {
+            if (cx == 6 && cy == 5 && cw == 22) {                                                      // "임기 N년 M월 D일" 를 글자 단위로 다시 그림
+                int left = 0, ok = 1; for (int d : daysDigit) { if (d < 0) ok = 0; left = left * 10 + Math.max(d, 0); }
+                int e = ok == 1 && left > 0 && left <= 1460 ? 1460 - left : 0, yr = e / 365 + 1, r = e % 365, mo = Math.min(12, r / 30 + 1), dy = r - (mo - 1) * 30 + 1;
+                label(H, dst, "임기 " + yr + "년 " + mo + "월 " + dy + "일", 6, 4); return true; }
+            if (y == 5 && (cx == 42 || cx == 75)) return true;                                          // 원본의 어긋난 년·월 조각은 생략
+            return false;
+        }
+        if (src.w == 70 && src.h == 9) {                                                                 // 시청 팝업 메뉴 라벨
+            int n = cx == 169 ? 0 : menuIdx + 1; menuIdx = Math.min(3, n);
+            label(H, dst, MENU_LABELS[menuIdx], cx, cy - 1); return true; }
+        if (src.w == 48 && src.h == 34 && cx == 143) menuIdx = -1;                                       // 첫 항목 막대: 순서 초기화
+        if (src.w == 10 && src.h == 36) {                                                                // 아이콘: 12행 칸에 맞춰 자르기
+            int k = Math.round((float) (cy - y) / 12f); if (k < 0 || k > 2) return true;
+            Surf cell = new Surf(10, 12, false); System.arraycopy(src.px, k * 120, cell.px, 0, 120);
+            dst.drawImage(cell, x, cy); return true; }
+        return false;
     }
     static String[] tf(Host H, int t) { Object o = H.st.get(t); if (o instanceof String[]) return (String[]) o; String[] n = {"", "0"}; H.st.put(t, n); return n; }
     static void initTextFields(Host H, int t, int maxlen) {

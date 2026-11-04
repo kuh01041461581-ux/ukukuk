@@ -1003,3 +1003,121 @@ index dd2c78e..8e00e7e 100644
  });
  
  export default config;
+diff --git a/wie-wipi-java/src/classes/org/kwis/msp/lcdui/graphics.rs b/wie-wipi-java/src/classes/org/kwis/msp/lcdui/graphics.rs
+index ff2d2a5..35f36a0 100644
+--- a/wie-wipi-java/src/classes/org/kwis/msp/lcdui/graphics.rs
++++ b/wie-wipi-java/src/classes/org/kwis/msp/lcdui/graphics.rs
+@@ -1,4 +1,4 @@
+-use alloc::vec;
++use alloc::{vec, vec::Vec};
+ 
+ use jvm::{Array, ClassInstanceRef, JavaChar, Jvm, Result as JvmResult};
+ 
+@@ -1100,7 +1100,7 @@ impl Graphics {
+         width: i32,
+         height: i32,
+     ) -> JvmResult<ClassInstanceRef<Array<u8>>> {
+-        tracing::warn!("stub org.kwis.msp.lcdui.Graphics::encodeImage({this:?}, {x}, {y}, {width}, {height})");
++        tracing::debug!("org.kwis.msp.lcdui.Graphics::encodeImage({this:?}, {x}, {y}, {width}, {height})");
+ 
+         if width <= 0 || height <= 0 {
+             return Ok(jvm.instantiate_array("B", 0).await?.into());
+@@ -1137,7 +1137,20 @@ impl Graphics {
+         result[46..50].copy_from_slice(&(0u32).to_le_bytes()); // colors used
+         result[50..54].copy_from_slice(&(0u32).to_le_bytes()); // important colors
+ 
+-        // TODO: fill in pixel data
++        // 현재 그래픽 대상(화면 또는 오프스크린 이미지)의 픽셀을 BMP(아래에서 위로, BGR)로 채운다.
++        // 예전에는 이 부분이 비어 있어 검은 이미지가 반환되었고, 이 함수로 화면을 캡처해 배경으로 쓰는 게임(메이플스토리 등)의 배경이 검게 나왔다.
++        let pixels = Self::read_region(jvm, &this, x, y, width, height).await?;
++        for row in 0..h {
++            let src_row = (h - 1 - row) as usize; // BMP 는 아래 줄이 먼저
++            let dst = header_size + (row * row_stride) as usize;
++            for col in 0..w as usize {
++                let rgb = pixels[src_row * w as usize + col];
++                let o = dst + col * 3;
++                result[o] = (rgb & 0xff) as u8; // B
++                result[o + 1] = ((rgb >> 8) & 0xff) as u8; // G
++                result[o + 2] = ((rgb >> 16) & 0xff) as u8; // R
++            }
++        }
+ 
+         // Return as Java byte array
+         let mut data_array = jvm.instantiate_array("B", result.len()).await?;
+@@ -1147,21 +1160,73 @@ impl Graphics {
+     }
+ 
+     async fn get_rgb_pixels(
+-        _jvm: &Jvm,
++        jvm: &Jvm,
+         _context: &mut WieJvmContext,
+         this: ClassInstanceRef<Self>,
+         x: i32,
+         y: i32,
+         width: i32,
+         height: i32,
+-        pixels: ClassInstanceRef<Array<i32>>,
++        mut pixels: ClassInstanceRef<Array<i32>>,
+         offset: i32,
+         bpl: i32,
+     ) -> JvmResult<()> {
+-        tracing::warn!("stub org.kwis.msp.lcdui.Graphics::getRGBPixels({this:?}, {x}, {y}, {width}, {height}, {pixels:?}, {offset}, {bpl})");
++        tracing::debug!("org.kwis.msp.lcdui.Graphics::getRGBPixels({this:?}, {x}, {y}, {width}, {height}, {pixels:?}, {offset}, {bpl})");
++
++        if width <= 0 || height <= 0 || pixels.is_null() || offset < 0 {
++            return Ok(());
++        }
++
++        let region = Self::read_region(jvm, &this, x, y, width, height).await?;
++        let stride = if bpl >= width { bpl as usize } else { width as usize };
++        let array_len = jvm.array_length(&pixels).await?;
++        for row in 0..height as usize {
++            let start = offset as usize + row * stride;
++            if start + width as usize > array_len {
++                break;
++            }
++            let line: Vec<i32> = region[row * width as usize..(row + 1) * width as usize].iter().map(|&v| v as i32).collect();
++            jvm.store_array(&mut pixels, start, line).await?;
++        }
+ 
+         Ok(())
+     }
++
++    /// 현재 그래픽 대상에서 (x, y, width, height) 영역의 픽셀을 0x00RRGGBB 로 읽는다. 범위 밖은 검정(0).
++    async fn read_region(jvm: &Jvm, this: &ClassInstanceRef<Self>, x: i32, y: i32, width: i32, height: i32) -> JvmResult<Vec<u32>> {
++        let mut midp_graphics: ClassInstanceRef<MidpGraphics> = jvm
++            .get_field(
++                this,
++                "org/kwis/msp/lcdui/Graphics",
++                "midpGraphics",
++                "Ljavax/microedition/lcdui/Graphics;",
++            )
++            .await?;
++        let image = MidpGraphics::image(jvm, &mut midp_graphics).await?;
++        let backend_image = MidpImage::image(jvm, &image).await?;
++        let translate_x: i32 = jvm
++            .invoke_virtual(&midp_graphics, "javax/microedition/lcdui/Graphics", "getTranslateX", "()I", ())
++            .await?;
++        let translate_y: i32 = jvm
++            .invoke_virtual(&midp_graphics, "javax/microedition/lcdui/Graphics", "getTranslateY", "()I", ())
++            .await?;
++
++        let (img_w, img_h) = (backend_image.width() as i64, backend_image.height() as i64);
++        let mut out = vec![0u32; (width.max(0) as usize) * (height.max(0) as usize)];
++        for j in 0..height {
++            for i in 0..width {
++                let px = i64::from(x) + i64::from(i) + i64::from(translate_x);
++                let py = i64::from(y) + i64::from(j) + i64::from(translate_y);
++                if px < 0 || py < 0 || px >= img_w || py >= img_h {
++                    continue;
++                }
++                let color = backend_image.get_pixel(px as i32, py as i32);
++                out[(j as usize) * (width as usize) + i as usize] = ((color.r as u32) << 16) | ((color.g as u32) << 8) | color.b as u32;
++            }
++        }
++
++        Ok(out)
++    }
+ }
+ 
+ #[cfg(test)]

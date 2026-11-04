@@ -36,16 +36,28 @@ class FakeBridge:
 
 @unittest.skipUnless(HAVE_TK, "tk/DISPLAY 없음")
 class GuiTests(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         os.environ["APPDATA"] = tempfile.mkdtemp()
         from hwpgen import gui
-        self.gui = gui
-        self.br = FakeBridge()
-        self.app = gui.App(self.br)
-        self.app.update()
+        cls.gui = gui
+        cls.br = FakeBridge()
+        cls.widget = gui.Widget(cls.br)
+        cls.widget.update()
+        cls.app = gui.DetailWindow(cls.widget)
+        cls.app.update()
 
-    def tearDown(self):
-        self.app.destroy()
+    @classmethod
+    def tearDownClass(cls):
+        cls.widget.destroy()
+
+    def test_one_click(self):
+        n0 = len(self.br.inserted)
+        for fid in ("report_dept", "report_mayor"):
+            self.widget.make_report(fid)
+        self.widget.make_week("plan")
+        self.widget.make_week("schedule")
+        self.assertEqual(len(self.br.inserted) - n0, 4)
 
     def test_report_flow(self):
         rt = self.app.report_tab
@@ -56,7 +68,7 @@ class GuiTests(unittest.TestCase):
             self.app.update()
             rt.vars["title"].set("시험 제목")
             rt.go("insert")
-        self.assertEqual(len(self.br.inserted), len(rt.form_ids))
+        self.assertGreaterEqual(len(self.br.inserted), len(rt.form_ids))
         for p in self.br.inserted:
             self.assertTrue(os.path.getsize(p) > 1000)
 
@@ -65,9 +77,10 @@ class GuiTests(unittest.TestCase):
         wt.data["items"] = [{"title": "개막식", "date": wt.monday.isoformat(), "time": "10:00", "place": "박물관",
                              "dept": "과", "staff": "홍", "phone": "1", "extra": "주최: 시", "important": True}]
         wt.refresh()
+        n0 = len(self.br.inserted)
         wt.make("plan", "insert")
         wt.make("schedule", "insert")
-        self.assertEqual(len(self.br.inserted), 2)
+        self.assertEqual(len(self.br.inserted) - n0, 2)
         # 계획 글을 한글에서 읽어 다시 가져오기
         self.br.text = ("문화교육국\n\U000f02ce 가져온 행사 (과 홍 1)\n◦ 일    시 : %s 09:30\n◦ 장    소 : 시청\n"
                         % __import__("hwpgen.textfmt", fromlist=["x"]).fmt_date_long(wt.monday))

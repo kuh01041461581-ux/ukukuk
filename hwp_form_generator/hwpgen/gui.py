@@ -594,26 +594,17 @@ class ProfileDialog(tk.Toplevel):
         self.destroy()
 
 
-# ===================================================================== 본체
-class App(tk.Tk):
-    def __init__(self, bridge=None):
-        super().__init__()
-        self.title("한글 양식 생성기")
-        self.bridge = bridge or B.HwpBridge()
-        self.out = Output(self)
-        self.geometry("%dx%d+%d+%d" % (PANEL_W, 760, 40, 20))
-        self.minsize(420, 560)
-        try:
-            ttk.Style().theme_use("vista" if sys.platform == "win32" else "clam")
-        except tk.TclError:
-            pass
-        self.option_add("*Font", FONT)
-        top = ttk.Frame(self, padding=(8, 6))
-        top.pack(fill="x")
-        self.conn = ttk.Label(top, text="● 한글 연결 안 됨", foreground="#a33", font=FONT_S)
-        self.conn.pack(side="left")
-        ttk.Button(top, text="옆에 붙이기", width=10, command=self.dock).pack(side="right")
-        ttk.Button(top, text="한글 연결", width=9, command=self.connect).pack(side="right", padx=4)
+# ===================================================================== 본체 (상세 입력 창)
+class DetailWindow(tk.Toplevel):
+    """칸을 직접 채워서 만들 때 쓰는 상세 창 (위젯의 [상세 입력])"""
+
+    def __init__(self, widget):
+        super().__init__(widget)
+        self.title("한글 양식 생성기 - 상세 입력")
+        self.bridge = widget.bridge
+        self.out = widget.out
+        self.say = widget.say
+        self.geometry("%dx%d+%d+%d" % (PANEL_W, 720, 60, 40))
         self.nb = ttk.Notebook(self)
         self.nb.pack(fill="both", expand=True)
         self.report_tab = ReportTab(self.nb, self)
@@ -622,13 +613,118 @@ class App(tk.Tk):
         self.nb.add(self.report_tab, text=" 보고서 ")
         self.nb.add(self.weekly_tab, text=" 주간 업무 ")
         self.nb.add(self.forms_tab, text=" 양식 관리 ")
-        self.status = ttk.Label(self, text="한글을 먼저 열고 [한글 연결]을 누르면 바로 넣을 수 있어요", anchor="w", relief="sunken", font=FONT_S)
+        widget.detail = self
+        self.protocol("WM_DELETE_WINDOW", self.close)
+        self._wd = widget
+
+    def close(self):
+        self._wd.detail = None
+        self._wd.rebuild()
+        self.destroy()
+
+
+# ===================================================================== 옆에 뜨는 위젯
+WIDGET_W = 230
+
+
+class Widget(tk.Tk):
+    """한글 옆에 떠 있는 양식 단추 모음. 단추를 누르면 한글에 바로 만들어 넣는다."""
+
+    def __init__(self, bridge=None):
+        super().__init__()
+        self.title("양식")
+        self.bridge = bridge or B.HwpBridge()
+        self.out = Output(self)
+        self.detail = None
+        self.attributes("-topmost", True)
+        self.resizable(False, True)
+        self.geometry("%dx%d+%d+%d" % (WIDGET_W, 640, max(0, self.winfo_screenwidth() - WIDGET_W - 10), 60))
+        try:
+            ttk.Style().theme_use("vista" if sys.platform == "win32" else "clam")
+        except tk.TclError:
+            pass
+        st = ttk.Style()
+        st.configure("Form.TButton", font=FONT, padding=(8, 7), anchor="w")
+        st.configure("Wk.TButton", font=FONT_B, padding=(8, 7), anchor="w")
+        top = ttk.Frame(self, padding=(6, 4))
+        top.pack(fill="x")
+        self.conn = ttk.Label(top, text="●", foreground="#a33")
+        self.conn.pack(side="left")
+        self.conn_txt = ttk.Label(top, text="한글 연결 안 됨", font=FONT_S)
+        self.conn_txt.pack(side="left", padx=3)
+        ttk.Button(top, text="붙이기", width=6, command=self.dock).pack(side="right")
+        self.body = ttk.Frame(self, padding=(6, 0))
+        self.body.pack(fill="both", expand=True)
+        self.status = ttk.Label(self, text="양식을 클릭하면 한글에 만들어져요", font=FONT_S, wraplength=WIDGET_W - 12,
+                                relief="sunken", anchor="w")
         self.status.pack(fill="x", side="bottom")
+        self.rebuild()
         self.after(300, self.auto_connect)
+        self.after(1500, self.tick)
 
     def say(self, msg):
         self.status.config(text=msg)
 
+    def rebuild(self):
+        for w in self.body.winfo_children():
+            w.destroy()
+        groups = {}
+        for fid, folder, meta in registry.list_forms():
+            if meta["kind"] == "report":
+                groups.setdefault(meta.get("audience", "기타"), []).append((fid, meta))
+        for g, lst in groups.items():
+            ttk.Label(self.body, text=g, font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(8, 2))
+            for fid, meta in lst:
+                ttk.Button(self.body, text=meta["name"].split(" (")[0], style="Form.TButton",
+                           command=lambda f=fid: self.make_report(f)).pack(fill="x", pady=1)
+        ttk.Label(self.body, text="주간 업무 (이번 주)", font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(10, 2))
+        ttk.Button(self.body, text="주간업무계획", style="Wk.TButton", command=lambda: self.make_week("plan")).pack(fill="x", pady=1)
+        ttk.Button(self.body, text="주간 주요일정", style="Wk.TButton", command=lambda: self.make_week("schedule")).pack(fill="x", pady=1)
+        ttk.Separator(self.body).pack(fill="x", pady=10)
+        ttk.Button(self.body, text="상세 입력 · 양식 추가…", command=self.open_detail).pack(fill="x")
+
+    # ---- 한 번 클릭으로 만들기
+    def make_report(self, fid):
+        try:
+            f = registry.load_form(fid)
+            prof = PR.load_profile()
+            vals = {}
+            for fl in f.fields:
+                v = ""
+                if fl.get("default") == "today":
+                    v = datetime.date.today().isoformat()
+                if fl.get("profile"):
+                    v = PR.profile_value(prof, fl["profile"]) or v
+                vals[fl["key"]] = v
+            pkg = f.render(vals, f.meta.get("starter", "□ 개요\n◦ 일시: \n◦ 장소: \n"))
+        except Exception as e:                           # noqa: BLE001
+            messagebox.showerror("만들 수 없어요", str(e))
+            return
+        self.out.insert(pkg, f.id)
+
+    def make_week(self, which):
+        monday = T.week_monday(datetime.date.today())
+        data = PR.load_week(monday)
+        org = PR.load_profile().get("org") or "문화교육국"
+        try:
+            if which == "plan":
+                pkg = registry.load_form("weekly_plan").render({"org": org, "items": data["items"]})
+            else:
+                end = monday + datetime.timedelta(days=6)
+                evs = [e for e in weekly.extract_events(data["items"]) if monday <= T.parse_date(e["date"]) <= end]
+                pkg = registry.load_form("weekly_schedule").render({"org": org, "start": monday.isoformat(), "events": evs})
+        except Exception as e:                           # noqa: BLE001
+            messagebox.showerror("만들 수 없어요", str(e))
+            return
+        self.out.insert(pkg, "주간업무계획" if which == "plan" else "주간주요일정")
+
+    def open_detail(self):
+        if self.detail is not None:
+            self.detail.lift()
+        else:
+            DetailWindow(self)
+
+    # ---- 한글 연결·배치
     def auto_connect(self):
         if B.IS_WIN:
             try:
@@ -636,6 +732,14 @@ class App(tk.Tk):
             except Exception:                            # noqa: BLE001
                 pass
         self.update_conn()
+        if B.IS_WIN:
+            self.dock()
+
+    def update_conn(self):
+        ok = self.bridge.connected
+        self.conn.config(foreground="#1a7f37" if ok else "#a33")
+        self.conn_txt.config(text="한글 연결됨" if ok else "한글 연결 안 됨 (누르면 연결)")
+        self.conn_txt.bind("<Button-1>", lambda e: self.connect() if not self.bridge.connected else None)
 
     def connect(self):
         try:
@@ -644,19 +748,24 @@ class App(tk.Tk):
             messagebox.showwarning("한글 연결", str(e))
         self.update_conn()
 
-    def update_conn(self):
-        if self.bridge.connected:
-            self.conn.config(text="● 한글에 연결됨", foreground="#1a7f37")
-        else:
-            self.conn.config(text="● 한글 연결 안 됨 (파일로 만들어 열어요)", foreground="#a33")
+    def tick(self):
+        if B.IS_WIN and not self.bridge.connected:
+            try:
+                self.bridge.connect(launch=False)
+            except Exception:                            # noqa: BLE001
+                pass
+        self.update_conn()
+        self.after(3000, self.tick)
 
     def dock(self):
         if not B.IS_WIN:
-            messagebox.showinfo("옆에 붙이기", "Windows 에서만 돼요")
             return
-        x, y, w, h = B.dock_beside(PANEL_W)
-        self.geometry("%dx%d+%d+%d" % (w, h, x, y))
+        x, y, w, h = B.dock_beside(WIDGET_W + 6)
+        self.geometry("%dx%d+%d+%d" % (WIDGET_W, h, x, y))
+
+
+App = Widget
 
 
 def run():
-    App().mainloop()
+    Widget().mainloop()

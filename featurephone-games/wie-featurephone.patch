@@ -432,10 +432,10 @@ index 1d32348..8975980 100644
    locale = next;
    document.documentElement.lang = locale;
 diff --git a/wie-web/src/ts/index.ts b/wie-web/src/ts/index.ts
-index 6ea129e..738781d 100644
+index 6ea129e..61c5161 100644
 --- a/wie-web/src/ts/index.ts
 +++ b/wie-web/src/ts/index.ts
-@@ -3,13 +3,45 @@ import * as Sentry from "@sentry/browser";
+@@ -3,13 +3,48 @@ import * as Sentry from "@sentry/browser";
  import { wasmIntegration } from "@sentry/wasm";
  
  import { recordPageView } from "./analytics";
@@ -448,6 +448,7 @@ index 6ea129e..738781d 100644
  import { initializeSettings } from "./settings";
  
 +const BUNDLED_KEY = "wie:bundled-games";
++let autolaunch = false; // 게임 하나짜리 APK 는 실행하자마자 그 게임을 연다
 +
 +// 앱에 함께 들어 있는 게임(games/games.json)을 처음 실행할 때 라이브러리에 자동으로 설치한다.
 +// 사용자가 지운 게임은 다시 설치하지 않는다.
@@ -458,7 +459,9 @@ index 6ea129e..738781d 100644
 +  try {
 +    const response = await fetch("games/games.json");
 +    if (!response.ok) return;
-+    manifest = await response.json();
++    const parsed = await response.json();
++    manifest = Array.isArray(parsed) ? parsed : parsed.games;
++    autolaunch = !Array.isArray(parsed) && parsed.autolaunch === true;
 +  } catch { return; }
 +
 +  const pending = manifest.filter(game => !done.includes(game.file));
@@ -482,7 +485,7 @@ index 6ea129e..738781d 100644
  const main = async () => {
    Sentry.init({
      dsn: process.env.SENTRY_DSN,
-@@ -18,6 +50,7 @@ const main = async () => {
+@@ -18,6 +53,7 @@ const main = async () => {
      integrations: [wasmIntegration()],
    });
    const native = isTauri();
@@ -490,13 +493,14 @@ index 6ea129e..738781d 100644
    const backend = await initializeWie();
    document.documentElement.classList.add(backend.rendering === "native" ? "native" : "browser");
    const output = document.getElementById("player-output") as HTMLDivElement;
-@@ -103,30 +136,10 @@ const main = async () => {
+@@ -103,30 +139,11 @@ const main = async () => {
      }
    };
  
 +  try { await navigator.storage?.persist?.(); } catch { /* ignore */ }
 +  await preloadBundledGames(backend);
    await initializeLibrary(backend, routeToApp, settings);
++  if (autolaunch) document.querySelector<HTMLButtonElement>(".app-launch")?.click();
  
 -  const advertisingScripts = document.getElementById("advertising-scripts") as HTMLTemplateElement;
 -  try {

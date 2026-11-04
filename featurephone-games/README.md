@@ -14,6 +14,18 @@
 | 7 | 메이플스토리2007 | LGT(WIPI) |
 | 8 | 대해적시대 | SK텔레콤 J2ME |
 
+## 게임별 APK (권장)
+
+`apk/build_each.py` 가 **게임마다 따로** APK 를 만듭니다(8개, 각 약 8.5MB). 각 APK 는 패키지명이 달라서(`net.featurephone.g.<게임>`)
+따로 설치·삭제되고, **저장도 게임별로 분리**되며, 아이콘을 누르면 라이브러리 없이 **바로 그 게임이 실행**됩니다.
+(아이콘은 SDK 없이 만들 수 없어서 기본 안드로이드 아이콘이고, 앱 이름만 게임 이름입니다.)
+`FeaturePhoneGames.apk`(8종 묶음)는 한 앱에서 모아 보고 싶을 때 쓰세요.
+
+## Windows 에뮬레이터
+
+`x86_64-pc-windows-gnu` 로 크로스 컴파일한 `wie.exe`(추가 DLL 불필요). 빌드: `cargo build --release --target x86_64-pc-windows-gnu`
+(Linux 에서 `gcc-mingw-w64-x86-64` 필요, `.cargo/config.toml` 에 `linker = "x86_64-w64-mingw32-gcc"`). **Windows 에서 실행해 보지는 못했습니다.**
+
 ## 받을 파일 (`dist/`)
 
 - `FeaturePhoneGames.apk` — 안드로이드 7.0 이상. 설치 후 처음 실행하면 8개 게임이 자동으로 라이브러리에 들어갑니다.

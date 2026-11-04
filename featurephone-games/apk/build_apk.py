@@ -8,6 +8,8 @@ import pyaxml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 www, out = sys.argv[1], sys.argv[2]
+PACKAGE = sys.argv[3] if len(sys.argv) > 3 else None   # 예: net.featurephone.g.maple_mage
+LABEL = sys.argv[4] if len(sys.argv) > 4 else None     # 앱 이름
 B = os.path.join(HERE, 'build'); shutil.rmtree(B, ignore_errors=True); os.makedirs(B + '/classes'); os.makedirs(B + '/tools')
 LIB = lambda n: os.path.join(HERE, 'lib', n)
 
@@ -23,7 +25,10 @@ for f in glob.glob(B + '/classes/**/*.class', recursive=True):
 run('java', '-cp', LIB('dx.jar'), 'com.android.dx.command.Main', '--dex', '--output=' + B + '/classes.dex', B + '/classes')
 
 # 2) 매니페스트 -> 바이너리 XML
-a = pyaxml.AXML(); a.from_xml(open(HERE + '/AndroidManifest.xml', encoding='utf8').read())
+mtext = open(HERE + '/AndroidManifest.xml', encoding='utf8').read()
+if PACKAGE: mtext = mtext.replace('package="net.featurephone.games"', f'package="{PACKAGE}"')
+if LABEL: mtext = mtext.replace('android:label="피처폰 게임"', f'android:label="{LABEL}"')
+a = pyaxml.AXML(); a.from_xml(mtext)
 manifest = a.pack()
 
 # 3) APK(zip) 조립

@@ -729,8 +729,11 @@ def _(this, maxlen): ST[this] = {'text': '', 'max': maxlen, 'caret': 0}; init_te
 def _(this, t): ST[this]['text'] = pystr(t) or ''
 @impl(TC, '(Ljava/lang/String;I)V+setString')
 def _(this, t, n): ST.setdefault(this, {'text': '', 'max': 0, 'caret': 0})['text'] = pystr(t) or ''
+DEFAULT_NAME = os.environ.get('DEFAULT_NAME', '시장')
 @impl(TC, '()Ljava/lang/String;+getString')
-def _(this): return jstr(ST.get(this, {}).get('text', ''))
+def _(this):
+    t = ST.get(this, {}).get('text', '')
+    return jstr(t if t else DEFAULT_NAME)
 @impl(TC, '()I+getMaxLength')
 def _(this): return ST.get(this, {}).get('max', 0)
 @impl(TC, '(I)V+setMaxLength')

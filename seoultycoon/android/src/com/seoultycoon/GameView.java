@@ -37,9 +37,17 @@ public class GameView extends View {
     int gesturePtr = -1; float gx, gy; long gdown; boolean gmoved, glong, gtwo;
     final float swipe;
     // 조이스틱
-    int joyPtr = -1; float jcx, jcy, jr, kx, ky; int joyDir = 0;
-    final Runnable joyRepeat = new Runnable() { public void run() {
-        if (joyDir != 0) { key(joyDir, false); key(joyDir, true); ui.postDelayed(this, 130); } } };
+    int joyPtr = -1; float jcx, jcy, jcx0, jcy0, jr, kx, ky; int joyDir = 0;
+    // 방향키 반복: 처음 누를 때 1회, 280ms 뒤부터 90ms 간격으로 '눌림'만 추가 전송(뗌 없이) -> 메뉴는 연속 이동, 지도는 끊김 없이 스크롤
+    final class Rep implements Runnable {
+        int code; boolean on;
+        void start(int c) { stop(); code = c; on = true; ui.postDelayed(this, 280); }
+        void stop() { on = false; ui.removeCallbacks(this); }
+        public void run() { if (on) { key(code, true); ui.postDelayed(this, 90); } }
+    }
+    final Rep joyRep = new Rep();
+    final Rep[] ptrRep = new Rep[16];
+    float zoneRight;                                    // 플로팅 조이스틱 인식 구역(패드 왼쪽 절반)
 
     public interface Host { void openModeDialog(); }
     Host host;
@@ -52,6 +60,7 @@ public class GameView extends View {
         sp.setColor(0xFF9AA0B8); sp.setTextAlign(Paint.Align.CENTER);
         tp.setColor(Color.WHITE); tp.setTextAlign(Paint.Align.CENTER); tp.setTypeface(Typeface.DEFAULT_BOLD);
         java.util.Arrays.fill(ptrBtn, -1);
+        for (int i = 0; i < ptrRep.length; i++) ptrRep[i] = new Rep();
         setKeepScreenOn(true);
     }
 
@@ -104,7 +113,7 @@ public class GameView extends View {
         } else {                                        // 조이스틱
             btns = new Btn[]{ new Btn("확인", "", OK), new Btn("취소", "", CLR),
                               new Btn("좌메뉴", "", SOFT_L), new Btn("*", "", '*'), new Btn("0", "", '0'), new Btn("#", "", '#') };
-            jr = Math.min(W * 0.22f, H * 0.36f); jcx = pad.left + W * 0.27f; jcy = pad.top + H * 0.46f; kx = jcx; ky = jcy;
+            jr = Math.min(W * 0.22f, H * 0.36f); jcx0 = pad.left + W * 0.27f; jcy0 = pad.top + H * 0.46f; jcx = jcx0; jcy = jcy0; kx = jcx; ky = jcy; zoneRight = pad.left + W * 0.52f;
             float ro = Math.min(W * 0.15f, H * 0.27f);
             circ(0, pad.left + W * 0.80f, pad.top + H * 0.36f, ro);
             circ(1, pad.left + W * 0.59f, pad.top + H * 0.58f, ro * 0.72f);
@@ -120,7 +129,7 @@ public class GameView extends View {
         cv.drawBitmap(javax.microedition.lcdui.Canvas.lcd, src, game, gp);
         bp.setStyle(Paint.Style.FILL);
         if (mode == MODE_JOY) {                          // 조이스틱 판
-            bp.setColor(0xFF1C1E27); cv.drawCircle(jcx, jcy, jr, bp);
+            bp.setColor(joyPtr >= 0 ? 0xFF2A3050 : 0x881C1E27); cv.drawCircle(jcx, jcy, jr, bp);
             bp.setStyle(Paint.Style.STROKE); bp.setStrokeWidth(4); bp.setColor(0xFF4B4F5E); cv.drawCircle(jcx, jcy, jr, bp);
             bp.setStyle(Paint.Style.FILL); bp.setColor(joyPtr >= 0 ? 0xFF5B7CFA : 0xFF3A3F55); cv.drawCircle(kx, ky, jr * 0.42f, bp);
         }
@@ -152,23 +161,55 @@ public class GameView extends View {
         if (c == null) return;
         if (down) c.keyPressed(code); else c.keyReleased(code);
     }
-    void tapKey(final int code) { key(code, true); ui.postDelayed(new Runnable() { public void run() { key(code, false); } }, 70); }
+    void buzz() { performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY); }
+    boolean isArrow(int c) { return c == UP || c == DOWN || c == LEFT || c == RIGHT; }
+    void tapKey(final int code) { key(code, true); ui.postDelayed(new Runnable() { public void run() { key(code, false); } }, 40); }
 
+    /** 4방향 + 히스테리시스: 현재 방향 축을 쉽게 바꾸지 않아 대각선 근처에서 떨리지 않음 */
     void joyUpdate(float x, float y) {
         float dx = x - jcx, dy = y - jcy, d = (float) Math.sqrt(dx * dx + dy * dy), lim = jr * 0.58f;
         if (d > lim) { dx *= lim / d; dy *= lim / d; }
         kx = jcx + dx; ky = jcy + dy;
         int nd = 0;
-        if (d > jr * 0.30f) nd = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? RIGHT : LEFT) : (dy > 0 ? DOWN : UP);
+        if (d > jr * 0.22f) {                                                        // 작은 데드존
+            boolean horiz = Math.abs(dx) > Math.abs(dy);
+            if (joyDir == LEFT || joyDir == RIGHT) horiz = Math.abs(dx) * 1.3f > Math.abs(dy);
+            else if (joyDir == UP || joyDir == DOWN) horiz = Math.abs(dx) > Math.abs(dy) * 1.3f;
+            nd = horiz ? (dx > 0 ? RIGHT : LEFT) : (dy > 0 ? DOWN : UP);
+        }
         if (nd != joyDir) {
-            ui.removeCallbacks(joyRepeat);
+            joyRep.stop();
             if (joyDir != 0) key(joyDir, false);
             joyDir = nd;
-            if (nd != 0) { key(nd, true); ui.postDelayed(joyRepeat, 350); }
+            if (nd != 0) { key(nd, true); buzz(); joyRep.start(nd); }
         }
     }
     void joyEnd() {
-        ui.removeCallbacks(joyRepeat); if (joyDir != 0) key(joyDir, false); joyDir = 0; joyPtr = -1; kx = jcx; ky = jcy;
+        joyRep.stop(); if (joyDir != 0) key(joyDir, false); joyDir = 0; joyPtr = -1;
+        jcx = jcx0; jcy = jcy0; kx = jcx; ky = jcy;
+    }
+
+    boolean hitBtn(Btn b, float x, float y) {                                        // 손가락 크기를 고려해 판정 영역 약간 확대
+        float m = 6 * density;
+        if (b.circle) { float dx = x - b.cx, dy = y - b.cy, r = b.rad + m; return dx * dx + dy * dy <= r * r; }
+        return x >= b.r.left - m && x <= b.r.right + m && y >= b.r.top - m && y <= b.r.bottom + m;
+    }
+    int btnAt(float x, float y) {                                                    // 겹치면 가장 가까운 중심 우선
+        int best = -1; float bd = 1e18f;
+        for (int i = 0; i < btns.length; i++) if (hitBtn(btns[i], x, y)) {
+            float dx = x - btns[i].r.centerX(), dy = y - btns[i].r.centerY(), dd = dx * dx + dy * dy;
+            if (dd < bd) { bd = dd; best = i; }
+        }
+        return best;
+    }
+    void pressBtn(int id, int i) {
+        ptrBtn[id] = i; int c = btns[i].code; key(c, true); buzz();
+        if (isArrow(c)) ptrRep[id].start(c);
+        invalidate();
+    }
+    void releaseBtn(int id) {
+        int i = ptrBtn[id]; if (i < 0) return;
+        ptrRep[id].stop(); key(btns[i].code, false); ptrBtn[id] = -1; invalidate();
     }
 
     @Override public boolean onTouchEvent(MotionEvent e) {
@@ -178,28 +219,36 @@ public class GameView extends View {
             if (gear.contains(x, y)) { if (host != null) host.openModeDialog(); return true; }
             if (game.contains(x, y)) {
                 if (gesturePtr < 0) { gesturePtr = id; gx = x; gy = y; gdown = System.currentTimeMillis(); gmoved = false; glong = false; gtwo = false; }
-                else if (!gmoved && System.currentTimeMillis() - gdown < 400) { gtwo = true; tapKey(CLR); }   // 두 손가락 탭 = 취소
-            } else if (mode == MODE_JOY && joyPtr < 0 && Math.hypot(x - jcx, y - jcy) <= jr * 1.25f) {
-                joyPtr = id; joyUpdate(x, y);
+                else if (!gmoved && System.currentTimeMillis() - gdown < 400) { gtwo = true; tapKey(CLR); buzz(); }   // 두 손가락 탭 = 취소
+            } else if (mode == MODE_JOY && joyPtr < 0 && x < zoneRight && y > pad.top && btnAt(x, y) < 0) {
+                joyPtr = id;                                                                 // 플로팅: 터치한 자리가 스틱 중심
+                jcx = Math.max(pad.left + jr, Math.min(zoneRight - jr * 0.2f, x)); jcy = Math.max(pad.top + jr, Math.min(pad.bottom - jr, y));
+                kx = x; ky = y; joyUpdate(x, y); invalidate();
             } else if (id < ptrBtn.length) {
-                for (int i = 0; i < btns.length; i++) if (btns[i].hit(x, y)) { ptrBtn[id] = i; key(btns[i].code, true); break; }
+                int i = btnAt(x, y); if (i >= 0) pressBtn(id, i);
             }
         } else if (a == MotionEvent.ACTION_MOVE) {
             for (int p = 0; p < e.getPointerCount(); p++) {
                 int pid = e.getPointerId(p); float x = e.getX(p), y = e.getY(p);
-                if (pid == joyPtr) { joyUpdate(x, y); continue; }
+                if (pid == joyPtr) { joyUpdate(x, y); invalidate(); continue; }
+                if (pid < ptrBtn.length && ptrBtn[pid] >= 0) {                              // 버튼 위에서 미끄러져 다른 버튼으로 이동 허용
+                    int i = btnAt(x, y);
+                    if (i != ptrBtn[pid]) { releaseBtn(pid); if (i >= 0) pressBtn(pid, i); }
+                    continue;
+                }
                 if (pid != gesturePtr || gtwo) continue;
                 float dx = x - gx, dy = y - gy;
                 if (Math.abs(dx) > swipe || Math.abs(dy) > swipe) {
                     gmoved = true; tapKey(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? RIGHT : LEFT) : (dy > 0 ? DOWN : UP)); gx = x; gy = y;
-                } else if (!gmoved && !glong && System.currentTimeMillis() - gdown > 600) { glong = true; tapKey(CLR); }
+                } else if (!gmoved && !glong && System.currentTimeMillis() - gdown > 600) { glong = true; tapKey(CLR); buzz(); }
             }
         } else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_POINTER_UP || a == MotionEvent.ACTION_CANCEL) {
-            if (id == joyPtr) joyEnd();
+            if (id == joyPtr) { joyEnd(); invalidate(); }
             else if (id == gesturePtr) {
-                if (a != MotionEvent.ACTION_CANCEL && !gmoved && !glong && !gtwo) tapKey(OK);   // 탭 = 확인
+                if (a != MotionEvent.ACTION_CANCEL && !gmoved && !glong && !gtwo) { tapKey(OK); buzz(); }   // 탭 = 확인
                 gesturePtr = -1;
-            } else if (id < ptrBtn.length && ptrBtn[id] >= 0) { key(btns[ptrBtn[id]].code, false); ptrBtn[id] = -1; }
+            } else if (id < ptrBtn.length && ptrBtn[id] >= 0) releaseBtn(id);
+            if (a == MotionEvent.ACTION_CANCEL) { for (int k = 0; k < ptrBtn.length; k++) releaseBtn(k); joyEnd(); }
         }
         return true;
     }

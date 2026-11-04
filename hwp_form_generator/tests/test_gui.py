@@ -25,7 +25,7 @@ class FakeBridge:
         return True
 
     def insert_file(self, p):
-        self.inserted.append(p)
+        self.inserted.append((p, os.path.getsize(p)))
 
     def open_file(self, p):
         self.opened.append(p)
@@ -69,8 +69,8 @@ class GuiTests(unittest.TestCase):
             rt.vars["title"].set("시험 제목")
             rt.go("insert")
         self.assertGreaterEqual(len(self.br.inserted), len(rt.form_ids))
-        for p in self.br.inserted:
-            self.assertTrue(os.path.getsize(p) > 1000)
+        for p, size in self.br.inserted:
+            self.assertTrue(size > 1000)
 
     def test_weekly_flow(self):
         wt = self.app.weekly_tab

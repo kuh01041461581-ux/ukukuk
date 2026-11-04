@@ -39,17 +39,28 @@ class Output:
         self.app = app
 
     def insert(self, pkg, prefix):
-        path = pkg.save(tmp_hwpx(prefix))
+        """열려 있는 한글 문서의 커서 위치에 서식째 넣는다. 새 문서는 만들지 않는다."""
         br = self.app.bridge
-        if br.connected:
+        if not br.connected:
             try:
-                br.insert_file(path)
-                self.app.say("한글 커서 위치에 넣었어요")
-                return
-            except B.BridgeError as e:
-                if not messagebox.askyesno("한글에 넣기", "%s\n\n새 문서로 열까요?" % e):
-                    return
-        self.open_new(pkg, prefix, path)
+                br.connect(launch=False)
+            except Exception:                            # noqa: BLE001
+                pass
+        if not br.connected:
+            messagebox.showwarning("한글에 넣기", "열려 있는 한글에 연결하지 못했어요.\n"
+                                   "한글을 열고 문서를 띄운 뒤 다시 눌러 주세요.")
+            return
+        path = pkg.save(tmp_hwpx(prefix))
+        try:
+            br.insert_file(path)
+            self.app.say("열려 있는 문서의 커서 위치에 넣었어요")
+        except B.BridgeError as e:
+            messagebox.showerror("한글에 넣기", str(e))
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
     def open_new(self, pkg, prefix, path=None):
         path = path or pkg.save(tmp_hwpx(prefix))

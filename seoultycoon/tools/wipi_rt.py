@@ -547,8 +547,9 @@ def _(this, c): return 1
 def _(this, a, b): pass
 
 # ================================================================== WIPI API
+MENU_DX = int(os.environ.get('MENU_DX', '12'))
 TEXT_DY = int(os.environ.get('TEXT_DY', '2'))
-FONT = ImageFont.truetype(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'android', 'assets', 'galmuri11.ttf'), 11)
+FONT = ImageFont.truetype(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'android', 'assets', 'galmuri11.ttf'), int(os.environ.get('FONTSZ', '11')))
 class Surf:
     def __init__(s, w, h): s.img = PImage.new('RGBA', (w, h), (0, 0, 0, 255)); s.d = ImageDraw.Draw(s.img); s.color = (0, 0, 0, 255); s.clip = None
 class Gfx:
@@ -660,15 +661,19 @@ def _(this, x, y, w, h, sa, ea):
 def _(this, im, x, y, anchor):
     if not im or im not in ST: return
     s = ST[this].s; src = ST[im].img
+    if os.environ.get('TXTLOG'): print('  drawImage x=%d y=%d anchor=%d size=%s target=%s clip=%s' % (x, y, anchor, src.size, s.img.size, s.clip))
     if anchor & 1: x -= src.width // 2
     if anchor & 8: x -= src.width
     if anchor & 2: y -= src.height // 2
     if anchor & 32: y -= src.height
+    if src.size == (56, 96) and s.clip and s.clip[3] == 12:           # 메인 메뉴 글자 시트: 막대 홈 중앙(≈127)에 오도록 보정
+        x -= MENU_DX; s.clip = (s.clip[0] - MENU_DX, s.clip[1], s.clip[2], s.clip[3])
     clipped(s, (x, y, x + src.width, y + src.height), lambda: s.img.paste(src, (x, y), src))
 @impl(G, '(Ljava/lang/String;III)V+drawString')
 def _(this, st, x, y, anchor):
     s = ST[this].s; t = pystr(st)
     if t is None: return
+    if os.environ.get('TXTLOG'): print('  drawString %r x=%d y=%d anchor=%d w=%d' % (t, x, y, anchor, int(s.d.textlength(t, font=FONT))))
     w = int(s.d.textlength(t, font=FONT))
     if anchor & 1: x -= w // 2
     if anchor & 8: x -= w

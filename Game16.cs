@@ -57,38 +57,50 @@ internal sealed class CityHallGame : MiniGame
 	private void Build()
 	{
 		grid = new Blk[N, HH, N]; all.Clear(); hallTotal = 0;
-		Color old = Color.FromArgb(206, 200, 186), oroof = Color.FromArgb(128, 128, 124);
-		Shell(6, 13, 16, 8, 0, 4, old, oroof, 0, 0.5f, 1);                                      // 구청사 (4층, 외관은 자료가 없어 약식)
-		for (int x = 12; x < 16; x++) for (int z = 21; z < 23; z++) Put(x, 2, z, Color.FromArgb(170, 164, 152), 0, 0.6f, false, true);   // 현관 지붕
-		foreach (int px in new[] { 12, 15 }) for (int y = 0; y < 2; y++) Put(px, y, 22, Color.FromArgb(222, 218, 208), 0, 0.6f, false, false);
-		for (int y = 4; y < 7; y++) Put(21, y, 14, Color.FromArgb(120, 120, 126), 0, 0.5f, false, false);   // 옥상 안테나
-		for (int i = 0; i < 5; i++) Put(23, i, 21, Color.FromArgb(200, 200, 205), 2, 0.5f, false, false); Put(24, 4, 21, Color.FromArgb(220, 70, 70), 2, 0.5f, false, false);   // 깃대
-		Shell(0, 0, 5, 6, 0, 7, Color.FromArgb(236, 220, 170), Color.FromArgb(170, 150, 120), 1, 0.7f, 1);
-		Shell(22, 1, 6, 6, 0, 9, Color.FromArgb(180, 204, 226), Color.FromArgb(120, 138, 160), 1, 0.7f, 1);
-		Shell(0, 9, 4, 6, 0, 4, Color.FromArgb(232, 190, 190), Color.FromArgb(160, 120, 120), 1, 0.7f, 1);
-		Shell(24, 10, 4, 7, 0, 5, Color.FromArgb(226, 214, 190), Color.FromArgb(150, 134, 112), 1, 0.7f, 1);
-		Shell(0, 17, 4, 5, 0, 3, Color.FromArgb(196, 220, 196), Color.FromArgb(120, 150, 120), 1, 0.7f, 1);
-		Shell(24, 18, 4, 5, 0, 4, Color.FromArgb(214, 196, 226), Color.FromArgb(140, 120, 160), 1, 0.7f, 1);
-		int[,] ts = { { 5, 11 }, { 4, 22 }, { 23, 12 }, { 22, 23 }, { 8, 23 }, { 18, 23 }, { 5, 9 }, { 22, 9 }, { 3, 8 }, { 26, 8 }, { 1, 24 }, { 26, 24 } };
+		// 항공사진의 구청사 단지: 길쭉한 4층 본관(옥상은 연둣빛 · 설비 상자) + 뒤쪽 높은 흰 건물 + 오른쪽 별관 + 앞쪽 오른편 초록 지붕 건물 + 앞마당 주차장과 원형 화단
+		Color cream = Color.FromArgb(222, 216, 196), gr = Color.FromArgb(150, 196, 140), white = Color.FromArgb(238, 240, 242), dk = Color.FromArgb(82, 88, 104);
+		Shell(4, 12, 20, 8, 0, 4, cream, gr, 0, 0.5f, 1);                                      // 본관
+		foreach (int bx in new[] { 8, 9, 15, 16, 20 }) Put(bx, 4, 15, Color.FromArgb(120, 170, 190), 0, 0.5f, false, true);   // 옥상 설비
+		Put(18, 4, 14, Color.FromArgb(120, 170, 190), 0, 0.5f, false, true); Put(18, 5, 14, Color.FromArgb(120, 120, 126), 0, 0.5f, false, false);
+		for (int x = 11; x < 17; x++) for (int z = 20; z < 22; z++) Put(x, 2, z, Color.FromArgb(176, 170, 158), 0, 0.6f, false, true);   // 현관 지붕
+		for (int x = 11; x < 17; x++) Put(x, 3, 21, Color.FromArgb(60, 110, 200), 0, 0.6f, false, false);   // 파란 현관 간판
+		foreach (int px in new[] { 11, 16 }) for (int y = 0; y < 2; y++) Put(px, y, 21, Color.FromArgb(226, 222, 212), 0, 0.6f, false, false);
+		Shell(8, 3, 12, 7, 0, 10, white, dk, 0, 0.6f, 1);                                      // 뒤쪽 높은 건물 (옥상 태양광 패널)
+		Shell(21, 5, 7, 6, 0, 5, white, dk, 0, 0.6f, 1); for (int x = 23; x < 26; x++) Put(x, 3, 10, Color.FromArgb(214, 168, 50), 0, 0.6f, false, false);   // 별관과 금색 간판
+		Shell(22, 19, 6, 6, 0, 4, Color.FromArgb(236, 236, 230), Color.FromArgb(92, 172, 112), 0, 0.6f, 1);   // 앞쪽 오른편 건물
+		Shell(0, 4, 5, 6, 0, 5, Color.FromArgb(232, 190, 170), Color.FromArgb(150, 120, 110), 1, 0.7f, 1);   // 주변 건물
+		Shell(0, 20, 5, 6, 0, 3, Color.FromArgb(196, 220, 196), Color.FromArgb(120, 150, 120), 1, 0.7f, 1);
+		for (int a = 0; a < 16; a++) { double an = a * Math.PI / 8; Put(13 + (int)Math.Round(Math.Cos(an) * 2.6), 0, 24 + (int)Math.Round(Math.Sin(an) * 2.0), Color.FromArgb(96, 176, 96), 2, 0.5f, false, false); }   // 원형 화단
+		Put(13, 0, 24, Color.FromArgb(226, 190, 80), 2, 0.5f, false, false);
+		for (int i = 0; i < 5; i++) Put(26, i, 17, Color.FromArgb(200, 200, 205), 2, 0.5f, false, false); Put(25, 4, 17, Color.FromArgb(220, 70, 70), 2, 0.5f, false, false);   // 깃대
+		int[,] ts = { { 6, 22 }, { 9, 23 }, { 19, 23 }, { 5, 11 }, { 22, 12 }, { 3, 18 }, { 20, 26 }, { 8, 26 }, { 26, 14 }, { 1, 12 } };
 		for (int i = 0; i < ts.GetLength(0); i++) Tree(ts[i, 0], ts[i, 1]);
 		Color[] cc = { Color.FromArgb(220, 70, 70), Color.FromArgb(70, 120, 220), Color.FromArgb(240, 200, 60), Color.FromArgb(240, 240, 240), Color.FromArgb(60, 60, 70) };
-		for (int i = 0; i < 5; i++) Car(2 + i * 5, 24 + (i % 2) * 2, true, cc[(i + 2) % 5]);
-		for (int i = 0; i < 3; i++) Car(7 + i * 5, 11, true, cc[i % 5]);
+		for (int i = 0; i < 4; i++) Car(5 + i * 3, 23 + (i % 2) * 2, true, cc[(i + 2) % 5]);          // 앞마당 주차장
+		for (int i = 0; i < 3; i++) Car(17 + i * 3, 23 + (i % 2) * 2, true, cc[(i + 1) % 5]);
+		for (int i = 0; i < 4; i++) Car(5 + i * 4, 10, true, cc[i % 5]);
 		hallAlive = hallTotal;
 	}
 	private static readonly Color NewWall = Color.FromArgb(236, 238, 242), NewGlass = Color.FromArgb(206, 220, 234), NewRoof = Color.FromArgb(150, 160, 176);
 	private void NewLayer(int y)
 	{
-		// 미륵사지 석탑을 건물 앞쪽에 상징적으로 담았다는 당선작 설명에 맞춰, 위로 갈수록 줄어드는 층층 모양으로 만들었어요 (약식)
-		int x0, z0, w, d; bool slab;
-		if (y <= 2) { x0 = 7; z0 = 2; w = 14; d = 9; slab = y == 2; } else if (y <= 5) { x0 = 9; z0 = 3; w = 10; d = 7; slab = y == 5; } else { x0 = 11; z0 = 4; w = 6; d = 5; slab = y == 9; }
+		// 신청사 조감도: 3층 갈색 기단(곡선 현관) 위에 흰색 세로 살 모양 외벽의 높은 건물, 오른쪽에 금색 간판 별관, 앞쪽엔 정원과 벚나무
+		bool pod = y <= 2, slab = y == 2 || y == 9; int x0 = pod ? 6 : 8, z0 = 3, w = pod ? 16 : 11, d = pod ? 9 : 7;
+		Color pw = Color.FromArgb(204, 168, 126), tw = Color.FromArgb(240, 242, 246), tg = Color.FromArgb(196, 214, 232);
 		for (int x = x0; x < x0 + w; x++) for (int z = z0; z < z0 + d; z++)
 		{
+			if (!pod && y >= 5 && x >= x0 + w - 3 && z <= z0 + 2) continue;   // 오른쪽 위쪽 테라스 비움
 			bool per = x == x0 || z == z0 || x == x0 + w - 1 || z == z0 + d - 1; if (!per && !slab) continue;
-			Put(x, y, z, slab ? NewRoof : (y <= 2 ? NewWall : NewGlass), 4, 99f, !slab && per && y >= 1 && (x + z) % 2 == 0, slab);
+			Color c = slab ? (y == 9 ? Color.FromArgb(96, 102, 116) : Color.FromArgb(214, 206, 190)) : (pod ? pw : ((x % 2 == 0) ? tw : tg));
+			Put(x, y, z, c, 4, 99f, !slab && per && y >= 1 && (x + z) % 2 == 0, slab);
 		}
-		if (y == 9) { for (int k = 10; k < 13; k++) Put(16, k, 4, Color.FromArgb(200, 70, 70), 4, 99f, false, false); Put(12, 10, 5, Color.FromArgb(120, 126, 138), 4, 99f, false, true); Put(13, 10, 5, Color.FromArgb(120, 126, 138), 4, 99f, false, true); }
-		if (y == 2) { for (int x = 10; x < 18; x++) Put(x, 2, 11, Color.FromArgb(196, 190, 178), 4, 99f, false, true); foreach (int px in new[] { 10, 13, 14, 17 }) { Put(px, 0, 11, Color.FromArgb(228, 226, 220), 4, 99f, false, false); Put(px, 1, 11, Color.FromArgb(228, 226, 220), 4, 99f, false, false); } }
+		if (y <= 3) { for (int x = 22; x < 28; x++) for (int z = 6; z < 11; z++) { bool per = x == 22 || z == 6 || x == 27 || z == 10; if (!per && y < 3) continue; Put(x, y, z, y == 3 ? Color.FromArgb(96, 102, 116) : Color.FromArgb(238, 240, 244), 4, 99f, per && y >= 1 && (x + z) % 2 == 0, y == 3); } if (y == 2) for (int x = 24; x < 27; x++) Put(x, 2, 11, Color.FromArgb(214, 168, 50), 4, 99f, false, false); }
+		if (y == 0)
+		{
+			for (int x = 6; x < 20; x++) for (int z = 14; z < 19; z++) if ((x + z) % 3 != 0 || z == 14) Put(x, 0, z, Color.FromArgb(120, 184, 104), 4, 99f, false, true);   // 앞 정원 잔디
+			foreach (int[] t in new[] { new[] { 8, 16 }, new[] { 11, 17 }, new[] { 15, 16 }, new[] { 18, 18 }, new[] { 23, 14 }, new[] { 25, 16 } }) { Put(t[0], 1, t[1], Color.FromArgb(120, 84, 52), 4, 99f, false, false); for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) Put(t[0] + dx, 2, t[1] + dz, Color.FromArgb(250, 232, 238), 4, 99f, false, false); }   // 벚나무
+		}
+		if (y == 9) { for (int k = 10; k < 13; k++) Put(16, k, 4, Color.FromArgb(200, 70, 70), 4, 99f, false, false); Put(11, 10, 5, Color.FromArgb(96, 140, 190), 4, 99f, false, true); Put(12, 10, 5, Color.FromArgb(96, 140, 190), 4, 99f, false, true); }
 	}
 	public override void Reset()
 	{

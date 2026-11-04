@@ -101,6 +101,9 @@ internal static class Raise
 	}
 	// 놀이 도구를 주면 같은 효과가 조금 생겨요
 	public static void Toy(int kind) { Load(); if (kind == 0) { Hunger = C(Hunger + 20f); cF += 0.5f; } else if (kind == 1) { Fun = C(Fun + 15f); Energy = C(Energy - 3f); cP += 0.5f; } else if (kind == 3) { Energy = C(Energy + 25f); cR += 0.5f; } else { Fun = C(Fun + 6f); } Save(); }
+	private static int dex = -1; private static string DP { get { return Path.Combine(Program.DataDir, "raise_dex.txt"); } }
+	public static int Dex { get { if (dex < 0) { try { dex = File.Exists(DP) ? int.Parse(File.ReadAllText(DP).Trim()) : 0; } catch { dex = 0; } } return dex; } }
+	public static void Mark() { Load(); if (Form < 0 || Form > 5) return; int d = Dex | (1 << Form); if (d != dex) { dex = d; try { Directory.CreateDirectory(Program.DataDir); File.WriteAllText(DP, d.ToString()); } catch { } } }
 	public static void Rub() { Load(); Fun = C(Fun + 0.6f); }
 }
 
@@ -111,54 +114,63 @@ internal sealed class RaiseForm : Form
 	public static void Open() { try { if (cur != null && !cur.IsDisposed) { cur.Activate(); return; } cur = new RaiseForm(); cur.Show(); } catch (Exception ex) { cur = null; Program.LogErr(ex); } }
 	private readonly float S; private readonly Timer tm = new Timer(); private string msg = ""; private double msgT; private int hover = -1, down = -1; private readonly System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
 	private static readonly string[] Btn = { "밥 주기", "놀아 주기", "씻기기", "재우기", "청소하기", "약 주기" };
-	private const int LW = 340, LH = 512;
+	private const int LW = 340, LH = 548; private static int fk = LoadFk(); private static float FK { get { return 1f + 0.1f * fk; } }
+	private static string FP { get { return Path.Combine(Program.DataDir, "raise_font.txt"); } }
+	private static int LoadFk() { try { return Math.Max(-2, Math.Min(4, int.Parse(File.ReadAllText(FP).Trim()))); } catch { return 0; } }
+	private static Font F(float pt, int w) { return Theme.F(pt * FK, w); }
+	private static readonly string[] FormCos = { "정장", "캠핑", "g_run", "여름", "겨울", "우주비행사" }, ActSpr = { "ms_pet_eat", "ms_pet_happy", "ms_pet_wave", "ms_pet_sleep" }; private static readonly int[] ActN = { 4, 3, 3, 2 };
+	private int act = -1; private double actT;
+	private RectangleF FontR(int i) { return new RectangleF(LW - 66f + i * 26f, 20f, 24f, 20f); }
 	private RaiseForm()
 	{
 		S = Dpi.Scale; Text = "마룡이 돌보기"; FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false; MinimizeBox = true; StartPosition = FormStartPosition.CenterScreen; ShowInTaskbar = true; TopMost = true;
 		ClientSize = new Size((int)(LW * S), (int)(LH * S)); BackColor = Theme.Page;
 		SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
-		tm.Interval = 250; tm.Tick += delegate { Raise.Tick(0); Invalidate(); }; tm.Start();
+		tm.Interval = 250; tm.Tick += delegate { Raise.Tick(0); Raise.Mark(); Invalidate(); }; tm.Start();
 		MouseMove += delegate(object o, MouseEventArgs e) { int h = Hit(e.X / S, e.Y / S); if (h != hover) { hover = h; Invalidate(); } Cursor = h >= 0 ? Cursors.Hand : Cursors.Default; };
 		MouseLeave += delegate { hover = -1; Invalidate(); };
 		MouseDown += delegate(object o, MouseEventArgs e) { down = Hit(e.X / S, e.Y / S); Invalidate(); };
 		MouseUp += delegate(object o, MouseEventArgs e)
 		{
-			int h = Hit(e.X / S, e.Y / S); if (h >= 0 && h == down) { msg = Raise.Do(h); msgT = sw.Elapsed.TotalSeconds + 3.0; PetWin.Care(h); Sfx.Play("ok"); }
+			int h = Hit(e.X / S, e.Y / S); if (h >= 6 && h == down) { fk = Math.Max(-2, Math.Min(4, fk + (h == 7 ? 1 : -1))); try { Directory.CreateDirectory(Program.DataDir); File.WriteAllText(FP, fk.ToString()); } catch { } }
+			else if (h >= 0 && h == down) { act = h; actT = sw.Elapsed.TotalSeconds + 3.0; msg = Raise.Do(h); msgT = sw.Elapsed.TotalSeconds + 3.0; PetWin.Care(h); Sfx.Play("ok"); }
 			down = -1; Invalidate();
 		};
 		FormClosed += delegate { tm.Stop(); cur = null; };
 		try { Icon = Program.AppIcon; } catch { }
 	}
 	private RectangleF BtnR(int i) { float bw = (LW - 40f - 10f) / 2f; return new RectangleF(20f + (i % 2) * (bw + 10f), 308f + (i / 2) * 46f, bw, 38f); }
-	private int Hit(float x, float y) { for (int i = 0; i < 6; i++) if (BtnR(i).Contains(x, y)) return i; return -1; }
+	private int Hit(float x, float y) { for (int i = 0; i < 6; i++) if (BtnR(i).Contains(x, y)) return i; for (int i = 0; i < 2; i++) if (FontR(i).Contains(x, y)) return 6 + i; return -1; }
 	protected override void OnPaint(PaintEventArgs e)
 	{
 		Graphics g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit; g.ScaleTransform(S, S);
 		using (SolidBrush b = new SolidBrush(Theme.Page)) g.FillRectangle(b, 0, 0, LW, LH);
 		// 머리: 마룡이 얼굴 + 이름·단계
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(16, 14, LW - 32, 104), 18)) { using (SolidBrush b = new SolidBrush(Theme.Raised)) g.FillPath(b, gp); using (Pen p = new Pen(Theme.Line, 1.2f)) g.DrawPath(p, gp); }
-		Image m = Program.MascotImage(); float bob = (float)Math.Sin(sw.Elapsed.TotalSeconds * 2.2) * 2.5f;
+		Image m = Program.MascotImage(); double now = sw.Elapsed.TotalSeconds; if (act >= 0 && now < actT) { int ai = act == 3 ? 3 : (act == 0 ? 0 : (act == 1 ? 1 : (act == 2 ? 2 : -1))); if (ai >= 0) { Image si = Spr.Get(ActSpr[ai] + ((int)(now * 4) % ActN[ai])); if (si != null) m = si; } } else if (Raise.Stage >= 3 && Raise.Form >= 0) { Image oi = Program.OutfitImage(Raise.Stage == 4 ? "g_knight" : FormCos[Raise.Form]); if (oi != null) m = oi; }
+		float bob = (float)Math.Sin(sw.Elapsed.TotalSeconds * 2.2) * 2.5f;
 		if (m != null) { float h = 80f * (0.82f + 0.06f * Raise.Stage), w = h * m.Width / m.Height; g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(m, 64f - w / 2f, 66f - h / 2f + bob, w, h); }
-		if (Raise.Sick) Gfx.Text(g, "아파요", Theme.F(8.5f, 2), Theme.Red, new RectangleF(30, 96, 70, 18), StringAlignment.Center, StringAlignment.Center, false);
-		Gfx.Text(g, Raise.Title, Theme.F(13f, 2), Theme.Ink, new RectangleF(116, 24, LW - 136, 28), StringAlignment.Near, StringAlignment.Center, false);
-		int days = (int)Raise.AgeDays; Gfx.Text(g, "함께한 지 " + (days + 1) + "일째 · " + Raise.StageNames[Raise.Stage], Theme.F(9f, 0), Theme.Sub, new RectangleF(116, 52, LW - 136, 20), StringAlignment.Near, StringAlignment.Center, false);
+		if (Raise.Sick) Gfx.Text(g, "아파요", F(8.5f, 2), Theme.Red, new RectangleF(30, 96, 70, 18), StringAlignment.Center, StringAlignment.Center, false);
+		Gfx.Text(g, Raise.Title, F(13f, 2), Theme.Ink, new RectangleF(116, 24, LW - 190, 28), StringAlignment.Near, StringAlignment.Center, false);
+		for (int i = 0; i < 2; i++) { RectangleF fr2 = FontR(i); using (GraphicsPath gp = Gfx.Round(fr2, 6)) using (SolidBrush b = new SolidBrush(hover == 6 + i ? Theme.AccentSoft : Theme.Line)) g.FillPath(b, gp); Gfx.Text(g, i == 0 ? "가-" : "가+", Theme.F(8.5f, 2), Theme.Ink, fr2, StringAlignment.Center, StringAlignment.Center, false); }
+		int days = (int)Raise.AgeDays; Gfx.Text(g, "함께한 지 " + (days + 1) + "일째 · " + Raise.StageNames[Raise.Stage], F(9f, 0), Theme.Sub, new RectangleF(116, 52, LW - 136, 20), StringAlignment.Near, StringAlignment.Center, false);
 		string nx = Raise.Stage == 0 ? "1일째에 꼬마로 자라요" : (Raise.Stage == 1 ? "3일째에 청소년이 돼요" : (Raise.Stage == 2 ? "7일째 진화! 돌본 방식에 따라 모습이 달라져요" : (Raise.Stage == 3 ? "14일째에 전설이 돼요" : "최고 단계예요!")));
-		Gfx.Text(g, nx, Theme.F(8.5f, 0), Theme.Muted, new RectangleF(116, 72, LW - 136, 40), StringAlignment.Near, StringAlignment.Near, true);
+		Gfx.Text(g, nx, F(8.5f, 0), Theme.Muted, new RectangleF(116, 72, LW - 136, 40), StringAlignment.Near, StringAlignment.Near, true);
 		// 상태 막대
 		string[] nm = { "배부름", "기분", "청결", "체력" }; float[] v = { Raise.Hunger, Raise.Fun, Raise.Clean, Raise.Energy };
 		Color[] col = { Color.FromArgb(240, 150, 60), Color.FromArgb(236, 96, 140), Color.FromArgb(60, 160, 230), Color.FromArgb(70, 180, 110) };
 		for (int i = 0; i < 4; i++)
 		{
 			float y = 134f + i * 34f;
-			Gfx.Text(g, nm[i], Theme.F(9.5f, 1), Theme.Ink, new RectangleF(22, y, 60, 24), StringAlignment.Near, StringAlignment.Center, false);
+			Gfx.Text(g, nm[i], F(9.5f, 1), Theme.Ink, new RectangleF(22, y, 60, 24), StringAlignment.Near, StringAlignment.Center, false);
 			RectangleF bar = new RectangleF(84, y + 6, LW - 84 - 66, 12);
 			using (GraphicsPath gp = Gfx.Round(bar, 6)) using (SolidBrush b = new SolidBrush(Theme.Line)) g.FillPath(b, gp);
 			float fr = Math.Max(0.04f, v[i] / 100f); Color c = v[i] < 25f ? Theme.Red : col[i];
 			using (GraphicsPath gp = Gfx.Round(new RectangleF(bar.X, bar.Y, bar.Width * fr, bar.Height), 6)) using (SolidBrush b = new SolidBrush(c)) g.FillPath(b, gp);
-			Gfx.Text(g, ((int)v[i]) + "%", Theme.F(9f, 1), v[i] < 25f ? Theme.Red : Theme.Sub, new RectangleF(LW - 64, y, 44, 24), StringAlignment.Far, StringAlignment.Center, false);
+			Gfx.Text(g, ((int)v[i]) + "%", F(9f, 1), v[i] < 25f ? Theme.Red : Theme.Sub, new RectangleF(LW - 64, y, 44, 24), StringAlignment.Far, StringAlignment.Center, false);
 		}
 		// 똥 (다마고치처럼)
-		float py = 282f; Gfx.Text(g, Raise.Poop > 0 ? "치울 것 " + Raise.Poop + "개" : "주변이 깨끗해요", Theme.F(9f, 1), Raise.Poop > 0 ? Theme.Amber : Theme.Muted, new RectangleF(22, py - 9, 120, 20), StringAlignment.Near, StringAlignment.Center, false);
+		float py = 282f; Gfx.Text(g, Raise.Poop > 0 ? "치울 것 " + Raise.Poop + "개" : "주변이 깨끗해요", F(9f, 1), Raise.Poop > 0 ? Theme.Amber : Theme.Muted, new RectangleF(22, py - 9, 120, 20), StringAlignment.Near, StringAlignment.Center, false);
 		for (int i = 0; i < Raise.Poop; i++) Poo(g, 150f + i * 26f, py + 2f);
 		// 버튼
 		for (int i = 0; i < 6; i++)
@@ -166,12 +178,15 @@ internal sealed class RaiseForm : Form
 			RectangleF r = BtnR(i); bool dim = (i == 5 && !Raise.Sick) || (i == 4 && Raise.Poop == 0);
 			Color bc = down == i ? Theme.AccentDown : (hover == i ? Theme.AccentHover : Theme.AccentBtn); if (dim) bc = Theme.Mix(Theme.Line, Theme.Page, 0.2);
 			using (GraphicsPath gp = Gfx.Round(r, 12)) using (SolidBrush b = new SolidBrush(bc)) g.FillPath(b, gp);
-			Gfx.Text(g, Btn[i], Theme.F(10.5f, 2), dim ? Theme.Muted : Color.White, r, StringAlignment.Center, StringAlignment.Center, false);
+			Gfx.Text(g, Btn[i], F(10.5f, 2), dim ? Theme.Muted : Color.White, r, StringAlignment.Center, StringAlignment.Center, false);
 		}
+		// 도감: 지금까지 만난 모습
+		{ int dx = Raise.Dex, got = 0; for (int i = 0; i < 6; i++) if ((dx & (1 << i)) != 0) got++; Gfx.Text(g, "모습 도감 " + got + "/6", F(8.5f, 1), Theme.Sub, new RectangleF(22, 440, 110, 18), StringAlignment.Near, StringAlignment.Center, false);
+			string[] sn = { "모범", "먹보", "장난", "깔끔", "낮잠", "야근" }; for (int i = 0; i < 6; i++) { RectangleF c = new RectangleF(22 + i * 51, 460, 47, 20); bool has = (dx & (1 << i)) != 0; using (GraphicsPath gp = Gfx.Round(c, 10)) using (SolidBrush b = new SolidBrush(has ? Theme.AccentSoft : Theme.Line)) g.FillPath(b, gp); Gfx.Text(g, has ? sn[i] : "???", Theme.F(8f, 1), has ? Theme.Accent : Theme.Muted, c, StringAlignment.Center, StringAlignment.Center, false); } }
 		// 말풍선 · 도움말
 		string say = sw.Elapsed.TotalSeconds < msgT ? msg : (Raise.Need() ?? "기분 좋아요! 오늘도 같이 힘내요");
-		using (GraphicsPath gp = Gfx.Round(new RectangleF(20, 462, LW - 40, 32), 16)) using (SolidBrush b = new SolidBrush(Theme.AccentSoft)) g.FillPath(b, gp);
-		Gfx.Text(g, say, Theme.F(9.5f, 1), Theme.Accent, new RectangleF(24, 462, LW - 48, 32), StringAlignment.Center, StringAlignment.Center, false);
+		using (GraphicsPath gp = Gfx.Round(new RectangleF(20, 500, LW - 40, 32), 16)) using (SolidBrush b = new SolidBrush(Theme.AccentSoft)) g.FillPath(b, gp);
+		Gfx.Text(g, say, F(9.5f, 1), Theme.Accent, new RectangleF(24, 500, LW - 48, 32), StringAlignment.Center, StringAlignment.Center, false);
 	}
 	private static void Poo(Graphics g, float x, float y)
 	{

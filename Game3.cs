@@ -118,9 +118,16 @@ internal sealed class BasketGame : MiniGame
 		for (int i = 0; i < 4; i++) { float lx = 50 + i * 100; using (SolidBrush b = new SolidBrush(Color.FromArgb(30, 255, 240, 190))) g.FillPolygon(b, new PointF[] { new PointF(lx - 10, 0), new PointF(lx + 10, 0), new PointF(lx + 46, 560), new PointF(lx - 46, 560) }); using (SolidBrush b = new SolidBrush(Color.FromArgb(220, 255, 244, 210))) g.FillEllipse(b, lx - 9, 6, 18, 9); }
 		if (Spr.Get("ms_bk_crowd") != null) { float cj = ((made > 0 && popT > 0) || streak >= 3) ? -Math.Abs((float)Math.Sin(tm * 8)) * 4f : 0f; Bitmap cb = Spr.Get("ms_bk_crowd"); float cw = 392f, chh = cw * cb.Height / cb.Width; Spr.Draw(g, "ms_bk_crowd", W / 2f, 512f - chh / 2f + cj, cw, chh, 0f); } else for (int row = 0; row < 3; row++) for (int k = 0; k < 14; k++) { float cxp = k * 31f + (row % 2) * 15f + 8f, cyp = 470 + row * 28f; bool cheer = (made > 0 && popT > 0) || streak >= 3; float jmp = cheer ? -Math.Abs((float)Math.Sin(tm * 8 + k + row)) * 6f : 0f; Color hc = Color.FromArgb(60, 30 + (k * 53) % 120, 50 + (k * 29 + row * 40) % 120, 120); using (SolidBrush cb = new SolidBrush(Color.FromArgb(70, 22, 16, 50))) g.FillEllipse(cb, cxp - 11, cyp + 4 + jmp, 22, 34); using (SolidBrush hb2 = new SolidBrush(hc)) g.FillEllipse(hb2, cxp - 6, cyp - 6 + jmp, 12, 12); }
 		using (LinearGradientBrush fl = new LinearGradientBrush(new RectangleF(-curOX, 560, curLW, 40), Color.FromArgb(176, 112, 64), Color.FromArgb(120, 76, 44), 90f)) g.FillRectangle(fl, -curOX, 560, curLW, 40);
-		using (Pen wp = new Pen(Color.FromArgb(40, 60, 30, 10), 1.4f)) for (int k = 0; k < 9; k++) g.DrawLine(wp, k * 46f, 560, k * 46f - 18f, 600);
-		using (Pen cp = new Pen(Color.FromArgb(70, 255, 255, 255), 2f)) g.DrawArc(cp, 180, 548, 320, 90, 180, 180);
-		using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 2f)) g.DrawLine(p, 0, 560, W, 560);
+		using (Pen wp = new Pen(Color.FromArgb(40, 60, 30, 10), 1.4f)) for (int k = -(int)(curOX / 46f) - 2; k < 9 + (int)(curOX / 46f) + 2; k++) g.DrawLine(wp, k * 46f, 560, k * 46f - 18f, 600);
+		{   // 3점 라인: 이 선보다 왼쪽(멀리)에서 던지면 3점 거리예요
+			PointF[] lc = new PointF[13]; for (int k = 0; k < 13; k++) { float a3 = (-90f + k * 15f) * (float)Math.PI / 180f; lc[k] = new PointF(176f - 26f * (float)Math.Cos(a3), 498f + 62f * (float)Math.Sin(a3)); }
+			PointF[] zp3 = new PointF[15]; zp3[0] = new PointF(-curOX, 436f); for (int k = 0; k < 13; k++) zp3[k + 1] = lc[k]; zp3[14] = new PointF(-curOX, 560f);
+			using (LinearGradientBrush zb = new LinearGradientBrush(new RectangleF(-curOX, 436f, 200f, 124f), Color.FromArgb(0, 255, 214, 90), Color.FromArgb(64, 255, 214, 90), 90f)) g.FillPolygon(zb, zp3);
+			using (Pen lp3 = new Pen(Color.FromArgb(240, 255, 232, 130), 4f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round }) g.DrawLines(lp3, lc);
+			Txt(g, "3점 라인", 9f, 2, Color.FromArgb(240, 255, 236, 150), 124f, 420f, 56f, 14f, StringAlignment.Center);
+			for (int si = 0; si < Spots.Length; si++) using (SolidBrush mb = new SolidBrush(Color.FromArgb(si == lastSpot ? 235 : 120, Spots[si] < 150f ? 255 : 210, Spots[si] < 150f ? 214 : 226, Spots[si] < 150f ? 90 : 255))) g.FillEllipse(mb, Spots[si] - 8f, 561f, 16f, 7f);
+	}
+		using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 2f)) g.DrawLine(p, -curOX, 560, curLW, 560);
 		// 골대
 		if (netT > 0.55f) { float ga = (netT - 0.55f) / 0.45f; using (SolidBrush gb = new SolidBrush(Color.FromArgb((int)(70 * ga), 255, 220, 120))) g.FillEllipse(gb, hoopC - 54, hy - 26, 108, 60); float rr2 = 20f + (1f - netT) * 120f; using (Pen rp = new Pen(Color.FromArgb((int)(200 * ga), 255, 230, 140), 3f)) g.DrawEllipse(rp, hoopC - rr2, hy - rr2 * 0.35f, rr2 * 2, rr2 * 0.7f); }
 		DrawHoop(g, tm);
@@ -436,11 +443,12 @@ internal sealed class BowlGame : MiniGame
 internal sealed class SlingGame : MiniGame
 {
 	public override bool WideCap { get { return true; } }
-	public override bool CenterPlay { get { return true; } }
 	public override bool NoLimit { get { return true; } }
 	private class Bd { public float X, Y, Vx, Vy, R, M, Rot; public int Kind, Sk, Am; public bool Alive = true; public float Hit; }   // 0 공 · 1 통나무 · 2 민원
 	private class Pt { public float X, Y, Vx, Vy, Age, Rot, Spin; public int Sp = -1; public Color C; }
 	private readonly List<Bd> bs = new List<Bd>(); private readonly List<RectangleF> st = new List<RectangleF>(); private readonly List<int> wd = new List<int>(); private readonly List<Pt> pts = new List<Pt>();
+	private float UX { get { return (LW - W) / 2f; } }
+	private float Mx(float x) { return x <= SX ? x : SX + (x - SX) * (1f + 0.7f * (LW - W) / 320f); }   // 가로 화면에서는 구조물을 새총에서 멀리 벌려 놓아요
 	private const float SX = 76f, SY = 430f, Floor = 520f, Gv = 1150f, MaxPull = 90f;
 	private readonly int[] stock = new int[6]; private int sel; private static readonly string[] AmN = { "", "관통탄", "바운스탄", "폭탄", "불꽃탄", "얼음탄" }; private float fxT2, fx2X, fx2Y; private bool impPend; private float impX, impY, deadT, fxT, fxX, fxY; private int impAm; private int heavy, splitCharge, waveShots; private bool splitUsed; private float snapT, relX, relY; private int shotKills; private Bd ball; private int shots, wave; private bool aiming, wasHold, flying; private float ax, ay, cx, cy, flyT, msgT, still; private string msg = "";
 	public override string Costume { get { return "g_sling"; } }
@@ -496,6 +504,7 @@ internal sealed class SlingGame : MiniGame
 		if (wave >= 2 && st.Count >= 2) { int wi = d == 0 ? st.Count - 1 : (d == 3 ? 0 : 1); wd[wi] = 1; if (wave >= 3) { int oi = wi == 0 ? 1 : 0; wd[oi] = wave % 3 == 0 ? 2 : (wave % 3 == 1 ? 3 : 4); } }   // 기둥 재질: 나무·유리·얼음은 세게 맞으면 부서지고 철은 안 부서져요
 		if (wave > 5) bs.Add(Make(2, 380f, Floor - 15f - 34f * (wave % 2)));
 		if (wave % 5 == 0) bs.Add(Make(4, 362f, Floor - 24f));
+		if (LW > W) { for (int i = 0; i < st.Count; i++) { RectangleF r = st[i]; float nc = Mx(r.X + r.Width / 2f); st[i] = new RectangleF(nc - r.Width / 2f, r.Y, r.Width, r.Height); } foreach (Bd b in bs) b.X = Mx(b.X); }
 		SpawnBall();
 	}
 	private void Boom(Bd t)
@@ -517,7 +526,7 @@ internal sealed class SlingGame : MiniGame
 	}
 	public override void Click(float x, float y)
 	{
-		if (y > 548f && !flying && !aiming) { for (int i = 0; i < 6; i++) { float ix = 118f + i * 40f; if (Math.Abs(x - ix) < 19f && (i == 0 || stock[i] > 0)) { sel = i; Sfx.Play("pluck"); } } return; }
+		if (y > 548f && !flying && !aiming) { for (int i = 0; i < 6; i++) { float ix = 118f + UX + i * 40f; if (Math.Abs(x - ix) < 19f && (i == 0 || stock[i] > 0)) { sel = i; Sfx.Play("pluck"); } } return; }
 		if (!flying || ball == null || !ball.Alive || flyT < 0.2f || splitUsed || splitCharge <= 0) return;
 		splitUsed = true; splitCharge--; Sfx.Play("whoosh"); msg = "분열!"; msgT = 0.8f;
 		for (int k = -1; k <= 1; k += 2) { Bd c = Make(0, ball.X, ball.Y); c.Vx = ball.Vx * (float)Math.Cos(0.28f * k) - ball.Vy * (float)Math.Sin(0.28f * k); c.Vy = ball.Vx * (float)Math.Sin(0.28f * k) + ball.Vy * (float)Math.Cos(0.28f * k); bs.Add(c); }
@@ -542,19 +551,19 @@ internal sealed class SlingGame : MiniGame
 				if (!b.Alive || (b == ball && !flying)) continue;
 				b.Vy += Gv * h; b.X += b.Vx * h; b.Y += b.Vy * h; b.Rot += b.Vx * h / b.R;
 				for (int si = 0; si < st.Count; si++) { float ovx = b.Vx, ovy = b.Vy; float im = CircleRect(b, st[si]); if (b == ball && b.Am >= 3 && b.Am <= 5 && im > 90f) Impact(b); int mt = wd[si] == 5 ? 1 : wd[si]; if (mt >= 1 && mt <= 3 && im > (mt == 1 ? (wd[si] == 5 ? 200f : 320f) : (mt == 2 ? 150f : 230f)) && b.Kind != 2) { RectangleF wr = st[si]; Sfx.Play(mt == 1 ? "thud_soft" : "glass"); Shake = Math.Max(Shake, 0.25f); Fx.Burst(wr.X + wr.Width / 2, b.Y, mt == 1 ? Color.FromArgb(200, 150, 80) : (mt == 2 ? Color.FromArgb(180, 225, 255) : Color.FromArgb(210, 240, 255)), 12); if (mt >= 2) for (int q = 0; q < 6; q++) pts.Add(new Pt { X = wr.X + (float)Rnd.NextDouble() * wr.Width, Y = wr.Y + (float)Rnd.NextDouble() * wr.Height, Vx = ((float)Rnd.NextDouble() - 0.5f) * 240f, Vy = -(float)Rnd.NextDouble() * 200f, Sp = q, Rot = q * 60f, Spin = ((float)Rnd.NextDouble() - 0.5f) * 600f, C = Color.White }); st.RemoveAt(si); wd.RemoveAt(si); b.Vx = ovx * 0.62f; b.Vy = ovy * 0.62f; si--; } else if (wd[si] == 1 && im > 120f && b.Kind != 2) { wd[si] = 5; Sfx.Play("thud_soft"); Fx.Burst(b.X, b.Y, Color.FromArgb(200, 150, 80), 5); } }
-				RectangleF fl = new RectangleF(-100, Floor, W + 200, 200); float fim = CircleRect(b, fl); if (b == ball && b.Am >= 3 && b.Am <= 5 && fim > 90f) Impact(b);
+				RectangleF fl = new RectangleF(-100, Floor, LW + 200, 200); float fim = CircleRect(b, fl); if (b == ball && b.Am >= 3 && b.Am <= 5 && fim > 90f) Impact(b);
 			}
 			for (int i = 0; i < bs.Count; i++) { Bd a = bs[i]; if (!a.Alive || (a == ball && !flying)) continue; for (int j = i + 1; j < bs.Count; j++) { Bd c = bs[j]; if (!c.Alive || (c == ball && !flying)) continue; CircleCircle(a, c); } }
 		}
 		ResolveImp();
-		foreach (Bd b in bs) { if (!b.Alive) continue; if (b.Y > H + 60 || b.X > W + 80 || b.X < -80) Kill(b); if (b.Hit > 0) b.Hit -= dt; }
+		foreach (Bd b in bs) { if (!b.Alive) continue; if (b.Y > H + 60 || b.X > LW + 80 || b.X < -80) Kill(b); if (b.Hit > 0) b.Hit -= dt; }
 		for (int i = pts.Count - 1; i >= 0; i--) { Pt p = pts[i]; p.Age += dt; p.X += p.Vx * dt; p.Y += p.Vy * dt; p.Vy += 700 * dt; p.Rot += p.Spin * dt; if (p.Age > (p.Sp >= 0 ? 1.1f : 0.8f)) pts.RemoveAt(i); }
 		bs.RemoveAll(b => !b.Alive && b != ball);
 		bool targets = false; foreach (Bd b in bs) if (b.Alive && (b.Kind == 2 || b.Kind == 4)) targets = true;
 		if (flying)
 		{
 			flyT += dt; float sp = Math.Abs(ball.Vx) + Math.Abs(ball.Vy); still = sp < 40f ? still + dt : 0f;
-			if ((!ball.Alive && (deadT += dt) > 1.1f) || flyT > 6f || still > 0.7f || ball.X > W + 30)
+			if ((!ball.Alive && (deadT += dt) > 1.1f) || flyT > 6f || still > 0.7f || ball.X > LW + 30)
 			{
 				if (!targets) { Sfx.Play("fanfare"); int stars = waveShots <= 1 ? 3 : (waveShots <= 2 ? 2 : 1); Score += 50 * shots + 40 * stars; string rw = ""; if (wave % 2 == 1) { heavy += 2; rw = " · 묵직한 공 +2"; } if (wave >= 2 && splitCharge < 2) { splitCharge++; rw += " · 분열(클릭) +1"; } { int gk = 1 + Rnd.Next(5); stock[gk]++; rw += " · " + AmN[gk] + " +1"; } msg = (stars == 3 ? "★★★ " : stars == 2 ? "★★ " : "★ ") + "민원 해결! +" + (50 * shots + 40 * stars) + rw; msgT = 2.6f; shots += 2; NewWave(); }
 				else if (shots <= 0) { Over = true; }
@@ -633,9 +642,9 @@ internal sealed class SlingGame : MiniGame
 		BgImg(g, "bg_sling", Color.FromArgb(120, 180, 236), Color.FromArgb(226, 240, 252));
 		if (Spr.Get("bg_sling") == null) using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 255, 255, 255))) { g.FillEllipse(b, 30, 90, 110, 34); g.FillEllipse(b, 240, 140, 130, 38); }
 		if (Spr.Get("bg_sling") == null) { using (SolidBrush hb = new SolidBrush(Color.FromArgb(90, 150, 200, 200))) { g.FillEllipse(hb, -80, Floor - 70, 320, 140); g.FillEllipse(hb, 160, Floor - 46, 340, 100); } using (SolidBrush hb = new SolidBrush(Color.FromArgb(110, 110, 175, 150))) g.FillEllipse(hb, 20, Floor - 30, 300, 70); }
-		if (Spr.Get("bg_sling") == null) using (LinearGradientBrush gb = new LinearGradientBrush(new RectangleF(0, Floor, W, H - Floor), Color.FromArgb(96, 170, 100), Color.FromArgb(56, 130, 84), 90f)) g.FillRectangle(gb, 0, Floor, W, H - Floor);
+		if (Spr.Get("bg_sling") == null) using (LinearGradientBrush gb = new LinearGradientBrush(new RectangleF(0, Floor, LW, H - Floor), Color.FromArgb(96, 170, 100), Color.FromArgb(56, 130, 84), 90f)) g.FillRectangle(gb, 0, Floor, LW, H - Floor);
 		if (Spr.Get("bg_sling") == null) using (Pen gp = new Pen(Color.FromArgb(90, 40, 110, 60), 2f)) for (int k = 0; k < 26; k++) { float gx = k * 16f + (k % 3) * 3f, gy = Floor + 8 + (k % 4) * 14f; g.DrawLine(gp, gx, gy, gx - 2, gy - 6); g.DrawLine(gp, gx, gy, gx + 3, gy - 5); }
-		using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 2f)) g.DrawLine(p, 0, Floor, W, Floor);
+		using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 2f)) g.DrawLine(p, 0, Floor, LW, Floor);
 		for (int si2 = 0; si2 < st.Count; si2++)
 		{   // 벽: 재질마다 색만 다른 둥근 모서리 블록 (게임 전체의 동글동글한 분위기에 맞춰요)
 			RectangleF r = st[si2]; int m = wd[si2]; Color fc, lc, dc;
@@ -727,16 +736,16 @@ internal sealed class SlingGame : MiniGame
 			bool any = false; for (int i = 1; i < 6; i++) if (stock[i] > 0) any = true;
 			if (any || sel > 0) for (int i = 0; i < 6; i++)
 			{
-				if (i > 0 && stock[i] == 0) continue; float ix = 118f + i * 40f, iy = 572f; bool on = sel == i;
+				if (i > 0 && stock[i] == 0) continue; float ix = 118f + UX + i * 40f, iy = 572f; bool on = sel == i;
 				using (SolidBrush hb = new SolidBrush(Color.FromArgb(on ? 200 : 110, on ? 255 : 30, on ? 230 : 40, on ? 120 : 70))) g.FillEllipse(hb, ix - 18f, iy - 18f, 36f, 36f);
 				string hn = i == 0 ? "bball" : (i == 1 ? "ms_am_pierce" : i == 2 ? "ms_am_bounce" : i == 3 ? "ms_am_bomb" : i == 4 ? "ms_am_fire1" : "ms_am_ice1");
 				if (i == 1) Spr.Draw(g, hn, ix, iy, 30f, 8f, -30f); else Spr.Draw(g, hn, ix, iy, 26f, 26f, 0f);
 				if (i > 0) Txt(g, "x" + stock[i], 9f, 2, Color.White, ix - 4f, iy + 4f, 26f, 14f, StringAlignment.Center);
 			}
 		}
-		if (msgT > 0) Txt(g, msg, 15f, 2, Color.FromArgb((int)(255 * Math.Min(1f, msgT)), 60, 50, 110), 0, 200, W, 30, StringAlignment.Center);
+		if (msgT > 0) Txt(g, msg, 15f, 2, Color.FromArgb((int)(255 * Math.Min(1f, msgT)), 60, 50, 110), 0, 200, LW, 30, StringAlignment.Center);
 		if (!flying && shots == 5 && wave == 1) Hint(g, "공을 뒤로 당겼다 놓으세요 →", 300 + 11.0, 12f, false, 1f);
-		if (heavy > 0 || splitCharge > 0) Txt(g, (heavy > 0 ? "묵직한 공 " + heavy + "발  " : "") + (splitCharge > 0 ? "공중 클릭=분열 " + splitCharge : ""), 10f, 1, Color.FromArgb(230, 160, 70, 40), 0, 66, W, 20, StringAlignment.Center);
+		if (heavy > 0 || splitCharge > 0) Txt(g, (heavy > 0 ? "묵직한 공 " + heavy + "발  " : "") + (splitCharge > 0 ? "공중 클릭=분열 " + splitCharge : ""), 10f, 1, Color.FromArgb(230, 160, 70, 40), 0, 66, LW, 20, StringAlignment.Center);
 		Txt(g, "판 " + wave, 11f, 1, Color.FromArgb(220, 60, 50, 110), 14, 44, 100, 22, StringAlignment.Near);
 	}
 }

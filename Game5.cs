@@ -9,8 +9,6 @@ using System.Windows.Forms;
 // ── 21. 양궁 ────────────────────────────────────────────────
 internal sealed class ArcheryGame : MiniGame
 {
-	public override bool WideCap { get { return true; } }
-	public override bool CenterPlay { get { return true; } }
 	public override bool NoLimit { get { return true; } }
 	private float tx = 200f, ty = 230f, rr = 12f; private float mvA, mvB, mvS = 1f, mvP;
 	private readonly List<PointF> hits = new List<PointF>();
@@ -85,7 +83,7 @@ internal sealed class ArcheryGame : MiniGame
 	{
 		BgImg(g, Spr.Get("bg_arch2") != null ? "bg_arch2" : "bg_arch", Color.FromArgb(120, 190, 240), Color.FromArgb(150, 214, 130));
 		using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 255, 255, 255))) { g.FillEllipse(b, 30, 60, 90, 24); g.FillEllipse(b, 250, 80, 110, 26); }
-		using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 70, 130, 70))) g.FillRectangle(b, -curOX, 430, curLW, 170);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 70, 130, 70))) g.FillRectangle(b, 0, 430, W, 170);
 		// 받침대
 		if (Spr.Get("ms_ar_cart") != null) { using (SolidBrush sb = new SolidBrush(Color.FromArgb(60, 0, 0, 0))) g.FillEllipse(sb, tx - 66f, 426f, 132f, 14f); Bitmap cb = Spr.Get("ms_ar_cart"); float chh = 150f, cww = chh * cb.Width / cb.Height; Spr.Draw(g, "ms_ar_cart", tx, 434f - chh / 2f, cww, chh, 0f); }
 		else using (Pen p = new Pen(Color.FromArgb(150, 90, 60), 8f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) { g.DrawLine(p, tx - 40, 430, tx, ty + 130); g.DrawLine(p, tx + 40, 430, tx, ty + 130); }

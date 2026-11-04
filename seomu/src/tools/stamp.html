@@ -55,22 +55,22 @@ canvas{max-width:100%;display:block;margin:auto;touch-action:none}
 .acts button{flex:1;min-width:130px}
 </style>
 <style id="seomu-tool">
-body{padding:0 !important;background:transparent !important;}
-h1{font-size:18px !important;}
-.sub{color:var(--u-text2) !important;}
-.panel,.box{background:var(--u-card) !important;border-color:var(--u-border) !important;}
-#drop{border-color:var(--u-primary) !important;color:var(--u-text2) !important;opacity:.95;}
-.it{border-color:var(--u-border) !important;}
-.it.sel{background:var(--u-tint) !important;border-color:var(--u-primary) !important;}
-select{background:var(--u-card) !important;color:var(--u-text);border-color:var(--u-border2) !important;}
-button{background:var(--u-primary) !important;}
-button.g{background:var(--u-hover) !important;color:var(--u-text) !important;}
-button.on{background:var(--u-primary) !important;color:#fff !important;}
+button{min-height:32px;padding:0 12px;background:var(--u-primary);color:#fff;border:1px solid var(--u-primary);border-radius:var(--u-r-ctl);font-size:13px;font-weight:500;cursor:pointer;transition:background .12s ease;}
+button:hover:not(:disabled){background:var(--u-primary-hover);}
+button:disabled{opacity:.45;cursor:not-allowed;}
+button.g{background:var(--u-card);color:var(--u-text);border-color:var(--u-border2);}
+button.g:hover:not(:disabled){background:var(--u-hover);}
+button.on{background:var(--u-primary);color:#fff;border-color:var(--u-primary);}
+.bar button{min-height:28px;padding:0 10px;font-size:12.5px;}
+body{padding:0 !important;}
 body > h1{display:none !important;}
-body > p.sub{margin:0 0 16px !important;}
-button{min-height:36px;border:1px solid var(--u-primary);border-radius:var(--u-r-btn) !important;color:#fff;font-weight:600;cursor:pointer;}
-button.g{border-color:var(--u-border2);}
-button:disabled{opacity:.5;cursor:not-allowed;}
+body > p.sub{margin:0 0 14px !important;}
+html body .panel{padding:16px !important;margin-bottom:0;}
+html body .panel h3{font-size:12px !important;font-weight:600 !important;color:var(--u-text2) !important;margin:16px 0 4px !important;padding-top:12px !important;border-top:1px solid var(--u-border) !important;}
+html body .panel h3:first-of-type{margin-top:14px !important;}
+#drop{padding:18px 10px;}
+.it{border-color:var(--u-border) !important;border-radius:var(--u-r-ctl);}
+.it.sel{background:var(--u-tint) !important;border-color:var(--u-primary) !important;}
 </style>
 <!--SEOMU-COMMON--></head>
 <body>

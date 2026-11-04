@@ -170,7 +170,7 @@
 body,#launcherScreen,html{background-image:none !important;}
 body::before,body::after{display:none !important;}
 .brand-mark{display:none !important;}
-.launcher-card{box-shadow:none !important;border:1px solid var(--border) !important;border-radius:16px !important;}
+.launcher-card{box-shadow:none !important;border:1px solid var(--border) !important;border-radius:var(--u-r-card) !important;}
 .launcher-brand{display:none !important;}
 #launcherScreen{min-height:0 !important;padding:0 !important;display:block !important;}
 .launcher-card{max-width:none !important;padding:34px 32px 28px !important;}
@@ -182,7 +182,7 @@ body::before,body::after{display:none !important;}
 :root,:root[data-theme="dark"]{--accent:var(--u-primary);--accent-hover:var(--u-primary-hover);--accent-light:var(--u-tint);--accent-ink:var(--u-primary);
   --bg:var(--u-bg);--surface:var(--u-card);--surface-solid:var(--u-card);--surface-2:var(--u-hover);--ink:var(--u-text);--muted:var(--u-text2);--muted-2:var(--u-text3);
   --border:var(--u-border);--border-strong:var(--u-border2);--danger-bg:var(--u-danger-tint);--danger-ink:var(--u-danger);--ok-bg:var(--u-ok-tint);--ok-ink:var(--u-ok);
-  --flag-bg:var(--u-warn-tint);--flag-ink:var(--u-warn);--radius-lg:16px;}
+  --flag-bg:var(--u-warn-tint);--flag-ink:var(--u-warn);--radius-lg:var(--u-r-card);}
 .dropzone,.radio-card,:root[data-theme="dark"] .radio-card,.pill{background:transparent !important;}
 .radio-card:has(input:checked),.radio-card.active,.radio-card.on{background:var(--u-tint) !important;}
 </style>

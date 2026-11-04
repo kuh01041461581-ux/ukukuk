@@ -1,23 +1,37 @@
 /* ============================================================
-   서무 종합프로그램 · 공통 디자인 (모든 도구 화면에 같이 들어간다)
-   - 색·글꼴·모서리·버튼·입력칸·표를 한곳에서 정의 → 도구가 달라도 한 프로그램처럼 보이게
-   - 제목·메뉴는 셸(바깥 틀)이 맡으므로 도구 안의 중복 머리글/브랜드는 숨긴다
-   - 버튼 역할: 주 동작(채움) · 보조(테두리) · 약한(글자만) · 위험(빨강)
+   서무 종합프로그램 · 공통 디자인 v2 (모든 도구 화면에 같이 들어간다)
+
+   디자인 언어
+   - Notion  : 따뜻한 회색 바탕, 그림자 없는 납작한 카드, 얇은 선, 글자 위주, 연한 호버
+   - Linear  : 촘촘한 32px 컨트롤, 13px 글자, 선명한 한 가지 포인트색(인디고), 절제된 모션
+   - Win 11  : 8px 카드·6px 컨트롤, 세그먼트/피벗 탭, 선택 항목 왼쪽 알약 표시, 부드러운 포커스
+
+   규칙 (도구가 달라도 이것만 쓴다)
+   - 글자  : 본문 13.5 / 섹션 제목 15·600 / 라벨 13·500 / 보조 12.5
+   - 모서리: 컨트롤 6 · 카드 8 · 팝업 12     - 높이: 컨트롤 32 · 큰 단추 36
+   - 카드  : 흰 바탕 + 1px 선 + 그림자 없음   - 포인트색: --u-primary 하나
    ============================================================ */
 :root{
-  --u-bg:#F8FAFC;--u-card:#FFFFFF;--u-primary:#2563EB;--u-primary-hover:#1D4ED8;--u-tint:#EFF4FE;--u-tint2:#E1EAFD;
-  --u-text:#111827;--u-text2:#6B7280;--u-text3:#9CA3AF;--u-border:#E5E7EB;--u-border2:#D1D5DB;--u-hover:#F3F4F6;
-  --u-ok:#16A34A;--u-ok-tint:#EAFBF2;--u-warn:#D97706;--u-warn-tint:#FDF1DE;--u-danger:#DC2626;--u-danger-tint:#FDEEEE;
-  --u-r-card:16px;--u-r-btn:10px;--u-r-input:10px;
-  --u-shadow:0 1px 2px rgba(17,24,39,.05);
-  --u-ring:0 0 0 3px rgba(37,99,235,.18);
-  --u-font:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --u-bg:#FFFFFF;--u-sub:#F7F7F5;--u-card:#FFFFFF;
+  --u-primary:#5E6AD2;--u-primary-hover:#4F5BC4;--u-tint:#EEF0FB;--u-tint2:#DDE1F7;
+  --u-text:#37352F;--u-text2:#787774;--u-text3:#9B9A97;
+  --u-border:#E9E9E7;--u-border2:#DEDDDA;--u-hover:#F1F1EF;
+  --u-ok:#0F7B6C;--u-ok-tint:#EDF3EC;--u-warn:#B7791F;--u-warn-tint:#FBF3DB;--u-danger:#D44C47;--u-danger-tint:#FDEBEC;
+  --u-r-ctl:6px;--u-r-card:8px;--u-r-pop:12px;
+  --u-r-btn:6px;--u-r-input:6px;
+  --u-shadow:none;
+  --u-pop:0 12px 40px rgba(15,15,15,.18),0 0 0 1px rgba(15,15,15,.06);
+  --u-ring:0 0 0 3px rgba(94,106,210,.22);
+  --u-font:'Segoe UI Variable Text','Segoe UI','Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
 }
 :root.seomu-dark{
-  --u-bg:#111418;--u-card:#181c22;--u-primary:#3b82f6;--u-primary-hover:#60a5fa;--u-tint:#152238;--u-tint2:#1b2b47;
-  --u-text:#e8eaed;--u-text2:#9aa2ad;--u-text3:#6b7280;--u-border:#262b33;--u-border2:#343a44;--u-hover:#20242b;
-  --u-ok:#22C55E;--u-ok-tint:#0F2A1D;--u-warn:#F59E0B;--u-warn-tint:#2E2410;--u-danger:#F87171;--u-danger-tint:#301616;
-  --u-ring:0 0 0 3px rgba(59,130,246,.3);
+  --u-bg:#101113;--u-sub:#16171A;--u-card:#16171A;
+  --u-primary:#7B86E6;--u-primary-hover:#939CF0;--u-tint:#1D2040;--u-tint2:#282C58;
+  --u-text:#ECEDEF;--u-text2:#8B8F97;--u-text3:#62666E;
+  --u-border:#26282D;--u-border2:#33363C;--u-hover:#1F2024;
+  --u-ok:#4FB8A5;--u-ok-tint:#10261F;--u-warn:#E0B04A;--u-warn-tint:#2B2411;--u-danger:#F0706B;--u-danger-tint:#2E1717;
+  --u-pop:0 12px 40px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06);
+  --u-ring:0 0 0 3px rgba(123,134,230,.32);
   color-scheme:dark;
 }
 
@@ -27,131 +41,145 @@ html{scrollbar-width:thin;scrollbar-color:var(--u-border2) transparent;-webkit-t
 *::-webkit-scrollbar-track{background:transparent;}
 *::-webkit-scrollbar-thumb{background:var(--u-border2);border-radius:999px;border:3px solid transparent;background-clip:content-box;}
 *::-webkit-scrollbar-thumb:hover{background:var(--u-text3);background-clip:content-box;}
-body{font-family:var(--u-font) !important;background:transparent !important;color:var(--u-text);-webkit-font-smoothing:antialiased;}
+html body{font-family:var(--u-font) !important;font-size:13.5px;line-height:1.55;background:transparent !important;color:var(--u-text);-webkit-font-smoothing:antialiased;letter-spacing:-.003em;}
 button,input,select,textarea{font-family:inherit;}
 .seal,.app-icon,.brand-mark{display:none !important;}
 :focus-visible{outline:2px solid var(--u-primary);outline-offset:2px;}
 ::selection{background:var(--u-tint2);}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
 
+/* ---------- 글자 규칙 ---------- */
+/* 섹션 제목: 도구마다 12~18px 제각각이던 것을 하나로 */
+html body .card h2,html body .card-head h2,html body .card-head h3,html body .step-title,html body .card-title,
+html body .section-head h2,html body .panel > h2,html body .panel h2,html body .box > h3,html body .panel h3{
+  font-size:15px !important;font-weight:600 !important;line-height:1.4;letter-spacing:-.01em;text-transform:none !important;
+  color:var(--u-text) !important;margin:0 0 4px !important;padding:0 !important;border:0 !important;
+}
+html body .panel > h2{margin-bottom:12px !important;}
+/* 섹션 설명 */
+html body .card .sub,html body .step-desc,html body .section-sub,html body .card-sub{
+  font-size:13px !important;line-height:1.65;color:var(--u-text2) !important;margin:0 0 14px !important;
+}
+/* 라벨 */
+html body .field-label,html body .control-label,html body .formrow > label,html body .box > label,html body .ctrl > label,html body .panel label:not(.chk):not(.checkline){
+  font-size:13px !important;font-weight:500 !important;color:var(--u-text) !important;
+}
+/* 번호 배지: 흐린 회색 동그라미 */
+html body .step-no,html body .step-badge{
+  display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;min-width:20px;border-radius:50% !important;
+  background:var(--u-hover) !important;color:var(--u-text2) !important;font-size:11.5px !important;font-weight:600 !important;margin-right:8px;
+}
+html body .section-head,html body .step-head{display:flex;align-items:center;gap:0;margin:0 0 10px;}
+
 /* ---------- 버튼 (역할별 한 벌) ---------- */
-/* 공통 모양 */
-html body .btn,
-html body .btn-primary,
-html body .btn-ghost,
-html body .btn-outline,
-html body .btn-secondary,
-html body .btn-export,
-html body .btn-icon,
-html body .run,
-html body .mini-btn,
-html body button.g{
-  font-family:inherit;border-radius:var(--u-r-btn);font-weight:600;letter-spacing:-.005em;
-  transition:background .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease,transform .06s ease;
-}
-html body .btn,
-html body .btn-primary,
-html body .btn-ghost,
-html body .btn-outline,
-html body .btn-secondary,
-html body .btn-export,
-html body .run{
+html body .btn,html body .btn-primary,html body .btn-ghost,html body .btn-outline,html body .btn-secondary,html body .btn-export,html body .run,html body .mini-btn{
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  min-height:38px;padding:0 16px;font-size:13.5px;cursor:pointer;white-space:nowrap;text-decoration:none;
-  border:1px solid transparent;
+  min-height:32px;padding:0 12px;border-radius:var(--u-r-ctl);font-family:inherit;font-size:13px;font-weight:500;letter-spacing:-.005em;
+  line-height:1.2;cursor:pointer;white-space:nowrap;text-decoration:none;border:1px solid transparent;box-shadow:none;
+  transition:background .12s ease,border-color .12s ease,color .12s ease,transform .06s ease;
 }
-html body .btn.sm{min-height:32px;padding:0 12px;font-size:12.5px;}
-html body .btn:active,
-html body .btn-primary:active,
-html body .btn-ghost:active,
-html body .btn-outline:active,
-html body .btn-secondary:active,
-html body .btn-export:active,
-html body .run:active{transform:translateY(1px);}
+html body .btn.sm{min-height:28px;padding:0 10px;font-size:12.5px;}
+html body .btn:active,html body .btn-primary:active,html body .btn-ghost:active,html body .btn-outline:active,html body .btn-secondary:active,html body .btn-export:active,html body .run:active{transform:scale(.985);}
 /* 주 동작 */
 html body .btn:not(.outline):not(.ghost):not(.danger):not(.gold):not(.btn-ghost):not(.btn-outline):not(.btn-secondary),
-html body .btn-primary,
-html body .btn-export,
-html body .run{
-  background:var(--u-primary);color:#fff;border-color:var(--u-primary);box-shadow:var(--u-shadow);
+html body .btn-primary,html body .btn-export,html body .run{
+  background:var(--u-primary);color:#fff;border-color:var(--u-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
 }
 html body .btn:not(.outline):not(.ghost):not(.danger):not(.gold):not(.btn-ghost):not(.btn-outline):not(.btn-secondary):hover,
-html body .btn-primary:hover,
-html body .btn-export:hover,
-html body .run:hover{background:var(--u-primary-hover);border-color:var(--u-primary-hover);}
+html body .btn-primary:hover,html body .btn-export:hover,html body .run:hover{background:var(--u-primary-hover);border-color:var(--u-primary-hover);}
 /* 보조 */
-html body .btn.outline,
-html body .btn-outline,
-html body .btn-secondary,
-html body .btn.gold,
-html body .btn-ghost,
-html body .btn.ghost{
-  background:var(--u-card);color:var(--u-text);border-color:var(--u-border2);box-shadow:none;
+html body .btn.outline,html body .btn-outline,html body .btn-secondary,html body .btn.gold,html body .mini-btn{
+  background:var(--u-card);color:var(--u-text);border-color:var(--u-border2);
 }
-html body .btn.outline:hover,
-html body .btn-outline:hover,
-html body .btn-secondary:hover,
-html body .btn.gold:hover,
-html body .btn-ghost:hover,
-html body .btn.ghost:hover{
-  background:var(--u-hover);border-color:var(--u-border2);color:var(--u-text);
-}
+html body .btn.outline:hover,html body .btn-outline:hover,html body .btn-secondary:hover,html body .btn.gold:hover,html body .mini-btn:hover{background:var(--u-hover);}
+/* 약한: 보조와 같은 테두리에 글자만 흐리게 */
+html body .btn.ghost,html body .btn-ghost{background:var(--u-card);color:var(--u-text2);border-color:var(--u-border2);}
+html body .btn.ghost:hover,html body .btn-ghost:hover{background:var(--u-hover);color:var(--u-text);}
 /* 위험 */
-html body .btn.danger{background:var(--u-card);color:var(--u-danger);border-color:color-mix(in srgb,var(--u-danger) 45%,var(--u-border));}
+html body .btn.danger{background:transparent;color:var(--u-danger);border-color:transparent;}
 html body .btn.danger:hover{background:var(--u-danger-tint);}
 /* 꺼짐 */
-html body .btn:disabled,
-html body .btn-primary:disabled,
-html body .btn-ghost:disabled,
-html body .btn-outline:disabled,
-html body .btn-secondary:disabled,
-html body .btn-export:disabled,
-html body .run:disabled,
-html body .btn[disabled],
-html body .btn.disabled{opacity:.5;cursor:not-allowed;box-shadow:none;}
+html body .btn:disabled,html body .btn-primary:disabled,html body .btn-ghost:disabled,html body .btn-outline:disabled,html body .btn-secondary:disabled,html body .btn-export:disabled,html body .run:disabled,
+html body .btn[disabled],html body .btn.disabled{opacity:.45;cursor:not-allowed;transform:none;}
 html body .btn-block{width:100%;}
-html body .btn-lg,
-html body .run{min-height:44px;font-size:14.5px;}
-/* 아이콘만 있는 단추 */
-html body .icon-btn,
-html body .btn-icon{border-radius:var(--u-r-btn);}
+html body .btn-lg,html body .run{min-height:36px;font-size:13.5px;padding:0 16px;}
+/* 아이콘 단추 */
+html body .icon-btn,html body .btn-icon{border-radius:var(--u-r-ctl);color:var(--u-text2);}
+html body .icon-btn:hover,html body .btn-icon:hover{background:var(--u-hover);color:var(--u-text);}
 
-/* ---------- 입력칸 ---------- */
-input[type=text],input[type=number],input[type=password],input[type=search],input[type=email],input[type=date],input[type=time],input[type=datetime-local],input[type=month],input:not([type]),select,textarea{
-  font-family:inherit;font-size:14px;color:var(--u-text);background:var(--u-card);
-  border:1px solid var(--u-border2);border-radius:var(--u-r-input);
-  transition:border-color .15s ease,box-shadow .15s ease;
+/* ---------- 입력칸 (32px · 6px · 포커스 시 포인트색 테두리 + 은은한 링) ---------- */
+html body input[type=text],html body input[type=number],html body input[type=password],html body input[type=search],html body input[type=email],
+html body input[type=date],html body input[type=time],html body input[type=datetime-local],html body input[type=month],html body input:not([type]),html body select,html body textarea{
+  font-family:inherit;font-size:13px;color:var(--u-text);background:var(--u-card);
+  border:1px solid var(--u-border2);border-radius:var(--u-r-input);box-shadow:none;
+  transition:border-color .12s ease,box-shadow .12s ease,background .12s ease;
 }
-input[type=text],input[type=number],input[type=password],input[type=search],input[type=email],input[type=date],input[type=time],input[type=datetime-local],input[type=month],input:not([type]),select{min-height:38px;padding:0 12px;}
-textarea{padding:10px 12px;line-height:1.55;}
-input:hover:not(:disabled):not([type=range]):not([type=checkbox]):not([type=radio]),select:hover:not(:disabled),textarea:hover:not(:disabled){border-color:var(--u-text3);}
-input:focus:not([type=range]):not([type=checkbox]):not([type=radio]),select:focus,textarea:focus{outline:none;border-color:var(--u-primary);box-shadow:var(--u-ring);}
+html body input[type=text],html body input[type=number],html body input[type=password],html body input[type=search],html body input[type=email],
+html body input[type=date],html body input[type=time],html body input[type=datetime-local],html body input[type=month],html body input:not([type]),html body select{min-height:32px;padding:0 10px;}
+html body textarea{padding:8px 10px;line-height:1.55;}
+html body select:not([multiple]){
+  appearance:none;-webkit-appearance:none;padding-right:28px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23878580' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 9px center;
+}
+html body input:hover:not(:disabled):not([type=range]):not([type=checkbox]):not([type=radio]):not([type=file]),html body select:hover:not(:disabled),html body textarea:hover:not(:disabled){border-color:var(--u-text3);}
+html body input:focus:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=file]),html body select:focus,html body textarea:focus{outline:none;border-color:var(--u-primary);box-shadow:var(--u-ring);}
 input::placeholder,textarea::placeholder{color:var(--u-text3);}
-input:disabled,select:disabled,textarea:disabled,input[readonly]{background:var(--u-hover);color:var(--u-text2);}
+html body input:disabled,html body select:disabled,html body textarea:disabled,html body input[readonly]{background:var(--u-sub);color:var(--u-text2);}
 input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--u-primary);}
-input[type=checkbox],input[type=radio]{width:16px;height:16px;cursor:pointer;}
+input[type=checkbox],input[type=radio]{width:15px;height:15px;cursor:pointer;}
+input[type=file]{font-size:13px;color:var(--u-text2);}
+input[type=file]::file-selector-button{font:inherit;font-size:13px;font-weight:500;min-height:30px;padding:0 12px;margin-right:10px;border-radius:var(--u-r-ctl);border:1px solid var(--u-border2);background:var(--u-card);color:var(--u-text);cursor:pointer;}
+input[type=file]::file-selector-button:hover{background:var(--u-hover);}
 
-/* ---------- 카드 · 표 · 안내 ---------- */
-.card,.box,.panel,.launcher-card{
-  background:var(--u-card);border:1px solid var(--u-border);border-radius:var(--u-r-card);box-shadow:var(--u-shadow);
+/* ---------- 카드 · 안내 상자 (납작하게: 선 1px, 그림자 없음) ---------- */
+html body .card,html body .box,html body .panel,html body .step,html body .launcher-card,html body .summary-card{
+  background:var(--u-card);border:1px solid var(--u-border);border-radius:var(--u-r-card) !important;box-shadow:none !important;
 }
-table{border-collapse:collapse;}
-thead th{background:var(--u-hover);color:var(--u-text2);font-weight:600;font-size:12.5px;text-align:left;}
-th,td{border-color:var(--u-border);}
-tbody tr:hover td{background:color-mix(in srgb,var(--u-tint) 55%,transparent);}
+html body .card,html body .step,html body .box,html body .panel:not(.ctrl){padding:20px !important;margin-bottom:12px;}
+html body .launcher-card{padding:28px 28px 24px !important;}
+/* 안내(Notion 콜아웃): 회색 바탕, 선 없음 */
+header.top .title-block p,.app-header p,body > p.muted,body > p.sub,.hero p.sub,.seomu-intro{
+  margin:0 0 14px !important;padding:12px 14px;max-width:none !important;
+  background:var(--u-sub);border:1px solid var(--u-border);border-radius:var(--u-r-card);
+  color:var(--u-text2) !important;font-size:13px !important;line-height:1.7 !important;
+}
+header.top .title-block p b,.app-header p b,body > p.muted b,.hero p.sub b{color:var(--u-text);font-weight:600;}
 .hint,.small{color:var(--u-text2);}
-a{color:var(--u-primary);}
-.dropzone,.drop,.dz,#drop{transition:border-color .15s ease,background .15s ease;}
-.dropzone.drag,.dropzone.dragover,.drop.drag,.dz.drag,#drop.drag{border-color:var(--u-primary) !important;background:var(--u-tint) !important;}
+a{color:var(--u-primary);text-decoration-color:color-mix(in srgb,var(--u-primary) 40%,transparent);text-underline-offset:2px;}
+
+/* ---------- 파일 끌어놓는 곳: 전 도구 같은 모양 ---------- */
+html body .dropzone,html body .drop-zone,html body .opt-dropzone,html body #drop,html body .dz{
+  border:1px dashed var(--u-border2) !important;border-radius:var(--u-r-card) !important;background:var(--u-sub) !important;
+  color:var(--u-text2) !important;opacity:1 !important;transition:border-color .12s ease,background .12s ease;
+}
+html body .dropzone:hover,html body .drop-zone:hover,html body .opt-dropzone:hover,html body #drop:hover,html body .dz:hover,
+html body .dropzone.drag,html body .dropzone.dragover,html body .drop-zone.dragover,html body #drop.on,html body #drop.drag{
+  border-color:var(--u-primary) !important;background:var(--u-tint) !important;
+}
+html body .dropzone b,html body .dz-title,html body .dropzone strong{color:var(--u-text) !important;font-size:13.5px !important;font-weight:600 !important;}
+
+/* ---------- 탭 · 세그먼트 ---------- */
+/* 세그먼트(알약 묶음): 고지서 종류, 블러 방식 */
+html body .typetabs,html body .segmented{display:flex;gap:2px;padding:3px;background:var(--u-hover);border:0;border-radius:8px;flex-wrap:wrap;}
+html body .typebtn{min-width:0;min-height:30px;padding:0 14px;border-radius:6px;font-size:13px;font-weight:500;color:var(--u-text2);background:transparent;box-shadow:none;}
+html body .typebtn:hover{background:transparent;color:var(--u-text);}
+html body .typebtn.active{background:var(--u-card);color:var(--u-text);box-shadow:0 1px 2px rgba(15,15,15,.12);}
+html body .segmented-option span{border-radius:6px;font-size:13px;font-weight:500;}
+html body .segmented-option input:checked + span{background:var(--u-card);color:var(--u-text);box-shadow:0 1px 2px rgba(15,15,15,.12);}
+
+/* ---------- 표 (Notion 표: 머리 글자만 흐리게, 행 사이 얇은 선) ---------- */
+table{border-collapse:collapse;}
+html body thead th{background:transparent !important;color:var(--u-text2);font-weight:500;font-size:12px;text-align:left;border-bottom:1px solid var(--u-border2) !important;padding:8px 10px;}
+html body tbody td{border-bottom:1px solid var(--u-border) !important;padding:7px 10px;}
+html body tbody tr:hover td{background:var(--u-sub);}
+html body .tablewrap{border:1px solid var(--u-border);border-radius:var(--u-r-card);overflow:auto;background:var(--u-card);}
+
+/* ---------- 팝업 ---------- */
+html body .modal,html body .modal-box{border-radius:var(--u-r-pop) !important;box-shadow:var(--u-pop) !important;background:var(--u-card) !important;border:0 !important;}
+html body .modal-bg,html body .modal-overlay{background:rgba(15,15,15,.45) !important;backdrop-filter:none !important;}
 
 /* ---------- 도구 안 도우미 ---------- */
-/* 단계 이동(이전/다음) 줄 — ui.js 가 단계가 있는 도구에 붙인다 */
-.seomu-stepnav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 0;padding-top:16px;border-top:1px solid var(--u-border);}
-.seomu-stepnav .mid{font-size:12.5px;color:var(--u-text2);}
-
-/* ---------- 도구 소개글: 도구마다 제각각이던 머리글(제목·큰 설명)을 같은 안내 상자로 ---------- */
-header.top .title-block p,.app-header p,body > p.muted,body > p.sub,.hero p.sub,.seomu-intro{
-  margin:0 0 16px !important;padding:12px 16px;max-width:none !important;
-  background:var(--u-tint);border:1px solid var(--u-tint2);border-radius:12px;
-  color:var(--u-text) !important;font-size:13px !important;line-height:1.7 !important;
-}
+/* 단계 이동(이전/다음) 줄 */
+.seomu-stepnav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 0;padding-top:14px;border-top:1px solid var(--u-border);}
+.seomu-stepnav .mid{font-size:12px;color:var(--u-text3);}

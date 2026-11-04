@@ -22,6 +22,11 @@ def build() -> pathlib.Path:
     js = (SRC / "common" / "ui.js").read_text(encoding="utf8")
     common = f"<style id=\"seomu-common\">\n{css}\n</style>\n<script>\n{js}\n</script>"
     shell = (SRC / "shell.html").read_text(encoding="utf8")
+    # 색·글꼴 토큰은 ui.css 한 곳에서만 정의하고 셸에도 같은 값을 넣는다
+    m = re.search(r":root\{.*?\n\}\n:root\.seomu-dark\{.*?\n\}", css, re.S)
+    if not m:
+        sys.exit("ui.css 에서 토큰 블록을 찾지 못했습니다")
+    shell = shell.replace("/*SEOMU-TOKENS*/", m.group(0).replace(":root.seomu-dark", "html.dark"))
     for tid in IDS:
         html = (SRC / "tools" / f"{tid}.html").read_text(encoding="utf8")
         if "<!--SEOMU-COMMON-->" not in html:

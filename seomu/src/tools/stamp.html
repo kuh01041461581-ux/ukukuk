@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>도장 추출기</title>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:20px;font-family:"Noto Sans KR","Malgun Gothic",sans-serif;background:#fff;color:#111827;font-size:14px}
+h1{margin:0 0 4px;font-size:18px}
+.sub{color:#6B7280;font-size:13px;margin:0 0 16px}
+main{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.panel{background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:16px}
+.ctrl{width:310px;flex-shrink:0}
+.view{flex:1;min-width:340px}
+#drop{border:2px dashed #93A4C3;border-radius:12px;padding:18px 10px;text-align:center;color:#475569;cursor:pointer}
+#drop.on{background:#EFF4FE;border-color:#2563EB}
+#drop small{color:#94A3B8}
+#list{display:flex;flex-direction:column;gap:6px;margin:10px 0 0;max-height:190px;overflow:auto}
+.it{display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid #E5E7EB;border-radius:10px;cursor:pointer;font-size:12.5px}
+.it.sel{border-color:#2563EB;background:#EFF4FE}
+.it img{width:34px;height:34px;object-fit:cover;border-radius:6px;background:#f1f5f9}
+.it span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.it b{color:#94A3B8;cursor:pointer;padding:0 4px;font-weight:400}
+.it b:hover{color:#EF4444}
+h3{font-size:12px;color:#64748B;margin:16px 0 2px;letter-spacing:.02em;border-top:1px solid #F1F5F9;padding-top:12px}
+label{display:block;font-size:13px;margin:10px 0 3px;font-weight:500}
+label span{float:right;color:#2563EB;font-weight:500}
+input[type=range]{width:100%}
+select,button,input{font:inherit}
+select{width:100%;padding:6px 8px;border-radius:8px;border:1px solid #CBD5E1;background:#fff}
+button{background:#2563EB;color:#fff;border:0;border-radius:10px;padding:9px 12px;cursor:pointer}
+button.g{background:#E2E8F0;color:#1F2937}
+button.on{background:#2563EB;color:#fff}
+button:disabled{opacity:.4;cursor:default}
+.full{width:100%;margin-top:8px}
+.bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.bar button{padding:6px 10px;font-size:12.5px}
+.bar .sp{flex:1}
+.bar label{margin:0;display:flex;align-items:center;gap:6px;font-weight:400;font-size:12.5px}
+.bar input[type=range]{width:90px}
+.ck{display:flex;align-items:center;gap:6px;font-size:13px;margin:8px 0 0;font-weight:400}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>div{flex:1;min-width:240px}
+.row h4{margin:0 0 6px;font-size:13px;color:#64748B}
+.box{border:1px solid #E5E7EB;border-radius:10px;overflow:auto;max-height:560px;min-height:120px;text-align:center;background:#fff}
+.chk{background:conic-gradient(#E5E7EB 25%,#fff 0 50%,#E5E7EB 0 75%,#fff 0) 0 0/16px 16px}
+.white{background:#fff}.gray{background:#9CA3AF}
+canvas{max-width:100%;display:block;margin:auto;touch-action:none}
+#src{cursor:crosshair}
+.hint{font-size:12px;color:#64748B;margin-top:12px;line-height:1.6}
+#info{font-size:12.5px;color:#475569;margin:10px 0 0;min-height:18px}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.acts button{flex:1;min-width:130px}
+</style>
+<style id="seomu-tool">
+body{padding:0 !important;background:transparent !important;}
+h1{font-size:18px !important;}
+.sub{color:var(--u-text2) !important;}
+.panel,.box{background:var(--u-card) !important;border-color:var(--u-border) !important;}
+#drop{border-color:var(--u-primary) !important;color:var(--u-text2) !important;opacity:.95;}
+.it{border-color:var(--u-border) !important;}
+.it.sel{background:var(--u-tint) !important;border-color:var(--u-primary) !important;}
+select{background:var(--u-card) !important;color:var(--u-text);border-color:var(--u-border2) !important;}
+button{background:var(--u-primary) !important;}
+button.g{background:var(--u-hover) !important;color:var(--u-text) !important;}
+button.on{background:var(--u-primary) !important;color:#fff !important;}
+body > h1{display:none !important;}
+body > p.sub{margin:0 0 16px !important;}
+button{min-height:36px;border:1px solid var(--u-primary);border-radius:var(--u-r-btn) !important;color:#fff;font-weight:600;cursor:pointer;}
+button.g{border-color:var(--u-border2);}
+button:disabled{opacity:.5;cursor:not-allowed;}
+</style>
+<!--SEOMU-COMMON--></head>
+<body>
+<h1>도장 추출기</h1>
+<p class="sub">스캔한 문서에서 도장만 남기고 배경은 투명 처리합니다. 여러 장을 한꺼번에 올려 ZIP으로 받을 수 있어요.</p>
+<main>
+ <section class="panel ctrl">
+  <div id="drop">스캔 이미지를 끌어놓거나 클릭 (여러 장 가능)<br><small>Ctrl+V 붙여넣기도 됩니다</small><input id="file" type="file" accept="image/*" multiple hidden></div>
+  <div id="list"></div>
+
+  <h3>추출 설정</h3>
+  <label>추출 대상</label>
+  <select id="target">
+   <option value="red">붉은 도장 (직인·인감)</option>
+   <option value="blue">파란 도장</option>
+   <option value="dark">검정·진한 도장</option>
+  </select>
+  <label>프리셋</label>
+  <select id="preset">
+   <option value="">직접 설정</option>
+   <option value="normal">보통 도장</option>
+   <option value="faint">연하거나 번진 도장</option>
+   <option value="dark">진한 도장</option>
+   <option value="dirty">종이 얼룩·글씨가 많은 스캔</option>
+  </select>
+  <button class="g full" id="auto" disabled>이 이미지에 맞게 자동 추정</button>
+  <label>민감도 (낮을수록 연한 도장까지) <span id="vT">25</span></label>
+  <input id="t" type="range" min="2" max="120" value="25">
+  <label>경계 부드러움 <span id="vS">40</span></label>
+  <input id="s" type="range" min="1" max="120" value="40">
+  <label>옅은 점 제거 <span id="vN">20</span></label>
+  <input id="n" type="range" min="0" max="120" value="20">
+  <label>작은 잡티 덩어리 제거 (px) <span id="vK">30</span></label>
+  <input id="k" type="range" min="0" max="400" value="30">
+
+  <h3>출력 설정</h3>
+  <label>출력 색상</label>
+  <select id="mode">
+   <option value="ink">잉크색으로 통일 (획·빈틈 보존)</option>
+   <option value="orig">원본 색 그대로</option>
+  </select>
+  <label>잉크 색 <input id="ink" type="color" value="#c81212" style="width:100%;height:30px;padding:2px;border:1px solid #CBD5E1;border-radius:8px"></label>
+  <label>농도 (오른쪽일수록 진하게) <span id="vD">50</span></label>
+  <input id="d" type="range" min="0" max="100" value="50">
+  <label class="ck"><input id="crop" type="checkbox" checked> 도장 영역만 자동 자르기</label>
+  <label>자르기 여백 <span id="vM">6</span>px</label>
+  <input id="mg" type="range" min="0" max="80" value="6">
+  <label class="ck"><input id="square" type="checkbox"> 정사각형 캔버스로 맞추기</label>
+  <label>저장 가로 크기</label>
+  <select id="maxw">
+   <option value="0">원본 크기 유지</option>
+   <option value="600">600px</option>
+   <option value="400">400px</option>
+   <option value="300">300px</option>
+   <option value="200">200px (문서 삽입용)</option>
+   <option value="150">150px</option>
+  </select>
+  <div class="hint">• 흰 종이·검정 글씨는 R≈G≈B라 붉은 도장 추출 시 자동으로 사라집니다.<br>• 원본 이미지의 도장 위치를 마우스로 드래그해 영역을 지정하면 그 안쪽만 추출합니다.<br>• 모든 처리는 이 PC 브라우저 안에서만 이루어집니다.</div>
+ </section>
+
+ <section class="panel view">
+  <div class="bar">
+   <button class="g" id="eraser" disabled>지우개</button>
+   <label>크기 <input id="brush" type="range" min="4" max="120" value="24"></label>
+   <button class="g" id="undo" disabled>되돌리기</button>
+   <button class="g" id="reset" disabled>영역·지우개 초기화</button>
+   <span class="sp"></span>
+   <button class="g bg on" data-bg="chk">체크무늬</button>
+   <button class="g bg" data-bg="white">흰색</button>
+   <button class="g bg" data-bg="gray">회색</button>
+  </div>
+  <div class="row">
+   <div><h4>원본 (드래그로 추출 영역 지정)</h4><div class="box"><canvas id="src"></canvas></div></div>
+   <div><h4>추출 결과 <span id="eh" style="font-weight:400"></span></h4><div class="box chk" id="obox"><canvas id="out"></canvas></div></div>
+  </div>
+  <div id="info"></div>
+  <div class="acts">
+   <button id="dl" disabled>PNG 다운로드 (투명 배경)</button>
+   <button id="zip" class="g" disabled>전체 ZIP 다운로드</button>
+   <button id="cp" class="g" disabled>클립보드로 복사</button>
+  </div>
+ </section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const src=$('src'),out=$('out'),sx=src.getContext('2d'),ox=out.getContext('2d',{willReadFrequently:true});
+const items=[];let cur=-1,last=null,eraseMode=false,pad=0,raf=0;
+const MAXSIDE=3000;
+const PRESETS={normal:[25,40,20,30,50],faint:[8,30,10,20,70],dark:[40,50,30,60,45],dirty:[35,40,45,150,50]};
+const INKS={red:'#c81212',blue:'#1e40af',dark:'#111827'};
+const TIDX={red:0,blue:1,dark:2};
+
+/* ---------- 파일 불러오기 ---------- */
+function readFile(f,no){
+  return new Promise(res=>{
+    const im=new Image(),url=URL.createObjectURL(f);
+    im.onload=()=>{
+      let w=im.naturalWidth,h=im.naturalHeight;const k=Math.min(1,MAXSIDE/Math.max(w,h));
+      w=Math.round(w*k);h=Math.round(h*k);
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(im,0,0,w,h);
+      const t=document.createElement('canvas');t.width=t.height=68;
+      const tk=Math.max(68/w,68/h),tg=t.getContext('2d');tg.fillStyle='#fff';tg.fillRect(0,0,68,68);
+      tg.drawImage(im,(68-w*tk)/2,(68-h*tk)/2,w*tk,h*tk);
+      const nm=f.name&&f.name!=='image.png'?f.name:'붙여넣기_'+no+'.png';
+      URL.revokeObjectURL(url);
+      res({name:nm,w,h,canvas:c,data:g.getImageData(0,0,w,h),thumb:t.toDataURL('image/jpeg',.7),roi:null,strokes:[],mask:new Uint8Array(w*h)});
+    };
+    im.onerror=()=>{URL.revokeObjectURL(url);$('info').textContent='이미지를 읽지 못했습니다: '+f.name;res(null)};
+    im.src=url;
+  });
+}
+async function addFiles(fs){
+  const list=[...fs].filter(f=>f&&f.type&&f.type.startsWith('image/')),wasEmpty=!items.length;let first=true;
+  for(const f of list){
+    const it=await readFile(f,items.length+1);if(!it)continue;
+    items.push(it);
+    if(first){first=false;if(wasEmpty)guessTarget(it);select(items.length-1)}else renderList();
+  }
+}
+function renderList(){
+  const L=$('list');L.innerHTML='';
+  items.forEach((it,i)=>{
+    const d=document.createElement('div');d.className='it'+(i===cur?' sel':'');
+    d.innerHTML='<img src="'+it.thumb+'"><span></span><b title="목록에서 제거">✕</b>';
+    d.querySelector('span').textContent=it.name;
+    d.onclick=()=>select(i);
+    d.querySelector('b').onclick=e=>{e.stopPropagation();items.splice(i,1);if(cur>=i)cur=Math.min(cur,items.length-1);if(cur<0&&items.length)cur=0;select(cur)};
+    L.appendChild(d);
+  });
+}
+function select(i){
+  cur=items.length?Math.max(0,Math.min(i,items.length-1)):-1;
+  renderList();
+  if(cur<0){src.width=src.height=out.width=out.height=1;sx.clearRect(0,0,1,1);ox.clearRect(0,0,1,1);last=null;ui();$('info').textContent='';return}
+  const it=items[cur];src.width=it.w;src.height=it.h;drawSrc();schedule();
+}
+function drawSrc(){
+  const it=items[cur];if(!it)return;
+  sx.drawImage(it.canvas,0,0);
+  const r=it.roi;if(!r)return;
+  const x=Math.min(r[0],r[2]),y=Math.min(r[1],r[3]),w=Math.abs(r[2]-r[0]),h=Math.abs(r[3]-r[1]);
+  sx.save();sx.fillStyle='rgba(15,23,42,.45)';
+  sx.beginPath();sx.rect(0,0,it.w,it.h);sx.rect(x,y,w,h);sx.fill('evenodd');
+  sx.strokeStyle='#2563EB';sx.lineWidth=Math.max(2,it.w/500);sx.setLineDash([8,6]);sx.strokeRect(x,y,w,h);sx.restore();
+}
+
+/* ---------- 추출 핵심 ---------- */
+function hex2rgb(h){const v=parseInt(h.slice(1),16);return[v>>16&255,v>>8&255,v&255]}
+function compute(it){
+  const T=+$('t').value,S=+$('s').value,N=+$('n').value,K=+$('k').value,D=+$('d').value;
+  const mode=$('mode').value,tg=TIDX[$('target').value],ink=hex2rgb($('ink').value);
+  const w=it.w,h=it.h,d=it.data.data,res=new ImageData(w,h),o=res.data,n=w*h;
+  const M=new Float32Array(n),Q=new Float32Array(n),hist=new Uint32Array(256);let cnt=0;
+  const rx0=it.roi?Math.max(0,Math.min(it.roi[0],it.roi[2])|0):0,ry0=it.roi?Math.max(0,Math.min(it.roi[1],it.roi[3])|0):0;
+  const rx1=it.roi?Math.min(w,Math.max(it.roi[0],it.roi[2])|0):w,ry1=it.roi?Math.min(h,Math.max(it.roi[1],it.roi[3])|0):h;
+  for(let y=0,p=0;y<h;y++){
+    const inY=y>=ry0&&y<ry1;
+    for(let x=0;x<w;x++,p++){
+      if(!inY||x<rx0||x>=rx1)continue;
+      const i=p*4,r=d[i],g=d[i+1],b=d[i+2];let v,q;
+      if(tg===0){v=r-(g>b?g:b);q=(255-(g+b)/2)/255}
+      else if(tg===1){v=b-(r>g?r:g);q=(255-(r+g)/2)/255}
+      else{v=255-(r+g+b)/3;q=v/255}
+      let m=(v-T)/S;m=m<0?0:m>1?1:m;m=m*m*(3-2*m);
+      M[p]=m;Q[p]=q;
+      if(m>.5){hist[Math.min(255,(q*255)|0)]++;cnt++}
+    }
+  }
+  let hi=.6;
+  if(cnt>0){let acc=0;const th=cnt*.99;for(let k=0;k<256;k++){acc+=hist[k];if(acc>=th){hi=Math.max(.15,k/255);break}}}
+  const lo=.04,gamma=Math.pow(2,(50-D)/25),mk=it.mask;
+  for(let p=0;p<n;p++){
+    const i=p*4;let a=M[p]*255;
+    if(a===0||mk[p]){o[i+3]=0;continue}
+    if(mode==='ink'){
+      let v=(Q[p]-lo)/(hi-lo);v=v<0?0:v>1?1:v;
+      a=M[p]*Math.pow(v,gamma)*255;o[i]=ink[0];o[i+1]=ink[1];o[i+2]=ink[2];
+    }else{o[i]=d[i];o[i+1]=d[i+1];o[i+2]=d[i+2]}
+    o[i+3]=a<N?0:a;
+  }
+  if(K>0)despeckle(o,w,h,K);
+  let x0=w,y0=h,x1=-1,y1=-1;
+  for(let p=0;p<n;p++){if(o[p*4+3]>30){const x=p%w,y=(p/w)|0;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+  return{res,bbox:x1>=0?[x0,y0,x1,y1]:null};
+}
+/* 연결된 작은 덩어리(면적 < K px)를 지움 */
+function despeckle(o,w,h,K){
+  const n=w*h,vis=new Uint8Array(n),q=new Int32Array(n);
+  for(let s=0;s<n;s++){
+    if(vis[s]||o[s*4+3]===0)continue;
+    let hd=0,tl=0;q[tl++]=s;vis[s]=1;
+    while(hd<tl){
+      const p=q[hd++],x=p%w,y=(p/w)|0;
+      for(let dy=-1;dy<=1;dy++){const yy=y+dy;if(yy<0||yy>=h)continue;
+        for(let dx=-1;dx<=1;dx++){const xx=x+dx;if(xx<0||xx>=w)continue;
+          const t=yy*w+xx;if(!vis[t]&&o[t*4+3]!==0){vis[t]=1;q[tl++]=t}}}
+    }
+    if(tl<K)for(let j=0;j<tl;j++)o[q[j]*4+3]=0;
+  }
+}
+function schedule(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;run()})}
+function run(){
+  ['t','s','n','k','d','mg'].forEach(id=>{const e=$('v'+({t:'T',s:'S',n:'N',k:'K',d:'D',mg:'M'})[id]);if(e)e.textContent=$(id).value});
+  const it=items[cur];if(!it){ui();return}
+  last=compute(it);
+  out.width=it.w;out.height=it.h;ox.putImageData(last.res,0,0);
+  if(last.bbox){
+    const b=last.bbox,m=+$('mg').value;
+    ox.save();ox.strokeStyle='rgba(37,99,235,.8)';ox.lineWidth=Math.max(2,it.w/500);ox.setLineDash([8,6]);
+    if($('crop').checked)ox.strokeRect(Math.max(0,b[0]-m),Math.max(0,b[1]-m),Math.min(it.w,b[2]+1+m)-Math.max(0,b[0]-m),Math.min(it.h,b[3]+1+m)-Math.max(0,b[1]-m));
+    ox.restore();
+  }
+  ui();
+  const c=last.bbox?build(it,last):null;
+  $('info').textContent=c?'저장 크기: '+c.width+' × '+c.height+' px'+(it.roi?' · 지정 영역만 추출':''):'추출된 도장이 없습니다. 민감도를 낮추거나 추출 대상을 바꿔보세요.';
+}
+function ui(){
+  const has=!!(last&&last.bbox&&items[cur]);
+  $('dl').disabled=$('cp').disabled=!has;
+  $('zip').disabled=!items.length;
+  $('auto').disabled=$('eraser').disabled=!items.length;
+  const it=items[cur];
+  $('undo').disabled=!(it&&it.strokes.length);
+  $('reset').disabled=!(it&&(it.strokes.length||it.roi));
+}
+/* 저장용 캔버스 (자르기·크기·정사각형 적용) */
+function build(it,r){
+  r=r||compute(it);if(!r.bbox)return null;
+  const full=document.createElement('canvas');full.width=it.w;full.height=it.h;full.getContext('2d').putImageData(r.res,0,0);
+  let cx=0,cy=0,cw=it.w,ch=it.h;
+  if($('crop').checked){const m=+$('mg').value;cx=Math.max(0,r.bbox[0]-m);cy=Math.max(0,r.bbox[1]-m);cw=Math.min(it.w,r.bbox[2]+1+m)-cx;ch=Math.min(it.h,r.bbox[3]+1+m)-cy}
+  let tw=cw,th=ch;const mw=+$('maxw').value;
+  if(mw&&cw>mw){th=Math.max(1,Math.round(ch*mw/cw));tw=mw}
+  let W=tw,H=th,px=0,py=0;
+  if($('square').checked){W=H=Math.max(tw,th);px=(W-tw)>>1;py=(H-th)>>1}
+  const c=document.createElement('canvas');c.width=W;c.height=H;
+  const g=c.getContext('2d');g.imageSmoothingQuality='high';g.drawImage(full,cx,cy,cw,ch,px,py,tw,th);
+  return c;
+}
+
+/* ---------- 자동 추정 (오츠 방식) ---------- */
+function scanHist(it){   // 대상별 히스토그램 + 뚜렷한 픽셀 수
+  const d=it.data.data,w=it.w,h=it.h,r0=it.roi;
+  const x0=r0?Math.max(0,Math.min(r0[0],r0[2])|0):0,y0=r0?Math.max(0,Math.min(r0[1],r0[3])|0):0,x1=r0?Math.min(w,Math.max(r0[0],r0[2])|0):w,y1=r0?Math.min(h,Math.max(r0[1],r0[3])|0):h;
+  const H=[new Uint32Array(256),new Uint32Array(256),new Uint32Array(256)],tot=[0,0,0],strong=[0,0,0];
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+    const i=(y*w+x)*4,r=d[i],g=d[i+1],b=d[i+2];
+    const v=[r-(g>b?g:b),b-(r>g?r:g),255-(r+g+b)/3];
+    for(let k=0;k<3;k++){const q=v[k]|0;if(q>0){H[k][Math.min(255,q)]++;tot[k]++}if(v[k]>(k===2?110:45))strong[k]++}
+  }
+  return{H,tot,strong};
+}
+function applyTarget(v){$('target').value=v;$('ink').value=INKS[v];if(v==='dark'){$('t').value=70;$('s').value=50}else{$('t').value=25;$('s').value=40}$('preset').value=''}
+function pickTarget(sc,cur){   // 현재 대상에서 도장이 안 보이면 붉은/파란 중 더 많은 쪽으로
+  const names=['red','blue','dark'];if(sc.strong[TIDX[cur]]>=50)return cur;
+  const best=sc.strong[0]>=sc.strong[1]?0:1;
+  if(sc.strong[best]>=50)return names[best];
+  return sc.strong[2]>=50?'dark':cur;
+}
+function guessTarget(it){const v=pickTarget(scanHist(it),$('target').value);if(v!==$('target').value)applyTarget(v)}
+$('auto').onclick=()=>{
+  const it=items[cur];if(!it)return;
+  const sc=scanHist(it),v=pickTarget(sc,$('target').value);
+  if(v!==$('target').value)applyTarget(v);
+  const k=TIDX[v],hist=sc.H[k],tot=sc.tot[k];
+  if(tot<50){$('info').textContent='도장을 찾지 못했습니다. 영역을 지정하거나 추출 대상을 확인해 주세요.';return}
+  let sum=0;for(let i=1;i<256;i++)sum+=i*hist[i];
+  let wB=0,sB=0,best=0,bt=20;
+  for(let t=1;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=tot-wB;if(!wF)break;sB+=t*hist[t];
+    const mB=sB/wB,mF=(sum-sB)/wF,vv=wB*wF*(mB-mF)*(mB-mF);if(vv>best){best=vv;bt=t}}
+  $('t').value=Math.max(2,Math.round(bt*.45));$('s').value=Math.max(10,Math.min(120,Math.round(bt*.8)));
+  $('preset').value='';schedule();
+};
+
+/* ---------- 원본: 영역 지정 ---------- */
+function pos(cv,e){const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height]}
+let roiDrag=false;
+src.addEventListener('pointerdown',e=>{const it=items[cur];if(!it)return;roiDrag=true;src.setPointerCapture(e.pointerId);const p=pos(src,e);it.roi=[p[0],p[1],p[0],p[1]];drawSrc()});
+src.addEventListener('pointermove',e=>{if(!roiDrag)return;const it=items[cur],p=pos(src,e);it.roi[2]=Math.max(0,Math.min(it.w,p[0]));it.roi[3]=Math.max(0,Math.min(it.h,p[1]));drawSrc()});
+src.addEventListener('pointerup',()=>{if(!roiDrag)return;roiDrag=false;const it=items[cur],r=it.roi;
+  if(Math.abs(r[2]-r[0])<8||Math.abs(r[3]-r[1])<8)it.roi=null;drawSrc();schedule()});
+
+/* ---------- 결과: 지우개 ---------- */
+function paint(mask,w,h,x,y,r){
+  const r2=r*r;for(let yy=Math.max(0,(y-r)|0);yy<=Math.min(h-1,(y+r)|0);yy++)for(let xx=Math.max(0,(x-r)|0);xx<=Math.min(w-1,(x+r)|0);xx++){
+    const dx=xx-x,dy=yy-y;if(dx*dx+dy*dy<=r2)mask[yy*w+xx]=1}
+}
+function eraseAt(it,x,y,r){
+  paint(it.mask,it.w,it.h,x,y,r);
+  if(!last)return;const o=last.res.data,w=it.w,h=it.h,r2=r*r;
+  const ax=Math.max(0,(x-r)|0),ay=Math.max(0,(y-r)|0),bx=Math.min(w-1,(x+r)|0),by=Math.min(h-1,(y+r)|0);
+  for(let yy=ay;yy<=by;yy++)for(let xx=ax;xx<=bx;xx++){const dx=xx-x,dy=yy-y;if(dx*dx+dy*dy<=r2)o[(yy*w+xx)*4+3]=0}
+  ox.putImageData(last.res,0,0,ax,ay,bx-ax+1,by-ay+1);
+}
+function rebuildMask(it){it.mask.fill(0);it.strokes.forEach(s=>s.pts.forEach(p=>paint(it.mask,it.w,it.h,p[0],p[1],s.r)))}
+let drawing=null;
+out.addEventListener('pointerdown',e=>{
+  const it=items[cur];if(!eraseMode||!it)return;
+  out.setPointerCapture(e.pointerId);const p=pos(out,e),r=+$('brush').value;
+  drawing={pts:[p],r};it.strokes.push(drawing);eraseAt(it,p[0],p[1],r);
+});
+out.addEventListener('pointermove',e=>{
+  const it=items[cur];if(!drawing||!it)return;const p=pos(out,e),q=drawing.pts[drawing.pts.length-1];
+  const dist=Math.hypot(p[0]-q[0],p[1]-q[1]),steps=Math.max(1,Math.ceil(dist/(drawing.r/2)));
+  for(let s=1;s<=steps;s++){const x=q[0]+(p[0]-q[0])*s/steps,y=q[1]+(p[1]-q[1])*s/steps;drawing.pts.push([x,y]);eraseAt(it,x,y,drawing.r)}
+});
+out.addEventListener('pointerup',()=>{if(!drawing)return;drawing=null;schedule()});
+$('eraser').onclick=()=>{eraseMode=!eraseMode;$('eraser').classList.toggle('on',eraseMode);$('eraser').classList.toggle('g',!eraseMode);out.style.cursor=eraseMode?'crosshair':'';$('eh').textContent=eraseMode?'— 지울 곳을 드래그하세요':''};
+$('undo').onclick=()=>{const it=items[cur];if(!it||!it.strokes.length)return;it.strokes.pop();rebuildMask(it);schedule()};
+$('reset').onclick=()=>{const it=items[cur];if(!it)return;it.strokes=[];it.roi=null;it.mask.fill(0);drawSrc();schedule()};
+
+/* ---------- 설정 이벤트 ---------- */
+['t','s','n','k','d','mode','ink','crop','mg','square','maxw'].forEach(id=>$(id).addEventListener('input',()=>{if(['t','s','n','k','d'].includes(id))$('preset').value='';schedule()}));
+$('preset').onchange=()=>{const p=PRESETS[$('preset').value];if(!p)return;['t','s','n','k','d'].forEach((id,i)=>$(id).value=p[i]);schedule()};
+$('target').onchange=()=>{applyTarget($('target').value);schedule()};
+document.querySelectorAll('.bg').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.bg').forEach(x=>{x.classList.remove('on');x.classList.add('g')});b.classList.add('on');b.classList.remove('g');
+  $('obox').className='box '+b.dataset.bg});
+
+/* ---------- 입력 ---------- */
+const dz=$('drop');
+dz.onclick=()=>$('file').click();
+$('file').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+dz.ondragover=e=>{e.preventDefault();dz.classList.add('on')};
+dz.ondragleave=()=>dz.classList.remove('on');
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('on');addFiles(e.dataTransfer.files)};
+document.addEventListener('paste',e=>{const fs=[];for(const it of e.clipboardData.items)if(it.type.startsWith('image/'))fs.push(it.getAsFile());if(fs.length)addFiles(fs)});
+window.addEventListener('message',e=>{if(e.data&&e.data.__stampFiles)addFiles(e.data.__stampFiles)});   // 종합프로그램에서 전달되는 붙여넣기
+
+/* ---------- 저장 ---------- */
+function baseName(n){return n.replace(/\.[^.]+$/,'')+'_도장.png'}
+function saveBlob(b,name){const a=document.createElement('a'),u=URL.createObjectURL(b);a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)}
+$('dl').onclick=()=>{const it=items[cur],c=it&&build(it,last);if(c)c.toBlob(b=>saveBlob(b,baseName(it.name)),'image/png')};
+$('cp').onclick=()=>{const it=items[cur],c=it&&build(it,last);if(!c)return;
+  c.toBlob(async b=>{try{await navigator.clipboard.write([new ClipboardItem({'image/png':b})]);$('cp').textContent='복사됨 ✓';setTimeout(()=>$('cp').textContent='클립보드로 복사',1500)}catch(e){alert('복사에 실패했습니다. 다운로드를 이용해 주세요.')}})};
+$('zip').onclick=async()=>{
+  const btn=$('zip'),old=btn.textContent;btn.disabled=true;
+  const files=[],used={};let skipped=0;
+  for(let i=0;i<items.length;i++){
+    btn.textContent='처리 중… '+(i+1)+'/'+items.length;await new Promise(r=>setTimeout(r,20));
+    const c=build(items[i]);if(!c){skipped++;continue}
+    let nm=baseName(items[i].name);if(used[nm]){used[nm]++;nm=nm.replace(/\.png$/,'_'+used[nm]+'.png')}else used[nm]=1;
+    files.push([nm,await new Promise(r=>c.toBlob(r,'image/png'))]);
+  }
+  if(files.length){
+    if(typeof JSZip!=='undefined'){const z=new JSZip();files.forEach(f=>z.file(f[0],f[1]));saveBlob(await z.generateAsync({type:'blob'}),'도장_추출.zip')}
+    else files.forEach((f,i)=>setTimeout(()=>saveBlob(f[1],f[0]),i*300));
+  }
+  btn.textContent=old;btn.disabled=false;
+  $('info').textContent=files.length+'개 저장'+(skipped?' · 도장이 검출되지 않아 제외: '+skipped+'개':'');
+};
+ui();
+</script>
+<script>
+(function(){function p(){try{var h=(function(){var b=document.body,cs=getComputedStyle(b);return Math.ceil(b.getBoundingClientRect().height+(parseFloat(cs.marginTop)||0)+(parseFloat(cs.marginBottom)||0));})();window.parent.postMessage({__tabHeight:h,__tabId:'stamp'},'*');}catch(e){}}
+window.addEventListener('load',p);window.addEventListener('resize',p);document.addEventListener('input',p,true);document.addEventListener('click',function(){setTimeout(p,60)},true);
+if(window.MutationObserver)new MutationObserver(p).observe(document.body,{childList:true,subtree:true,attributes:true});setInterval(p,400);})();
+</script>
+</body>
+</html>

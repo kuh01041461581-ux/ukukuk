@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>서무 종합프로그램</title>
+<!-- 글꼴은 첫 화면을 막지 않게 뒤늦게 불러온다(그 전에는 기본 한글 글꼴) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<style>
+  :root{
+    --bg:#F8FAFC;--card:#FFFFFF;--primary:#2563EB;--primary-hover:#1D4ED8;--primary-tint:#EFF4FE;--primary-tint-strong:#E1EAFD;
+    --text:#111827;--text-2:#6B7280;--text-3:#9CA3AF;--border:#E5E7EB;--hover:#F3F4F6;
+    --radius-card:16px;--radius-btn:10px;
+    --shadow-card:0 1px 2px rgba(17,24,39,0.04), 0 1px 1px rgba(17,24,39,0.03);
+    --sidebar-w:232px;--header-h:68px;
+    --font:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  }
+  html.dark{
+    --bg:#111418;--card:#181c22;--primary:#3b82f6;--primary-hover:#60a5fa;--primary-tint:#152238;--primary-tint-strong:#1b2b47;
+    --text:#e8eaed;--text-2:#9aa2ad;--text-3:#6b7280;--border:#262b33;--hover:#20242b;color-scheme:dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+  svg.ic{width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  button{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+
+  /* ---------- 틀: 사이드바는 화면에 붙박이, 페이지가 자연스럽게 스크롤 ---------- */
+  .app-shell{display:flex;align-items:flex-start;min-height:100vh;}
+  .sidebar{
+    width:var(--sidebar-w);flex-shrink:0;background:var(--card);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;position:sticky;top:0;height:100vh;padding:20px 14px 16px;
+    transition:width .2s ease,padding .2s ease;overflow:hidden;
+  }
+  .sidebar-logo{display:flex;align-items:center;gap:10px;padding:4px 8px 18px;}
+  .sidebar-logo .mark{width:34px;height:34px;border-radius:9px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .sidebar-logo .mark svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;}
+  .logo-text strong{display:block;font-size:14.5px;font-weight:700;letter-spacing:-0.01em;line-height:1.3;}
+  .logo-text span{display:block;font-size:11px;color:var(--text-3);margin-top:1px;letter-spacing:.02em;}
+
+  .sidebar-nav{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:4px;margin:0 -4px;padding:0 4px;}
+  .nav-group{display:flex;flex-direction:column;}
+  .nav-group + .nav-group{margin-top:10px;}
+  .nav-group-label{
+    appearance:none;border:0;background:transparent;width:100%;display:flex;align-items:center;justify-content:space-between;
+    font-size:11.5px;font-weight:700;color:var(--text-3);letter-spacing:.04em;padding:8px 10px 6px;cursor:pointer;text-align:left;border-radius:8px;
+  }
+  .nav-group-label:hover{color:var(--text-2);}
+  .nav-group-label .chev{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s ease;}
+  .nav-group.folded .chev{transform:rotate(-90deg);}
+  .nav-items{display:flex;flex-direction:column;gap:2px;}
+  .nav-group.folded .nav-items{display:none;}
+  .nav-group.folded .tab-btn.active{display:flex;}
+  .nav-group.folded .nav-items:has(.tab-btn.active){display:flex;}
+  .nav-group.folded .tab-btn:not(.active){display:none;}
+
+  .tab-btn{
+    appearance:none;border:none;background:transparent;color:var(--text-2);font-size:14px;font-weight:500;
+    display:flex;align-items:center;gap:11px;height:42px;padding:0 12px;border-radius:var(--radius-btn);
+    cursor:pointer;text-align:left;width:100%;transition:background .15s ease,color .15s ease;position:relative;
+  }
+  .tab-btn:hover{background:var(--hover);color:var(--text);}
+  .tab-btn.active{background:var(--primary-tint);color:var(--primary);font-weight:700;}
+  .tab-btn .lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;}
+  .tab-btn kbd{font-family:inherit;font-size:10.5px;font-weight:600;color:var(--text-3);border:1px solid var(--border);border-radius:5px;padding:0 5px;line-height:17px;opacity:0;transition:opacity .15s;}
+  .tab-btn:hover kbd,.tab-btn.active kbd{opacity:1;}
+  .tab-btn.active kbd{color:var(--primary);border-color:transparent;background:var(--card);}
+
+  .sidebar-foot{margin-top:10px;padding:12px 10px 0;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);line-height:1.6;}
+  .side-fold{
+    appearance:none;border:1px solid var(--border);background:var(--card);color:var(--text-2);font-size:13px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;gap:6px;height:36px;border-radius:var(--radius-btn);cursor:pointer;margin-bottom:10px;
+  }
+  .side-fold:hover{background:var(--hover);color:var(--text);}
+  .side-fold svg{transition:transform .2s ease;}
+
+  body.side-collapsed{--sidebar-w:68px;}
+  body.side-collapsed .sidebar{padding:20px 10px 16px;}
+  body.side-collapsed .logo-text,body.side-collapsed .sidebar-foot,body.side-collapsed .tab-btn .lbl,body.side-collapsed .tab-btn kbd,
+  body.side-collapsed .nav-group-label .gl,body.side-collapsed .nav-group-label .chev,body.side-collapsed .side-fold .lbl2{display:none;}
+  body.side-collapsed .sidebar-logo{padding:4px 0 16px;justify-content:center;}
+  body.side-collapsed .tab-btn{justify-content:center;padding:0;}
+  body.side-collapsed .nav-group-label{height:1px;padding:0;margin:8px 8px;background:var(--border);border-radius:0;}
+  body.side-collapsed .side-fold svg{transform:rotate(180deg);}
+  body.side-collapsed .nav-group.folded .nav-items,body.side-collapsed .nav-group.folded .tab-btn:not(.active){display:flex;}
+
+  /* ---------- 위쪽 줄: 지금 보는 도구 이름 + 한 줄 설명 ---------- */
+  .main-col{flex:1;min-width:0;display:flex;flex-direction:column;}
+  header.topbar{
+    min-height:var(--header-h);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:10px 32px;border-bottom:1px solid var(--border);background:var(--card);position:sticky;top:0;z-index:5;
+  }
+  .topbar-left{display:flex;align-items:center;gap:12px;min-width:0;}
+  .titles{min-width:0;}
+  .titles h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .titles p{margin:2px 0 0;font-size:12.5px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .topbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .icon-btn{
+    width:38px;height:38px;border-radius:var(--radius-btn);border:1px solid transparent;background:transparent;color:var(--text-2);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease,color .15s ease;
+  }
+  .icon-btn:hover{background:var(--hover);color:var(--text);}
+  .icon-btn.on{background:var(--primary-tint);color:var(--primary);}
+  .help-wrap{position:relative;}
+  .help-pop{
+    position:absolute;right:0;top:calc(100% + 8px);width:300px;background:var(--card);border:1px solid var(--border);border-radius:14px;
+    box-shadow:0 12px 32px rgba(17,24,39,.14);padding:16px 18px;font-size:13px;line-height:1.65;color:var(--text-2);display:none;z-index:30;
+  }
+  .help-pop.open{display:block;}
+  .help-pop h4{margin:0 0 6px;font-size:13px;color:var(--text);}
+  .help-pop ul{margin:0 0 12px;padding-left:18px;}
+  .help-pop kbd{font-family:inherit;font-size:11px;font-weight:600;border:1px solid var(--border);border-radius:5px;padding:1px 6px;background:var(--hover);color:var(--text);}
+
+  /* ---------- 도구가 들어가는 자리: 모든 도구가 같은 폭·같은 바탕 위에 ---------- */
+  main.content{padding:24px 32px 32px;min-width:0;}
+  .tab-panel{display:none;max-width:1240px;margin:0 auto;}
+  .tab-panel.active{display:block;animation:rise .18s ease;}
+  @keyframes rise{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  .frame-card{position:relative;}
+  .frame-card iframe{width:100%;height:600px;border:0;display:block;background:transparent;color-scheme:normal;opacity:0;transition:opacity .2s ease;}
+  .frame-card.ready iframe{opacity:1;}
+  /* 스스로 높이를 알려 주지 못하는 큰 도구(팝업 창이 있는 도구)는 화면 높이에 맞춰 안에서 스크롤 */
+  .frame-card.fixed iframe{height:calc(100vh - var(--header-h) - 56px);min-height:520px;}
+  .frame-load{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:center;gap:10px;height:140px;color:var(--text-3);font-size:13px;pointer-events:none;}
+  .frame-card.ready .frame-load{display:none;}
+  .spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--primary);animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  html{scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+  ::-webkit-scrollbar{width:12px;height:12px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px;border:3px solid transparent;background-clip:content-box;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--text-3);background-clip:content-box;}
+
+  @media (max-width:1024px){
+    main.content{padding:16px;}
+    header.topbar{padding:10px 16px;}
+    .titles p{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></div>
+      <div class="logo-text">
+        <strong>서무 종합프로그램</strong>
+        <span>General Affairs Suite</span>
+      </div>
+    </div>
+
+    <button type="button" class="side-fold" id="sideFold" title="메뉴 접기/펴기 (Ctrl+B)"><svg class="ic" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg><span class="lbl2">메뉴 접기</span></button>
+    <nav class="sidebar-nav" aria-label="도구 목록">
+<div class="nav-group"><button type="button" class="nav-group-label" aria-expanded="true"><span class="gl">여비·정산</span><svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><div class="nav-items"><button class="tab-btn active" data-tab="travel" data-label="관내여비 지급명세서" data-desc="출장 월별집계 엑셀을 올리면 사람별 관내여비 지급명세서를 만들어 줍니다." data-key="1"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 6v12M18 6v12"/></svg><span class="lbl">관내여비</span><kbd>1</kbd></button><button class="tab-btn" data-tab="outtrip" data-label="관외출장 여비지출결의서" data-desc="부서원·출장 내역을 입력하면 여비를 계산해 지출결의서(HWPX)까지 만들어 줍니다." data-key="2"><svg class="ic" viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg><span class="lbl">관외출장</span><kbd>2</kbd></button><button class="tab-btn" data-tab="meal" data-label="급식비 정산" data-desc="초과근무 내역 엑셀로 급식비(맞춤) 정산 파일을 만들어 줍니다." data-key="3"><svg class="ic" viewBox="0 0 24 24"><path d="M6 2v7a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V2"/><path d="M9 12v10"/><path d="M17 2c-1.7 0-3 2-3 5s1.3 5 3 5v10"/></svg><span class="lbl">급식비</span><kbd>3</kbd></button></div></div>
+<div class="nav-group"><button type="button" class="nav-group-label" aria-expanded="true"><span class="gl">문서·이미지</span><svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><div class="nav-items"><button class="tab-btn" data-tab="imgzip" data-label="HWPX 이미지 압축" data-desc="HWPX 문서 속 이미지를 줄여 파일 용량을 낮춥니다." data-key="4"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg><span class="lbl">이미지 압축</span><kbd>4</kbd></button><button class="tab-btn" data-tab="blur" data-label="HWPX 얼굴 자동 블러" data-desc="HWPX 문서 속 얼굴을 자동으로 찾아 블러 처리합니다." data-key="5"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg><span class="lbl">얼굴 블러</span><kbd>5</kbd></button><button class="tab-btn" data-tab="stamp" data-label="도장 추출" data-desc="스캔한 문서에서 도장만 투명 배경으로 추출합니다." data-key="6"><svg class="ic" viewBox="0 0 24 24"><path d="M5 22h14"/><path d="M19.27 13.73A2.5 2.5 0 0 0 17.5 13h-11A2.5 2.5 0 0 0 4 15.5V17a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1.5c0-.66-.26-1.3-.73-1.77Z"/><path d="M14 13V8.5C14 7 15 7 15 5a3 3 0 0 0-3-3c-1.66 0-3 1-3 3s1 2 1 3.5V13"/></svg><span class="lbl">도장 추출</span><kbd>6</kbd></button></div></div>
+<div class="nav-group"><button type="button" class="nav-group-label" aria-expanded="true"><span class="gl">취합·인식</span><svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><div class="nav-items"><button class="tab-btn" data-tab="cert" data-label="교육 수료증 취합" data-desc="수료증 PDF의 내용을 읽어 엑셀 한 장으로 취합합니다." data-key="7"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg><span class="lbl">수료증 취합</span><kbd>7</kbd></button><button class="tab-btn" data-tab="bill" data-label="공과금 고지서 인식" data-desc="상하수도·전기·통신 고지서를 인식해 거래처입력 양식으로 정리합니다." data-key="8"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg><span class="lbl">고지서 인식</span><kbd>8</kbd></button></div></div>
+</nav>
+
+    <div class="sidebar-foot">모든 처리는 브라우저 안에서만<br>이뤄지며 서버로 전송되지 않습니다.</div>
+  </aside>
+
+  <div class="main-col">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-btn" id="sideToggle" title="메뉴 접기/펴기 (Ctrl+B)" aria-label="메뉴 접기/펴기"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+        <div class="titles"><h2 id="currentMenuName">관내여비 지급명세서</h2><p id="currentMenuDesc"></p></div>
+      </div>
+      <div class="topbar-right">
+        <div class="help-wrap">
+          <button class="icon-btn" id="helpBtn" title="도움말 · 단축키" aria-label="도움말" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.2"/><path d="M12 17.5h.01"/></svg></button>
+          <div class="help-pop" id="helpPop" role="dialog" aria-label="도움말">
+            <h4>개인정보</h4>
+            <ul><li>파일은 이 브라우저 안에서만 처리되고 서버로 전송되지 않습니다.</li><li>AI 인식(수료증·고지서)을 쓸 때만 입력한 키로 해당 AI 서비스에 내용이 전달됩니다.</li></ul>
+            <h4>단축키</h4>
+            <ul><li><kbd>Alt</kbd> + <kbd>1</kbd>~<kbd>8</kbd> 도구 바꾸기</li><li><kbd>Ctrl</kbd> + <kbd>B</kbd> 메뉴 접기/펴기</li><li><kbd>Esc</kbd> 이 창 닫기</li></ul>
+            <h4>이럴 땐</h4>
+            <ul style="margin-bottom:0"><li>화면이 멈춘 듯하면 인터넷 연결을 확인하고 새로고침(F5)하세요. 필요한 부품은 처음 쓸 때 한 번만 내려받습니다.</li></ul>
+          </div>
+        </div>
+        <button class="icon-btn" id="darkToggle" title="다크 모드" aria-label="다크 모드">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="tab-panel active" id="panel-travel">
+        <div class="frame-card"><div class="frame-load" aria-live="polite"><span class="spin"></span><span>불러오는 중…</span></div><iframe id="frame-travel" title="관내여비 지급명세서"></iframe></div>
+      </div>
+      <div class="tab-panel" id="panel-outtrip">
+        <div class="frame-card fixed"><div class="frame-load" aria-live="polite"><span class="spin"></span><span>불러오는 중…</span></div><iframe id="frame-outtrip" title="관외출장 여비지출결의서"></iframe></div>
+      </div>
+      <div class="tab-panel" id="panel-meal">
+        <div class="frame-card"><div class="frame-load" aria-live="polite"><span class="spin"></span><span>불러오는 중…</span></div><iframe id="frame-meal" title="급식비 정산"></iframe></div>
+      </div>
+      <div class="tab-panel" id="panel-imgzip">
+        <div class="frame-card"><div class="frame-load" aria-live="polite"><span class="spin"></span><span>불러오는 중…</span></div><iframe id="frame-imgzip" title="HWPX 이미지 압축"></iframe></div>
+      </div>
+      <div class="tab-panel" id="panel-blur">
+        <div class="frame-card fixed"><div class="frame-load" aria-live="polite"><span class="spin"></span><span>불러오는 중…</span></div><iframe id="frame-blur" title="HWPX 얼굴 자동 블러"></iframe></div>
+      </div>
+      <div class="tab-panel" id="panel-stamp">
+        <div class="frame-card"><div class="frame-load" aria-live="polite"><span class="spin"></span><span>불러오는 중…</span></div><iframe id="frame-stamp" title="도장 추출" allow="clipboard-write"></iframe></div>
+      </div>
+      <div class="tab-panel" id="panel-cert">
+        <div class="frame-card fixed"><div class="frame-load" aria-live="polite"><span class="spin"></span><span>불러오는 중…</span></div><iframe id="frame-cert" title="교육 수료증 취합"></iframe></div>
+      </div>
+      <div class="tab-panel" id="panel-bill">
+        <div class="frame-card"><div class="frame-load" aria-live="polite"><span class="spin"></span><span>불러오는 중…</span></div><iframe id="frame-bill" title="공과금 고지서 인식"></iframe></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script type="text/plain" id="b64-travel"></script>
+<script type="text/plain" id="b64-outtrip"></script>
+<script type="text/plain" id="b64-meal"></script>
+<script type="text/plain" id="b64-imgzip"></script>
+<script type="text/plain" id="b64-blur"></script>
+<script type="text/plain" id="b64-cert"></script>
+<script type="text/plain" id="b64-bill"></script>
+<script type="text/plain" id="b64-stamp"></script>
+
+<script>
+(function(){
+  var IDS=['travel','outtrip','meal','imgzip','blur','stamp','cert','bill'];
+  var KEY='seomu_ui_v2',st={};
+  try{st=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
+  var body=document.body,root=document.documentElement;
+
+  /* ---------- 도구 불러오기 (처음 열 때 / 마우스를 올렸을 때 / 한가할 때 미리) ---------- */
+  function b64ToHtml(id){
+    var raw=document.getElementById(id).textContent.trim();
+    var bin=atob(raw),len=bin.length,u8=new Uint8Array(len);
+    for(var i=0;i<len;i++)u8[i]=bin.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(u8);
+  }
+  var loaded={};
+  function loadTab(tab){
+    if(loaded[tab])return;
+    loaded[tab]=true;
+    var fr=document.getElementById('frame-'+tab),card=fr.parentNode;
+    fr.addEventListener('load',function(){card.classList.add('ready');},{once:true});
+    setTimeout(function(){card.classList.add('ready');},6000); /* 무슨 일이 있어도 화면은 보이게 */
+    fr.srcdoc=b64ToHtml('b64-'+tab);
+  }
+
+  /* ---------- 탭 전환 ---------- */
+  var btns=[].slice.call(document.querySelectorAll('.tab-btn'));
+  function activate(tab){
+    var btn=document.querySelector('.tab-btn[data-tab="'+tab+'"]');
+    if(!btn)return;
+    btns.forEach(function(b){b.classList.toggle('active',b===btn);});
+    document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab);});
+    loadTab(tab);
+    document.getElementById('currentMenuName').textContent=btn.getAttribute('data-label');
+    document.getElementById('currentMenuDesc').textContent=btn.getAttribute('data-desc')||'';
+    document.title=btn.getAttribute('data-label')+' · 서무 종합프로그램';
+    try{history.replaceState(null,'','#'+tab);}catch(e){}
+    st.last=tab;save();
+    window.scrollTo(0,0);
+  }
+  btns.forEach(function(btn){
+    btn.addEventListener('click',function(){activate(btn.getAttribute('data-tab'));});
+    btn.addEventListener('mouseenter',function(){loadTab(btn.getAttribute('data-tab'));},{once:true}); /* 누르기 전에 미리 준비 */
+    btn.title=btn.getAttribute('data-label')+' (Alt+'+btn.getAttribute('data-key')+')';
+  });
+  var start=(location.hash||'').replace('#','');
+  activate(IDS.indexOf(start)>=0?start:(IDS.indexOf(st.last)>=0?st.last:IDS[0]));
+
+  /* 첫 화면이 다 뜬 뒤 한가할 때 자주 쓰는 가벼운 도구를 미리 준비 → 눌렀을 때 바로 열림.
+     (얼굴 블러·수료증은 무거운 부품(AI 모델)이 있어 마우스를 올릴 때만) */
+  function idle(fn){(window.requestIdleCallback||function(f){setTimeout(f,1200);})(fn,{timeout:4000});}
+  window.addEventListener('load',function(){
+    ['outtrip','travel','meal'].forEach(function(t,i){setTimeout(function(){idle(function(){loadTab(t);});},1500+i*1200);});
+  });
+
+  /* ---------- 도구 높이 맞추기 ---------- */
+  window.addEventListener('message',function(e){
+    var d=e.data;
+    if(!d||!d.__tabHeight||!d.__tabId)return;
+    var f=document.getElementById('frame-'+d.__tabId);
+    if(f&&!f.parentNode.classList.contains('fixed')){
+      var nh=Math.max(300,Math.min(30000,Math.ceil(d.__tabHeight)+8)),cur=parseFloat(f.style.height)||0;
+      if(Math.abs(nh-cur)>=4)f.style.height=nh+'px';
+    }
+  });
+
+  /* 도장 추출: 화면 어디서든 Ctrl+V 로 붙여넣은 이미지를 도구에 전달 */
+  document.addEventListener('paste',function(e){
+    var act=document.querySelector('.tab-btn.active');
+    if(!act||act.getAttribute('data-tab')!=='stamp')return;
+    var fs=[],it=(e.clipboardData&&e.clipboardData.items)||[];
+    for(var i=0;i<it.length;i++)if(it[i].type.indexOf('image/')===0){var f=it[i].getAsFile();if(f)fs.push(f);}
+    var fr=document.getElementById('frame-stamp');
+    if(fs.length&&fr&&fr.contentWindow)fr.contentWindow.postMessage({__stampFiles:fs},'*');
+  });
+
+  /* ---------- 다크 모드 (마지막 선택 기억, 처음엔 기기 설정을 따름) ---------- */
+  var darkBtn=document.getElementById('darkToggle');
+  function sendTheme(){
+    var t=root.classList.contains('dark')?'dark':'light';
+    document.querySelectorAll('iframe').forEach(function(f){try{f.contentWindow.postMessage({__seomuTheme:t},'*');}catch(e){}});
+  }
+  function setDark(on,remember){
+    root.classList.toggle('dark',on);darkBtn.classList.toggle('on',on);
+    if(remember){st.dark=on;save();}
+    sendTheme();
+  }
+  var pref=('dark' in st)?st.dark:(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
+  if(pref){root.classList.add('dark');darkBtn.classList.add('on');}
+  darkBtn.addEventListener('click',function(){setDark(!root.classList.contains('dark'),true);});
+  window.addEventListener('message',function(e){if(e.data&&e.data.__seomuReady)sendTheme();});
+
+  /* ---------- 메뉴 접기/펴기 · 그룹 접기 ---------- */
+  var collapsed=('collapsed' in st)?st.collapsed:window.innerWidth<1100;
+  function setCollapsed(c){
+    collapsed=c;body.classList.toggle('side-collapsed',c);
+    document.querySelector('#sideFold .lbl2').textContent=c?'메뉴 펴기':'메뉴 접기';
+    st.collapsed=c;save();
+  }
+  setCollapsed(collapsed);
+  document.getElementById('sideToggle').addEventListener('click',function(){setCollapsed(!collapsed);});
+  document.getElementById('sideFold').addEventListener('click',function(){setCollapsed(!collapsed);});
+  st.folded=st.folded||{};
+  document.querySelectorAll('.nav-group').forEach(function(g){
+    var lab=g.querySelector('.gl').textContent,b=g.querySelector('.nav-group-label');
+    if(st.folded[lab]){g.classList.add('folded');b.setAttribute('aria-expanded','false');}
+    b.addEventListener('click',function(){
+      var f=g.classList.toggle('folded');b.setAttribute('aria-expanded',String(!f));
+      st.folded[lab]=f;save();
+    });
+  });
+
+  /* ---------- 도움말 창 · 단축키 ---------- */
+  var helpBtn=document.getElementById('helpBtn'),helpPop=document.getElementById('helpPop');
+  function helpOpen(o){helpPop.classList.toggle('open',o);helpBtn.setAttribute('aria-expanded',String(o));}
+  helpBtn.addEventListener('click',function(e){e.stopPropagation();helpOpen(!helpPop.classList.contains('open'));});
+  document.addEventListener('click',function(e){if(!helpPop.contains(e.target))helpOpen(false);});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape')helpOpen(false);
+    if((e.ctrlKey||e.metaKey)&&(e.key==='b'||e.key==='B')){e.preventDefault();setCollapsed(!collapsed);}
+    if(e.altKey&&!e.ctrlKey&&!e.metaKey&&/^[1-8]$/.test(e.key)){e.preventDefault();activate(IDS[+e.key-1]);}
+  });
+})();
+</script>
+</body>
+</html>

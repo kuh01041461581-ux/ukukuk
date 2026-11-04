@@ -1,0 +1,157 @@
+/* ============================================================
+   서무 종합프로그램 · 공통 디자인 (모든 도구 화면에 같이 들어간다)
+   - 색·글꼴·모서리·버튼·입력칸·표를 한곳에서 정의 → 도구가 달라도 한 프로그램처럼 보이게
+   - 제목·메뉴는 셸(바깥 틀)이 맡으므로 도구 안의 중복 머리글/브랜드는 숨긴다
+   - 버튼 역할: 주 동작(채움) · 보조(테두리) · 약한(글자만) · 위험(빨강)
+   ============================================================ */
+:root{
+  --u-bg:#F8FAFC;--u-card:#FFFFFF;--u-primary:#2563EB;--u-primary-hover:#1D4ED8;--u-tint:#EFF4FE;--u-tint2:#E1EAFD;
+  --u-text:#111827;--u-text2:#6B7280;--u-text3:#9CA3AF;--u-border:#E5E7EB;--u-border2:#D1D5DB;--u-hover:#F3F4F6;
+  --u-ok:#16A34A;--u-ok-tint:#EAFBF2;--u-warn:#D97706;--u-warn-tint:#FDF1DE;--u-danger:#DC2626;--u-danger-tint:#FDEEEE;
+  --u-r-card:16px;--u-r-btn:10px;--u-r-input:10px;
+  --u-shadow:0 1px 2px rgba(17,24,39,.05);
+  --u-ring:0 0 0 3px rgba(37,99,235,.18);
+  --u-font:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+:root.seomu-dark{
+  --u-bg:#111418;--u-card:#181c22;--u-primary:#3b82f6;--u-primary-hover:#60a5fa;--u-tint:#152238;--u-tint2:#1b2b47;
+  --u-text:#e8eaed;--u-text2:#9aa2ad;--u-text3:#6b7280;--u-border:#262b33;--u-border2:#343a44;--u-hover:#20242b;
+  --u-ok:#22C55E;--u-ok-tint:#0F2A1D;--u-warn:#F59E0B;--u-warn-tint:#2E2410;--u-danger:#F87171;--u-danger-tint:#301616;
+  --u-ring:0 0 0 3px rgba(59,130,246,.3);
+  color-scheme:dark;
+}
+
+/* ---------- 바탕 · 글꼴 · 스크롤 ---------- */
+html{scrollbar-width:thin;scrollbar-color:var(--u-border2) transparent;-webkit-text-size-adjust:100%;}
+*::-webkit-scrollbar{width:12px;height:12px;}
+*::-webkit-scrollbar-track{background:transparent;}
+*::-webkit-scrollbar-thumb{background:var(--u-border2);border-radius:999px;border:3px solid transparent;background-clip:content-box;}
+*::-webkit-scrollbar-thumb:hover{background:var(--u-text3);background-clip:content-box;}
+body{font-family:var(--u-font) !important;background:transparent !important;color:var(--u-text);-webkit-font-smoothing:antialiased;}
+button,input,select,textarea{font-family:inherit;}
+.seal,.app-icon,.brand-mark{display:none !important;}
+:focus-visible{outline:2px solid var(--u-primary);outline-offset:2px;}
+::selection{background:var(--u-tint2);}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
+
+/* ---------- 버튼 (역할별 한 벌) ---------- */
+/* 공통 모양 */
+html body .btn,
+html body .btn-primary,
+html body .btn-ghost,
+html body .btn-outline,
+html body .btn-secondary,
+html body .btn-export,
+html body .btn-icon,
+html body .run,
+html body .mini-btn,
+html body button.g{
+  font-family:inherit;border-radius:var(--u-r-btn);font-weight:600;letter-spacing:-.005em;
+  transition:background .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease,transform .06s ease;
+}
+html body .btn,
+html body .btn-primary,
+html body .btn-ghost,
+html body .btn-outline,
+html body .btn-secondary,
+html body .btn-export,
+html body .run{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-height:38px;padding:0 16px;font-size:13.5px;cursor:pointer;white-space:nowrap;text-decoration:none;
+  border:1px solid transparent;
+}
+html body .btn.sm{min-height:32px;padding:0 12px;font-size:12.5px;}
+html body .btn:active,
+html body .btn-primary:active,
+html body .btn-ghost:active,
+html body .btn-outline:active,
+html body .btn-secondary:active,
+html body .btn-export:active,
+html body .run:active{transform:translateY(1px);}
+/* 주 동작 */
+html body .btn:not(.outline):not(.ghost):not(.danger):not(.gold):not(.btn-ghost):not(.btn-outline):not(.btn-secondary),
+html body .btn-primary,
+html body .btn-export,
+html body .run{
+  background:var(--u-primary);color:#fff;border-color:var(--u-primary);box-shadow:var(--u-shadow);
+}
+html body .btn:not(.outline):not(.ghost):not(.danger):not(.gold):not(.btn-ghost):not(.btn-outline):not(.btn-secondary):hover,
+html body .btn-primary:hover,
+html body .btn-export:hover,
+html body .run:hover{background:var(--u-primary-hover);border-color:var(--u-primary-hover);}
+/* 보조 */
+html body .btn.outline,
+html body .btn-outline,
+html body .btn-secondary,
+html body .btn.gold,
+html body .btn-ghost,
+html body .btn.ghost{
+  background:var(--u-card);color:var(--u-text);border-color:var(--u-border2);box-shadow:none;
+}
+html body .btn.outline:hover,
+html body .btn-outline:hover,
+html body .btn-secondary:hover,
+html body .btn.gold:hover,
+html body .btn-ghost:hover,
+html body .btn.ghost:hover{
+  background:var(--u-hover);border-color:var(--u-border2);color:var(--u-text);
+}
+/* 위험 */
+html body .btn.danger{background:var(--u-card);color:var(--u-danger);border-color:color-mix(in srgb,var(--u-danger) 45%,var(--u-border));}
+html body .btn.danger:hover{background:var(--u-danger-tint);}
+/* 꺼짐 */
+html body .btn:disabled,
+html body .btn-primary:disabled,
+html body .btn-ghost:disabled,
+html body .btn-outline:disabled,
+html body .btn-secondary:disabled,
+html body .btn-export:disabled,
+html body .run:disabled,
+html body .btn[disabled],
+html body .btn.disabled{opacity:.5;cursor:not-allowed;box-shadow:none;}
+html body .btn-block{width:100%;}
+html body .btn-lg,
+html body .run{min-height:44px;font-size:14.5px;}
+/* 아이콘만 있는 단추 */
+html body .icon-btn,
+html body .btn-icon{border-radius:var(--u-r-btn);}
+
+/* ---------- 입력칸 ---------- */
+input[type=text],input[type=number],input[type=password],input[type=search],input[type=email],input[type=date],input[type=time],input[type=datetime-local],input[type=month],input:not([type]),select,textarea{
+  font-family:inherit;font-size:14px;color:var(--u-text);background:var(--u-card);
+  border:1px solid var(--u-border2);border-radius:var(--u-r-input);
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+input[type=text],input[type=number],input[type=password],input[type=search],input[type=email],input[type=date],input[type=time],input[type=datetime-local],input[type=month],input:not([type]),select{min-height:38px;padding:0 12px;}
+textarea{padding:10px 12px;line-height:1.55;}
+input:hover:not(:disabled):not([type=range]):not([type=checkbox]):not([type=radio]),select:hover:not(:disabled),textarea:hover:not(:disabled){border-color:var(--u-text3);}
+input:focus:not([type=range]):not([type=checkbox]):not([type=radio]),select:focus,textarea:focus{outline:none;border-color:var(--u-primary);box-shadow:var(--u-ring);}
+input::placeholder,textarea::placeholder{color:var(--u-text3);}
+input:disabled,select:disabled,textarea:disabled,input[readonly]{background:var(--u-hover);color:var(--u-text2);}
+input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--u-primary);}
+input[type=checkbox],input[type=radio]{width:16px;height:16px;cursor:pointer;}
+
+/* ---------- 카드 · 표 · 안내 ---------- */
+.card,.box,.panel,.launcher-card{
+  background:var(--u-card);border:1px solid var(--u-border);border-radius:var(--u-r-card);box-shadow:var(--u-shadow);
+}
+table{border-collapse:collapse;}
+thead th{background:var(--u-hover);color:var(--u-text2);font-weight:600;font-size:12.5px;text-align:left;}
+th,td{border-color:var(--u-border);}
+tbody tr:hover td{background:color-mix(in srgb,var(--u-tint) 55%,transparent);}
+.hint,.small{color:var(--u-text2);}
+a{color:var(--u-primary);}
+.dropzone,.drop,.dz,#drop{transition:border-color .15s ease,background .15s ease;}
+.dropzone.drag,.dropzone.dragover,.drop.drag,.dz.drag,#drop.drag{border-color:var(--u-primary) !important;background:var(--u-tint) !important;}
+
+/* ---------- 도구 안 도우미 ---------- */
+/* 단계 이동(이전/다음) 줄 — ui.js 가 단계가 있는 도구에 붙인다 */
+.seomu-stepnav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 0;padding-top:16px;border-top:1px solid var(--u-border);}
+.seomu-stepnav .mid{font-size:12.5px;color:var(--u-text2);}
+
+/* ---------- 도구 소개글: 도구마다 제각각이던 머리글(제목·큰 설명)을 같은 안내 상자로 ---------- */
+header.top .title-block p,.app-header p,body > p.muted,body > p.sub,.hero p.sub,.seomu-intro{
+  margin:0 0 16px !important;padding:12px 16px;max-width:none !important;
+  background:var(--u-tint);border:1px solid var(--u-tint2);border-radius:12px;
+  color:var(--u-text) !important;font-size:13px !important;line-height:1.7 !important;
+}

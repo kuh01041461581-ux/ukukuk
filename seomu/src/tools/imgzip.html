@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>HWPX 이미지 압축 도구 v2</title>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  body { font-family: "Malgun Gothic", sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 22px; }
+  .box { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  label { display: block; margin: 12px 0 4px; font-weight: bold; font-size: 14px; }
+  label.chk { font-weight: normal; display: flex; align-items: flex-start; gap: 6px; margin: 8px 0; }
+  label.chk input { margin-top: 3px; }
+  input[type=file] { display: block; margin: 10px 0; }
+  input[type=range] { width: 100%; }
+  select { padding: 6px; font-size: 14px; }
+  button { background: #2f6fed; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-size: 15px; cursor: pointer; }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+  th, td { border-bottom: 1px solid #eee; padding: 6px 4px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; word-break: break-all; }
+  .muted { color: #777; font-size: 13px; }
+  #summary { margin-top: 14px; font-weight: bold; }
+  #downloadBtn { display: none; margin-top: 14px; background: #16a34a; }
+</style>
+<style id="seomu-tool">
+body{max-width:1100px;margin:0 auto !important;padding:0 0 40px !important;color:var(--u-text) !important;font-size:14px;line-height:1.55;}
+h1{font-size:18px !important;font-weight:700;letter-spacing:-0.01em;margin:0 0 6px;}
+.muted{color:var(--u-text2) !important;font-size:13px;line-height:1.6;}
+.box{background:var(--u-card);border:1px solid var(--u-border) !important;border-radius:16px !important;padding:20px !important;box-shadow:0 1px 2px rgba(17,24,39,.04);}
+label{font-weight:600 !important;font-size:13px !important;}
+label.chk{font-weight:400 !important;}
+select,input[type=file]{padding:8px 10px;font-size:14px;border:1px solid var(--u-border2);border-radius:10px;background:var(--u-card);color:var(--u-text);font-family:inherit;}
+input[type=range]{accent-color:var(--u-primary);}
+button{background:var(--u-primary) !important;border-radius:10px !important;font-weight:500;font-family:inherit;}
+button:hover:not(:disabled){background:var(--u-primary-hover) !important;}
+button:disabled{background:var(--u-border2) !important;opacity:.7;}
+#downloadBtn{background:var(--u-ok) !important;}
+th,td{border-bottom:1px solid var(--u-border) !important;}
+body{max-width:none !important;margin:0 !important;padding:0 0 40px !important;}
+body > h1{display:none !important;}
+button{min-height:38px;padding:0 18px;border:1px solid var(--u-primary);color:#fff;font-size:13.5px;cursor:pointer;}
+input[type=file]{min-height:38px;padding:5px 8px !important;width:100%;max-width:420px;}
+.box label{display:block;margin-top:14px;}
+.box label:first-child{margin-top:0;}
+</style>
+<!--SEOMU-COMMON--></head>
+<body>
+<h1>HWPX 이미지 압축 도구 v2</h1>
+<p class="muted">.hwpx 파일 안의 사진(BinData)과 미리보기 썸네일을 줄여 파일 용량을 낮춥니다.
+문서에서 <b>실제로 표시되는 크기(인치)×목표 DPI</b>만큼만 해상도를 남기고(자동 축소), 사진 같은 불투명 PNG/BMP/TIFF는 JPEG로, 그 외는 PNG로 변환하며
+내부 매니페스트(content.hpf)를 자동 갱신합니다. 결과가 원본보다 커지는 이미지는 원본을 그대로 유지합니다.<br>
+※ 구버전 .hwp(바이너리)는 지원하지 않습니다. 한글에서 "다른 이름으로 저장 → HWPX"로 변환 후 사용하세요.</p>
+
+<div class="box">
+  <label>1. .hwpx 파일 선택</label>
+  <input type="file" id="fileInput" accept=".hwpx">
+
+  <label>2. 압축 강도 프리셋</label>
+  <select id="preset">
+    <option value="balanced">균형 (150dpi, JPEG 75%)</option>
+    <option value="strong">강력 (110dpi, JPEG 60%)</option>
+    <option value="max">최대 (96dpi, JPEG 50%)</option>
+    <option value="custom">직접 설정</option>
+  </select>
+
+  <label class="chk"><input type="checkbox" id="autoDpi" checked>
+    <span>문서 내 표시 크기 기준으로 자동 축소 (실제 인쇄/화면 크기보다 큰 해상도 제거 — 압축률에 가장 큰 효과)</span></label>
+
+  <label>목표 DPI: <span id="dpiVal">150</span></label>
+  <input type="range" id="dpiRange" min="72" max="300" step="6" value="150">
+
+  <label>이미지 최대 가로/세로 크기(상한): <span id="dimVal">1600</span>px</label>
+  <input type="range" id="dimRange" min="400" max="3000" step="100" value="1600">
+
+  <label>JPEG 압축 품질: <span id="qVal">75</span>%</label>
+  <input type="range" id="qRange" min="30" max="95" step="5" value="75">
+
+  <label class="chk"><input type="checkbox" id="png2jpg" checked>
+    <span>사진형 PNG/BMP/TIFF를 JPEG로 자동 변환 (용량이 40% 이상 줄 때만 적용, 투명 이미지·도표·캡처 화면은 PNG 유지)</span></label>
+
+  <button id="runBtn" disabled>압축 시작</button>
+  <div id="status" class="muted"></div>
+</div>
+
+<div class="box" id="resultBox" style="display:none">
+  <div id="summary"></div>
+  <table id="resultTable">
+    <thead><tr><th>이미지</th><th>크기(px)</th><th>원본</th><th>압축 후</th><th>절감률</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button id="downloadBtn">압축된 HWPX 다운로드</button>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fileInput = $('fileInput'), runBtn = $('runBtn');
+const dimRange = $('dimRange'), qRange = $('qRange'), dpiRange = $('dpiRange');
+const dimVal = $('dimVal'), qVal = $('qVal'), dpiVal = $('dpiVal');
+const preset = $('preset'), autoDpi = $('autoDpi'), png2jpg = $('png2jpg');
+const statusEl = $('status'), resultBox = $('resultBox');
+const resultTable = document.querySelector('#resultTable tbody');
+const summary = $('summary'), downloadBtn = $('downloadBtn');
+
+let selectedFile = null;
+let outputBlob = null;
+
+const PRESETS = {
+  balanced: { dpi: 150, dim: 1600, q: 75 },
+  strong:   { dpi: 110, dim: 1280, q: 60 },
+  max:      { dpi: 96,  dim: 1024, q: 50 }
+};
+function syncLabels() { dimVal.textContent = dimRange.value; qVal.textContent = qRange.value; dpiVal.textContent = dpiRange.value; }
+function applyPreset() {
+  const p = PRESETS[preset.value];
+  if (!p) return;
+  dpiRange.value = p.dpi; dimRange.value = p.dim; qRange.value = p.q;
+  syncLabels();
+}
+[dimRange, qRange, dpiRange].forEach(r => r.oninput = () => { preset.value = 'custom'; syncLabels(); });
+preset.onchange = applyPreset;
+autoDpi.onchange = () => { dpiRange.disabled = !autoDpi.checked; };
+applyPreset();
+
+fileInput.onchange = () => {
+  selectedFile = fileInput.files[0] || null;
+  runBtn.disabled = !selectedFile;
+  resultBox.style.display = 'none';
+};
+
+function fmt(bytes) {
+  if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+  return (bytes / 1024).toFixed(1) + ' KB';
+}
+const getExt = p => ((p.match(/\.([a-zA-Z0-9]+)$/) || [])[1] || '').toLowerCase();
+const SRC_MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', bmp: 'image/bmp', gif: 'image/gif', tif: 'image/tiff', tiff: 'image/tiff' };
+const kid = (n, name) => Array.from(n.children).find(c => c.localName === name);
+
+// ───────── 매니페스트(content.hpf) 읽기 ─────────
+async function readManifest(zip) {
+  const res = { hpfPath: null, text: null, pathToItem: {} };
+  for (const p of Object.keys(zip.files)) {
+    if (/(^|\/)content\.hpf$/i.test(p)) { res.hpfPath = p; break; }
+  }
+  if (!res.hpfPath) return res;
+  res.text = await zip.files[res.hpfPath].async('string');
+  let doc = null;
+  try {
+    doc = new DOMParser().parseFromString(res.text, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) doc = null;
+  } catch (e) { doc = null; }
+  if (!doc) return res;
+  const lowerMap = {};
+  for (const p of Object.keys(zip.files)) lowerMap[p.toLowerCase()] = p;
+  for (const item of Array.from(doc.getElementsByTagName('*')).filter(el => el.localName === 'item')) {
+    const href = item.getAttribute('href') || '';
+    if (!/^bindata\//i.test(href)) continue;
+    const actual = lowerMap[href.toLowerCase()];
+    if (!actual) continue;
+    res.pathToItem[actual.toLowerCase()] = { id: item.getAttribute('id'), href, actualPath: actual };
+  }
+  return res;
+}
+
+// 원본 텍스트에서 해당 href의 item 태그의 href/media-type 값만 치환 (나머지는 바이트 그대로)
+function replaceManifestItemAttrs(text, oldHref, newHref, newMediaType) {
+  const esc = oldHref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const m = text.match(new RegExp('<[^>]*\\shref="' + esc + '"[^>]*/?>'));
+  if (!m) return text;
+  let tag = m[0].replace(`href="${oldHref}"`, `href="${newHref}"`);
+  if (/\smedia-type="[^"]*"/.test(tag)) tag = tag.replace(/(\smedia-type=")[^"]*(")/, `$1${newMediaType}$2`);
+  return text.slice(0, m.index) + tag + text.slice(m.index + m[0].length);
+}
+
+// ───────── 문서 내 이미지 표시 크기 분석 ─────────
+// binaryItemIDRef 별로 "문서에서 가장 크게 표시되는 길이(inch)"를 구한다.
+// 크기를 확정할 수 없는 경우(그룹 개체, 배경 채우기 등)는 unrestricted 로 표시 → 축소하지 않음.
+async function analyzeUsage(zip) {
+  const usage = {};
+  const mark = (id, inch) => {
+    const u = usage[id] || (usage[id] = { unrestricted: false, inch: 0 });
+    if (inch == null) u.unrestricted = true; else u.inch = Math.max(u.inch, inch);
+  };
+  for (const p of Object.keys(zip.files)) {
+    if (zip.files[p].dir || !/\.xml$/i.test(p)) continue;
+    const text = await zip.files[p].async('string');
+    if (!text.includes('binaryItemIDRef')) continue;
+    let doc = null;
+    try {
+      doc = new DOMParser().parseFromString(text, 'application/xml');
+      if (doc.getElementsByTagName('parsererror').length) doc = null;
+    } catch (e) { doc = null; }
+    if (!doc) {
+      for (const m of text.matchAll(/binaryItemIDRef="([^"]*)"/g)) mark(m[1], null);
+      continue;
+    }
+    for (const el of Array.from(doc.getElementsByTagName('*'))) {
+      const id = el.getAttribute('binaryItemIDRef');
+      if (!id) continue;
+      if (el.localName !== 'img') { mark(id, null); continue; }
+      const pic = el.parentNode;
+      if (!pic || pic.localName !== 'pic') { mark(id, null); continue; }
+      let inContainer = false;
+      for (let n = pic.parentNode; n && n.nodeType === 1; n = n.parentNode) {
+        if (n.localName === 'container') { inContainer = true; break; }
+      }
+      if (inContainer) { mark(id, null); continue; }
+      const cur = kid(pic, 'curSz');
+      const curW = cur ? parseInt(cur.getAttribute('width'), 10) : 0;
+      const curH = cur ? parseInt(cur.getAttribute('height'), 10) : 0;
+      if (!(curW > 0 && curH > 0)) { mark(id, null); continue; }
+      let fraction = 1;
+      const clip = kid(pic, 'imgClip'), org = kid(pic, 'orgSz');
+      if (clip && org) {
+        const orgW = parseInt(org.getAttribute('width'), 10), orgH = parseInt(org.getAttribute('height'), 10);
+        const cw = parseInt(clip.getAttribute('right'), 10) - parseInt(clip.getAttribute('left'), 10);
+        const ch = parseInt(clip.getAttribute('bottom'), 10) - parseInt(clip.getAttribute('top'), 10);
+        if (orgW > 0 && orgH > 0 && cw > 0 && ch > 0) {
+          fraction = Math.min(1, cw / orgW, ch / orgH);
+          fraction = Math.max(0.02, fraction);
+        }
+      }
+      // HWPUNIT: 1/7200 inch
+      mark(id, (Math.max(curW, curH) / 7200) / fraction);
+    }
+  }
+  return usage;
+}
+
+// ───────── 이미지 1장 처리 ─────────
+function isAnimatedGif(data) {
+  let n = 0;
+  for (let i = 0; i < data.length - 3; i++) {
+    if (data[i] === 0x21 && data[i + 1] === 0xF9 && data[i + 2] === 0x04) { if (++n > 1) return true; }
+  }
+  return false;
+}
+
+async function processImage(data, srcExt, o) {
+  const bitmap = await createImageBitmap(new Blob([data], SRC_MIME[srcExt] ? { type: SRC_MIME[srcExt] } : {}));
+  const ow = bitmap.width, oh = bitmap.height, longSide = Math.max(ow, oh);
+  let target = Math.min(o.maxDim, o.limitPx || Infinity);
+  target = Math.max(target, Math.min(longSide, 96)); // 너무 작아지는 것 방지
+  const scale = Math.min(1, target / longSide);
+  const w = Math.max(1, Math.round(ow * scale)), h = Math.max(1, Math.round(oh * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (srcExt === 'bmp') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); } // BMP는 알파 정보가 불확실
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  if (bitmap.close) bitmap.close();
+
+  const srcJpeg = srcExt === 'jpg' || srcExt === 'jpeg';
+  let opaque = srcJpeg || srcExt === 'bmp';
+  if (!opaque) {
+    const px = ctx.getImageData(0, 0, w, h).data;
+    opaque = true;
+    for (let i = 3; i < px.length; i += 4) { if (px[i] !== 255) { opaque = false; break; } }
+  }
+  const toBytes = async (type, q) => {
+    const b = await new Promise(res => canvas.toBlob(res, type, q));
+    return new Uint8Array(await b.arrayBuffer());
+  };
+
+  const cands = [];
+  if (srcJpeg) {
+    cands.push({ ext: 'jpg', bytes: await toBytes('image/jpeg', o.quality) });
+  } else {
+    const png = await toBytes('image/png');
+    cands.push({ ext: 'png', bytes: png });
+    if (o.allowFormatChange && o.png2jpg && opaque) {
+      const jpg = await toBytes('image/jpeg', o.quality);
+      if (jpg.length < png.length * 0.6) cands.push({ ext: 'jpg', bytes: jpg });
+    }
+  }
+  cands.sort((a, b) => a.bytes.length - b.bytes.length);
+  const best = cands[0];
+  if (best.bytes.length >= data.length) return { keep: true, ow, oh, w: ow, h: oh };
+  return { keep: false, bytes: best.bytes, ext: best.ext, ow, oh, w, h };
+}
+
+// ───────── 메인 ─────────
+runBtn.onclick = async () => {
+  if (!selectedFile) return;
+  runBtn.disabled = true;
+  statusEl.textContent = '분석 중...';
+  resultBox.style.display = 'none';
+  resultTable.innerHTML = '';
+
+  try {
+    const opts = {
+      maxDim: parseInt(dimRange.value, 10),
+      quality: parseInt(qRange.value, 10) / 100,
+      dpi: parseInt(dpiRange.value, 10),
+      auto: autoDpi.checked,
+      png2jpg: png2jpg.checked
+    };
+
+    const zip = await JSZip.loadAsync(selectedFile);
+    const newZip = new JSZip();
+    const rows = [];
+    const manifest = await readManifest(zip);
+    const usage = opts.auto ? await analyzeUsage(zip) : {};
+    const used = new Set(Object.keys(zip.files).map(n => n.toLowerCase()));
+    const manifestChanges = [];
+    let formatChanged = 0, resizedCount = 0, keptCount = 0, failCount = 0;
+    let otherBinBefore = 0, otherBinCount = 0;
+
+    const paths = Object.keys(zip.files).filter(p => !zip.files[p].dir);
+    let done = 0;
+    for (const path of paths) {
+      done++;
+      if (manifest.hpfPath && path === manifest.hpfPath) continue; // 마지막에 갱신본 기록
+      statusEl.textContent = `처리 중... (${done}/${paths.length})`;
+      const entry = zip.files[path];
+      const lower = path.toLowerCase();
+      const ext = getExt(lower);
+      const isMime = path === 'mimetype';
+      const isBin = /^bindata\//.test(lower);
+      const isPrv = /^preview\//.test(lower);
+      const isRaster = !!SRC_MIME[ext] && ext !== '';
+      const data = await entry.async('uint8array');
+
+      if (!((isBin || isPrv) && isRaster)) {
+        newZip.file(path, data, { compression: isMime ? 'STORE' : 'DEFLATE' });
+        if (isBin) { otherBinBefore += data.length; otherBinCount++; }
+        continue;
+      }
+
+      const item = isBin ? manifest.pathToItem[lower] : null;
+      const canChange = !!(item && manifest.hpfPath && manifest.text !== null);
+      const needsChange = !(ext === 'jpg' || ext === 'jpeg' || ext === 'png');
+      const label = (isPrv ? '[미리보기] ' : '') + path.split('/').pop();
+
+      // 매니페스트에 없는 BMP/GIF/TIFF, 움직이는 GIF 는 건드리지 않음
+      if ((needsChange && !canChange) || (ext === 'gif' && isAnimatedGif(data))) {
+        newZip.file(path, data, { compression: 'DEFLATE' });
+        otherBinBefore += data.length; otherBinCount++;
+        continue;
+      }
+
+      // 자동 축소 한계(px): 표시 크기(inch) × DPI
+      let limitPx = Infinity;
+      if (isPrv) limitPx = 320;
+      else if (opts.auto && item && item.id && usage[item.id] && !usage[item.id].unrestricted && usage[item.id].inch > 0) {
+        limitPx = Math.ceil(usage[item.id].inch * opts.dpi);
+      }
+
+      let r = null;
+      try {
+        r = await processImage(data, ext, {
+          maxDim: opts.maxDim, quality: opts.quality, limitPx,
+          png2jpg: opts.png2jpg, allowFormatChange: canChange
+        });
+      } catch (e) { r = null; }
+
+      if (!r) {
+        newZip.file(path, data, { compression: 'DEFLATE' });
+        failCount++;
+        continue;
+      }
+      if (r.keep) {
+        newZip.file(path, data, { compression: 'DEFLATE' });
+        keptCount++;
+        rows.push({ name: label + ' (원본 유지)', dim: `${r.ow}×${r.oh}`, before: data.length, after: data.length });
+        continue;
+      }
+
+      const outExt = r.ext;
+      const sameFamily = (outExt === 'jpg' && (ext === 'jpg' || ext === 'jpeg')) || outExt === ext;
+      let outPath = path, outName = label;
+      if (!sameFamily) {
+        // 형식이 바뀌는 경우: 새 경로(충돌 회피) + 매니페스트 갱신
+        let base = path.replace(/\.[a-zA-Z0-9]+$/, ''), hbase = item.href.replace(/\.[a-zA-Z0-9]+$/, '');
+        let suffix = '';
+        while (used.has((base + suffix + '.' + outExt).toLowerCase())) suffix += '_c';
+        outPath = base + suffix + '.' + outExt;
+        const newHref = hbase + suffix + '.' + outExt;
+        used.add(outPath.toLowerCase());
+        manifestChanges.push({ href: item.href, newHref, mime: outExt === 'jpg' ? 'image/jpg' : 'image/png' });
+        formatChanged++;
+        outName = `${label} → ${outPath.split('/').pop()}`;
+      }
+      if (r.w !== r.ow || r.h !== r.oh) resizedCount++;
+      newZip.file(outPath, r.bytes, { compression: 'DEFLATE' });
+      rows.push({
+        name: outName,
+        dim: (r.w !== r.ow || r.h !== r.oh) ? `${r.ow}×${r.oh} → ${r.w}×${r.h}` : `${r.ow}×${r.oh}`,
+        before: data.length, after: r.bytes.length
+      });
+    }
+
+    if (manifest.hpfPath) {
+      let hpfOut = manifest.text;
+      for (const c of manifestChanges) hpfOut = replaceManifestItemAttrs(hpfOut, c.href, c.newHref, c.mime);
+      newZip.file(manifest.hpfPath, hpfOut, { compression: 'DEFLATE' });
+    }
+
+    statusEl.textContent = '압축 파일 생성 중...';
+    outputBlob = await newZip.generateAsync({
+      type: 'blob', mimeType: 'application/octet-stream',
+      compression: 'DEFLATE', compressionOptions: { level: 9 }
+    });
+
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const pct = r.before > 0 ? Math.round((1 - r.after / r.before) * 100) : 0;
+      [r.name, r.dim, fmt(r.before), fmt(r.after), pct + '%'].forEach(t => {
+        const td = document.createElement('td'); td.textContent = t; tr.appendChild(td);
+      });
+      resultTable.appendChild(tr);
+    });
+
+    const origTotal = selectedFile.size, newTotal = outputBlob.size;
+    let html = '';
+    if (newTotal >= origTotal) {
+      html = `전체 파일 크기: ${fmt(origTotal)} → ${fmt(newTotal)} (더 줄일 수 있는 이미지가 없습니다. 프리셋을 "강력"으로 바꿔 보세요)`;
+    } else {
+      const totalPct = Math.round((1 - newTotal / origTotal) * 100);
+      html = `전체 파일 크기: ${fmt(origTotal)} → ${fmt(newTotal)} (${totalPct}% 감소)`;
+    }
+    html += `<br><span class="muted">이미지 ${rows.length}개 처리: 해상도 축소 ${resizedCount}개, 형식 변환 ${formatChanged}개, 원본 유지 ${keptCount}개</span>`;
+    if (failCount > 0) html += `<br><span class="muted">${failCount}개는 브라우저가 디코딩하지 못해 원본 그대로 두었습니다.</span>`;
+    if (otherBinCount > 0) html += `<br><span class="muted">그 외 첨부 데이터(움직이는 GIF·폰트·OLE 등) ${otherBinCount}개(원본 ${fmt(otherBinBefore)})는 무손실 압축(레벨 9)만 적용했습니다.</span>`;
+    summary.innerHTML = html;
+
+    resultBox.style.display = 'block';
+    downloadBtn.style.display = 'inline-block';
+    statusEl.textContent = '완료';
+  } catch (e) {
+    statusEl.textContent = '오류: ' + e.message;
+    console.error(e);
+  } finally {
+    runBtn.disabled = false;
+  }
+};
+
+downloadBtn.onclick = () => {
+  if (!outputBlob || !selectedFile) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(outputBlob);
+  a.download = selectedFile.name.replace(/\.hwpx$/i, '') + '_압축.hwpx';
+  a.click();
+};
+</script>
+<script>
+(function(){function p(){try{var h=(function(){var b=document.body,cs=getComputedStyle(b);return Math.ceil(b.getBoundingClientRect().height+(parseFloat(cs.marginTop)||0)+(parseFloat(cs.marginBottom)||0));})();window.parent.postMessage({__tabHeight:h,__tabId:'imgzip'},'*');}catch(e){}}
+window.addEventListener('load',p);window.addEventListener('resize',p);document.addEventListener('input',p,true);document.addEventListener('click',function(){setTimeout(p,60)},true);
+if(window.MutationObserver)new MutationObserver(p).observe(document.body,{childList:true,subtree:true,attributes:true});setInterval(p,400);})();
+</script></body>
+</html>

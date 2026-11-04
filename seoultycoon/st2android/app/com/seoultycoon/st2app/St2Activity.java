@@ -1,0 +1,84 @@
+package com.seoultycoon.st2app;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.graphics.Bitmap;
+import android.graphics.Typeface;
+import android.os.Bundle;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.EditText;
+import com.seoultycoon.st2.Host;
+import com.seoultycoon.st2.Surf;
+import java.io.InputStream;
+
+public class St2Activity extends Activity implements St2View.Opener {
+    St2View view; Host host; AndroidPlatform pf; volatile boolean running; Thread loop; Bitmap lcd;
+
+    @Override protected void onCreate(Bundle b) {
+        super.onCreate(b);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        Typeface tf = Typeface.DEFAULT;
+        try { tf = Typeface.createFromAsset(getAssets(), "galmuri11.ttf"); } catch (Throwable t) { }
+        pf = new AndroidPlatform(this, tf);
+        lcd = Bitmap.createBitmap(240, 296, Bitmap.Config.ARGB_8888);
+        view = new St2View(this); view.host = this; view.lcd = lcd;
+        view.mode = getSharedPreferences("st2", MODE_PRIVATE).getInt("mode", St2View.MODE_PHONE);
+        setContentView(view);
+        view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        final String name = getSharedPreferences("st2", MODE_PRIVATE).getString("name", null);
+        if (name == null) askName(); else start(name);
+    }
+
+    void askName() {
+        final EditText et = new EditText(this); et.setSingleLine(true); et.setText("시장");
+        new AlertDialog.Builder(this).setTitle("시장님 존함 (게임 시작 시 사용)").setView(et).setCancelable(false)
+            .setPositiveButton("확인", new DialogInterface.OnClickListener() { public void onClick(DialogInterface d, int w) {
+                String s = et.getText().toString().trim(); if (s.length() == 0) s = "시장"; if (s.length() > 5) s = s.substring(0, 5);
+                getSharedPreferences("st2", MODE_PRIVATE).edit().putString("name", s).apply(); start(s);
+            } }).show();
+    }
+
+    void start(final String name) {
+        running = true;
+        loop = new Thread(new Runnable() { public void run() {
+            try {
+                InputStream in = getAssets().open("st2/client.bin1116"); byte[] img = AndroidPlatform.all(in);
+                host = new Host(pf, img); host.defaultName = name; view.game_host = host;
+                host.boot(); host.startApp();
+                long last = System.nanoTime(); int[] px = new int[240 * 296];
+                while (running) {
+                    long t0 = System.nanoTime(); int dt = (int) Math.min(100, (t0 - last) / 1000000); last = t0;
+                    host.tick(Math.max(20, dt));
+                    Surf s = host.screen; synchronized (lcd) { lcd.setPixels(s.px, 0, 240, 0, 0, 240, 296); }
+                    long el = (System.nanoTime() - t0) / 1000000; if (el < 33) Thread.sleep(33 - el);
+                }
+            } catch (Throwable t) { android.util.Log.e("st2", "fatal", t); }
+        } }, "st2-game");
+        loop.start();
+    }
+
+    public void openModeDialog() {
+        final String[] names = {"피처폰 버튼 (키패드)", "조이스틱 + 버튼", "터치 전용 (전체 화면)\n  탭=확인 · 쓸기=방향 · 길게/두 손가락=취소"};
+        new AlertDialog.Builder(this).setTitle("조작 방식").setSingleChoiceItems(names, view.mode, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface d, int w) { view.setMode(w); getSharedPreferences("st2", MODE_PRIVATE).edit().putInt("mode", w).apply(); d.dismiss(); } }).show();
+    }
+
+    @Override public boolean onKeyDown(int kc, KeyEvent e) { int k = map(kc); if (k != 0 && host != null) { host.postKey(1, k); return true; } return super.onKeyDown(kc, e); }
+    @Override public boolean onKeyUp(int kc, KeyEvent e) { int k = map(kc); if (k != 0 && host != null) { host.postKey(2, k); return true; } return super.onKeyUp(kc, e); }
+    static int map(int kc) {
+        switch (kc) {
+            case KeyEvent.KEYCODE_DPAD_UP: return St2View.UP; case KeyEvent.KEYCODE_DPAD_DOWN: return St2View.DOWN;
+            case KeyEvent.KEYCODE_DPAD_LEFT: return St2View.LEFT; case KeyEvent.KEYCODE_DPAD_RIGHT: return St2View.RIGHT;
+            case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: case KeyEvent.KEYCODE_SPACE: return St2View.OK;
+            case KeyEvent.KEYCODE_BACK: case KeyEvent.KEYCODE_DEL: return St2View.CLR;
+        }
+        if (kc >= KeyEvent.KEYCODE_0 && kc <= KeyEvent.KEYCODE_9) return '0' + (kc - KeyEvent.KEYCODE_0);
+        return 0;
+    }
+    @Override protected void onPause() { super.onPause(); pf.pause(); }
+    @Override protected void onResume() { super.onResume(); pf.resume(); }
+    @Override protected void onDestroy() { super.onDestroy(); running = false; if (isFinishing()) System.exit(0); }
+}

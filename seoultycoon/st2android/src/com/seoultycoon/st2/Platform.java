@@ -13,4 +13,8 @@ public interface Platform {
     void writeFile(String name, byte[] data);
     boolean fileExists(String name);
     void log(String s);
+    /** 효과음/배경음(표준 MIDI 바이트) 재생·정지·음량(0~100) — 기본은 무음 */
+    default void playClip(byte[] midi, boolean loop) {}
+    default void stopClip() {}
+    default void setClipVolume(int v) {}
 }

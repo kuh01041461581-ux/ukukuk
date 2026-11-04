@@ -88,3 +88,12 @@
 - 호스트 클래스는 **링크 전에 vtable 슬롯을 미리 확보**(64칸)해야 앱 서브클래스가 슬롯을 잘못 쓰지 않음.
 - 파일 읽기 위치는 `File` 과 `openDataInputStream` 이 **공유**해야 함(안 그러면 pak 인덱스가 어긋남).
 - 백그라운드 장시간 실행은 Monitor/타임아웃 사용, `pkill` 금지(자기 셸 종료됨).
+
+
+## 부록: ST2 자바 포팅 / APK (2편 안드로이드)
+- 위치 `st2android/`: `src/com/seoultycoon/st2/`(ThumbVm=Thumb 인터프리터, Host=호스트 런타임/스레드/입력, Lib=java.* 이식, GfxLib=lcdui 이식, Surf=소프트웨어 그래픽, Platform=OS 의존 인터페이스), `app/com/seoultycoon/st2app/`(St2Activity, St2View=ST1 GameView 파생 3모드 조작, AndroidPlatform), `test/JvmRun.java`(PC 검증기), `build_apk.sh`(→ `SeoulTycoon2.apk`).
+- PC 검증: `javac -d /tmp/jt st2android/src/com/seoultycoon/st2/*.java && javac -cp /tmp/jt -d /tmp/jt st2android/test/JvmRun.java && java -cp /tmp/jt JvmRun work/st2/client.bin1116 work/st2 /tmp/out android/assets/galmuri11.ttf 500 "150:1:53,152:2:53,..."` (사전에 `/tmp/out/save/data1.pak` 복사 필요, 없으면 '추가 다운로드' 대화상자가 뜸). 환경변수 VERBOSE=1 → /tmp/jtrace.txt 에 호스트 호출 로그.
+- **함정(해결됨)**: ① 이미지에 ARM 모드 스텁(memset 0x7d838, memcpy 0x7d8ec, 64비트 나눗셈 0x7da24, setjmp 0x7e038, longjmp 0x7e050)이 있어 Thumb 만 구현한 VM 이 죽음 → Host.patchArmStubs 가 Thumb 트램폴린(`ldr r3,[pc]; bx r3`)으로 호스트 구현에 연결. ② 파이썬 원본의 `propagate` 는 Object 전파가 사실상 비활성(`is_obj` 항상 False) — 활성화하면 가짜 클래스 항목의 vtable 이 이미지 데이터(슬롯 표)를 덮어씀. 자바판도 `isObj=false` 로 동일하게 유지.
+- dx(1.16) 는 `--min-sdk-version=26` 로 람다를 변환하므로 별도 desugar 불필요. dx 경로: /usr/lib/android-sdk/build-tools/debian/dx
+- ST2 키코드(WIPI): 위 50/아래 56/왼 52/오 54/확인 53, 숫자 '0'~'9'. **소프트키·취소 키코드는 미확정(-6/-5 추정)** — 실기기 검증 필요.
+- 미완: 상단바 날짜(임기 N년 M월) 자동 연동, 이름 입력은 첫 실행 시 대화상자(기본 '시장'), 화면 터치 직접선택(ST1 TouchNav 같은 것)은 ST2 에 아직 없음(탭=확인), 안드로이드 실기기 미검증.

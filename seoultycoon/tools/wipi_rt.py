@@ -41,19 +41,23 @@ for i in range(193):
     if BASE <= Ix < BASE + 0x600000 and BASE <= e.u32(Ix) < BASE + 0x600000:
         img_classes[e.cstr(e.u32(Ix), 120).decode('latin1')] = Cx
 def in_heap_or_img(p): return (BASE <= p < BASE + 0x600000) or (0x2000000 <= p < 0x3800000)
+def chain_has(c, target, depth=0):
+    """클래스 c 의 슈퍼 체인에 target 이 있는가 (c 자신 제외)"""
+    while c and depth < 16:
+        sup = e.u32(e.u32(c + 8) + 8)
+        if not (sup and not (sup & 1) and in_heap_or_img(sup)): return False
+        if sup == target: return True
+        c = sup; depth += 1
+    return False
 def propagate(hostC, vidx, M):
-    for nm, Cx in img_classes.items():
-        c = Cx; depth = 0
-        while c and depth < 16:
-            if c == hostC and Cx != hostC:
-                vt = e.u32(Cx + 0xc)
-                if vt: e.w32(vt + 4 * vidx, M)
-                break
-            sup = e.u32(e.u32(c + 8) + 8)
-            c = sup if (sup and not (sup & 1) and in_heap_or_img(sup)) else 0
-            depth += 1
+    is_obj = (hostC == hclasses.get('java/lang/Object') and hclasses['java/lang/Object'].C)
+    targets = [hostC] + [Cx for Cx in img_classes.values()] + [h.C for h in hclasses.values()]
+    for Cx in targets:
+        if Cx == hostC or is_obj or chain_has(Cx, hostC):
+            vt = e.u32(Cx + 0xc)
+            if vt: e.w32(vt + 4 * vidx, M)
 class HClass:
-    def __init__(self, name, vt=64, size=0):
+    def __init__(self, name, vt=128, size=0):
         self.name = name; self.methods = {}; self.reserved = set()
         self.C = e.alloc_low(0x40); self.I = e.alloc_low(0x40)
         nm = e.alloc_low(len(name) + 1); e.mu.mem_write(nm, name.encode() + b'\0')
@@ -68,8 +72,8 @@ class HClass:
             e.impl[hn] = make_caller(ik, key)
             if ')' in key: RETT[hn] = key[key.index(')') + 1]
             if vidx is None:
-                while self.nextv in self.reserved: self.nextv += 1
-                vidx = self.nextv; self.nextv += 1
+                vidx = VIDX[0]; VIDX[0] += 1
+                if VIDX[0] >= 128: raise RuntimeError('host vtable overflow')
             hid = 0x100 + len(NAT); NAT[hid] = (ik, key); e.w32(M + 8, hid)
             e.w32(M, fn); e.w32(M + 4, self.C); e.w32(M + 0xc, nameptr)
             e.mu.mem_write(M + 0x14, struct.pack('<HH', vidx, 1)); self.methods[key] = M; e.w32(self.vtab + 4 * vidx, M)
@@ -77,11 +81,15 @@ class HClass:
         return self.methods[key]
 NAT = {}
 resbuf = None
+HOST_SIZE = {'org/kwis/msp/lwc/TextComponent': 12, 'org/kwis/msp/lwc/TextFieldComponent': 12, 'org/kwis/msp/lwc/Component': 12}
+FIELD_OFFS = {'org/kwis/msp/lwc/TextComponent': {'imHandler': 0, 'm_cPos': 4, 'm_td': 8}}
+VIDX = [19]                                   # 호스트 vtable 슬롯 전역 카운터(0~18 은 Object/Jlet 예약)
+SUPER = {'org/kwis/msp/lwc/TextFieldComponent': 'org/kwis/msp/lwc/TextComponent', 'org/kwis/msp/lwc/TextComponent': 'org/kwis/msp/lwc/Component'}
 hclasses = {}
 def hclass(name):
     if name not in hclasses:
         if name == 'org/kwis/msp/lcdui/Jlet':
-            hc = HClass(name); hc.reserved = set(range(0, 19)); hc.nextv = 19; hclasses[name] = hc
+            hc = HClass(name); hclasses[name] = hc
             seoul_I = e.u32(BASE + 0xac804 + 8)
             for k in range(19):
                 M = e.alloc_low(0x20); e.w32(M, e.host('M:Jlet.vt%d' % k)); e.w32(M + 4, hc.C)
@@ -89,7 +97,9 @@ def hclass(name):
                 else:
                     nmp = e.alloc_low(16); e.mu.mem_write(nmp, b'Z()V+vt%d\0' % k); e.w32(M + 0xc, nmp)
                 e.mu.mem_write(M + 0x14, struct.pack('<HH', k, 1)); e.w32(hc.vtab + 4 * k, M)
-        else: hclasses[name] = HClass(name)
+        else:
+            hc = HClass(name, size=HOST_SIZE.get(name, 0)); hclasses[name] = hc
+            if name in SUPER: e.w32(hc.I + 8, hclass(SUPER[name]).C)
     return hclasses[name]
 def classfor(name): return img_classes[name] if name in img_classes else hclass(name).C
 
@@ -185,7 +195,8 @@ def jb_resolve(e, a, s):
     nameptr = e.u32(STRTAB + 4 * (w >> 16)); key = mem[1:].decode('latin1')
     if cb == BASE + 0x7b469:
         F = e.alloc_low(0x20); n = fcount.get(cname, 0); fcount[cname] = n + 1
-        e.w32(F + 0xc, 4 * n); e.w32(F + 4, classfor(cname)); e.w32(slot, F); return 0
+        fname = key.split('+')[-1]; off = FIELD_OFFS.get(cname, {}).get(fname, 4 * n)
+        e.w32(F + 0xc, off); e.w32(F + 4, classfor(cname)); e.w32(slot, F); print('  resolve FIELD %s :: %s off=%d' % (cname, key, 4 * n)); return 0
     M = hclass(cname).method(nameptr, key); e.w32(slot, M)
     if e.verbose and (cname + '::' + key) not in IMPL: print('  resolve(미구현) %s :: %s' % (cname, key))
     return 0
@@ -306,7 +317,10 @@ e.impl['env[11]'] = lambda e, a, s: e.alloc(a[0])
 scratch = e.alloc(256)
 root = e.alloc(64); l2 = e.alloc(64); l3 = e.alloc(256); e.w32(root, l2); e.w32(l2, l3)
 r = e.run(BASE + 0x7b1ec, [scratch, root, 0, primtab], [env]); assert r == 0
-r = e.run(BASE + 0x7b02c, [0, 0, 0, 0]); assert r == 0, hex(r)
+r = e.run(BASE + 0x7b02c, [0, 0, 0, 0])
+if r != 0:
+    print('LOAD returned', hex(r), 'threw', e.threw, 'calls', e.calls.most_common(5)); print('recent', list(LOG)[-5:])
+    import sys; sys.exit(1)
 
 # ================================================================== 자바 라이브러리
 def res(name):
@@ -694,6 +708,44 @@ def _clipget(i, dflt):
 IMPL[G + '::()I+getClipX'] = _clipget(0, 0); IMPL[G + '::()I+getClipY'] = _clipget(1, 0)
 IMPL[G + '::()I+getClipWidth'] = _clipget(2, SCREEN_W); IMPL[G + '::()I+getClipHeight'] = _clipget(3, SCREEN_H)
 
+# --- lwc: Component / TextComponent / TextFieldComponent (이름 입력창) — 최소 구현
+LC = 'org/kwis/msp/lwc/Component'; TC = 'org/kwis/msp/lwc/TextComponent'; TF = 'org/kwis/msp/lwc/TextFieldComponent'
+for n in ('()V+<init>', '()V+repaint', '(IIII)V+repaint', '()V+serviceRepaints', '()V+invalidate', '()V+validate', '()V+setFocus',
+          '(I)V+setBackground', '(I)V+setForeground', '(I)V+calcPreferredSize', '(Lorg/kwis/msp/lwc/EventListener;Ljava/lang/Object;)V+setEventListener'):
+    IMPL[LC + '::' + n] = lambda this, *a: None
+for n, v in (('()I+getBackground', 0xffffff), ('()I+getForeground', 0), ('()I+getX', 0), ('()I+getY', 0), ('()I+getWidth', 100), ('()I+getHeight', 16),
+             ('()I+getXOnScreen', 0), ('()I+getYOnScreen', 0), ('()Z+hasFocus', 1), ('()Z+isShown', 1), ('()Z+isValid', 1), ('()Z+canHandleInput', 1)):
+    IMPL[LC + '::' + n] = (lambda v: lambda this: v)(v)
+def init_text_fields(this, maxlen):
+    body = e.u32(this); ims = single('org/kwis/msp/lcdui/InputMethodHandler')
+    e.w32(body + 4 + 0, ims); e.w32(body + 4 + 4, 0)
+    maxlen = maxlen if 0 <= maxlen <= 256 else 32
+    e.w32(body + 4 + 8, new_array(classfor('[C'), maxlen + 8, 2))
+@impl(TF, '(Ljava/lang/String;I)V+<init>')
+def _(this, text, maxlen): ST[this] = {'text': pystr(text) or '', 'max': maxlen, 'caret': 0}; init_text_fields(this, maxlen)
+@impl(TC, '(I)V+<init>')
+def _(this, maxlen): ST[this] = {'text': '', 'max': maxlen, 'caret': 0}; init_text_fields(this, maxlen)
+@impl(TF, '(Ljava/lang/String;)V+setString')
+def _(this, t): ST[this]['text'] = pystr(t) or ''
+@impl(TC, '(Ljava/lang/String;I)V+setString')
+def _(this, t, n): ST.setdefault(this, {'text': '', 'max': 0, 'caret': 0})['text'] = pystr(t) or ''
+@impl(TC, '()Ljava/lang/String;+getString')
+def _(this): return jstr(ST.get(this, {}).get('text', ''))
+@impl(TC, '()I+getMaxLength')
+def _(this): return ST.get(this, {}).get('max', 0)
+@impl(TC, '(I)V+setMaxLength')
+def _(this, n): ST.setdefault(this, {'text': '', 'max': 0, 'caret': 0})['max'] = n
+for n in ('(I)V+setConstraint', '(Lorg/kwis/msp/lcdui/Font;)V+setFont', '()V+calcViewPortArea', '(Z)V+showNotify', '(I)V+modeSetting'):
+    IMPL[TC + '::' + n] = lambda this, *a: None
+for n in ('()V+controlPopup', '(III)V+controlCursor', '(IIIII)V+configure', '(Lorg/kwis/msp/lcdui/Graphics;)V+paintContent', '(Z)V+focusNotify', '(II)V+delete', '([CIII)V+insert'):
+    IMPL[TF + '::' + n] = lambda this, *a: None
+IMPL[TF + '::()I+getPreferredWidth'] = lambda this: 100
+IMPL[TF + '::()I+getPreferredHeight'] = lambda this: 16
+IMPL[TF + '::(I)I+getPreferredHeight'] = lambda this, w: 16
+IMPL[TF + '::(II)Z+keyNotify'] = lambda this, t, k: 0
+IMPL['org/kwis/msp/lcdui/InputMethodHandler::(I)Z+setCurrentMode'] = lambda *a: 1
+STATIC.add('org/kwis/msp/lcdui/InputMethodHandler::(I)Z+setCurrentMode')
+
 # ================================================================== 실행
 def find_code(h, suffix):
     C = cls_of(h); vt = e.u32(C + 0xc); n = struct.unpack('<H', bytes(e.mu.mem_read(C + 0x10, 2)))[0]
@@ -725,7 +777,8 @@ def run_slice(t, count=None):
     else:
         e.mu.context_restore(t.ctx); pc = e.mu.reg_read(UC_ARM_REG_PC); pc |= 1 if (e.mu.reg_read(UC_ARM_REG_CPSR) & 0x20) else 0
     try: e.mu.emu_start(pc, RET, count=count)
-    except Exception as ex: print('  thread EXC', ex); t.done = True; cur_thread[0] = None; return
+    except Exception as ex:
+        print('  thread EXC', ex); print('  recent host calls:'); [print('    ', x) for x in list(LOG)[-10:]]; t.done = True; cur_thread[0] = None; return
     if e.mu.reg_read(UC_ARM_REG_PC) == RET or e.threw: t.done = True
     else:
         t.ctx = e.mu.context_save()

@@ -74,7 +74,12 @@ class Emu:
         self.setr(0, ret or 0)
     def _unmapped(self, uc, access, addr, size, val, ud):
         pc = uc.reg_read(UC_ARM_REG_PC)
-        print('!! unmapped access %d at %#x pc=%#x (file %#x)' % (access, addr, pc, pc - BASE)); return False
+        print('!! unmapped access %d at %#x pc=%#x (file %#x)' % (access, addr, pc, pc - BASE))
+        print('   regs', ' '.join('r%d=%#x' % (i, uc.reg_read(UC_ARM_REG_R0 + i)) for i in range(8)), 'lr=%#x sp=%#x' % (uc.reg_read(UC_ARM_REG_LR), uc.reg_read(UC_ARM_REG_SP)))
+        sp = uc.reg_read(UC_ARM_REG_SP); bt = [self.u32(sp + 4 * i) for i in range(0, 160)]
+        bts = ['%#x' % (v - BASE - 1) for v in bt if BASE + 0x100 < v < BASE + 0x82700 and v & 1]
+        print('   backtrace:', ' '.join(bts[:12]))
+        return False
     def iface(self, name, nslots=64):
         base = self.alloc(4 * nslots)
         for i in range(nslots): self.w32(base + 4 * i, self.host('%s[%d]' % (name, i)))

@@ -1,0 +1,16 @@
+name: build-exe
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: python -m pip install pyinstaller lxml
+      - run: python -m PyInstaller -F -w --name HwpFormGenerator --add-data "templates;templates" --hidden-import lxml.etree app.py
+      - uses: actions/upload-artifact@v4
+        with: { name: HwpFormGenerator, path: dist/HwpFormGenerator.exe }

@@ -163,6 +163,21 @@ public class GameView extends View {
     }
     void buzz() { performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY); }
     boolean isArrow(int c) { return c == UP || c == DOWN || c == LEFT || c == RIGHT; }
+    /** 키 열을 90ms 간격으로 순서대로 눌렀다 뗀다 */
+    void playSeq(final int[] seq) {
+        for (int i = 0; i < seq.length; i++) {
+            final int c = seq[i]; final long t = 90L * i;
+            ui.postDelayed(new Runnable() { public void run() { key(c, true); } }, t);
+            ui.postDelayed(new Runnable() { public void run() { key(c, false); } }, t + 45);
+        }
+    }
+    boolean navTap(float x, float y) {                       // 화면 터치 → 메뉴 항목 직접 선택
+        if (!game.contains(x, y)) return false;
+        float gx = (x - game.left) / game.width() * 176f, gy = (y - game.top) / game.height() * 224f;
+        int[] seq = TouchNav.tap(gx, gy);
+        if (seq == null) return false;
+        playSeq(seq); return true;
+    }
     void tapKey(final int code) { key(code, true); ui.postDelayed(new Runnable() { public void run() { key(code, false); } }, 40); }
 
     /** 4방향 + 히스테리시스: 현재 방향 축을 쉽게 바꾸지 않아 대각선 근처에서 떨리지 않음 */
@@ -245,7 +260,7 @@ public class GameView extends View {
         } else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_POINTER_UP || a == MotionEvent.ACTION_CANCEL) {
             if (id == joyPtr) { joyEnd(); invalidate(); }
             else if (id == gesturePtr) {
-                if (a != MotionEvent.ACTION_CANCEL && !gmoved && !glong && !gtwo) { tapKey(OK); buzz(); }   // 탭 = 확인
+                if (a != MotionEvent.ACTION_CANCEL && !gmoved && !glong && !gtwo) { if (!navTap(e.getX(idx), e.getY(idx))) tapKey(OK); buzz(); }   // 탭 = 항목 직접 선택, 아니면 확인
                 gesturePtr = -1;
             } else if (id < ptrBtn.length && ptrBtn[id] >= 0) releaseBtn(id);
             if (a == MotionEvent.ACTION_CANCEL) { for (int k = 0; k < ptrBtn.length; k++) releaseBtn(k); joyEnd(); }

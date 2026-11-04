@@ -25,6 +25,10 @@ public class Runner {
                 case "wait": Thread.sleep(Long.parseLong(p[1])); break;
                 case "key": Display.current.keyPressed(Integer.parseInt(p[1])); Thread.sleep(80); Display.current.keyReleased(Integer.parseInt(p[1])); break;
                 case "shot": shot(dir, p[1]); break;
+                case "cls": { Class<?> k0 = Display.current.getClass(); java.lang.reflect.Field f = null; while (k0 != null && f == null) { try { f = k0.getDeclaredField("a"); } catch (NoSuchFieldException ex) { k0 = k0.getSuperclass(); } } f.setAccessible(true); Object sc = f.get(Display.current);
+                    StringBuilder sb = new StringBuilder(sc.getClass().getName());
+                    for (java.lang.reflect.Field g : sc.getClass().getDeclaredFields()) { g.setAccessible(true); if (g.getType() == int.class) sb.append(" ").append(g.getName()).append("=").append(g.get(sc)); }
+                    System.out.println("SCREEN " + sb); break; }
             }
         }
         System.exit(0);

@@ -222,3 +222,39 @@ def serialize_fragment(el):
     # 루트에 붙은 네임스페이스 선언은 지운다 (parse_fragment 가 다시 붙여 줌)
     s = re.sub(r'\sxmlns:\w+="[^"]+"', "", s)
     return s
+
+
+def derive_charpr(pkg, cid, bold=None, shade_none=False):
+    """글자 모양 cid 를 바탕으로 굵게 켜기/끄기(·바탕색 제거)만 다른 새 글자 모양을 header.xml 에 더하고 번호를 돌려준다."""
+    hdr = pkg.header()
+    props = next(hdr.iter(HH + "charProperties"))
+    items = props.findall(HH + "charPr")
+    src = next(c for c in items if c.get("id") == cid)
+    has_bold = src.find(HH + "bold") is not None
+    need_shade = shade_none and src.get("shadeColor") not in (None, "none")
+    if (bold is None or bold == has_bold) and not need_shade:
+        return cid
+    for c in items:                                   # 이미 같은 파생이 있으면 재사용
+        if c.get("_src") == cid and (c.find(HH + "bold") is not None) == (has_bold if bold is None else bold):
+            return c.get("id")
+    new = clone(src)
+    nid = str(max(int(c.get("id")) for c in items) + 1)
+    new.set("id", nid)
+    if shade_none:
+        new.set("shadeColor", "none")
+    b = new.find(HH + "bold")
+    if bold is False and b is not None:
+        new.remove(b)
+    if bold is True and b is None:
+        new.insert(0, etree.Element(HH + "bold"))
+        # bold 는 fontRef/ratio/spacing/relSz/offset 뒤, underline 앞이 원칙이지만 한글은 자식 순서를 관대하게 읽는다
+        new.remove(new[0])
+        ul = new.find(HH + "underline")
+        el = etree.Element(HH + "bold")
+        if ul is not None:
+            ul.addprevious(el)
+        else:
+            new.append(el)
+    props.append(new)
+    props.set("itemCnt", str(len(props.findall(HH + "charPr"))))
+    return nid

@@ -222,6 +222,26 @@ def _tc_info(tc):
     return int(a.get("colAddr")), int(a.get("rowAddr")), int(s.get("colSpan")), int(s.get("rowSpan"))
 
 
+def _plain_charpr(pkg, cid):
+    """글자 모양 cid 에서 노랑 바탕(shade)과 굵게만 뺀 새 글자 모양을 header.xml 에 더하고 번호를 돌려준다."""
+    from .package import HH
+    hdr = pkg.header()
+    props = next(hdr.iter(HH + "charProperties"))
+    src = next(c for c in props.findall(HH + "charPr") if c.get("id") == cid)
+    if src.get("shadeColor") in (None, "none") and src.find(HH + "bold") is None:
+        return cid
+    new = clone(src)
+    nid = str(max(int(c.get("id")) for c in props.findall(HH + "charPr")) + 1)
+    new.set("id", nid)
+    new.set("shadeColor", "none")
+    b = new.find(HH + "bold")
+    if b is not None:
+        new.remove(b)
+    props.append(new)
+    props.set("itemCnt", str(len(props.findall(HH + "charPr"))))
+    return nid
+
+
 def register_schedule(sample_path, out_dir, org_sample="문화교육국"):
     pkg = Package.load(sample_path)
     sec = pkg.section(0)
@@ -279,10 +299,8 @@ def register_schedule(sample_path, out_dir, org_sample="문화교육국"):
     if not sat:
         raise ValueError("토요일 묶음이 있어야 주말 글자색 견본을 만들 수 있어요")
     sat_tcs = sat[0].findall(HP + "tc")[1:]
-    # 보통 줄: 토요일 묶음의 둘째 줄(검정 글자), 없으면 화요일 줄
-    plain_row = sat[1] if len(sat) > 1 else ref[1]
-    plain_tcs = plain_row.findall(HP + "tc")
-    styles = {"normal": plain_tcs, "important": first_tcs, "weekend": sat_tcs}
+    # 글 모양 견본: important(노랑 강조) / weekend(빨강) / normal(강조에서 노랑 바탕만 뺀 것: 샘플에 강조 없는 평일 줄이 없어서)
+    styles = {"important": first_tcs, "weekend": sat_tcs}
     for name_, tcs in styles.items():
         e = etree.SubElement(protos, "style", name=name_)
         for tc in tcs:
@@ -292,6 +310,18 @@ def register_schedule(sample_path, out_dir, org_sample="문화교육국"):
                 for t in p.iter(HP + "t"):
                     t.text = ""
                 c.append(p)
+    normal = etree.SubElement(protos, "style", name="normal")
+    cache = {}
+    for c in protos.find("style[@name='important']").findall("cell"):
+        nc = etree.SubElement(normal, "cell")
+        for p in c:
+            q = clone(p)
+            for run in q.iter(HP + "run"):
+                cid = run.get("charPrIDRef")
+                if cid not in cache:
+                    cache[cid] = _plain_charpr(pkg, cid)
+                run.set("charPrIDRef", cache[cid])
+            nc.append(q)
     # 날짜 칸(요일별)
     for d, g in by_day.items():
         tc = clone(g[0].findall(HP + "tc")[0])

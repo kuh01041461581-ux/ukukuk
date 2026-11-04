@@ -127,6 +127,13 @@ def _kv_roles(p):
             "gap": gap_cp or label_cp, "value": value_cp}
 
 
+def _kv_label(p):
+    s = own_text(p)
+    m = re.match(r"^\s*[%s]\s*\(([^()]+)\)" % re.escape(T.BULLETS), s) or \
+        re.match(r"^\s*[%s]\s*([^:：]+?)\s*[:：]" % re.escape(T.BULLETS), s)
+    return re.sub(r"\s", "", m.group(1)) if m else None
+
+
 def _prefix_of(p):
     s = own_text(p)
     m = re.match(r"^(\s*[%s])" % re.escape(T.BULLETS + "-－–"), s)
@@ -145,19 +152,42 @@ def _row_info(tr):
     return cells, spans, simple
 
 
+def dominant_cp(tc):
+    """칸 안에서 글자가 가장 많은 조각의 글자 모양 번호 ('[발표 1]' 같은 짧은 굵은 태그보다 본 글자를 따른다)"""
+    best, best_len = None, 0
+    for run in tc.iter(HP + "run"):
+        n = len("".join(t.text or "" for t in run.findall(HP + "t")).strip())
+        if n > best_len:
+            best, best_len = run.get("charPrIDRef"), n
+    return best
+
+
+def _row_cps(tr):
+    return [dominant_cp(tc) for tc in tr.findall(HP + "tc")]
+
+
 def extract_table_protos(tbl):
-    """표 하나에서 '행 견본'을 뽑는다. 병합 모양(칸 수·합친 칸)별로 처음/중간/끝 줄을 따로 둔다."""
+    """표 하나에서 '행 견본'을 뽑는다. 병합 모양(칸 수·합친 칸)별로 처음/중간/끝 줄을 따로 둔다.
+    중간 줄은 같은 모양끼리 '가장 흔한 글자 모양'을 가진 줄을 골라, 줄마다 손으로 자간을 조정한 줄이 견본이 되지 않게 한다."""
     col_cnt = int(tbl.get("colCnt"))
-    rows = tbl.findall(HP + "tr")
-    res = {"cols": col_cnt, "rows": []}
-    n = len(rows)
-    for i, tr in enumerate(rows):
+    trs = tbl.findall(HP + "tr")
+    n = len(trs)
+    cand = []
+    for i, tr in enumerate(trs):
         cells, spans, simple = _row_info(tr)
         if not simple or sum(spans) != col_cnt:
             continue
         kind = "first" if i == 0 else "last" if i == n - 1 else "mid"
-        res["rows"].append({"kind": kind, "spans": spans, "tr": tr})
-    return res
+        cand.append({"i": i, "kind": kind, "spans": spans, "tr": tr, "cps": tuple(_row_cps(tr))})
+    mids = collections.defaultdict(list)
+    keep = []
+    for row in cand:
+        (mids[tuple(row["spans"])] if row["kind"] == "mid" else keep).append(row)
+    for group in mids.values():
+        common = collections.Counter(x["cps"] for x in group).most_common(1)[0][0]
+        keep.append(next(x for x in group if x["cps"] == common))
+    keep.sort(key=lambda x: x["i"])
+    return {"cols": col_cnt, "rows": keep}
 
 
 # ------------------------------------------------------------------ 등록
@@ -269,6 +299,12 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
         for key in ("label", "bullet", "gap", "value"):
             style["kv"][key] = collections.Counter(r[key] for r in roles_list).most_common(1)[0][0]
         style["item1_prefix"] = _prefix_of(kinds["kv"][0]) or style["item1_prefix"]
+        by = collections.defaultdict(list)       # 항목 이름별 값 글자 모양 (예: 일시·진행방식만 굵게 밑줄)
+        for p in kinds["kv"]:
+            ro, lab = _kv_roles(p), _kv_label(p)
+            if ro and lab:
+                by[lab].append(ro["value"])
+        style["kv"]["by_label"] = {k: collections.Counter(v).most_common(1)[0][0] for k, v in by.items()}
     if kinds.get("item1"):
         style["item1_prefix"] = _prefix_of(kinds["item1"][0]) or style["item1_prefix"]
     if kinds.get("item2"):
@@ -283,6 +319,8 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
         raise ValueError("□ 제목 줄 모양을 찾지 못했어요")
 
     # 2) 표 견본
+    from .package import HH
+    bold_ids = {c.get("id") for c in pkg.header().iter(HH + "charPr") if c.find(HH + "bold") is not None}
     tables = []
     for p in kinds.get("table", []):
         for run in p.findall(HP + "run"):
@@ -338,7 +376,6 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
     leftover = [t for _, t in frame_texts(section, None) if BODY_MARK not in t and "{{" not in t]
 
     os.makedirs(out_dir, exist_ok=True)
-    pkg.save(os.path.join(out_dir, "template.hwpx"))
     proto_root = etree.Element("protos")
     for k, p in protos.items():
         e = etree.SubElement(proto_root, "proto", name=k)
@@ -351,10 +388,21 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
             re_ = etree.SubElement(te, "row", kind=r["kind"], spans=",".join(map(str, r["spans"])))
             tr = clone(r["tr"])
             P.strip_lineseg(tr)
+            tcs_ = tr.findall(HP + "tc")
+            for tc in tcs_:                                   # 샘플의 글자(이름 등)는 남기지 않고 글자 모양만 보관
+                first_cp = next((x.get("charPrIDRef") for x in tc.iter(HP + "run")
+                                 if "".join(t.text or "" for t in x.findall(HP + "t")).strip()), None)
+                # 줄 전체를 합친 칸(등록 및 개회 같은 구분 줄)은 맨 앞 글자 모양, 그 밖엔 글자가 가장 많은 조각의 모양
+                dcp = first_cp if len(tcs_) == 1 else dominant_cp(tc)
+                tc.set("dcp", dcp or "")
+                tc.set("bcp", P.derive_charpr(pkg, dcp, bold=True) if dcp else "")    # 굵게 = 본 글자 모양에서 굵기만 켠 것
+                for t in tc.iter(HP + "t"):
+                    t.text = ""
             re_.append(tr)
     xml = etree.tostring(proto_root, encoding="unicode")
     with open(os.path.join(out_dir, "protos.xml"), "w", encoding="utf-8") as f:
         f.write(xml)
+    pkg.save(os.path.join(out_dir, "template.hwpx"))          # 표 견본이 만든 파생 글자 모양까지 담아 저장
 
     form = {
         "id": form_id, "name": name, "audience": audience, "kind": kind, "note": note,
@@ -466,11 +514,12 @@ class ReportForm:
         if not kv:
             return self._par("item1", [(self._first_cp("item1"), "%s %s : %s" % (bullet, T.pad_label(label), value))])
         lab = T.pad_label(label)
+        vcp = kv.get("by_label", {}).get(re.sub(r"\s", "", label), kv["value"])
         if kv["fmt"] == "paren":
             specs = [(kv["bullet"], bullet), (kv["gap"], " "), (kv["label"], "(%s)" % lab), (kv["gap"], " "),
-                     (kv["value"], value)]
+                     (vcp, value)]
         else:
-            specs = [(kv["bullet"], bullet), (kv["label"], " %s " % lab), (kv["value"], ": %s" % value)]
+            specs = [(kv["bullet"], bullet), (kv["label"], " %s " % lab), (vcp, ": %s" % value)]
         return self._par("kv", specs)
 
     def _item(self, kind, text):
@@ -539,21 +588,21 @@ class ReportForm:
         for extra in ps[1:]:
             sub.remove(extra)
         run = first.find(HP + "run")
-        cp = run.get("charPrIDRef") if run is not None else "0"
-        for r in first.findall(HP + "run"):
-            for t in r.findall(HP + "t"):
-                if (t.text or "").strip():
-                    cp = r.get("charPrIDRef")
-                    break
-            else:
-                continue
-            break
+        cp = tc.get("dcp") or (run.get("charPrIDRef") if run is not None else "0")
         lines = re.split(r"<br\s*/?>|\\n", text) if text else [""]
-        P.set_par_runs(first, [(cp, lines[0])])
+        bcp = tc.get("bcp") or cp
+
+        def specs(line):
+            out = []
+            for k, seg in enumerate(re.split(r"\*\*", line)):
+                if seg:
+                    out.append((bcp if k % 2 else cp, seg))
+            return out or [(cp, "")]
+        P.set_par_runs(first, specs(lines[0]))
         prev = first
         for ln in lines[1:]:
             q = clone(first)
-            P.set_par_runs(q, [(cp, ln)])
+            P.set_par_runs(q, specs(ln))
             prev.addnext(q)
             prev = q
 

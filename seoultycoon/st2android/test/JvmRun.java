@@ -28,7 +28,7 @@ public class JvmRun {
         for (int r = 1; r <= rounds; r++) {
             if (keys.containsKey(r)) H.postKey(keys.get(r)[0], keys.get(r)[1]);
             H.tick(50);
-            if (r % Math.max(1, rounds / 10) == 0 || keys.containsKey(r - 3)) {
+            if (r % Math.max(1, rounds / 10) == 0 || keys.containsKey(r - 3) || (System.getenv("SHOT") != null && r % Integer.parseInt(System.getenv("SHOT")) == 0)) {
                 BufferedImage im = new BufferedImage(240, 320, BufferedImage.TYPE_INT_ARGB); im.setRGB(0, 0, 240, 296, H.screen.px, 0, H.screen.w); ImageIO.write(im, "png", out.resolve("f" + r + ".png").toFile()); }
         }
         if (System.getenv("SCAN") != null) { int v = Integer.parseInt(System.getenv("SCAN")); for (int aa = 0x50000000; aa < H.hiEnd(); aa += 4) if (H.vm.r32(aa) == v) { StringBuilder sb = new StringBuilder("SCAN " + Integer.toHexString(aa) + ":"); for (int k = -8; k <= 8; k++) sb.append(" ").append(H.vm.r32(aa + 4 * k)); System.out.println(sb); } }

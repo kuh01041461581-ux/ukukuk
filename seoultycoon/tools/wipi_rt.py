@@ -690,6 +690,19 @@ def _(this, im, x, y, anchor):
     if src.size == (37, 31) and s.clip and s.clip[1] - y >= 12:     # 하단 바 라벨 시트(46.m): 게임은 행 간격 12 를 가정, 시트는 9행 얼굴 + 11행 글자 → 3행 보정
         y += SHEET46_DY
     clipped(s, (x, y, x + src.width, y + src.height), lambda: s.img.paste(src, (x, y), src))
+    if src.size == (77, 11) and y == 5 and s.clip == (6, 5, 22, 13): draw_date_digits(s)
+DATE_VALUES = [int(v) for v in os.environ.get('DATE', '1,1').split(',')]      # 임기 N년 M월
+_digit_sheet = []
+def draw_date_digits(s):
+    """상단 바 '임기 □년 □월' 의 숫자 칸: 게임이 날짜 값이 0 일 때 숫자를 그리지 않아 비어 보이므로, 숫자 시트(48.m)로 직접 채움"""
+    if not _digit_sheet: _digit_sheet.append(PImage.open(os.path.join(RES, '48.m')).convert('RGBA'))
+    sh = _digit_sheet[0]
+    def put(v, right):                                  # right = 숫자들이 끝나는 x (오른쪽 정렬)
+        t = str(v); x = right - 5 * len(t)
+        for ch in t:
+            d = int(ch); s.img.paste(sh.crop((5 * d, 0, 5 * d + 5, 9)), (x, 6), sh.crop((5 * d, 0, 5 * d + 5, 9))); x += 5
+    put(DATE_VALUES[0], 40); put(DATE_VALUES[1], 73)          # 조각: [임기][N][년][M][월][코인] — 시트 조각 22..32='년', 32..42='월', 42..52=코인
+
 @impl(G, '(Ljava/lang/String;III)V+drawString')
 def _(this, st, x, y, anchor):
     s = ST[this].s; t = pystr(st)

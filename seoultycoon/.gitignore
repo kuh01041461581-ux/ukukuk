@@ -1,3 +1,5 @@
 harness/out/
-work/st2/
+work/
 android/build/
+__pycache__/
+*.idsig

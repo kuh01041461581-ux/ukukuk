@@ -31,6 +31,7 @@ public class St2View extends View {
     final Paint bp = new Paint(Paint.ANTI_ALIAS_FLAG), tp = new Paint(Paint.ANTI_ALIAS_FLAG), sp = new Paint(Paint.ANTI_ALIAS_FLAG), gp = new Paint();
     final RectF game = new RectF(), pad = new RectF(), gear = new RectF();
     final Rect src = new Rect(0, 0, 240, 296);
+    public volatile String err; public volatile int frames;
     public Host game_host; public android.graphics.Bitmap lcd;
     final Handler ui = new Handler(Looper.getMainLooper());
     final int[] ptrBtn = new int[16];
@@ -151,6 +152,11 @@ public class St2View extends View {
                 float old = tp.getTextSize(), ts = (b.label.length() >= 2 && !b.circle) ? old * 0.62f : old;
                 tp.setTextSize(ts); cv.drawText(b.label, b.r.centerX(), cy + ts * 0.35f, tp); tp.setTextSize(old);
             }
+        }
+        if (err != null || frames == 0) {
+            Paint ep = new Paint(Paint.ANTI_ALIAS_FLAG); ep.setColor(0xFFFFB0B0); ep.setTextSize(11 * density);
+            String m = err != null ? "오류:\n" + err : "로딩 중...";
+            float y = game.top + 16 * density; for (String ln : m.split("\n")) { cv.drawText(ln.length() > 70 ? ln.substring(0, 70) : ln, 6 * density, y, ep); y += 13 * density; }
         }
         bp.setStyle(Paint.Style.FILL); bp.setColor(0x66000000); cv.drawRoundRect(gear, 14, 14, bp);   // 설정 버튼
         float old = tp.getTextSize(); tp.setColor(0xCCFFFFFF); tp.setTextSize(13 * density);

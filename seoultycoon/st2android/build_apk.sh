@@ -1,6 +1,7 @@
 #!/bin/bash
 # 서울타이쿤2 안드로이드 APK 빌드 (apt: aapt apksigner dalvik-exchange zipalign libandroid-23-java; 사전: tools/setup_work.sh 로 work/st2 준비)
 set -e
+set -o pipefail
 cd "$(dirname "$0")"
 OUT=build; rm -rf $OUT; mkdir -p $OUT/classes $OUT/stage/assets/st2
 AJ=/usr/lib/android-sdk/platforms/android-23/android.jar

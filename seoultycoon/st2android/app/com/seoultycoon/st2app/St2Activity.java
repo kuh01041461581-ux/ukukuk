@@ -43,7 +43,7 @@ public class St2Activity extends Activity implements St2View.Opener {
 
     void start(final String name) {
         running = true;
-        loop = new Thread(new Runnable() { public void run() {
+        loop = new Thread(null, new Runnable() { public void run() {
             try {
                 InputStream in = getAssets().open("st2/client.bin1116"); byte[] img = AndroidPlatform.all(in);
                 host = new Host(pf, img); host.defaultName = name; view.game_host = host;
@@ -52,11 +52,18 @@ public class St2Activity extends Activity implements St2View.Opener {
                 while (running) {
                     long t0 = System.nanoTime(); int dt = (int) Math.min(100, (t0 - last) / 1000000); last = t0;
                     host.tick(Math.max(20, dt));
-                    Surf s = host.screen; synchronized (lcd) { lcd.setPixels(s.px, 0, 240, 0, 0, 240, 296); }
+                    Surf s = host.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; synchronized (lcd) { lcd.setPixels(px, 0, 240, 0, 0, 240, 296); }
+                    view.frames++;
                     long el = (System.nanoTime() - t0) / 1000000; if (el < 33) Thread.sleep(33 - el);
                 }
-            } catch (Throwable t) { android.util.Log.e("st2", "fatal", t); }
-        } }, "st2-game");
+            } catch (Throwable t) {
+                android.util.Log.e("st2", "fatal", t);
+                java.io.StringWriter sw = new java.io.StringWriter(); t.printStackTrace(new java.io.PrintWriter(sw));
+                String m = sw.toString(); if (m.length() > 900) m = m.substring(0, 900);
+                view.err = m; view.postInvalidate();
+                try { pf.writeFile("error.txt", m.getBytes("UTF-8")); } catch (Exception e) { }
+            }
+        } }, "st2-game", 256L * 1024 * 1024);
         loop.start();
     }
 

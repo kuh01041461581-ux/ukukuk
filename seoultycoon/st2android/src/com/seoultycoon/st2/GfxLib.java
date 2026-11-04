@@ -58,7 +58,8 @@ final class GfxLib {
             int im = (int) a[0]; if (im == 0 || !(H.st.get(im) instanceof Surf)) return 0;
             Surf dst = surf(H, t), src = surf(H, im); int x = (int) a[1], y = (int) a[2], anchor = (int) a[3];
             if ((anchor & 1) != 0) x -= src.w / 2; if ((anchor & 8) != 0) x -= src.w; if ((anchor & 2) != 0) y -= src.h / 2; if ((anchor & 32) != 0) y -= src.h;
-            if (H.verbose) H.pf.log("DI src=" + src.w + "x" + src.h + " x=" + x + " y=" + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none") + " anchor=" + anchor);
+            if (H.verbose) H.pf.log("DI src=" + src.w + "x" + src.h + " x=" + x + " y=" + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none") + " anchor=" + anchor + " lr=" + Integer.toHexString(H.vm.r[14] - Host.BASE));
+            if (H.verbose && src.w == 77 && src.h == 11 && y == 5 && dst.cx == 6) { StringBuilder sb = new StringBuilder("STK"); for (int i = 0; i < 48; i++) { int w = H.vm.r32(H.vm.r[13] + 4 * i); if ((w & 1) == 1 && w > Host.BASE && w < Host.BASE + 0x83000) sb.append(' ').append(Integer.toHexString(w - Host.BASE)); } H.pf.log(sb.toString()); }
             if (special(H, dst, src, x, y)) return 0;
             // --- 원본과 시트 간격이 달라 생기는 위치 보정(PC 에뮬레이터와 동일)
             boolean restore = false; int scx = dst.cx, scy = dst.cy, scw = dst.cw, sch = dst.ch;
@@ -104,6 +105,21 @@ final class GfxLib {
         dst.setColor(0xFFFFFF); dst.drawMask(m, dims[0], dims[1], x, y);
         dst.color = sc; dst.hasClip = hc;
     }
+    // 게임의 상태 배열 int[12] = {년, 월, 일, ..., [10]=우상단 표시값, ...} 를 찾아 날짜를 읽는다(게임이 날짜 숫자를 직접 그리지 않기 때문)
+    static int cachedArr = 0;
+    static int[] readDate(Host H, int shown) {
+        int cls = H.classfor("[I");
+        if (cachedArr == 0 || H.vm.r32(cachedArr) != (cls << 5) || H.vm.r32(cachedArr + 4) != 12 || H.vm.r32(cachedArr + 8 + 40) != shown) {
+            cachedArr = 0; int end = H.hiEnd();
+            for (int a = 0x50000000; a < end; a += 4) {
+                if (H.vm.r32(a) != (cls << 5) || H.vm.r32(a + 4) != 12 || H.vm.r32(a + 8 + 40) != shown) continue;
+                int y = H.vm.r32(a + 8), m = H.vm.r32(a + 12), d = H.vm.r32(a + 16);
+                if (y >= 1 && y <= 4 && m >= 1 && m <= 12 && d >= 1 && d <= 31) { cachedArr = a; break; }
+            }
+        }
+        if (cachedArr == 0) return new int[]{1, 1, 1};
+        return new int[]{H.vm.r32(cachedArr + 8), H.vm.r32(cachedArr + 12), H.vm.r32(cachedArr + 16)};
+    }
     static boolean special(Host H, Surf dst, Surf src, int x, int y) {
         if (!dst.hasClip) return false;
         int cx = dst.cx, cy = dst.cy, cw = dst.cw, ch = dst.ch;
@@ -111,8 +127,8 @@ final class GfxLib {
             daysDigit[(cx - 200) / 6] = (cx - x) / 5; return false; }
         if (src.w == 77 && src.h == 11) {
             if (cx == 6 && cy == 5 && cw == 22) {                                                      // "임기 N년 M월 D일" 를 글자 단위로 다시 그림
-                int left = 0, ok = 1; for (int d : daysDigit) { if (d < 0) ok = 0; left = left * 10 + Math.max(d, 0); }
-                int e = ok == 1 && left > 0 && left <= 1460 ? 1460 - left : 0, yr = e / 365 + 1, r = e % 365, mo = Math.min(12, r / 30 + 1), dy = r - (mo - 1) * 30 + 1;
+                int shown = 0, ok = 1; for (int d : daysDigit) { if (d < 0) ok = 0; shown = shown * 10 + Math.max(d, 0); }
+                int[] dt = ok == 1 ? readDate(H, shown) : new int[]{1, 1, 1}; int yr = dt[0], mo = dt[1], dy = dt[2];
                 label(H, dst, "임기 " + yr + "년 " + mo + "월 " + dy + "일", 6, 4); return true; }
             if (y == 5 && (cx == 42 || cx == 75)) return true;                                          // 원본의 어긋난 년·월 조각은 생략
             return false;

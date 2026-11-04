@@ -21,7 +21,7 @@ public class JvmRun {
         };
         Host H = new Host(pf, Files.readAllBytes(Paths.get(a[0])));
         if (System.getenv("VERBOSE") != null) { H.setVerbose(true); H.trace = new java.io.PrintStream(new java.io.FileOutputStream("/tmp/jtrace.txt")); }
-        H.boot(); try { H.startApp(); } catch (Exception e) { for (String x : H.recent) System.out.println(x); throw e; }
+        if (System.getenv("WATCH") != null) H.vmWatch((int) Long.parseLong(System.getenv("WATCH"), 16)); if (System.getenv("WV") != null) H.vmWatchVal(Integer.parseInt(System.getenv("WV"))); H.boot(); try { H.startApp(); } catch (Exception e) { for (String x : H.recent) System.out.println(x); throw e; }
         int rounds = a.length > 4 ? Integer.parseInt(a[4]) : 100;
         java.util.Map<Integer, int[]> keys = new java.util.HashMap<>();
         if (a.length > 5 && !a[5].isEmpty()) for (String k : a[5].split(",")) { String[] p = k.split(":"); keys.put(Integer.parseInt(p[0]), new int[]{Integer.parseInt(p[1]), Integer.parseInt(p[2])}); }
@@ -31,6 +31,9 @@ public class JvmRun {
             if (r % Math.max(1, rounds / 10) == 0 || keys.containsKey(r - 3)) {
                 BufferedImage im = new BufferedImage(240, 320, BufferedImage.TYPE_INT_ARGB); im.setRGB(0, 0, 240, 296, H.screen.px, 0, H.screen.w); ImageIO.write(im, "png", out.resolve("f" + r + ".png").toFile()); }
         }
+        if (System.getenv("SCAN") != null) { int v = Integer.parseInt(System.getenv("SCAN")); for (int aa = 0x50000000; aa < H.hiEnd(); aa += 4) if (H.vm.r32(aa) == v) { StringBuilder sb = new StringBuilder("SCAN " + Integer.toHexString(aa) + ":"); for (int k = -8; k <= 8; k++) sb.append(" ").append(H.vm.r32(aa + 4 * k)); System.out.println(sb); } }
+        if (System.getenv("DUMP") != null) { int base = (int) Long.parseLong(System.getenv("DUMP"), 16); StringBuilder sb = new StringBuilder("DUMP"); for (int k = -16; k < 48; k++) sb.append(' ').append(H.vm.r32(base + 4 * k)); System.out.println(sb); }
+        if (System.getenv("CLS") != null) { int h = (int) Long.parseLong(System.getenv("CLS"), 16); System.out.println("CLS " + H.describe(h)); }
         System.out.println("done");
     }
 }

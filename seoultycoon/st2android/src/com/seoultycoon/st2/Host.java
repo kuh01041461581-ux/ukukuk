@@ -96,7 +96,8 @@ public final class Host {
         else if (verbose) pf.log("[host?] " + h.name + String.format("(%x,%x,%x,%x)", a[0], a[1], a[2], a[3]));
         if (h.ret == 'J' || h.ret == 'D') { vm.r[1] = (int) (v >>> 32); vm.r[0] = (int) v; } else vm.r[0] = (int) v;
     }
-    boolean verbose = false; public void vmWatch(int a) { vm.watch = a; } public void setVerbose(boolean v) { verbose = v; }
+    public String describe(int body) { int C = vm.r32(body) >>> 5; int I = vm.r32(C + 8); StringBuilder sb = new StringBuilder(cstr(vm.r32(I), 60) + " size=" + vm.u16(I + 0x1a) + " nf=" + vm.u16(I + 0x20) + " fields:"); int fa = vm.r32(I + 0x14); for (int i = 0; i < vm.u16(I + 0x20) && i < 40; i++) { int F = vm.r32(fa + 4 * i); sb.append(" [" + i + " off=" + vm.r32(F + 0xc) + "]"); } return sb.toString(); }
+    boolean verbose = false; public int hiEnd() { return hiPtr; } public void vmWatch(int a) { vm.watch = a; } public void vmWatchVal(int v) { vm.watchVal = v; } public void setVerbose(boolean v) { verbose = v; }
     public java.io.PrintStream trace;
     public final ArrayList<String> recent = new ArrayList<>();
     public int dateYear = 1, dateMonth = 1; public String defaultName = "시장";

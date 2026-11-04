@@ -16,7 +16,8 @@ public final class ThumbVm {
     public void map(int base, int size) { for (int a = base >>> 12; a < ((base + size + 4095) >>> 12); a++) if (pg[a] == null) pg[a] = new byte[4096]; }
     byte[] page(int a) { byte[] p = pg[a >>> 12]; if (p == null) throw new IllegalStateException(String.format("unmapped %08x pc=%08x", a, r[15])); return p; }
     public int u8(int a) { return page(a)[a & 4095] & 0xff; }
-    public int watch = -1;
+    String stk() { StringBuilder sb = new StringBuilder(" STK"); for (int i = 0; i < 64; i++) { int w = r32(r[13] + 4 * i); if ((w & 1) == 1 && w > 0x1000000 && w < 0x1083000) sb.append(' ').append(Integer.toHexString(w - 0x1000000)); } return sb.toString(); }
+    public int watch = -1, watchVal = Integer.MIN_VALUE;
     public void w8(int a, int v) { if (watch != -1 && (a & ~3) == watch) { new Throwable("WATCH w8 " + Integer.toHexString(a) + "=" + Integer.toHexString(v) + " pc=" + Integer.toHexString(r[15] - 0x1000000)).printStackTrace(); } page(a)[a & 4095] = (byte) v; }
     public int u16(int a) { return u8(a) | (u8(a + 1) << 8); }
     public void w16(int a, int v) { w8(a, v); w8(a + 1, v >> 8); }
@@ -25,6 +26,7 @@ public final class ThumbVm {
         return u8(a) | (u8(a + 1) << 8) | (u8(a + 2) << 16) | (u8(a + 3) << 24);
     }
     public void w32(int a, int v) {
+        if (v == watchVal && (r[15] - 0x1000000) != 0x7ccc8 + 2 && (r[15] - 0x1000000) != 0x7ccc8) System.out.println("WV a=" + Integer.toHexString(a) + " pc=" + Integer.toHexString(r[15] - 0x1000000) + " lr=" + Integer.toHexString(r[14] - 0x1000000) + stk());
         if (watch != -1 && a == watch) new Throwable("WATCH w32 " + Integer.toHexString(v) + " pc=" + Integer.toHexString(r[15] - 0x1000000)).printStackTrace();
         if ((a & 4095) <= 4092) { byte[] p = page(a); int o = a & 4095; p[o] = (byte) v; p[o + 1] = (byte) (v >> 8); p[o + 2] = (byte) (v >> 16); p[o + 3] = (byte) (v >> 24); return; }
         w8(a, v); w8(a + 1, v >> 8); w8(a + 2, v >> 16); w8(a + 3, v >> 24);

@@ -206,8 +206,10 @@ def jb_throw(e, a, s):
         an = '[' + (nm if nm.startswith('[') else 'L' + nm + ';')
         return new_array(classfor(an), a[1], 4)
     sp = e.mu.reg_read(UC_ARM_REG_SP); bt = [e.u32(sp + 4 * i) for i in range(0, 200)]; bts = ['%#x' % (v - BASE - 1) for v in bt if BASE + 0x100 < v < BASE + 0x82700 and v & 1]; print('  backtrace:', ' '.join(bts[:14]))
+    if a[2] == BASE + 0x7bd65:                               # (클래스, 객체, 콜백) = checkcast 류 -> 통과
+        return a[1]
     print('  !!! THROW args', [hex(x) for x in a], 'sp', hex(e.mu.reg_read(UC_ARM_REG_SP)))
-    print('  !!! THROW', e.cstr(a[0]).decode(), 'lr=%#x' % (e.mu.reg_read(UC_ARM_REG_LR) - BASE)); print('  recent host calls:'); [print('    ', x) for x in list(LOG)[-14:]]; e.mu.emu_stop(); e.threw = True; return 0
+    print('  !!! THROW', e.cstr(a[0]).decode('latin1'), 'lr=%#x' % (e.mu.reg_read(UC_ARM_REG_LR) - BASE)); print('  recent host calls:'); [print('    ', x) for x in list(LOG)[-14:]]; e.mu.emu_stop(); e.threw = True; return 0
 e.threw = False
 e.impl['WIPI_JBInterface[1]'] = jb_resolve
 e.impl['WIPI_JBInterface[2]'] = jb_throw
@@ -495,6 +497,7 @@ def _(this, d): ST[this] = time.localtime(ST[d])
 
 SAVE = os.path.join(OUT, 'save'); os.makedirs(SAVE, exist_ok=True)
 import shutil
+if os.environ.get('SEED_CC2') and os.path.exists(os.path.join(RES, 'cc2')) and not os.path.exists(os.path.join(SAVE, 'cc2')): shutil.copy(os.path.join(RES, 'cc2'), os.path.join(SAVE, 'cc2'))
 if os.path.exists(os.path.join(RES, 'data1.pak')) and not os.path.exists(os.path.join(SAVE, 'data1.pak')): shutil.copy(os.path.join(RES, 'data1.pak'), os.path.join(SAVE, 'data1.pak'))
 @impl_s('org/kwis/msp/io/FileSystem', '(Ljava/lang/String;)Z+exists')
 def _(name):
@@ -547,6 +550,7 @@ def _(this, c): return 1
 def _(this, a, b): pass
 
 # ================================================================== WIPI API
+SHEET46_DY = int(os.environ.get('SHEET46_DY', '3'))
 MENU_DY = int(os.environ.get('MENU_DY', '2'))
 MENU_DX = int(os.environ.get('MENU_DX', '12'))
 TEXT_DY = int(os.environ.get('TEXT_DY', '2'))
@@ -669,6 +673,8 @@ def _(this, im, x, y, anchor):
     if anchor & 32: y -= src.height
     if src.size == (56, 96) and s.clip and s.clip[3] == 12:           # 메인 메뉴 글자 시트: 막대 홈 중앙(≈127)에 오도록 보정
         x -= MENU_DX; y -= MENU_DY; s.clip = (s.clip[0] - MENU_DX, s.clip[1] - MENU_DY, s.clip[2], s.clip[3])
+    if src.size == (37, 31) and s.clip and s.clip[1] - y >= 12:     # 하단 바 라벨 시트(46.m): 게임은 행 간격 12 를 가정, 시트는 9행 얼굴 + 11행 글자 → 3행 보정
+        y += SHEET46_DY
     clipped(s, (x, y, x + src.width, y + src.height), lambda: s.img.paste(src, (x, y), src))
 @impl(G, '(Ljava/lang/String;III)V+drawString')
 def _(this, st, x, y, anchor):

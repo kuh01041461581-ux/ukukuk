@@ -92,6 +92,9 @@ def parse_outline(text):
         if not s:
             blocks.append(("blank",))
             continue
+        if re.fullmatch(r"-{3,}|\[쪽\s*나눔\]", s):
+            blocks.append(("pagebreak",))
+            continue
         if s[0] in HEAD_MARKS:
             blocks.append(("h1", s[1:].strip()))
             continue
@@ -118,6 +121,6 @@ def parse_outline(text):
     return blocks
 
 
-# 보고서 본문 기본 틀: 사업개요(사업비·사업내용 …) → 지난 실적 → 금후 계획
+# 보고서 본문 기본 틀: 사업개요(사업비·사업내용 …) → 지난 실적 → 향후 계획 → 참고자료
 DEFAULT_STARTER = ("□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n"
-                   "□ 지난 실적\n◦ \n\n□ 금후 계획\n◦ ")
+                   "□ 지난 실적\n◦ \n\n□ 향후 계획\n◦ \n\n□ 참고자료\n◦ ")

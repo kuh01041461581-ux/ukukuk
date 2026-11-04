@@ -92,7 +92,7 @@ def check_package(tc, pkg):
 
 class RenderTests(unittest.TestCase):
     def test_dept_report(self):
-        f = registry.load_form("report_dept", ROOTS)
+        f = registry.load_form("report_event", ROOTS)
         pkg = f.render({"title": "시험 행사 계획", "dept": "○○과", "team": "△△계", "date": "2026-11-04",
                         "head": "가나다(1111)", "lead": "라마바(2222)", "staff": "사아자(3333)"}, OUTLINE_DEPT)
         pkg2 = check_package(self, pkg)
@@ -146,13 +146,31 @@ class RenderTests(unittest.TestCase):
         self.assertIn("문화교육국", txt)          # 순서 목차
 
     def test_default_body(self):
-        """사업개요(사업비·사업내용) → 지난 실적 → 금후 계획 기본 틀이 두 보고 양식에서 나온다"""
-        for fid in ("report_dept", "report_mayor"):
+        """사업개요(사업비·사업내용) → 지난 실적 → 향후 계획 기본 틀이 두 보고 양식에서 나온다"""
+        for fid in ("report_event", "report_mayor"):
             f = registry.load_form(fid, ROOTS)
             pkg = check_package(self, f.render({"title": "t"}, T.DEFAULT_STARTER))
             txt = ptext(pkg.section(0))
-            for s in ("사업개요", "사 업 비", "사업내용", "지난 실적", "금후 계획"):
+            for s in ("사업개요", "사 업 비", "사업내용", "지난 실적", "향후 계획", "참고자료"):
                 self.assertIn(s, txt)
+
+    def test_event_and_project_forms(self):
+        ev = registry.load_form("report_event", ROOTS)
+        pk = registry.load_form("report_project", ROOTS)
+        t1 = ptext(check_package(self, ev.render({"title": "t"}, ev.meta["starter"])).section(0))
+        for s in ("행사개요", "회의주제", "식순 및 시간표", "등록 및 개회", "국장님 하실 일"):
+            self.assertIn(s, t1)
+        t2 = ptext(check_package(self, pk.render({"title": "t"}, pk.meta["starter"])).section(0))
+        for s in ("사업개요", "지난 실적", "향후 계획", "참고자료"):
+            self.assertIn(s, t2)
+
+    def test_mayor_reference_fragment(self):
+        f = registry.load_form("report_mayor", ROOTS)
+        pkg = check_package(self, f.render_fragment("---\n□ 참고자료\n◦ 가나다"))
+        sec = pkg.section(0)
+        self.assertIn("참고자료", ptext(sec))
+        self.assertFalse(list(sec.iter(HP + "tbl")))                      # 보고 표지 틀은 안 들어감
+        self.assertTrue(any(p.get("pageBreak") == "1" for p in sec.iter(HP + "p")))   # 새 쪽
 
     def test_weekly_schedule(self):
         f = registry.load_form("weekly_schedule", ROOTS)
@@ -179,7 +197,7 @@ class ComposeTests(unittest.TestCase):
     def test_compose_package(self):
         from hwpgen import compose
         for name, ctype, _n in compose.SHAPES:
-            pkg = compose.compose_package("12", ctype, os.path.join(FORMS, "report_dept", "template.hwpx"))
+            pkg = compose.compose_package("12", ctype, os.path.join(FORMS, "report_event", "template.hwpx"))
             pkg2 = Package.load(pkg.to_bytes())
             comps = list(pkg2.section(0).iter(HP + "compose"))
             self.assertEqual(len(comps), 1)

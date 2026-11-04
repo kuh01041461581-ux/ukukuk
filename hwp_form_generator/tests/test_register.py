@@ -20,7 +20,7 @@ class RegisterTests(unittest.TestCase):
         os.environ["APPDATA"] = self.tmp
 
     def test_register_from_sample(self):
-        f = registry.load_form("report_dept", TR.ROOTS)
+        f = registry.load_form("report_event", TR.ROOTS)
         sample = os.path.join(self.tmp, "sample.hwpx")
         f.render({"title": "샘플 제목 ABC", "dept": "○○과", "team": "△△계", "date": "2026-11-04",
                   "head": "가(1)", "lead": "나(2)", "staff": "다(3)"}, TR.OUTLINE_DEPT).save(sample)
@@ -43,7 +43,7 @@ class RegisterTests(unittest.TestCase):
         self.assertTrue(registry.remove_user_form("u_test"))
 
     def test_missing_sample_text(self):
-        f = registry.load_form("report_dept", TR.ROOTS)
+        f = registry.load_form("report_event", TR.ROOTS)
         sample = os.path.join(self.tmp, "s2.hwpx")
         f.render({"title": "T"}, TR.OUTLINE_DEPT).save(sample)
         with self.assertRaises(ValueError):

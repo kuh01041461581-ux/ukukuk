@@ -54,4 +54,4 @@ def compose_package(text, circle_type, base_template, char_size=-3):
 
 def base_template():
     from . import registry
-    return os.path.join(registry.app_dir(), "forms", "report_dept", "template.hwpx")
+    return os.path.join(registry.app_dir(), "forms", "report_event", "template.hwpx")

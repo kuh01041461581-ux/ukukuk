@@ -569,9 +569,33 @@ class ReportForm:
                 out.append(self._item(k, b[1]))
             elif k == "blank":
                 out.append(self._par("blank", [(self._first_cp("blank"), "")]))
+            elif k == "pagebreak":
+                p = self._par("blank", [(self._first_cp("blank"), "")])
+                p.set("pageBreak", "1")
+                out.append(p)
             elif k == "table":
                 out.append(self._table(b[1], idgen))
         return out
+
+    def render_fragment(self, outline):
+        """틀(제목 상자·표지 표)은 빼고 본문 문단만 든 조각 — 쪽을 더 붙일 때(참고자료 등) 커서 위치에 끼워 넣는다."""
+        pkg = Package.load(os.path.join(self.folder, "template.hwpx"))
+        section = pkg.section(0)
+        idgen = P.IdGen(section)
+        self._idgen = idgen
+        first = section.findall(HP + "p")[0]
+        carrier = clone(first)
+        for run in carrier.findall(HP + "run"):
+            for c in list(run):
+                if local(c) in ("tbl", "pic", "container", "t"):
+                    run.remove(c)
+        for p in section.findall(HP + "p"):
+            section.remove(p)
+        section.append(carrier)
+        for el in self.build_body(outline, idgen):
+            section.append(el)
+        P.strip_lineseg(section)
+        return pkg
 
     def render(self, values, outline):
         """values: {필드키: 값} / outline: 본문 개요 글 → Package"""

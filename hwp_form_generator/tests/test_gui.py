@@ -64,6 +64,11 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(self.br.composed[-1], ("3", 4))     # 명령을 직접 실행
         self.assertEqual(len(self.br.inserted) - n0, 0)
 
+    def test_reference_page(self):
+        n0 = len(self.br.inserted)
+        self.widget.make_reference()
+        self.assertEqual(len(self.br.inserted) - n0, 1)
+
     def test_symbols(self):
         self.widget.put_symbol('○')
         self.widget.put_symbol('❶')
@@ -71,7 +76,7 @@ class GuiTests(unittest.TestCase):
 
     def test_one_click(self):
         n0 = len(self.br.inserted)
-        for fid in ("report_dept", "report_mayor"):
+        for fid in ("report_event", "report_mayor"):
             self.widget.make_report(fid)
         self.widget.make_week("plan")
         self.widget.make_week("schedule")
@@ -112,7 +117,7 @@ class GuiTests(unittest.TestCase):
         import test_render as TR
         messagebox.showinfo = messagebox.showerror = lambda *a, **k: None      # 대화상자 막힘 방지
         sample = os.path.join(os.environ["APPDATA"], "s.hwpx")
-        registry.load_form("report_dept", TR.ROOTS).render({"title": "내 제목 XYZ"}, TR.OUTLINE_DEPT).save(sample)
+        registry.load_form("report_event", TR.ROOTS).render({"title": "내 제목 XYZ"}, TR.OUTLINE_DEPT).save(sample)
         dlg = self.gui.AddFormDialog(self.app, sample)
         self.app.update()
         for iid in dlg.tv.get_children():

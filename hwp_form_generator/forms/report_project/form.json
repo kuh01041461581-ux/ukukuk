@@ -1,0 +1,60 @@
+{
+  "id": "report_project",
+  "name": "사업 보고 (개요·실적·계획)",
+  "audience": "문화교육국 보고",
+  "kind": "report",
+  "note": "제목 상자 + 담당자 줄 + 사업개요 + 지난 실적 + 향후 계획 + 참고자료",
+  "fields": [
+    {
+      "key": "title",
+      "label": "제목"
+    },
+    {
+      "key": "dept",
+      "label": "부서(과)",
+      "profile": "dept"
+    },
+    {
+      "key": "team",
+      "label": "계(팀)",
+      "profile": "team"
+    },
+    {
+      "key": "date",
+      "label": "보고일",
+      "type": "date",
+      "fmt": "ymd",
+      "default": "today"
+    },
+    {
+      "key": "head",
+      "label": "과장 (이름(내선))",
+      "profile": "head"
+    },
+    {
+      "key": "lead",
+      "label": "계장 (이름(내선))",
+      "profile": "lead"
+    },
+    {
+      "key": "staff",
+      "label": "담당자 (이름(내선))",
+      "profile": "staff"
+    }
+  ],
+  "style": {
+    "heading_prefix": " ",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "item2_prefix": "  -",
+    "kv": {
+      "fmt": "colon",
+      "bullet": "35",
+      "label": "35",
+      "gap": "35",
+      "value": "35"
+    }
+  },
+  "starter": "□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n□ 지난 실적\n◦ \n\n□ 향후 계획\n◦ \n\n□ 참고자료\n◦ ",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

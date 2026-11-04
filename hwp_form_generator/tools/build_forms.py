@@ -66,20 +66,28 @@ def detect_mayor_fields(path):
 def build(dept_report, mayor_report, plan, schedule):
     out = {}
     s = detect_dept_fields(dept_report)
-    out["report_dept"] = report.register_report(
-        dept_report, os.path.join(FORMS, "report_dept"), "report_dept",
-        "행사·사업 계획 보고 (국장님 보고)", "문화교육국 보고",
-        [
-            {"key": "title", "label": "제목", "sample": s["title"]},
-            {"key": "dept", "label": "부서(과)", "sample": s["dept"], "profile": "dept"},
-            {"key": "team", "label": "계(팀)", "sample": s["team"], "profile": "team"},
-            {"key": "date", "label": "보고일", "sample": s["date"], "type": "date", "fmt": "ymd", "default": "today"},
-            {"key": "head", "label": "과장 (이름(내선))", "sample": s["head"], "profile": "head"},
-            {"key": "lead", "label": "계장 (이름(내선))", "sample": s["lead"], "profile": "lead"},
-            {"key": "staff", "label": "담당자 (이름(내선))", "sample": s["staff"], "profile": "staff"},
-        ],
-        note="제목 상자 + 담당자 한 줄 + □ 본문. 문화교육국(국장님) 보고용",
-        starter="□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n□ 지난 실적\n◦ \n\n□ 금후 계획\n◦ ")
+    fields = [
+        {"key": "title", "label": "제목", "sample": s["title"]},
+        {"key": "dept", "label": "부서(과)", "sample": s["dept"], "profile": "dept"},
+        {"key": "team", "label": "계(팀)", "sample": s["team"], "profile": "team"},
+        {"key": "date", "label": "보고일", "sample": s["date"], "type": "date", "fmt": "ymd", "default": "today"},
+        {"key": "head", "label": "과장 (이름(내선))", "sample": s["head"], "profile": "head"},
+        {"key": "lead", "label": "계장 (이름(내선))", "sample": s["lead"], "profile": "lead"},
+        {"key": "staff", "label": "담당자 (이름(내선))", "sample": s["staff"], "profile": "staff"},
+    ]
+    out["report_event"] = report.register_report(
+        dept_report, os.path.join(FORMS, "report_event"), "report_event", "행사 보고 (식순·시간표)", "문화교육국 보고",
+        fields, note="제목 상자 + 담당자 줄 + 행사개요 + 식순·시간표(표) + 국장님 하실 일",
+        starter="□ 행사개요\n◦ 사 업 명: \n◦ 회의주제: \n◦ 일시: \n◦ 장소: \n◦ 사업내용: \n◦ 대행기관: \n\n"
+                "□ 식순 및 시간표\n| 등록 및 개회 |\n| 00:00~00:00(00') | 참석자 등록 |\n"
+                "| 00:00~00:00(00') | 개 회 사 | |\n| 00:00~00:00(00') | 축    사 | |\n"
+                "| 00:00~00:00(00') | 기념촬영 | |\n| 00:00~00:00(00') | 폐회사 |\n\n"
+                "□ 국장님 하실 일\n◦ ")
+    out["report_project"] = report.register_report(
+        dept_report, os.path.join(FORMS, "report_project"), "report_project", "사업 보고 (개요·실적·계획)", "문화교육국 보고",
+        fields, note="제목 상자 + 담당자 줄 + 사업개요 + 지난 실적 + 향후 계획 + 참고자료",
+        starter="□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n"
+                "□ 지난 실적\n◦ \n\n□ 향후 계획\n◦ \n\n□ 참고자료\n◦ ")
     s = detect_mayor_fields(mayor_report)
     out["report_mayor"] = report.register_report(
         mayor_report, os.path.join(FORMS, "report_mayor"), "report_mayor",
@@ -92,8 +100,8 @@ def build(dept_report, mayor_report, plan, schedule):
             {"key": "dept", "label": "담당부서", "sample": s["dept"], "profile": "dept_team"},
             {"key": "staff", "label": "담 당 자 (이름 내선 / 휴대폰)", "sample": s["staff"], "profile": "staff_full"},
         ],
-        note="'보 고' 머리표 + 제목 상자 + □ 본문. 시장님 보고용 (본문은 표 안에 들어갑니다)",
-        starter="□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n□ 지난 실적\n◦ \n\n□ 금후 계획\n◦ ")
+        note="'보 고' 머리표 + 제목 상자 + □ 본문. 시장님 보고용. 보고 내용은 1장으로, 참고자료는 뒤에 쪽을 더 붙여 넣습니다",
+        starter="□ 개요\n◦ 일시: \n◦ 장소: \n◦ 참석인원: \n\n□ 주요내용\n◦ \n\n□ 향후 계획\n◦ ")
     out["weekly_plan"] = weekly.register_plan(plan, os.path.join(FORMS, "weekly_plan"))
     out["weekly_cover"] = weekly.register_cover(plan, os.path.join(FORMS, "weekly_cover"))
     out["weekly_schedule"] = weekly.register_schedule(schedule, os.path.join(FORMS, "weekly_schedule"))

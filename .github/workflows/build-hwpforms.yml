@@ -23,7 +23,7 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python -m pytest -q tests --ignore=tests/test_gui.py
       - name: Build exe
-        run: python -m PyInstaller -F -w --name HwpFormGenerator --add-data "forms;forms" --hidden-import lxml.etree --hidden-import win32com.client --hidden-import pythoncom app.py
+        run: python -m PyInstaller -F -w --name HwpFormGenerator --add-data "forms;forms" --add-data "assets;assets" --hidden-import lxml.etree --hidden-import win32com.client --hidden-import pythoncom app.py
       - uses: actions/upload-artifact@v4
         with:
           name: HwpFormGenerator

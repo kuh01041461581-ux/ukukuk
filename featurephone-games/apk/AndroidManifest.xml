@@ -5,6 +5,7 @@
     android:versionName="1.0">
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="33" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <application
         android:label="피처폰 게임"
         android:allowBackup="true"

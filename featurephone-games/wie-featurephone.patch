@@ -1,3 +1,80 @@
+diff --git a/src/cli.rs b/src/cli.rs
+index cc0bc27..58cdc30 100644
+--- a/src/cli.rs
++++ b/src/cli.rs
+@@ -265,31 +265,47 @@ fn select_midi_output_index(port_count: usize, requested: Option<usize>) -> Opti
+ }
+ 
+ fn convert_key(key: PhysicalKey) -> Option<KeyCode> {
+-    match key {
+-        PhysicalKey::Code(WinitKeyCode::Digit1) => Some(KeyCode::NUM1),
+-        PhysicalKey::Code(WinitKeyCode::Digit2) => Some(KeyCode::NUM2),
+-        PhysicalKey::Code(WinitKeyCode::Digit3) => Some(KeyCode::NUM3),
+-        PhysicalKey::Code(WinitKeyCode::KeyQ) => Some(KeyCode::NUM4),
+-        PhysicalKey::Code(WinitKeyCode::KeyW) => Some(KeyCode::NUM5),
+-        PhysicalKey::Code(WinitKeyCode::KeyE) => Some(KeyCode::NUM6),
+-        PhysicalKey::Code(WinitKeyCode::KeyA) => Some(KeyCode::NUM7),
+-        PhysicalKey::Code(WinitKeyCode::KeyS) => Some(KeyCode::NUM8),
+-        PhysicalKey::Code(WinitKeyCode::KeyD) => Some(KeyCode::NUM9),
+-        PhysicalKey::Code(WinitKeyCode::KeyZ) => Some(KeyCode::STAR),
+-        PhysicalKey::Code(WinitKeyCode::KeyX) => Some(KeyCode::NUM0),
+-        PhysicalKey::Code(WinitKeyCode::KeyC) => Some(KeyCode::HASH),
+-        PhysicalKey::Code(WinitKeyCode::Space) => Some(KeyCode::OK),
+-        PhysicalKey::Code(WinitKeyCode::ArrowUp) => Some(KeyCode::UP),
+-        PhysicalKey::Code(WinitKeyCode::ArrowDown) => Some(KeyCode::DOWN),
+-        PhysicalKey::Code(WinitKeyCode::ArrowLeft) => Some(KeyCode::LEFT),
+-        PhysicalKey::Code(WinitKeyCode::ArrowRight) => Some(KeyCode::RIGHT),
+-        PhysicalKey::Code(WinitKeyCode::Backspace) => Some(KeyCode::CLEAR),
+-        PhysicalKey::Code(WinitKeyCode::ShiftLeft) => Some(KeyCode::LEFT_SOFT_KEY),
+-        PhysicalKey::Code(WinitKeyCode::ShiftRight) => Some(KeyCode::RIGHT_SOFT_KEY),
+-        PhysicalKey::Code(WinitKeyCode::Backquote) => Some(KeyCode::VOLUME_UP),
+-        PhysicalKey::Code(WinitKeyCode::Tab) => Some(KeyCode::VOLUME_DOWN),
+-        PhysicalKey::Code(WinitKeyCode::F1) => Some(KeyCode::CALL),
+-        PhysicalKey::Code(WinitKeyCode::F2) => Some(KeyCode::HANGUP),
++    use WinitKeyCode as K;
++    let PhysicalKey::Code(code) = key else { return None };
++    match code {
++        // 방향
++        K::ArrowUp => Some(KeyCode::UP),
++        K::ArrowDown => Some(KeyCode::DOWN),
++        K::ArrowLeft => Some(KeyCode::LEFT),
++        K::ArrowRight => Some(KeyCode::RIGHT),
++        // 확인 / 취소
++        K::Space | K::Enter | K::NumpadEnter => Some(KeyCode::OK),
++        K::Backspace | K::Escape => Some(KeyCode::CLEAR),
++        // 좌/우 소프트키 (메뉴), 통화/종료
++        K::ShiftLeft | K::KeyV => Some(KeyCode::LEFT_SOFT_KEY),
++        K::ShiftRight | K::KeyB => Some(KeyCode::RIGHT_SOFT_KEY),
++        K::F1 => Some(KeyCode::CALL),
++        K::F2 => Some(KeyCode::HANGUP),
++        // 숫자: 윗줄 + 숫자패드
++        K::Digit0 | K::Numpad0 => Some(KeyCode::NUM0),
++        K::Digit1 | K::Numpad1 => Some(KeyCode::NUM1),
++        K::Digit2 | K::Numpad2 => Some(KeyCode::NUM2),
++        K::Digit3 | K::Numpad3 => Some(KeyCode::NUM3),
++        K::Digit4 | K::Numpad4 => Some(KeyCode::NUM4),
++        K::Digit5 | K::Numpad5 => Some(KeyCode::NUM5),
++        K::Digit6 | K::Numpad6 => Some(KeyCode::NUM6),
++        K::Digit7 | K::Numpad7 => Some(KeyCode::NUM7),
++        K::Digit8 | K::Numpad8 => Some(KeyCode::NUM8),
++        K::Digit9 | K::Numpad9 => Some(KeyCode::NUM9),
++        K::NumpadMultiply => Some(KeyCode::STAR),
++        K::NumpadDivide => Some(KeyCode::HASH),
++        // 피처폰 배열(예전 방식): Q W E = 4 5 6, A S D = 7 8 9, Z X C = * 0 #
++        K::KeyQ => Some(KeyCode::NUM4),
++        K::KeyW => Some(KeyCode::NUM5),
++        K::KeyE => Some(KeyCode::NUM6),
++        K::KeyA => Some(KeyCode::NUM7),
++        K::KeyS => Some(KeyCode::NUM8),
++        K::KeyD => Some(KeyCode::NUM9),
++        K::KeyZ => Some(KeyCode::STAR),
++        K::KeyX => Some(KeyCode::NUM0),
++        K::KeyC => Some(KeyCode::HASH),
++        K::Backquote => Some(KeyCode::VOLUME_UP),
++        K::Tab => Some(KeyCode::VOLUME_DOWN),
+         _ => None,
+     }
+ }
 diff --git a/wie-backend/src/system/event_queue.rs b/wie-backend/src/system/event_queue.rs
 index 9a1da31..9910049 100644
 --- a/wie-backend/src/system/event_queue.rs
@@ -31,10 +108,10 @@ index 30704cf..f846e25 100644
  [package.metadata.wasm-pack.profile.profiling]
  wasm-opt = ["-O", "-g", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 diff --git a/wie-web/src/css/style.css b/wie-web/src/css/style.css
-index e178d36..47e08cb 100644
+index e178d36..1d3c380 100644
 --- a/wie-web/src/css/style.css
 +++ b/wie-web/src/css/style.css
-@@ -923,3 +923,67 @@ kbd {
+@@ -923,3 +923,108 @@ kbd {
      scroll-behavior: auto;
    }
  }
@@ -102,8 +179,49 @@ index e178d36..47e08cb 100644
 +.phone-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; padding: 0 6px; }
 +.phone-keys button { height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
 +.phone-keys small { font-size: 0.55rem; font-weight: 400; color: #999; }
++
++/* ===== 방향 버튼(D-pad) · 조작 설정 · 키보드 안내 ===== */
++.pads, .pads * { -webkit-tap-highlight-color: transparent; }
++.pad-tabs .tab-gear { flex: 0 0 44px; font-size: 1.1rem; padding: 0; }
++.dir-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; }
++.dir-toggle { height: 26px; padding: 0 10px; font-size: 0.7rem; border-radius: 13px; border: 1px solid #3a3a3a; background: #1b1b1b; color: #aaa; touch-action: manipulation; }
++.dpad-touch {
++  position: relative; width: min(44vw, 190px); aspect-ratio: 1; touch-action: none;
++  display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr;
++  border-radius: 50%; background: radial-gradient(circle, #262626 0 60%, #1a1a1a 61% 100%); border: 2px solid #4a4a4a; box-shadow: inset 0 0 18px #000;
++}
++.dpad-touch[hidden] { display: none; }
++.dpad-touch i { display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 1.5rem; color: #9aa4b8; pointer-events: none; transition: background 0.04s, color 0.04s; border-radius: 12px; margin: 4px; }
++.dpad-touch .u { grid-area: 1 / 2; } .dpad-touch .l { grid-area: 2 / 1; } .dpad-touch .c { grid-area: 2 / 2; background: #333; border-radius: 50%; }
++.dpad-touch .r { grid-area: 2 / 3; } .dpad-touch .d { grid-area: 3 / 2; }
++.dpad-touch[data-y="-1"] .u, .dpad-touch[data-y="1"] .d, .dpad-touch[data-x="-1"] .l, .dpad-touch[data-x="1"] .r { background: #3c5fb5; color: #fff; }
++.joystick[hidden] { display: none; }
++
++.controls-fields label { display: grid; gap: 4px; margin-bottom: 12px; font-size: 0.9rem; }
++.controls-fields label.inline { display: flex; align-items: center; gap: 8px; }
++.controls-fields output { float: right; color: var(--muted); }
++
++.key-help { width: min(100%, 480px); margin: 4px 0 16px; color: var(--fg); font-size: 0.85rem; }
++.key-help summary { cursor: pointer; padding: 8px 6px; font-weight: 700; }
++.key-help table { width: 100%; border-collapse: collapse; }
++.key-help th { text-align: left; white-space: nowrap; padding: 5px 10px 5px 6px; color: var(--muted); font-weight: 600; vertical-align: top; }
++.key-help td { padding: 5px 6px; line-height: 1.7; }
++.key-help kbd { display: inline-block; min-width: 1.6em; text-align: center; padding: 1px 6px; margin: 0 1px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--card-bg); font: inherit; font-size: 0.8rem; }
++@media (pointer: coarse) { .key-help { display: none; } }
++
++/* PC 에서는 화면 버튼 아래에 대응하는 키보드 글자를 작게 표시 */
++@media (hover: hover) and (pointer: fine) {
++  .pads button[data-hint]::after { content: attr(data-hint); display: block; font-size: 0.6rem; font-weight: 400; color: #8a93a6; margin-top: 2px; }
++  .pads .act, .pads .phone-keys button { flex-direction: column; }
++}
++
++.app-dialog .controls-fields { display: block; max-height: 62vh; overflow-y: auto; padding-right: 4px; }
++.app-dialog .controls-fields label { display: block; width: 100%; margin: 0 0 14px; }
++.app-dialog .controls-fields label.inline { display: flex; align-items: center; gap: 8px; }
++.app-dialog .controls-fields input[type="range"], .app-dialog .controls-fields select { display: block; width: 100%; margin-top: 6px; }
++.app-dialog .controls-fields #vib-test { width: 100%; height: 40px; margin: 0 0 8px; }
 diff --git a/wie-web/src/html/index.html b/wie-web/src/html/index.html
-index ccad276..23ef238 100644
+index ccad276..1223ef6 100644
 --- a/wie-web/src/html/index.html
 +++ b/wie-web/src/html/index.html
 @@ -20,29 +20,6 @@
@@ -180,7 +298,7 @@ index ccad276..23ef238 100644
      </div>
  
      <section id="player-view" class="player-view" hidden>
-@@ -143,39 +90,60 @@
+@@ -143,43 +90,127 @@
          </div>
          <p id="player-warning" class="player-warning" role="status" hidden></p>
  
@@ -221,19 +339,26 @@ index ccad276..23ef238 100644
 +          <div class="pad-tabs" role="tablist">
 +            <button id="mode-touch" type="button" role="tab">터치 패드</button>
 +            <button id="mode-phone" type="button" role="tab">피처폰 키패드</button>
++            <button id="open-controls" type="button" class="tab-gear" aria-label="조작 설정" title="조작 설정">⚙</button>
 +          </div>
 +
 +          <div id="pad-touch" class="pad pad-touch">
 +            <div class="touch-main">
-+              <div id="joystick" class="joystick" aria-label="조이스틱">
-+                <div class="joystick-ring"></div>
-+                <div id="joystick-stick" class="joystick-stick"></div>
++              <div class="dir-wrap">
++                <div id="joystick" class="joystick" aria-label="조이스틱">
++                  <div class="joystick-ring"></div>
++                  <div id="joystick-stick" class="joystick-stick"></div>
++                </div>
++                <div id="dpad-touch" class="dpad-touch" aria-label="방향 버튼" hidden>
++                  <i class="u">▲</i><i class="l">◀</i><i class="c"></i><i class="r">▶</i><i class="d">▼</i>
++                </div>
++                <button id="dir-toggle" class="dir-toggle" type="button">방향 버튼 ↔ 조이스틱</button>
 +              </div>
 +              <div class="touch-actions">
-+                <button class="act act-ok" data-key="OK">확인</button>
-+                <button class="act" data-key="LSOFT">좌메뉴</button>
-+                <button class="act" data-key="RSOFT">우메뉴</button>
-+                <button class="act" data-key="CLR">취소</button>
++                <button class="act act-ok" data-key="OK" data-hint="Enter">확인</button>
++                <button class="act" data-key="LSOFT" data-hint="V">좌메뉴</button>
++                <button class="act" data-key="RSOFT" data-hint="B">우메뉴</button>
++                <button class="act" data-key="CLR" data-hint="Esc">취소</button>
 +                <button class="act act-5" data-key="5">5</button>
 +                <button class="act act-num-toggle" id="num-toggle" type="button">숫자</button>
 +              </div>
@@ -249,19 +374,19 @@ index ccad276..23ef238 100644
 +          <div id="pad-phone" class="pad pad-phone" hidden>
 +            <div class="phone-top">
 +              <div class="phone-side">
-+                <button class="act" data-key="LSOFT">좌메뉴</button>
-+                <button class="act call" data-key="CALL">통화</button>
++                <button class="act" data-key="LSOFT" data-hint="V">좌메뉴</button>
++                <button class="act call" data-key="CALL" data-hint="F1">통화</button>
 +              </div>
 +              <div class="dpad">
 +                <button class="up" data-key="UP" aria-label="위">▲</button>
 +                <button class="left" data-key="LEFT" aria-label="왼쪽">◀</button>
-+                <button class="ok" data-key="OK">OK</button>
++                <button class="ok" data-key="OK" data-hint="Enter">OK</button>
 +                <button class="right" data-key="RIGHT" aria-label="오른쪽">▶</button>
 +                <button class="down" data-key="DOWN" aria-label="아래">▼</button>
 +              </div>
 +              <div class="phone-side">
-+                <button class="act" data-key="RSOFT">우메뉴</button>
-+                <button class="act" data-key="CLR">취소</button>
++                <button class="act" data-key="RSOFT" data-hint="B">우메뉴</button>
++                <button class="act" data-key="CLR" data-hint="Esc">취소</button>
 +              </div>
 +            </div>
 +            <div class="phone-keys">
@@ -272,28 +397,223 @@ index ccad276..23ef238 100644
 +            </div>
 +          </div>
          </div>
++
++        <details id="key-help" class="key-help" open>
++          <summary>키보드 조작 안내 (PC)</summary>
++          <table>
++            <tbody>
++              <tr><th>방향</th><td><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd></td></tr>
++              <tr><th>확인 (OK)</th><td><kbd>Enter</kbd> 또는 <kbd>Space</kbd></td></tr>
++              <tr><th>취소 (CLR)</th><td><kbd>Backspace</kbd> 또는 <kbd>Esc</kbd></td></tr>
++              <tr><th>좌메뉴 / 우메뉴</th><td><kbd>V</kbd> / <kbd>B</kbd> 또는 <kbd>왼쪽 Shift</kbd> / <kbd>오른쪽 Shift</kbd></td></tr>
++              <tr><th>통화 / 종료</th><td><kbd>F1</kbd> / <kbd>F2</kbd></td></tr>
++              <tr><th>숫자 0~9</th><td>윗줄 숫자 <kbd>0</kbd>~<kbd>9</kbd> 또는 오른쪽 숫자패드</td></tr>
++              <tr><th>폰 배열 숫자</th><td><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd> = 4 5 6 · <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> = 7 8 9 · <kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd> = * 0 #</td></tr>
++              <tr><th>*&nbsp;와&nbsp;#</th><td>숫자패드의 곱하기(<kbd>*</kbd>) 키 = *, 나누기(<kbd>/</kbd>) 키 = #</td></tr>
++            </tbody>
++          </table>
++        </details>
        </main>
      </section>
+ 
++    <dialog id="controls-dialog" class="app-dialog">
++      <form method="dialog">
++        <header class="dialog-header">
++          <h2>조작 설정</h2>
++          <button class="icon-button dialog-close" value="cancel" aria-label="닫기">✕</button>
++        </header>
++        <div class="settings-fields controls-fields">
++          <label>방향 입력
++            <select id="set-dirmode"><option value="dpad">방향 버튼</option><option value="joystick">조이스틱</option></select>
++          </label>
++          <label>방향 버튼 최소 누름 <output id="out-minDir"></output>
++            <input type="range" id="set-minDir" min="0" max="200" step="10" />
++          </label>
++          <label>그 외 버튼 최소 누름 <output id="out-minAct"></output>
++            <input type="range" id="set-minAct" min="0" max="250" step="10" />
++          </label>
++          <label>꾹 눌렀을 때 반복 시작 <output id="out-repeatDelay"></output>
++            <input type="range" id="set-repeatDelay" min="0" max="600" step="10" />
++          </label>
++          <label>반복 간격 <output id="out-repeatInterval"></output>
++            <input type="range" id="set-repeatInterval" min="20" max="300" step="10" />
++          </label>
++          <label class="inline"><input type="checkbox" id="set-repeatOn" /> 꾹 누르면 반복 입력</label>
++          <label>조이스틱 민감도 (낮을수록 예민) <output id="out-deadzone"></output>
++            <input type="range" id="set-deadzone" min="8" max="50" step="2" />
++          </label>
++          <label class="inline"><input type="checkbox" id="set-vibrate" /> 누를 때 진동</label>
++          <label>진동 세기 <output id="out-vibStrength"></output>
++            <input type="range" id="set-vibStrength" min="1" max="3" step="1" />
++          </label>
++          <label class="inline"><input type="checkbox" id="set-vibDir" /> 방향 입력(조이스틱·방향 버튼)에도 진동</label>
++          <button type="button" id="vib-test" class="secondary-command">진동 시험</button>
++        </div>
++        <footer class="dialog-actions">
++          <button type="button" id="controls-reset" class="secondary-command">기본값</button>
++          <button class="primary-command" value="ok">닫기</button>
++        </footer>
++      </form>
++    </dialog>
++
+     <dialog id="settings-dialog" class="app-dialog">
+       <form method="dialog">
+         <header class="dialog-header">
+diff --git a/wie-web/src/rust/lib.rs b/wie-web/src/rust/lib.rs
+index 1582b8c..994305a 100644
+--- a/wie-web/src/rust/lib.rs
++++ b/wie-web/src/rust/lib.rs
+@@ -144,7 +144,10 @@ pub struct WieWeb {
+     host: Option<WasmHost>,
+     exited: Arc<AtomicBool>,
+     should_redraw: Arc<AtomicBool>,
+-    key_events: HashMap<KeyCode, f64>,
++    // 키 -> (누른 시각, 마지막 반복 시각)
++    key_events: HashMap<KeyCode, (f64, f64)>,
++    repeat_delay: f64,
++    repeat_interval: f64,
+ }
+ 
+ impl Drop for WieWeb {
+@@ -222,6 +225,8 @@ impl WieWeb {
+                 exited,
+                 should_redraw,
+                 key_events: HashMap::new(),
++                repeat_delay: 100.0,
++                repeat_interval: 100.0,
+             })
+         })()
+         .map_err(|e| JsError::new(&e.to_string()))
+@@ -243,10 +248,10 @@ impl WieWeb {
+ 
+         let millis = self.host.as_ref().map_or_else(js_sys::Date::now, WasmHost::now);
+ 
+-        for (key, key_millis) in self.key_events.iter_mut() {
+-            if millis - *key_millis > 100.0 {
++        for (key, (down_millis, last_millis)) in self.key_events.iter_mut() {
++            if millis - *down_millis >= self.repeat_delay && millis - *last_millis >= self.repeat_interval {
+                 self.emulator.handle_event(Event::Keyrepeat(*key));
+-                *key_millis = millis;
++                *last_millis = millis;
+             }
+         }
+ 
+@@ -258,11 +263,17 @@ impl WieWeb {
+         let key = KeyCode::parse(&key);
+ 
+         self.emulator.handle_event(Event::Keydown(key));
+-        self.key_events.insert(key, millis);
++        self.key_events.insert(key, (millis, millis));
+ 
+         Ok(())
+     }
+ 
++    /// 키를 누르고 있을 때의 반복 입력: 첫 반복까지의 지연(ms)과 반복 간격(ms). 0 이하이면 반복 없음.
++    pub fn set_key_repeat(&mut self, delay: f64, interval: f64) {
++        self.repeat_delay = delay.max(0.0);
++        self.repeat_interval = if interval <= 0.0 { f64::INFINITY } else { interval };
++    }
++
+     pub fn key_up(&mut self, key: String) -> Result<(), JsError> {
+         let key = KeyCode::parse(&key);
+ 
 diff --git a/wie-web/src/ts/app.ts b/wie-web/src/ts/app.ts
-index ad69beb..292f9c4 100644
+index ad69beb..2c7cf5a 100644
 --- a/wie-web/src/ts/app.ts
 +++ b/wie-web/src/ts/app.ts
-@@ -25,6 +25,9 @@ const KEY_MAP: Record<string, string> = {
-   Enter: "OK",
-   NumpadEnter: "OK",
-   Space: "OK",
-+  KeyV: "LSOFT",
-+  KeyB: "RSOFT",
-+  Escape: "CLR",
+@@ -5,27 +5,59 @@ import type { LibraryApp, PlayerSession, Wie } from "./backend";
+ import type { SettingsController } from "./settings";
+ 
+ const KEY_MAP: Record<string, string> = {
+-  Digit1: "1",
+-  Digit2: "2",
+-  Digit3: "3",
+-  KeyQ: "4",
+-  KeyW: "5",
+-  KeyE: "6",
+-  KeyA: "7",
+-  KeyS: "8",
+-  KeyD: "9",
+-  KeyZ: "*",
+-  KeyX: "0",
+-  KeyC: "#",
+-  Backspace: "CLR",
+-  ArrowUp: "UP",
+-  ArrowLeft: "LEFT",
+-  ArrowRight: "RIGHT",
+-  ArrowDown: "DOWN",
+-  Enter: "OK",
+-  NumpadEnter: "OK",
+-  Space: "OK",
++  // 방향
++  ArrowUp: "UP", ArrowLeft: "LEFT", ArrowRight: "RIGHT", ArrowDown: "DOWN",
++  // 확인 / 취소
++  Enter: "OK", NumpadEnter: "OK", Space: "OK",
++  Backspace: "CLR", Escape: "CLR",
++  // 소프트키 / 통화 / 종료
++  KeyV: "LSOFT", KeyB: "RSOFT", ShiftLeft: "LSOFT", ShiftRight: "RSOFT",
++  F1: "CALL", F2: "HANGUP",
++  // 숫자: 윗줄과 숫자패드
++  Digit0: "0", Digit1: "1", Digit2: "2", Digit3: "3", Digit4: "4",
++  Digit5: "5", Digit6: "6", Digit7: "7", Digit8: "8", Digit9: "9",
++  Numpad0: "0", Numpad1: "1", Numpad2: "2", Numpad3: "3", Numpad4: "4",
++  Numpad5: "5", Numpad6: "6", Numpad7: "7", Numpad8: "8", Numpad9: "9",
++  NumpadMultiply: "*", NumpadDivide: "#",
++  // 피처폰 배열(예전 방식)
++  KeyQ: "4", KeyW: "5", KeyE: "6", KeyA: "7", KeyS: "8", KeyD: "9",
++  KeyZ: "*", KeyX: "0", KeyC: "#",
  };
++
++// ---- 조작 설정 (기기에 저장) ----
++export interface Controls {
++  dirMode: "dpad" | "joystick";
++  minDir: number;        // 방향 버튼 최소 누름 시간(ms)
++  minAct: number;        // 그 외 버튼 최소 누름 시간(ms)
++  repeatOn: boolean;     // 꾹 누르면 반복 입력
++  repeatDelay: number;   // 반복 시작까지(ms)
++  repeatInterval: number;// 반복 간격(ms)
++  deadzone: number;      // 조이스틱 중앙 무반응 영역(%)
++  vibrate: boolean;      // 진동 켜기
++  vibStrength: number;   // 진동 세기 1(약) 2(보통) 3(강)
++  vibDir: boolean;       // 방향 입력(조이스틱/방향 버튼)에도 진동
++}
++const CONTROL_DEFAULTS: Controls = { dirMode: "dpad", minDir: 50, minAct: 90, repeatOn: true, repeatDelay: 150, repeatInterval: 80, deadzone: 22, vibrate: true, vibStrength: 2, vibDir: true };
++const CONTROLS_KEY = "wie:controls";
++export const controls: Controls = { ...CONTROL_DEFAULTS };
++try { Object.assign(controls, JSON.parse(localStorage.getItem(CONTROLS_KEY) ?? "{}")); } catch { /* ignore */ }
++const saveControls = () => { try { localStorage.setItem(CONTROLS_KEY, JSON.stringify(controls)); } catch { /* ignore */ } };
++let activeSession: PlayerSession | undefined;
++const applyRepeat = () => activeSession?.setKeyRepeat?.(controls.repeatDelay, controls.repeatOn ? controls.repeatInterval : 0);
++declare global { interface Window { AndroidHaptics?: { vibrate(ms: number, amplitude: number): void } } }
++// 진동 세기별 길이(ms)와 세기(1~255). 안드로이드 앱에서는 기기 진동 모터를 직접 쓰고, 브라우저는 navigator.vibrate 를 쓴다.
++const VIBRATION = [{ ms: 8, amp: 60 }, { ms: 14, amp: 140 }, { ms: 24, amp: 255 }];
++const buzz = (kind: "dir" | "act" = "act", force = false) => {
++  if (!force && (!controls.vibrate || (kind === "dir" && !controls.vibDir))) return;
++  const v = VIBRATION[Math.min(2, Math.max(0, controls.vibStrength - 1))];
++  try {
++    if (window.AndroidHaptics) window.AndroidHaptics.vibrate(v.ms, v.amp);
++    else navigator.vibrate?.(v.ms);
++  } catch { /* ignore */ }
++};
++const DIRECTION_KEYS = new Set(["UP", "DOWN", "LEFT", "RIGHT"]);
++const minPressFor = (key: string) => (DIRECTION_KEYS.has(key) ? controls.minDir : controls.minAct);
++
  const icons = {
    ArrowDown,
-@@ -83,18 +86,44 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
+   ArrowLeft,
+@@ -67,6 +99,7 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
+     ending = true;
+     clearTimeout(warningTimer);
+     abortController.abort();
++    activeSession = undefined;
+     inputs.clear();
+     updateControls();
+     try {
+@@ -83,18 +116,44 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
      }
    };
  
 +  // 옛 게임은 키를 한 프레임 이상 눌러야 인식하므로, 톡 치는 짧은 터치도 최소 MIN_PRESS_MS 동안은 누른 것으로 전달한다.
-+  const MIN_PRESS_MS = 110;
 +  const pressedAt = new Map<string, number>();
 +  const pendingRelease = new Map<string, ReturnType<typeof setTimeout>>();
 +  const sendUp = (key: string) => {
@@ -310,8 +630,9 @@ index ad69beb..292f9c4 100644
 -      if (![...inputs.values()].includes(previous)) void session.key(previous, false).catch(finish);
 +      if (![...inputs.values()].includes(previous)) {
 +        const held = performance.now() - (pressedAt.get(previous) ?? 0);
-+        if (held < MIN_PRESS_MS) {
-+          pendingRelease.set(previous, setTimeout(() => sendUp(previous), MIN_PRESS_MS - held));
++        const minPress = minPressFor(previous);
++        if (held < minPress) {
++          pendingRelease.set(previous, setTimeout(() => sendUp(previous), minPress - held));
 +        } else {
 +          sendUp(previous);
 +        }
@@ -335,89 +656,177 @@ index ad69beb..292f9c4 100644
      }
    };
    const releaseKeys = () => {
-@@ -113,6 +142,52 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
+@@ -113,6 +172,65 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
      if (document.hidden) releaseKeys();
    }, { signal: abortController.signal });
  
-+  // ---- 가상 조이스틱: 드래그 방향을 방향키(8방향)로 바꾼다 ----
-+  const joystick = document.getElementById("joystick");
++  // ---- 방향 입력: 조이스틱(드래그) 과 방향 버튼(D-pad) 이 같은 방식으로 방향키(8방향)를 만든다 ----
 +  const stick = document.getElementById("joystick-stick");
-+  if (joystick && stick) {
++  const attachDirectional = (el: HTMLElement, kind: "joystick" | "dpad") => {
 +    let activePointer: number | undefined;
-+    const setStick = (dx: number, dy: number) => {
-+      stick.style.transform = `translate(${dx}px, ${dy}px)`;
++    let lastX = 0, lastY = 0;
++    const show = (dx: number, dy: number, x: number, y: number) => {
++      if (kind === "joystick" && stick) stick.style.transform = `translate(${dx}px, ${dy}px)`;
++      el.dataset.x = String(x); el.dataset.y = String(y);
 +    };
 +    const update = (event: PointerEvent) => {
-+      const rect = joystick.getBoundingClientRect();
++      const rect = el.getBoundingClientRect();
 +      const radius = rect.width / 2;
 +      let dx = event.clientX - (rect.left + radius);
 +      let dy = event.clientY - (rect.top + radius);
 +      const dist = Math.hypot(dx, dy);
-+      const max = radius * 0.6;
-+      if (dist > max) { dx = (dx / dist) * max; dy = (dy / dist) * max; }
-+      setStick(dx, dy);
-+      const dead = radius * 0.22;
-+      const x = Math.abs(dx) > dead && Math.abs(dx) > Math.abs(dy) * 0.4;
-+      const y = Math.abs(dy) > dead && Math.abs(dy) > Math.abs(dx) * 0.4;
-+      setKey("joystick:x", x ? (dx < 0 ? "LEFT" : "RIGHT") : undefined);
-+      setKey("joystick:y", y ? (dy < 0 ? "UP" : "DOWN") : undefined);
++      let x = 0, y = 0;
++      if (kind === "joystick") {
++        const max = radius * 0.6;
++        if (dist > max) { dx = (dx / dist) * max; dy = (dy / dist) * max; }
++        const dead = radius * (controls.deadzone / 100);
++        x = Math.abs(dx) > dead && Math.abs(dx) > Math.abs(dy) * 0.4 ? Math.sign(dx) : 0;
++        y = Math.abs(dy) > dead && Math.abs(dy) > Math.abs(dx) * 0.4 ? Math.sign(dy) : 0;
++      } else if (dist > radius * 0.2) {
++        // 상하좌우는 넓게(60°), 대각선은 좁게(30°) — 십자 버튼처럼 정확히 누르기 쉽다
++        const a = Math.atan2(dy, dx) * 180 / Math.PI;
++        x = Math.abs(a) < 60 ? 1 : Math.abs(a) > 120 ? -1 : 0;
++        y = a > 30 && a < 150 ? 1 : a < -30 && a > -150 ? -1 : 0;
++      }
++      if ((x !== lastX || y !== lastY) && (x !== 0 || y !== 0)) buzz("dir");
++      lastX = x; lastY = y;
++      show(dx, dy, x, y);
++      setKey("dir:x", x ? (x < 0 ? "LEFT" : "RIGHT") : undefined);
++      setKey("dir:y", y ? (y < 0 ? "UP" : "DOWN") : undefined);
 +    };
 +    const end = (event: PointerEvent) => {
 +      if (event.pointerId !== activePointer) return;
-+      activePointer = undefined;
-+      setStick(0, 0);
-+      setKey("joystick:x");
-+      setKey("joystick:y");
++      activePointer = undefined; lastX = 0; lastY = 0;
++      show(0, 0, 0, 0);
++      setKey("dir:x");
++      setKey("dir:y");
 +    };
 +    const opts = { signal: abortController.signal };
-+    joystick.addEventListener("pointerdown", event => {
++    el.addEventListener("pointerdown", event => {
 +      if (activePointer !== undefined) return;
 +      event.preventDefault();
 +      activePointer = event.pointerId;
-+      joystick.setPointerCapture(event.pointerId);
++      el.setPointerCapture(event.pointerId);
 +      update(event);
 +    }, opts);
-+    joystick.addEventListener("pointermove", event => {
-+      if (event.pointerId === activePointer) update(event);
-+    }, opts);
-+    joystick.addEventListener("pointerup", end, opts);
-+    joystick.addEventListener("pointercancel", end, opts);
-+    joystick.addEventListener("lostpointercapture", end, opts);
-+  }
++    el.addEventListener("pointermove", event => { if (event.pointerId === activePointer) update(event); }, opts);
++    el.addEventListener("pointerup", end, opts);
++    el.addEventListener("pointercancel", end, opts);
++    el.addEventListener("lostpointercapture", end, opts);
++  };
++  const joystickEl = document.getElementById("joystick");
++  const dpadEl = document.getElementById("dpad-touch");
++  if (joystickEl) attachDirectional(joystickEl, "joystick");
++  if (dpadEl) attachDirectional(dpadEl, "dpad");
 +
    for (const button of buttons) {
      const key = button.dataset.key!;
      button.addEventListener(
-@@ -195,3 +270,29 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
+@@ -120,6 +238,7 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
+       (event) => {
+         event.preventDefault();
+         button.setPointerCapture(event.pointerId);
++        buzz("act");
+         setKey(`pointer:${event.pointerId}`, key);
+       },
+       { signal: abortController.signal },
+@@ -192,6 +311,70 @@ export const runApp = (backend: Wie, app: LibraryApp, settings: SettingsControll
+   });
+   void start.then(started => {
+     session = started;
++    activeSession = started;
++    applyRepeat();
      updateControls();
    }).catch(finish);
  });
 +
-+// ---- 패드 전환: 터치 패드 / 피처폰 키패드 (선택은 기억해 둔다) ----
++// ---- 패드 전환: 터치 패드 / 피처폰 키패드, 방향 입력 방식, 조작 설정 (선택은 기억해 둔다) ----
 +const PAD_MODE_KEY = "wie:pad-mode";
 +export const initializePads = () => {
-+  const touch = document.getElementById("pad-touch");
-+  const phone = document.getElementById("pad-phone");
-+  const tabTouch = document.getElementById("mode-touch");
-+  const tabPhone = document.getElementById("mode-phone");
-+  const numToggle = document.getElementById("num-toggle");
-+  const numbers = document.getElementById("touch-numbers");
++  const $ = (id: string) => document.getElementById(id);
++  const touch = $("pad-touch"), phone = $("pad-phone");
++  const tabTouch = $("mode-touch"), tabPhone = $("mode-phone");
++  const numToggle = $("num-toggle"), numbers = $("touch-numbers");
++  const joystick = $("joystick"), dpad = $("dpad-touch"), dirToggle = $("dir-toggle");
 +  if (!touch || !phone || !tabTouch || !tabPhone) return;
 +
-+  const apply = (mode: "touch" | "phone") => {
++  const applyMode = (mode: "touch" | "phone") => {
 +    touch.hidden = mode !== "touch";
 +    phone.hidden = mode !== "phone";
 +    tabTouch.setAttribute("aria-selected", String(mode === "touch"));
 +    tabPhone.setAttribute("aria-selected", String(mode === "phone"));
 +    try { localStorage.setItem(PAD_MODE_KEY, mode); } catch { /* ignore */ }
 +  };
++  const applyDir = () => {
++    if (joystick) joystick.hidden = controls.dirMode !== "joystick";
++    if (dpad) dpad.hidden = controls.dirMode !== "dpad";
++    if (dirToggle) dirToggle.textContent = controls.dirMode === "dpad" ? "조이스틱으로 바꾸기" : "방향 버튼으로 바꾸기";
++  };
 +  let saved: string | null = null;
 +  try { saved = localStorage.getItem(PAD_MODE_KEY); } catch { /* ignore */ }
-+  apply(saved === "phone" ? "phone" : "touch");
-+  tabTouch.addEventListener("click", () => apply("touch"));
-+  tabPhone.addEventListener("click", () => apply("phone"));
++  applyMode(saved === "phone" ? "phone" : "touch");
++  applyDir();
++  tabTouch.addEventListener("click", () => applyMode("touch"));
++  tabPhone.addEventListener("click", () => applyMode("phone"));
 +  numToggle?.addEventListener("click", () => { if (numbers) numbers.hidden = !numbers.hidden; });
++  dirToggle?.addEventListener("click", () => {
++    controls.dirMode = controls.dirMode === "dpad" ? "joystick" : "dpad";
++    saveControls(); applyDir(); syncDialog();
++  });
++
++  // ---- 조작 설정 창 ----
++  const dialog = $("controls-dialog") as HTMLDialogElement | null;
++  const num = ["minDir", "minAct", "repeatDelay", "repeatInterval", "deadzone", "vibStrength"] as const;
++  const unit = (k: string, v: number) => (k === "deadzone" ? `${v}%` : k === "vibStrength" ? ["약", "보통", "강"][v - 1] ?? "" : `${v}ms`);
++  function syncDialog() {
++    const mode = $("set-dirmode") as HTMLSelectElement | null; if (mode) mode.value = controls.dirMode;
++    for (const k of num) {
++      const el = $(`set-${k}`) as HTMLInputElement | null, out = $(`out-${k}`);
++      if (el) el.value = String(controls[k]);
++      if (out) out.textContent = unit(k, controls[k]);
++    }
++    const r = $("set-repeatOn") as HTMLInputElement | null; if (r) r.checked = controls.repeatOn;
++    const v = $("set-vibrate") as HTMLInputElement | null; if (v) v.checked = controls.vibrate;
++    const vd = $("set-vibDir") as HTMLInputElement | null; if (vd) vd.checked = controls.vibDir;
++  }
++  const changed = () => { saveControls(); applyDir(); applyRepeat(); syncDialog(); };
++  $("open-controls")?.addEventListener("click", () => { syncDialog(); dialog?.showModal(); });
++  ($("set-dirmode") as HTMLSelectElement | null)?.addEventListener("change", e => { controls.dirMode = (e.target as HTMLSelectElement).value as Controls["dirMode"]; changed(); });
++  for (const k of num) {
++    ($(`set-${k}`) as HTMLInputElement | null)?.addEventListener("input", e => { controls[k] = Number((e.target as HTMLInputElement).value); changed(); if (k === "vibStrength") buzz("act", true); });
++  }
++  ($("set-repeatOn") as HTMLInputElement | null)?.addEventListener("change", e => { controls.repeatOn = (e.target as HTMLInputElement).checked; changed(); });
++  ($("set-vibrate") as HTMLInputElement | null)?.addEventListener("change", e => { controls.vibrate = (e.target as HTMLInputElement).checked; changed(); if (controls.vibrate) buzz("act"); });
++  ($("set-vibDir") as HTMLInputElement | null)?.addEventListener("change", e => { controls.vibDir = (e.target as HTMLInputElement).checked; changed(); });
++  $("vib-test")?.addEventListener("click", () => buzz("act", true));
++  $("controls-reset")?.addEventListener("click", () => { Object.assign(controls, CONTROL_DEFAULTS); changed(); });
 +};
+diff --git a/wie-web/src/ts/backend.ts b/wie-web/src/ts/backend.ts
+index a092dc5..afa3fa7 100644
+--- a/wie-web/src/ts/backend.ts
++++ b/wie-web/src/ts/backend.ts
+@@ -25,6 +25,7 @@ export type SessionEvent =
+ export interface PlayerSession {
+   key(key: string, pressed: boolean): Promise<void>;
+   releaseKeys(): Promise<void>;
++  setKeyRepeat?(delay: number, interval: number): void;
+   stop(): Promise<void>;
+ }
+ 
+diff --git a/wie-web/src/ts/backend/wasm.ts b/wie-web/src/ts/backend/wasm.ts
+index 2b91ccb..7a71002 100644
+--- a/wie-web/src/ts/backend/wasm.ts
++++ b/wie-web/src/ts/backend/wasm.ts
+@@ -44,6 +44,9 @@ export const startWasmSession = (
+         emulator.key_up(key);
+       }
+     },
++    setKeyRepeat(delay: number, interval: number) {
++      if (running) emulator.set_key_repeat(delay, interval);
++    },
+     async releaseKeys() {
+       if (!running) return;
+       for (const key of keys) emulator.key_up(key);
 diff --git a/wie-web/src/ts/i18n.ts b/wie-web/src/ts/i18n.ts
 index 1d32348..8975980 100644
 --- a/wie-web/src/ts/i18n.ts

@@ -3,7 +3,11 @@ package net.featurephone.games;
 import android.app.Activity;
 import android.content.res.AssetManager;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.webkit.JavascriptInterface;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.ValueCallback;
@@ -48,6 +52,7 @@ public class MainActivity extends Activity {
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
 
+        webView.addJavascriptInterface(new Haptics(), "AndroidHaptics");   // 버튼을 누를 때 기기 진동
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -63,6 +68,23 @@ public class MainActivity extends Activity {
             webView.restoreState(savedInstanceState);
         } else {
             webView.loadUrl("https://" + HOST + "/index.html");
+        }
+    }
+
+    /** 화면 버튼 진동: ms 길이, amplitude 1~255 (안드로이드 8 미만은 세기 조절 없이 길이만) */
+    private class Haptics {
+        @JavascriptInterface
+        public void vibrate(int ms, int amplitude) {
+            Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+            if (v == null || !v.hasVibrator()) return;
+            if (ms < 1) ms = 1;
+            if (ms > 100) ms = 100;
+            if (Build.VERSION.SDK_INT >= 26) {
+                int amp = Math.max(1, Math.min(255, amplitude));
+                v.vibrate(VibrationEffect.createOneShot(ms, amp));
+            } else {
+                v.vibrate(ms);
+            }
         }
     }
 

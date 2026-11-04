@@ -583,3 +583,64 @@ def plan_text_lines(pkg):
             elif any(local(c) == "tbl" for r in p.findall(HP + "run") for c in r):
                 pass
     return out
+
+
+# =========================================================== 주간업무계획 표지
+_PERIOD_RE = re.compile(r"\d{2}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*~\s*\d{1,2}\.\s*\d{1,2}\.")
+
+
+def register_cover(sample_path, out_dir, first_org="기획안전국"):
+    """시 전체 주간업무계획의 표지(날짜 상자·로고·제목 배너·그림·순서 목차)만 따로 양식으로."""
+    pkg = Package.load(sample_path)
+    sec = pkg.section(0)
+    ps = sec.findall(HP + "p")
+    cut = None
+    for i, p in enumerate(ps):
+        if i > 0 and ptext(p).strip() == first_org and any(local(c) == "tbl" for r in p.findall(HP + "run") for c in r):
+            cut = i
+            break
+    if cut is None:
+        raise ValueError("표지 뒤 첫 국 이름표(%s)를 찾지 못했어요" % first_org)
+    for p in ps[cut:]:
+        sec.remove(p)
+    done = False
+    for t in sec.iter(HP + "t"):
+        if t.text and _PERIOD_RE.search(t.text):
+            t.text = _PERIOD_RE.sub("{{period}}", t.text)
+            done = True
+    if not done:
+        raise ValueError("표지에서 날짜 상자를 찾지 못했어요")
+    for tbl in sec.iter(HP + "tbl"):                      # 목차의 쪽 번호는 비운다
+        for tc in tbl.iter(HP + "tc"):
+            if ptext(tc).strip().isdigit():
+                for t in tc.iter(HP + "t"):
+                    t.text = ""
+    P.strip_lineseg(sec)
+    sanitize_package(pkg)
+    os.makedirs(out_dir, exist_ok=True)
+    pkg.save(os.path.join(out_dir, "template.hwpx"))
+    form = {"id": "weekly_cover", "name": "주간업무계획 표지", "audience": "주간 업무", "kind": "weekly_cover",
+            "note": "날짜 상자 + 제목 배너 + 그림 + 순서 목차"}
+    with open(os.path.join(out_dir, "form.json"), "w", encoding="utf-8") as f:
+        json.dump(form, f, ensure_ascii=False, indent=2)
+    return {"id": "weekly_cover", "leftover": [], "protos": [], "style": {}}
+
+
+class WeeklyCoverForm:
+    def __init__(self, folder):
+        self.folder = folder
+        with open(os.path.join(folder, "form.json"), encoding="utf-8") as f:
+            self.meta = json.load(f)
+
+    id = property(lambda s: s.meta["id"])
+    name = property(lambda s: s.meta["name"])
+
+    def render(self, data):
+        """data: {"start": "2026-11-09"} → 표지"""
+        pkg = Package.load(os.path.join(self.folder, "template.hwpx"))
+        start = T.week_monday(T.parse_date(data["start"]))
+        period = T.fmt_range_short(start, start + datetime.timedelta(days=6))
+        for t in pkg.section(0).iter(HP + "t"):
+            if t.text and "{{period}}" in t.text:
+                t.text = t.text.replace("{{period}}", period)
+        return pkg

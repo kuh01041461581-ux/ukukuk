@@ -116,3 +116,8 @@ def parse_outline(text):
     if table:
         blocks.append(("table", table))
     return blocks
+
+
+# 보고서 본문 기본 틀: 사업개요(사업비·사업내용 …) → 지난 실적 → 금후 계획
+DEFAULT_STARTER = ("□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n"
+                   "□ 지난 실적\n◦ \n\n□ 금후 계획\n◦ ")

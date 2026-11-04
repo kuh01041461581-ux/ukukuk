@@ -137,6 +137,23 @@ class RenderTests(unittest.TestCase):
         self.assertIn("◦ 일    시 : 2026. 11. 14.(토) 13:00 ~ 17:00", txt)
         self.assertIn("◦ 주요내용 : 장터", txt)
 
+    def test_weekly_cover(self):
+        f = registry.load_form("weekly_cover", ROOTS)
+        pkg = check_package(self, f.render({"start": "2026-11-11"}))
+        txt = ptext(pkg.section(0))
+        self.assertIn("26. 11. 9. ~ 11. 15.", txt)
+        self.assertIn("주간업무계획", txt)
+        self.assertIn("문화교육국", txt)          # 순서 목차
+
+    def test_default_body(self):
+        """사업개요(사업비·사업내용) → 지난 실적 → 금후 계획 기본 틀이 두 보고 양식에서 나온다"""
+        for fid in ("report_dept", "report_mayor"):
+            f = registry.load_form(fid, ROOTS)
+            pkg = check_package(self, f.render({"title": "t"}, T.DEFAULT_STARTER))
+            txt = ptext(pkg.section(0))
+            for s in ("사업개요", "사 업 비", "사업내용", "지난 실적", "금후 계획"):
+                self.assertIn(s, txt)
+
     def test_weekly_schedule(self):
         f = registry.load_form("weekly_schedule", ROOTS)
         evs = [{"date": "2026-11-09", "time": "10:00", "title": "개막식", "place": "박물관", "dept": "문화유산과",

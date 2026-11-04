@@ -1,0 +1,7 @@
+{
+  "id": "weekly_cover",
+  "name": "주간업무계획 표지",
+  "audience": "주간 업무",
+  "kind": "weekly_cover",
+  "note": "날짜 상자 + 제목 배너 + 그림 + 순서 목차"
+}

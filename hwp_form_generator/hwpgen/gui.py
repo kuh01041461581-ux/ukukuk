@@ -160,7 +160,7 @@ class ReportTab(ttk.Frame):
             ttk.Entry(self.fields, textvariable=v, width=34).grid(row=i, column=1, sticky="ew", padx=4, pady=1)
         self.fields.columnconfigure(1, weight=1)
         self.body.delete("1.0", "end")
-        self.body.insert("1.0", self.form.meta.get("starter", "□ 개요\n◦ 일시: \n◦ 장소: \n"))
+        self.body.insert("1.0", self.form.meta.get("starter") or T.DEFAULT_STARTER)
 
     def insert(self, s):
         self.body.insert("insert", s)
@@ -689,6 +689,7 @@ class Widget(tk.Tk):
                 ttk.Button(self.body, text=meta["name"].split(" (")[0], style="Form.TButton",
                            command=lambda f=fid: self.make_report(f)).pack(fill="x", pady=1)
         ttk.Label(self.body, text="주간 업무 (이번 주)", font=FONT_B, foreground=ACCENT).pack(anchor="w", pady=(10, 2))
+        ttk.Button(self.body, text="주간업무계획 표지", style="Wk.TButton", command=lambda: self.make_week("cover")).pack(fill="x", pady=1)
         ttk.Button(self.body, text="주간업무계획", style="Wk.TButton", command=lambda: self.make_week("plan")).pack(fill="x", pady=1)
         ttk.Button(self.body, text="주간 주요일정", style="Wk.TButton", command=lambda: self.make_week("schedule")).pack(fill="x", pady=1)
         ttk.Separator(self.body).pack(fill="x", pady=10)
@@ -707,7 +708,7 @@ class Widget(tk.Tk):
                 if fl.get("profile"):
                     v = PR.profile_value(prof, fl["profile"]) or v
                 vals[fl["key"]] = v
-            pkg = f.render(vals, f.meta.get("starter", "□ 개요\n◦ 일시: \n◦ 장소: \n"))
+            pkg = f.render(vals, f.meta.get("starter") or T.DEFAULT_STARTER)
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
@@ -718,7 +719,9 @@ class Widget(tk.Tk):
         data = PR.load_week(monday)
         org = PR.load_profile().get("org") or "문화교육국"
         try:
-            if which == "plan":
+            if which == "cover":
+                pkg = registry.load_form("weekly_cover").render({"start": monday.isoformat()})
+            elif which == "plan":
                 pkg = registry.load_form("weekly_plan").render({"org": org, "items": data["items"]})
             else:
                 end = monday + datetime.timedelta(days=6)
@@ -727,7 +730,7 @@ class Widget(tk.Tk):
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
-        self.out.insert(pkg, "주간업무계획" if which == "plan" else "주간주요일정")
+        self.out.insert(pkg, {"cover": "주간업무계획표지", "plan": "주간업무계획"}.get(which, "주간주요일정"))
 
     def open_detail(self):
         if self.detail is not None:

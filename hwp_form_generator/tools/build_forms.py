@@ -79,8 +79,7 @@ def build(dept_report, mayor_report, plan, schedule):
             {"key": "staff", "label": "담당자 (이름(내선))", "sample": s["staff"], "profile": "staff"},
         ],
         note="제목 상자 + 담당자 한 줄 + □ 본문. 문화교육국(국장님) 보고용",
-        starter="□ 행사개요\n◦ 사업명: \n◦ 일시: \n◦ 장소: \n◦ 사업내용: \n\n□ 주요내용\n| 등록 및 개회 | 사회: |\n"
-                "| 13:00~13:30(30') | 참석자 등록 |\n\n□ 국장님 하실 일\n◦ ")
+        starter="□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n□ 지난 실적\n◦ \n\n□ 금후 계획\n◦ ")
     s = detect_mayor_fields(mayor_report)
     out["report_mayor"] = report.register_report(
         mayor_report, os.path.join(FORMS, "report_mayor"), "report_mayor",
@@ -94,9 +93,9 @@ def build(dept_report, mayor_report, plan, schedule):
             {"key": "staff", "label": "담 당 자 (이름 내선 / 휴대폰)", "sample": s["staff"], "profile": "staff_full"},
         ],
         note="'보 고' 머리표 + 제목 상자 + □ 본문. 시장님 보고용 (본문은 표 안에 들어갑니다)",
-        starter="□ 개요\n◦ 일시: \n◦ 장소: \n◦ 주제: \n◦ 참석인원: \n\n□ 시간계획\n| 시 간 | 소요 | 주 요 내 용 | 비 고 |\n"
-                "| 14:00 ~ 14:05 | 5′ | ◦ 개회 및 안내 | 사회자 |")
+        starter="□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n□ 지난 실적\n◦ \n\n□ 금후 계획\n◦ ")
     out["weekly_plan"] = weekly.register_plan(plan, os.path.join(FORMS, "weekly_plan"))
+    out["weekly_cover"] = weekly.register_cover(plan, os.path.join(FORMS, "weekly_cover"))
     out["weekly_schedule"] = weekly.register_schedule(schedule, os.path.join(FORMS, "weekly_schedule"))
     return out
 

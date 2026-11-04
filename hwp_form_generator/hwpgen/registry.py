@@ -16,6 +16,7 @@ KINDS = {
     "report": report.ReportForm,
     "weekly_plan": weekly.WeeklyPlanForm,
     "weekly_schedule": weekly.WeeklyScheduleForm,
+    "weekly_cover": weekly.WeeklyCoverForm,
 }
 
 

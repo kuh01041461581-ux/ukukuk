@@ -5,7 +5,7 @@ using System.IO;
 using System.Media;
 using System.Reflection;
 
-// 오락실 효과음 (Kenney Interface Sounds · WobbleBoxx — 모두 CC0 공공 도메인). exe 안에 들어 있는 짧은 WAV 를 재생해요.
+// 오락실 효과음 (Kenney Interface Sounds · WobbleBoxx · OpenGameArt 의 rubberduck/qubodup/Independent.nu 등 — 모두 CC0 공공 도메인, 일부는 직접 합성). exe 안에 들어 있는 짧은 WAV 를 재생해요.
 // 알림음 설정이 꺼져 있거나 게임 안 스피커 버튼으로 끄면 소리가 나지 않아요.
 internal static class Sfx
 {

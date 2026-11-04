@@ -22,7 +22,7 @@
   --u-shadow:none;
   --u-pop:0 12px 40px rgba(15,15,15,.18),0 0 0 1px rgba(15,15,15,.06);
   --u-ring:0 0 0 3px rgba(94,106,210,.22);
-  --u-font:'Segoe UI Variable Text','Segoe UI','Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --u-font:'Pretendard Variable',Pretendard,'Segoe UI Variable Text','Segoe UI','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
 }
 :root.seomu-dark{
   --u-bg:#101113;--u-sub:#16171A;--u-card:#16171A;
@@ -41,7 +41,9 @@ html{scrollbar-width:thin;scrollbar-color:var(--u-border2) transparent;-webkit-t
 *::-webkit-scrollbar-track{background:transparent;}
 *::-webkit-scrollbar-thumb{background:var(--u-border2);border-radius:999px;border:3px solid transparent;background-clip:content-box;}
 *::-webkit-scrollbar-thumb:hover{background:var(--u-text3);background-clip:content-box;}
-html body{font-family:var(--u-font) !important;font-size:13.5px;line-height:1.55;background:transparent !important;color:var(--u-text);-webkit-font-smoothing:antialiased;letter-spacing:-.003em;}
+html body{font-family:var(--u-font) !important;font-size:14px;line-height:1.6;background:transparent !important;color:var(--u-text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;letter-spacing:-.006em;word-break:keep-all;overflow-wrap:break-word;}
+/* 금액·숫자는 자릿수가 맞게 */
+td,th,input[type=number],.amt,.num,.amt-input{font-variant-numeric:tabular-nums;}
 button,input,select,textarea{font-family:inherit;}
 .seal,.app-icon,.brand-mark{display:none !important;}
 :focus-visible{outline:2px solid var(--u-primary);outline-offset:2px;}
@@ -62,7 +64,7 @@ html body .card .sub,html body .step-desc,html body .section-sub,html body .card
 }
 /* 라벨 */
 html body .field-label,html body .control-label,html body .formrow > label,html body .box > label,html body .ctrl > label,html body .panel label:not(.chk):not(.checkline){
-  font-size:13px !important;font-weight:500 !important;color:var(--u-text) !important;
+  font-size:13.5px !important;font-weight:500 !important;color:var(--u-text) !important;
 }
 /* 번호 배지: 흐린 회색 동그라미 */
 html body .step-no,html body .step-badge{
@@ -74,7 +76,7 @@ html body .section-head,html body .step-head{display:flex;align-items:center;gap
 /* ---------- 버튼 (역할별 한 벌) ---------- */
 html body .btn,html body .btn-primary,html body .btn-ghost,html body .btn-outline,html body .btn-secondary,html body .btn-export,html body .run,html body .mini-btn{
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  min-height:32px;padding:0 12px;border-radius:var(--u-r-ctl);font-family:inherit;font-size:13px;font-weight:500;letter-spacing:-.005em;
+  min-height:32px;padding:0 12px;border-radius:var(--u-r-ctl);font-family:inherit;font-size:13.5px;font-weight:500;letter-spacing:-.005em;
   line-height:1.2;cursor:pointer;white-space:nowrap;text-decoration:none;border:1px solid transparent;box-shadow:none;
   transition:background .12s ease,border-color .12s ease,color .12s ease,transform .06s ease;
 }
@@ -110,7 +112,7 @@ html body .icon-btn:hover,html body .btn-icon:hover{background:var(--u-hover);co
 /* ---------- 입력칸 (32px · 6px · 포커스 시 포인트색 테두리 + 은은한 링) ---------- */
 html body input[type=text],html body input[type=number],html body input[type=password],html body input[type=search],html body input[type=email],
 html body input[type=date],html body input[type=time],html body input[type=datetime-local],html body input[type=month],html body input:not([type]),html body select,html body textarea{
-  font-family:inherit;font-size:13px;color:var(--u-text);background:var(--u-card);
+  font-family:inherit;font-size:13.5px;color:var(--u-text);background:var(--u-card);
   border:1px solid var(--u-border2);border-radius:var(--u-r-input);box-shadow:none;
   transition:border-color .12s ease,box-shadow .12s ease,background .12s ease;
 }

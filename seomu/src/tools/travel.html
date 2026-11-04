@@ -35,7 +35,7 @@ body{
   margin:0;
   background:var(--bg);
   color:var(--text);
-  font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  font-family:var(--u-font);
   line-height:1.55;
   padding:0 0 80px;
   -webkit-font-smoothing:antialiased;
@@ -76,7 +76,7 @@ section{margin-top:32px;}
 .section-head{display:flex;align-items:center;gap:11px;margin-bottom:14px;}
 .step-no{
   width:24px;height:24px;border-radius:7px;flex-shrink:0;
-  font-family:'Noto Sans KR',sans-serif;
+  font-family:var(--u-font);
   font-size:12px;color:var(--primary);background:var(--primary-tint);
   display:flex;align-items:center;justify-content:center;
   font-weight:700;font-variant-numeric:tabular-nums;
@@ -127,7 +127,7 @@ summary::marker{color:var(--primary);}
 .rule-field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:5px;font-weight:500;}
 .rule-field input{
   width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-input);
-  font-family:'Noto Sans KR',sans-serif;font-size:13px;background:var(--card);
+  font-family:var(--u-font);font-size:13px;background:var(--card);
   transition:border-color .15s ease, box-shadow .15s ease;
 }
 .rule-field input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
@@ -193,7 +193,7 @@ details.opt .file-chip{margin-top:10px;padding:5px 12px;font-size:12px;}
 }
 .toolbar input[type=search]:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
 .btn{
-  font-family:'Noto Sans KR',sans-serif;
+  font-family:var(--u-font);
   border:1px solid var(--primary);background:var(--primary);color:#fff;
   height:40px;padding:0 16px;border-radius:var(--radius-btn);font-size:13.5px;font-weight:600;cursor:pointer;
   transition:background .15s ease, border-color .15s ease, opacity .15s ease;
@@ -217,7 +217,7 @@ table.datagrid tbody tr:hover{background:var(--hover);}
 table.datagrid tbody tr.excluded{opacity:.4;}
 table.datagrid input[type=text]{
   width:100%;min-width:64px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;
-  font-family:'Noto Sans KR',sans-serif;background:var(--card);box-sizing:border-box;
+  font-family:var(--u-font);background:var(--card);box-sizing:border-box;
   transition:border-color .15s ease, box-shadow .15s ease;
 }
 table.datagrid input[type=text]:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
@@ -254,7 +254,7 @@ table.datagrid td.name-cell{
   display:flex;justify-content:space-between;align-items:center;
   padding:6px 22px 18px;font-size:13.5px;color:var(--text);
 }
-.ledger-sub .approver{font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--text-2);text-align:right;}
+.ledger-sub .approver{font-family:var(--u-font);font-size:12.5px;color:var(--text-2);text-align:right;}
 .ledger-sub .approver b{color:var(--text);}
 table.ledger-table{width:100%;border-collapse:collapse;font-size:12.5px;}
 table.ledger-table th{

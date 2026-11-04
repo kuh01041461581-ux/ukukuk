@@ -43,10 +43,10 @@
     });
   });
 
-  /* 4) 글꼴은 첫 그림을 막지 않게 뒤늦게 불러온다 (그 전엔 기본 한글 글꼴로 표시) */
+  /* 4) 글꼴(Pretendard, 필요한 글자만 조각으로 받음)은 첫 그림을 막지 않게 뒤늦게 불러온다 (그 전엔 윈도우 기본 한글 글꼴) */
   var f=document.createElement('link');
   f.rel='stylesheet';f.media='print';
-  f.href='https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap';
+  f.href='https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css';
   f.onload=function(){f.media='all';};
   document.head.appendChild(f);
 

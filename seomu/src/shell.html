@@ -5,15 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>서무 종합프로그램</title>
 <!-- 글꼴은 첫 화면을 막지 않게 뒤늦게 불러온다(그 전에는 기본 한글 글꼴) -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
 <style>
   /*SEOMU-TOKENS*/
   :root{--font:var(--u-font);--sidebar-w:244px;--top-h:48px;}
   *{box-sizing:border-box;}
   html,body{margin:0;}
-  body{font-family:var(--font);font-size:14px;background:var(--u-bg);color:var(--u-text);-webkit-font-smoothing:antialiased;letter-spacing:-.003em;}
+  body{font-family:var(--font);font-size:14px;line-height:1.6;background:var(--u-bg);color:var(--u-text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;letter-spacing:-.006em;word-break:keep-all;}
   svg.ic{width:16px;height:16px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
   button{font-family:inherit;}
   :focus-visible{outline:2px solid var(--u-primary);outline-offset:-2px;border-radius:6px;}

@@ -1,3 +1,18 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index d1bfbf0..aad3d2a 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -30,7 +30,9 @@ opt-level = 1
+ 
+ [profile.release]
+ debug = 2
+-lto = "thin"
++lto = "fat"
++opt-level = 3
++codegen-units = 1
+ 
+ [workspace.package]
+ version = "0.2.19"
 diff --git a/src/cli.rs b/src/cli.rs
 index cc0bc27..58cdc30 100644
 --- a/src/cli.rs
@@ -90,6 +105,239 @@ index 9a1da31..9910049 100644
              _ => unimplemented!("Unknown key: {string}"),
          }
      }
+diff --git a/wie-core-arm/src/aot.rs b/wie-core-arm/src/aot.rs
+index b634cf2..4fd181d 100644
+--- a/wie-core-arm/src/aot.rs
++++ b/wie-core-arm/src/aot.rs
+@@ -9,7 +9,7 @@ use core::{
+ 
+ use hashbrown::HashMap;
+ use wie_core_arm_aot::{
+-    CompileRequest, CompiledArtifact, CompiledExecutor, CompiledHandle, CompiledRegion, ManifestRegion, PreparationFuture, PreparationState,
++    CodeImage, CompileRequest, CompiledArtifact, CompiledExecutor, CompiledHandle, CompiledRegion, ManifestRegion, PreparationFuture, PreparationState,
+     RegionKey,
+ };
+ use wie_util::Result;
+@@ -25,6 +25,8 @@ struct Recompilation {
+     manifest: ManifestRegion,
+     future: PreparationFuture,
+     invalidated: bool,
++    /// 이 재컴파일이 만들어질 때 읽은 코드 바이트 (명령 캐시 무효화 때 실제로 바뀌었는지 비교하는 기준)
++    images: Arc<[CodeImage]>,
+ }
+ 
+ pub(crate) struct Aot {
+@@ -33,6 +35,10 @@ pub(crate) struct Aot {
+     pub entries: HashMap<RegionKey, CompiledHandle>,
+     ranges: Vec<Range<u64>>,
+     regions: Vec<CompiledRegion>,
++    /// `regions` 와 같은 순서: 각 영역을 변환할 때 사용한 코드 바이트
++    region_images: Vec<Arc<[CodeImage]>>,
++    /// 처음 준비(begin)에 쓴 코드 바이트
++    initial_images: Option<Arc<[CodeImage]>>,
+     invalidated: Vec<ManifestRegion>,
+     recompilations: Vec<Recompilation>,
+ }
+@@ -45,6 +51,8 @@ impl Aot {
+             entries: HashMap::new(),
+             ranges: Vec::new(),
+             regions: Vec::new(),
++            region_images: Vec::new(),
++            initial_images: None,
+             invalidated: Vec::new(),
+             recompilations: Vec::new(),
+         }
+@@ -66,6 +74,7 @@ impl Aot {
+             return Ok(None);
+         }
+         self.state = PreparationState::Preparing;
++        self.initial_images = Some(request.images.clone());
+         Ok(Some(self.executor.prepare(request)))
+     }
+ 
+@@ -75,7 +84,10 @@ impl Aot {
+         }
+         self.state = PreparationState::Ready;
+         match result {
+-            Ok(artifact) => self.install(artifact),
++            Ok(artifact) => {
++                let images = self.initial_images.take().unwrap_or_else(|| Arc::from(Vec::new()));
++                self.install(artifact, images)
++            }
+             Err(error) => {
+                 tracing::warn!(%error, "ARM AOT preparation failed; using interpreter");
+                 return false;
+@@ -85,8 +97,9 @@ impl Aot {
+         true
+     }
+ 
+-    fn install(&mut self, artifact: CompiledArtifact) {
++    fn install(&mut self, artifact: CompiledArtifact, images: Arc<[CodeImage]>) {
+         for region in artifact.regions {
++            self.region_images.push(images.clone());
+             self.entries.extend(
+                 region
+                     .manifest
+@@ -98,15 +111,29 @@ impl Aot {
+         }
+     }
+ 
++    /// 무조건 무효화 (시험·내부용)
++    #[allow(dead_code)]
+     pub fn invalidate(&mut self, range: Range<u64>) {
++        self.invalidate_impl(range, None);
++    }
++
++    /// 명령 캐시 비우기: 변환해 둔 코드가 **실제로 바뀐 영역만** 무효화한다.
++    /// 게임(특히 LGT)은 코드가 그대로인데도 캐시 비우기 명령을 자주 실행하는데, 그때마다 전부 다시 컴파일하면 CPU 를 다 쓴다.
++    pub fn invalidate_if_changed(&mut self, range: Range<u64>, memory: &EmulatedMemory) {
++        self.invalidate_impl(range, Some(memory));
++    }
++
++    fn invalidate_impl(&mut self, range: Range<u64>, memory: Option<&EmulatedMemory>) {
+         let overlaps = |manifest: &ManifestRegion| manifest.code_ranges.iter().any(|code| code.start < range.end && range.start < code.end);
++        let unchanged = |ranges: &[Range<u64>], images: &[CodeImage]| memory.is_some_and(|memory| code_matches(ranges, images, memory));
+         let mut index = 0;
+         while index < self.regions.len() {
+-            if !overlaps(&self.regions[index].manifest) {
++            if !overlaps(&self.regions[index].manifest) || unchanged(&self.regions[index].manifest.code_ranges, &self.region_images[index]) {
+                 index += 1;
+                 continue;
+             }
+             let region = self.regions.swap_remove(index);
++            self.region_images.swap_remove(index);
+             for &pc in &region.manifest.instruction_pcs {
+                 self.entries.remove(&RegionKey { pc, ..region.manifest.entry });
+             }
+@@ -114,7 +141,9 @@ impl Aot {
+             self.invalidated.push(region.manifest);
+         }
+         for pending in &mut self.recompilations {
+-            pending.invalidated |= overlaps(&pending.manifest);
++            if overlaps(&pending.manifest) && !unchanged(&pending.manifest.code_ranges, &pending.images) {
++                pending.invalidated = true;
++            }
+         }
+     }
+ 
+@@ -134,10 +163,12 @@ impl Aot {
+                 return;
+             }
+         };
++        let images = request.images.clone();
+         self.recompilations.push(Recompilation {
+             manifest,
+             future: self.executor.prepare(request),
+             invalidated: false,
++            images,
+         });
+     }
+ 
+@@ -159,7 +190,7 @@ impl Aot {
+                 self.invalidated.push(pending.manifest);
+             } else {
+                 match result {
+-                    Ok(artifact) => self.install(artifact),
++                    Ok(artifact) => self.install(artifact, pending.images),
+                     Err(error) => tracing::warn!(%error, "ARM AOT recompilation failed; using interpreter"),
+                 }
+             }
+@@ -167,6 +198,38 @@ impl Aot {
+     }
+ }
+ 
++/// `ranges` 의 코드가 변환 당시 바이트(`images`)와 현재 메모리에서 같은지 확인한다. 하나라도 다르거나 읽을 수 없으면 false.
++fn code_matches(ranges: &[Range<u64>], images: &[CodeImage], memory: &EmulatedMemory) -> bool {
++    for range in ranges {
++        let mut address = range.start;
++        while address < range.end {
++            // images 는 주소 오름차순이고 서로 겹치지 않는다.
++            let Ok(index) = images.binary_search_by(|image| {
++                let start = u64::from(image.address);
++                let end = start + image.bytes.len() as u64;
++                if end <= address {
++                    core::cmp::Ordering::Less
++                } else if start > address {
++                    core::cmp::Ordering::Greater
++                } else {
++                    core::cmp::Ordering::Equal
++                }
++            }) else {
++                return false;
++            };
++            let image = &images[index];
++            let offset = (address - u64::from(image.address)) as usize;
++            let len = (image.bytes.len() - offset).min((range.end - address) as usize);
++            match memory.code_image(address as u32, len) {
++                Ok(current) if current.bytes[..] == image.bytes[offset..offset + len] => {}
++                _ => return false,
++            }
++            address += len as u64;
++        }
++    }
++    true
++}
++
+ fn compile_request(memory: &EmulatedMemory, mut ranges: Vec<Range<u64>>, mode: Option<bool>) -> Result<CompileRequest> {
+     ranges.sort_unstable_by_key(|range| range.start);
+     let mut merged: Vec<Range<u64>> = Vec::new();
+diff --git a/wie-core-arm/src/engine/arm32_cpu.rs b/wie-core-arm/src/engine/arm32_cpu.rs
+index 5439513..46fe22f 100644
+--- a/wie-core-arm/src/engine/arm32_cpu.rs
++++ b/wie-core-arm/src/engine/arm32_cpu.rs
+@@ -188,7 +188,7 @@ impl ArmEngine for Arm32CpuEngine {
+                         start..start + 32
+                     }
+                 };
+-                aot.invalidate(range);
++                aot.invalidate_if_changed(range, &self.mem);
+                 lookup_entry = true;
+             }
+             lookup_entry |= recheck_after_step;
+@@ -1004,6 +1004,8 @@ mod tests {
+             let compiled = artifact(&responses.lock().requests[0], 0);
+             assert!(responses.lock().ready.take().unwrap().send(Ok(compiled)).is_ok());
+             engine.finish_preparation(futures::executor::block_on(preparation));
++            // 캐시 비우기는 변환한 코드가 실제로 바뀐 영역만 무효화하므로, 비우기 전에 코드를 바꿔 둔다 (bx lr -> mov r8, r8).
++            engine.mem_write(0x20022, &[0x40, 0x46]).unwrap();
+             engine.reg_write(ArmRegister::Cpsr, cpsr);
+             engine.reg_write(ArmRegister::PC, 0x1000);
+             engine.cpu.reg_set(Mode::User, register, 0x30000);
+@@ -1020,6 +1022,34 @@ mod tests {
+         }
+     }
+ 
++    #[test]
++    fn unchanged_code_keeps_compiled_regions_after_cache_invalidation() {
++        let responses = Arc::new(Mutex::new(Responses::default()));
++        let mut engine = Arm32CpuEngine::with_backend(Some(Box::new(DeferredExecutor(responses.clone()))));
++        engine.mem_map(0x1000, 4, MemoryPermission::ReadWriteExecute);
++        engine.mem_map(0x20000, 0x10000, MemoryPermission::ReadWriteExecute);
++        engine.mem_write(0x1000, &0xee070f15u32.to_le_bytes()).unwrap(); // mcr p15, 0, r0, c7, c5, 0 (I-cache 전체 무효화)
++        engine.mem_write(0x2001e, &[0, 0xf0, 0, 0xf8, 0x70, 0x47]).unwrap();
++        engine.record_image(0x2001e, 6);
++        let preparation = engine.begin_preparation().unwrap().unwrap();
++        let compiled = artifact(&responses.lock().requests[0], 0);
++        assert!(responses.lock().ready.take().unwrap().send(Ok(compiled)).is_ok());
++        engine.finish_preparation(futures::executor::block_on(preparation));
++        assert!(!engine.aot.as_ref().unwrap().entries.is_empty());
++
++        // 코드가 그대로이면 캐시를 비워도 변환 결과를 유지한다.
++        engine.reg_write(ArmRegister::Cpsr, 0x1f);
++        engine.reg_write(ArmRegister::PC, 0x1000);
++        engine.run(0x1004, 1).unwrap();
++        assert!(!engine.aot.as_ref().unwrap().entries.is_empty());
++
++        // 코드가 바뀐 뒤 캐시를 비우면 버린다.
++        engine.mem_write(0x20022, &[0x40, 0x46]).unwrap();
++        engine.reg_write(ArmRegister::PC, 0x1000);
++        engine.run(0x1004, 1).unwrap();
++        assert!(engine.aot.as_ref().unwrap().entries.is_empty());
++    }
++
+     #[test]
+     fn run_reports_consumed_budget_at_yield_and_return_boundaries() {
+         let mut engine = Arm32CpuEngine::new();
 diff --git a/wie-web/Cargo.toml b/wie-web/Cargo.toml
 index 30704cf..f846e25 100644
 --- a/wie-web/Cargo.toml
@@ -108,10 +356,10 @@ index 30704cf..f846e25 100644
  [package.metadata.wasm-pack.profile.profiling]
  wasm-opt = ["-O", "-g", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 diff --git a/wie-web/src/css/style.css b/wie-web/src/css/style.css
-index e178d36..1d3c380 100644
+index e178d36..54da962 100644
 --- a/wie-web/src/css/style.css
 +++ b/wie-web/src/css/style.css
-@@ -923,3 +923,108 @@ kbd {
+@@ -923,3 +923,158 @@ kbd {
      scroll-behavior: auto;
    }
  }
@@ -220,6 +468,56 @@ index e178d36..1d3c380 100644
 +.app-dialog .controls-fields label.inline { display: flex; align-items: center; gap: 8px; }
 +.app-dialog .controls-fields input[type="range"], .app-dialog .controls-fields select { display: block; width: 100%; margin-top: 6px; }
 +.app-dialog .controls-fields #vib-test { width: 100%; height: 40px; margin: 0 0 8px; }
++
++/* ===== 화면 배치 개선: 게임 화면이 눌려 사라지거나 작아지지 않게 ===== */
++.player-main { overflow-y: auto; overflow-x: hidden; }
++.canvas-wrapper {
++  flex: 1 1 0;
++  width: min(100vw, 560px);
++  aspect-ratio: auto;
++  min-height: 40dvh;      /* 아래 패드가 아무리 커도 게임 화면은 이 높이를 지킨다 */
++  background: #000;
++}
++#canvas { background: #000; }
++
++/* 키 가림이 적은 낮은 폰 화면: 패드를 작게 */
++@media (max-height: 760px) and (max-width: 799px) {
++  .pad-tabs { margin-bottom: 4px; }
++  .pad-tabs button { height: 30px; }
++  .joystick, .dpad-touch { width: min(34vw, 140px); }
++  .touch-actions .act { height: 42px; }
++  .touch-actions .act-ok { height: 50px; }
++  .touch-actions { gap: 6px; }
++  .dir-toggle { height: 22px; font-size: 0.62rem; }
++  .phone-keys button { height: 40px; }
++  .phone-side .act { height: 38px; }
++  .dpad { grid-template-rows: repeat(3, 36px); grid-template-columns: repeat(3, 44px); }
++  .phone-keys { margin-top: 6px; gap: 4px; }
++}
++
++/* PC 등 넓은 화면: 왼쪽 큰 게임 화면 + 오른쪽 패드/키 안내 */
++@media (min-width: 800px) and (min-height: 420px) {
++  .player-main {
++    display: grid;
++    grid-template-columns: auto minmax(340px, 440px);
++    grid-template-rows: auto auto 1fr;
++    justify-content: center;
++    align-content: start;
++    column-gap: 28px;
++    padding: 12px 16px;
++    overflow-y: auto;
++  }
++  #player-output {
++    grid-column: 1; grid-row: 1 / span 3;
++    width: min(56vw, calc((100dvh - var(--toolbar-height) - 28px) * 0.8));
++    height: calc(100dvh - var(--toolbar-height) - 28px);
++    min-height: 0;
++  }
++  #player-output.canvas-wrapper { flex: none; }
++  .player-warning { grid-column: 2; grid-row: 1; }
++  #pads { grid-column: 2; grid-row: 1; width: 100%; max-width: 440px; }
++  #key-help { grid-column: 2; grid-row: 2; width: 100%; max-width: 440px; margin: 8px 0 0; }
++}
 diff --git a/wie-web/src/html/index.html b/wie-web/src/html/index.html
 index ccad276..1223ef6 100644
 --- a/wie-web/src/html/index.html
@@ -460,7 +758,7 @@ index ccad276..1223ef6 100644
        <form method="dialog">
          <header class="dialog-header">
 diff --git a/wie-web/src/rust/lib.rs b/wie-web/src/rust/lib.rs
-index 1582b8c..994305a 100644
+index 1582b8c..b822e7d 100644
 --- a/wie-web/src/rust/lib.rs
 +++ b/wie-web/src/rust/lib.rs
 @@ -144,7 +144,10 @@ pub struct WieWeb {
@@ -475,7 +773,21 @@ index 1582b8c..994305a 100644
  }
  
  impl Drop for WieWeb {
-@@ -222,6 +225,8 @@ impl WieWeb {
+@@ -209,7 +212,12 @@ impl WieWeb {
+             let platform = Box::new(WieWebPlatform::new(window, font, audio_player.clone(), host.clone(), exited.clone()));
+             let options = Options {
+                 enable_gdbserver: false,
+-                aot: Some(Box::new(aot::WasmExecutor::default())),
++                // 시험/호환용: 페이지에서 window.WIE_NO_AOT = true 로 두면 ARM 변환(AOT) 없이 해석기로만 실행한다.
++                aot: if js_sys::Reflect::get(&js_sys::global(), &JsValue::from_str("WIE_NO_AOT")).map(|v| v.is_truthy()).unwrap_or(false) {
++                    None
++                } else {
++                    Some(Box::new(aot::WasmExecutor::default()))
++                },
+                 profile: None,
+             };
+ 
+@@ -222,6 +230,8 @@ impl WieWeb {
                  exited,
                  should_redraw,
                  key_events: HashMap::new(),
@@ -484,7 +796,7 @@ index 1582b8c..994305a 100644
              })
          })()
          .map_err(|e| JsError::new(&e.to_string()))
-@@ -243,10 +248,10 @@ impl WieWeb {
+@@ -243,10 +253,10 @@ impl WieWeb {
  
          let millis = self.host.as_ref().map_or_else(js_sys::Date::now, WasmHost::now);
  
@@ -498,7 +810,7 @@ index 1582b8c..994305a 100644
              }
          }
  
-@@ -258,11 +263,17 @@ impl WieWeb {
+@@ -258,11 +268,17 @@ impl WieWeb {
          let key = KeyCode::parse(&key);
  
          self.emulator.handle_event(Event::Keydown(key));
@@ -517,6 +829,16 @@ index 1582b8c..994305a 100644
      pub fn key_up(&mut self, key: String) -> Result<(), JsError> {
          let key = KeyCode::parse(&key);
  
+@@ -284,7 +300,8 @@ pub fn start() {
+         .with_ansi(false)
+         .with_timer(UtcTime::rfc_3339())
+         .with_writer(MakeConsoleWriter)
+-        .with_filter(LevelFilter::INFO);
++        // 게임이 실행되는 동안 함수 호출마다 경고/정보 로그를 콘솔로 보내면 CPU 를 크게 먹어 렉이 생기므로 오류만 남긴다.
++        .with_filter(LevelFilter::ERROR);
+ 
+     tracing_subscriber::registry().with(fmt_layer).init();
+ }
 diff --git a/wie-web/src/ts/app.ts b/wie-web/src/ts/app.ts
 index ad69beb..2c7cf5a 100644
 --- a/wie-web/src/ts/app.ts

@@ -79,7 +79,7 @@ internal abstract class MiniGame
 		bool simple = Math.Abs(el[1]) < 1e-4f && Math.Abs(el[2]) < 1e-4f && el[0] > 0.05f && Math.Abs(el[0] - el[3]) < 1e-3f;
 		if (c.A >= 6 && simple)
 		{
-			int ca = c.A; c = Color.FromArgb(255, c);   // 투명도가 있는 글씨도 같은 그림을 재사용하고 찍을 때만 투명도를 입혀요
+			int ca = c.A; if (ca < 8) return; c = Color.FromArgb(255, c);   // 투명도가 있는 글씨도 같은 그림을 재사용하고 찍을 때만 투명도를 입혀요
 			float S = (float)Math.Round(el[0] * 16f) / 16f; if (S <= 0f) S = el[0];
 			int pw = (int)Math.Ceiling(w * S), ph = (int)Math.Ceiling(h * S);
 			if (pw > 0 && ph > 0 && pw * ph <= 420000)

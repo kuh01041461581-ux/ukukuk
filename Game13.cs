@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -78,8 +78,8 @@ internal sealed class JumpRopeGame : MiniGame
 	{
 		PointF[] pts = new PointF[21]; for (int i = 0; i <= 20; i++) { float u = i / 20f; float x = LX + (RX - LX) * u; float y = HandY + (midY - HandY) * (float)Math.Sin(u * 3.1416f); pts[i] = new PointF(x, Math.Min(Floor + 6f, y)); }
 		Color c = trip ? Color.FromArgb(255, 110, 80) : Color.FromArgb(front ? 255 : 160, 240, 80, 80);
-		using (Pen p = new Pen(Color.FromArgb(front ? 80 : 40, 0, 0, 0), front ? 7f : 5f) { LineJoin = LineJoin.Round }) { PointF[] sh = new PointF[pts.Length]; for (int i = 0; i < pts.Length; i++) sh[i] = new PointF(pts[i].X + 2f, pts[i].Y + 3f); g.DrawCurve(p, sh); }
-		using (Pen p = new Pen(c, front ? 4.5f : 3f) { LineJoin = LineJoin.Round }) g.DrawCurve(p, pts);
-		if (front) using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 1.4f)) g.DrawCurve(p, pts);
+		using (Pen p = new Pen(Color.FromArgb(front ? 80 : 40, 0, 0, 0), front ? 7f : 5f) { LineJoin = LineJoin.Round }) { PointF[] sh = new PointF[pts.Length]; for (int i = 0; i < pts.Length; i++) sh[i] = new PointF(pts[i].X + 2f, pts[i].Y + 3f); g.DrawLines(p, sh); }
+		using (Pen p = new Pen(c, front ? 4.5f : 3f) { LineJoin = LineJoin.Round }) g.DrawLines(p, pts);
+		if (front) using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 1.4f)) g.DrawLines(p, pts);
 	}
 }

@@ -113,17 +113,14 @@ public class GameView extends View {
             tp.setTextSize(Math.min(nw, rh) * 0.40f); sp.setTextSize(Math.min(nw, rh) * 0.20f);
         } else {                                        // 방향키 버튼 모드: 십자 방향 버튼 + 확인/취소 + 필요한 숫자·기호 버튼
             btns = new Btn[]{ new Btn("▲", "", UP), new Btn("◀", "", LEFT), new Btn("▶", "", RIGHT), new Btn("▼", "", DOWN),
-                              new Btn("확인", "", OK), new Btn("취소", "", CLR),
-                              new Btn("좌메뉴", "", SOFT_L), new Btn("*", "", '*'), new Btn("0", "", '0'), new Btn("#", "", '#') };
+                              new Btn("확인", "", OK), new Btn("취소", "", CLR), new Btn("0", "", '0') };      // 1편에서 실제로 쓰는 키: 방향 / 확인(148) / 취소(8) / 0(도시 화면)
             float s = Math.min(W * 0.13f, H * 0.21f), o = s * 1.12f, dcx = pad.left + W * 0.24f, dcy = pad.top + H * 0.42f;
             set(0, dcx - s / 2, dcy - o - s / 2, s, s); set(1, dcx - o - s / 2, dcy - s / 2, s, s);
             set(2, dcx + o - s / 2, dcy - s / 2, s, s); set(3, dcx - s / 2, dcy + o - s / 2, s, s);
             float ro = Math.min(W * 0.14f, H * 0.24f);
             circ(4, pad.left + W * 0.80f, pad.top + H * 0.34f, ro);
             circ(5, pad.left + W * 0.58f, pad.top + H * 0.62f, ro * 0.72f);
-            float bw = (W * 0.52f - 5 * m) / 4f, bh = Math.min(H * 0.18f, bw * 0.8f), by = pad.bottom - m - bh;
-            float bx = pad.left + W * 0.46f;
-            for (int i = 0; i < 4; i++) set(6 + i, bx + i * (bw + m), by, bw, bh);
+            float bh = Math.min(H * 0.18f, W * 0.12f); set(6, pad.left + W * 0.74f, pad.bottom - m - bh, W * 0.22f, bh);
             tp.setTextSize(Math.min(s, ro) * 0.5f); sp.setTextSize(ro * 0.25f);
         }
     }

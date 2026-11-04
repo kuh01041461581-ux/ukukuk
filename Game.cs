@@ -16,6 +16,7 @@ internal sealed class GameInput { public float Mx, My; public bool MouseMoved, L
 internal abstract class MiniGame
 {
 	public const int W = 400, H = 600;
+	internal static int curLW = 400;   // 지금 그리는 게임의 가로 칸 수 (배경/공용 그림이 넓은 화면을 채우도록)
 	public readonly Glints Fx = new Glints(); public float Shake; public int Score; public bool Over; public Image Mascot; protected readonly Random Rnd = new Random();
 	public float PlayT;   // 이 판을 시작한 뒤 흐른 시간 (모든 게임은 60초가 한계예요)
 	public abstract string Name { get; }
@@ -46,7 +47,7 @@ internal abstract class MiniGame
 	{
 		float cy = (float)cyd;
 		if (string.IsNullOrEmpty(s) || alpha <= 0.02f) return;
-		Font f = Theme.F(pt, 1); float tw = Gfx.MeasureL(s, f) + 4f, pw = Math.Min(W - 20f, tw + 34f), ph = pt * 1.75f + 9f; RectangleF r = new RectangleF((W - pw) / 2f, cy - ph / 2f, pw, ph);
+		Font f = Theme.F(pt, 1); float tw = Gfx.MeasureL(s, f) + 4f, pw = Math.Min(curLW - 20f, tw + 34f), ph = pt * 1.75f + 9f; RectangleF r = new RectangleF((curLW - pw) / 2f, cy - ph / 2f, pw, ph);
 		int A = (int)(255 * Math.Min(1f, alpha));
 		using (GraphicsPath sh = Gfx.Round(new RectangleF(r.X, r.Y + 2.5f, r.Width, r.Height), ph / 2f)) using (SolidBrush sb = new SolidBrush(Color.FromArgb(A * 55 / 255, 0, 0, 0))) g.FillPath(sb, sh);
 		using (GraphicsPath gp = Gfx.Round(r, ph / 2f))
@@ -171,13 +172,13 @@ internal abstract class MiniGame
 		Bitmap p = Spr.Get(pic); if (p == null) { Bg(g, a, b); return; }
 		float bsc = ImgCache.Scale(g); System.Drawing.Image bim = ImgCache.Get(p, W * bsc, H * bsc);   // 화면 크기로 한 번만 줄여 두고 재사용
 		InterpolationMode m0 = g.InterpolationMode; PixelOffsetMode po0 = g.PixelOffsetMode; CompositingMode cm0 = g.CompositingMode; g.InterpolationMode = InterpolationMode.Bilinear; g.PixelOffsetMode = PixelOffsetMode.Half; g.CompositingMode = CompositingMode.SourceCopy;
-		g.DrawImage(bim, new Rectangle(0, 0, W, H), 0, 0, bim.Width, bim.Height, GraphicsUnit.Pixel); g.InterpolationMode = m0; g.PixelOffsetMode = po0; g.CompositingMode = cm0;
+		GraphicsState wst = g.Save(); if (curLW != W) g.ScaleTransform((float)curLW / W, 1f); g.DrawImage(bim, new Rectangle(0, 0, W, H), 0, 0, bim.Width, bim.Height, GraphicsUnit.Pixel); g.Restore(wst); g.InterpolationMode = m0; g.PixelOffsetMode = po0; g.CompositingMode = cm0;
 	}
 	// 가로 모드용 배경: 세로 그림을 좌우로 뒤집어 이어 붙여요 (이음새가 안 보여요)
 	// 그림 속 물체(네트 등) 위치를 가로 비율대로 옮기고 싶을 때: 가로로 늘려 그려요
 	protected void BgStretch(Graphics g, string pic, Color a, Color b)
 	{
-		GraphicsState gs = g.Save(); g.ScaleTransform((float)LW / W, 1f); BgImg(g, pic, a, b); g.Restore(gs);
+		BgImg(g, pic, a, b);
 	}
 	protected void BgWide(Graphics g, string pic, Color a, Color b)
 	{
@@ -204,7 +205,7 @@ internal abstract class MiniGame
 		}
 		InterpolationMode im0 = g.InterpolationMode; CompositingMode cm0 = g.CompositingMode; PixelOffsetMode po0 = g.PixelOffsetMode;
 		g.InterpolationMode = InterpolationMode.NearestNeighbor; g.CompositingMode = CompositingMode.SourceCopy; g.PixelOffsetMode = PixelOffsetMode.Half;
-		g.DrawImage(bg, new RectangleF(0, 0, bg.Width / S, bg.Height / S), new RectangleF(0, 0, bg.Width, bg.Height), GraphicsUnit.Pixel);
+		GraphicsState wst = g.Save(); if (curLW != W) g.ScaleTransform((float)curLW / W, 1f); g.DrawImage(bg, new RectangleF(0, 0, bg.Width / S, bg.Height / S), new RectangleF(0, 0, bg.Width, bg.Height), GraphicsUnit.Pixel); g.Restore(wst);
 		g.InterpolationMode = im0; g.CompositingMode = cm0; g.PixelOffsetMode = po0;
 	}
 	private static readonly Dictionary<long, Bitmap> bgCache = new Dictionary<long, Bitmap>();
@@ -235,7 +236,7 @@ internal abstract class MiniGame
 		if (Spr.Get("ms_cu_flake") == null) return;
 		for (int k = 0; k < n; k++)
 		{
-			float sp = 18f + (k * 7) % 14, sz = 9f + (k * 5) % 9; float y = (float)((t * sp + k * 97) % (H + 40)) - 20f, x = (k * 61 + 17) % (W - 20) + 10f + (float)Math.Sin(t * 0.9 + k) * 12f;
+			float sp = 18f + (k * 7) % 14, sz = 9f + (k * 5) % 9; float y = (float)((t * sp + k * 97) % (H + 40)) - 20f, x = (k * 61 + 17) % (curLW - 20) + 10f + (float)Math.Sin(t * 0.9 + k) * 12f;
 			Spr.Draw(g, "ms_cu_flake", x, y, sz, sz * 120f / 104f, (float)(t * 30 + k * 40) % 360f);
 		}
 	}
@@ -283,6 +284,7 @@ internal abstract class MiniGame
 // ── 1. 별 받기 ──────────────────────────────────────────────
 internal sealed class CatchGame : MiniGame
 {
+	public override int LW { get { return 720; } }
 	private class It { public float X, Y, V, Vy, R, Vr, Ph; public int Kind; }   // V = 최종 낙하 속도(공기저항과 균형), Vy = 지금 속도
 	private readonly List<It> items = new List<It>();
 	private class Rp { public float X, Y, T, Mx; public Color C; public bool Ring; }
@@ -295,7 +297,7 @@ internal sealed class CatchGame : MiniGame
 	public override string Desc { get { return "떨어지는 별을 받아요"; } }
 	public override string Help { get { return "← → 키를 누르고 있거나 마우스로 움직여요\n별은 +1, 금별은 +3, 먹구름은 -3점\n시계는 시간 +3초 · 자석은 5초 동안 별을 끌어당겨요\n별을 놓치면 연속이 반으로 줄어요"; } }
 	public override string RightText { get { return Math.Ceiling(left) + "초"; } }
-	public override void Reset() { items.Clear(); rps.Clear(); flash = 0; lightT = 0; Score = 0; combo = 0; left = 30; spawn = 0; px = W / 2f; vx = 0; Over = false; pop = ""; magnetT = 0; catchT = 0; }
+	public override void Reset() { items.Clear(); rps.Clear(); flash = 0; lightT = 0; Score = 0; combo = 0; left = 30; spawn = 0; px = LW / 2f; vx = 0; Over = false; pop = ""; magnetT = 0; catchT = 0; }
 	public override void Icon(Graphics g, float cx, float cy) { StarShape(g, cx, cy, 20, Color.FromArgb(255, 214, 80)); }
 	public override void Update(float dt, GameInput inp, double t)
 	{
@@ -308,14 +310,14 @@ internal sealed class CatchGame : MiniGame
 			if (mouseMode) { float ax = 480f * (inp.Mx - px) - 40f * vx; vx += ax * dt; if (vx > 900f) vx = 900f; if (vx < -900f) vx = -900f; px += vx * dt; }   // 마룡이에게 질량이 있어요: 스프링처럼 따라가며 살짝 관성이 남아요
 			else { vx -= Math.Sign(vx) * Math.Min(Math.Abs(vx), 1800f * dt); px += vx * dt; }
 		}
-		if (px < 34f || px > W - 34f) vx *= -0.25f;   // 벽에 부딪히면 살짝 튕겨요
-		px = Clamp(px, 34, W - 34);
+		if (px < 34f || px > LW - 34f) vx *= -0.25f;   // 벽에 부딪히면 살짝 튕겨요
+		px = Clamp(px, 34, LW - 34);
 		left -= dt; if (left > 60 - PlayT) left = 60 - PlayT; double lvl = 1 + (30 - left) / 14.0; spawn -= dt;
 		if (spawn <= 0)
 		{
 			spawn = 0.42 / lvl + Rnd.NextDouble() * 0.25;
 			double rr = Rnd.NextDouble(); int k = rr < 0.16 ? 2 : (rr < 0.20 ? 3 : (rr < 0.235 && magnetT <= 0 ? 4 : (Rnd.NextDouble() < 0.14 ? 1 : 0)));
-			items.Add(new It { X = 24 + (float)Rnd.NextDouble() * (W - 48), Y = -30, V = (float)((150 + Rnd.NextDouble() * 90) * lvl), Kind = k, Vr = (float)((Rnd.NextDouble() - 0.5) * 240), Ph = (float)(Rnd.NextDouble() * 6.28) }); items[items.Count - 1].Vy = items[items.Count - 1].V * 0.3f;
+			items.Add(new It { X = 24 + (float)Rnd.NextDouble() * (LW - 48), Y = -30, V = (float)((150 + Rnd.NextDouble() * 90) * lvl), Kind = k, Vr = (float)((Rnd.NextDouble() - 0.5) * 240), Ph = (float)(Rnd.NextDouble() * 6.28) }); items[items.Count - 1].Vy = items[items.Count - 1].V * 0.3f;
 		}
 		float cy = H - 80;
 		for (int i = items.Count - 1; i >= 0; i--)
@@ -326,7 +328,7 @@ internal sealed class CatchGame : MiniGame
 			it.Vy += (620f * mass) * dt * Math.Max(0f, 1f - it.Vy / term); if (it.Vy > term) it.Vy = term;
 			it.Y += it.Vy * dt; it.R += it.Vr * dt;
 			it.X += (float)Math.Sin(now * 0.9 + it.Ph * 0.3) * 16f / mass * dt;
-			if (lvl > 2.0 && it.Kind != 2) it.X = Clamp(it.X + (float)Math.Sin(now * 3.2 + it.Ph) * (float)Math.Min(70.0, (lvl - 2.0) * 60.0) * dt, 20, W - 20);   // 후반엔 별이 좌우로 살랑살랑 흔들리며 떨어져요
+			if (lvl > 2.0 && it.Kind != 2) it.X = Clamp(it.X + (float)Math.Sin(now * 3.2 + it.Ph) * (float)Math.Min(70.0, (lvl - 2.0) * 60.0) * dt, 20, LW - 20);   // 후반엔 별이 좌우로 살랑살랑 흔들리며 떨어져요
 			if (magnetT > 0 && it.Kind != 2 && it.Y > cy - 300 && it.Y < cy + 20) it.X += (px - it.X) * Math.Min(1f, dt * 4f);   // 자석: 별이 마룡이 쪽으로 끌려와요
 			if (it.Y > cy - 34 && it.Y < cy + 28 && Math.Abs(it.X - px) < 40)
 			{
@@ -348,13 +350,13 @@ internal sealed class CatchGame : MiniGame
 	{
 		Bg(g, Color.FromArgb(14, 18, 54), Color.FromArgb(40, 52, 120)); Twinkle(g, t);
 		// 오로라 띠와 달빛 번짐 · 가끔 지나가는 별똥별
-		{ float sh0 = (float)Math.Sin(t * 0.4) * 12f; using (LinearGradientBrush ab = new LinearGradientBrush(new RectangleF(0, 100 + sh0, W, 130), Color.Transparent, Color.Transparent, 90f)) { ColorBlend cb = new ColorBlend(3); cb.Colors = new Color[] { Color.FromArgb(0, 120, 255, 200), Color.FromArgb(30, 130, 210, 255), Color.FromArgb(0, 120, 255, 200) }; cb.Positions = new float[] { 0f, 0.5f, 1f }; ab.InterpolationColors = cb; g.FillRectangle(ab, 0, 100 + sh0, W, 130); } }
+		{ float sh0 = (float)Math.Sin(t * 0.4) * 12f; using (LinearGradientBrush ab = new LinearGradientBrush(new RectangleF(0, 100 + sh0, LW, 130), Color.Transparent, Color.Transparent, 90f)) { ColorBlend cb = new ColorBlend(3); cb.Colors = new Color[] { Color.FromArgb(0, 120, 255, 200), Color.FromArgb(30, 130, 210, 255), Color.FromArgb(0, 120, 255, 200) }; cb.Positions = new float[] { 0f, 0.5f, 1f }; ab.InterpolationColors = cb; g.FillRectangle(ab, 0, 100 + sh0, LW, 130); } }
 		{ double mp0 = (t * 0.23) % 1.0; if (mp0 < 0.12) { float u = (float)(mp0 / 0.12); float mx0 = 60 + 220 * (float)((int)(t * 0.23) * 0.37 % 1.0), my0 = 30 + u * 90; using (Pen mpn = new Pen(Color.FromArgb((int)(200 * (1 - u)), 255, 255, 240), 2f) { StartCap = LineCap.Round }) g.DrawLine(mpn, mx0 + u * 120, my0, mx0 + u * 120 - 36, my0 - 14); } }
 		using (SolidBrush mb2 = new SolidBrush(Color.FromArgb(14 + (int)(8 * Math.Sin(t * 1.3)), 255, 240, 200))) g.FillEllipse(mb2, 270, 34, 122, 122);
 		using (SolidBrush mb = new SolidBrush(Color.FromArgb(26, 255, 240, 200))) g.FillEllipse(mb, 292, 56, 78, 78);
 		using (SolidBrush mb = new SolidBrush(Color.FromArgb(225, 255, 246, 220))) g.FillEllipse(mb, 306, 70, 50, 50);
-		using (SolidBrush hb0 = new SolidBrush(Color.FromArgb(26, 34, 84))) { List<PointF> hp0 = new List<PointF> { new PointF(0, H) }; for (float hx = 0; hx <= W; hx += 10) hp0.Add(new PointF(hx, H - 78 - 16 * (float)Math.Sin(hx * 0.013 + 3) - 8 * (float)Math.Sin(hx * 0.04))); hp0.Add(new PointF(W, H)); g.FillPolygon(hb0, hp0.ToArray()); }
-		using (SolidBrush hb = new SolidBrush(Color.FromArgb(34, 40, 96))) { List<PointF> hp = new List<PointF> { new PointF(0, H) }; for (float hx = 0; hx <= W; hx += 10) hp.Add(new PointF(hx, H - 46 - 20 * (float)Math.Sin(hx * 0.021 + 1) - 10 * (float)Math.Sin(hx * 0.06))); hp.Add(new PointF(W, H)); g.FillPolygon(hb, hp.ToArray()); }
+		using (SolidBrush hb0 = new SolidBrush(Color.FromArgb(26, 34, 84))) { List<PointF> hp0 = new List<PointF> { new PointF(0, H) }; for (float hx = 0; hx <= LW; hx += 10) hp0.Add(new PointF(hx, H - 78 - 16 * (float)Math.Sin(hx * 0.013 + 3) - 8 * (float)Math.Sin(hx * 0.04))); hp0.Add(new PointF(LW, H)); g.FillPolygon(hb0, hp0.ToArray()); }
+		using (SolidBrush hb = new SolidBrush(Color.FromArgb(34, 40, 96))) { List<PointF> hp = new List<PointF> { new PointF(0, H) }; for (float hx = 0; hx <= LW; hx += 10) hp.Add(new PointF(hx, H - 46 - 20 * (float)Math.Sin(hx * 0.021 + 1) - 10 * (float)Math.Sin(hx * 0.06))); hp.Add(new PointF(LW, H)); g.FillPolygon(hb, hp.ToArray()); }
 		foreach (It it in items)
 		{
 			if (it.Kind != 2) for (int tk = 1; tk <= 3; tk++) using (SolidBrush tb2 = new SolidBrush(Color.FromArgb(100 / tk, 255, 236, 160))) { float tr = (it.Kind == 1 ? 8f : 6f) - tk; g.FillEllipse(tb2, it.X - tr, it.Y - tk * it.V * 0.024f - tr, tr * 2, tr * 2); }
@@ -405,13 +407,14 @@ internal sealed class CatchGame : MiniGame
 		double pa = t - popT;
 		if (pa < 0.6 && pop.Length > 0) Txt(g, pop, 14f, 2, Color.FromArgb((int)(255 * (1 - pa / 0.6)), pop[0] == '+' ? Color.FromArgb(255, 226, 120) : Color.FromArgb(255, 130, 140)), popAt.X - 30, popAt.Y - 30 - (float)pa * 40, 60, 26, StringAlignment.Center);
 		if (combo >= 3) { float cs = 11f + Math.Min(7f, combo * 0.25f) + (combo % 5 == 0 && flash > 0 ? 3f : 0f); Txt(g, combo + " 연속!", cs, 2, combo >= 10 ? Color.FromArgb(255, 170, 80) : Color.FromArgb(255, 214, 90), 14, 44, 200, 28, StringAlignment.Near); }
-		if (flash > 0) using (SolidBrush fb = new SolidBrush(Color.FromArgb((int)Math.Min(90, flash * 360), lightT > 0 ? Color.FromArgb(255, 255, 255, 255) : Color.FromArgb(255, 236, 160)))) g.FillRectangle(fb, 0, 0, W, H);
+		if (flash > 0) using (SolidBrush fb = new SolidBrush(Color.FromArgb((int)Math.Min(90, flash * 360), lightT > 0 ? Color.FromArgb(255, 255, 255, 255) : Color.FromArgb(255, 236, 160)))) g.FillRectangle(fb, 0, 0, LW, H);
 	}
 }
 
 // ── 2. 장애물 점프 ──────────────────────────────────────────
 internal sealed class JumpGame : MiniGame
 {
+	public override int LW { get { return 720; } }
 	private class Ob { public float X, W, H, Clear = 99f; public int Kind; public bool Done; }   // Kind 0 작은 돌 · 1 높은 기둥 · 2 긴 울타리 · 3 낭떠러지
 	private class Coin { public float X, Y; public float Ph; }
 	private class Pop { public float X, Y, Age; public string S = "+10"; }
@@ -478,7 +481,7 @@ internal sealed class JumpGame : MiniGame
 		{
 			double r = Rnd.NextDouble(); int kind = r < 0.26 ? 0 : r < 0.42 ? 1 : r < 0.54 ? 2 : r < 0.72 ? 3 : 4;
 			if (kind == 3 && time < 6) kind = 0; if (kind == 4 && time < 3) kind = 0;
-			float sx = W + 40;
+			float sx = LW + 40;
 			if (kind == 0) { bool two = Rnd.NextDouble() < 0.3; obs.Add(new Ob { X = sx, W = 32, H = 40, Kind = 0 }); if (two) obs.Add(new Ob { X = sx + 62, W = 32, H = 40, Kind = 0 }); AddCoins(sx - 6, two ? 100 : 44, 82f); }
 			else if (kind == 1) { obs.Add(new Ob { X = sx, W = 36, H = 104, Kind = 1 }); AddCoins(sx - 20, 76, 146f); }
 			else if (kind == 2) { obs.Add(new Ob { X = sx, W = 150, H = 34, Kind = 2 }); AddCoins(sx, 150, 90f); }
@@ -523,16 +526,16 @@ internal sealed class JumpGame : MiniGame
 		{
 			float k = layer == 0 ? 0.12f : 0.3f, amp = layer == 0 ? 90f : 56f, baseY = Ground - (layer == 0 ? 30f : 8f);
 			List<PointF> pts = new List<PointF> { new PointF(-10, Ground) };
-			for (float x = -10; x <= W + 10; x += 8) { float wx = x + dist * k; float hh = amp * (0.55f + 0.3f * (float)Math.Sin(wx * 0.011 + layer * 2) + 0.15f * (float)Math.Sin(wx * 0.031 + layer)); pts.Add(new PointF(x, baseY - hh)); }
-			pts.Add(new PointF(W + 10, Ground));
+			for (float x = -10; x <= LW + 10; x += 8) { float wx = x + dist * k; float hh = amp * (0.55f + 0.3f * (float)Math.Sin(wx * 0.011 + layer * 2) + 0.15f * (float)Math.Sin(wx * 0.031 + layer)); pts.Add(new PointF(x, baseY - hh)); }
+			pts.Add(new PointF(LW + 10, Ground));
 			using (SolidBrush b = new SolidBrush(layer == 0 ? Color.FromArgb(60, 46, 100) : Color.FromArgb(44, 34, 84))) g.FillPolygon(b, pts.ToArray());
 		}
 		for (int ff = 0; ff < 9; ff++) { float fxp = ((ff * 97 - (float)dist * 0.18f) % 440f + 440f) % 440f - 20f, fyp = Ground - 40 - (ff * 53) % 150 + (float)Math.Sin(t * 1.6 + ff) * 8f; using (SolidBrush fb = new SolidBrush(Color.FromArgb((int)(40 + 50 * Math.Abs(Math.Sin(t * 2 + ff))), 255, 240, 150))) g.FillEllipse(fb, fxp - 2.2f, fyp - 2.2f, 4.4f, 4.4f); }
-		using (SolidBrush b = new SolidBrush(Color.FromArgb(40, 34, 70))) g.FillRectangle(b, 0, Ground, W, H - Ground);
-		using (LinearGradientBrush gb = new LinearGradientBrush(new RectangleF(0, Ground, W, 26), Color.FromArgb(70, 120, 110, 180), Color.FromArgb(0, 120, 110, 180), 90f)) g.FillRectangle(gb, 0, Ground, W, 26);
-		using (Pen p = new Pen(Color.FromArgb(120, 130, 180), 2f)) g.DrawLine(p, 0, Ground, W, Ground);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(40, 34, 70))) g.FillRectangle(b, 0, Ground, LW, H - Ground);
+		using (LinearGradientBrush gb = new LinearGradientBrush(new RectangleF(0, Ground, LW, 26), Color.FromArgb(70, 120, 110, 180), Color.FromArgb(0, 120, 110, 180), 90f)) g.FillRectangle(gb, 0, Ground, LW, 26);
+		using (Pen p = new Pen(Color.FromArgb(120, 130, 180), 2f)) g.DrawLine(p, 0, Ground, LW, Ground);
 		float off = -(dist % 60f);
-		using (Pen p = new Pen(Color.FromArgb(60, 255, 255, 255), 2f)) for (float x = off; x < W; x += 60) g.DrawLine(p, x, Ground + 16, x + 28, Ground + 16);
+		using (Pen p = new Pen(Color.FromArgb(60, 255, 255, 255), 2f)) for (float x = off; x < LW; x += 60) g.DrawLine(p, x, Ground + 16, x + 28, Ground + 16);
 		// 낭떠러지: 땅을 파내고 어두운 구멍을 보여줘요
 		foreach (Ob o in obs)
 		{
@@ -558,7 +561,7 @@ internal sealed class JumpGame : MiniGame
 			if (o.Kind == 0) using (Pen cp = new Pen(Color.FromArgb(70, 40, 44, 80), 1.6f)) { g.DrawLine(cp, r.X + r.Width * 0.55f, r.Y + 6, r.X + r.Width * 0.4f, r.Y + 20); g.DrawLine(cp, r.X + r.Width * 0.4f, r.Y + 20, r.X + r.Width * 0.58f, r.Y + 30); }
 			if (o.Kind == 1) { using (SolidBrush cb = new SolidBrush(Color.FromArgb(70, 120, 50, 40))) { g.FillRectangle(cb, r.X, r.Y + r.Height * 0.3f, r.Width, 6); g.FillRectangle(cb, r.X, r.Y + r.Height * 0.62f, r.Width, 6); } using (SolidBrush lb = new SolidBrush(Color.FromArgb(150 + (int)(50 * Math.Sin(t * 6 + o.X)), 255, 214, 110))) g.FillEllipse(lb, r.X + r.Width / 2 - 5, r.Y - 9, 10, 10); }
 			if (o.Kind == 2) using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 2f)) for (float fx = r.X + 20; fx < r.Right - 8; fx += 26) g.DrawLine(p, fx, r.Y + 8, fx, r.Bottom - 6);
-			if (o.Kind != 0 && o.X > W - 150 && o.X < W + 40) Txt(g, "꾹!", 12f, 2, Color.FromArgb(255, 214, 90), o.X + o.W / 2 - 30, r.Y - 26, 60, 20, StringAlignment.Center);
+			if (o.Kind != 0 && o.X > LW - 150 && o.X < LW + 40) Txt(g, "꾹!", 12f, 2, Color.FromArgb(255, 214, 90), o.X + o.W / 2 - 30, r.Y - 26, 60, 20, StringAlignment.Center);
 		}
 		foreach (Pf pf in pfs)
 		{
@@ -1852,7 +1855,7 @@ internal sealed class MaryongGame : Form
 			{ bool rh = RankBtn.Contains(inp.Mx, inp.My); Panel(gr, RankBtn, Color.FromArgb(rh ? 90 : 55, 255, 214, 90), 15); if (Spr.Get("ms_ui_cup") != null) Spr.Draw(gr, "ms_ui_cup", 32f, 54f + (rh ? -1f : 0f), 24f, 26f, rh ? (float)Math.Sin(tt * 10) * 6f : 0f); else { gr.FillPolygon(Brushes.Gold, new PointF[] { new PointF(24, 49), new PointF(40, 49), new PointF(38, 59), new PointF(26, 59) }); gr.FillRectangle(Brushes.Gold, 30, 59, 4, 4); gr.FillRectangle(Brushes.Gold, 26, 63, 12, 2); } MiniGame.Txt(gr, "랭킹", 10.5f, 2, Color.FromArgb(255, 236, 170), 44, 40, 50, 30, StringAlignment.Near); }
 			return;
 		}
-		g.Draw(gr, tt); g.Fx.Draw(gr);
+		MiniGame.curLW = g.LW; g.Draw(gr, tt); g.Fx.Draw(gr);
 		// 점수판
 			MiniGame.Txt(gr, "점수 " + (state == 2 ? (int)Math.Round(Math.Abs(dispScore - g.Score) < 0.6f ? g.Score : dispScore) : g.Score), 16f + 5f * Math.Max(0f, hudBump), 2, hudBump > 0 ? Color.FromArgb(255, 226, 120) : Color.White, 14, 8, 180, 30, StringAlignment.Near);
 		if (state == 2) foreach (float[] fp in floats) { float a = 1f - fp[0] / 0.9f; MiniGame.Txt(gr, (fp[1] > 0 ? "+" : "") + (int)fp[1], 13f, 2, fp[1] > 0 ? Color.FromArgb((int)(255 * a), 255, 226, 120) : Color.FromArgb((int)(255 * a), 255, 130, 140), 112, 30 - fp[0] * 26f, 80, 22, StringAlignment.Near); }

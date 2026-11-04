@@ -271,6 +271,12 @@ internal partial class Program
 		}
 		catch { return null; }
 	}
+	// 게임 안에서 쓰는 기본 마룡이: 날짜(계절·기념일) 옷이 아니라 늘 같은 기본 모습이에요 (게임 전용 옷이 있으면 그쪽이 먼저 쓰여요)
+	internal static Image BaseMascotImage()
+	{
+		if (mascotImg == null) mascotImg = LoadMascot();
+		return mascotImg != null ? (Image)mascotImg : MascotImage();
+	}
 	internal static Image MascotImage()
 	{
 		if (mascotImg == null) mascotImg = LoadMascot();

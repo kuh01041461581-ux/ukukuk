@@ -1323,7 +1323,7 @@ internal sealed class MaryongGame : Form
 			if (fit < S) S = Math.Max(0.5f, fit);
 		}
 		catch { }
-		Image mas = Program.MascotImage();
+		Image mas = Program.BaseMascotImage();
 		List<MiniGame> gl = new List<MiniGame>();
 		Func<MiniGame>[] mk = { () => new KartGame(), () => new VolleyGame(), () => new SoliGame(), () => new CatchGame(), () => new JumpGame(), () => new BatGame(), () => new StressGame(), () => new SuikaGame(), () => new TowerGame(), () => new TimeGame(), () => new MemoryGame(), () => new Game2048(), () => new TypeGame(), () => new BasketGame(), () => new BowlGame(), () => new SlingGame(), () => new MoleGame(), () => new ShellGame(), () => new MicroGame(), () => new OfficeGame(), () => new ArcheryGame(), () => new ClimbGame(), () => new IceGame(), () => new CurlGame(), () => new RhythmGame(), () => new GolfGame(), () => new JumpRopeGame(), () => new RandomTdGame(), () => new MatchPuzzleGame(), () => new RunGame(), () => new FlapGame(), () => new FreeKickGame(), () => new CoverGame() };
 		foreach (Func<MiniGame> f in mk)

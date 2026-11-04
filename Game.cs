@@ -27,6 +27,9 @@ internal abstract class MiniGame
 	public abstract void Draw(Graphics g, double t);
 	public virtual bool NeedsInput { get { return false; } }
 	public virtual bool Crosshair { get { return false; } }
+	public virtual bool HideCursor { get { return false; } }
+	private static Cursor blank;
+	internal static Cursor Blank() { if (blank == null) { try { using (Bitmap b = new Bitmap(1, 1)) blank = new Cursor(b.GetHicon()); } catch { blank = Cursors.Cross; } } return blank; }
 	public string Typed = ""; public bool ClearTyped;
 	public virtual float InputY { get { return 516f; } }   // 글자 입력칸(진짜 입력창)이 놓일 세로 위치
 	public virtual void Click(float x, float y) { }
@@ -1544,7 +1547,7 @@ internal sealed class MaryongGame : Form
 			if (g.Score != lastScore) { int dl = g.Score - lastScore; if (dl > 0) hudBump = 1f; if (floats.Count > 0 && floats[floats.Count - 1][0] < 0.18f && Math.Sign(floats[floats.Count - 1][1]) == Math.Sign(dl)) floats[floats.Count - 1][1] += dl; else { floats.Add(new float[] { 0f, dl }); if (floats.Count > 4) floats.RemoveAt(0); } lastScore = g.Score; } if (g.Over) { finT = 1.25f; Sfx.Play("whoosh"); }
 		}
 		if (tb.Visible && state != 4 && !(state == 2 && g != null && g.NeedsInput)) tb.Visible = false;
-		Cursor cc = (state == 2 && g != null && g.Crosshair) ? Cursors.Cross : Cursors.Default; if (Cursor != cc) Cursor = cc;
+		Cursor cc = (state == 2 && g != null && g.Crosshair) ? (g.HideCursor ? MiniGame.Blank() : Cursors.Cross) : Cursors.Default; if (Cursor != cc) Cursor = cc;
 		InvSlow(now);
 	}
 	// 오락실 창이 뒤에 있거나(설정창 등을 쓰는 중) 멈춰 있을 땐 초당 8번만 다시 그려요 → 다른 창 반응이 느려지지 않아요
@@ -1640,7 +1643,7 @@ internal sealed class MaryongGame : Form
 		if (wide) { S = Math.Max(0.35f, Math.Min(ch / (float)MiniGame.H, (cw - 220f) / vw)); gx = 0; gy = (int)((ch - MiniGame.H * S) / 2f); }
 		else { S = Math.Max(0.35f, Math.Min(cw / (float)vw, ch / (float)MiniGame.H)); gx = (int)((cw - vw * S) / 2f); gy = (int)((ch - MiniGame.H * S) / 2f); }
 		try { if (tb != null) tb.SetBounds(gx + (int)(20 * S), gy + (int)((g != null ? g.InputY : 516f) * S), (int)(360 * S), (int)(34 * S)); } catch { }
-		sideSig = ""; ql = 0; qSum = 0; qN = 0; qBad = 0; Invalidate();
+		sideSig = ""; ql = 0; qSum = 0; qN = 0; qBad = 0; qSkip = 90; Invalidate();
 	}
 	private void ToggleWide()
 	{
@@ -1743,9 +1746,22 @@ internal sealed class MaryongGame : Form
 		// 그리기가 오래 걸리는 PC(큰 창·고해상도)에서는 스스로 화질을 한 단계씩 낮춰서 끊김을 줄여요 (창 크기를 바꾸면 다시 처음부터 재 봐요)
 		if (state == 2 && g != null && !paused)
 		{
-			double qc = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency; qSum += qc; qN++;
-			if (qN >= 24) { double qa = qSum / qN; qSum = 0; qN = 0; if (qa > 9.0 && ql < 4) { qBad++; if (qBad >= 2) { ql++; qBad = 0; Anim.PerfNote("화질 낮춤 → " + ql + " (평균 " + qa.ToString("0.0") + "ms)"); } } else qBad = 0; }
+			double qc = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
+			// 게임을 막 시작한 몇 초와 일시적인 끊김(한두 프레임)은 화질 판단에서 빼요: 처음에 잠깐 느려졌다고 화질이 내려가 그대로 남던 문제를 막아요
+			if (qSkip > 0) { qSkip--; qSum = 0; qN = 0; }
+			else if (qc < 30.0)
+			{
+				qSum += qc; qN++;
+				if (qN >= 30)
+				{
+					double qa = qSum / qN; qSum = 0; qN = 0;
+					if (qa > 12.0 && ql < (qa > 20.0 ? 4 : 1)) { qGood = 0; qBad++; if (qBad >= 3) { ql++; qBad = 0; Anim.PerfNote("화질 낮춤 → " + ql + " (평균 " + qa.ToString("0.0") + "ms)"); } }
+					else if (qa < 5.0 && ql > 0) { qBad = 0; qGood++; if (qGood >= 4) { ql--; qGood = 0; Anim.PerfNote("화질 되돌림 → " + ql); } }
+					else { qBad = 0; qGood = 0; }
+				}
+			}
 		}
+		else qSkip = 90;
 		if (Anim.PerfLog && state == 2 && g != null)   // perf.on 이 있을 때만: 게임 중 프레임 기록
 		{
 			long t1 = Stopwatch.GetTimestamp(); double f = 1000.0 / Stopwatch.Frequency, cost = (t1 - t0) * f;
@@ -1756,12 +1772,12 @@ internal sealed class MaryongGame : Form
 	}
 	private float menuT; private float[] menuHv;
 	private GdiBuf dib; private bool useGdi = !File.Exists(Path.Combine(Program.DataDir, "gdi.off")); private double pInner, pBlit;
-	private Bitmap offBmp; private float paintScale = 1f; private int ql, qBad, qGood; private double qSum; private int qN;
+	private Bitmap offBmp; private float paintScale = 1f; private int ql, qBad, qGood, qSkip = 90; private double qSum; private int qN;
 	private void OnPaintInner(Graphics gr)
 	{
 		GameFrameStamp(); Gfx.HQ(gr); gr.InterpolationMode = InterpolationMode.Bilinear; if (ql >= 3) { gr.SmoothingMode = SmoothingMode.HighSpeed; gr.PixelOffsetMode = PixelOffsetMode.HighSpeed; }
 		gr.ScaleTransform(paintScale, paintScale);
-			if (state == 2 && g != null && g.Shake > 0f) gr.TranslateTransform((float)(Rz.NextDouble() * 2 - 1) * g.Shake * 7f, (float)(Rz.NextDouble() * 2 - 1) * g.Shake * 7f);
+			if (state == 2 && g != null && g.Shake > 0f) { float ps = Math.Max(0.5f, paintScale); gr.TranslateTransform((float)Math.Round((Rz.NextDouble() * 2 - 1) * g.Shake * 7f * ps) / ps, (float)Math.Round((Rz.NextDouble() * 2 - 1) * g.Shake * 7f * ps) / ps); }   // 화면 흔들림은 픽셀 단위로 끊어서 배경 그림이 빠르게 붙도록 해요
 		if (state == 5)
 		{
 			using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(0, -1, MiniGame.W, MiniGame.H + 2), Color.FromArgb(14, 18, 54), Color.FromArgb(44, 56, 126), 90f)) gr.FillRectangle(lb, 0, 0, MiniGame.W, MiniGame.H);

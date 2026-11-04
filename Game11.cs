@@ -50,6 +50,7 @@ internal sealed class CoverGame : MiniGame
 	public override string Desc { get { return "벽 뒤에서 몸을 내밀어 쏴요"; } }
 	public override bool NoLimit { get { return true; } }
 	public override bool Crosshair { get { return true; } }
+	public override bool HideCursor { get { return !sel; } }
 		public override string Help { get { return "먼저 총을 골라요 (쌍권총·샷건·돌격소총·저격총)\n마우스를 누르고 있으면 벽 위로 올라와 (뒷모습) 쏘고, 떼면 벽 앞에 숨어서 (앞모습) 장전해요\n왼쪽에서 오른쪽으로 걸어가는 적을 막아요 · 오른쪽 끝에 닿으면 하트 -1\n상자 뒤의 적은 총알이 막혀요 · 게이지가 차면 스페이스(또는 필살 버튼)로 필살기"; } }
 	// 에너지 하트: 에셋 하트(가득) / 흑백으로 흐려진 하트(빈 칸)
 	private static System.Drawing.Imaging.ImageAttributes emptyHeart;
@@ -335,6 +336,25 @@ internal sealed class CoverGame : MiniGame
 	}
 	public override void Draw(Graphics g, double t)
 	{
+		DrawWorld(g, t, false); if (!sel) DrawAim(g, t);
+	}
+	// 총마다 다른 조준점: 권총·소총은 십자, 산탄총은 퍼지는 원, 저격총은 확대 스코프
+	private void DrawAim(Graphics g, double t)
+	{
+		float x = aimX, y = aimY; Color c = Color.FromArgb(235, 255, 255, 255), k = Color.FromArgb(150, 0, 0, 0);
+		if (gun == 3)
+		{
+			float r = 62f; using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(x - r, y - r, r * 2, r * 2); GraphicsState s0 = g.Save(); g.SetClip(gp); g.TranslateTransform(x, y); g.ScaleTransform(2.2f, 2.2f); g.TranslateTransform(-x, -y); DrawWorld(g, t, true); g.Restore(s0); }
+			using (Pen p = new Pen(k, 5f)) g.DrawEllipse(p, x - r, y - r, r * 2, r * 2); using (Pen p = new Pen(c, 1.5f)) g.DrawEllipse(p, x - r, y - r, r * 2, r * 2);
+			using (Pen p = new Pen(Color.FromArgb(200, 20, 20, 20), 1f)) { g.DrawLine(p, x - r, y, x - 6, y); g.DrawLine(p, x + 6, y, x + r, y); g.DrawLine(p, x, y - r, x, y - 6); g.DrawLine(p, x, y + 6, x, y + r); for (int i = 1; i <= 3; i++) { g.DrawLine(p, x - 2, y + i * 12, x + 2, y + i * 12); g.DrawLine(p, x + i * 12, y - 2, x + i * 12, y + 2); } }
+			using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 60, 50))) g.FillEllipse(b, x - 1.5f, y - 1.5f, 3, 3); return;
+		}
+		if (gun == 1) { float r = 24f; using (Pen p = new Pen(k, 4f)) g.DrawEllipse(p, x - r, y - r, r * 2, r * 2); using (Pen p = new Pen(c, 1.6f)) { g.DrawEllipse(p, x - r, y - r, r * 2, r * 2); for (int i = 0; i < 4; i++) { double an = i * Math.PI / 2; g.DrawLine(p, x + (float)Math.Cos(an) * (r - 6), y + (float)Math.Sin(an) * (r - 6), x + (float)Math.Cos(an) * (r + 5), y + (float)Math.Sin(an) * (r + 5)); } } using (SolidBrush b = new SolidBrush(c)) { for (int i = 0; i < 8; i++) { double an = i * Math.PI / 4 + Math.PI / 8; g.FillEllipse(b, x + (float)Math.Cos(an) * r * 0.6f - 1.5f, y + (float)Math.Sin(an) * r * 0.6f - 1.5f, 3, 3); } g.FillEllipse(b, x - 1.5f, y - 1.5f, 3, 3); } return; }
+		float gp2 = 5f + (gun == 2 ? recoil * 40f : 0f), ln = 8f; using (Pen p = new Pen(k, 3.5f)) { g.DrawLine(p, x - gp2 - ln, y, x - gp2, y); g.DrawLine(p, x + gp2, y, x + gp2 + ln, y); g.DrawLine(p, x, y - gp2 - ln, x, y - gp2); g.DrawLine(p, x, y + gp2, x, y + gp2 + ln); }
+		using (Pen p = new Pen(c, 1.6f)) { g.DrawLine(p, x - gp2 - ln, y, x - gp2, y); g.DrawLine(p, x + gp2, y, x + gp2 + ln, y); g.DrawLine(p, x, y - gp2 - ln, x, y - gp2); g.DrawLine(p, x, y + gp2, x, y + gp2 + ln); } using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 80, 70))) g.FillEllipse(b, x - 1.5f, y - 1.5f, 3, 3);
+	}
+	private void DrawWorld(Graphics g, double t, bool lens)
+	{
 		BgImg(g, "bg_street", Color.FromArgb(70, 80, 120), Color.FromArgb(210, 160, 130));
 		GraphicsState world = g.Save(); if (camK > 0.1f) g.TranslateTransform(0f, camK * 0.5f * (float)Math.Sin(t * 70));
 		if (Spr.Get("bg_street") == null) using (SolidBrush b = new SolidBrush(Color.FromArgb(60, 60, 90))) for (int i = 0; i < 7; i++) { float bh = 60f + (i * 37 % 50); g.FillRectangle(b, i * 60 - 10, 190f - bh, 52, bh + 10); }
@@ -400,7 +420,7 @@ internal sealed class CoverGame : MiniGame
 			using (Pen p = new Pen(Color.FromArgb(255, 255, 255, 255), Math.Max(1f, q.Wd * 0.5f))) g.DrawLine(p, q.X1 + ux * Math.Max(tail, head - 30f), q.Y1 + uy * Math.Max(tail, head - 30f), q.X1 + ux * head, q.Y1 + uy * head);
 		}
 		if (ultAim && gun == 3) { float cs = 1f - ultT / 1.0f; float hx, hy, mx, my; Hold(0, a, out hx, out hy, out mx, out my); using (Pen p = new Pen(Color.FromArgb(90 + (int)(120 * cs), 230, 170, 255), 1.5f + 3f * cs)) g.DrawLine(p, mx, my, mx + (float)Math.Cos(a) * 700f, my + (float)Math.Sin(a) * 700f); float rr = 6f + 22f * cs; using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 240, 200, 255))) g.FillEllipse(b, mx - rr, my - rr, rr * 2, rr * 2); }
-		g.Restore(world);
+		g.Restore(world); if (lens) return;
 		if (flash > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(120 * flash / 0.5f), 255, 255, 255))) g.FillRectangle(b, 0, 0, W, H);
 		// HUD
 		for (int i = 0; i < 3; i++) HeartIcon(g, 28f + i * 26f, 52f, i < lives, i == lives - 1 && hurtT > 0f);

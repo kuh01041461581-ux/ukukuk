@@ -746,18 +746,20 @@ class Widget(tk.Tk):
             messagebox.showwarning("글자 겹치기", "열려 있는 한글에 연결하지 못했어요")
             return
         name, ctype, shape_no = CMP.SHAPES[self.shape.get()]
+        try:                                             # 1) 한글의 '글자 겹치기' 명령을 직접 실행
+            br.compose_chars(text, shape_no)
+            self.say("%s: %s 넣음" % (name, text))
+            return
+        except B.BridgeError as e1:
+            err = str(e1)
         path = None
-        try:
+        try:                                             # 2) 명령이 안 되면 겹침 글자 조각을 끼워 넣기
             pkg = CMP.compose_package(text, ctype, CMP.base_template())
             path = pkg.save(tmp_hwpx("compose"))
             br.insert_file(path)
-            self.say("%s: %s 넣음" % (name, text))
-        except Exception as e1:                          # noqa: BLE001
-            try:
-                br.compose_chars(text, shape_no)
-                self.say("%s: %s 넣음(명령)" % (name, text))
-            except B.BridgeError as e2:
-                messagebox.showerror("글자 겹치기", "%s\n%s" % (e1, e2))
+            self.say("%s: %s 넣음(조각)" % (name, text))
+        except Exception as e2:                          # noqa: BLE001
+            messagebox.showerror("글자 겹치기", "%s\n%s" % (err, e2))
         finally:
             if path and os.path.exists(path):
                 os.remove(path)

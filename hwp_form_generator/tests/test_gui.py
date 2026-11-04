@@ -27,6 +27,9 @@ class FakeBridge:
     def insert_file(self, p):
         self.inserted.append((p, os.path.getsize(p)))
 
+    def compose_chars(self, text, shape_no, char_size=-3):
+        self.composed = getattr(self, 'composed', []) + [(text, shape_no)]
+
     def insert_text(self, s):
         self.texts = getattr(self, 'texts', []) + [s]
 
@@ -58,7 +61,8 @@ class GuiTests(unittest.TestCase):
         n0 = len(self.br.inserted)
         self.widget.shape.set(1)
         self.widget.put_compose("3")
-        self.assertEqual(len(self.br.inserted) - n0, 1)
+        self.assertEqual(self.br.composed[-1], ("3", 4))     # 명령을 직접 실행
+        self.assertEqual(len(self.br.inserted) - n0, 0)
 
     def test_symbols(self):
         self.widget.put_symbol('○')

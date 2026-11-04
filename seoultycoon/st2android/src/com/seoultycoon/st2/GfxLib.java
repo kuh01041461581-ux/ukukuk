@@ -106,19 +106,22 @@ final class GfxLib {
         dst.color = sc; dst.hasClip = hc;
     }
     // 게임의 상태 배열 int[12] = {년, 월, 일, ..., [10]=우상단 표시값, ...} 를 찾아 날짜를 읽는다(게임이 날짜 숫자를 직접 그리지 않기 때문)
-    static int cachedArr = 0;
+    static int[] lastDate = {1, 1, 1}; static int dateTick = 0;
+    /** 힙의 int[12] 중 날짜 범위가 맞는 것들 가운데 '가장 늦은 날짜'를 현재 날짜로 본다(행동마다 복사본이 생기며 날짜는 증가만 하므로 오래된 복사본보다 큼). 15프레임마다 갱신 */
     static int[] readDate(Host H, int shown) {
-        int cls = H.classfor("[I");
-        if (cachedArr == 0 || H.vm.r32(cachedArr) != (cls << 5) || H.vm.r32(cachedArr + 4) != 12 || H.vm.r32(cachedArr + 8 + 40) != shown) {
-            cachedArr = 0; int end = H.hiEnd();
-            for (int a = 0x50000000; a < end; a += 4) {
-                if (H.vm.r32(a) != (cls << 5) || H.vm.r32(a + 4) != 12 || H.vm.r32(a + 8 + 40) != shown) continue;
-                int y = H.vm.r32(a + 8), m = H.vm.r32(a + 12), d = H.vm.r32(a + 16);
-                if (y >= 1 && y <= 4 && m >= 1 && m <= 12 && d >= 1 && d <= 31) { cachedArr = a; break; }
-            }
+        if (dateTick++ % 15 != 0) return lastDate;
+        int cls = H.classfor("[I"), end = H.hiEnd(), hdr = cls << 5; long best = -1; int[] bd = null; long bestShown = -1; int[] bs = null;
+        for (int a = 0x50000000; a < end; a += 4) {
+            if (H.vm.r32(a) != hdr || H.vm.r32(a + 4) != 12) continue;
+            int y = H.vm.r32(a + 8), m = H.vm.r32(a + 12), d = H.vm.r32(a + 16);
+            if (y < 1 || y > 4 || m < 1 || m > 12 || d < 1 || d > 31) continue;
+            int e3 = H.vm.r32(a + 20), e7 = H.vm.r32(a + 36);
+            if (e3 <= 0 || e7 < 0 || e7 > 100) continue;
+            long key = ((long) y * 100 + m) * 100 + d;
+            if (key > best) { best = key; bd = new int[]{y, m, d}; }
+            if (H.vm.r32(a + 48) == shown && key > bestShown) { bestShown = key; bs = new int[]{y, m, d}; }
         }
-        if (cachedArr == 0) return new int[]{1, 1, 1};
-        return new int[]{H.vm.r32(cachedArr + 8), H.vm.r32(cachedArr + 12), H.vm.r32(cachedArr + 16)};
+        int[] r = bd != null ? bd : bs; if (r != null) lastDate = r; return lastDate;
     }
     static boolean special(Host H, Surf dst, Surf src, int x, int y) {
         if (!dst.hasClip) return false;

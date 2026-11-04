@@ -90,6 +90,113 @@ index cc0bc27..58cdc30 100644
          _ => None,
      }
  }
+diff --git a/wie-backend/src/canvas.rs b/wie-backend/src/canvas.rs
+index 77eceea..1d9f0a1 100644
+--- a/wie-backend/src/canvas.rs
++++ b/wie-backend/src/canvas.rs
+@@ -907,6 +907,26 @@ impl Clip {
+     }
+ }
+ 
++/// 투명색 색인이 표시된 8비트 BMP 이면 그 색인을 돌려준다.
++fn indexed_bmp_transparent_index(data: &[u8]) -> Option<u8> {
++    if data.len() < 54 || !data.starts_with(b"BM") || data[6..10] != [1, 0, 0, 0] || data[14..18] != [40, 0, 0, 0] || data[28..30] != [8, 0] {
++        return None;
++    }
++    let important = u32::from_le_bytes([data[50], data[51], data[52], data[53]]);
++    if important & !0xff == 0x100 {
++        return Some((important & 0xff) as u8);
++    }
++    if important < 256 {
++        // 색인만 적은 형태: 팔레트 범위 안일 때만 투명색으로 본다 (표준 BMP 의 '중요한 색 개수' 와 구분)
++        let used = u32::from_le_bytes([data[46], data[47], data[48], data[49]]);
++        let palette_len = if used == 0 { 256 } else { used.min(256) };
++        if important < palette_len {
++            return Some(important as u8);
++        }
++    }
++    None
++}
++
+ pub fn decode_image(data: &[u8]) -> Result<Box<dyn Image>> {
+     extern crate std; // XXX
+ 
+@@ -916,14 +936,10 @@ pub fn decode_image(data: &[u8]) -> Result<Box<dyn Image>> {
+         return decode_lbmp(data);
+     }
+ 
+-    // WIPI indexed BMPs mark transparency in bfReserved1 and biClrImportant (0x100 | index).
+-    if data.len() >= 54
+-        && data.starts_with(b"BM")
+-        && data[6..10] == [1, 0, 0, 0]
+-        && data[14..18] == [40, 0, 0, 0]
+-        && data[28..30] == [8, 0]
+-        && data[51..54] == [1, 0, 0]
+-    {
++    // WIPI indexed BMPs mark transparency in bfReserved1 and biClrImportant:
++    //  - 0x100 | index (flag form), or
++    //  - the plain palette index (e.g. KTF "Maple Story Thief": every image has bfReserved1 = 1 and the colour at that index is the green key colour).
++    if let Some(transparent_index) = indexed_bmp_transparent_index(data) {
+         let mut decoder = BmpDecoder::new(Cursor::new(data)).map_err(|error| WieError::FatalError(error.to_string()))?;
+         let palette = decoder
+             .get_palette()
+@@ -938,7 +954,7 @@ pub fn decode_image(data: &[u8]) -> Result<Box<dyn Image>> {
+             .map(|pixel| {
+                 let index = pixel.0[0];
+                 let [r, g, b] = palette[index as usize];
+-                u32::from_le_bytes([b, g, r, if index == data[50] { 0 } else { 255 }])
++                u32::from_le_bytes([b, g, r, if index == transparent_index { 0 } else { 255 }])
+             })
+             .collect();
+         return Ok(Box::new(VecImageBuffer::<ArgbPixel>::from_raw(indices.width(), indices.height(), pixels)));
+@@ -999,6 +1015,47 @@ pub fn string_width(font: &Font, string: &str, pt_size: f32) -> f32 {
+ #[cfg(test)]
+ mod tests {
+     use alloc::{borrow::Cow, sync::Arc, vec, vec::Vec};
++
++    /// 3x1, 8비트 BMP (팔레트: 마젠타, 초록, 검정 / 픽셀 색인 0,1,2)
++    fn indexed_bmp(reserved1: u16, important: u32) -> Vec<u8> {
++        let mut bmp = vec![0u8; 70];
++        bmp[..2].copy_from_slice(b"BM");
++        bmp[2..6].copy_from_slice(&70u32.to_le_bytes());
++        bmp[6..8].copy_from_slice(&reserved1.to_le_bytes());
++        bmp[10..14].copy_from_slice(&66u32.to_le_bytes());
++        bmp[14..18].copy_from_slice(&40u32.to_le_bytes());
++        bmp[18..22].copy_from_slice(&3u32.to_le_bytes());
++        bmp[22..26].copy_from_slice(&1u32.to_le_bytes());
++        bmp[26..28].copy_from_slice(&1u16.to_le_bytes());
++        bmp[28..30].copy_from_slice(&8u16.to_le_bytes());
++        bmp[34..38].copy_from_slice(&4u32.to_le_bytes());
++        bmp[46..50].copy_from_slice(&3u32.to_le_bytes());
++        bmp[50..54].copy_from_slice(&important.to_le_bytes());
++        bmp[54..66].copy_from_slice(&[255, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0]);
++        bmp[66..70].copy_from_slice(&[0, 1, 2, 0]);
++        bmp
++    }
++
++    #[test]
++    fn indexed_bmp_transparency_supports_flag_and_plain_index_forms() {
++        // (bfReserved1, biClrImportant, 투명이어야 하는 픽셀 번호)
++        for (reserved1, important, transparent) in [
++            (1u16, 0x101u32, Some(1)), // 0x100 | 색인
++            (1, 0x100, Some(0)),
++            (1, 1, Some(1)), // 색인만 (메이플스토리 도적편)
++            (1, 2, Some(2)),
++            (1, 3, None), // 팔레트 범위 밖: 표준 BMP 의 '중요한 색 개수'
++            (0, 0x101, None),
++            (0, 1, None),
++        ] {
++            let image = super::decode_image(&indexed_bmp(reserved1, important)).unwrap();
++            for x in 0..3 {
++                let alpha = image.get_pixel(x, 0).a;
++                let expected = if transparent == Some(x) { 0 } else { 255 };
++                assert_eq!(alpha, expected, "reserved1={reserved1}, important={important:#x}, x={x}");
++            }
++        }
++    }
+     use spin::Mutex;
+ 
+     use crate::canvas::{Clip, Image, ImageBuffer, ImageBufferCanvas};
 diff --git a/wie-backend/src/system/event_queue.rs b/wie-backend/src/system/event_queue.rs
 index 9a1da31..9910049 100644
 --- a/wie-backend/src/system/event_queue.rs

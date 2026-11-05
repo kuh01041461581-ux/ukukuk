@@ -1,4 +1,4 @@
-import { makeSprites, TW, TH, CX, CY } from './sprites.js';
+import { makeSprites, roadSprite, railSprite, crossSprite, TW, TH, CX, CY } from './sprites.js';
 // 아이소메트릭 맵 렌더러: 드래그로 이동, 탭으로 부지 선택. 도트는 정수 배율로 확대.
 export class MapView {
   constructor(canvas, game, mapData, onSelect) {
@@ -23,6 +23,21 @@ export class MapView {
     for (const p of this.g.plots) { const [sx, sy] = this.w2s(p.x, p.y); const x = this.ox + sx * this.zoom, y = this.oy + (sy + 4) * this.zoom; const d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = p; } }
     if (best && bd < 22 * this.zoom) { this.sel = best.id; this.onSelect(best); } else { this.sel = null; this.onSelect(null); }
   }
+  // 도로·철도 자동 타일링: 이웃 연결 마스크로 스프라이트 선택
+  linear(x, y, t) {
+    const T = (xx, yy) => (xx >= 0 && yy >= 0 && xx < this.m.w && yy < this.m.h) ? this.m.tiles[yy][xx] : null;
+    const roadish = n => n === 'road' || n === 'cross', railish = n => n === 'rail' || n === 'cross' || n === 'platform';
+    const mk = f => (f(T(x + 1, y)) ? 1 : 0) | (f(T(x - 1, y)) ? 2 : 0) | (f(T(x, y + 1)) ? 4 : 0) | (f(T(x, y - 1)) ? 8 : 0);
+    let city = false; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (T(x + dx, y + dy) === 'city') city = true;
+    const base = city ? this.S.city[0] : this.S.grass[(x * 5 + y * 3) % 3], key = city ? 'c' : 'g' + ((x * 5 + y * 3) % 3);
+    this.lin = this.lin || new Map(); const ck = x + ',' + y; if (this.lin.has(ck)) return this.lin.get(ck);
+    let sp;
+    if (t === 'road') sp = roadSprite(base, mk(roadish), key);
+    else if (t === 'rail') sp = railSprite(base, mk(railish), key);
+    else if (t === 'platform') sp = railSprite(base, mk(railish), key, true);
+    else { const railH = railish(T(x + 1, y)) || railish(T(x - 1, y)); sp = crossSprite(base, mk(roadish) & (railH ? 12 : 3) || (railH ? 12 : 3), railH, key); }
+    this.lin.set(ck, sp); return sp;
+  }
   loop() { this.draw(); requestAnimationFrame(() => this.loop()); }
   draw() {
     const c = this.cv, g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.fillStyle = '#1a2a3a'; g.fillRect(0, 0, c.width, c.height);
@@ -33,7 +48,7 @@ export class MapView {
       const [sx, sy] = this.w2s(x, y), dx = Math.round(this.ox + (sx - CX) * z), dy = Math.round(this.oy + (sy - CY + 8) * z);
       if (dx < -40 * z || dy < -70 * z || dx > c.width || dy > c.height + 20 * z) continue;
       const t = m.tiles[y][x], v = (x * 7 + y * 13) & 1; let spr;
-      switch (t) { case 'grass': spr = S.grass[(x * 5 + y * 3) % 3]; break; case 'city': spr = S.city[v]; break; case 'road': spr = S.road[v]; break; case 'water': spr = S.water[frame]; break; case 'field': spr = S.field[v]; break; case 'mountain': spr = S.mountain[(x * 3 + y * 7) % 3]; break; default: spr = S.grass[0]; }
+      switch (t) { case 'grass': spr = S.grass[(x * 5 + y * 3) % 3]; break; case 'city': spr = S.city[v]; break; case 'road': case 'rail': case 'cross': case 'platform': spr = this.linear(x, y, t); break; case 'water': spr = S.water[frame]; break; case 'field': spr = S.field[v]; break; case 'mountain': spr = S.mountain[(x * 3 + y * 7) % 3]; break; default: spr = S.grass[0]; }
       g.drawImage(spr, dx, dy, 32 * z, 64 * z);
       const p = plotAt.get(x + ',' + y);
       if (!p) { const hv = ((x * 73856093) ^ (y * 19349663)) >>> 0; const r = (hv % 100) / 100;

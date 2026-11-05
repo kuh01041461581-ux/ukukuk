@@ -152,7 +152,7 @@
     "name": "국가식품클러스터 확장",
     "cost": 24,
     "zones": [
-      "ind"
+      "baekje"
     ],
     "landmark": "food",
     "pop": 0.6,

@@ -42,6 +42,56 @@ function hanok(g, cx, cy, w, d, h, wall, roofCol) {
 }
 // 석탑 단(층) 하나
 function stoneTier(g, cx, cy, w, d, h, col) { box(g, cx, cy, w, d, h, col, { roof: shade(col, 1.12), band: 3, out: shade(col, 0.5) }); }
+
+// ---- 도로·철도 (연결 마스크 기반 자동 타일링). 마스크 비트: 1=+x(우하) 2=-x(좌상) 4=+y(좌하) 8=-y(우상)
+const cache = new Map();
+function overlay(base, fn) {
+  const c = mk(), g = c.getContext('2d'); g.drawImage(base, 0, 0);
+  for (let r = 0; r < TH; r++) { const w = hw(r); for (let x = CX - w; x < CX + w; x++) {
+    const px = x - CX + 0.5, py = r - 8 + 0.5, du = (px / 16 + py / 8) / 2, dv = (py / 8 - px / 16) / 2;
+    const col = fn(du, dv, x, r); if (col) P(g, x, CY - 8 + r, col); } }
+  return c;
+}
+const arm = (m, du, dv, W) => { const bx = (m & 3) === 0 ? 3 : (m & 3), by = (m & 12); // 연결이 없으면 x축 직선으로
+  const cx0 = Math.abs(du) < W && Math.abs(dv) < W;
+  return cx0 || (Math.abs(dv) < W && ((bx & 1 && du >= 0) || (bx & 2 && du <= 0))) || (Math.abs(du) < W && ((by & 4 && dv >= 0) || (by & 8 && dv <= 0))); };
+function junction(m) { const n = ((m & 1) ? 1 : 0) + ((m & 2) ? 1 : 0) + ((m & 4) ? 1 : 0) + ((m & 8) ? 1 : 0); return n >= 3; }
+export function roadSprite(base, mask, key) {
+  const k = 'r' + key + mask; if (cache.has(k)) return cache.get(k); const W = 0.30, CW2 = 0.39, jn = junction(mask), m = mask;
+  const sp = overlay(base, (du, dv, x, r) => {
+    if (!arm(m, du, dv, CW2)) return null;
+    if (!arm(m, du, dv, W)) return (Math.abs(du) + Math.abs(dv) > 0.0) ? ((x + r) % 2 ? '#b8b4a8' : '#a9a598') : null;   // 연석·인도
+    let col = hash(x, r, 33) < 0.18 ? '#4f545c' : '#5c6169';
+    const bx = (m & 3) === 0 ? 3 : (m & 3);
+    const alongX = Math.abs(dv) < 0.045 && ((bx & 1 && du > 0.06) || (bx & 2 && du < -0.06)) && !(Math.abs(du) < W + 0.04 && jn);
+    const alongY = Math.abs(du) < 0.045 && (((m & 4) && dv > 0.06) || ((m & 8) && dv < -0.06)) && !(Math.abs(dv) < W + 0.04 && jn);
+    if ((alongX && Math.floor((du + 1) * 9) % 2 === 0) || (alongY && Math.floor((dv + 1) * 9) % 2 === 0)) col = '#e6d86a';
+    if (jn) { const zx = Math.abs(du) > W + 0.01 && Math.abs(du) < W + 0.1 && Math.abs(dv) < W - 0.02 && (m & (du > 0 ? 1 : 2)), zy = Math.abs(dv) > W + 0.01 && Math.abs(dv) < W + 0.1 && Math.abs(du) < W - 0.02 && (m & (dv > 0 ? 4 : 8));
+      if (zx && Math.floor((dv + 1) * 14) % 2 === 0) col = '#e8e8e8'; if (zy && Math.floor((du + 1) * 14) % 2 === 0) col = '#e8e8e8'; }
+    return col; });
+  cache.set(k, sp); return sp;
+}
+export function railSprite(base, mask, key, platform = false) {
+  const k = 'l' + key + mask + (platform ? 'p' : ''); if (cache.has(k)) return cache.get(k); const m = mask;
+  const hx = (m & 3) !== 0 || (m & 12) === 0, vy = (m & 12) !== 0;                           // 분기점은 두 축을 모두 그린다
+  const paint = (a, b, x, r, plat) => {
+    if (plat && b > 0.22 && b < 0.46) return (b < 0.27) ? '#e8c840' : (hash(x, r, 5) < 0.2 ? '#bdb8aa' : '#cdc8ba');
+    if (Math.abs(b) > 0.2) return null;
+    if (Math.abs(Math.abs(b) - 0.085) < 0.02) return ((x + r) % 3 === 0) ? '#aab0b8' : '#d4d8dc';
+    if (Math.floor((a + 2) * 7) % 2 === 0 && Math.abs(b) < 0.17) return '#5a4632';
+    return hash(x, r, 34) < 0.35 ? '#7d7466' : '#8f8678'; };
+  const sp = overlay(base, (du, dv, x, r) => (hx ? paint(du, dv, x, r, platform) : null) || (vy ? paint(dv, du, x, r, false) : null));
+  cache.set(k, sp); return sp;
+}
+export function crossSprite(base, roadMask, railHoriz, key) {   // 건널목: 도로 위에 철로
+  const k = 'x' + key + roadMask + railHoriz; if (cache.has(k)) return cache.get(k);
+  const road = roadSprite(base, roadMask, key + 'c');
+  const sp = overlay(road, (du, dv, x, r) => { const a = railHoriz ? du : dv, b = railHoriz ? dv : du; if (Math.abs(b) > 0.2) return null;
+    if (Math.abs(Math.abs(b) - 0.085) < 0.02) return '#d4d8dc'; if (Math.floor((a + 2) * 7) % 2 === 0 && Math.abs(b) < 0.17) return '#6a5640'; return '#6e6a62'; });
+  const g = sp.getContext('2d'); P(g, CX - 8, CY - 4, '#d94a4a'); P(g, CX - 8, CY - 3, '#f0f0f0'); P(g, CX + 8, CY + 1, '#d94a4a'); P(g, CX + 8, CY + 2, '#f0f0f0');
+  cache.set(k, sp); return sp;
+}
+
 export function makeSprites() {
   const S = { b: {} };
   S.grass = [0, 1, 2].map(i => ground(['#78bd58', '#69ab4c'], i, { dither: 0.22, fn: (x, r, col) => (hash(x, r, 5 + i) < 0.05 ? '#8bd06a' : hash(x, r, 8 + i) < 0.04 ? '#4f9040' : null) }));

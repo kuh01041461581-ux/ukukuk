@@ -8,6 +8,8 @@ using System.Windows.Forms;
 
 internal sealed class SurvivalGame : MiniGame
 {
+	public override bool WideCap { get { return true; } }
+	public override bool CenterPlay { get { return true; } }
 	// 이펙트: 그림 한 장을 늘이고·돌리고·옅게 해서 여러 모양으로 써요
 	private class Vf { public string N, Tn, Fk; public int F0, Fn; public float X, Y, Vx, Vy, Rot, Spin, Age, Life, W0, W1, A, Sy; }
 	private class Cp { public float X, Y, Age, H; public string Pre; public bool Flip; }
@@ -316,7 +318,7 @@ internal sealed class SurvivalGame : MiniGame
 	private void Ring(int ty, int n, float rad) { n = Math.Min(n, Math.Max(0, DCap[diff] + 6 - en.Count)); for (int i = 0; i < n; i++) { double a = Math.PI * 2 * i / n; AddEn(ty, px + (float)Math.Cos(a) * rad, py + (float)Math.Sin(a) * rad, false); } }
 	private void SpawnOne()
 	{
-		double a = Rnd.NextDouble() * Math.PI * 2; float r = 330f + (float)Rnd.NextDouble() * 60f; double q = Rnd.NextDouble();
+		double a = Rnd.NextDouble() * Math.PI * 2; float r = 330f + PlayOX + (float)Rnd.NextDouble() * 60f; double q = Rnd.NextDouble();
 		int ty = 0;
 		if (el > 130f && q > 0.93) ty = 7; else if (el > 90f && q > 0.85) ty = 6; else if (el > 70f && q > 0.75) ty = 5; else if (el > 40f && q > 0.65) ty = 4;
 		else if (el > 55f && q > 0.57) ty = 2; else if (el > 22f && q < 0.26) ty = 1;
@@ -783,17 +785,17 @@ internal sealed class SurvivalGame : MiniGame
 	public override void Draw(Graphics g, double t)
 	{
 		float cx = px - 200f, cy = py - 330f;
-		g.FillRectangle(Br(StCol[stage]), 0, 0, W, H);
+		g.FillRectangle(Br(StCol[stage]), -curOX, 0, curLW, H);
 		Bitmap flb = stage == 3 ? Spr.Get("bg_t_grass") : (stage == 4 ? Spr.Get("bg_t_conc") : (stage == 5 ? Spr.Get("bg_t_dirt") : (stage == 6 ? Spr.Get("bg_t_sand") : (stage == 7 ? Spr.Get("bg_t_snow") : null))));
 		if (flb != null)
 		{
 			float tsz = 256f; int fx0 = (int)Math.Floor(cx / tsz), fy0 = (int)Math.Floor(cy / tsz); g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear; g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-			for (int fy = fy0; fy <= fy0 + 3; fy++) for (int fx = fx0; fx <= fx0 + 2; fx++) g.DrawImage(flb, new RectangleF((float)Math.Floor(fx * tsz - cx), (float)Math.Floor(fy * tsz - cy), tsz + 1f, tsz + 1f), new RectangleF(0, 0, flb.Width, flb.Height), GraphicsUnit.Pixel);
-			if (stage == 5) g.FillRectangle(Br(Color.FromArgb(110, 24, 22, 70)), 0, 0, W, H);
-			if (stage == 7) g.FillRectangle(Br(Color.FromArgb(90, 70, 100, 150)), 0, 0, W, H);
+			int exF = (int)Math.Ceiling(curOX / tsz); for (int fy = fy0; fy <= fy0 + 3; fy++) for (int fx = fx0 - exF; fx <= fx0 + 2 + exF; fx++) g.DrawImage(flb, new RectangleF((float)Math.Floor(fx * tsz - cx), (float)Math.Floor(fy * tsz - cy), tsz + 1f, tsz + 1f), new RectangleF(0, 0, flb.Width, flb.Height), GraphicsUnit.Pixel);
+			if (stage == 5) g.FillRectangle(Br(Color.FromArgb(110, 24, 22, 70)), -curOX, 0, curLW, H);
+			if (stage == 7) g.FillRectangle(Br(Color.FromArgb(90, 70, 100, 150)), -curOX, 0, curLW, H);
 		}
 		int tx0 = (int)Math.Floor(cx / 80f) - 1, ty0 = (int)Math.Floor(cy / 80f) - 1;
-		for (int ty = ty0; ty <= ty0 + 9; ty++) for (int tx = tx0; tx <= tx0 + 6; tx++)
+		int exT = (int)Math.Ceiling(curOX / 80f); for (int ty = ty0; ty <= ty0 + 9; ty++) for (int tx = tx0 - exT; tx <= tx0 + 6 + exT; tx++)
 		{
 			float sx = tx * 80f - cx, sy = ty * 80f - cy; int h = ((tx * 73856093) ^ (ty * 19349663)) & 0x7fffffff;
 			if (flb == null && ((tx + ty) & 1) == 0) g.FillRectangle(Br(Color.FromArgb(stage == 5 ? 14 : 24, 255, 255, 255)), sx, sy, 80, 80);
@@ -849,14 +851,14 @@ internal sealed class SurvivalGame : MiniGame
 		foreach (Pk k in pk)
 		{
 			float sx = k.X - cx, sy = k.Y - cy + (float)Math.Sin(k.T * 4) * 3f;
-			if (sx < -30 || sx > W + 30 || sy < -30 || sy > H + 30) continue;
+			if (sx < -curOX - 30 || sx > W + curOX + 30 || sy < -30 || sy > H + 30) continue;
 			if (k.K == 0 && Spr.Get("ms_of_mug") != null) { g.FillEllipse(Br(Color.FromArgb(40, 255, 255, 255)), sx - 17, sy - 13, 34, 30); Spr.Draw(g, "ms_of_mug", sx, sy - 1f, 27f, 26f, 0f); using (Pen p = new Pen(Color.FromArgb(200, 255, 255, 255), 1.6f)) { g.DrawLine(p, sx - 3, sy - 14, sx - 5, sy - 20); g.DrawLine(p, sx + 3, sy - 14, sx + 5, sy - 20); } }
 			else if (k.K == 0) { using (SolidBrush b = new SolidBrush(Color.FromArgb(250, 250, 245))) g.FillPath(b, Gfx.Round(new RectangleF(sx - 9, sy - 8, 18, 17), 5)); using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 90, 50))) g.FillRectangle(b, sx - 7, sy - 6, 14, 5); using (Pen p = new Pen(Color.FromArgb(120, 130, 150), 2f)) { g.DrawArc(p, sx + 4, sy - 5, 9, 9, -80, 160); } using (Pen p = new Pen(Color.FromArgb(200, 255, 255, 255), 1.6f)) { g.DrawLine(p, sx - 3, sy - 12, sx - 5, sy - 18); g.DrawLine(p, sx + 3, sy - 12, sx + 5, sy - 18); } }
 			else if (k.K == 30) DrawChest(g, sx, sy, 1.15f, 0f, t, true);
 			else DrawRelic(g, sx, sy, k.K - 10, t);
 		}
 		// 경험치 구슬
-		foreach (Gm m in gm) { float sx = m.X - cx, sy = m.Y - cy; if (sx < -10 || sx > W + 10 || sy < -10 || sy > H + 10) continue; if (Spr.Get("ms_svg0") != null) { if (m.V >= 20) Sv(g, "ms_svg5", sx, sy, 24f); else if (m.V >= 4) Sv(g, "ms_svg4", sx, sy, 16f); else if (m.V >= 2) Sv(g, "ms_svg1", sx, sy, 14f); else Sv(g, "ms_svg0", sx, sy, 11f); continue; } using (SolidBrush b = new SolidBrush(m.V >= 4 ? Color.FromArgb(255, 200, 60) : Color.FromArgb(90, 200, 255))) g.FillEllipse(b, sx - 4, sy - 4, 8, 8); }
+		foreach (Gm m in gm) { float sx = m.X - cx, sy = m.Y - cy; if (sx < -curOX - 10 || sx > W + curOX + 10 || sy < -10 || sy > H + 10) continue; if (Spr.Get("ms_svg0") != null) { if (m.V >= 20) Sv(g, "ms_svg5", sx, sy, 24f); else if (m.V >= 4) Sv(g, "ms_svg4", sx, sy, 16f); else if (m.V >= 2) Sv(g, "ms_svg1", sx, sy, 14f); else Sv(g, "ms_svg0", sx, sy, 11f); continue; } using (SolidBrush b = new SolidBrush(m.V >= 4 ? Color.FromArgb(255, 200, 60) : Color.FromArgb(90, 200, 255))) g.FillEllipse(b, sx - 4, sy - 4, 8, 8); }
 		// 도장 쾅 예고·충격파
 		foreach (St q in stp)
 		{
@@ -877,7 +879,7 @@ internal sealed class SurvivalGame : MiniGame
 		// 커피 웅덩이
 		foreach (Pu u in pud)
 		{
-			float sx = u.X - cx, sy = u.Y - cy; if (sx < -90 || sx > W + 90 || sy < -90 || sy > H + 90) continue;
+			float sx = u.X - cx, sy = u.Y - cy; if (sx < -curOX - 90 || sx > W + curOX + 90 || sy < -90 || sy > H + 90) continue;
 			float fade = Math.Min(1f, (u.Life - u.T) * 1.5f), rr = u.R * (0.88f + 0.12f * (float)Math.Sin(u.T * 3));
 			if (Spr.Get("ms_pj7") != null) { DrawFx(g, Spr.Get("ms_wcof5") != null ? "wcof" + (5 + ((int)(t * 3) % 3)) : "pj7", sx, sy - rr * 0.1f, rr * 2.3f, fade); continue; }
 			g.FillEllipse(Br(Color.FromArgb((int)(120 * fade), 92, 56, 34)), sx - rr, sy - rr * 0.78f, rr * 2, rr * 1.56f);
@@ -888,7 +890,7 @@ internal sealed class SurvivalGame : MiniGame
 		// 낙하물·폭죽 예고
 		foreach (Hz h in hzs)
 		{
-			float sx = h.X - cx, sy = h.Y - cy; if (sx < -90 || sx > W + 90 || sy < -90 || sy > H + 90) continue;
+			float sx = h.X - cx, sy = h.Y - cy; if (sx < -curOX - 90 || sx > W + curOX + 90 || sy < -90 || sy > H + 90) continue;
 			Color hc = h.K == 0 ? Color.FromArgb(255, 160, 60) : Color.FromArgb(255, 90, 190);
 			if (!h.Done)
 			{
@@ -914,7 +916,7 @@ internal sealed class SurvivalGame : MiniGame
 		string[] bnm = BName;
 		foreach (En e in en)
 		{
-			float sx = e.X - cx, sy = e.Y - cy; if (sx < -60 || sx > W + 60 || sy < -60 || sy > H + 60) continue;
+			float sx = e.X - cx, sy = e.Y - cy; if (sx < -curOX - 60 || sx > W + curOX + 60 || sy < -60 || sy > H + 60) continue;
 			if (e.Sq > 0f) { sx += e.Rx * e.Sq; sy += e.Ry * e.Sq; }
 			g.FillEllipse(Br(Color.FromArgb(60, 0, 0, 0)), sx - e.R, sy + e.R * 0.5f, e.R * 2, e.R * 0.7f);
 			if (e.IsBoss) Vfx.Glow(g, sx, sy - e.R * 0.2f, e.R * 2.3f, e.R * 2.1f, BossCol[e.Bi], 0.55f + 0.2f * (float)Math.Sin(t * 4));
@@ -959,7 +961,7 @@ internal sealed class SurvivalGame : MiniGame
 		// 적 탄환
 		foreach (Ep q in eps)
 		{
-			float sx = q.X - cx, sy = q.Y - cy; if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) continue;
+			float sx = q.X - cx, sy = q.Y - cy; if (sx < -curOX - 20 || sx > W + curOX + 20 || sy < -20 || sy > H + 20) continue;
 			if (Spr.Get("ms_pj6") != null && Spr.Get("ms_e_atk") != null)
 			{
 				if (q.Kind == 0) { float an0 = (float)(Math.Atan2(q.Vy, q.Vx) * 57.2958) + 180f; Vfx.Draw(g, Vfx.Tint(Spr.Get("ms_pj6"), "enemy"), sx, sy, 26f, 26f * Spr.Get("ms_pj6").Height / Spr.Get("ms_pj6").Width, an0, 1f, false); }
@@ -1039,7 +1041,7 @@ internal sealed class SurvivalGame : MiniGame
 			DrawFx(g, "e_atk", bo.X2 - cx, bo.Y2 - cy, fr2 * 3.4f, fa); if (Spr.Get("ms_pj2") != null) { float bw = bo.Big ? 70f : 48f; DrawFx(g, Spr.Get("ms_wlig0") != null ? "wlig" + ((int)(t * 12) & 3) : "pj2", bo.X2 - cx, bo.Y2 - cy - bw * 0.9f, bw, fa); }
 		}
 
-		foreach (Vf v in vfs) { Bitmap vb = Spr.Get(v.Fk != null ? "ms_" + v.Fk + (v.F0 + Math.Min(v.Fn - 1, (int)(v.Age / v.Life * v.Fn))) : "ms_" + v.N); if (vb == null) continue; float u = v.Age / v.Life, ez = 1f - (1f - u) * (1f - u), w = v.W0 + (v.W1 - v.W0) * ez, al = v.A * (u < 0.15f ? 1f : 1f - (u - 0.15f) / 0.85f); float vx2 = v.X - cx, vy2 = v.Y - cy; if (vx2 < -60 || vx2 > W + 60 || vy2 < -60 || vy2 > H + 60) continue; Vfx.Draw(g, Vfx.Tint(vb, v.Tn), vx2, vy2, w, w * vb.Height / vb.Width, v.Rot, al, false); }
+		foreach (Vf v in vfs) { Bitmap vb = Spr.Get(v.Fk != null ? "ms_" + v.Fk + (v.F0 + Math.Min(v.Fn - 1, (int)(v.Age / v.Life * v.Fn))) : "ms_" + v.N); if (vb == null) continue; float u = v.Age / v.Life, ez = 1f - (1f - u) * (1f - u), w = v.W0 + (v.W1 - v.W0) * ez, al = v.A * (u < 0.15f ? 1f : 1f - (u - 0.15f) / 0.85f); float vx2 = v.X - cx, vy2 = v.Y - cy; if (vx2 < -curOX - 60 || vx2 > W + curOX + 60 || vy2 < -60 || vy2 > H + 60) continue; Vfx.Draw(g, Vfx.Tint(vb, v.Tn), vx2, vy2, w, w * vb.Height / vb.Width, v.Rot, al, false); }
 		if (freezeT > 0f && Spr.Get("ms_tm0") != null) { float fa2 = Math.Min(1f, freezeT * 2f); DrawFx(g, "tm0", W / 2f, 112f, 54f + 4f * (float)Math.Sin(t * 8), fa2); }
 		// 레이저 포인터
 		if (wl[9] > 0)
@@ -1103,8 +1105,8 @@ internal sealed class SurvivalGame : MiniGame
 		}
 		Txt(g, StName[stage], 9f, 1, Color.FromArgb(200, 255, 255, 255), 14, 576, 120, 18, StringAlignment.Near);
 		if (msgT > 0) Txt(g, msg, 13f, 2, Color.FromArgb((int)(255 * Math.Min(1f, msgT)), 255, 236, 140), 0, 400, W, 26, StringAlignment.Center);
-		if (hurtT > 0.3f) using (SolidBrush b = new SolidBrush(Color.FromArgb(40, 255, 0, 0))) g.FillRectangle(b, 0, 0, W, H);
-		if (flashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(70 * Math.Min(1f, flashT)), 255, 30, 30))) g.FillRectangle(b, 0, 0, W, H);
+		if (hurtT > 0.3f) using (SolidBrush b = new SolidBrush(Color.FromArgb(40, 255, 0, 0))) g.FillRectangle(b, -curOX, 0, curLW, H);
+		if (flashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(70 * Math.Min(1f, flashT)), 255, 30, 30))) g.FillRectangle(b, -curOX, 0, curLW, H);
 		foreach (En e in en) if (e.IsBoss)
 		{
 			float bf = Math.Max(0f, e.Hp / e.MaxHp);
@@ -1114,12 +1116,12 @@ internal sealed class SurvivalGame : MiniGame
 			break;
 		}
 		if (el < 5f) Hint(g, "방향키 / WASD / 마우스 누르고 끌기로 이동", 450 + 11.0, 11f, false, 1f);
-		if (surgeT > 0f) g.FillRectangle(Br(Color.FromArgb(22 + (int)(10 * Math.Sin(t * 6)), 255, 210, 60)), 0, 0, W, H);
+		if (surgeT > 0f) g.FillRectangle(Br(Color.FromArgb(22 + (int)(10 * Math.Sin(t * 6)), 255, 210, 60)), -curOX, 0, curLW, H);
 		if (surgeT > 0f) Txt(g, "월말 결산! 경험치 2배  " + (int)Math.Ceiling(surgeT) + "초", 11f, 2, Color.FromArgb(255, 255, 220, 100), 0, 190, W, 20, StringAlignment.Center);
-		if (clockT > 0f) { float k = Math.Min(1f, clockT / 1.3f); g.FillRectangle(Br(Color.FromArgb((int)(150 * k), 255, 255, 240)), 0, 0, W, H); Txt(g, "정시 퇴근!", 30f, 2, Color.FromArgb((int)(255 * k), 255, 120, 80), 0, 250, W, 50, StringAlignment.Center); }
+		if (clockT > 0f) { float k = Math.Min(1f, clockT / 1.3f); g.FillRectangle(Br(Color.FromArgb((int)(150 * k), 255, 255, 240)), -curOX, 0, curLW, H); Txt(g, "정시 퇴근!", 30f, 2, Color.FromArgb((int)(255 * k), 255, 120, 80), 0, 250, W, 50, StringAlignment.Center); }
 		if (mode == 2)
 		{
-			g.FillRectangle(Br(Color.FromArgb(215, 8, 12, 30)), 0, 0, W, H);
+			g.FillRectangle(Br(Color.FromArgb(215, 8, 12, 30)), -curOX, 0, curLW, H);
 			Txt(g, "근무지를 골라요", 22f, 2, Color.FromArgb(255, 226, 120), 0, 62, W, 36, StringAlignment.Center);
 			Hint(g, "클릭하거나 1~6 키 · ← → 로 난이도 조절", 90 + 10.0, 10f, false, 1f);
 			for (int i = 0; i < 6; i++)
@@ -1144,7 +1146,7 @@ internal sealed class SurvivalGame : MiniGame
 		// 능력 고르기 (카드 3장)
 		if (mode == 1)
 		{
-			g.FillRectangle(Br(Color.FromArgb(185, 8, 12, 30)), 0, 0, W, H);
+			g.FillRectangle(Br(Color.FromArgb(185, 8, 12, 30)), -curOX, 0, curLW, H);
 			float ta = Math.Min(1f, lvAge / 0.3f);
 			Txt(g, "레벨 업!", 24f, 2, Color.FromArgb((int)(255 * ta), 255, 226, 120), 0, 70 - (1f - ta) * 14f, W, 40, StringAlignment.Center);
 			Hint(g, "카드를 골라요  (← → 방향키로 고르고 Enter/Space · 1·2·3 키 · 마우스)", 112 + 11.0, 10.5f, false, ta);
@@ -1181,7 +1183,7 @@ internal sealed class SurvivalGame : MiniGame
 		// 상자 열기
 		if (mode == 3)
 		{
-			g.FillRectangle(Br(Color.FromArgb(200, 6, 8, 24)), 0, 0, W, H);
+			g.FillRectangle(Br(Color.FromArgb(200, 6, 8, 24)), -curOX, 0, curLW, H);
 			bool big = chN == 3; float open = Math.Max(0f, Math.Min(1f, (chT - 0.9f) / 0.3f)), cxm = 200f, cym = 230f;
 			if (open > 0f)
 			{
@@ -1243,7 +1245,7 @@ internal sealed class SurvivalGame : MiniGame
 	private static readonly string[] ZPre = { "za", "za", "zc", "zb" }; private static readonly int[] ZCnt = { 6, 6, 6, 6 };
 	private void CorpseDraw(Graphics g, Cp c, float sx, float sy)
 	{
-		if (sx < -80 || sx > W + 80 || sy < -80 || sy > H + 80) return;
+		if (sx < -curOX - 80 || sx > W + curOX + 80 || sy < -80 || sy > H + 80) return;
 		bool ox = c.Pre == "opx"; int f = Math.Min(ox ? 3 : 5, (int)(c.Age / (ox ? 0.14f : 0.075f))); Bitmap b = Spr.Get("ms_" + c.Pre + f), r = Spr.Get(ox ? "ms_opx0" : "ms_za1"); if (b == null || r == null) return;
 		float k = c.H / r.Height, w = b.Width * k, h = b.Height * k, al = c.Age < 0.95f ? 1f : 1f - (c.Age - 0.95f) / 0.55f;
 		Vfx.Draw(g, b, sx, sy + 8f - h / 2f + (f >= 3 ? 4f : 0f), w, h, 0f, al, c.Flip);

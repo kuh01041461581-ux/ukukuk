@@ -7,6 +7,7 @@ using System.Windows.Forms;
 // 마룡이 방어선: 벽 뒤에 숨어 있다가 몸을 내밀어 쏘는 엄폐 사격 게임
 internal sealed class CoverGame : MiniGame
 {
+	public override bool WideCap { get { return true; } }
 	private class En { public float X, Y, Hp, MaxHp, Sp, R, Hit, Ph, Kv, Sq, Dust; public int T; }
 	private class Ob { public float X, Y, W, H, Hp, MaxHp, Life, Hit; public int Kind; }
 	private class Db { public float X, Y, T; public int Kind; }
@@ -30,7 +31,8 @@ internal sealed class CoverGame : MiniGame
 	private class Fq { public float X, Y, T, T0, W; public string N; }
 	private readonly List<Fq> fqs = new List<Fq>();
 	private class Rg { public float X, Y, R, Rmax, T, T0; public Color C; }
-	private const float OX = 200f, WallTop = 438f, OY = 398f;
+	private float OX { get { return LW / 2f; } }
+	private const float WallTop = 438f, OY = 398f;
 	private static readonly string[] GN = { "쌍권총", "샷건", "돌격소총", "저격총" };
 	private static readonly string[] GD = { "정확해요 · 쉽고 안정적 · 장전이 빨라요 (탄 24)", "가까울수록 강한 산탄 · 한 발씩 장전해요 (탄 8)", "자동 연사 · 반동 주의 · 장전이 길어요 (탄 30)", "한 방이 아주 강하고 관통 · 연사·장전이 느려요 (탄 5)" };
 	private static readonly string[] GU = { "필살 · 난사 (적을 알아서 연속 사격)", "필살 · 폭풍 산탄 (모두 날려 보내요)", "필살 · 집중 사격 (탄 무한 · 2배 속사)", "필살 · 관통 레이저 (모든 걸 꿰뚫어요)" };
@@ -43,7 +45,7 @@ internal sealed class CoverGame : MiniGame
 	private static readonly float[] Mass = { 1f, 1.8f, 5f };              // 적 무게
 	private readonly List<En> en = new List<En>(); private readonly List<Ob> ob = new List<Ob>(); private readonly List<Tr> tr = new List<Tr>();
 	private readonly List<Cs> cas = new List<Cs>(); private readonly List<Sm> smk = new List<Sm>(); private readonly List<Dy> dead = new List<Dy>(); private readonly List<Rg> rings = new List<Rg>();
-	private bool sel; private int gun, lives, ammo, kills, hand, shots; private float hurtT, peek, cd, reloadP, gauge, el, spawnT, obT, ultT, beamT, flash, msgT, aimX = 200f, aimY = 200f, recoil, flashT, kick, camK, ox = OX, oy = OY, pop; private bool reloading, ultAim, pierceObs; private string msg = ""; private float beamAng;
+	private bool sel; private int gun, lives, ammo, kills, hand, shots; private float hurtT, peek, cd, reloadP, gauge, el, spawnT, obT, ultT, beamT, flash, msgT, aimX = 200f, aimY = 200f, recoil, flashT, kick, camK, ox = 200f, oy = OY, pop; private bool reloading, ultAim, pierceObs; private string msg = ""; private float beamAng;
 	public override string Costume { get { return null; } }
 	public override string Name { get { return "마룡이 방어선"; } }
 	public override string Key { get { return "cover"; } }
@@ -69,9 +71,9 @@ internal sealed class CoverGame : MiniGame
 		using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 130, 110))) g.FillRectangle(b, cx - 15, cy + 2, 30, 13);
 		using (Pen p = new Pen(Color.FromArgb(240, 80, 70), 2.5f)) { g.DrawEllipse(p, cx - 9, cy - 15, 18, 18); g.DrawLine(p, cx - 13, cy - 6, cx + 13, cy - 6); g.DrawLine(p, cx, cy - 18, cx, cy + 6); }
 	}
-	public override void Reset() { en.Clear(); ob.Clear(); tr.Clear(); cas.Clear(); smk.Clear(); dead.Clear(); rings.Clear(); fqs.Clear(); debs.Clear(); holes.Clear(); sel = true; hurtT = 0; lives = 3; kills = 0; Score = 0; Over = false; peek = 0; cd = 0; reloadP = 0; gauge = 0; el = 0; spawnT = 1f; obT = 22f; ultT = 0; beamT = 0; flash = 0; msg = ""; msgT = 0; reloading = false; ammo = 0; recoil = 0; kick = 0; camK = 0; pop = 0; Fx.Clear(); }
+	public override void Reset() { en.Clear(); ob.Clear(); tr.Clear(); cas.Clear(); smk.Clear(); dead.Clear(); rings.Clear(); fqs.Clear(); debs.Clear(); holes.Clear(); sel = true; hurtT = 0; lives = 3; kills = 0; Score = 0; Over = false; peek = 0; cd = 0; reloadP = 0; gauge = 0; el = 0; spawnT = 1f; obT = 22f; ultT = 0; beamT = 0; flash = 0; msg = ""; msgT = 0; reloading = false; ammo = 0; recoil = 0; kick = 0; camK = 0; pop = 0; ox = OX; aimX = OX; Fx.Clear(); }
 	private void Start(int i) { gun = i; sel = false; ammo = Mag[i]; msg = GN[i] + " 장착!"; msgT = 1.2f; Sfx.Play("ok2"); }
-	private static RectangleF Card(int i) { return new RectangleF(24 + (i % 2) * 180, 112 + (i / 2) * 208, 172, 200); }
+	private RectangleF Card(int i) { return new RectangleF(24 + (LW - W) / 2f + (i % 2) * 180, 112 + (i / 2) * 208, 172, 200); }
 	private static RectangleF UltBtn { get { return new RectangleF(318, 534, 70, 52); } }
 	public override void Click(float x, float y)
 	{
@@ -232,7 +234,7 @@ internal sealed class CoverGame : MiniGame
 				en.Add(new En { X = -24f - i * 38f, Y = y, Hp = hp, MaxHp = hp, Sp = sp, T = ty, R = (ty == 0 ? 13f : (ty == 1 ? 16f : 23f)) * Sc(y), Ph = (float)Rnd.NextDouble() * 6f });
 			}
 		}
-		obT -= dt; if (obT <= 0f && ob.Count < 3) { obT = 16f; bool bar = el > 35f && Rnd.NextDouble() < 0.4; float w = bar ? 72f : 58f + (float)Rnd.NextDouble() * 12f, h = bar ? 66f : w * 0.9f; float hpp = bar ? 140f : 70f; ob.Add(new Ob { X = 60f + (float)Rnd.NextDouble() * 250f, Y = 310f + (float)Rnd.NextDouble() * 50f, W = w, H = h, Hp = hpp, MaxHp = hpp, Life = 24f, Kind = bar ? 1 : 0 }); Say(bar ? "접수대 방벽이 설치됐어요! 총알이 막혀요" : "서류 상자가 쌓였어요! 총알이 막혀요"); }
+		obT -= dt; if (obT <= 0f && ob.Count < 3) { obT = 16f; bool bar = el > 35f && Rnd.NextDouble() < 0.4; float w = bar ? 72f : 58f + (float)Rnd.NextDouble() * 12f, h = bar ? 66f : w * 0.9f; float hpp = bar ? 140f : 70f; ob.Add(new Ob { X = 60f + (float)Rnd.NextDouble() * (LW - 150f), Y = 310f + (float)Rnd.NextDouble() * 50f, W = w, H = h, Hp = hpp, MaxHp = hpp, Life = 24f, Kind = bar ? 1 : 0 }); Say(bar ? "접수대 방벽이 설치됐어요! 총알이 막혀요" : "서류 상자가 쌓였어요! 총알이 막혀요"); }
 		foreach (Ob o in ob) { o.Life -= dt; if (o.Hit > 0f) o.Hit -= dt; }
 		ob.RemoveAll(delegate(Ob o) { return o.Life <= 0f; });
 		for (int i = en.Count - 1; i >= 0; i--)
@@ -240,7 +242,7 @@ internal sealed class CoverGame : MiniGame
 			En e = en[i]; e.Ph += dt * (e.Sp / 12f); if (e.Hit > 0f) e.Hit -= dt; e.Sq = Math.Max(0f, e.Sq - dt * 6f);
 			e.X += (e.Sp * (e.Hit > 0f ? 0.4f : 1f) + e.Kv) * dt; e.Kv *= (float)Math.Exp(-9f * dt);
 			e.Dust -= dt; if (e.Dust <= 0f) { e.Dust = 0.22f; smk.Add(new Sm { X = e.X - e.R * 0.5f, Y = e.Y - 2f, Vx = -14f, Vy = -8f, R = 3f * e.R / 14f, T = 0.35f, L = 0.35f }); }
-			if (e.X > W + 16f) { en.RemoveAt(i); lives--; hurtT = 0.7f; Shake = 0.5f; camK = 8f; Sfx.Play("bad2"); Fx.Burst(W - 14f, e.Y - e.R, Color.FromArgb(255, 110, 110), 10); Say("창구가 뚫렸어요!"); if (lives <= 0) { Over = true; return; } }
+			if (e.X > LW + 16f) { en.RemoveAt(i); lives--; hurtT = 0.7f; Shake = 0.5f; camK = 8f; Sfx.Play("bad2"); Fx.Burst(LW - 14f, e.Y - e.R, Color.FromArgb(255, 110, 110), 10); Say("창구가 뚫렸어요!"); if (lives <= 0) { Over = true; return; } }
 		}
 		Sweep();
 	}
@@ -358,9 +360,9 @@ internal sealed class CoverGame : MiniGame
 		BgImg(g, "bg_street", Color.FromArgb(70, 80, 120), Color.FromArgb(210, 160, 130));
 		GraphicsState world = g.Save(); if (camK > 0.1f) g.TranslateTransform(0f, camK * 0.5f * (float)Math.Sin(t * 70));
 		if (Spr.Get("bg_street") == null) using (SolidBrush b = new SolidBrush(Color.FromArgb(60, 60, 90))) for (int i = 0; i < 7; i++) { float bh = 60f + (i * 37 % 50); g.FillRectangle(b, i * 60 - 10, 190f - bh, 52, bh + 10); }
-		if (Spr.Get("bg_street") == null) using (SolidBrush b = new SolidBrush(Color.FromArgb(104, 100, 112))) g.FillRectangle(b, 0, 190, W, 248);
+		if (Spr.Get("bg_street") == null) using (SolidBrush b = new SolidBrush(Color.FromArgb(104, 100, 112))) g.FillRectangle(b, 0, 190, LW, 248);
 		if (Spr.Get("bg_street") == null) using (SolidBrush b = new SolidBrush(Color.FromArgb(40, 255, 255, 255))) for (int i = 0; i < 8; i++) g.FillRectangle(b, i * 56 + 10, 290, 28, 4);
-		using (SolidBrush b = new SolidBrush(Color.FromArgb(70, 255, 100, 90))) g.FillRectangle(b, W - 10, 190, 10, 248);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(70, 255, 100, 90))) g.FillRectangle(b, LW - 10, 190, 10, 248);
 		if (sel) { g.Restore(world); DrawSelect(g, t); return; }
 		float a = AimAng(), e1 = peek * peek * (3f - 2f * peek);
 		bool shooting = peek >= 0.5f;
@@ -392,10 +394,10 @@ internal sealed class CoverGame : MiniGame
 		foreach (Fq q in fqs) DrawFx(g, q.N, q.X, q.Y, q.W * (1.3f - q.T / q.T0 * 0.3f), q.T / q.T0);
 		foreach (Rg r in rings) { float k = 1f - r.T / r.T0; float rr = r.R + (r.Rmax - r.R) * (1f - (1f - k) * (1f - k)); using (Pen p = new Pen(Color.FromArgb((int)(220 * (1f - k)), r.C), 2f + 4f * (1f - k))) g.DrawEllipse(p, r.X - rr, r.Y - rr, rr * 2, rr * 2); }
 		// 벽
-		using (LinearGradientBrush b = new LinearGradientBrush(new RectangleF(0, WallTop, W, 172), Color.FromArgb(150, 142, 148), Color.FromArgb(96, 90, 100), 90f)) g.FillRectangle(b, 0, WallTop, W, 172);
-		using (SolidBrush b = new SolidBrush(Color.FromArgb(176, 168, 172))) g.FillRectangle(b, 0, WallTop, W, 10);
-		using (SolidBrush b = new SolidBrush(Color.FromArgb(60, 0, 0, 0))) g.FillRectangle(b, 0, WallTop + 10, W, 4);
-		using (Pen p = new Pen(Color.FromArgb(70, 60, 66, 76), 2f)) { for (int r = 0; r < 4; r++) g.DrawLine(p, 0, WallTop + 14 + r * 40, W, WallTop + 14 + r * 40); for (int r = 0; r < 4; r++) for (int i = 0; i < 9; i++) g.DrawLine(p, i * 50 + (r % 2) * 25, WallTop + 14 + r * 40, i * 50 + (r % 2) * 25, WallTop + 54 + r * 40); }
+		using (LinearGradientBrush b = new LinearGradientBrush(new RectangleF(0, WallTop, LW, 172), Color.FromArgb(150, 142, 148), Color.FromArgb(96, 90, 100), 90f)) g.FillRectangle(b, 0, WallTop, LW, 172);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(176, 168, 172))) g.FillRectangle(b, 0, WallTop, LW, 10);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(60, 0, 0, 0))) g.FillRectangle(b, 0, WallTop + 10, LW, 4);
+		using (Pen p = new Pen(Color.FromArgb(70, 60, 66, 76), 2f)) { for (int r = 0; r < 4; r++) g.DrawLine(p, 0, WallTop + 14 + r * 40, LW, WallTop + 14 + r * 40); for (int r = 0; r < 4; r++) for (int i = 0; i < 9; i++) g.DrawLine(p, i * 50 + (r % 2) * 25, WallTop + 14 + r * 40, i * 50 + (r % 2) * 25, WallTop + 54 + r * 40); }
 		// 숨은 모습: 벽 앞에 쭈그린 앞모습
 		if (!shooting)
 		{
@@ -421,7 +423,7 @@ internal sealed class CoverGame : MiniGame
 		}
 		if (ultAim && gun == 3) { float cs = 1f - ultT / 1.0f; float hx, hy, mx, my; Hold(0, a, out hx, out hy, out mx, out my); using (Pen p = new Pen(Color.FromArgb(90 + (int)(120 * cs), 230, 170, 255), 1.5f + 3f * cs)) g.DrawLine(p, mx, my, mx + (float)Math.Cos(a) * 700f, my + (float)Math.Sin(a) * 700f); float rr = 6f + 22f * cs; using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 240, 200, 255))) g.FillEllipse(b, mx - rr, my - rr, rr * 2, rr * 2); }
 		g.Restore(world); if (lens) return;
-		if (flash > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(120 * flash / 0.5f), 255, 255, 255))) g.FillRectangle(b, 0, 0, W, H);
+		if (flash > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(120 * flash / 0.5f), 255, 255, 255))) g.FillRectangle(b, 0, 0, LW, H);
 		// HUD
 		for (int i = 0; i < 3; i++) HeartIcon(g, 28f + i * 26f, 52f, i < lives, i == lives - 1 && hurtT > 0f);
 		DrawGun(g, gun, 14, 570, 0f, gun == 0 ? 0.7f : 0.45f, GC[gun]);
@@ -431,13 +433,13 @@ internal sealed class CoverGame : MiniGame
 		RectangleF ub = UltBtn; bool rdy = gauge >= 100f;
 		using (SolidBrush b = new SolidBrush(rdy ? Color.FromArgb((int)(190 + 60 * Math.Sin(t * 8)), 255, 200, 70) : Color.FromArgb(110, 0, 0, 0))) g.FillRectangle(b, ub.X, ub.Y, ub.Width, ub.Height);
 		Txt(g, rdy ? "필살!" : (int)gauge + "%", 12f, 700, rdy ? Color.FromArgb(60, 40, 10) : Color.White, ub.X, ub.Y + 14, ub.Width, 24, StringAlignment.Center);
-		if (msgT > 0f) Txt(g, msg, 15f, 700, Color.FromArgb(255, 245, 190), 0, 130, W, 28, StringAlignment.Center);
+		if (msgT > 0f) Txt(g, msg, 15f, 700, Color.FromArgb(255, 245, 190), 0, 130, LW, 28, StringAlignment.Center);
 	}
 	private void DrawSelect(Graphics g, double t)
 	{
-		using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 10, 12, 30))) g.FillRectangle(b, 0, 0, W, H);
-		Txt(g, "무기를 골라요", 17f, 2, Color.FromArgb(255, 240, 190), 0, 40, W, 30, StringAlignment.Center);
-		Txt(g, "벽 뒤에 숨어 있다가 몸을 내밀어 막아요", 10.5f, 0, Color.White, 0, 76, W, 22, StringAlignment.Center);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 10, 12, 30))) g.FillRectangle(b, 0, 0, LW, H);
+		Txt(g, "무기를 골라요", 17f, 2, Color.FromArgb(255, 240, 190), 0, 40, LW, 30, StringAlignment.Center);
+		Txt(g, "벽 뒤에 숨어 있다가 몸을 내밀어 막아요", 10.5f, 0, Color.White, 0, 76, LW, 22, StringAlignment.Center);
 		string[] pn = { "ms_k_pistol", "ms_k_shotgun", "ms_k_rifle", "ms_k_sniper" };
 		for (int i = 0; i < 4; i++)
 		{

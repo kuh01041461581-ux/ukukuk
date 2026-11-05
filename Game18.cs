@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -8,6 +8,8 @@ using System.Windows.Forms;
 //  드리프트(스페이스·Shift·마우스 누르기)로 게이지를 모았다가 놓으면 부스터! 아이템 상자: 부스터 · 바나나 · 물풍선
 internal sealed class KartGame : MiniGame
 {
+	public override bool WideCap { get { return true; } }
+	public override bool CenterPlay { get { return true; } }
 	public override bool NoLimit { get { return true; } }
 	public override string Name { get { return "마룡이 카트"; } }
 	public override string Key { get { return "kart"; } }
@@ -561,7 +563,7 @@ internal sealed class KartGame : MiniGame
 		if (cphase == 0) { DrawSelect(g, t); return; }
 		// 하늘 · 먼 산 (코스 테마 색)
 		Bg(g, T0.SkyA, T0.SkyB);
-		if (T0.Night) { using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 255, 255, 255))) for (int k = 0; k < 40; k++) { float sx0 = (k * 97 + 13) % 400 - (skyOff * 60f) % 400f; if (sx0 < 0) sx0 += 400; float sy0 = 40 + (k * 53) % 180; float tw = 1f + (float)Math.Sin(t * 2 + k) * 0.6f; g.FillEllipse(b, sx0, sy0, tw * 1.6f, tw * 1.6f); } using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 255, 160, 220))) g.FillEllipse(b, 60, 90, 70, 70); }
+		if (T0.Night) { using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 255, 255, 255))) for (int k = 0; k < 40; k++) { float sx0 = (k * 97 + 13) % (int)curLW - (skyOff * 60f) % (float)curLW; if (sx0 < 0) sx0 += curLW; sx0 -= curOX; float sy0 = 40 + (k * 53) % 180; float tw = 1f + (float)Math.Sin(t * 2 + k) * 0.6f; g.FillEllipse(b, sx0, sy0, tw * 1.6f, tw * 1.6f); } using (SolidBrush b = new SolidBrush(Color.FromArgb(200, 255, 160, 220))) g.FillEllipse(b, 60, 90, 70, 70); }
 		using (SolidBrush b = new SolidBrush(Color.FromArgb(255, T0.Sun))) g.FillEllipse(b, 300, 120, 44, 44);
 		Hills(g, 0.25f, 230f, 60f, T0.HillF, 7);
 		Hills(g, 0.5f, 268f, 46f, T0.HillN, 5);
@@ -596,7 +598,7 @@ internal sealed class KartGame : MiniGame
 			float yb = (float)Math.Round(b.Y), ya = (float)Math.Round(a.Y); if (r == 0) ya = Math.Max(ya, a.Y);
 			if (ya <= yb) continue;
 			a.Y = ya; b.Y = yb;
-			g.FillRectangle(i >= 0 && wet[i] ? (alt ? water1 : water2) : (alt ? grass1 : grass2), 0, yb, W, ya - yb);
+			g.FillRectangle(i >= 0 && wet[i] ? (alt ? water1 : water2) : (alt ? grass1 : grass2), -curOX, yb, curLW, ya - yb);
 			if (i < 0) { PathRow(g, a, b, -1 - i, alt); continue; }
 			if (course != 0 && i >= 3) { RoadStyle(g, a, b, i, alt, t); if (padK[i] != 0) PadRow(g, a, b, i, t); SkidRow(g, a, b, i); WallRow(g, a, b, i, alt); continue; }
 			Quad(g, alt ? rum1 : rum2, a.X, a.Y, a.W * 1.12f, b.X, b.Y, b.W * 1.12f);
@@ -708,7 +710,7 @@ internal sealed class KartGame : MiniGame
 		}
 		DrawParts(g, 1);
 		foreach (Pop pp in pops) { float k = pp.T / pp.D, sc = pp.S * (0.6f + 0.6f * (float)Math.Sin(Math.Min(1f, k * 1.6f) * Math.PI / 2)) * (k > 0.75f ? 1f - (k - 0.75f) * 2f : 1f); Spr.Draw(g, pp.N, pp.X, pp.Y, pp.F ? -sc : sc, sc, pp.R); }
-		if (splashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(110 * splashT / 0.7f), 120, 190, 255))) g.FillRectangle(b, 0, 0, W, H);
+		if (splashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(110 * splashT / 0.7f), 120, 190, 255))) g.FillRectangle(b, -curOX, 0, curLW, H);
 		if (warnT > 0f && ((int)(t * 8)) % 2 == 0) { using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 240, 70, 70))) g.FillEllipse(b, 182, 590 - 14, 36, 36); Txt(g, "!", 16f, 2, Color.White, 182, 576, 36, 36, StringAlignment.Center); Balloon(g, 200f + (1f - warnT / 1.1f) * 0f, 600f - (1f - warnT / 1.1f) * 40f, 10f, t); }
 		// HUD
 		Panel(g, new RectangleF(10, 40, 120, 56)); Txt(g, place + "등", 22f, 2, place == 1 ? Color.FromArgb(255, 220, 90) : Color.White, 10, 40, 120, 56, StringAlignment.Center);
@@ -746,9 +748,9 @@ internal sealed class KartGame : MiniGame
 	}
 	private void Hills(Graphics g, float par, float baseY, float amp, Color c, int n)
 	{
-		float off = (skyOff * par * 900f) % 400f; List<PointF> pts = new List<PointF>(); pts.Add(new PointF(-10, 300));
-		for (int k = -2; k <= 44; k++) { float xx = k * 10f - off; float yy = baseY - amp * (0.5f + 0.5f * (float)Math.Sin((k * 10f + Math.Floor((skyOff * par * 900f) / 400f) * 400f) / 400f * Math.PI * 2 * n / 4f + par * 7f)) * (0.7f + 0.3f * (float)Math.Sin(k * 0.9f)); pts.Add(new PointF(xx, yy)); }
-		pts.Add(new PointF(410, 300)); using (SolidBrush b = new SolidBrush(c)) g.FillPolygon(b, pts.ToArray());
+		float off = (skyOff * par * 900f) % 400f; List<PointF> pts = new List<PointF>(); pts.Add(new PointF(-10 - curOX, 300));
+		int hx = (int)Math.Ceiling(curOX / 10f); for (int k = -2 - hx; k <= 44 + hx; k++) { float xx = k * 10f - off; float yy = baseY - amp * (0.5f + 0.5f * (float)Math.Sin((k * 10f + Math.Floor((skyOff * par * 900f) / 400f) * 400f) / 400f * Math.PI * 2 * n / 4f + par * 7f)) * (0.7f + 0.3f * (float)Math.Sin(k * 0.9f)); pts.Add(new PointF(xx, yy)); }
+		pts.Add(new PointF(410 + curOX, 300)); using (SolidBrush b = new SolidBrush(c)) g.FillPolygon(b, pts.ToArray());
 	}
 	private static readonly Color[] Wall = { Color.FromArgb(250, 238, 214), Color.FromArgb(246, 214, 214), Color.FromArgb(214, 230, 246), Color.FromArgb(232, 246, 214) }, Roof = { Color.FromArgb(206, 78, 62), Color.FromArgb(92, 120, 190), Color.FromArgb(150, 96, 70), Color.FromArgb(70, 150, 130) };
 	// 마을 장식: 0 나무 · 1 표지판 · 2 집 · 3 울타리 · 4 가로등과 꽃
@@ -756,7 +758,7 @@ internal sealed class KartGame : MiniGame
 	{
 		if (course != 0) { DecoTheme(g, a, side, kind, clip, seg); return; }
 		float u = a.Sc * W / 2f, sx = a.X + u * side * ROADW; float h = u * (kind == 2 ? 2300f : (kind == 1 ? 2600f : (kind == 3 ? 520f : (kind == 4 ? 1700f : 2000f)))); if (h < 2f || h > 340f || a.Y - h > clip) return;
-		GraphicsState st = g.Save(); g.SetClip(new RectangleF(0, 0, W, clip));
+		GraphicsState st = g.Save(); g.SetClip(new RectangleF(-curOX, 0, curLW, clip));
 		{
 			// 그림 소품: 0 나무(둥근/뾰족) · 2 집(빨강/파랑 지붕) · 3 울타리 · 4 가로등
 			string pn = kind == 0 ? (seg % 10 == 0 ? "ms_kp_3" : "ms_kp_2") : (kind == 2 ? ((seg / 5) % 2 == 0 ? "ms_kp_0" : "ms_kp_1") : (kind == 3 ? "ms_kp_4" : (kind == 4 ? "ms_kp_5" : null))); Bitmap pb = pn == null ? null : Spr.Get(pn);
@@ -940,7 +942,7 @@ internal sealed class KartGame : MiniGame
 	{
 		float u = a.Sc * W / 2f, sx = a.X + u * side * ROADW; float h = u * (kind == 2 ? 2300f : (kind == 1 ? 2400f : (kind == 3 ? 520f : (kind == 4 ? 1700f : 2000f)))); if (h < 2f || h > 340f || a.Y - h > clip) return;
 		int slot = kind == 2 ? ((seg / 5) % 2) : (kind == 0 ? (seg % 10 == 0 ? 3 : 2) : (kind == 3 ? 4 : (kind == 4 ? 5 : 3)));
-		GraphicsState st = g.Save(); g.SetClip(new RectangleF(0, 0, W, clip));
+		GraphicsState st = g.Save(); g.SetClip(new RectangleF(-curOX, 0, curLW, clip));
 		int[] pool = slot <= 1 ? new[] { 0, 1, 6, 7 } : (slot <= 3 ? new[] { 2, 3, 8 } : (slot == 4 ? new[] { 4, 10 } : new[] { 5, 9, 3 }));
 		string pn = null; { List<string> have = new List<string>(); foreach (int q in pool) { string nm = "ms_kt" + course + "_" + q; if (Spr.Get(nm) != null) have.Add(nm); } if (have.Count > 0) pn = have[(slot == 4 ? seg / 40 : seg / 5 + slot) % have.Count]; }
 		Bitmap pb = pn == null ? null : Spr.Get(pn);
@@ -1059,7 +1061,7 @@ internal sealed class KartGame : MiniGame
 	private void ItemBox(Graphics g, Pj a, float bx, float clip, double t)
 	{
 		float sx = a.X + a.W * bx, s = a.Sc * 420f * W / 2f; if (s < 2f) return; float y = a.Y - s * 1.3f + (float)Math.Sin(t * 4 + bx) * s * 0.1f; if (y > clip) return;
-		GraphicsState st = g.Save(); g.SetClip(new RectangleF(0, 0, W, clip));
+		GraphicsState st = g.Save(); g.SetClip(new RectangleF(-curOX, 0, curLW, clip));
 		if (Spr.Get("ms_kp_6") != null) { Spr.Draw(g, "ms_kp_6", sx, y + s / 2f, s * 1.1f, s * 1.05f, (float)Math.Sin(t * 3 + bx) * 6f); g.Restore(st); return; }
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(sx - s / 2f, y, s, s), s * 0.2f)) { using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(sx - s / 2f, y - 1, s, s + 2), Color.FromArgb(220, 255, 210, 90), Color.FromArgb(220, 240, 120, 200), 45f)) g.FillPath(lb, gp); using (Pen p = new Pen(Color.FromArgb(230, 255, 255, 255), Math.Max(1f, s * 0.06f))) g.DrawPath(p, gp); }
 		if (s > 10f) Txt(g, "?", s * 0.42f, 2, Color.White, sx - s / 2f, y, s, s, StringAlignment.Center);

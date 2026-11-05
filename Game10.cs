@@ -7,6 +7,8 @@ using System.Windows.Forms;
 // ── 31. 프리킥 (골대 · 파워 · 감아차기 · 수비벽 · 골키퍼) ──────────────────
 internal sealed class FreeKickGame : MiniGame
 {
+	public override bool WideCap { get { return true; } }
+	public override bool CenterPlay { get { return true; } }
 	public override bool NoLimit { get { return true; } }
 	private const float FL = 520f, HorY = 250f, CamH = 1.7f, CamBack = 4.5f;   // 카메라: 공 뒤 4.5m · 눈높이 1.7m
 	private const float GW = 3.66f, GH = 2.44f, BR = 0.11f, G = 9.8f, Spin = 10f;
@@ -219,7 +221,7 @@ internal sealed class FreeKickGame : MiniGame
 	{
 		// 하늘 · 관중석 · 광고판
 		Bitmap sb0 = Spr.Get("bg_soccer");
-		if (sb0 != null) { using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(0, 0, W, 96), Color.FromArgb(4, 8, 44), Color.FromArgb(6, 14, 74), 90f)) g.FillRectangle(lb, 0, 0, W, 96); float bsc = ImgCache.Scale(g); System.Drawing.Image bim = ImgCache.Get(sb0, W * bsc, H * bsc); InterpolationMode m0 = g.InterpolationMode; PixelOffsetMode po0 = g.PixelOffsetMode; CompositingMode cm0 = g.CompositingMode; g.InterpolationMode = InterpolationMode.Bilinear; g.PixelOffsetMode = PixelOffsetMode.Half; g.CompositingMode = CompositingMode.SourceCopy; g.DrawImage(bim, new Rectangle(0, 84, W, H - 84), 0, 0, bim.Width, (int)(bim.Height * (H - 84f) / H), GraphicsUnit.Pixel); g.InterpolationMode = m0; g.PixelOffsetMode = po0; g.CompositingMode = cm0; }
+		if (sb0 != null) { using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(-curOX, 0, curLW, 96), Color.FromArgb(4, 8, 44), Color.FromArgb(6, 14, 74), 90f)) g.FillRectangle(lb, -curOX, 0, curLW, 96); float bsc = ImgCache.Scale(g); System.Drawing.Image bim = ImgCache.Get(sb0, W * bsc, H * bsc); InterpolationMode m0 = g.InterpolationMode; PixelOffsetMode po0 = g.PixelOffsetMode; CompositingMode cm0 = g.CompositingMode; g.InterpolationMode = InterpolationMode.Bilinear; g.PixelOffsetMode = PixelOffsetMode.Half; g.CompositingMode = CompositingMode.SourceCopy; GraphicsState wst = g.Save(); g.TranslateTransform(-curOX, 0f); g.ScaleTransform((float)curLW / W, 1f); g.DrawImage(bim, new Rectangle(0, 84, W, H - 84), 0, 0, bim.Width, (int)(bim.Height * (H - 84f) / H), GraphicsUnit.Pixel); g.Restore(wst); g.InterpolationMode = m0; g.PixelOffsetMode = po0; g.CompositingMode = cm0; }
 		else {
 		using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(0, 0, W, HorY + 2), Color.FromArgb(24, 34, 74), Color.FromArgb(96, 130, 190), 90f)) g.FillRectangle(lb, 0, 0, W, HorY + 2);
 		using (SolidBrush b = new SolidBrush(Color.FromArgb(48, 52, 76))) g.FillRectangle(b, 0, HorY - 62, W, 62); }

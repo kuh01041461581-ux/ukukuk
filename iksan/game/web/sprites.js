@@ -177,14 +177,29 @@ export function makeSprites() {
       for (let y = Math.round(yTE + kk) + 3; y < Math.round(cy + kk) - 2; y++) for (let q = -2; q <= 2; q++) if (Math.abs(dx + q) < w - 1) P(g, cx + dx + q, y, door ? (y < Math.round(yTE + kk) + 6 ? '#3a362e' : '#27241e') : shade(dx < 0 ? STONE : '#a29d90', 0.8)); } };
   const eaves = (g, cx, cy, w, d, tone, layers = 2) => { for (let l = 0; l < layers; l++) box(g, cx, cy - l * 2, w + 2 + l * 2, Math.round((w + 2 + l * 2) / 2.15), 2, shade(tone, 0.9 - l * 0.04), { roof: shade(tone, 1.04), out: shade(tone, 0.4), band: 0 });
     for (const sx of [-1, 1]) { const ex = cx + sx * (w + 2 + (layers - 1) * 2); RC(g, ex - (sx > 0 ? 1 : 0), cy - layers * 2 - 2, 2, 2, shade(tone, 1.1)); } };
+  // 석재 더미 기둥 그리기(무너진 상부): 가로 줄눈(층)과 어긋난 세로 줄눈으로 돌 쌓임 표현
+  const rubble = (g, x, yBase, h, tone, seed) => { for (let y = 0; y < h; y++) { const course = Math.floor(y / 4), jx = (x + (course % 2) * 3 + course * 5) % 7 === 0; let col = hash(x, y, seed) < 0.18 ? shade(tone, 0.9) : tone; if (y % 4 === 0) col = shade(col, 0.82); else if (jx) col = shade(col, 0.86); else if (y % 4 === 3) col = shade(col, 1.05); P(g, x, yBase - y, col); } };
   B.restore_mireuk = withGround(g => {
+    // 서탑(국보 11호): 기단 일부가 남은 낮고 넓은 이중 기단 + 1~3층 온전 + 4~6층은 한쪽(왼쪽)이 무너져 석재가 가파르게 쌓이고 오른쪽은 층급 지붕돌이 계단처럼 남음
     box(g, CX, CY - 2, 30, 14, 3, '#b3ae9f', { roof: '#c5c0b1', out: '#5e5a4c', band: 0 }); box(g, CX, CY - 5, 27, 12, 4, '#bfbaab', { roof: '#d2cdbf', out: '#5e5a4c' });
-    for (const sx of [-1, 1]) { for (let st = 0; st < 4; st++) box(g, CX + sx * (24 - st * 1), CY + 8 - st * 2, 5 - st, 2, 1, '#aaa598', { roof: '#c8c3b5', out: '#5e5a4c' }); }          // 기단 계단
+    for (const sx of [-1, 1]) for (let st = 0; st < 4; st++) box(g, CX + sx * (24 - st), CY + 8 - st * 2, 5 - st, 2, 1, '#aaa598', { roof: '#c8c3b5', out: '#5e5a4c' });
     let y = CY - 9; const W = [24, 20, 17], H = [14, 10, 9];
     for (let i = 0; i < 3; i++) { const w = W[i], d = Math.round(w / 2.15), h = H[i]; box(g, CX, y, w, d, h, STONE, { roof: shade(STONE, 1.1), out: '#5a564a' }); pil(g, CX, y, w, d, h, i === 0 ? 6 : 4, i === 0); y -= h; eaves(g, CX, y + 1, w + 3, d + 1, '#c4bfb1', i === 0 ? 3 : 2); y -= 4; }
-    // 무너진 상부: 계단식 석재 더미(왼쪽이 높음)
-    for (let k = 0; k < 7; k++) { const w = 13 - k * 1.5, hh = 5; box(g, CX - 5 - k * 1.5, y - k * 5 + 6, Math.max(3, Math.round(w)), Math.max(2, Math.round(w / 2.15)), hh, '#b9b3a2', { roof: '#cbc6b6', out: '#5a564a', topFn: (dx, dy, c) => (((dx + 99) % 5 === 0 || dy % 3 === 0) ? shade(c, 0.9) : null), band: 3 }); }
+    const base = y + 3, ST = '#bdb7a6';
+    for (let dx = -17; dx <= 17; dx++) {                                                   // 상부(4~6층 잔존부) 윤곽: 왼쪽은 가파르게 솟고, 오른쪽은 3단 계단
+      let h; if (dx < -4) h = 10 + Math.floor(((dx + 17) * 30 / 13) / 3) * 3; else if (dx <= 2) h = 40; else if (dx <= 8) h = 31; else if (dx <= 13) h = 22; else h = 13;
+      rubble(g, CX + dx, base, h, dx < -4 ? shade(ST, 1.06) : (dx < 3 ? ST : shade(ST, 0.9)), 7);
+      P(g, CX + dx, base - h, shade(ST, 0.5)); P(g, CX + dx, base - h + 1, shade(ST, 1.18)); }
+    for (const [x0, x1, hh] of [[3, 8, 31], [9, 13, 22], [14, 17, 13]]) { RC(g, CX + x0 - 1, base - hh - 1, x1 - x0 + 3, 2, '#d2ccba'); RC(g, CX + x0 - 1, base - hh + 1, x1 - x0 + 3, 1, '#6e6a5a'); }   // 남은 지붕돌(처마) 층
+    for (let k = 0; k < 12; k++) { const dx = -17 + Math.floor(hash(k, 4, 9) * 12), hh = 6 + Math.floor(hash(k, 5, 9) * 8); RC(g, CX + dx - 1, base - 10 - hh, 3, 2, shade(ST, 0.8)); }   // 흩어진 돌
   }, 103);
+  // 동탑: 1992년 복원된 9층 석탑(새 석재라 밝고 말끔)
+  B.tower_east = (() => { const c = mk(), g = c.getContext('2d'); g.drawImage(ground(['#cbc5b4', '#bdb7a5'], 130, { dither: 0.2 }), 0, 0); g.fillStyle = 'rgba(25,25,45,0.22)'; for (let dy = -5; dy <= 6; dy++) { const w = Math.round(16 * (1 - Math.abs(dy) / 8)); g.fillRect(CX + 8 - w, CY + 2 + dy, 2 * w, 1); }
+    const NEW = '#e8e4d8';
+    box(g, CX, CY - 2, 21, 9, 3, '#c9c4b4', { roof: '#dad6c8', out: '#6e6a5a', band: 0 }); box(g, CX, CY - 5, 19, 8, 3, '#d4cfc0', { roof: '#e4e0d4', out: '#6e6a5a' });
+    let y = CY - 8; const W = [16, 15, 14, 13, 12, 11, 10, 9, 8];
+    for (let i = 0; i < 9; i++) { const w = W[i], d = Math.round(w / 2.15), h = i === 0 ? 8 : 6; box(g, CX, y, w, d, h, NEW, { roof: shade(NEW, 1.08), out: '#7a766a' }); pil(g, CX, y, w, d, h, i < 3 ? 4 : 3, i === 0); y -= h; eaves(g, CX, y + 1, w + 2, d + 1, '#dcd8cb', 2); y -= 3; }
+    RC(g, CX - 1, y - 8, 2, 9, '#c4bfae'); RC(g, CX - 3, y - 5, 6, 1, '#c4bfae'); RC(g, CX - 1, y - 12, 2, 3, '#e0c050'); return c; })();
   // 왕궁리 오층석탑(사진 기준): 낮은 기단 위 키 큰 1층 몸돌, 층마다 어두운 얇은 지붕돌(3단 옥개받침, 처마 끝 살짝 반전), 위로 갈수록 급격히 줄고 작은 상륜
   B.restore_wanggung = withGround(g => {
     box(g, CX, CY - 2, 26, 12, 5, '#a89f8c', { roof: '#c0b8a6', out: '#5a5446', band: 0 });

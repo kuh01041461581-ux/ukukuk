@@ -18,7 +18,7 @@ public class AndroidPlatform implements Platform {
     static byte[] all(InputStream in) throws IOException {
         ByteArrayOutputStream o = new ByteArrayOutputStream(); byte[] b = new byte[16384]; int n; while ((n = in.read(b)) > 0) o.write(b, 0, n); in.close(); return o.toByteArray();
     }
-    public byte[] resource(String n) { try { return all(am.open("st2/" + n)); } catch (IOException e) { return null; } }
+    public byte[] resource(String n) { try { return all(am.open("st2mod/" + n)); } catch (IOException e0) { } try { return all(am.open("st2/" + n)); } catch (IOException e) { return null; } }   // 모드(st2mod) 우선
     public int[] decodePng(byte[] d, int[] out) {
         Bitmap b = BitmapFactory.decodeByteArray(d, 0, d.length); if (b == null) return null;
         out[0] = b.getWidth(); out[1] = b.getHeight(); int[] px = new int[out[0] * out[1]]; b.getPixels(px, 0, out[0], 0, 0, out[0], out[1]); b.recycle(); return px;

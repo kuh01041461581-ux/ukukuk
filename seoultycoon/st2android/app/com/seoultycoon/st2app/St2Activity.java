@@ -45,7 +45,7 @@ public class St2Activity extends Activity implements St2View.Opener {
         running = true;
         loop = new Thread(null, new Runnable() { public void run() {
             try {
-                InputStream in = getAssets().open("st2/client.bin1116"); byte[] img = AndroidPlatform.all(in);
+                byte[] img = pf.resource("client.bin1116");
                 host = new Host(pf, img); host.defaultName = name; view.game_host = host; host.timeScale = speed();
                 host.boot(); host.startApp();
                 long last = System.nanoTime(); int[] px = new int[240 * 296];

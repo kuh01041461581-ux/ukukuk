@@ -7,7 +7,7 @@ public class JvmRun {
         final Path res = Paths.get(a[1]), out = Paths.get(a[2]); Files.createDirectories(out.resolve("save"));
         final Font font = Font.createFont(Font.TRUETYPE_FONT, new File(a[3])).deriveFont(11f);
         Platform pf = new Platform() {
-            public byte[] resource(String n) { try { return Files.readAllBytes(res.resolve(n)); } catch (IOException e) { return null; } }
+            public byte[] resource(String n) { String mod = System.getenv("MOD"); if (mod != null) try { return Files.readAllBytes(Paths.get(mod).resolve(n)); } catch (IOException e0) { } try { return Files.readAllBytes(res.resolve(n)); } catch (IOException e) { return null; } }
             public int[] decodePng(byte[] d, int[] o) { try { BufferedImage im = ImageIO.read(new ByteArrayInputStream(d)); if (im == null) return null; o[0] = im.getWidth(); o[1] = im.getHeight(); return im.getRGB(0, 0, o[0], o[1], null, 0, o[0]); } catch (Exception e) { return null; } }
             public byte[] renderText(String s, int[] dims) {
                 BufferedImage m = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB); Graphics2D g = m.createGraphics(); g.setFont(font); FontMetrics fm = g.getFontMetrics(); int w = fm.stringWidth(s) + 1, h = 14; g.dispose();
@@ -19,7 +19,7 @@ public class JvmRun {
             public void playClip(int id, byte[] m, boolean loop) { System.out.println("PLAYCLIP id=" + id + " len=" + m.length + " head=" + new String(m, 0, 4) + " loop=" + loop); }
             public void log(String s) { System.out.println(s); }
         };
-        Host H = new Host(pf, Files.readAllBytes(Paths.get(a[0])));
+        Host H = new Host(pf, pf.resource(new File(a[0]).getName())!=null?pf.resource(new File(a[0]).getName()):Files.readAllBytes(Paths.get(a[0])));
         if (System.getenv("VERBOSE") != null) { H.setVerbose(true); H.trace = new java.io.PrintStream(new java.io.FileOutputStream("/tmp/jtrace.txt")); }
         if (System.getenv("WATCH") != null) H.vmWatch((int) Long.parseLong(System.getenv("WATCH"), 16)); if (System.getenv("WV") != null) H.vmWatchVal(Integer.parseInt(System.getenv("WV"))); H.boot(); try { H.startApp(); } catch (Exception e) { for (String x : H.recent) System.out.println(x); throw e; }
         int rounds = a.length > 4 ? Integer.parseInt(a[4]) : 100;

@@ -3,3 +3,5 @@ work/
 android/build/
 __pycache__/
 *.idsig
+st2android/mod/*.d
+st2android/mod/client.bin1116

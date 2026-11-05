@@ -4,8 +4,8 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ZONE_KEY = { oldLevel: 'old', newLevel: 'new', baekjeLevel: 'baekje', indLevel: 'ind', farmLevel: 'farm' };
 
 export class Game {
-  constructor({ config, events, buildings = {}, plots = [], seed = 1, startMonth = 1, player = { gender: 'm', name: '시장' } }) {
-    this.cfg = config; this.ev = events; this.bd = buildings; this.plots = plots.map(p => ({ ...p })); this.rng = mulberry32(seed); this.player = { gender: player.gender === 'f' ? 'f' : 'm', name: (player.name || '시장').slice(0, 6) }; this.scene = null;
+  constructor({ config, events, buildings = {}, plots = [], policies = {}, secretaries = {}, seed = 1, startMonth = 1, player = { gender: 'm', name: '시장' }, secretary = 'admin' }) {
+    this.cfg = config; this.ev = events; this.bd = buildings; this.pol = policies; this.secs = secretaries; this.secId = secretaries[secretary] ? secretary : Object.keys(secretaries)[0] || null; this.active = []; this.plots = plots.map(p => ({ ...p })); this.rng = mulberry32(seed); this.player = { gender: player.gender === 'f' ? 'f' : 'm', name: (player.name || '시장').slice(0, 6) }; this.scene = null;
     const s = config.start;
     this.s = { budget: s.budget, population: s.population, support: s.support, fatigue: s.fatigue, politics: s.politics,
                integrity: s.integrity, auditRisk: s.auditRisk, audits: s.audits, monthIndex: 0, startMonth, term: 1, ap: config.actionsPerMonth,
@@ -22,6 +22,29 @@ export class Game {
   get termYear() { return Math.floor((this.s.monthIndex % this.cfg.term.months) / 12) + 1; }
   get totalYear() { return Math.floor(this.s.monthIndex / 12) + 1; }
   get monthsLeftInTerm() { return this.cfg.term.months - (this.s.monthIndex % this.cfg.term.months); }
+  get sec() { return this.secs[this.secId] || {}; }
+  /** 정책 채택(예산 일회 비용, 최대 3개 동시) / 철회 */
+  adopt(id) {
+    const p = this.pol[id]; if (!p) return { ok: false, msg: '없는 정책' };
+    if (this.active.includes(id)) return { ok: false, msg: '이미 시행 중입니다.' };
+    if (this.active.length >= 3) return { ok: false, msg: '정책은 동시에 3개까지 시행할 수 있습니다.' };
+    const cost = Math.round(p.cost * (this.sec.costMul || 1) * 10) / 10;
+    if (this.s.budget < cost) return { ok: false, msg: `예산이 부족합니다. (필요 ${cost})` };
+    this.s.budget -= cost; this.active.push(id); if (p.once) this._apply(p.once);
+    const msg = `정책 시행: ${p.name}`; this.say(msg); return { ok: true, msg };
+  }
+  repeal(id) { const i = this.active.indexOf(id); if (i < 0) return { ok: false, msg: '시행 중이 아닙니다.' }; this.active.splice(i, 1); this.s.support = clamp(this.s.support - 1, 0, 100); return { ok: true, msg: '정책을 철회했습니다. 지지도 -1' }; }
+  /** 비서 조언(상황별 한 줄) */
+  advice() {
+    const s = this.s;
+    if (s.budget < 30) return '예산이 바닥입니다. 도청·국회 방문으로 정부지원을 확보하시지요.';
+    if (s.fatigue > 70) return '많이 지치셨습니다. 이번 달은 쉬셔야 합니다.';
+    if (s.auditRisk > 40) return '감사 위험이 높습니다. 청렴 서약을 고려하십시오.';
+    if (s.support < 45) return '지지도가 낮습니다. 시민 간담회나 공원·학교 건설을 권합니다.';
+    if (this.monthsLeftInTerm <= 6) return '선거가 얼마 남지 않았습니다. 지지도 관리에 집중하십시오.';
+    if (this.plots.some(p => p.landmark && !p.building)) return '랜드마크 부지가 비어 있습니다. 복원·개발하면 관광과 지지도에 큰 도움이 됩니다.';
+    return '순조롭습니다. 빈 부지에 건물을 지어 세수를 늘려 보십시오.';
+  }
   zone(id) { return this.zones.find(z => z.id === id); }
   avgLevel() { return this.zones.reduce((a, z) => a + z.level, 0) / this.zones.length; }
   say(m) { this.log.push({ m: this.s.monthIndex, text: m }); }
@@ -34,10 +57,10 @@ export class Game {
     if (need == null) return { ok: false, msg: '알 수 없는 커맨드' };
     if (s.hospital) return { ok: false, msg: '과로로 입원 중입니다. 이번 달은 행동할 수 없습니다.' };
     if (s.ap < need) return { ok: false, msg: '행동력이 부족합니다.' };
-    let msg = '';
+    let msg = ''; const fm = this.sec.fatigueMul || 1, fg = n => Math.round(n * fm);
     switch (cmd) {
-      case 'rest': s.fatigue = clamp(s.fatigue - C.fatigue.restRecover, 0, 100); msg = '휴식을 취했습니다. 피로가 풀립니다.'; break;
-      case 'meet': s.fatigue = clamp(s.fatigue + 5, 0, 100); s.support = clamp(s.support + 3, 0, 100); msg = '시민과 간담회를 열었습니다. 지지도 +3'; break;
+      case 'rest': s.fatigue = clamp(s.fatigue - C.fatigue.restRecover - (this.sec.restBonus || 0), 0, 100); msg = '휴식을 취했습니다. 피로가 풀립니다.'; break;
+      case 'meet': s.fatigue = clamp(s.fatigue + fg(5), 0, 100); s.support = clamp(s.support + 3, 0, 100); msg = '시민과 간담회를 열었습니다. 지지도 +3'; break;
       case 'invest': {
         const z = this.zone(arg); if (!z) return { ok: false, msg: '구역을 선택하세요.' };
         if (s.budget < 10) return { ok: false, msg: '예산이 부족합니다. (필요 10)' };
@@ -49,18 +72,19 @@ export class Game {
         if (p.building) return { ok: false, msg: '이미 건물이 있는 부지입니다.' };
         if (b.landmark ? b.landmark !== p.landmark : !!p.landmark) return { ok: false, msg: p.landmark ? `${p.name}에는 복원·개발 사업만 할 수 있습니다.` : `${b.name}은(는) 해당 랜드마크 부지에만 가능합니다.` };
         if (b.zones && !b.zones.includes(p.zone)) return { ok: false, msg: `${b.name}은(는) 이 권역에 지을 수 없습니다.` };
-        if (s.budget < b.cost) return { ok: false, msg: `예산이 부족합니다. (필요 ${b.cost})` };
-        s.budget -= b.cost; s.fatigue = clamp(s.fatigue + 6, 0, 100); p.building = arg.type;
+        const cost = Math.round(b.cost * (this.sec.costMul || 1) * 10) / 10;
+        if (s.budget < cost) return { ok: false, msg: `예산이 부족합니다. (필요 ${cost})` };
+        s.budget -= cost; s.fatigue = clamp(s.fatigue + fg(6), 0, 100); p.building = arg.type;
         s.population = Math.round((s.population + b.pop) * 100) / 100; s.support = clamp(s.support + b.support, 0, 100);
         const z = this.zone(p.zone); z.level = clamp(z.level + b.level, 0, 100);
         msg = `${b.name} 건설 (${z.name}). 발전도 ${z.level}`; break; }
       case 'visit_province': {
-        const p = 0.45 + s.politics / 250 + s.support / 500; s.fatigue = clamp(s.fatigue + 8, 0, 100);
+        const p = 0.45 + s.politics / 250 + s.support / 500 + (this.sec.grantBonus || 0); s.fatigue = clamp(s.fatigue + fg(8), 0, 100);
         if (this.rng() < p) { const g = Math.round(8 + this.rng() * 8); s.budget += g; s.grants += g; s.politics = clamp(s.politics + 2, 0, 100); msg = `도청에서 정부지원 ${g}억을 확보했습니다.`; }
         else { s.politics = clamp(s.politics + 1, 0, 100); msg = '도청 방문, 이번에는 성과가 없었습니다.'; }
         break; }
       case 'visit_national': {
-        const p = 0.30 + s.politics / 200 + s.support / 400; s.fatigue = clamp(s.fatigue + 15, 0, 100);
+        const p = 0.30 + s.politics / 200 + s.support / 400 + (this.sec.grantBonus || 0); s.fatigue = clamp(s.fatigue + fg(15), 0, 100);
         if (this.rng() < p) { const g = Math.round(20 + this.rng() * 20); s.budget += g; s.grants += g; s.politics = clamp(s.politics + 3, 0, 100); msg = `국회·중앙부처에서 정부지원 ${g}억을 확보했습니다!`; }
         else { s.politics = clamp(s.politics + 1, 0, 100); msg = '국회 방문, 예산 확보에 실패했습니다.'; }
         break; }
@@ -74,10 +98,12 @@ export class Game {
     if (this.phase !== 'player') return;
     const s = this.s, C = this.cfg;
     // 1. 수입·지출
-    const tax = Math.round(s.population * C.income.taxPerManPop * 10) / 10;
+    const tax = Math.round(s.population * C.income.taxPerManPop * 10) / 10 * (this.sec.taxMul || 1);
     const gov = C.income.baseSupportGov, upkeep = Math.round(this.zones.reduce((a, z) => a + z.level, 0) * C.income.upkeepPerZoneLevel * 10) / 10;
     const bTax = this.plots.reduce((a, p) => a + (p.building ? this.bd[p.building].tax : 0), 0), bUp = this.plots.reduce((a, p) => a + (p.building ? this.bd[p.building].upkeep : 0), 0);
-    s.budget = Math.round((s.budget + tax + gov + bTax - upkeep - bUp) * 10) / 10;
+    let pTax = 0, pUp = 0;
+    for (const id of this.active) { const p = this.pol[id]; pUp += p.upkeep || 0; for (const [k, v] of Object.entries(p.monthly || {})) { if (k === 'tax') pTax += v; else this._apply({ [k]: v }); } }
+    s.budget = Math.round((s.budget + tax + gov + bTax + pTax - upkeep - bUp - pUp) * 10) / 10;
     // 2. 인구·지지도 변화
     s.population = Math.round((s.population + (this.avgLevel() - 30) / 400) * 100) / 100;
     s.support = clamp(s.support + (25 + this.avgLevel() * 0.5 - s.support) * 0.15, 0, 100);   // 평균 발전도가 목표 지지도를 정함
@@ -113,7 +139,7 @@ export class Game {
     if (since >= 3 && this.rng() < p) { const b = this.ev.bribe; this.queue.push({ ...b[Math.floor(this.rng() * b.length)], _bribe: true }); s.lastBribeMonth = s.monthIndex; }
   }
   _next() {
-    if (this.queue.length) { this.decision = this.queue.shift(); this.phase = 'decision'; this.scene = this.decision.scene || null; } else { this.decision = null; this.phase = 'player'; this.scene = null; }
+    if (this.queue.length) { this.decision = this.queue.shift(); if (this.decision._bribe && this.sec.warnBribe && !this.decision._warned) this.decision = { ...this.decision, _warned: true, text: this.decision.text + ' ⚠ 정무 비서: "받으시면 감사 위험이 크게 오릅니다."' }; this.phase = 'decision'; this.scene = this.decision.scene || null; } else { this.decision = null; this.phase = 'player'; this.scene = null; }
   }
   choose(i) {
     if (this.phase !== 'decision') return;

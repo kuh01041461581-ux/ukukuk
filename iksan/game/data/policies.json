@@ -1,0 +1,8 @@
+{
+  "jewel":   { "name": "보석·귀금속 산업 육성", "cost": 12, "upkeep": 0.8, "max": 1, "monthly": { "tax": 1.2, "indLevel": 0.3 }, "desc": "산업·식품 권역 발전도 상승, 월 세수 +1.2" },
+  "baekje":  { "name": "백제문화 관광 브랜딩", "cost": 10, "upkeep": 0.6, "monthly": { "support": 0.25, "baekjeLevel": 0.3, "tax": 0.6 }, "desc": "백제문화 권역·지지도 완만 상승" },
+  "youth":   { "name": "청년 일자리 창출",     "cost": 14, "upkeep": 1.0, "monthly": { "population": 0.03, "support": 0.15 }, "desc": "인구 유입, 지지도 소폭 상승" },
+  "smartfarm":{ "name": "스마트 농업 지원",     "cost": 9,  "upkeep": 0.5, "monthly": { "farmLevel": 0.35, "tax": 0.5 }, "desc": "농업·강변 권역 발전, 세수 +0.5" },
+  "oldtown": { "name": "원도심 상권 활성화",    "cost": 11, "upkeep": 0.7, "monthly": { "oldLevel": 0.35, "support": 0.2 }, "desc": "원도심 발전·지지도" },
+  "integrity":{ "name": "청렴 서약·내부 통제",   "cost": 6,  "upkeep": 0.3, "monthly": { "integrity": 0.5, "auditRisk": -2 }, "desc": "청렴도 상승, 감사 위험 감소 (정치력 -3 일회)", "once": { "politics": -3 } }
+}

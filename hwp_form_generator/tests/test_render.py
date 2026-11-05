@@ -231,6 +231,16 @@ class NewFormsTests(unittest.TestCase):
         self.assertEqual([b for b in body if b.strip()], [" 첫 문단", " 둘째 문단", " 셋째 문단"])   # 앞 한 칸 들여쓰기
         self.assertEqual(body[1], "")                                                                 # 문단 사이 빈 줄
 
+    def test_press_release_frame_only(self):
+        """보도자료 단추: 상단 틀·제목 양식만, 본문은 샘플 모양의 빈 문단 하나(안내 문구 없음)"""
+        f = registry.load_form("press_release", ROOTS)
+        self.assertEqual(f.meta.get("starter", ""), "")
+        pkg = check_package(self, f.render(self.VALUES, ""))
+        paras = ["".join(t.text or "" for r in p.findall(HP + "run") for t in r.findall(HP + "t"))
+                 for p in pkg.section(0).findall(HP + "p")]
+        self.assertEqual(paras[7:], [" "])
+        self.assertNotIn("첫 문단", ptext(pkg.section(0)))
+
     def test_query_items(self):
         """질의서: ㅇ (사업내용) 줄·- 줄·□ 요구사항, 정책질의서 <Q> 상자, 총괄표 사업명 자리"""
         f = registry.load_form("written_item", ROOTS)

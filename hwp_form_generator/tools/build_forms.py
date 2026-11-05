@@ -205,7 +205,7 @@ def build_extra(paths):
                 {"key": "sub1", "label": "부제 1", "sample": tl[1], "blank": " "},
                 {"key": "sub2", "label": "부제 2", "sample": tl[2], "blank": " "},
             ], note="보도자료 머리표(담당·과장·계장·주무관·사진·영상) + 제목·부제 + 본문(문단마다 한 줄)",
-            starter="(첫 문단: 사업의 배경과 개요)\n(둘째 문단: 행사 일시·장소·내용)\n(셋째 문단: 참석자·성과)\n(마지막 문단: 향후 계획·인용)",
+            starter="",
             body_from=7, plain_body=True)
     for key, fid, label in (("budget", "budget", "설명자료"), ("budget_ref", "budget_ref", "참고자료")):
         if key not in paths:

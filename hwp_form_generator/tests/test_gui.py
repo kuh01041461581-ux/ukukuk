@@ -26,6 +26,8 @@ class FakeBridge:
 
     def insert_file(self, p):
         self.inserted.append((p, os.path.getsize(p)))
+        from hwpgen.package import Package, ptext
+        self.last_text = ptext(Package.load(p).section(0))
 
     def compose_chars(self, text, shape_no, char_size=-3):
         self.composed = getattr(self, 'composed', []) + [(text, shape_no)]
@@ -140,6 +142,16 @@ class GuiTests(unittest.TestCase):
         n0 = len(self.br.inserted)
         wt.make_week("plan")
         self.assertEqual(len(self.br.inserted) - n0, 1)
+
+    def test_press_one_click_is_frame_only(self):
+        from hwpgen.package import Package
+        import zipfile
+        self.widget.ui["insert_mode"] = "whole"
+        n0 = len(self.br.inserted)
+        self.widget.make_report("press_release")
+        path, size = self.br.inserted[-1]
+        self.assertEqual(len(self.br.inserted) - n0, 1)
+        self.assertNotIn("사업개요", self.br.last_text)           # 기본 본문 틀(사업개요…)이 아니라 보도자료 틀만
 
     def test_one_click(self):
         self.widget.ui["insert_mode"] = "whole"

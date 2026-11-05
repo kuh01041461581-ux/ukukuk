@@ -756,6 +756,8 @@ class ReportForm:
         if st.get("body_mode") == "plain":      # 한 줄 = 한 문단, 문단 사이에 빈 줄
             lines = [ln.strip() for ln in (outline or "").splitlines() if ln.strip()]
             cp = self._first_cp("para")
+            if not lines:                       # 내용을 안 주면 샘플 모양의 빈 문단 하나만(들여쓰기 한 칸) — 이어서 한글에서 쓰도록
+                return [self._par("para", [(cp, st.get("para_prefix", ""))])]
             for i, ln in enumerate(lines):
                 out.append(self._par("para", [(cp, st.get("para_prefix", "") + ln)]))
                 if i < len(lines) - 1:

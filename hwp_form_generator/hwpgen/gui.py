@@ -186,7 +186,8 @@ class ReportTab(ttk.Frame):
             ttk.Entry(self.fields, textvariable=v, width=34).grid(row=i, column=1, sticky="ew", padx=4, pady=1)
         self.fields.columnconfigure(1, weight=1)
         self.body.delete("1.0", "end")
-        self.body.insert("1.0", self.form.meta.get("starter") or T.DEFAULT_STARTER)
+        plain = self.form.meta.get("style", {}).get("body_mode") == "plain"
+        self.body.insert("1.0", "" if plain else (self.form.meta.get("starter") or T.DEFAULT_STARTER))
 
     def insert(self, s):
         self.body.insert("insert", s)
@@ -1268,7 +1269,8 @@ class Widget(tk.Tk):
                 if fl.get("profile") and prof.get("autofill", True):
                     v = PR.profile_value(prof, fl["profile"]) or v
                 vals[fl["key"]] = v
-            outline = (f.meta.get("starter") or T.DEFAULT_STARTER) if f.meta.get("has_body", True) else ""
+            plain = f.meta.get("style", {}).get("body_mode") == "plain"      # 보도자료처럼 본문을 직접 쓰는 양식은 틀만
+            outline = "" if (plain or not f.meta.get("has_body", True)) else (f.meta.get("starter") or T.DEFAULT_STARTER)
             pkg = f.render(vals, outline)
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))

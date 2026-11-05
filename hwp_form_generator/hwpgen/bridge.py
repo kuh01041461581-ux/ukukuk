@@ -79,9 +79,9 @@ class HwpBridge:
             raise BridgeError("한글에 연결되어 있지 않아요")
         return self.hwp
 
-    def insert_file(self, path):
+    def insert_file(self, path, keep_section=False):
         """열린 문서의 커서 위치에 파일을 끼워 넣는다. 글자·문단 모양·스타일을 원본 그대로 유지(InsertFile 동작).
-        쪽 설정(구역)은 가져오지 않는다. 한 번만 넣는다(성공을 거짓값으로 알려 주는 경우가 있어 재시도하지 않음)."""
+        keep_section=True 면 파일의 쪽 설정(용지·여백)도 가져온다(빈 문서에 첫 양식을 넣을 때). 한 번만 넣는다(성공을 거짓값으로 알려 주는 경우가 있어 재시도하지 않음)."""
         hwp = self._need()
         path = os.path.abspath(path)
         err = None
@@ -89,7 +89,7 @@ class HwpBridge:
             ps = hwp.HParameterSet.HInsertFile
             hwp.HAction.GetDefault("InsertFile", ps.HSet)
             ps.filename = path
-            ps.KeepSection = 0
+            ps.KeepSection = 1 if keep_section else 0
             ps.KeepCharshape = 1
             ps.KeepParashape = 1
             ps.KeepStyle = 1

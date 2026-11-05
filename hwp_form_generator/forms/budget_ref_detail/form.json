@@ -1,0 +1,51 @@
+{
+  "id": "budget_ref_detail",
+  "name": "세부사업 참고 쪽 (설명자료 뒤)",
+  "audience": "참고자료(백데이터)",
+  "kind": "report",
+  "note": "내역사업명 [담당자] + □ 사 업 개 요 + □ 그 간 추 진 현 황 + □ 향 후 계 획 + □ 현 황 사 진(사진 상자)",
+  "fields": [
+    {
+      "key": "title",
+      "label": "내역사업명",
+      "default": "(내역사업명)"
+    },
+    {
+      "key": "staff",
+      "label": "담당자 (이름 내선)",
+      "profile": "staff_name_ext",
+      "blank": "이름 내선"
+    }
+  ],
+  "has_body": true,
+  "style": {
+    "heading_prefix": "□ ",
+    "heading_pad2": false,
+    "item1_prefix": "  ◦",
+    "kv": {
+      "fmt": "colon",
+      "bullet": "6",
+      "label": "6",
+      "gap": "6",
+      "value": "6",
+      "by_label": {
+        "사업기간": "6",
+        "사업비": "130",
+        "사업위치": "6",
+        "주요내용": "6"
+      }
+    },
+    "item1_cps": [
+      "6",
+      "6"
+    ],
+    "item2_cps": [
+      "6",
+      "130"
+    ],
+    "item2_prefix": "      ▸",
+    "item2_sep": " "
+  },
+  "starter": "□ 사 업 개 요\n◦ 사업기간: \n◦ 사 업 비: \n◦ 사업위치: \n◦ 주요내용: \n▸\n\n□ 그 간  추 진 현 황\n◦ \n\n□ 향 후 계 획\n◦ \n◦ \n\n□ 현 황 사 진",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

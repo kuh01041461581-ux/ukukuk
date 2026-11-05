@@ -58,9 +58,11 @@ class Output:
         from .package import page_setup_of, strip_section_props, split_chunks
         page = page_setup_of(pkg)
         empty = br.is_empty_doc()
-        if page and empty:
-            br.apply_page_setup(page)
-        strip_section_props(pkg)
+        keep_section = bool(empty and page)          # 빈 문서에 첫 양식을 넣을 때만 샘플의 쪽 설정(용지·여백)을 가져온다
+        if keep_section:
+            br.apply_page_setup(page)                # 되면 이쪽으로도 한 번 더 맞춰 둔다(안 돼도 괜찮음)
+        else:
+            strip_section_props(pkg)                 # 이미 내용이 있는 문서의 쪽 설정은 건드리지 않는다
         # 차례대로 입력은 커서가 문서 맨 끝일 때(빈 문서 포함)만: 매번 끝에 붙여 순서가 절대 뒤집히지 않게 한다.
         # 문서 중간에 넣을 때는 한 번에 넣어 순서를 지킨다.
         step = app.ui.get("insert_mode", "step") == "step" and (empty or br.at_doc_end())
@@ -72,7 +74,7 @@ class Output:
                     br.move_doc_end()
                 path = ch.save(tmp_hwpx(prefix))
                 try:
-                    br.insert_file(path)
+                    br.insert_file(path, keep_section=(keep_section and i == 1))
                 finally:
                     try:
                         os.remove(path)
@@ -83,7 +85,7 @@ class Output:
                 if n > 1:
                     app.say("입력 중… %d/%d" % (i, n))
                     app.update()
-                    time.sleep(app.ui.get("insert_delay", 0.16))
+                    time.sleep(app.ui.get("insert_delay", min(0.45, max(0.12, 3.0 / n))))
             app.say("열려 있는 문서의 커서 위치에 넣었어요")
         except B.BridgeError as e:
             messagebox.showerror("한글에 넣기", str(e))
@@ -940,20 +942,20 @@ class Widget(tk.Tk):
     TABS = [("보고", "report"), ("주간", "week"), ("예산설명", "budget"), ("보도자료", "press"),
             ("국회질의", "assembly"), ("행정감사", "audit"), ("기호", "sym"), ("더보기", "more")]
     # 양식 묶음(audience) → 탭. 사용자가 추가한 양식은 '보고' 탭에 들어간다
-    AUDIENCE_TAB = {"문화교육국 보고": "report", "시장님 보고": "report", "간부회의": "week", "예산 설명자료": "budget",
+    AUDIENCE_TAB = {"문화교육국 보고": "report", "시장님 보고": "report", "간부회의": "week", "예산 설명자료": "budget", "참고자료(백데이터)": "budget",
                     "보도자료": "press", "국회단계 질의서": "assembly", "국회단계 서면질의서": "assembly",
                     "국회단계 정책질의서": "assembly", "행정사무감사": "audit"}
-    GROUP_ORDER = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "보도자료", "국회단계 서면질의서",
+    GROUP_ORDER = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "참고자료(백데이터)", "보도자료", "국회단계 서면질의서",
                    "국회단계 정책질의서", "국회단계 질의서", "행정사무감사"]
-    FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card",
-                  "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_project", "press_release",
+    FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card_full", "meeting_card",
+                  "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
                   "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item",
                   "policy_ref", "audit_cover", "audit_common"]
     FORM_ICONS = {"report_event": "event", "report_project": "project", "report_mayor": "mayor",
-                  "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project",
+                  "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project", "meeting_card_full": "plan",
                   "audit_cover": "cover", "audit_common": "plan",
                   "budget_cover": "cover", "budget_project": "project", "budget_ref_cover": "cover",
-                  "budget_ref_project": "project"}
+                  "budget_ref_detail": "project", "budget_ref_return": "plan"}
 
     def __init__(self, bridge=None):
         super().__init__()
@@ -1552,12 +1554,35 @@ class Widget(tk.Tk):
         self.geometry("%dx%d+%d+%d" % (WIDGET_W, h, x, y))
         self.docked = True
 
+    def attach_single(self, single):
+        """다른 실행이 '열어 줘' 신호를 보내면 (트레이에 있어도) 창을 앞으로 가져온다"""
+        self._single = single
+
+        def poll():
+            try:
+                while True:
+                    if single.q.get_nowait() == "show":
+                        self.bring_front()
+            except Exception:                              # noqa: BLE001
+                pass
+            self.after(300, poll)
+        poll()
+
+    def bring_front(self):
+        if getattr(self, "_tray", None) is not None:
+            self.from_tray()
+        self.deiconify()
+        self.attributes("-topmost", True)
+        self.lift()
+
     def on_close(self):
         """창 닫기(X) = 트레이로 보내기. 트레이를 쓸 수 없으면 그냥 종료한다. 완전 종료는 트레이 메뉴 '종료' 또는 더보기."""
         if not self.to_tray():
             self.quit_app()
 
     def quit_app(self):
+        if getattr(self, "_single", None) is not None:
+            self._single.close()
         if getattr(self, "_tray", None) is not None:
             try:
                 self._tray.stop()
@@ -1573,4 +1598,10 @@ App = Widget
 
 
 def run():
-    Widget().mainloop()
+    from .single import SingleInstance
+    single = SingleInstance()
+    if not single.acquire():               # 이미 실행 중이면 그 창을 불러오고 이 실행은 끝낸다
+        return
+    w = Widget()
+    w.attach_single(single)
+    w.mainloop()

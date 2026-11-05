@@ -321,6 +321,9 @@ def _blank_tables(section, blank_tables):
         for tr in tbl.findall(HP + "tr")[keep:]:
             for t in tr.iter(HP + "t"):
                 t.text = ""
+            for ctrl in list(tr.iter(HP + "ctrl")):          # 합계 칸의 숨은 계산식(=sum(…) 과 계산 결과값)도 지운다
+                if ctrl.find(HP + "fieldBegin") is not None or ctrl.find(HP + "fieldEnd") is not None:
+                    ctrl.getparent().remove(ctrl)
 
 
 def _cut_section(pkg, section_index, slice_, drop, blank_tables=None):
@@ -435,6 +438,11 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
             if kinds.get(lvl):
                 pre, sep = _prefix_of(kinds[lvl][0])
                 style[lvl + "_prefix"], style[lvl + "_sep"] = pre, sep
+        if style.get("kv") and kinds.get("item1"):
+            # '◦ 이름 : 값' 줄이 있는 양식은 이름 없는 '◦ 글' 줄도 같은 글자 크기·모양으로 통일한다
+            # (샘플 마지막 구역의 크게 강조된 줄 하나가 대표 모양이 되지 않게)
+            protos["item1"] = clone(protos["kv"])
+            style["item1_cps"] = [style["kv"]["bullet"], style["kv"]["value"]]
         if "kv" not in protos and "item1" in protos:
             protos["kv"] = clone(protos["item1"])
         if "item1" not in protos and "kv" in protos:
@@ -755,6 +763,8 @@ class ReportForm:
         cp = tc.get("dcp") or (run.get("charPrIDRef") if run is not None else "0")
         lines = re.split(r"<br\s*/?>|\\n", text) if text else [""]
         bcp = tc.get("bcp") or cp
+        for k in ("dcp", "bcp"):                  # 보관용 내부 표시는 만든 파일에 남기면 한글이 '손상'으로 본다
+            tc.attrib.pop(k, None)
 
         def specs(line):
             out = []

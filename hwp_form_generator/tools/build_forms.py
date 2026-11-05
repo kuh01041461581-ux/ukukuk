@@ -78,14 +78,16 @@ def build(dept_report, mayor_report, plan, schedule):
     ]
     out["report_event"] = report.register_report(
         dept_report, os.path.join(FORMS, "report_event"), "report_event", "행사 보고 (식순·시간표)", "문화교육국 보고",
-        fields, note="제목 상자 + 담당자 줄 + 행사개요 + 식순·시간표(표) + 국장님 하실 일",
+        [dict(f, default="(행사명)") if f["key"] == "title" else f for f in fields],
+        note="제목 상자 + 담당자 줄 + 행사개요 + 식순·시간표(표) + 국장님 하실 일",
         starter="□ 행사개요\n◦ 사 업 명: \n◦ 회의주제: \n◦ 일시: \n◦ 장소: \n◦ 사업내용: \n◦ 대행기관: \n\n"
                 "□ 식순 및 시간표\n| **등록 및 개회** |\n| | **참석자 등록** |\n| | **개 회 사** | |\n| | **축    사** | |\n"
                 "| | **기념촬영** | |\n| | **장내 정리** |\n| **본 행 사** |\n| | | |\n| | | |\n| | **폐회사** |\n\n"
                 "□ 국장님 하실 일\n◦ \n")
     out["report_project"] = report.register_report(
         dept_report, os.path.join(FORMS, "report_project"), "report_project", "사업 보고 (개요·실적·계획)", "문화교육국 보고",
-        fields, note="제목 상자 + 담당자 줄 + 사업개요 + 지난 실적 + 향후 계획 + 참고자료",
+        [dict(f, default="(사업명)") if f["key"] == "title" else f for f in fields],
+        note="제목 상자 + 담당자 줄 + 사업개요 + 지난 실적 + 향후 계획 + 참고자료",
         starter="□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n"
                 "□ 지난 실적\n◦ \n▸\n\n□ 향후 계획\n◦ \n▸\n\n□ 참고자료\n◦ ")
     s = detect_mayor_fields(mayor_report)
@@ -93,7 +95,7 @@ def build(dept_report, mayor_report, plan, schedule):
         mayor_report, os.path.join(FORMS, "report_mayor"), "report_mayor",
         "시장님 보고 (보고 표지 + 세부 추진계획)", "시장님 보고",
         [
-            {"key": "title", "label": "제목", "sample": s["title"]},
+            {"key": "title", "label": "제목", "sample": s["title"], "default": "(사업명)"},
             {"key": "date", "label": "보고일시", "sample": s["date"], "type": "date", "fmt": "long", "default": "today"},
             {"key": "head", "label": "담당과장 (이름 내선 / 휴대폰)", "sample": s["head"], "profile": "head_full"},
             {"key": "lead", "label": "담당계장 (이름 내선 / 휴대폰)", "sample": s["lead"], "profile": "lead_full"},
@@ -146,6 +148,29 @@ def build_extra(paths):
             ], note="현안업무(번호) 제목 상자 + □ 금 후 계 획 + ◦ ▸ - 단계",
             starter="□ 지난주 실적\n◦ \n▸기간/장소: \n▸주요내용: \n\n□ 금 후 계 획\n◦ \n▸일시/장소: \n▸참 석 자: \n- \n- \n▸주요내용: ",
             slice_=(12, 22))
+    if "meeting_ref" in paths:
+        pr = paths["meeting_ref"]
+        ts0 = _flat_texts_para(pr, 0, 6)
+        k0 = next(i for i, t in enumerate(ts0) if _re.fullmatch(r"현안업무\(\d+\)", t.strip()))
+        no_t0 = ts0[k0]
+        info0 = next(t for t in ts0 if _re.match(r"\S*계장\s+\S+\s+\d+\s*/", t))
+        team0, lead0 = info0.split(None, 1)
+        staff0 = ts0[ts0.index(info0) + 1].replace("담당자", "", 1).strip()
+        out["meeting_card_full"] = report.register_report(
+            pr, os.path.join(F, "meeting_card_full"), "meeting_card_full", "현안 사업 카드 (개요 상자·프로그램 표)", "간부회의", [
+                {"key": "org", "label": "국 이름", "sample": ts0[0], "profile": "org"},
+                {"key": "no", "label": "현안업무 번호", "sample": no_t0, "repl": "현안업무({{no}})",
+                 "default": _re.search(r"\d+", no_t0).group(0)},
+                {"key": "issue", "label": "현안 제목", "sample": ts0[k0 + 1], "default": ts0[k0 + 1]},
+                {"key": "dept", "label": "부서(과)", "sample": ts0[k0 + 2], "repl": "({{dept}})", "profile": "dept"},
+                {"key": "title", "label": "사업명", "sample": ts0[k0 + 3], "default": "(사업명)"},
+                {"key": "team", "label": "계 이름", "sample": team0[:-1], "profile": "team", "blank": "      "},
+                {"key": "lead", "label": "계장 (이름 내선 / 휴대폰)", "sample": lead0, "profile": "lead_full",
+                 "blank": "이름 내선 / 휴대폰"},
+                {"key": "staff", "label": "담당자 (이름 내선 / 휴대폰)", "sample": staff0, "profile": "staff_full",
+                 "blank": "이름 내선 / 휴대폰"},
+            ], note="현안 제목 + 사업명 + 계장·담당자 줄 + ◦ 사업기간·장소·사업비·운영횟수·사업내용·수행단체 + 프로그램 표(3갈래)",
+            allow_no_body=True, frame_only=True, slice_=(0, 6), fix=_card_box_fix)
     if "meeting_ref" in paths:
         ts = _flat_texts_para(paths["meeting_ref"], 34, 36)         # 제목 상자(34) + 계장·담당자 줄(35)
         info = next(t for t in ts if _re.match(r"\S*계장\s+\S+\s+\d+\s*/", t))
@@ -233,14 +258,19 @@ def build_extra(paths):
         ]
         cover_fields = [f for f in cover_fields if f]
         out[fid + "_cover"] = report.register_report(
-            paths[key], os.path.join(F, fid + "_cover"), fid + "_cover", "예산 %s 표지" % label, "예산 설명자료",
+            paths[key], os.path.join(F, fid + "_cover"), fid + "_cover",
+            "예산 설명자료 표지" if key == "budget" else "참고자료(백데이터) 표지",
+            "예산 설명자료" if key == "budget" else "참고자료(백데이터)",
             cover_fields, note="의회 회기·예산 제목·국(과) 표지", allow_no_body=True, slice_=(0, 12))
+        if key == "budget_ref":
+            out.update(_build_ref_pages(paths[key], F))
+            continue
         # 사업 쪽: 두 번째 사업 쪽(정책명 줄 + 경비내역 표 + □ 본문) = 쪽 나눔 문단부터 다음 사업 제목 표 전까지
         doc = Package.load(paths[key]).section(0)
         pss = doc.findall(HP + "p")
         s = next(i for i, p in enumerate(pss) if p.get("pageBreak") == "1" and any(c.tag == HP + "tbl" for r_ in p.findall(HP + "run") for c in r_))
         e = next(i for i in range(s + 1, len(pss)) if any(c.tag == HP + "tbl" for r_ in pss[i].findall(HP + "run") for c in r_)
-                 and _re.match(r"^\d+\S", "".join(t.text or "" for t in pss[i].iter(HP + "t"))))
+                 and _re.match(r"^\d+\s*\D", "".join(t.text or "" for t in pss[i].iter(HP + "t"))))
         ptxt = _flat_texts_para(paths[key], s, e)
         pol = next(t for t in ptxt if "정" in t and "책" in t and "단위사업" in t)
         mm = _re.search(r"정\s*책\s*명\s*:\s*(.+?)\s{2,}단위사업\s*:\s*(.+)$", pol)
@@ -257,6 +287,50 @@ def build_extra(paths):
             ], note="정책명·단위사업·세부사업명 + 사업개요 및 경비내역 표(머리만) + □ 사업개요/증감사유/관계법령/기대효과",
             starter="□ 사 업 개 요\n◦ 사업기간: \n◦ 사 업 비: \n◦ 사업내용: \n\n□ 증 감 사 유\n◦ \n▸\n\n□ 관 계 법 령\n◦ \n\n□ 기 대 효 과\n◦ ",
             fix=_title_cell_fix, slice_=(s, e), blank_tables={str(i): 1 for i in range(s, e) if i - s in (4,)} or {str(s + 4): 1})
+    return out
+
+
+def _photo_fix(section):
+    """현황 사진 상자: 샘플의 사진은 빼고 칸 모양(사진 자리 + 설명 줄)만 남긴다"""
+    for tbl in section.iter(HP + "tbl"):
+        if len(list(tbl.iter(HP + "pic"))):
+            for pic in list(tbl.iter(HP + "pic")):
+                pic.getparent().remove(pic)
+            for t in tbl.iter(HP + "t"):
+                t.text = ""
+
+
+def _build_ref_pages(path, F):
+    """참고자료(백데이터): 설명자료 사업 쪽 뒤에 붙는 자료 — 세부사업 참고 쪽(그간 추진현황·향후 계획·현황 사진), 반환금 쪽"""
+    import re as _re
+    out = {}
+    doc = Package.load(path).section(0)
+    from hwpgen.report import flatten_mixed
+    flatten_mixed(doc)
+    pss = doc.findall(HP + "p")
+    txt = lambda p: "".join(t.text or "" for t in p.iter(HP + "t")).strip()          # noqa: E731
+    has_tbl = lambda p: any(c.tag == HP + "tbl" for r_ in p.findall(HP + "run") for c in r_)    # noqa: E731
+    s = next(i for i in range(len(pss) - 1) if pss[i].get("pageBreak") == "1" and has_tbl(pss[i])
+             and txt(pss[i + 1]).startswith("□ 사 업 개 요") and not txt(pss[i])[:1].isdigit())
+    e = next(i for i in range(s + 1, len(pss)) if has_tbl(pss[i]) and _re.match(r"^\d+\s*\D", txt(pss[i])))
+    ts = _flat_texts_para(path, s, s + 1)
+    staff = _re.sub(r"[\[\]]", "", ts[1]).strip()
+    out["budget_ref_detail"] = report.register_report(
+        path, os.path.join(F, "budget_ref_detail"), "budget_ref_detail", "세부사업 참고 쪽 (설명자료 뒤)", "참고자료(백데이터)", [
+            {"key": "title", "label": "내역사업명", "sample": ts[0].strip(), "default": "(내역사업명)"},
+            {"key": "staff", "label": "담당자 (이름 내선)", "sample": staff, "profile": "staff_name_ext", "blank": "이름 내선"},
+        ], note="내역사업명 [담당자] + □ 사 업 개 요 + □ 그 간 추 진 현 황 + □ 향 후 계 획 + □ 현 황 사 진(사진 상자)",
+        starter="□ 사 업 개 요\n◦ 사업기간: \n◦ 사 업 비: \n◦ 사업위치: \n◦ 주요내용: \n▸\n\n"
+                "□ 그 간  추 진 현 황\n◦ \n\n□ 향 후 계 획\n◦ \n◦ \n\n□ 현 황 사 진",
+        slice_=(s, e), body_from_text="□ 사 업 개 요", body_tail=3, fix=_photo_fix)
+    u = next(i for i, p in enumerate(pss) if txt(p) == "(단위 : 원)")
+    t0 = max(i for i in range(u) if has_tbl(pss[i]))
+    out["budget_ref_return"] = report.register_report(
+        path, os.path.join(F, "budget_ref_return"), "budget_ref_return", "보조금 반환금 쪽 (설명자료 뒤)", "참고자료(백데이터)", [
+            {"key": "title", "label": "사업명 (예: 2025년 ○○사업)", "sample": txt(pss[t0]), "default": "(사업명)"},
+        ], note="사업명 상자 + □ 사 업 개 요(사업기간·사업비·사업내용·반 납 액·반납사유) + (단위 : 원) 구분 표(머리만)",
+        starter="□ 사 업 개 요\n◦ 사업기간: \n◦ 사 업 비: \n◦ 사업내용: \n◦ 반 납 액: \n◦ 반납사유: ",
+        slice_=(t0, u + 2), body_from_text="□ 사 업 개 요", body_tail=2, blank_tables={str(u + 1): 2})
     return out
 
 
@@ -371,6 +445,44 @@ def build_queries(paths):
                     "□ 필 요 성 \nㅇ \n\n□ 추진상황 및 계획\nㅇ ",
             slice_=(35, 68), body_from_text="□ 사업개요", body_tail=2, blank_tables={"37": 1}, fix=_people_table_fix)
     return out
+
+
+def _card_box_fix(section):
+    """사업 카드 개요 상자: ◦ 항목 이름과 프로그램 표의 틀(3갈래 一樂/二樂/三樂 · ①② · 연인원 줄)만 남기고 내용은 비운다"""
+    from hwpgen import package as P2
+    from hwpgen.package import ptext
+    from hwpgen.report import dominant_cp
+    box = next(t for t in section.iter(HP + "tbl") if "프로그램 내용" in ptext(t))
+    cell = next(tc for tc in box.iter(HP + "tc") if "프로그램 내용" in ptext(tc) and len(list(tc.iter(HP + "tbl"))) > 0)
+    sub = cell.find(HP + "subList")
+    for tc in box.findall(HP + "tr")[0].findall(HP + "tc"):
+        ts_ = [t for t in tc.iter(HP + "t")]
+        if any("【" in (t.text or "") for t in ts_):          # 상자 제목 【…】 은 글자 조각이 여럿이라 첫 조각에 합쳐 넣는다
+            for t in ts_:
+                t.text = ""
+            ts_[0].text = "【{{title}}】"
+    for p in sub.findall(HP + "p"):
+        txt = "".join(t.text or "" for r in p.findall(HP + "run") for t in r.findall(HP + "t")).strip()
+        m = _re_mod.match(r"^(◦\s*[^:：]{1,10}?)\s*[:：]", txt)
+        if m:
+            cp = dominant_cp(p) or "0"
+            P2.set_par_runs(p, [(cp, m.group(1) + " : ")])
+    prog = next(t for t in sub.iter(HP + "tbl"))
+    marks = {1: {0: "一樂.", 1: "①"}, 2: {0: "②"}, 3: {0: "二樂.", 1: "①"}, 4: {0: "②"}, 5: {0: "三樂.", 1: "①"}, 6: {0: "②"},
+             7: {0: "연인원 : "}}
+    for ri, tr in enumerate(prog.findall(HP + "tr")):
+        if ri == 0:
+            continue
+        for ci, tc in enumerate(tr.findall(HP + "tc")):
+            ts_ = list(tc.iter(HP + "t"))
+            for t in ts_:
+                t.text = ""
+            mk = marks.get(ri, {}).get(ci)
+            if mk and ts_:
+                ts_[0].text = mk
+
+
+import re as _re_mod
 
 
 def _flat_texts_para(path, a, b, section_index=0):

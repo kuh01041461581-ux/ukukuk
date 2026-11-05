@@ -1,7 +1,7 @@
 {
   "id": "budget_ref_cover",
-  "name": "예산 참고자료 표지",
-  "audience": "예산 설명자료",
+  "name": "참고자료(백데이터) 표지",
+  "audience": "참고자료(백데이터)",
   "kind": "report",
   "note": "의회 회기·예산 제목·국(과) 표지",
   "fields": [

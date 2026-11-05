@@ -52,6 +52,23 @@ def all_ids(sec):
     return ids
 
 
+_ALLOWED = {}
+
+
+def allowed_attrs():
+    """원본에서 온 틀(template.hwpx·protos.xml)에 실제로 있던 요소별 속성 이름 — 이 밖의 속성은 한글이 '손상'으로 본다"""
+    if not _ALLOWED:
+        import zipfile
+        from lxml import etree
+        for fid, folder, meta in registry.list_forms(ROOTS):
+            z = zipfile.ZipFile(os.path.join(folder, "template.hwpx"))
+            roots = [etree.fromstring(z.read("Contents/section0.xml")), etree.fromstring(z.read("Contents/header.xml"))]
+            for root in roots:
+                for el in root.iter():
+                    _ALLOWED.setdefault(etree.QName(el).localname, set()).update(etree.QName(k).localname for k in el.attrib)
+    return _ALLOWED
+
+
 def check_package(tc, pkg):
     data = pkg.to_bytes()
     pkg2 = Package.load(data)                       # 다시 읽힘
@@ -87,6 +104,14 @@ def check_package(tc, pkg):
                         occ.add((r, cc))
                 tc.assertLess(c0 + int(s.get("colSpan")) - 1, int(tbl.get("colCnt")))
     tc.assertFalse(list(sec.iter(HP + "linesegarray")))
+    # 내부 보관용 속성(dcp·bcp·mark …)이나 원본에 없던 속성이 만든 파일에 남아 있으면 안 된다
+    from lxml import etree as _et
+    allowed = allowed_attrs()
+    for el in sec.iter():
+        name = _et.QName(el).localname
+        for k in el.attrib:
+            kn = _et.QName(k).localname
+            tc.assertIn(kn, allowed.get(name, set()) | {"id"}, "원본에 없던 속성: <%s %s>" % (name, kn))
     return pkg2
 
 
@@ -208,14 +233,14 @@ class NewFormsTests(unittest.TestCase):
               "head_name": "가", "head_tel": "859-1", "lead_name": "나", "lead_tel": "859-2", "staff_name": "다",
               "staff_tel": "859-3", "pages": "2", "sub1": "- 부제 -", "sub2": "", "photo_time": "",
               "committee": "○○위원회", "ministry": "○○부", "account": "일반회계", "kind": "신규", "no": "3", "ref": "참고1",
-              "request": "건의 문구"}
+              "request": "건의 문구", "issue": "현안 제목"}
 
     def test_all_new_forms_render(self):
-        want = {"meeting_cover": "현안·당면 업무보고", "meeting_issue": "현안업무(3)", "meeting_card": "△△계장",
+        want = {"meeting_cover": "현안·당면 업무보고", "meeting_issue": "현안업무(3)", "meeting_card": "△△계장", "meeting_card_full": "프로그램 내용",
                 "audit_cover": "제282회", "audit_common": "감사자료 과 공통사항", "budget_cover": "주요사업 설명자료",
                 "budget_project": "세부사업명 : 세부 C", "press_release": "시험 제목", "written_cover": "서면질의서", "written_list": "서면질의 목록",
                 "written_item": "< ○○위원회 / ○○부 소관 / 일반회계 >", "policy_cover": "정책질의서", "policy_list": "활동사업 목록",
-                "policy_item": "정책질의서", "policy_ref": "건의 문구", "budget_ref_cover": "(참고자료)", "budget_ref_project": "단위사업 : 단위 B"}
+                "policy_item": "정책질의서", "policy_ref": "건의 문구", "budget_ref_cover": "(참고자료)", "budget_ref_detail": "시험 제목", "budget_ref_return": "시험 제목"}
         for fid, needle in want.items():
             f = registry.load_form(fid, ROOTS)
             outline = (f.meta.get("starter") or "") if f.meta.get("has_body", True) else ""
@@ -300,9 +325,9 @@ class NewFormsTests(unittest.TestCase):
     def test_privacy_new_forms(self):
         import zipfile
         bad = ("010-", "전주영", "김형남", "조상미", "조선영", "진소현", "박수진", "조승재", "윤보훈", "전북권", "숭림사", "고선희", "조진선", "이선아", "859-7410", "아동학대", "김태곤", "박환조", "고광민", "남철기", "설재진", "양선화",
-               "이용범", "박미자", "홀로그램")
-        for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_common",
-                                    "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_project", "press_release",
+               "이용범", "박미자", "홀로그램", "전주영", "김형남", "정서윤", "함열", "아이행복")
+        for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "meeting_card_full", "audit_cover", "audit_common",
+                                    "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
                     "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref"):
             d = os.path.join(FORMS, fid)
             blob = zipfile.ZipFile(os.path.join(d, "template.hwpx")).read("Contents/section0.xml").decode("utf-8")

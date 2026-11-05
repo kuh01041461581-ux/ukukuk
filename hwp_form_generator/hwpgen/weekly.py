@@ -76,7 +76,13 @@ def register_plan(sample_path, out_dir, org_sample="문화교육국"):
     protos["kv_last"] = _empty_like(kvs[-1])
     protos["blank"] = _empty_like(blanks[0]) if blanks else _empty_like(kvs[-1])
     roles_list = [r for r in (_kv_roles(p) for p in kvs) if r]
-    kv_roles = roles_list[-1] if roles_list else None
+    kv_roles = None
+    if roles_list:
+        from .report import cp_info, typical_cp
+        info = cp_info(pkg)
+        kv_roles = dict(roles_list[0])
+        for key in ("label", "value"):                       # 마지막 줄 하나가 아니라 여러 줄의 대표 글자 모양
+            kv_roles[key] = typical_cp(info, [r[key] for r in roles_list]) or kv_roles[key]
     prefix = "◦"
     # 프레임: 구역 설정 문단 + 이름표 + 항목 표시
     secpar = clone(ps[0])
@@ -177,7 +183,7 @@ class WeeklyPlanForm:
         lines = item_lines(item)
         kv = st.get("kv")
         for i, (label, value) in enumerate(lines):
-            p = clone(self.protos["kv_last" if i == len(lines) - 1 else "kv_mid"])
+            p = clone(self.protos["kv_mid"])               # 모든 줄 같은 문단 모양(샘플의 마지막 줄 모양은 줄바꿈용 특수 모양이라 쓰지 않는다)
             lab = T.pad_label(label)
             if kv:
                 specs = [(kv["bullet"], st["prefix"]), (kv["label"], " %s " % lab), (kv["value"], ": %s" % value)]

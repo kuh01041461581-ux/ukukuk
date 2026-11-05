@@ -308,6 +308,9 @@ def split_chunks(pkg):
             groups[-1].append(p)
         else:
             groups.append([p])
+    if len(groups) > 1 and not any(_has_content(q) for q in groups[0]):
+        groups[1] = groups[0] + groups[1]          # 쪽 설정만 든 빈 첫 문단은 다음 조각에 붙인다(맨 위에 빈 줄이 생기지 않게)
+        groups.pop(0)
     out = []
     for g in groups:
         clone_pkg = Package(dict(pkg.files))

@@ -24,7 +24,8 @@ class FakeBridge:
     def connect(self, launch=True):
         return True
 
-    def insert_file(self, p):
+    def insert_file(self, p, keep_section=False):
+        self.keeps = getattr(self, 'keeps', []) + [keep_section]
         self.inserted.append((p, os.path.getsize(p)))
         from hwpgen.package import Package, ptext
         self.last_text = ptext(Package.load(p).section(0))
@@ -120,6 +121,22 @@ class GuiTests(unittest.TestCase):
             self.assertIsNone(self.widget._tray)
         self.widget.deiconify()
 
+    def test_single_instance(self):
+        from hwpgen.single import SingleInstance
+        import time
+        a, b = SingleInstance(port=47999), SingleInstance(port=47999)
+        try:
+            self.assertTrue(a.acquire())            # 첫 실행
+            self.assertFalse(b.acquire())           # 두 번째 실행은 신호만 보내고 끝
+            for _ in range(20):
+                if not a.q.empty():
+                    break
+                time.sleep(0.05)
+            self.assertEqual(a.q.get_nowait(), "show")
+        finally:
+            a.close()
+            b.close()
+
     def test_symbols(self):
         self.widget.put_symbol('○')
         self.widget.put_symbol('❶')
@@ -138,6 +155,7 @@ class GuiTests(unittest.TestCase):
         self.assertGreater(k, 5)
         self.assertEqual(self.br.moves - m0, k)          # 조각마다 문서 끝으로 이동한 뒤 넣는다(순서 보장)
         self.assertTrue(getattr(self.br, "page", None))
+        self.assertEqual(self.br.keeps[n0:], [True] + [False] * (k - 1))   # 첫 조각만 쪽 설정을 가져온다
         self.assertEqual(self.br.breaks, k - 1)          # 조각 사이마다 문단 나눔(마지막 뒤엔 없음)
         for p, size in self.br.inserted[n0:]:
             self.assertGreater(size, 1000)
@@ -156,7 +174,7 @@ class GuiTests(unittest.TestCase):
             return {fid for g in w.tab_forms(tab).values() for fid, _ in g}
         self.assertEqual(ids("report") >= {"report_event", "report_project", "report_mayor"}, True)
         self.assertIn("meeting_issue", ids("week"))
-        self.assertTrue({"budget_cover", "budget_project", "budget_ref_cover", "budget_ref_project"} <= ids("budget"))
+        self.assertTrue({"budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return"} <= ids("budget"))
         self.assertEqual(ids("press"), {"press_release"})
         self.assertTrue({"written_item", "policy_item", "policy_ref"} <= ids("assembly"))
         self.assertTrue({"audit_cover", "audit_common"} <= ids("audit"))

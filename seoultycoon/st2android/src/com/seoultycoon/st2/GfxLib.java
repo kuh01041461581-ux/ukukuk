@@ -95,6 +95,7 @@ final class GfxLib {
     }
 
     // ---- 라벨 시트(글자가 겹쳐 있어 원본 조각 경계로는 잘리지 않음)는 글자 단위로 다시 그린다
+    static int curBarX = 0, curBarY = 0;
     static final String[] MENU_LABELS = {"현황", "비서", "행사", "정보"};
     static final int[] daysDigit = {-1, -1, -1, -1};
     static void label(Host H, Surf dst, String t, int x, int y) {
@@ -137,11 +138,14 @@ final class GfxLib {
         }
         if (src.w == 70 && src.h == 9) {                                                                 // 시청 팝업 메뉴 라벨
             int srcx = cx - x; int[] st = {0, 20, 38, 57}; int menuIdx = 0; for (int i = 1; i < 4; i++) if (Math.abs(srcx - st[i]) < Math.abs(srcx - st[menuIdx])) menuIdx = i;   // 선택 항목이 먼저 그려지므로 그리는 순서가 아니라 시트 속 위치로 라벨을 고른다
-            label(H, dst, MENU_LABELS[menuIdx], cx - 4, cy - 2); return true; }
+            label(H, dst, MENU_LABELS[menuIdx], curBarX + 19, curBarY + 1); return true; }
+        if (src.w == 48 && src.h == 34) {                                                                // 팝업 마름모 버튼: 선택=빨강, 그 외=파랑
+            int row0 = (cy - y) < 9 ? 0 : 14; Surf cell = new Surf(48, 14, false); System.arraycopy(src.px, row0 * 48, cell.px, 0, 48 * 14);
+            boolean hc = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, cy); dst.hasClip = hc; curBarX = x; curBarY = cy; return true; }
         if (src.w == 10 && src.h == 36) {                                                                // 아이콘: 12행 칸에 맞춰 자르기
             int k = Math.round((float) (cy - y) / 12f); if (k < 0 || k > 2) return true;
             Surf cell = new Surf(10, 12, false); System.arraycopy(src.px, k * 120, cell.px, 0, 120);
-            dst.drawImage(cell, x, cy); return true; }
+            boolean hc2 = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, curBarY + 1); dst.hasClip = hc2; return true; }
         return false;
     }
     static String[] tf(Host H, int t) { Object o = H.st.get(t); if (o instanceof String[]) return (String[]) o; String[] n = {"", "0"}; H.st.put(t, n); return n; }

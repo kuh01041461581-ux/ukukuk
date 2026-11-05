@@ -1762,6 +1762,7 @@ internal sealed class MaryongGame : Form
 		try { PaintAround(e.Graphics); } catch (Exception ex) { Program.LogErr(ex); }
 		// 화면 배율이 큰 PC(고해상도)에서는 그림 그릴 픽셀이 너무 많아 느려져요 → 1.25배까지만 직접 그리고, 그 이상이면 작게 그려서 늘려 보여요
 		float rs = Math.Min(S, ql == 0 ? (state == 2 ? 1.5f : 2.0f) : (ql == 1 ? 1.25f : (ql == 2 ? 1.0f : (ql == 3 ? 0.8f : 0.65f))));   // 메뉴·설명·결과 화면은 글씨가 또렷하도록 최대 2배까지 직접 그려요
+		if (state == 2 && rs > 1f && rs < 1.05f) rs = 1f;   // 게임 중 배율이 1.0x(예: 101%)처럼 1에 아주 가까우면 1배로 그려서 늘려 붙여요: 1:1이 아닌 그림 확대가 프레임마다 쌓여 14프레임/초까지 느려지던 로그(화면배율 1.011667) 대응
 		double tInner = 0, tBlit = 0; long tq = Stopwatch.GetTimestamp(); bool done = false;
 		if (useGdi && ClientSize.Width > 0 && ClientSize.Height > 0)
 		{

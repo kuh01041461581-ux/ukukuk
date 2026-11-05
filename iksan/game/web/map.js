@@ -1,0 +1,42 @@
+import { makeSprites, TW, TH, CX, CY } from './sprites.js';
+// 아이소메트릭 맵 렌더러: 드래그로 이동, 탭으로 부지 선택. 도트는 정수 배율로 확대.
+export class MapView {
+  constructor(canvas, game, mapData, onSelect) {
+    this.cv = canvas; this.g = game; this.m = mapData; this.onSelect = onSelect; this.S = makeSprites(); this.sel = null;
+    this.zoom = 3; this.ox = 0; this.oy = 0; this.t0 = performance.now();
+    this._bind(); this.fit(); this.loop();
+  }
+  fit() { const r = this.cv.getBoundingClientRect(); const dpr = window.devicePixelRatio || 1; this.cv.width = Math.round(r.width * dpr); this.cv.height = Math.round(r.height * dpr); this.dpr = dpr;
+    this.zoom = Math.max(2, Math.round(2 * dpr)); this.center(this.m.plots[0]); }
+  w2s(x, y) { return [(x - y) * (TW / 2), (x + y) * (TH / 2)]; }
+  center(p) { const [sx, sy] = this.w2s(p.x, p.y); this.ox = this.cv.width / 2 - sx * this.zoom; this.oy = this.cv.height / 2 - sy * this.zoom; }
+  _bind() {
+    let down = null, moved = false;
+    const pos = e => { const r = this.cv.getBoundingClientRect(); return [(e.clientX - r.left) * this.dpr, (e.clientY - r.top) * this.dpr]; };
+    this.cv.addEventListener('pointerdown', e => { down = pos(e); moved = false; this.cv.setPointerCapture(e.pointerId); this._last = down; });
+    this.cv.addEventListener('pointermove', e => { if (!down) return; const p = pos(e); if (Math.hypot(p[0] - down[0], p[1] - down[1]) > 8 * this.dpr) moved = true; if (moved) { this.ox += p[0] - this._last[0]; this.oy += p[1] - this._last[1]; } this._last = p; });
+    this.cv.addEventListener('pointerup', e => { if (down && !moved) this.tap(...pos(e)); down = null; });
+    this.cv.addEventListener('wheel', e => { e.preventDefault(); this.zoom = Math.max(1, Math.min(8, this.zoom + (e.deltaY < 0 ? 1 : -1))); }, { passive: false });
+  }
+  tap(px, py) {
+    let best = null, bd = 1e9;
+    for (const p of this.g.plots) { const [sx, sy] = this.w2s(p.x, p.y); const x = this.ox + sx * this.zoom, y = this.oy + (sy + 4) * this.zoom; const d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = p; } }
+    if (best && bd < 22 * this.zoom) { this.sel = best.id; this.onSelect(best); } else { this.sel = null; this.onSelect(null); }
+  }
+  loop() { this.draw(); requestAnimationFrame(() => this.loop()); }
+  draw() {
+    const c = this.cv, g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.fillStyle = '#1a2a3a'; g.fillRect(0, 0, c.width, c.height);
+    const z = this.zoom, S = this.S, m = this.m, frame = ((performance.now() - this.t0) / 600 | 0) % 2;
+    const plotAt = new Map(this.g.plots.map(p => [p.x + ',' + p.y, p]));
+    const order = []; for (let s = 0; s < m.w + m.h - 1; s++) for (let x = 0; x < m.w; x++) { const y = s - x; if (y >= 0 && y < m.h) order.push([x, y]); }
+    for (const [x, y] of order) {
+      const [sx, sy] = this.w2s(x, y), dx = Math.round(this.ox + (sx - CX) * z), dy = Math.round(this.oy + (sy - CY + 8) * z);
+      if (dx < -40 * z || dy < -70 * z || dx > c.width || dy > c.height + 20 * z) continue;
+      const t = m.tiles[y][x], v = (x * 7 + y * 13) & 1; let spr;
+      switch (t) { case 'grass': spr = S.grass[v]; break; case 'city': spr = S.city[v]; break; case 'road': spr = S.road; break; case 'water': spr = S.water[frame]; break; case 'field': spr = S.field; break; case 'mountain': spr = S.mountain[v]; break; default: spr = S.grass[0]; }
+      g.drawImage(spr, dx, dy, 32 * z, 64 * z);
+      const p = plotAt.get(x + ',' + y);
+      if (p) { const b = p.building ? S.b[p.building] : (this.sel === p.id ? S.marker : S.empty); g.drawImage(b, dx, dy, 32 * z, 64 * z); if (this.sel === p.id && p.building) g.drawImage(S.marker, dx, dy - 2 * z, 32 * z, 64 * z); }
+    }
+  }
+}

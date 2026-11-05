@@ -4,8 +4,8 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ZONE_KEY = { oldLevel: 'old', newLevel: 'new', baekjeLevel: 'baekje', indLevel: 'ind', farmLevel: 'farm' };
 
 export class Game {
-  constructor({ config, events, seed = 1, startMonth = 1 }) {
-    this.cfg = config; this.ev = events; this.rng = mulberry32(seed);
+  constructor({ config, events, buildings = {}, plots = [], seed = 1, startMonth = 1 }) {
+    this.cfg = config; this.ev = events; this.bd = buildings; this.plots = plots.map(p => ({ ...p })); this.rng = mulberry32(seed);
     const s = config.start;
     this.s = { budget: s.budget, population: s.population, support: s.support, fatigue: s.fatigue, politics: s.politics,
                integrity: s.integrity, auditRisk: s.auditRisk, audits: s.audits, monthIndex: 0, startMonth, term: 1, ap: config.actionsPerMonth,
@@ -30,7 +30,7 @@ export class Game {
   act(cmd, arg) {
     if (this.phase !== 'player') return { ok: false, msg: '지금은 행동할 수 없습니다.' };
     const s = this.s, C = this.cfg;
-    const need = ({ rest: 1, invest: 1, meet: 1, visit_province: 1, visit_national: 2 })[cmd];
+    const need = ({ rest: 1, invest: 1, build: 1, meet: 1, visit_province: 1, visit_national: 2 })[cmd];
     if (need == null) return { ok: false, msg: '알 수 없는 커맨드' };
     if (s.hospital) return { ok: false, msg: '과로로 입원 중입니다. 이번 달은 행동할 수 없습니다.' };
     if (s.ap < need) return { ok: false, msg: '행동력이 부족합니다.' };
@@ -43,6 +43,16 @@ export class Game {
         if (s.budget < 10) return { ok: false, msg: '예산이 부족합니다. (필요 10)' };
         s.budget -= 10; s.fatigue = clamp(s.fatigue + 6, 0, 100); z.level = clamp(z.level + 5, 0, 100); s.support = clamp(s.support + 1, 0, 100);
         msg = `${z.name}에 투자했습니다. 발전도 ${z.level}`; break; }
+      case 'build': {                                   // arg: { plot, type }
+        const p = this.plots.find(q => q.id === arg.plot), b = this.bd[arg.type];
+        if (!p || !b) return { ok: false, msg: '부지/건물을 선택하세요.' };
+        if (p.building) return { ok: false, msg: '이미 건물이 있는 부지입니다.' };
+        if (b.zones && !b.zones.includes(p.zone)) return { ok: false, msg: `${b.name}은(는) 이 권역에 지을 수 없습니다.` };
+        if (s.budget < b.cost) return { ok: false, msg: `예산이 부족합니다. (필요 ${b.cost})` };
+        s.budget -= b.cost; s.fatigue = clamp(s.fatigue + 6, 0, 100); p.building = arg.type;
+        s.population = Math.round((s.population + b.pop) * 100) / 100; s.support = clamp(s.support + b.support, 0, 100);
+        const z = this.zone(p.zone); z.level = clamp(z.level + b.level, 0, 100);
+        msg = `${b.name} 건설 (${z.name}). 발전도 ${z.level}`; break; }
       case 'visit_province': {
         const p = 0.45 + s.politics / 250 + s.support / 500; s.fatigue = clamp(s.fatigue + 8, 0, 100);
         if (this.rng() < p) { const g = Math.round(8 + this.rng() * 8); s.budget += g; s.grants += g; s.politics = clamp(s.politics + 2, 0, 100); msg = `도청에서 정부지원 ${g}억을 확보했습니다.`; }
@@ -65,7 +75,8 @@ export class Game {
     // 1. 수입·지출
     const tax = Math.round(s.population * C.income.taxPerManPop * 10) / 10;
     const gov = C.income.baseSupportGov, upkeep = Math.round(this.zones.reduce((a, z) => a + z.level, 0) * C.income.upkeepPerZoneLevel * 10) / 10;
-    s.budget = Math.round((s.budget + tax + gov - upkeep) * 10) / 10;
+    const bTax = this.plots.reduce((a, p) => a + (p.building ? this.bd[p.building].tax : 0), 0), bUp = this.plots.reduce((a, p) => a + (p.building ? this.bd[p.building].upkeep : 0), 0);
+    s.budget = Math.round((s.budget + tax + gov + bTax - upkeep - bUp) * 10) / 10;
     // 2. 인구·지지도 변화
     s.population = Math.round((s.population + (this.avgLevel() - 30) / 400) * 100) / 100;
     s.support = clamp(s.support + (25 + this.avgLevel() * 0.5 - s.support) * 0.15, 0, 100);   // 평균 발전도가 목표 지지도를 정함

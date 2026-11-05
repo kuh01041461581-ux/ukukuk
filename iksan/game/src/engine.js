@@ -148,7 +148,7 @@ export class Game {
   _enqueueMonthEvents() {
     const cm = this.calMonth;
     for (const e of this.ev.calendar) { if (e.needsVerification || e.month == null || e.month !== cm || !e.choices.length) continue; this.queue.push(e); }
-    if (this.rng() < 0.6) { const pool = this.ev.random; const tot = pool.reduce((a, e) => a + e.weight, 0); let r = this.rng() * tot; for (const e of pool) { if ((r -= e.weight) <= 0) { this.queue.push(e); break; } } }
+    if (this.rng() < 0.6) { const pool = this.ev.random.filter(x => !x.needs || this.plots.some(p => p.building === x.needs)); const tot = pool.reduce((a, e) => a + e.weight, 0); let r = this.rng() * tot; for (const e of pool) { if ((r -= e.weight) <= 0) { this.queue.push(e); break; } } }
     // 뒷돈 제안: 최근 제안과 간격, 예산이 어려울수록·정치력이 높을수록 확률↑
     const s = this.s, since = s.monthIndex - s.lastBribeMonth;
     const p = 0.20 + (s.budget < 60 ? 0.15 : 0) + (s.politics > 50 ? 0.05 : 0);

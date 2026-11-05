@@ -1,5 +1,5 @@
 import { makeSprites, roadSprite, railSprite, crossSprite, lotSprite, TW, TH, CX, CY } from './sprites.js';
-const KIND = { house: 'res', apartment: 'res', school: 'res', park: 'res', shop: 'com', station_old: 'com', station_dev: 'com', tourist: 'com', factory: 'ind', food_cluster: 'ind', farm: 'ind', zone_res: 'res', zone_com: 'com', zone_ind: 'ind', heritage: 'cul', restore_mireuk: 'cul', restore_wanggung: 'cul' };
+const KIND = { house: 'res', apartment: 'res', school: 'res', park: 'res', shop: 'com', station_old: 'com', station_dev: 'com', tourist: 'com', factory: 'ind', food_cluster: 'ind', farm: 'ind', zone_res: 'res', zone_com: 'com', zone_ind: 'ind', chunpo_old: 'cul', chunpo_dev: 'cul', jewel_museum: 'com', jewel_theme: 'com', quarry: 'ind', quarry_theme: 'cul', prison_set: 'com', prison_theme: 'com', tomb: 'cul', tomb_dev: 'cul', camping: 'res', costco: 'com', jewel_complex: 'ind', heritage: 'cul', restore_mireuk: 'cul', restore_wanggung: 'cul' };
 // 아이소메트릭 맵 렌더러: 드래그로 이동, 탭으로 부지 선택. 도트는 정수 배율로 확대.
 export class MapView {
   constructor(canvas, game, mapData, onSelect) {
@@ -64,7 +64,7 @@ export class MapView {
       if (!p) { const hv = ((x * 73856093) ^ (y * 19349663)) >>> 0; const r = (hv % 100) / 100;
         if (t === 'city' && r < 0.55) g.drawImage(S.deco[hv % 4], dx, dy, 64 * z, 128 * z);
         else if (t === 'grass' && r < (this.m.tiles[y][x] === 'grass' ? 0.2 : 0)) g.drawImage(S.tree[hv % 3], dx, dy, 64 * z, 128 * z); }
-      if (p) { const b = p.building ? S.b[/^zone_/.test(p.building) ? p.building + (p.lv || 1) : p.building] : (p.landmark ? S.b['ruin_' + p.landmark] : S.empty); if (this.sel === p.id) g.drawImage(S.marker, dx, dy, 64 * z, 128 * z); g.drawImage(b, dx, dy, 64 * z, 128 * z); }
+      if (p) { const b = p.building ? S.b[/^zone_/.test(p.building) ? p.building + (p.lv || 1) : p.building] : (p.landmark ? (S.b['ruin_' + p.landmark] || S.empty) : S.empty); if (this.sel === p.id) g.drawImage(S.marker, dx, dy, 64 * z, 128 * z); g.drawImage(b, dx, dy, 64 * z, 128 * z); }
     }
   }
 }

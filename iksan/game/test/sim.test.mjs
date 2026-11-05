@@ -58,7 +58,7 @@ for (const pol of ['honest', 'greedy', 'idle']) {
   assert.ok(g.repeal(ids[0]).ok); assert.ok(g.adopt(ids[3]).ok); assert.ok(typeof g.advice() === 'string'); }
 // 8) 비서 효과: 경제 비서는 건설비 10% 할인, 행정 비서는 피로 25% 감소
 { const mk = sec => { const g = new Game({ config, events, buildings, policies, secretaries, plots: MAP.plots, seed: 4, startMonth: 1, secretary: sec }); while (g.phase === 'decision') g.choose(g.decision._bribe ? 1 : 0); return g; };
-  const a = mk('finance'), b = mk('admin'), c = mk('politic'); a.s.budget = b.s.budget = 100; a.act('build', { plot: 'old0', type: 'house' }); b.act('build', { plot: 'old0', type: 'house' });
+  const a = mk('finance'), b = mk('admin'), c = mk('politic'); a.s.budget = b.s.budget = 100; a.act('build', { plot: 'old3', type: 'house' }); b.act('build', { plot: 'old3', type: 'house' });
   assert.ok(a.s.budget > b.s.budget, '경제 비서 할인 없음'); assert.ok(b.s.fatigue < c.s.fatigue + 6 && b.s.fatigue >= 0);
   const d = mk('admin'); d.s.fatigue = 0; d.act('meet'); const e = mk('politic'); e.s.fatigue = 0; e.act('meet'); assert.ok(d.s.fatigue <= e.s.fatigue); }
 // 9) 구역 지정형 단지: 성장·산업 오염

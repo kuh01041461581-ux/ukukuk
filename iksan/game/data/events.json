@@ -790,6 +790,240 @@
         }
       ],
       "scene": "town"
+    },
+    {
+      "id": "costco_debate",
+      "weight": 2,
+      "title": "대형마트 입점 찬반",
+      "text": "왕궁면 동촌리에 호남권 첫 코스트코 입점이 추진되며 원도심 상인회가 반발합니다(지역 상생안 협의 중).",
+      "choices": [
+        {
+          "label": "상생기금 조성 후 추진 (예산 -10)",
+          "fx": {
+            "budget": -10,
+            "support": 2,
+            "oldLevel": 1,
+            "baekjeLevel": 2,
+            "politics": 2
+          }
+        },
+        {
+          "label": "입점 조건을 강화한다 (정치력 -2)",
+          "fx": {
+            "politics": -2,
+            "support": 3
+          }
+        },
+        {
+          "label": "중재 없이 진행",
+          "fx": {
+            "support": -4,
+            "baekjeLevel": 3
+          }
+        }
+      ],
+      "scene": "town",
+      "needs": "costco",
+      "advice": {
+        "finance": "세수와 일자리는 늘지만 원도심 상권 보호책이 필요합니다.",
+        "politic": "지역 상생안을 먼저 확정하는 것이 순서입니다.",
+        "admin": "교통영향평가를 서두르겠습니다."
+      }
+    },
+    {
+      "id": "quarry_dust",
+      "weight": 2,
+      "title": "석산 비산먼지 민원",
+      "text": "황등 석산 주변 주민들이 비산먼지와 소음 민원을 제기합니다.",
+      "choices": [
+        {
+          "label": "방진·소음 저감 투자 (예산 -8)",
+          "fx": {
+            "budget": -8,
+            "support": 3,
+            "integrity": 1
+          }
+        },
+        {
+          "label": "업체에 자율 개선 요청",
+          "fx": {
+            "support": -3
+          }
+        },
+        {
+          "label": "조업 단속 강화 (지지도 +, 석재업계 반발)",
+          "fx": {
+            "support": 2,
+            "indLevel": -2
+          }
+        }
+      ],
+      "scene": "factory",
+      "needs": "quarry"
+    },
+    {
+      "id": "prison_set_visitors",
+      "weight": 2,
+      "title": "세트장 방문객 증가",
+      "text": "교도소 세트장이 영화·드라마 촬영지로 입소문을 타며 방문객이 늘고 있습니다.",
+      "choices": [
+        {
+          "label": "주변 편의시설 확충 (예산 -6)",
+          "fx": {
+            "budget": -6,
+            "farmLevel": 2,
+            "support": 3
+          }
+        },
+        {
+          "label": "현 수준 유지",
+          "fx": {}
+        }
+      ],
+      "scene": "town",
+      "needs": "prison_set"
+    },
+    {
+      "id": "chunpo_exhibit",
+      "weight": 2,
+      "title": "근대문화유산 전시 제안",
+      "text": "구 춘포역사를 근대 철도·문화 전시 공간으로 활용하자는 시민 제안이 있습니다.",
+      "choices": [
+        {
+          "label": "전시·체험 프로그램 운영 (예산 -5)",
+          "fx": {
+            "budget": -5,
+            "farmLevel": 2,
+            "support": 3
+          }
+        },
+        {
+          "label": "보존만 한다",
+          "fx": {
+            "support": 1
+          }
+        }
+      ],
+      "scene": "town",
+      "needs": "chunpo_old"
+    },
+    {
+      "id": "camping_season",
+      "weight": 2,
+      "title": "캠핑장 성수기",
+      "text": "곰개나루 캠핑장에 주말마다 예약이 몰립니다.",
+      "choices": [
+        {
+          "label": "시설 확충 (예산 -7)",
+          "fx": {
+            "budget": -7,
+            "farmLevel": 2,
+            "support": 3
+          }
+        },
+        {
+          "label": "현 시설 유지",
+          "fx": {}
+        }
+      ],
+      "scene": "harvest",
+      "needs": "camping"
+    },
+    {
+      "id": "jewel_slump",
+      "weight": 2,
+      "title": "보석 세공업계 침체",
+      "text": "귀금속 가공업계 경기가 위축되어 보석세공단지 입주 업체들이 지원을 요청합니다.",
+      "choices": [
+        {
+          "label": "판로 개척·전시회 지원 (예산 -9)",
+          "fx": {
+            "budget": -9,
+            "indLevel": 2,
+            "support": 3
+          }
+        },
+        {
+          "label": "시장 논리에 맡긴다",
+          "fx": {
+            "support": -3,
+            "indLevel": -1
+          }
+        }
+      ],
+      "scene": "factory",
+      "needs": "jewel_complex"
+    },
+    {
+      "id": "jewel_tour_boom",
+      "weight": 2,
+      "title": "보석 테마관광지 성수기",
+      "text": "왕궁보석테마관광지 방문객이 급증했습니다(보석박물관·다이노키즈월드·공룡테마공원).",
+      "choices": [
+        {
+          "label": "가족 체험 프로그램 확대 (예산 -8)",
+          "fx": {
+            "budget": -8,
+            "baekjeLevel": 3,
+            "support": 4
+          }
+        },
+        {
+          "label": "유지",
+          "fx": {
+            "support": 1
+          }
+        }
+      ],
+      "scene": "baekje",
+      "needs": "jewel_museum"
+    },
+    {
+      "id": "tomb_tour",
+      "weight": 2,
+      "title": "쌍릉 탐방 수요",
+      "text": "백제 무왕릉으로 알려진 쌍릉 탐방 수요가 늘고 있습니다.",
+      "choices": [
+        {
+          "label": "탐방로·안내판 정비 (예산 -4)",
+          "fx": {
+            "budget": -4,
+            "baekjeLevel": 2,
+            "support": 2
+          }
+        },
+        {
+          "label": "보류",
+          "fx": {}
+        }
+      ],
+      "scene": "baekje",
+      "needs": "tomb"
+    },
+    {
+      "id": "sports_park_event",
+      "weight": 2,
+      "title": "중앙체육공원 행사 대관 요청",
+      "text": "중앙체육공원에서 대형 시민 행사를 열고 싶다는 대관 요청이 들어왔습니다.",
+      "choices": [
+        {
+          "label": "공동 주최 (예산 -6, 피로 +4)",
+          "fx": {
+            "budget": -6,
+            "fatigue": 4,
+            "support": 4,
+            "oldLevel": 1
+          }
+        },
+        {
+          "label": "대관만 승인",
+          "fx": {
+            "support": 1
+          }
+        }
+      ],
+      "scene": "town",
+      "needs": "park"
     }
   ],
   "bribe": [

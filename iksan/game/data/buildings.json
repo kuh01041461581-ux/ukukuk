@@ -248,5 +248,184 @@
     "support": -1,
     "level": 1,
     "desc": "세수가 크지만 인근 주거 지지도를 갉아먹는다(오염·소음)"
+  },
+  "chunpo_old": {
+    "name": "구 춘포역사(등록문화유산)",
+    "cost": 0,
+    "zones": [
+      "farm"
+    ],
+    "pop": 0,
+    "tax": 0.3,
+    "upkeep": 0.2,
+    "support": 1,
+    "level": 0,
+    "landmark": "chunpo",
+    "hidden": true
+  },
+  "chunpo_dev": {
+    "name": "구 춘포역사 복원·근대문화 체험관",
+    "cost": 12,
+    "zones": [
+      "farm"
+    ],
+    "pop": 0.1,
+    "tax": 1.0,
+    "upkeep": 0.5,
+    "support": 4,
+    "level": 4,
+    "landmark": "chunpo",
+    "upgradeFrom": "chunpo_old"
+  },
+  "jewel_museum": {
+    "name": "익산보석박물관·보석테마관광지",
+    "cost": 0,
+    "zones": [
+      "baekje"
+    ],
+    "pop": 0,
+    "tax": 0.8,
+    "upkeep": 0.4,
+    "support": 1,
+    "level": 0,
+    "landmark": "jewelmuseum",
+    "hidden": true
+  },
+  "jewel_theme": {
+    "name": "보석테마관광지 확장(공룡테마·체험)",
+    "cost": 16,
+    "zones": [
+      "baekje"
+    ],
+    "pop": 0.2,
+    "tax": 2.0,
+    "upkeep": 0.8,
+    "support": 3,
+    "level": 5,
+    "landmark": "jewelmuseum",
+    "upgradeFrom": "jewel_museum"
+  },
+  "quarry": {
+    "name": "황등 석산(채석장)",
+    "cost": 0,
+    "zones": [
+      "ind"
+    ],
+    "pop": 0,
+    "tax": 1.3,
+    "upkeep": 0.5,
+    "support": -1,
+    "level": 0,
+    "landmark": "quarry",
+    "hidden": true
+  },
+  "quarry_theme": {
+    "name": "석산 친환경 전환·석재 전시체험관",
+    "cost": 14,
+    "zones": [
+      "ind"
+    ],
+    "pop": 0.1,
+    "tax": 1.5,
+    "upkeep": 0.6,
+    "support": 3,
+    "level": 4,
+    "landmark": "quarry",
+    "upgradeFrom": "quarry"
+  },
+  "prison_set": {
+    "name": "익산 교도소 세트장",
+    "cost": 0,
+    "zones": [
+      "farm"
+    ],
+    "pop": 0,
+    "tax": 0.6,
+    "upkeep": 0.3,
+    "support": 1,
+    "level": 0,
+    "landmark": "prison",
+    "hidden": true
+  },
+  "prison_theme": {
+    "name": "교도소 세트장 체험형 테마파크",
+    "cost": 13,
+    "zones": [
+      "farm"
+    ],
+    "pop": 0.1,
+    "tax": 1.6,
+    "upkeep": 0.7,
+    "support": 3,
+    "level": 4,
+    "landmark": "prison",
+    "upgradeFrom": "prison_set"
+  },
+  "tomb": {
+    "name": "쌍릉(무왕릉)",
+    "cost": 0,
+    "zones": [
+      "baekje"
+    ],
+    "pop": 0,
+    "tax": 0.2,
+    "upkeep": 0.2,
+    "support": 1,
+    "level": 0,
+    "landmark": "tomb",
+    "hidden": true
+  },
+  "tomb_dev": {
+    "name": "쌍릉 정비·탐방로",
+    "cost": 9,
+    "zones": [
+      "baekje"
+    ],
+    "pop": 0,
+    "tax": 0.7,
+    "upkeep": 0.3,
+    "support": 3,
+    "level": 3,
+    "landmark": "tomb",
+    "upgradeFrom": "tomb"
+  },
+  "camping": {
+    "name": "곰개나루 오토캠핑장",
+    "cost": 12,
+    "zones": [
+      "farm"
+    ],
+    "pop": 0.1,
+    "tax": 1.2,
+    "upkeep": 0.5,
+    "support": 3,
+    "level": 3,
+    "landmark": "camping"
+  },
+  "costco": {
+    "name": "대형마트 유치(코스트코 익산점)",
+    "cost": 26,
+    "zones": [
+      "baekje"
+    ],
+    "pop": 0.5,
+    "tax": 3.0,
+    "upkeep": 1.2,
+    "support": 3,
+    "level": 4,
+    "landmark": "mart"
+  },
+  "jewel_complex": {
+    "name": "보석세공단지",
+    "cost": 18,
+    "zones": [
+      "baekje"
+    ],
+    "pop": 0.3,
+    "tax": 2.4,
+    "upkeep": 0.9,
+    "support": 1,
+    "level": 5,
+    "landmark": "jewelcx"
   }
 }

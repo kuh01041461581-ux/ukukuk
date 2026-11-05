@@ -599,7 +599,8 @@ main{max-width:none;padding:0 0 32px;}
         <option value="기타">그 밖의 지역 (1박 최대 70,000원)</option>
       </select>
     </div>
-    <div class="formrow"><label>숙박비(영수증)</label><input type="number" id="m_lodge" value="0" placeholder="영수증 금액 입력"></div>
+    <div class="formrow"><label>숙박비(영수증)</label><input type="number" id="m_lodge" value="0" placeholder="영수증 금액 입력" oninput="if(+this.value>0)document.getElementById('m_lodgeReceipt').checked=true"></div>
+    <div class="formrow"><label></label><div class="checkbox-row"><input type="checkbox" id="m_lodgeReceipt"><label for="m_lodgeReceipt" class="small">숙박 영수증 첨부함 <b>(첨부한 경우에만 숙박비 지급)</b></label></div></div>
     <div class="formrow"><label>비고</label><input id="m_notes" placeholder="선택 입력"></div>
     </div>
     <div class="modal-actions">
@@ -793,6 +794,7 @@ function openTripModal(id){
     document.getElementById('m_nights').value=t.nights||0;
     document.getElementById('m_lodgeRegion').value=t.lodgeRegion||guessLodgeRegion(t.dest);
     document.getElementById('m_lodge').value=t.lodge||0;
+    document.getElementById('m_lodgeReceipt').checked=!!t.lodgeReceipt;
     document.getElementById('m_notes').value=t.notes||'';
     document.querySelectorAll('input[name=m_carRole]').forEach(r=>r.checked=(r.value===(t.carRole||'driver')));
   } else {
@@ -819,6 +821,7 @@ function openTripModal(id){
     document.getElementById('m_nights').value=0;
     document.getElementById('m_lodgeRegion').value='기타';
     document.getElementById('m_lodge').value=0;
+    document.getElementById('m_lodgeReceipt').checked=false;
     document.querySelectorAll('input[name=m_carRole]').forEach(r=>r.checked=(r.value==='driver'));
     const now = new Date(); const pad=n=>String(n).padStart(2,'0');
     const dstr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T09:00`;
@@ -896,6 +899,7 @@ function saveTripModal(){
     nights: parseInt(document.getElementById('m_nights').value)||0,
     lodgeRegion: document.getElementById('m_lodgeRegion').value,
     lodge: parseFloat(document.getElementById('m_lodge').value)||0,
+    lodgeReceipt: document.getElementById('m_lodgeReceipt').checked,
     notes: document.getElementById('m_notes').value,
     mealOverride: null, mealFeeOverride: null, dailyOverride: null, transOverride: null, lodgeOverride: null
   };
@@ -977,7 +981,7 @@ function renderTripTable(){
       <td>${t.dest||'-'}</td><td>${t.purpose||'-'}</td>
       <td>${transportBadge(t)}</td>
       <td style="font-size:11px;">${detailText(t)}</td>
-      <td>${t.nights>0? t.nights+'박 '+fmt(t.lodge) : '-'}</td>
+      <td>${t.nights>0 ? (t.lodgeReceipt && t.lodge>0 ? t.nights+'박 '+fmt(calcLodgeFee(t)) : '<span class="pill" style="background:var(--warn-light);color:var(--warn);">'+t.nights+'박 · 영수증 미첨부(0원)</span>') : '-'}</td>
       <td><div class="row-actions"><button class="icon-btn" title="수정" onclick="openTripModal('${t.id}')"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button><button class="icon-btn danger" title="삭제" onclick="delTrip('${t.id}')"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div></td>`;
     tb.appendChild(tr);
   });
@@ -1000,7 +1004,7 @@ function makeTripRecord(f){
     transport: f.transport || '자차',
     carRole: 'driver',
     distance:0, fuelType:'GASOLINE', carType:3, rate:calcRatePerKm('GASOLINE', getBestKnownOilPrice('GASOLINE'), f.start), toll:0, tollReceipt:false,
-    trainFare:0, trainTicket:false, nights:0, lodge:0, lodgeRegion:'기타', notes:f.notes||'',
+    trainFare:0, trainTicket:false, nights:0, lodge:0, lodgeReceipt:false, lodgeRegion:'기타', notes:f.notes||'',
     mealOverride:null, mealFeeOverride:null, dailyOverride:null, transOverride:null, lodgeOverride:null
   };
 }
@@ -1496,7 +1500,8 @@ function calcMealFee(t){
   if(t.mealFeeOverride!=null) return t.mealFeeOverride;   // 금액을 직접 수정한 경우
   return mealFeeOfCount(calcMealCount(t));                  // 끼니 수 → 금액 자동
 }
-function calcTransportFee(t){
+function calcTransportFee(t){ return Math.round(_calcTransportFeeRaw(t))||0; }   // 원 단위로 맞춰 합계와 항목이 어긋나지 않게
+function _calcTransportFeeRaw(t){
   if(t.transOverride!=null) return t.transOverride;
   if(t.transport==='자차'){
     if(t.carRole==='passenger') return 0; // 동승자는 자차 운임료 미지급, 운전자만 지급
@@ -1521,11 +1526,14 @@ function lodgeCapPerNight(region){
   if(region==='광역시') return 80000;
   return 70000; // 그 밖의 지역
 }
+/* 숙박비는 "숙박 영수증을 첨부한 경우에만" 지급한다(영수증 금액, 1박 한도 이내).
+   영수증 첨부 체크가 없거나 숙박 일수가 0이면 0원. 표에서 금액을 직접 고친 경우(lodgeOverride)만 예외. */
 function calcLodgeFee(t){
-  if(t.lodgeOverride!=null) return t.lodgeOverride;
+  if(t.lodgeOverride!=null) return Math.round(t.lodgeOverride)||0;
+  if(!t.lodgeReceipt) return 0;
   if(!t.nights || t.nights<=0) return 0;
   const cap = t.nights*lodgeCapPerNight(t.lodgeRegion||'기타');
-  return Math.min(t.lodge||0, cap);
+  return Math.round(Math.min(t.lodge||0, cap));
 }
 function calcTotal(t){
   return calcDaily(t)+calcMealFee(t)+calcTransportFee(t)+calcLodgeFee(t);
@@ -2457,7 +2465,7 @@ function renderReceiptPreview(){
     const open = expandedDocIds.has(id);
     return `<div class="preview-item" data-id="${id}">
       <div class="preview-item-head">
-        <div class="preview-item-info"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span><b>${escapeXml(t.name)}</b> <span class="small">(${escapeXml(t.position||'-')})</span> · ${escapeXml(t.dest||'-')} · <b style="color:var(--accent-text);">${fmt(total)}원</b></span></div>
+        <div class="preview-item-info"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span><b>${escapeXml(t.name)}</b> <span class="small">(${escapeXml(t.position||'-')})</span> · ${escapeXml(t.dest||'-')} · <b style="color:var(--accent-text);">${fmt(total)}</b></span></div>
         <div class="preview-item-actions">
           <button class="btn ghost sm" onclick="openPrintPreview('${id}')"><svg class="icon sm" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF로 미리보기</button>
           <button class="btn outline sm" onclick="toggleDocEdit('${id}')">${open?'▲ 접기':'▼ 열기 (수정)'}</button>
@@ -2537,7 +2545,8 @@ function buildReceiptDoc(t){
   const kmTxt = n => Number(n).toLocaleString('ko-KR',{maximumFractionDigits:1});
   const feeTxt = x => x ? String(x).replace(/원$/,'') : '';
   const remarkTxt = x => p.transport==='공무용차량' ? '관용차량' : x;
-  const nightsCell = p.nights>0 ? ` ${p.nights}야` : ' 야';
+  const lodgePaid = p.lodgeFee>0;   // 숙박 영수증을 첨부해 숙박비가 지급되는 경우에만 숙박 칸을 채운다
+  const nightsCell = lodgePaid && p.nights>0 ? ` ${p.nights}야` : ' 야';
   const trainFareShown = p.transport==='기차' && p.trainFare>0;
   const L = buildTravelLegTexts(p);
   /* 숫자 덩어리는 쪼개지지 않게 묶고, 숫자와 단위(원/km) 사이에서만 줄이 바뀌게 한다. */
@@ -2570,8 +2579,8 @@ function buildReceiptDoc(t){
   const page2Rows = [
     `<tr style="height:3.31%">${td('월 일',1,2)}${td('출발지',2,2)}${td('경유지',2,2)}${td('도착지',3,2)}${td('거 리 와 요 금',6,1)}${td('일수',1,2)}${td('야수',2,2)}${td('비 고',1,2)}</tr>`,
     `<tr style="height:3.31%">${td('종 별',2,1)}${td('거 리',2,1)}${td('요 금',2,1)}</tr>`,
-    `<tr style="height:4.28%">${td(`${p.startM}. ${p.startD}.`,1,1)}${td('익산',2,1)}${td('',2,1)}${td(escapeXml(p.dest),3,1)}${td('',2,1)}${td(fitHtml(L.dist1),2,1)}${td(fitHtml(feeTxt(L.fee1)),2,1)}${td('1',1,1)}${td(p.nights>0 ? String(p.nights) : '',2,1)}${td(fitHtml(remarkTxt(L.toll1)),1,1)}</tr>`,
-    `<tr style="height:4.28%">${td(`${p.endM}. ${p.endD}.`,1,1)}${td(escapeXml(p.dest),2,1)}${td('',2,1)}${td('익산',3,1)}${td('',2,1)}${td(fitHtml(L.dist2),2,1)}${td(fitHtml(feeTxt(L.fee2)),2,1)}${td('1',1,1)}${td('',2,1)}${td(fitHtml(remarkTxt(L.toll2)),1,1)}</tr>`,
+    `<tr style="height:4.28%">${td(`${p.startM}. ${p.startD}.`,1,1)}${td('익산',2,1)}${td('',2,1)}${td(escapeXml(p.dest),3,1)}${td('',2,1)}${td(fitHtml(L.dist1),2,1)}${td(fitHtml(feeTxt(L.fee1)),2,1)}${td(String(p.days||1),1,1)}${td(lodgePaid && p.nights>0 ? String(p.nights) : '',2,1)}${td(fitHtml(remarkTxt(L.toll1)),1,1)}</tr>`,
+    `<tr style="height:4.28%">${td(`${p.endM}. ${p.endD}.`,1,1)}${td(escapeXml(p.dest),2,1)}${td('',2,1)}${td('익산',3,1)}${td('',2,1)}${td(fitHtml(L.dist2),2,1)}${td(fitHtml(feeTxt(L.fee2)),2,1)}${td('',1,1)}${td('',2,1)}${td(fitHtml(remarkTxt(L.toll2)),1,1)}</tr>`,
     `<tr style="height:4.28%">${td('',1,1)}${td('',2,1)}${td('',2,1)}${td('',3,1)}${td('',2,1)}${td('',2,1)}${td('',2,1)}${td('',1,1)}${td('',2,1)}${td('',1,1)}</tr>`,
     `<tr style="height:4.28%">${td('',1,1)}${td('',2,1)}${td('',2,1)}${td('',3,1)}${td('',2,1)}${td('',2,1)}${td('',2,1)}${td('',1,1)}${td('',2,1)}${td('',1,1)}</tr>`,
     `<tr style="height:4.28%">${td('',1,1)}${td('',2,1)}${td('',2,1)}${td('',3,1)}${td('',2,1)}${td('',2,1)}${td('',2,1)}${td('',1,1)}${td('',2,1)}${td('',1,1)}</tr>`,
@@ -2585,11 +2594,11 @@ function buildReceiptDoc(t){
     `<tr style="height:4.62%">${td('선      임',2,1)}${td('등실비',2,1)}${td('',3,1)}${td('         원',4,1)}${td('등실비',2,1)}${td('',3,1)}${td('  ',2,1)}</tr>`,
     `<tr style="height:4.62%">${td('차  마  임',2,1)}${td(isCar && p.distance>0 ? `${kmTxt(p.distance)}㎞` : '㎞',2,1)}${td('㎞ 당',3,1)}${td(trainFareShown ? '         원' : `<input type="number" style="width:${String(Math.round(p.transportFee)).length+3}ch;max-width:80%;display:inline-block;" value="${Math.round(p.transportFee)}" onchange="overrideTrans('${id}',this.value)"><wbr>원`,4,1)}${td('',2,1)}${td('',3,1)}${td('',2,1)}</tr>`,
     `<tr style="height:4.62%">${td('식      비',2,1)}${td(`<select style="display:inline-block;width:auto;" onchange="overrideMeal('${id}',this.value)">${Array.from({length:Math.max(3,p.mealCount)},(_,i)=>i+1).map(n=>`<option value="${n}"${p.mealCount===n?' selected':''}>${n}식</option>`).join('')}</select>`,2,1)}${td('1식당\n9,000원',3,1)}${td(`<input type="number" style="width:60%;display:inline-block;" value="${p.mealFee}" onchange="overrideMealFee('${id}',this.value)">원`,4,1)}${td('',2,1)}${td('1일당   ',3,1)}${td('25,000원 \n한도',2,1)}</tr>`,
-    `<tr style="height:4.62%">${td('숙  박  료',2,1)}${td(nightsCell,2,1)}${td(p.nights>0 ? `1야당\n${Math.round(p.lodgeFee/p.nights).toLocaleString()}원` : '1야당\n원',3,1)}${td(p.nights>0 ? `<input type="number" style="width:60%;display:inline-block;" value="${Math.round(p.lodgeFee)}" onchange="overrideLodge('${id}',this.value)">원` : '       원',4,1)}${td('야',2,1)}${td('1야당   ',3,1)}${td('  ',2,1)}</tr>`,
-    `<tr style="height:4.62%">${td('일      비',2,1)}${td('1일',2,1)}${td(`1일당\n${p.dailyFee.toLocaleString()}원`,3,1)}${td(`<input type="number" style="width:60%;display:inline-block;" value="${p.dailyFee}" onchange="overrideDaily('${id}',this.value)">원`,4,1)}${td('',2,1)}${td('1일당 ',3,1)}${td('',2,1)}</tr>`,
+    `<tr style="height:4.62%">${td('숙  박  료',2,1)}${td(nightsCell,2,1)}${td(lodgePaid && p.nights>0 ? `1야당\n${Math.round(p.lodgeFee/p.nights).toLocaleString()}원` : '1야당\n원',3,1)}${td(lodgePaid ? `<input type="number" style="width:60%;display:inline-block;" value="${Math.round(p.lodgeFee)}" onchange="overrideLodge('${id}',this.value)">원` : '       원',4,1)}${td('야',2,1)}${td('1야당   ',3,1)}${td('  ',2,1)}</tr>`,
+    `<tr style="height:4.62%">${td('일      비',2,1)}${td(p.dailyFee>0 ? `${p.days||1}일` : '',2,1)}${td(p.dailyFee>0 ? `1일당\n${(p.dailyUnit||p.dailyFee).toLocaleString()}원` : '1일당\n원',3,1)}${td(`<input type="number" style="width:60%;display:inline-block;" value="${p.dailyFee}" onchange="overrideDaily('${id}',this.value)">원`,4,1)}${td('',2,1)}${td('1일당 ',3,1)}${td('',2,1)}</tr>`,
     `<tr style="height:4.62%">${td('이  전  료',2,1)}${td('  ',2,1)}${td('부임수당',3,1)}${td('  ',4,1)}${td('',2,1)}${td('가족이전표',3,1)}${td('  ',2,1)}</tr>`,
     `<tr style="height:4.62%">${td('합         계',4,1)}${td('',3,1)}${td(`${p.total.toLocaleString()}원`,4,1)}${td('',2,1)}${td('',3,1)}${td('',2,1)}</tr>`,
-    `<tr style="height:8.71%">${td('출장명령부\n대  조  필',2,1)}${td('진 소 현 (인)',4,1)}${td('청구금액 \n외에는 포기함',3,1)}${td(`${nm} (인)`,4,1)}${td('비 고',3,1)}${td('',2,1)}</tr>`
+    `<tr style="height:8.71%">${td('출장명령부\n대  조  필',2,1)}${td('          (인)',4,1)}${td('청구금액 \n외에는 포기함',3,1)}${td(`${nm} (인)`,4,1)}${td('비 고',3,1)}${td('',2,1)}</tr>`
   ].join('');
 
   return `
@@ -2726,6 +2735,7 @@ function hwpxTextWidthPt(str, pt, sp){
    숫자와 단위("원","km") 사이/공백에서만 끊는다. */
 function wrapTextByWidth(text, availPt, pt, sp){
   pt = pt || HWPX_BODY_PT;
+  availPt = availPt*0.96;     // 한글 실제 글자폭이 추정보다 넓어도 넘치지 않게 여유를 둔다
   const str = String(text==null?'':text);
   if(hwpxTextWidthPt(str, pt, sp) <= availPt) return [str];
   const segs = str.match(/[0-9][0-9,.]*|\s+|[^0-9\s]+/g) || [str];
@@ -2737,8 +2747,10 @@ function wrapTextByWidth(text, availPt, pt, sp){
     if(hwpxTextWidthPt(cur+seg, pt, sp) <= availPt){ cur += seg; return; }
     push();
     if(hwpxTextWidthPt(seg, pt, sp) <= availPt){ cur = seg; return; }
-    for(const ch of seg){                       // 덩어리 하나가 칸보다 넓은 극단적인 경우만 글자 단위로 끊는다
-      if(cur!=='' && hwpxTextWidthPt(cur+ch, pt, sp) > availPt) push();
+    // 낱말 하나가 칸보다 넓으면 글자 단위로 끊되, 줄 수를 먼저 정해 고르게 나눈다("서울특별|시" 대신 "서울특|별시")
+    const totalW = hwpxTextWidthPt(seg, pt, sp), nLines = Math.ceil(totalW/availPt), limit = Math.min(availPt, totalW/nLines + 0.6*pt);   // 줄당 폭 목표 + 글자 반 칸 여유
+    for(const ch of seg){
+      if(cur!=='' && hwpxTextWidthPt(cur+ch, pt, sp) > limit) push();
       cur += ch;
     }
   });
@@ -2805,7 +2817,7 @@ function fillEmptyHwpxCell(xml, base, col, row, text, pt){
   return xml.slice(0,c.tcStart) + tc + xml.slice(c.tcEnd);
 }
 /* 이미 글자가 들어 있는 칸(예: 차마임 금액)을 칸 폭에 맞게 다시 나눈다. 글자 크기는 그대로. */
-function refitHwpxCell(xml, base, col, row){
+function refitHwpxCell(xml, base, col, row, force){
   const c = locateHwpxCell(xml, base, col, row);
   if(!c) return xml;
   const ts = c.tc.match(/<hp:t>[\s\S]*?<\/hp:t>/g);
@@ -2813,7 +2825,7 @@ function refitHwpxCell(xml, base, col, row){
   const inner = ts[0].replace(/^<hp:t>|<\/hp:t>$/g,'');
   const plain = inner.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
   const lines = wrapTextByWidth(plain, c.availPt);
-  if(lines.length<=1) return xml;
+  if(lines.length<=1 && !force) return xml;
   let tc = c.tc.replace(ts[0], hwpxRunsFromLines(lines));
   tc = dropLineSegCache(tc);
   return xml.slice(0,c.tcStart) + tc + xml.slice(c.tcEnd);
@@ -2824,7 +2836,7 @@ function fillTravelStatementCells(blockXml, p){
   let out = blockXml;
   const L = buildTravelLegTexts(p);
   // 출발지(열 1)·도착지(열 5)가 길면 칸 폭에 맞게 줄바꿈 (글자 크기는 그대로)
-  [[1,2],[5,2],[1,3],[5,3]].forEach(([c,r])=>{ out = refitHwpxCell(out, base, c, r); });
+  [[1,2],[5,2],[1,3],[5,3]].forEach(([c,r])=>{ out = refitHwpxCell(out, base, c, r, true); });
   // 여행명세서: 2행=가는 편, 3행=오는 편, 10행="계" / 열 10=거리, 열 12=요금
   out = fillEmptyHwpxCell(out, base, 10, 2, L.dist1);
   out = fillEmptyHwpxCell(out, base, 12, 2, L.fee1);
@@ -2962,7 +2974,7 @@ function v2BuildPara(src, lines, dropSeg, charPrOverride){
     ? `<hp:run charPrIDRef="${cpUse}">${lines.map(l=>`<hp:t>${escapeXml(l)}</hp:t>`).join('<hp:lineBreak/>')}</hp:run>`
     : `<hp:run charPrIDRef="${cp}"/>`;
   // 줄 수가 바뀌는 경우엔 줄 배치 캐시를 지워 한글이 열 때 다시 계산하게 한다(적요/용무 칸과 같은 방식).
-  const keepSeg = seg && !dropSeg && lines.length<=1 && segCount<=1;
+  const keepSeg = seg && !dropSeg && lines.length<=1 && segCount<=1;   // dropSeg=true 인 칸은 줄 수와 상관없이 캐시 삭제
   return open + run + (keepSeg ? seg[0] : '') + '</hp:p>';
 }
 /* paras: 문단별 값 배열. 문자열=그 문단 글자 교체, 배열=여러 줄(<hp:lineBreak/>), null=원본 문단 유지.
@@ -3014,13 +3026,13 @@ function fillHwpxBlockV2(blockXml, p, fo){
   set(0,2,14,[` 부서명   ${p.dept}`,` 직  급   ${p.position}`,` 성  명   ${nm}      (인)`]);
   set(0,2,15,[null,`                                                    ${p.endY}년   ${p.endM}월   일`,` 성  명   ${nm}       (인)`]);
   set(0,2,16,[purposeLines]);                                                  // 용무
-  set(0,10,16,[p.dest||''],{wrap:true});                                       // 출장지
+  set(0,10,16,[p.dest||''],{wrap:true,dropSeg:true});                          // 출장지(도착지) — 줄 배치는 한글이 다시 계산
 
   /* ----- 2쪽: 여행명세서 ----- */
   set(1,0,2,[`${p.startM}. ${p.startD}.`]);                                    // 가는 편 날짜
   set(1,0,3,[`${p.endM}. ${p.endD}.`]);                                        // 오는 편 날짜
-  set(1,5,2,[p.dest||''],{wrap:true});                                         // 가는 편 도착지
-  set(1,1,3,[p.dest||''],{wrap:true});                                         // 오는 편 출발지
+  set(1,5,2,[p.dest||''],{wrap:true,dropSeg:true});                            // 가는 편 도착지
+  set(1,1,3,[p.dest||''],{wrap:true,dropSeg:true});                            // 오는 편 출발지
   set(1,10,2,[L.dist1],{wrap:true});  set(1,12,2,[noWon(L.fee1)],{wrap:true});
   set(1,10,3,[L.dist2],{wrap:true});  set(1,12,3,[noWon(L.fee2)],{wrap:true});
   set(1,10,10,[L.distTotal],{wrap:true}); set(1,12,10,[noWon(L.feeTotal)],{wrap:true});
@@ -3029,7 +3041,10 @@ function fillHwpxBlockV2(blockXml, p, fo){
   set(1,17,2,[remark(L.toll1)],remOpt);
   set(1,17,3,[remark(L.toll2)],remOpt);
   set(1,17,10,[L.tollTotal],remOpt);
-  set(1,15,2,[p.nights>0 ? String(p.nights) : '']);                            // 야수
+  set(1,14,2,[String(p.days||1)]);                                             // 일수(출장일수) — 서식에 들어있던 예시 '1' 대신 실제 값
+  set(1,14,3,['']);                                                            // 오는 편 칸은 비움
+  const lodgePaid = p.lodgeFee>0;                                              // 숙박은 영수증 첨부로 지급된 경우에만 적는다
+  set(1,15,2,[lodgePaid && p.nights>0 ? String(p.nights) : '']);               // 야수
 
   /* ----- 2쪽: 여비명세서 ----- */
   set(1,2,12,[hwpxMeansLabel(p)]);                                             // 종별(이용 수단)
@@ -3039,14 +3054,22 @@ function fillHwpxBlockV2(blockXml, p, fo){
   set(1,7,15,[trainFareShown ? '         원' : `${Math.round(p.transportFee).toLocaleString()}원`]);   // 차마임
   set(1,2,16,[`${p.mealCount}식`]);                                            // 식비: 끼니 수
   set(1,7,16,[`${p.mealFee.toLocaleString()}원`]);                             // 식비 금액
-  if(p.nights>0){
-    set(1,2,17,[` ${p.nights}야`]);
-    set(1,4,17,['1야당', `${Math.round(p.lodgeFee/p.nights).toLocaleString()}원`]);
-    set(1,7,17,[`${Math.round(p.lodgeFee).toLocaleString()}원`]);              // 숙박료 금액
+  if(lodgePaid){
+    if(p.nights>0){
+      set(1,2,17,[` ${p.nights}야`]);
+      set(1,4,17,['1야당', `${Math.round(p.lodgeFee/p.nights).toLocaleString()}원`]);
+    }
+    set(1,7,17,[`${Math.round(p.lodgeFee).toLocaleString()}원`]);              // 숙박료 금액(영수증 첨부분)
   }
-  set(1,4,18,['1일당', `${p.dailyFee.toLocaleString()}원`]);                   // 일비 단가
-  set(1,7,18,[`${p.dailyFee.toLocaleString()}원`]);                            // 일비 금액
-  set(1,7,20,[`${p.total.toLocaleString()}원`]);                               // 합계
+  if(p.dailyFee>0){
+    set(1,2,18,[`${p.days||1}일`]);                                            // 일비 일수
+    set(1,4,18,['1일당', `${(p.dailyUnit||p.dailyFee).toLocaleString()}원`]);  // 일비 1일 단가
+    set(1,7,18,[`${p.dailyFee.toLocaleString()}원`]);                          // 일비 금액
+  } else {
+    set(1,2,18,['']); set(1,4,18,['1일당','원']); set(1,7,18,['         원']);   // 일비 없음 → 서식 예시값 지우고 빈 칸
+  }
+  set(1,7,20,[`${p.total.toLocaleString()}원`]);                               // 합계(= 위 항목 합. calcTotal 과 같은 정수)
+  set(1,2,21,['          (인)']);                                              // 출장명령부 대조필 — 서식에 들어있던 예시 이름 제거(담당자가 직접)
   set(1,9,21,[`${nm} (인)`]);                                                  // 청구금액 외에는 포기함 — 출장자 서명
   return xml;
 }
@@ -3124,7 +3147,7 @@ function buildPersonDataForHwpx(t){
       ret: ((t.returnTransport||'기차')==='기차' && t.trainTicketReturn) ? (t.trainFareReturn||0) : 0
     } : null,
     toll: (t.transport==='자차' && t.carRole!=='passenger' && t.tollReceipt) ? (t.toll||0) : 0,   // 요금에 포함된 통행료만(영수증 첨부 시)
-    isHalf: daily===12500, total
+    days: tripDays(t), dailyUnit: Math.round(daily/Math.max(1,tripDays(t))), isHalf: Math.round(daily/Math.max(1,tripDays(t)))===12500, total
   };
 }
 function setBtnLoading(btn, loadingText){

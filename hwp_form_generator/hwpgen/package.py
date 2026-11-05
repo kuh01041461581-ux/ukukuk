@@ -355,3 +355,18 @@ def with_lead_blank(pkg):
     blank.set("pageBreak", "0")
     ps[0].addprevious(blank)
     return pkg
+
+
+def with_tail_blank(pkg):
+    """끝 문단 뒤에 빈 문단 하나 — 넣은 뒤 커서가 새 줄에 있어, 다음에 오는 ◦ 같은 기호가 마지막 줄 뒤에 붙지 않는다"""
+    sec = pkg.section(0)
+    ps = sec.findall(HP + "p")
+    if not ps:
+        return pkg
+    last = ps[-1]
+    if "".join(t.text or "" for t in last.iter(HP + "t")).strip() == "" and not list(last.iter(HP + "tbl")):
+        return pkg
+    blank = _empty_like_para(last)
+    blank.set("pageBreak", "0")
+    last.addnext(blank)
+    return pkg

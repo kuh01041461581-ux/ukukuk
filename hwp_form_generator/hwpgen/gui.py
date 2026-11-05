@@ -55,7 +55,7 @@ class Output:
             messagebox.showwarning("한글에 넣기", "열려 있는 한글에 연결하지 못했어요.\n"
                                    "한글을 열고 문서를 띄운 뒤 다시 눌러 주세요.")
             return
-        from .package import page_setup_of, strip_section_props, split_chunks, with_lead_blank
+        from .package import page_setup_of, strip_section_props, split_chunks, with_lead_blank, with_tail_blank
         page = page_setup_of(pkg)
         empty = br.is_empty_doc()
         keep_section = bool(empty and page)          # 빈 문서에 첫 양식을 넣을 때만 샘플의 쪽 설정(용지·여백)을 가져온다
@@ -70,6 +70,7 @@ class Output:
         if not empty:
             br.prepare_insert(at_end)                # 앞 내용과 한 줄로 붙지 않게 새 줄에서 시작
             with_lead_blank(pkg)                     # 첫 문단이 앞 문단의 모양을 물려받지 않게 빈 받침 문단 하나
+        with_tail_blank(pkg)                         # 끝에 빈 줄: 커서가 새 줄에 놓여 다음 ◦가 붙지 않는다
         chunks = split_chunks(pkg) if step else [pkg]
         n = len(chunks)
         try:

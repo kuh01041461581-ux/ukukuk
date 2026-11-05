@@ -181,7 +181,7 @@ class GuiTests(unittest.TestCase):
         self.assertTrue({"budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return"} <= ids("budget"))
         self.assertEqual(ids("press"), {"press_release"})
         self.assertTrue({"written_item", "policy_item", "policy_ref"} <= ids("assembly"))
-        self.assertTrue({"audit_cover", "audit_common"} <= ids("audit"))
+        self.assertTrue({"audit_cover", "audit_common", "audit_item"} <= ids("audit"))
         # 작성 대상 주 = 다음 주
         import datetime
         from hwpgen import textfmt as TT

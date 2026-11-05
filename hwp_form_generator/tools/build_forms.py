@@ -183,6 +183,16 @@ def build_extra(paths):
                  "blank": "이름 내선 / 휴대폰"},
             ], note="현안 제목 + 사업명 + 계장·담당자 줄 + 개요 상자(사업기간·장소·사업비·운영횟수·사업내용·수행단체) + 프로그램 표 + □ 지난주 실적 + □ 금 후 계 획",
             starter=ISSUE_STARTER, slice_=(0, 48), drop=list(range(6, 37)), fix=_card_box_fix)
+    if "audit_item" in paths:
+        ai = paths["audit_item"]
+        a0 = _flat_texts_para(ai, 0, 6)
+        out["audit_item"] = report.register_report(
+            ai, os.path.join(F, "audit_item"), "audit_item", "과 개별 사업 쪽 (감사자료 항목 1건)", "행정사무감사", [
+                {"key": "item", "label": "항목 (예: 3. 예산편성 후 전액 미집행 내역)", "sample": a0[0], "default": "(번호. 항목명)"},
+                {"key": "biz", "label": "사업 제목 (예: [2026] 3-1. 사업명)", "sample": a0[-1], "default": "(사업 제목)"},
+            ], note="항목 제목 + 확인자·작성자 상자 + 사업 제목 상자 + □ 사업개요 · □ 추진현황 · □ 금후계획",
+            starter="□ 사업개요\n◦ 사업기간 : \n◦ 사업내용 : \n◦ 소요예산 : \n\n□ 추진현황\n◦ \n\n□ 금후계획\n◦ ",
+            slice_=(0, 26), body_from_text="□ 사업개요", fix=_audit_sign_fix)
     if "audit" in paths:
         ts = _flat_texts(paths["audit"])
         out["audit_cover"] = report.register_report(
@@ -341,6 +351,18 @@ def _title_cell_fix(section):
             ts_[0].text = "{{page}}"
         if i == len(tcs) - 1 and ts_:
             ts_[0].text = " {{detail}}"
+
+
+def _audit_sign_fix(section):
+    """확인자·작성자 상자: 라벨(확인자 :, 작성자 :)만 남기고 직책·이름은 비운다"""
+    from hwpgen.package import ptext
+    tbl = next(t for t in section.iter(HP + "tbl") if "확인자" in ptext(t))
+    for pic in list(section.iter(HP + "pic")):             # 서명 그림(이름이 들어 있음)은 뺀다
+        pic.getparent().remove(pic)
+    for t in tbl.iter(HP + "t"):
+        x = (t.text or "").strip()
+        if x not in ("확인자", "작성자", ":") and not (t.text or "").startswith("\U000f012b"):
+            t.text = ""
 
 
 def _audit_common_fix(section):

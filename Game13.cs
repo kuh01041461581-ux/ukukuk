@@ -9,6 +9,7 @@ internal sealed class JumpRopeGame : MiniGame
 {
 	public override bool NoLimit { get { return true; } }
 	private float phi, jt, jdur = 0.5f, speedMul = 1f, mulT, mulTo = 1f, tripT, msgT, ropeFlash, gleam; private int jumps, combo, perfects; private bool jumping, queued, tripped, passed; private string msg = "";
+	public override bool LiveOrient { get { return true; } }
 	private float LX { get { return LW * 0.125f; } }
 	private float RX { get { return LW * 0.875f; } }
 	private const float Floor = 470f, HandY = 396f, Amp = 96f, JH = 74f;
@@ -56,7 +57,7 @@ internal sealed class JumpRopeGame : MiniGame
 	public override bool WideCap { get { return true; } }
 	public override void Draw(Graphics g, double t)
 	{
-		BgWide(g, "bg_hjump", Color.FromArgb(110, 180, 240), Color.FromArgb(200, 230, 200));
+		BgImg(g, "bg_hjump", Color.FromArgb(110, 180, 240), Color.FromArgb(200, 230, 200));
 		using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 216, 190, 140))) g.FillRectangle(b, 0, Floor + 6, LW, H - Floor);
 		using (Pen p = new Pen(Color.FromArgb(80, 120, 90, 50), 3f)) g.DrawLine(p, 0, Floor + 6, LW, Floor + 6);
 		float h = Height; float px = LW / 2f;

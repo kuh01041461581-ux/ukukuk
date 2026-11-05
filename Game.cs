@@ -40,6 +40,8 @@ internal abstract class MiniGame
 	public virtual bool NoLimit { get { return false; } }   // true면 60초 제한 없이 끝날 때까지 (2048·수박처럼 시간이 필요 없는 게임)
 	public virtual string Costume { get { return null; } }
 	public virtual bool WideCap { get { return false; } }
+	public virtual bool LiveOrient { get { return CenterPlay; } }   // 가로/세로를 바꿔도 하던 판을 그대로 이어갈 수 있는 게임 (놀이판이 가운데 고정이거나 위치를 새 폭에 맞춰 옮길 수 있는 게임)
+	public virtual void OnOrient(float k) { }   // 가로 폭이 k배로 바뀌었을 때 (이어서 하는 게임이 위치를 옮겨요)
 	public virtual bool CenterPlay { get { return false; } }   // 가로 화면에서도 놀이판은 세로 크기 그대로 가운데에 두고, 양옆은 배경으로 채워요
 	public float PlayOX { get { return CenterPlay && LW > W ? (LW - W) / 2f : 0f; } }
 	internal static float curOX = 0f;
@@ -630,6 +632,7 @@ internal sealed class BatGame : MiniGame
 	private float pt, ptPlate, pv, px0, pa, pb, pc, pd, xp, yp; private int ptype; private string pname = ""; private float nameT; private static readonly string[] PNames = { "직구", "커브", "슬라이더", "체인지업", "포크볼", "투심", "직구" };
 	private float bx, by, bz, bvx, bvy, bvz; private bool swinging, hit; private float swT, batYh, swingAt;
 	private readonly List<float[]> fl = new List<float[]>(); private float flT, flDur, landD, apex, loft, azim, vsp, hitFlash; private int flKind; private double rndSeed;
+	private float wallT = -1f, wallFx, wallPx, wallPy; private bool wallDone; private const float WallD = 100f, WallH = 3.2f;   // 홈런: 담장(100m)을 넘어가는 순간
 	private float fwT = -1f; private int fwSeed; private bool bfOn; private float bfX, bfY, bfVx, bfVy, bfRot, bfRv, bfT;
 	private string res = ""; private int resScore; private float resT; private string hint = "", timeMsg = ""; private float mouseH = 0.55f; private bool mouseSeen;
 	private readonly List<float[]> trail = new List<float[]>();
@@ -639,7 +642,7 @@ internal sealed class BatGame : MiniGame
 	public override string Desc { get { return "타이밍을 맞춰 시원하게!"; } }
 	public override string Help { get { return "마우스를 위아래로 움직이면 방망이 높이(점선)가 따라와요 → 공 높이(노란 십자)에 맞춰요\n공이 노란 '문'을 지나는 순간 클릭(스페이스)해서 휘둘러요 (초록 링이 줄어들다 공에 딱 닫히는 순간이 치는 때 · 늘 늦게 누르면 저절로 조금 앞당겨 줘요)\n마우스 커서가 곧 방망이 중심(빨간 띠)이에요 → 점선 원 안으로 공이 지나가면 맞아요 (공이 지나갈 자리는 노란 십자)\n빠르면 왼쪽(당겨 치기) · 늦으면 오른쪽(밀어 치기)\n커브·포크볼·슬라이더 같은 변화구도 와요 (공 위에 구질 이름이 떠요)\n너무 빠르거나 늦으면 파울 · 10구 승부 · 홈런은 100점"; } }
 	public override string RightText { get { return Math.Min(idx + 1, Pitches) + " / " + Pitches + "구"; } }
-	public override void Reset() { idx = 0; phase = 0; wait = 0.9; Score = 0; Over = false; res = ""; resT = 0; swinging = false; hit = false; bfOn = false; flKind = -1; hint = ""; fl.Clear(); trail.Clear(); fwT = -1f; }
+	public override void Reset() { idx = 0; phase = 0; wait = 0.9; Score = 0; Over = false; res = ""; resT = 0; swinging = false; hit = false; bfOn = false; flKind = -1; hint = ""; fl.Clear(); trail.Clear(); fwT = -1f; wallT = -1f; wallFx = 0f; wallDone = false; }
 	public override void Icon(Graphics g, float cx, float cy)
 	{
 		using (SolidBrush b = new SolidBrush(Color.White)) g.FillEllipse(b, cx - 15, cy - 15, 30, 30);
@@ -742,6 +745,7 @@ internal sealed class BatGame : MiniGame
 		else if (landD >= 45f) { res = "안타! 처리 완료"; resScore = 45; flKind = 1; }
 		else if (landD >= 25f) { res = "뜬공 아웃"; resScore = 0; flKind = 2; }
 		else { res = "빗맞았어요"; resScore = 0; flKind = 2; }
+		wallT = -1f; wallDone = false; wallFx = 0f; if (flKind == 0) for (int wi = 0; wi < fl.Count; wi++) if (fl[wi][1] * fl[wi][1] + fl[wi][3] * fl[wi][3] >= WallD * WallD) { wallT = fl[wi][0]; PointF wq = Proj(fl[wi][1], fl[wi][2], fl[wi][3]); wallPx = wq.X; wallPy = wq.Y; break; }
 		if (flKind != 3 && hint.Length == 0) hint = azim < -12 ? "당겨 쳤어요 (왼쪽)" : (azim > 12 ? "밀어 쳤어요 (오른쪽)" : "가운데로!");
 		{ float dtm = swingAt - (ptPlate - 0.5f * SwT - 0.015f); Calibrate(dtm); float ad = Math.Abs(dtm); if (ad < 0.022f) { timeMsg = "퍼펙트 타이밍!" + (resScore > 0 ? " +10" : ""); if (resScore > 0) Score += 10; Fx.Burst(W / 2f, 250f, Color.FromArgb(255, 226, 120), 8); } else { string ms = " (" + (dtm < 0 ? "-" : "+") + (int)Math.Round(ad * 1000f) + "ms)"; if (ad < 0.055f) timeMsg = (dtm < 0 ? "타이밍 약간 빠름" : "타이밍 약간 늦음") + ms; else timeMsg = (dtm < 0 ? "너무 빨라요" : "너무 늦어요") + ms; } } if (resScore >= 40) ringDone = true; Score += resScore; resT = 2.2f; Shake = resScore >= 100 ? 0.9f : (resScore > 0 ? 0.45f : 0.15f); { PointF hq = Proj(fl[0][1], fl[0][2], fl[0][3]); Fx.Burst(hq.X, hq.Y, resScore >= 100 ? Color.FromArgb(255, 214, 80) : (resScore > 0 ? Color.FromArgb(255, 244, 200) : Color.FromArgb(200, 210, 230)), resScore >= 100 ? 16 : (resScore > 0 ? 9 : 3)); if (resScore >= 100) Fx.Burst(W / 2f, 210f, Color.FromArgb(255, 120, 90), 18); } Sfx.Play(resScore >= 100 ? "homerun" : (resScore > 0 ? "thud" : "thud_soft"));
 	}
@@ -772,7 +776,7 @@ internal sealed class BatGame : MiniGame
 		}
 		else
 		{
-			if (flKind >= 0) flT += dt * 2.2f; if (swinging) swT += dt; if (bfOn) { bfT += dt; bfVy += 900f * dt; bfX += bfVx * dt; bfY += bfVy * dt; bfRot += bfRv * dt; float gy = Proj(BatterX(), 0, 0.05f).Y + 2f; if (bfY > gy && bfVy > 0f) { bfY = gy; bfVy = -bfVy * 0.28f; bfVx *= 0.5f; bfRv *= 0.5f; if (Math.Abs(bfVy) < 60f) { bfVy = 0f; bfRv = 0f; bfRot = 84f; } } }
+			if (flKind >= 0) flT += dt * 2.2f; if (wallT >= 0f && !wallDone && flT >= wallT) { wallDone = true; wallFx = 1f; Fx.Burst(wallPx, wallPy, Color.FromArgb(255, 226, 120), 14); Fx.Burst(wallPx, wallPy, Color.White, 8); Shake = Math.Max(Shake, 0.5f); } if (wallFx > 0f) wallFx -= dt * 0.8f; if (swinging) swT += dt; if (bfOn) { bfT += dt; bfVy += 900f * dt; bfX += bfVx * dt; bfY += bfVy * dt; bfRot += bfRv * dt; float gy = Proj(BatterX(), 0, 0.05f).Y + 2f; if (bfY > gy && bfVy > 0f) { bfY = gy; bfVy = -bfVy * 0.28f; bfVx *= 0.5f; bfRv *= 0.5f; if (Math.Abs(bfVy) < 60f) { bfVy = 0f; bfRv = 0f; bfRot = 84f; } } }
 			wait -= dt; if (wait <= 0) NextPitch();
 		}
 	}
@@ -967,8 +971,23 @@ internal sealed class BatGame : MiniGame
 			int n = fl.Count - 1; float tt = Math.Min(flT, flDur); int k = 0; while (k < n && fl[k + 1][0] < tt) k++;
 			float[] a = fl[k], b2 = fl[Math.Min(n, k + 1)]; float f = b2[0] > a[0] ? (tt - a[0]) / (b2[0] - a[0]) : 0f; float X = a[1] + (b2[1] - a[1]) * f, Y = a[2] + (b2[2] - a[2]) * f, Z = a[3] + (b2[3] - a[3]) * f;
 			using (Pen p = new Pen(Color.FromArgb(70, 255, 255, 255), 1.6f)) { PointF last = Proj(fl[0][1], fl[0][2], Math.Max(0.1f, fl[0][3])); for (int i = 1; i <= k; i += 2) { PointF cur = Proj(fl[i][1], fl[i][2], Math.Max(0.1f, fl[i][3])); g.DrawLine(p, last, cur); last = cur; } }
+			if (wallT >= 0f)
+			{   // 담장: 공이 넘어가는 자리에 낮은 벽이 나타나요 (넘는 순간 노랗게 번쩍)
+				float wa = Math.Min(1f, flT / 0.25f), wl = wallDone ? Math.Max(0f, wallFx) : 0f; List<PointF> top = new List<PointF>(), bot = new List<PointF>();
+				for (int wd = -52; wd <= 52; wd += 4) { double wr = wd * Math.PI / 180.0; float wx = WallD * (float)Math.Sin(wr), wz = WallD * (float)Math.Cos(wr); top.Add(Proj(wx, WallH, wz)); bot.Add(Proj(wx, 0f, wz)); }
+				PointF[] poly = new PointF[top.Count * 2]; for (int wi = 0; wi < top.Count; wi++) { poly[wi] = top[wi]; poly[poly.Length - 1 - wi] = bot[wi]; }
+				using (SolidBrush wb = new SolidBrush(Color.FromArgb((int)(210 * wa), 24, 70, 44))) g.FillPolygon(wb, poly);
+				using (Pen wp = new Pen(Color.FromArgb((int)(255 * wa), wl > 0f ? Color.FromArgb(255, 236, 130) : Color.FromArgb(235, 235, 120)), 1.6f + 2f * wl)) g.DrawLines(wp, top.ToArray());
+			}
 			PointF gs = Proj(X, 0, Math.Max(0.1f, Z)); using (SolidBrush b = new SolidBrush(Color.FromArgb(70, 0, 0, 0))) g.FillEllipse(b, gs.X - 5, gs.Y - 1.5f, 10, 3);
 			PointF cp = Proj(X, Y, Math.Max(0.1f, Z)); BallDraw(g, cp, Math.Max(2f, 0.14f * Scl(Math.Max(0.1f, Z))), flT * 900f);
+			if (wallFx > 0f && wallT >= 0f)
+			{   // 담장을 넘는 순간: 퍼지는 링과 글씨
+				float wu = 1f - wallFx; int wal = (int)(230 * Math.Min(1f, wallFx * 1.6f));
+				using (Pen rp = new Pen(Color.FromArgb(wal, 255, 232, 120), 3f)) g.DrawEllipse(rp, wallPx - (10f + 60f * wu), wallPy - (10f + 60f * wu), 2 * (10f + 60f * wu), 2 * (10f + 60f * wu));
+				using (Pen rp2 = new Pen(Color.FromArgb(wal / 2, 255, 255, 255), 2f)) g.DrawEllipse(rp2, wallPx - (6f + 36f * wu), wallPy - (6f + 36f * wu), 2 * (6f + 36f * wu), 2 * (6f + 36f * wu));
+				Txt(g, "담장 넘어갔다!", 20f, 2, Color.FromArgb(Math.Min(255, wal + 25), 255, 238, 120), 0, Math.Max(20f, wallPy - 70f - 24f * wu), W, 34, StringAlignment.Center);
+			}
 			if (hitFlash > 0) { PointF hp2 = Proj(fl[0][1], fl[0][2], fl[0][3]); DrawFx(g, "fx_hit", hp2.X, hp2.Y, 40f + 110f * (1.3f - hitFlash), hitFlash); using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(180 * hitFlash), 255, 244, 190))) g.FillEllipse(b, hp2.X - 22 * (1.3f - hitFlash), hp2.Y - 22 * (1.3f - hitFlash), 44 * (1.3f - hitFlash), 44 * (1.3f - hitFlash)); }
 			if (hitFlash > 0.15f) { PointF hq3 = Proj(fl[0][1], fl[0][2], fl[0][3]); float u3 = 1.3f - hitFlash; using (Pen sp3 = new Pen(Color.FromArgb((int)(220 * Math.Min(1f, hitFlash)), 255, 240, 170), 2.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) for (int ra = 0; ra < 10; ra++) { double an3 = ra * Math.PI / 5 + 0.3; float r1 = 14f + 30f * u3, r2 = r1 + (ra % 2 == 0 ? 20f : 11f); g.DrawLine(sp3, hq3.X + (float)Math.Cos(an3) * r1, hq3.Y + (float)Math.Sin(an3) * r1, hq3.X + (float)Math.Cos(an3) * r2, hq3.Y + (float)Math.Sin(an3) * r2); }
 				string ono = resScore >= 100 ? "쾅!!" : (resScore > 0 ? "딱!" : "툭"); Txt(g, ono, resScore >= 100 ? 26f : 20f, 2, Color.FromArgb((int)(255 * Math.Min(1f, hitFlash * 1.4f)), resScore > 0 ? Color.FromArgb(255, 238, 120) : Color.FromArgb(220, 220, 230)), hq3.X - 60, hq3.Y - 62 - 20f * u3, 120, 40, StringAlignment.Center); }
@@ -1409,7 +1428,7 @@ internal sealed class MaryongGame : Form
 		tb = new TextBox(); tb.BorderStyle = BorderStyle.FixedSingle; tb.Font = Fonts.Native(14f); tb.Visible = false;
 		tb.SetBounds(gx + (int)(20 * S), gy + (int)(516 * S), (int)(360 * S), (int)(34 * S)); Controls.Add(tb);
 		MouseMove += delegate(object o, MouseEventArgs e) { float nx = (e.X - gx) / S - POX, ny = (e.Y - gy) / S; if (Math.Abs(nx - inp.Mx) + Math.Abs(ny - inp.My) > 0.5f) inp.MouseMoved = true; inp.Mx = nx; inp.My = ny; };
-		MouseDown += delegate(object o, MouseEventArgs e) { if (state == 2 && g != null && g.WideCap && (e.X - gx) / S > CW - 46 && (e.Y - gy) / S > 70 && (e.Y - gy) / S < 100) { ToggleOrient(); return; } if ((e.X - gx) / S > CW - 46 && (e.Y - gy) / S > 34 && (e.Y - gy) / S < 66) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; } mouseHeld = true; dnX = (e.X - gx) / S; dnY = (e.Y - gy) / S; inp.Mx = dnX - POX; inp.My = dnY; OnTap((e.X - gx) / S - POX, (e.Y - gy) / S); };
+		MouseDown += delegate(object o, MouseEventArgs e) { if ((state == 2 || state == 1 || state == 3) && g != null && g.WideCap && (e.X - gx) / S > CW - 46 && (e.Y - gy) / S > 70 && (e.Y - gy) / S < 100) { ToggleOrient(); return; } if ((e.X - gx) / S > CW - 46 && (e.Y - gy) / S > 34 && (e.Y - gy) / S < 66) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; } mouseHeld = true; dnX = (e.X - gx) / S; dnY = (e.Y - gy) / S; inp.Mx = dnX - POX; inp.My = dnY; OnTap((e.X - gx) / S - POX, (e.Y - gy) / S); };
 		MouseUp += delegate(object o, MouseEventArgs e) { mouseHeld = false; if (state == 2 && g != null) { float ddx = (e.X - gx) / S - dnX, ddy = (e.Y - gy) / S - dnY; if (Math.Abs(ddx) + Math.Abs(ddy) > 24f) g.Swipe(ddx, ddy); } };
 		Deactivate += delegate { mouseHeld = false; if (state == 2 && finT <= 0f) paused = true; };
 		KeyDown += delegate(object o, KeyEventArgs e)
@@ -1418,7 +1437,7 @@ internal sealed class MaryongGame : Form
 			if (state == 4) { if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Escape) { e.Handled = true; e.SuppressKeyPress = true; Commit(); } return; }
 			bool fresh = down.Add(e.KeyCode); if (!(state == 2 && g.NeedsInput)) e.Handled = true;
 			if (state == 5) { if (e.KeyCode == Keys.Escape) GoMenu(); else if (e.KeyCode == Keys.Left) RankTurn(-1); else if (e.KeyCode == Keys.Right) RankTurn(1); return; }
-			if (e.KeyCode == Keys.Escape) { Close(); return; } if (e.KeyCode == Keys.R && state == 2 && g != null && g.WideCap && !g.NeedsInput) { ToggleOrient(); return; } if (e.KeyCode == Keys.M && !(state == 2 && g != null && g.NeedsInput)) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; }
+			if (e.KeyCode == Keys.Escape) { Close(); return; } if (e.KeyCode == Keys.R && (state == 2 || state == 1 || state == 3) && g != null && g.WideCap && !(state == 2 && g.NeedsInput)) { ToggleOrient(); return; } if (e.KeyCode == Keys.M && !(state == 2 && g != null && g.NeedsInput)) { Sfx.GameOn = !Sfx.GameOn; if (Sfx.GameOn) Sfx.Play("ok"); return; }
 			if (!fresh) return;
 			if (state == 2 && paused) { paused = false; if (tb.Visible) tb.Focus(); return; }
 			if (e.KeyCode == Keys.P && state == 2 && introT <= 0f && !g.NeedsInput) { paused = true; return; }
@@ -1509,9 +1528,12 @@ internal sealed class MaryongGame : Form
 		catch { }
 		finally { MiniGame.PS = 0; Sfx.GameOn = so; try { m.Fx.Clear(); m.Reset(); } catch { } }
 	}
-	private float POX { get { return (state == 2 && g != null) ? g.PlayOX : 0f; } }
-	private void ToggleOrient() { MiniGame.WantWide = !MiniGame.WantWide; MiniGame.SaveWide(); try { MiniGame.ClearTxt(); } catch { } StartGame(); }   // 가로/세로를 바꾸면 처음부터 다시 시작해요
-	private string lastGKey = ""; private void StartGame() { if (warmPend) { warmPend = false; try { Warm(g); } catch { } } try { if (lastGKey != g.Key) { if (lastGKey != "") { ImgCache.Clear(); MiniGame.ClearTxt(); } lastGKey = g.Key; } Sfx.Ctx = g.Key; } catch { } try { if (Rank.On) Rank.Fetch(g.Key, false); } catch { } qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
+	private float POX { get { return g == null ? 0f : (state == 2 ? g.PlayOX : ((state == 1 || state == 3 || state == 4) ? (g.LW - MiniGame.W) / 2f : 0f)); } }
+	private bool orientPend;
+	private void FlipOrient() { float o = g != null ? g.LW : 400f; MiniGame.WantWide = !MiniGame.WantWide; MiniGame.SaveWide(); try { MiniGame.ClearTxt(); } catch { } if (state == 2 && g != null) { try { g.OnOrient(g.LW / o); } catch { } } }
+	// 가로/세로 바꾸기: 하던 판을 이어갈 수 있는 게임은 바로 바뀌고, 아닌 게임은 이번 판이 끝난 뒤(다시 시작·메뉴)에 바뀌어요 (판이 처음부터 다시 시작되지 않게)
+	private void ToggleOrient() { if (g == null) return; if (state != 2) { orientPend = false; FlipOrient(); if (state == 1) { try { g.Reset(); } catch { } } } else if (g.LiveOrient) { orientPend = false; FlipOrient(); } else { orientPend = !orientPend; Sfx.Play("ui_open"); } }
+	private string lastGKey = ""; private void StartGame() { if (orientPend) { orientPend = false; FlipOrient(); } if (warmPend) { warmPend = false; try { Warm(g); } catch { } } try { if (lastGKey != g.Key) { if (lastGKey != "") { ImgCache.Clear(); MiniGame.ClearTxt(); } lastGKey = g.Key; } Sfx.Ctx = g.Key; } catch { } try { if (Rank.On) Rank.Fetch(g.Key, false); } catch { } qSum = 0; qN = 0; qBad = qGood = 0; bool again = state == 3; g.Fx.Clear(); g.Reset(); g.PlayT = 0f; state = 2; paused = false; stopT = 0f; dispScore = 0f; floats.Clear(); inp.MouseMoved = false; introT = again ? 1.9f : 2.6f; introNum = -1; finT = 0; lastScore = 0; hudBump = 0; g.Shake = 0; down.Clear(); mouseHeld = false; }
 
 	private void OnTap(float x, float y)
 	{
@@ -1559,7 +1581,7 @@ internal sealed class MaryongGame : Form
 	// 오른쪽 위 스피커 버튼 (눌러서 소리 켜기/끄기 · M 키)
 	private void DrawRotate(Graphics gr)
 	{
-		if (state != 2 || g == null || !g.WideCap) return; bool w = CW > MiniGame.W; float x = CW - 34, y = 74;
+		if (!(state == 2 || state == 1 || state == 3) || g == null || !g.WideCap) return; bool w = CW > MiniGame.W; if (orientPend) { string pn = MiniGame.WantWide ? "다음 판부터 세로" : "다음 판부터 가로"; MiniGame.Hint(gr, pn, 600 - 40, 10f, true, 1f); } float x = CW - 34, y = 74;
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(x - 8, y - 5, 30, 26), 8)) using (SolidBrush b = new SolidBrush(Color.FromArgb(60, 255, 255, 255))) gr.FillPath(b, gp);
 		using (Pen p = new Pen(Color.FromArgb(235, 255, 255, 255), 1.8f)) { if (w) gr.DrawRectangle(p, x - 1, y + 2, 20, 12); else gr.DrawRectangle(p, x + 4, y - 2, 12, 20); }
 	}
@@ -1670,7 +1692,7 @@ internal sealed class MaryongGame : Form
 	// ── 창 크기 · 가로 모드 ──
 	// 창을 늘리고 줄이면 게임 화면이 비율 그대로 맞춰져요. 창이 가로로 넓으면 게임은 왼쪽에, 오른쪽엔 설명·기록 패널이 나와요 (F2 = 세로/가로 전환)
 	private int gx, gy; private bool wide; private Bitmap sideBmp; private string sideSig = "";
-	private int CW { get { return (state == 2 && g != null) ? g.LW : MiniGame.W; } }   // 지금 화면의 가로 칸 수
+	private int CW { get { return ((state >= 1 && state <= 4) && g != null) ? g.LW : MiniGame.W; } }   // 지금 화면의 가로 칸 수
 	private int lastCW = MiniGame.W; private bool autoWide;
 	private int GW { get { return (int)Math.Round(CW * S); } }
 	private int GH { get { return (int)Math.Round(MiniGame.H * S); } }
@@ -1908,7 +1930,8 @@ internal sealed class MaryongGame : Form
 		}
 		if (state == 1 || state == 3 || state == 4)
 		{
-			using (SolidBrush b = new SolidBrush(Color.FromArgb(180, 8, 10, 30))) gr.FillRectangle(b, 0, 0, MiniGame.W, MiniGame.H);
+			using (SolidBrush b = new SolidBrush(Color.FromArgb(180, 8, 10, 30))) gr.FillRectangle(b, 0, 0, CW, MiniGame.H);
+			GraphicsState gOx = gr.Save(); gr.TranslateTransform((CW - MiniGame.W) / 2f, 0f);   // 가로 화면에서는 안내·결과 카드를 가운데에 둬요
 			if (state != lastDrawState) { lastDrawState = state; stSince = tt; }
 			float ka = (float)Math.Min(1.0, Math.Max(0.0, (tt - stSince) / 0.45)); ka = 1f - (1f - ka) * (1f - ka) * (1f - ka);
 			GraphicsState gAnim = null;   // 결과·랭킹 카드는 흔들림 없이 바로 나와요
@@ -1980,6 +2003,7 @@ internal sealed class MaryongGame : Form
 				Btn(gr, ListBtn, gated ? "다음 게임" : "게임 메뉴", false); Btn(gr, AgainBtn, "다시 하기", true);
 			}
 			if (gAnim != null) gr.Restore(gAnim);
+			gr.Restore(gOx);
 		}
 	}
 	// 폼 안에 텍스트 상자가 있어 방향키를 창이 먼저 가져가 버려요(포커스 이동용) → 여기서 직접 받아서 게임에 넘겨요

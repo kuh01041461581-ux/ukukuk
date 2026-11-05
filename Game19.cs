@@ -16,6 +16,8 @@ internal sealed class VolleyGame : MiniGame
 	public override void Icon(Graphics g, float cx, float cy) { if (!Spr.Draw(g, "ms_pet_toy_ball", cx, cy, 30f, 30f, 0f)) using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 170, 245))) g.FillEllipse(b, cx - 14, cy - 14, 28, 28); }
 
 	private float NX { get { return LW * 0.5f; } }
+	public override bool LiveOrient { get { return true; } }
+	public override void OnOrient(float k) { me.X *= k; cpu.X *= k; bx *= k; aiTx *= k; lastMx *= k; }
 	private const float GY = 490f, NTOP = 382f, NW = 5f, BR = 17f, SC = 0.78f, PR = 34f;
 	private class Pl { public float X, Y, Vx, Vy, Spike, Dive, DiveDir, HitCd, Anim, Rec, KH, KV; public int Pts, Face; public bool Air { get { return Y < GY - 0.5f; } } }
 	private readonly Pl me = new Pl(), cpu = new Pl();

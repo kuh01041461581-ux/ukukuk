@@ -441,7 +441,7 @@ main{max-width:none;padding:0 0 32px;}
     <h2>여비 계산 결과</h2>
     <div class="sub">아래 계산 규칙에 따라 자동 산출됩니다. 금액이 다른 특별한 사정이 있으면 표에서 직접 수정할 수 있습니다(수정 시 금액이 <span style="color:var(--accent);font-weight:700;">파란색</span>으로 표시됩니다).</div>
     <div class="hint">
-      <b>적용 규칙</b> — 일비: 4시간 이상 출장 시 최대 25,000원 (공무용차량 사용 시 절반인 12,500원), 4시간 미만은 미지급 · 식비: 출장 시 기본 1끼(9,000원) 제공, 점심시간(11:00~13:00)이 포함되면 2끼(18,000원), 09:00~18:00 범위를 벗어나거나 왕복 100km 이상 원거리 출장이면 3끼(25,000원) · 교통비: 기차는 승차권 첨부 시 요금 지급, 자차는 거리(km)×운임단가(유가÷유종별 연비) + 통행료(영수증 첨부 시) · 숙박비: 1박 기준 서울 100,000원, 광역시 80,000원, 그 밖의 지역 70,000원 한도 내에서 영수증 금액 지급
+      <b>적용 규칙</b> — <b>2일 이상 출장</b>: 출장일수(시작일~종료일, 2박3일=3일)만큼 하루 최대 기준으로 계산 — 일비 25,000원×일수(관용차 12,500원×일수), 식비 25,000원(3끼)×일수 · 당일 출장: 일비: 4시간 이상 출장 시 최대 25,000원 (공무용차량 사용 시 절반인 12,500원), 4시간 미만은 미지급 · 식비: 출장 시 기본 1끼(9,000원) 제공, 점심시간(11:00~13:00)이 포함되면 2끼(18,000원), 09:00~18:00 범위를 벗어나거나 왕복 100km 이상 원거리 출장이면 3끼(25,000원) · 교통비: 기차는 승차권 첨부 시 요금 지급, 자차는 거리(km)×운임단가(유가÷유종별 연비) + 통행료(영수증 첨부 시) · 숙박비: 1박 기준 서울 100,000원, 광역시 80,000원, 그 밖의 지역 70,000원 한도 내에서 영수증 금액 지급
     </div>
     <div class="summary-strip">
       <div class="summary-box"><div class="label">출장 건수</div><div class="val" id="sumCount">0건</div></div>
@@ -1020,7 +1020,8 @@ const HEADER_FIELD_SYNONYMS = {
   gubun:    ['구분','근무구분'],
   carUsed:  ['공무용차량','관용차량','차량사용유무'],
   purpose:  ['출장목적','목적','용무'],
-  period:   ['출장기간','출장일정','출장일시','일시','기간'],
+  period:   ['출장기간','출장일정','출장일시','일시','기간','출장일자','출장날짜','출장일','기간(일시)','출장기간(일시)','출장일정(기간)','일자','날짜'],
+  days:     ['출장일수','일수','기간(일)','총일수'],
   startDT:  ['출장시작일시','시작일시','출장시작','출발일시','출장시작일자','출장시작일','시작일자','시작일','출발일자','출발일'],
   endDT:    ['출장종료일시','종료일시','출장종료','복귀일시','출장종료일자','출장종료일','종료일자','종료일','복귀일자','복귀일'],
   startTime:['출장시작시간','시작시간','출발시간','시작시각','출장시작시각'],
@@ -1069,28 +1070,51 @@ function excelSerialToParts(v){
   return {date, time};
 }
 function tokenizeDT(str){
-  const s = String(str==null?'':str).replace(/_x000D_/g,'\n').replace(/\u00a0/g,' ');
-  const re = /(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})\s*일?|(\d{1,2})\s*월\s*(\d{1,2})\s*일|(오전|오후)?\s*(\d{1,2})\s*:\s*(\d{2})|(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?/g;
+  const s = String(str==null?'':str).replace(/_x000D_/g,'\n').replace(/ /g,' ');
+  /* 날짜 표기 전부: 2026-09-10 · 2026.9.10. · 2026년 9월 10일 · 26.09.10 · 9월 10일 · 9/10 · 9.10. · 09.12.(금)
+     (연도 없는 '9/10', '9.10.' 형식은 '~' 로 이은 기간이거나 같은 글에 연도 있는 날짜가 있을 때만 날짜로 인정) */
+  const re = /(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})\s*일?|(?<![\d.])(\d{2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})(?![\d:])|(\d{1,2})\s*월\s*(\d{1,2})\s*일|(오전|오후)?\s*(\d{1,2})\s*:\s*(\d{2})|(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?|(?<![\d.:])(\d{1,2})\s*[./]\s*(\d{1,2})\s*\.?(?![\d:.]*\d)(?!\s*[:시월])/g;
   const toks=[]; let m;
+  const hasRangeMark = /[~∼～]|부터|에서\s*\d|\s-\s/.test(s);
   while((m=re.exec(s))){
     if(m[1]) toks.push({t:'d', v:m[1]+'-'+_p2(m[2])+'-'+_p2(m[3])});
-    else if(m[4]) toks.push({t:'d', md:[m[4],m[5]]});
-    else if(m[8]!=null){ const v=_to24(m[6],m[7],m[8]); if(v) toks.push({t:'t', v}); }
-    else { const v=_to24(m[9],m[10],m[11]||'0'); if(v) toks.push({t:'t', v}); }
+    else if(m[4]){ const mo=+m[5], da=+m[6]; if(mo>=1&&mo<=12&&da>=1&&da<=31) toks.push({t:'d', v:'20'+m[4]+'-'+_p2(mo)+'-'+_p2(da)}); }
+    else if(m[7]) toks.push({t:'d', md:[m[7],m[8]]});
+    else if(m[11]!=null){ const v=_to24(m[9],m[10],m[11]); if(v) toks.push({t:'t', v}); }
+    else if(m[13]!=null){ const v=_to24(m[12],m[13],m[14]||'0'); if(v) toks.push({t:'t', v}); }
+    else if(m[15]){ const mo=+m[15], da=+m[16]; if(mo>=1&&mo<=12&&da>=1&&da<=31) toks.push({t:'d', md:[m[15],m[16]], loose:true}); }
   }
   const full = toks.find(x=>x.t==='d' && x.v);
-  const yr = full ? full.v.slice(0,4) : String(new Date().getFullYear());
-  toks.forEach(k=>{ if(k.md) k.v = yr+'-'+_p2(k.md[0])+'-'+_p2(k.md[1]); });
-  return toks;
+  // 연도 없는 '9/10' 류는 근거(연도 있는 날짜 or '~' 기간표시 + 2개 이상)가 있을 때만 인정
+  const looseCnt = toks.filter(x=>x.loose).length;
+  const keepLoose = !!full || (hasRangeMark && looseCnt>=2) || (hasRangeMark && toks.some(x=>x.t==='d'&&x.md&&!x.loose));
+  const kept = toks.filter(x=>!(x.loose && !keepLoose));
+  const yr = full ? +full.v.slice(0,4) : new Date().getFullYear();
+  let curY = yr, prev = '';
+  kept.forEach(k=>{
+    if(k.md){
+      let v = curY+'-'+_p2(k.md[0])+'-'+_p2(k.md[1]);
+      if(prev && v < prev){ curY++; v = curY+'-'+_p2(k.md[0])+'-'+_p2(k.md[1]); }   // 12월 → 1월 해넘김
+      k.v = v;
+    }
+    if(k.t==='d') prev = k.v;
+  });
+  return kept;
 }
-/* 문자열 안에서 "시작일 시작시간 ~ 종료일 종료시간"을 찾습니다. 종료일이 없으면 시작일과 같은 날로 봅니다. */
+/* 문자열 안에서 "시작일 시작시간 ~ 종료일 종료시간"을 찾습니다.
+   - 종료일이 없으면 시작일과 같은 날, 날짜가 3개 이상이면(9/10, 9/11, 9/12) 처음~마지막
+   - 시간이 없으면(날짜만 있는 출장기간) 시작 09:00 · 종료 18:00 으로 두고 timeGuessed=true 로 알린다 */
 function extractDateTimeRange(str){
   const toks = tokenizeDT(str);
   const dates = toks.filter(x=>x.t==='d').map(x=>x.v);
   const times = toks.filter(x=>x.t==='t').map(x=>x.v);
-  const sd = dates[0]||'', st = times[0]||'';
-  const ed = dates[1] || dates[0] || '', et = times[1]||'';
-  return {sd, st, ed, et, start:(sd&&st)?sd+'T'+st:'', end:(ed&&et)?ed+'T'+et:''};
+  const sd = dates[0]||'';
+  const ed = (dates.length>=2 ? dates[dates.length-1] : dates[0]) || '';
+  let st = times[0]||'', et = times[1]||'', timeGuessed = false;
+  if(sd && !st){ st = '09:00'; timeGuessed = true; }
+  if(ed && !et){ et = '18:00'; timeGuessed = true; }
+  // 같은 날인데 시간이 하나뿐이면 종료시간은 모름
+  return {sd, st, ed, et, start:(sd&&st)?sd+'T'+st:'', end:(ed&&et)?ed+'T'+et:'', timeGuessed};
 }
 function isPureTimeCell(v){
   if(typeof v==='number') return v>0 && v<1;
@@ -1108,8 +1132,9 @@ function cellParts(v){
   const s = String(v).trim();
   if(/^\d{8}$/.test(s)) return {date:s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8), time:''};
   if(/^\d+(\.\d+)?$/.test(s)) return excelSerialToParts(parseFloat(s));
-  const r = extractDateTimeRange(s);
-  return {date: r.sd, time: r.st};
+  const tk = tokenizeDT(s);
+  const d0 = tk.find(x=>x.t==='d'), t0 = tk.find(x=>x.t==='t');
+  return {date: d0?d0.v:'', time: t0?t0.v:''};
 }
 function parseDateTimeCell(v){
   const p = cellParts(v);
@@ -1117,7 +1142,7 @@ function parseDateTimeCell(v){
 }
 function parsePeriodCell(v){
   const r = extractDateTimeRange(String(v==null?'':v));
-  return {start:r.start, end:r.end};
+  return {start:r.start, end:r.end, timeGuessed:r.timeGuessed};
 }
 function parseGenericTripRows(rows){
   const out=[];
@@ -1165,11 +1190,12 @@ function parseGenericTripRows(rows){
       if(cu.includes('미사용')){ transport='기타'; needsTransportCheck=true; }
       else if(cu.includes('사용')){ transport='공무용차량'; needsTransportCheck=false; }
     }
-    const notes = needsTransportCheck ? '⚠ 이동수단 확인 필요(원본에는 관용차 미사용 여부만 있음 — 자차/기차/대중교통 중 실제 수단을 선택해주세요)' : '';
+    let notes = needsTransportCheck ? '⚠ 이동수단 확인 필요(원본에는 관용차 미사용 여부만 있음 — 자차/기차/대중교통 중 실제 수단을 선택해주세요)' : '';
 
     // 출장 일시: "출장시작일시/종료일시"(날짜+시간이 한 칸이거나, 날짜 칸 + 시간 칸으로 나뉜 경우),
     // "출장기간"(합쳐진 칸), 엑셀 날짜 일련번호까지 모두 지원. 못 읽으면 행 전체 텍스트에서 마지막으로 탐색.
-    const dtFrom = (ci, timeCi)=>{
+    let timeGuessed = false;
+    const dtFrom = (ci, timeCi, defTime)=>{
       if(ci==null && timeCi==null) return '';
       const p = ci!=null ? cellParts(row[ci]) : {date:'', time:''};
       if(!p.time){
@@ -1178,20 +1204,45 @@ function parseGenericTripRows(rows){
           if(row[k]!=null && isPureTimeCell(row[k])){ const q = cellParts(row[k]); if(q.time){ p.time = q.time; break; } }
         }
       }
+      if(p.date && !p.time){ p.time = defTime; timeGuessed = true; }   // 날짜만 있는 출장일 → 기본 시간
       return (p.date && p.time) ? p.date+'T'+p.time : '';
     };
-    let start = dtFrom(colMap.startDT, colMap.startTime);
-    let end   = dtFrom(colMap.endDT, colMap.endTime);
+    let start = dtFrom(colMap.startDT, colMap.startTime, '09:00');
+    let end   = dtFrom(colMap.endDT, colMap.endTime, '18:00');
     if((!start || !end) && colMap.period!=null){
-      const pr = parsePeriodCell(get('period'));
+      const pcell = get('period');
+      const pr = (pcell instanceof Date || typeof pcell==='number') ? (()=>{ const q=cellParts(pcell); return {start:q.date?q.date+'T'+(q.time||'09:00'):'', end:q.date?q.date+'T'+(q.time||'18:00'):'', timeGuessed:!q.time}; })() : parsePeriodCell(pcell);
       if(!start) start = pr.start;
       if(!end) end = pr.end;
+      if(pr.timeGuessed) timeGuessed = true;
     }
     if(!start || !end){
       const rr = extractDateTimeRange(row.filter(c=>typeof c==='string').join(' '));
       if(!start) start = rr.start;
       if(!end) end = rr.end;
+      if(rr.timeGuessed) timeGuessed = true;
     }
+    // "2박3일" · "3일간" · '출장일수' 열이 있으면 종료일을 시작일 + (일수-1)로 맞춘다
+    {
+      let nDays = 0;
+      if(colMap.days!=null){ const v = parseInt(String(get('days')||'').replace(/[^0-9]/g,''),10); if(v>=1 && v<=60) nDays = v; }
+      if(!nDays){
+        const txt = row.map(c=>String(c==null?'':c)).join(' ');
+        const m1 = txt.match(/(\d+)\s*박\s*(\d+)\s*일/), m2 = txt.match(/(\d+)\s*일\s*간/);
+        if(m1) nDays = parseInt(m1[2],10); else if(m2) nDays = parseInt(m2[1],10);
+        if(nDays>60) nDays = 0;
+      }
+      if(start && nDays>=2){
+        const sd = new Date(start.slice(0,10)+'T00:00');
+        const curDays = end ? Math.round((new Date(end.slice(0,10)+'T00:00')-sd)/86400000)+1 : 1;
+        if(!end || curDays<nDays){
+          const ed = new Date(sd.getTime()+(nDays-1)*86400000);
+          end = ed.getFullYear()+'-'+_p2(ed.getMonth()+1)+'-'+_p2(ed.getDate())+'T'+((end&&end.slice(11))||'18:00');
+        }
+      }
+    }
+    if(start && !end){ end = start.slice(0,10)+'T18:00'; timeGuessed = true; }   // 종료가 없으면 당일 18:00
+    if(timeGuessed && !/시간 확인/.test(notes||'')) notes = (notes?notes+' / ':'')+'⏱ 원본에 시간이 없어 09:00~18:00 로 넣었습니다(실제 시간 확인)';
 
     // 페이지 바닥글("익산시 00000과" 등)처럼 성명 칸만 채워지고 나머지 정보가
     // 전부 빈 행은 실제 출장자 데이터가 아니므로 제외
@@ -1393,9 +1444,24 @@ function minutesOf(dtStr){
   const d = new Date(dtStr);
   return {date:d, min: d.getHours()*60+d.getMinutes()};
 }
+/* ===== 2일 이상 출장 =====
+   출장일수 = 시작일~종료일의 달력상 일수(당일=1, 1박2일=2, 2박3일=3).
+   2일 이상이면 하루도 빠짐없이 "1일 최대 기준"으로 계산한다:
+     일비 = 25,000원 × 일수 (관용차 12,500원 × 일수)
+     식비 = 25,000원(3끼) × 일수  → 끼니 수는 3 × 일수 */
+function tripDays(t){
+  if(!t || !t.start || !t.end) return 1;
+  const a = new Date(String(t.start).slice(0,10)+'T00:00'), b = new Date(String(t.end).slice(0,10)+'T00:00');
+  if(isNaN(a) || isNaN(b)) return 1;
+  const d = Math.round((b-a)/86400000)+1;
+  return d>=1 ? d : 1;
+}
+function isMultiDay(t){ return tripDays(t)>=2; }
+function maxMealCount(t){ return 3*tripDays(t); }
 function calcMealCount(t){
-  if(t.mealOverride!=null) return Math.max(0, Math.min(3, parseInt(t.mealOverride)||0));
+  if(t.mealOverride!=null) return Math.max(0, Math.min(maxMealCount(t), parseInt(t.mealOverride)||0));
   if(!t.start || !t.end) return 0;
+  if(isMultiDay(t)) return maxMealCount(t);   // 2일 이상: 하루 3끼(25,000원) × 일수
   const s = minutesOf(t.start), e = minutesOf(t.end);
   const sameDay = (new Date(t.start)).toDateString() === (new Date(t.end)).toDateString();
   const sMin = s.min, eMin = sameDay ? e.min : 24*60; // 익일까지 이어지면 당일은 자정까지로 취급(단순화)
@@ -1413,15 +1479,19 @@ function tripDurationHours(t){
 }
 function calcDaily(t){
   if(t.dailyOverride!=null) return t.dailyOverride;
-  if(tripDurationHours(t) < 4) return 0; // 4시간 미만 출장은 일비 미지급
+  const days = tripDays(t);
+  if(days<2 && tripDurationHours(t) < 4) return 0; // 당일 4시간 미만 출장은 일비 미지급(2일 이상은 해당 없음)
   // 일비는 오직 "가는 편(t.transport)"의 관용차 사용 여부로만 판단한다.
   // 오는 편(returnTransport)을 관용차로 선택해도 일비에는 영향을 주지 않는다.
   const usedGovCar = t.transport==='공무용차량';
-  return usedGovCar ? 12500 : 25000;
+  return (usedGovCar ? 12500 : 25000) * days;   // 2일 이상이면 일수만큼
 }
 // 식비 단가표: 1끼 9,000원 / 2끼 18,000원 / 3끼 25,000원(1일 한도)
 const MEAL_FEE_TABLE = {0:0, 1:9000, 2:18000, 3:25000};
-function mealFeeOfCount(n){ n = Math.max(0, Math.min(3, parseInt(n)||0)); return MEAL_FEE_TABLE[n]; }
+function mealFeeOfCount(n){
+  n = Math.max(0, parseInt(n)||0);
+  return Math.floor(n/3)*MEAL_FEE_TABLE[3] + MEAL_FEE_TABLE[n%3];   // 3끼 묶음마다 25,000원 + 남은 끼니
+}
 function calcMealFee(t){
   if(t.mealFeeOverride!=null) return t.mealFeeOverride;   // 금액을 직접 수정한 경우
   return mealFeeOfCount(calcMealCount(t));                  // 끼니 수 → 금액 자동
@@ -2048,8 +2118,12 @@ function applyDistanceToSelected(){
 /* ============================================================
    일괄 적용 (시간 · 금액) + 일시 미확인 표시
 ============================================================ */
+function multiDayBadge(t){
+  const d = tripDays(t);
+  return d>=2 ? ' <span class="pill" style="background:var(--accent-light);color:var(--accent-text);font-weight:600;">2일 이상 · '+d+'일</span>' : '';
+}
 function timeCellHtml(t){
-  if(t.start && t.end) return fmtRange(t);
+  if(t.start && t.end) return fmtRange(t) + multiDayBadge(t);
   const warn = '<span class="pill" style="background:var(--danger-light);color:var(--danger);">일시 확인필요</span>';
   return warn + (t.start ? '<br>'+fmtRange(t) : '');
 }
@@ -2157,7 +2231,7 @@ function applyBulkAmount(p){
   if(raw===''){ alert('적용할 값을 입력해주세요.'); return; }
   const num = parseFloat(raw);
   if(isNaN(num) || num<0){ alert('0 이상의 숫자를 입력해주세요.'); return; }
-  if(field==='mealCnt' && (num<0 || num>3 || !Number.isInteger(num))){ alert('끼니 수는 0~3 사이 정수로 입력해주세요.'); return; }
+  if(field==='mealCnt' && (num<0 || num>9 || !Number.isInteger(num))){ alert('끼니 수는 0~9 사이 정수로 입력해주세요(하루 최대 3끼).'); return; }
   const labels = {daily:'일비', mealFee:'식비(금액)', mealCnt:'식비(끼니 수)', trans:'교통비', lodge:'숙박비'};
   targets.forEach(t=>{
     if(field==='daily') t.dailyOverride = num;
@@ -2202,7 +2276,7 @@ function renderCalcTable(){
       <td>${t.name}</td>
       <td style="font-size:11px;">${findAccount(t.name)||'<span style=\"color:var(--danger)\">미등록</span>'}</td>
       <td style="font-size:11px;">${timeCellHtml(t)}</td>
-      <td><select style="width:64px;${mealStyle}" onchange="overrideMeal('${t.id}',this.value)">${[1,2,3].map(n=>`<option value="${n}"${calcMealCount(t)===n?' selected':''}>${n}끼</option>`).join('')}</select></td>
+      <td><select style="width:64px;${mealStyle}" onchange="overrideMeal('${t.id}',this.value)">${Array.from({length:maxMealCount(t)},(_,i)=>i+1).map(n=>`<option value="${n}"${calcMealCount(t)===n?' selected':''}>${n}끼</option>`).join('')}</select></td>
       <td><input type="number" class="amt-input" style="${dailyStyle}" value="${daily}" onchange="overrideDaily('${t.id}',this.value)"></td>
       <td><input type="number" class="amt-input" style="${mealFeeStyle}" value="${meal}" onchange="overrideMealFee('${t.id}',this.value)"></td>
       <td><input type="number" class="amt-input" style="${transStyle}" value="${Math.round(trans)}" onchange="overrideTrans('${t.id}',this.value)"></td>
@@ -2231,7 +2305,7 @@ function refreshCalcAndDocViews(){
 function overrideMeal(id,val){
   const t = tripDB.find(x=>x.id===id);
   if(val==='' || val==null){ t.mealOverride = null; t.mealFeeOverride = null; }
-  else { t.mealOverride = Math.max(0, Math.min(3, parseInt(val)||0)); t.mealFeeOverride = null; }
+  else { t.mealOverride = Math.max(0, Math.min(maxMealCount(t), parseInt(val)||0)); t.mealFeeOverride = null; }
   saveTrips(); refreshCalcAndDocViews();
 }
 // 식비 금액을 직접 입력(끼니 수와 별개로 금액만 덮어씀). 빈 값이면 끼니 수 기준 금액으로 복귀.
@@ -2510,7 +2584,7 @@ function buildReceiptDoc(t){
     `<tr style="height:4.62%">${td('철  도  임',2,1)}${td('등실비',2,1)}${td(' 회',3,1)}${td(trainFareShown ? `${p.trainFare.toLocaleString()}원` : '         원',4,1)}${td('등실비',2,1)}${td('',3,1)}${td('  ',2,1)}</tr>`,
     `<tr style="height:4.62%">${td('선      임',2,1)}${td('등실비',2,1)}${td('',3,1)}${td('         원',4,1)}${td('등실비',2,1)}${td('',3,1)}${td('  ',2,1)}</tr>`,
     `<tr style="height:4.62%">${td('차  마  임',2,1)}${td(isCar && p.distance>0 ? `${kmTxt(p.distance)}㎞` : '㎞',2,1)}${td('㎞ 당',3,1)}${td(trainFareShown ? '         원' : `<input type="number" style="width:${String(Math.round(p.transportFee)).length+3}ch;max-width:80%;display:inline-block;" value="${Math.round(p.transportFee)}" onchange="overrideTrans('${id}',this.value)"><wbr>원`,4,1)}${td('',2,1)}${td('',3,1)}${td('',2,1)}</tr>`,
-    `<tr style="height:4.62%">${td('식      비',2,1)}${td(`<select style="display:inline-block;width:auto;" onchange="overrideMeal('${id}',this.value)">${[1,2,3].map(n=>`<option value="${n}"${p.mealCount===n?' selected':''}>${n}식</option>`).join('')}</select>`,2,1)}${td('1식당\n9,000원',3,1)}${td(`<input type="number" style="width:60%;display:inline-block;" value="${p.mealFee}" onchange="overrideMealFee('${id}',this.value)">원`,4,1)}${td('',2,1)}${td('1일당   ',3,1)}${td('25,000원 \n한도',2,1)}</tr>`,
+    `<tr style="height:4.62%">${td('식      비',2,1)}${td(`<select style="display:inline-block;width:auto;" onchange="overrideMeal('${id}',this.value)">${Array.from({length:Math.max(3,p.mealCount)},(_,i)=>i+1).map(n=>`<option value="${n}"${p.mealCount===n?' selected':''}>${n}식</option>`).join('')}</select>`,2,1)}${td('1식당\n9,000원',3,1)}${td(`<input type="number" style="width:60%;display:inline-block;" value="${p.mealFee}" onchange="overrideMealFee('${id}',this.value)">원`,4,1)}${td('',2,1)}${td('1일당   ',3,1)}${td('25,000원 \n한도',2,1)}</tr>`,
     `<tr style="height:4.62%">${td('숙  박  료',2,1)}${td(nightsCell,2,1)}${td(p.nights>0 ? `1야당\n${Math.round(p.lodgeFee/p.nights).toLocaleString()}원` : '1야당\n원',3,1)}${td(p.nights>0 ? `<input type="number" style="width:60%;display:inline-block;" value="${Math.round(p.lodgeFee)}" onchange="overrideLodge('${id}',this.value)">원` : '       원',4,1)}${td('야',2,1)}${td('1야당   ',3,1)}${td('  ',2,1)}</tr>`,
     `<tr style="height:4.62%">${td('일      비',2,1)}${td('1일',2,1)}${td(`1일당\n${p.dailyFee.toLocaleString()}원`,3,1)}${td(`<input type="number" style="width:60%;display:inline-block;" value="${p.dailyFee}" onchange="overrideDaily('${id}',this.value)">원`,4,1)}${td('',2,1)}${td('1일당 ',3,1)}${td('',2,1)}</tr>`,
     `<tr style="height:4.62%">${td('이  전  료',2,1)}${td('  ',2,1)}${td('부임수당',3,1)}${td('  ',4,1)}${td('',2,1)}${td('가족이전표',3,1)}${td('  ',2,1)}</tr>`,

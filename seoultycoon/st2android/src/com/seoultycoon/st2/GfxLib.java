@@ -161,6 +161,10 @@ final class GfxLib {
         if (src.w == 48 && src.h == 34) {                                                                // 팝업 마름모 버튼: 선택=빨강, 그 외=파랑
             int row0 = (cy - y) < 9 ? 0 : 14; Surf cell = new Surf(48, 14, false); System.arraycopy(src.px, row0 * 48, cell.px, 0, 48 * 14);
             boolean hc = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, cy); dst.hasClip = hc; curBarX = x; curBarY = cy; recordBar(H, x, cy, row0 == 0); return true; }
+        if (src.w == 25 && src.h == 21) {                                                                // 하단 키 안내: 줄 3개(*:INFO, #:MAP, 0:EXIT) 가 [0,7)[7,15)[15,21) — 게임은 10행 간격을 가정
+            int k = Math.max(0, Math.min(2, Math.round((float) (cy - y) / 10f))); int[] b = {0, 7, 15, 21}; int h = b[k + 1] - b[k];
+            Surf cell = new Surf(25, h, false); System.arraycopy(src.px, b[k] * 25, cell.px, 0, 25 * h);
+            boolean hc3 = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, cy + (10 - h) / 2); dst.hasClip = hc3; return true; }
         if (src.w == 10 && src.h == 36) {                                                                // 아이콘 4개(그래프/얼굴/폭죽/서류)가 세로로 이어진 시트
             int k = Math.round((float) (cy - y) / 12f); if (k < 0 || k > 3) return true;
             int[] b = {0, 7, 17, 27, 36}; int h = b[k + 1] - b[k]; Surf cell = new Surf(10, h, false); System.arraycopy(src.px, b[k] * 10, cell.px, 0, 10 * h);

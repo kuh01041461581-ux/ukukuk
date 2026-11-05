@@ -136,16 +136,17 @@
     "level": 6
   },
   "station_dev": {
-    "name": "익산역 역세권 개발",
+    "name": "익산역 개축·역세권 개발",
     "cost": 22,
     "zones": [
       "old"
     ],
     "landmark": "station",
+    "upgradeFrom": "station_old",
     "pop": 0.8,
     "tax": 2.4,
     "upkeep": 0.9,
-    "support": 2,
+    "support": 3,
     "level": 6
   },
   "food_cluster": {
@@ -160,5 +161,19 @@
     "upkeep": 1.0,
     "support": 2,
     "level": 7
+  },
+  "station_old": {
+    "name": "익산역(기존 역사)",
+    "cost": 0,
+    "zones": [
+      "old"
+    ],
+    "landmark": "station",
+    "hidden": true,
+    "pop": 0,
+    "tax": 0.9,
+    "upkeep": 0.4,
+    "support": 0,
+    "level": 0
   }
 }

@@ -3,7 +3,7 @@ import { mulberry32 } from './engine.js';
 export const MAP_W = 38, MAP_H = 28;
 // 권역 사각형 [x0,y0,x1,y1] (타일 좌표)
 // 방위(검색 확인): 금마·여산 북동, 왕궁 동·남동(완주 접경), 삼기·낭산 북, 함열 북서, 황등·함라 서(군산 접경), 도심 중앙, 만경강 남쪽(김제)
-export const ZONE_RECT = { baekje: [26, 2, 37, 9], ind: [8, 2, 23, 9], old: [14, 11, 25, 19], new: [26, 12, 37, 20], farm: [4, 22, 31, 27] };
+export const ZONE_RECT = { baekje: [26, 1, 37, 8], ind: [8, 1, 22, 8], old: [14, 12, 25, 19], new: [26, 13, 37, 20], farm: [4, 22, 31, 27] };
 export function genMap(seed = 7) {
   const rng = mulberry32(seed);
   const t = Array.from({ length: MAP_H }, () => Array(MAP_W).fill('grass'));
@@ -28,16 +28,18 @@ export function genMap(seed = 7) {
     for (let y = y0 + 1; y < y1 && n < 6; y += 4) for (let x = x0 + 1; x < x1 && n < 6; x += 4) { if (t[y][x] === 'water') continue; plots.push({ id: `${id}${n}`, zone: id, x: x + 1, y: y + 1, building: null }); n++; }
   }
   // 랜드마크: 처음엔 '유적터/역 부지'로 비어 있고, 복원·개발하면 상징 건물이 나타남
-  const LM = { baekje0: { landmark: 'mireuk', name: '미륵사지 유적터', built: '미륵사지 석탑' }, baekje5: { landmark: 'wanggung', name: '왕궁리 유적터', built: '왕궁리 오층석탑' }, baekje2: { landmark: 'food', name: '국가식품클러스터 부지(왕궁)', built: '국가식품클러스터' }, old1: { landmark: 'station', name: '익산역 앞 부지', built: '익산역' } };
+  const LM = { baekje0: { landmark: 'mireuk', name: '미륵사지 유적터', built: '미륵사지 석탑' }, baekje5: { landmark: 'wanggung', name: '왕궁리 유적터', built: '왕궁리 오층석탑' }, baekje2: { landmark: 'food', name: '국가식품클러스터 부지(왕궁)', built: '국가식품클러스터' }, old1: { landmark: 'station', name: '익산역(기존 역사)', built: '익산역' } };
   for (const p of plots) if (LM[p.id]) Object.assign(p, LM[p.id]);
-  // 철도: 호남선(동서, y=10) + 장항선(남북, x=20, 북쪽 금강 방향) — 익산역 분기점 (20,10), 역사 부지 (21,9), 승강장 (19~22,10)
-  const RY = 10, RX = 20;
-  for (let x = 0; x < MAP_W; x++) { const o = t[RY][x]; t[RY][x] = (o === 'road') ? 'cross' : 'rail'; }
-  for (let y = 0; y < RY; y++) { const o = t[y][RX]; if (o === 'water') continue; t[y][RX] = (o === 'road') ? 'cross' : 'rail'; }
-  for (let x = 19; x <= 22; x++) t[RY][x] = 'platform';
-  const st = plots.find(p => p.id === 'old1'); if (st) { st.x = 21; st.y = 9; }
-  // 권역 간 연결 도로
-  for (let x = 3; x < 37; x++) if (t[15][x] !== 'water') { if (t[15][x] !== 'city') t[15][x] = 'road'; }
-  for (let y = 9; y < 22; y++) if (t[y][18] !== 'water') { if (t[y][18] !== 'city') t[y][18] = 'road'; }
+  // 철도: 호남선(동서, y=10) + 장항선(북쪽 x=24) — 도로와 떨어진 전용 선로(완충 행 y=9·11)이고, 도로와는 건널목에서만 만난다.
+  // 익산역: 분기점 (24,10), 승강장 (22~26,10), 기존 역사 부지 (23,9)
+  const RY = 10, RX = 24;
+  for (let x = 0; x < MAP_W; x++) t[RY][x] = 'rail';
+  for (let y = 0; y < RY; y++) if (t[y][RX] !== 'water') t[y][RX] = 'rail';
+  for (const x of [18, 30]) { for (let y = 9; y <= 12; y++) if (t[y][x] !== 'city') t[y][x] = 'road'; t[RY][x] = 'cross'; }          // 도로 연결 + 건널목
+  for (let x = 22; x <= 26; x++) t[RY][x] = 'platform';
+  for (let y = 9; y <= 11; y++) for (let x = 0; x < MAP_W; x++) if (y !== 10 && t[y][x] === 'mountain') t[y][x] = 'grass';
+  const st = plots.find(p => p.id === 'old1'); if (st) { st.x = 23; st.y = 9; st.building = 'station_old'; }
+  // 권역 간 연결 도로(남북): 도심 ↔ 남쪽 농업 권역
+  for (let y = 20; y < 22; y++) if (t[y][18] !== 'water' && t[y][18] !== 'city') t[y][18] = 'road';
   return { w: MAP_W, h: MAP_H, tiles: t, plots };
 }

@@ -16,9 +16,10 @@ if (stage === 'game') newGame();
 function plotPanel() {
   const p = selPlot && g.plots.find(q => q.id === selPlot); if (!p) return '<div class="zone"><small>지도에서 부지를 눌러 건설하세요. 드래그로 이동. 유적터·역 앞 부지는 복원·개발 사업을 할 수 있습니다.</small></div>';
   const z = g.zone(p.zone);
-  if (p.building) return `<div class="zone"><b>${p.name ? p.built : z.name}</b> — ${buildings[p.building].name} 운영 중</div>`;
-  const list = Object.entries(buildings).filter(([k, b]) => (b.landmark ? b.landmark === p.landmark : (!p.landmark && (!b.zones || b.zones.includes(p.zone)))));
-  return `<div class="zone"><b>${p.name || z.name + ' · 빈 부지'}</b>` + list.map(([k, b]) => `<button data-b="${k}" style="width:100%;margin-top:4px;text-align:left">${b.name} — 예산 ${b.cost} · 인구 +${b.pop} · 월 수익 ${(b.tax - b.upkeep).toFixed(1)}${b.support ? ' · 지지도 ' + (b.support > 0 ? '+' : '') + b.support : ''}</button>`).join('') + '</div>';
+  const up = Object.entries(buildings).filter(([k, b]) => b.upgradeFrom === p.building);
+  if (p.building && !up.length) return `<div class="zone"><b>${p.name ? p.built : z.name}</b> — ${buildings[p.building].name} 운영 중</div>`;
+  const list = p.building ? up : Object.entries(buildings).filter(([k, b]) => !b.hidden && !b.upgradeFrom && (b.landmark ? b.landmark === p.landmark : (!p.landmark && (!b.zones || b.zones.includes(p.zone)))));
+  return `<div class="zone"><b>${p.name || z.name + ' · 빈 부지'}</b>${p.building ? ' — ' + buildings[p.building].name + ' 운영 중' : ''}` + list.map(([k, b]) => `<button data-b="${k}" style="width:100%;margin-top:4px;text-align:left">${b.name} — 예산 ${b.cost} · 인구 +${b.pop} · 월 수익 ${(b.tax - b.upkeep).toFixed(1)}${b.support ? ' · 지지도 ' + (b.support > 0 ? '+' : '') + b.support : ''}</button>`).join('') + '</div>';
 }
 function bindBuild(root) { root.querySelectorAll('[data-b]').forEach(b => b.onclick = () => { const r = g.act('build', { plot: selPlot, type: b.dataset.b }); if (!r.ok) alert(r.msg); render(); }); }
 function scene(canvasId, id) { if (stopScene) { stopScene(); stopScene = null; } const cv = document.getElementById(canvasId); if (cv && HAS_SCENE(id)) stopScene = playScene(cv, id, { female: profile.gender === 'f', secretary: true }); }
@@ -53,7 +54,7 @@ function render() {
     h += `${showScene ? '<canvas id="sc" class="scene"></canvas>' : ''}<div class="card"><h2>${g.decision.title}</h2><div>${g.decision.text}</div>${g.decision.secLine ? `<div style="color:var(--dim);margin-top:6px">🗨 ${g.sec.name.split(' (')[0]}: “${g.decision.secLine}”</div>` : ''}` + g.decision.choices.map((c, i) => `<button data-c="${i}">${c.label}</button>`).join('') + `</div>`;
   } else {
     h += `<div class="cmds"><button data-a="rest">휴식</button><button data-a="meet">시민 간담회</button><button data-a="visit_province">도청 방문</button><button data-a="visit_national">국회 방문 (행동 2)</button></div>
-      <div class="zone"><b>${g.sec.name}</b><br><small>“${g.advice()}”</small></div><canvas id="map"></canvas><div id="plotpanel">${plotPanel()}</div><div class="zones">` + g.zones.map(z => `<div class="zone"><b>${z.name}</b> <small>발전도 ${Math.round(z.level)}</small>${meter(z.level)}</div>`).join('') + `</div><details class="zone"><summary><b>정책 (${g.active.length}/3 시행 중)</b></summary>` + Object.entries(policies).map(([k, p]) => g.active.includes(k) ? `<button data-rp="${k}" style="width:100%;margin-top:4px;text-align:left;border-color:var(--ok)">✔ ${p.name} — 철회</button>` : `<button data-ap="${k}" style="width:100%;margin-top:4px;text-align:left">${p.name} — 예산 ${p.cost} · 월 유지 ${p.upkeep}<br><small>${p.desc}</small></button>`).join('') + `</details><button id="end" style="width:100%">이번 달 마무리 ▶</button>`;
+      <div class="zone"><b>${g.sec.name}</b><br><small>“${g.advice()}”</small></div><div style="position:relative"><canvas id="map"></canvas><div style="position:absolute;right:8px;bottom:14px;display:grid;gap:6px"><button id="zin" style="min-height:36px;width:40px">＋</button><button id="zout" style="min-height:36px;width:40px">－</button></div></div><div id="plotpanel">${plotPanel()}</div><div class="zones">` + g.zones.map(z => `<div class="zone"><b>${z.name}</b> <small>발전도 ${Math.round(z.level)}</small>${meter(z.level)}</div>`).join('') + `</div><details class="zone"><summary><b>정책 (${g.active.length}/3 시행 중)</b></summary>` + Object.entries(policies).map(([k, p]) => g.active.includes(k) ? `<button data-rp="${k}" style="width:100%;margin-top:4px;text-align:left;border-color:var(--ok)">✔ ${p.name} — 철회</button>` : `<button data-ap="${k}" style="width:100%;margin-top:4px;text-align:left">${p.name} — 예산 ${p.cost} · 월 유지 ${p.upkeep}<br><small>${p.desc}</small></button>`).join('') + `</details><button id="end" style="width:100%">이번 달 마무리 ▶</button>`;
   }
   h += `<div id="log">${g.log.slice(-8).reverse().map(l => `· ${l.text}`).join('<br>')}</div>`;
   app.innerHTML = h;
@@ -66,6 +67,7 @@ function render() {
   app.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { g.repeal(b.dataset.rp); render(); });
   bindBuild(app);
   const cv = document.getElementById('map');
+  const zi = document.getElementById('zin'); if (zi) { zi.onclick = () => mv && mv.setZoom(mv.zoom + 1); document.getElementById('zout').onclick = () => mv && mv.setZoom(mv.zoom - 1); }
   if (cv) { mv = new MapView(cv, g, MAPDATA, p => { selPlot = p && p.id; const pp = document.getElementById('plotpanel'); pp.innerHTML = plotPanel(); bindBuild(pp); }); if (selPlot) mv.sel = selPlot; }
 }
 render();

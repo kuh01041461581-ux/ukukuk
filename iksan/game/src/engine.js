@@ -69,7 +69,8 @@ export class Game {
       case 'build': {                                   // arg: { plot, type }
         const p = this.plots.find(q => q.id === arg.plot), b = this.bd[arg.type];
         if (!p || !b) return { ok: false, msg: '부지/건물을 선택하세요.' };
-        if (p.building) return { ok: false, msg: '이미 건물이 있는 부지입니다.' };
+        if (p.building && b.upgradeFrom !== p.building) return { ok: false, msg: '이미 건물이 있는 부지입니다.' };
+        if (!p.building && b.upgradeFrom) return { ok: false, msg: '기존 시설이 있어야 개축할 수 있습니다.' };
         if (b.landmark ? b.landmark !== p.landmark : !!p.landmark) return { ok: false, msg: p.landmark ? `${p.name}에는 복원·개발 사업만 할 수 있습니다.` : `${b.name}은(는) 해당 랜드마크 부지에만 가능합니다.` };
         if (b.zones && !b.zones.includes(p.zone)) return { ok: false, msg: `${b.name}은(는) 이 권역에 지을 수 없습니다.` };
         const cost = Math.round(b.cost * (this.sec.costMul || 1) * 10) / 10;

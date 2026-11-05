@@ -110,7 +110,7 @@
     "level": 3
   },
   "restore_mireuk": {
-    "name": "미륵사지 석탑 복원",
+    "name": "미륵사지 서탑 복원·정비(6층)+가람 정비",
     "cost": 20,
     "zones": [
       "baekje"
@@ -123,7 +123,7 @@
     "level": 6
   },
   "restore_wanggung": {
-    "name": "왕궁리 오층석탑 정비",
+    "name": "왕궁리 유적 복원·정비(궁장·오층석탑)",
     "cost": 18,
     "zones": [
       "baekje"

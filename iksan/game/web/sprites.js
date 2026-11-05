@@ -179,7 +179,7 @@ export function makeSprites() {
     for (const sx of [-1, 1]) { const ex = cx + sx * (w + 2 + (layers - 1) * 2); RC(g, ex - (sx > 0 ? 1 : 0), cy - layers * 2 - 2, 2, 2, shade(tone, 1.1)); } };
   // 석재 더미 기둥 그리기(무너진 상부): 가로 줄눈(층)과 어긋난 세로 줄눈으로 돌 쌓임 표현
   const rubble = (g, x, yBase, h, tone, seed) => { for (let y = 0; y < h; y++) { const course = Math.floor(y / 4), jx = (x + (course % 2) * 3 + course * 5) % 7 === 0; let col = hash(x, y, seed) < 0.18 ? shade(tone, 0.9) : tone; if (y % 4 === 0) col = shade(col, 0.82); else if (jx) col = shade(col, 0.86); else if (y % 4 === 3) col = shade(col, 1.05); P(g, x, yBase - y, col); } };
-  B.restore_mireuk = withGround(g => {
+  const seoDraw = g => {
     // 서탑(국보 11호): 기단 일부가 남은 낮고 넓은 이중 기단 + 1~3층 온전 + 4~6층은 한쪽(왼쪽)이 무너져 석재가 가파르게 쌓이고 오른쪽은 층급 지붕돌이 계단처럼 남음
     box(g, CX, CY - 2, 30, 14, 3, '#b3ae9f', { roof: '#c5c0b1', out: '#5e5a4c', band: 0 }); box(g, CX, CY - 5, 27, 12, 4, '#bfbaab', { roof: '#d2cdbf', out: '#5e5a4c' });
     for (const sx of [-1, 1]) for (let st = 0; st < 4; st++) box(g, CX + sx * (24 - st), CY + 8 - st * 2, 5 - st, 2, 1, '#aaa598', { roof: '#c8c3b5', out: '#5e5a4c' });
@@ -192,16 +192,18 @@ export function makeSprites() {
       P(g, CX + dx, base - h, shade(ST, 0.5)); P(g, CX + dx, base - h + 1, shade(ST, 1.18)); }
     for (const [x0, x1, hh] of [[3, 8, 31], [9, 13, 22], [14, 17, 13]]) { RC(g, CX + x0 - 1, base - hh - 1, x1 - x0 + 3, 2, '#d2ccba'); RC(g, CX + x0 - 1, base - hh + 1, x1 - x0 + 3, 1, '#6e6a5a'); }   // 남은 지붕돌(처마) 층
     for (let k = 0; k < 12; k++) { const dx = -17 + Math.floor(hash(k, 4, 9) * 12), hh = 6 + Math.floor(hash(k, 5, 9) * 8); RC(g, CX + dx - 1, base - 10 - hh, 3, 2, shade(ST, 0.8)); }   // 흩어진 돌
-  }, 103);
+  };
+  B.restore_mireuk = withGround(seoDraw, 103);
   // 동탑: 1992년 복원된 9층 석탑(새 석재라 밝고 말끔)
-  B.tower_east = (() => { const c = mk(), g = c.getContext('2d'); g.drawImage(ground(['#cbc5b4', '#bdb7a5'], 130, { dither: 0.2 }), 0, 0); g.fillStyle = 'rgba(25,25,45,0.22)'; for (let dy = -5; dy <= 6; dy++) { const w = Math.round(16 * (1 - Math.abs(dy) / 8)); g.fillRect(CX + 8 - w, CY + 2 + dy, 2 * w, 1); }
+  const dongDraw = g => {
     const NEW = '#e8e4d8';
     box(g, CX, CY - 2, 21, 9, 3, '#c9c4b4', { roof: '#dad6c8', out: '#6e6a5a', band: 0 }); box(g, CX, CY - 5, 19, 8, 3, '#d4cfc0', { roof: '#e4e0d4', out: '#6e6a5a' });
     let y = CY - 8; const W = [16, 15, 14, 13, 12, 11, 10, 9, 8];
     for (let i = 0; i < 9; i++) { const w = W[i], d = Math.round(w / 2.15), h = i === 0 ? 8 : 6; box(g, CX, y, w, d, h, NEW, { roof: shade(NEW, 1.08), out: '#7a766a' }); pil(g, CX, y, w, d, h, i < 3 ? 4 : 3, i === 0); y -= h; eaves(g, CX, y + 1, w + 2, d + 1, '#dcd8cb', 2); y -= 3; }
-    RC(g, CX - 1, y - 8, 2, 9, '#c4bfae'); RC(g, CX - 3, y - 5, 6, 1, '#c4bfae'); RC(g, CX - 1, y - 12, 2, 3, '#e0c050'); return c; })();
+    RC(g, CX - 1, y - 8, 2, 9, '#c4bfae'); RC(g, CX - 3, y - 5, 6, 1, '#c4bfae'); RC(g, CX - 1, y - 12, 2, 3, '#e0c050');   };
+  B.tower_east = withGround(dongDraw, 130);
   // 왕궁리 오층석탑(사진 기준): 낮은 기단 위 키 큰 1층 몸돌, 층마다 어두운 얇은 지붕돌(3단 옥개받침, 처마 끝 살짝 반전), 위로 갈수록 급격히 줄고 작은 상륜
-  B.restore_wanggung = withGround(g => {
+  const wgDraw = g => {
     box(g, CX, CY - 2, 26, 12, 5, '#a89f8c', { roof: '#c0b8a6', out: '#5a5446', band: 0 });
     let y = CY - 7; const W = [15, 12, 10, 8, 7], H = [20, 8, 7, 6, 5], ROOF = '#6a6254';
     for (let i = 0; i < 5; i++) { const w = W[i], d = Math.round(w / 2.15), h = H[i]; box(g, CX, y, w, d, h, '#bba98c', { roof: '#cbbb9e', out: '#4f4638', band: 0 });
@@ -209,7 +211,8 @@ export function makeSprites() {
       y -= h; for (let st = 0; st < 3; st++) box(g, CX, y + 4 - st, w + 1 + st, Math.round((w + 1 + st) / 2.15), 1, '#8a8068', { roof: '#a49a82', out: '#4f4638' });   // 옥개받침 3단
       box(g, CX, y + 1, w + 8, Math.round((w + 8) / 2.15), 2, ROOF, { roof: shade(ROOF, 1.25), out: '#2e2a22', band: 0 }); for (const sx of [-1, 1]) RC(g, CX + sx * (w + 8) - (sx > 0 ? 1 : 0), y - 3, 2, 2, shade(ROOF, 1.2)); y -= 3; }
     box(g, CX, y + 1, 4, 2, 2, '#9a9078', { roof: '#b0a68e' }); y -= 3; for (let dy = -3; dy <= 0; dy++) { const w = Math.round(3 * Math.sqrt(1 - (dy / 3.5) ** 2)); RC(g, CX - w, y + dy, 2 * w, 1, '#b8ae96'); } RC(g, CX - 1, y - 9, 2, 8, '#9a9078'); RC(g, CX - 3, y - 6, 6, 1, '#9a9078'); RC(g, CX - 1, y - 11, 2, 2, '#d8b84a');
-  }, 104);
+  };
+  B.restore_wanggung = withGround(wgDraw, 104);
   B.station_dev = withGround(g => { box(g, CX, CY - 4, 26, 12, 14, '#e8e4d6', { roof: '#5a6a80', win: [6, 8, 4, 5], winCol: '#9fd0f0', band: 0, topFn: (dx, dy, c) => (dy % 5 === 0 ? shade(c, 1.08) : null) }); box(g, CX + 12, CY - 14, 7, 3, 38, '#d4c9ae', { roof: '#5a6a80', win: [4, 7, 2, 4], winCol: '#9fd0f0' });
     for (let a = -4; a <= 4; a++) for (let b = 0; b < 8; b++) if (Math.hypot(a, b - 3.5) < 4.6) P(g, CX + 12 + a, CY - 68 + b, '#f4f0e0'); RC(g, CX + 12, CY - 65, 1, 3, '#333'); RC(g, CX + 12, CY - 65, 2, 1, '#333'); box(g, CX - 14, CY + 6, 10, 3, 7, '#9aa8b8', { roof: '#c4d0dc' }); }, 105);
   B.food_cluster = withGround(g => { box(g, CX, CY - 4, 24, 11, 20, '#eef2ee', { roof: '#c4d8c8', win: [7, 9, 4, 4], winCol: '#8ec7a0', band: 10 }); box(g, CX - 16, CY - 8, 6, 3, 30, '#9fd0a8', { roof: '#c8e6cc', band: 6 }); for (let a = -2; a <= 3; a++) RC(g, CX + 14 + a * 2, CY - 42, 2, 6, '#e84a4a'); RC(g, CX + 14, CY - 36, 1, 16, '#ccc'); box(g, CX + 4, CY + 8, 8, 3, 8, '#cfe0d2', { roof: '#e8f2ea' }); }, 107);
@@ -241,5 +244,43 @@ export function makeSprites() {
   B.zone_ind1 = withGround(g => { box(g, CX, CY - 4, 18, 8, 12, '#a9b2ba', { roof: '#c6ced4', band: 5, win: [9, 9, 3, 2], winCol: '#ffd070' }); box(g, CX + 14, CY + 4, 4, 2, 6, '#c0402f', { roof: '#d85a44' }); });
   B.zone_ind2 = withGround(g => { box(g, CX - 4, CY - 4, 20, 9, 18, '#9aa5af', { roof: '#bcc6ce', band: 6, win: [8, 9, 4, 3], winCol: '#ffd070' }); box(g, CX + 14, CY - 10, 3, 2, 30, '#8a6a58', { roof: '#6a4a3a', band: 5 }); for (let i = 0; i < 6; i++) RC(g, CX + 13 + i % 2, CY - 44 - i * 2, 5, 3, i < 3 ? '#f0f0f0' : '#d0d0d0'); });
   B.zone_ind3 = B.factory;
+  // ================= 대규모 유적지: 미륵사지(3탑 3금당)·왕궁리(궁성) — 3x3 필지 전체를 유적 배치로 그린다 =================
+  const isoPt = (du, dv) => [CX + Math.round((du - dv) * 32), CY + Math.round((du + dv) * 16)];
+  const paintIso = (g, fn) => { for (let r = 0; r < TH; r++) { const w = hw(r); for (let x = CX - w; x < CX + w; x++) { const px = x - CX + 0.5, py = r - 16 + 0.5, du = (px / 32 + py / 16) / 2, dv = (py / 16 - px / 32) / 2, col = fn(du, dv, x, r); if (col) P(g, x, CY - 16 + r, col); } } };
+  const stoneDot = (g, x, y, r, col) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r * 2; dx <= r * 2; dx++) if ((dx / (r * 2)) ** 2 + (dy / r) ** 2 <= 1) P(g, x + dx, y + dy, dy < 0 ? shade(col, 1.15) : (dx > 0 ? shade(col, 0.78) : col)); };
+  const pillarGrid = (g, nx, ny, su, sv, lift, r, col) => { for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) { const u = nx > 1 ? (i / (nx - 1) - 0.5) * su : 0, v = ny > 1 ? (j / (ny - 1) - 0.5) * sv : 0, [x, y] = isoPt(u, v); stoneDot(g, x, y - lift, r, col); } };
+  const wallOverlay = (base, fence, tone, thick, cap) => overlay(base, (du, dv, x, r) => { const e = (fence & 1 ? du - (0.5 - thick) : -9) > 0 ? du : (fence & 2 ? (-du - (0.5 - thick)) > 0 ? -du : -9 : -9); const hit = (fence & 1 && du > 0.5 - thick) || (fence & 2 && du < -0.5 + thick) || (fence & 4 && dv > 0.5 - thick) || (fence & 8 && dv < -0.5 + thick);
+    if (!hit) return null; const along = (fence & 3) && (Math.abs(du) > 0.5 - thick) ? dv : du; if (cap) return (Math.abs(Math.abs(du) - (0.5 - thick)) < 0.03 || Math.abs(Math.abs(dv) - (0.5 - thick)) < 0.03) ? '#4a4f58' : (hash(x, r, 91) < 0.2 ? shade(tone, 0.9) : tone);
+    return Math.floor((along + 2) * 7) % 2 === 0 ? shade(tone, 0.82) : tone; });
+  const platform = (g, w, d, h, col, top) => box(g, CX, CY - 2, w, d, h, col, { roof: top, out: shade(col, 0.5), band: 3, topFn: (dx, dy, c) => (hash(dx, dy, 95) < 0.14 ? shade(c, 0.93) : null) });
+  const SITEC = new Map();
+  S.siteTile = (kind, dx, dy, built) => {
+    const key = kind + dx + dy + (built ? 1 : 0); if (SITEC.has(key)) return SITEC.get(key);
+    const fence = (dx === 1 ? 1 : 0) | (dx === -1 ? 2 : 0) | (dy === 1 ? 4 : 0) | (dy === -1 ? 8 : 0);
+    let c;
+    if (kind === 'mireuk') {
+      let base = ground(['#b9ab8c', '#a99b7b'], 140 + dx * 3 + dy, { dither: 0.32, fn: (x, r) => (hash(x >> 1, r >> 1, 141) < 0.05 ? '#8fbf6a' : null) });
+      base = wallOverlay(base, fence, '#cdc6b0', 0.07, false); c = mk(); const g = c.getContext('2d'); g.drawImage(base, 0, 0);
+      if (dx === 0 && dy === 0) { platform(g, 27, 12, 3, '#c6bda5', '#a99b7c'); pillarGrid(g, 4, 4, 0.7, 0.7, 4, 2, '#8e8678'); const [x, y] = isoPt(0, 0); stoneDot(g, x, y - 4, 4, '#dcd6c4'); stoneDot(g, x, y - 4, 1, '#4a463c');   // 목탑지: 심초석 + 초석
+        for (const [su, sv] of [[0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]]) { const [sx2, sy2] = isoPt(su, sv); RC(g, sx2 - 3, sy2 - 3, 6, 2, '#e4dec9'); } }
+      else if (dy === -1) { const big = dx === 0; platform(g, big ? 26 : 22, big ? 11 : 10, 2, '#c1b8a0', '#a99b7c'); pillarGrid(g, big ? 5 : 4, big ? 3 : 3, 0.62, 0.45, 3, 2, '#8e8678'); }     // 금당지 3기
+      else if (dx === -1 && dy === 0) { if (built) seoDraw(g); else { box(g, CX, CY - 2, 24, 11, 3, '#b3ae9f', { roof: '#c5c0b1', out: '#5e5a4c' }); box(g, CX, CY - 5, 20, 9, 4, '#bfbaab', { roof: '#d2cdbf', out: '#5e5a4c' }); let yy = CY - 9; for (let i = 0; i < 3; i++) { box(g, CX - i, yy, 15 - i * 3, 7 - i, 4, '#c4bfae', { roof: '#d0cbba', out: '#5a564a', band: 2 }); yy -= 4; } for (let k = 0; k < 14; k++) box(g, CX - 20 + Math.floor(hash(k, 3, 9) * 40), CY + 2 + Math.floor(hash(k, 4, 9) * 8), 2, 1, 1 + (k % 2), '#c8c2b0', { roof: '#e0dac8', out: '#6a6454' }); } }
+      else if (dx === 1 && dy === 0) dongDraw(g);
+      else if (dx === 0 && dy === 1) { platform(g, 17, 7, 2, '#c1b8a0', '#a99b7c'); for (const sv of [-0.22, 0.22]) { const [x, y] = isoPt(0.12, sv); box(g, x, y, 2, 1, 11, '#bdb7a6', { roof: '#d2ccba', out: '#5e5a4c', band: 4 }); RC(g, x - 1, y - 10, 2, 2, '#9a9482'); } }   // 중문지 + 당간지주 한 쌍
+      else { for (let k = 0; k < 3; k++) { const [x, y] = isoPt(0, 0); stoneDot(g, x - 14 + k * 14, y - 1 + (k % 2), 2, '#bdb7a6'); } }
+    } else {
+      let base = ground(['#86c264', '#78b458'], 150 + dx * 3 + dy, { dither: 0.22, fn: (x, r) => (hash(x >> 1, r >> 1, 151) < 0.04 ? '#f2e46a' : null) });
+      base = wallOverlay(base, fence, built ? '#9c8d6c' : '#b8ad92', built ? 0.11 : 0.06, built); c = mk(); const g = c.getContext('2d'); g.drawImage(base, 0, 0);
+      paintIso(g, (du, dv, x, r) => ((Math.abs(du) < 0.07 && dx === 0) || (Math.abs(dv) < 0.07 && dy === 0)) && !(fence && false) ? '#d8cfb4' : null);          // 어도(石路)
+      if (dx === 0 && dy === 0) { platform(g, 27, 12, 2, '#b8ab8a', '#cabd9b'); pillarGrid(g, 5, 3, 0.75, 0.5, 3, 2, '#9a8e78'); const [x, y] = isoPt(0, 0.34); RC(g, x - 8, y - 2, 16, 2, '#e4dec9'); }              // 정전지(가장 큰 건물지)
+      else if (dx === 0 && dy === 1) { platform(g, 14, 6, 2, '#b8ab8a', '#cabd9b'); for (const sv of [-0.25, 0.25]) { const [x, y] = isoPt(0, sv); stoneDot(g, x, y - 3, 2, '#8e8678'); } }
+      else if (dx === 0 && dy === -1) { platform(g, 22, 9, 1, '#b8ab8a', '#cabd9b'); wgDraw(g); }                                                                            // 오층석탑(사찰 영역)
+      else if (dx === -1 && dy === -1) { for (const [u, v] of [[-0.18, -0.12], [0.18, -0.08], [0, 0.2]]) { const [x, y] = isoPt(u, v); stoneDot(g, x, y, 4, '#3a2c24'); stoneDot(g, x, y - 1, 2, '#e07a30'); } box(g, CX + 12, CY - 4, 7, 3, 7, '#9a7a54', { roof: '#6a5a44', win: [5, 6, 2, 3], winCol: '#ffcf70' }); for (let k = 0; k < 7; k++) RC(g, CX - 18 + k * 3, CY + 4 + (k % 2) * 2, 2, 1, k % 2 ? '#d8d0c0' : '#c8b898'); }   // 공방지(금·은·유리 도가니)
+      else if (dx === 1 && dy === -1) { paintIso(g, (du, dv, x, r) => { const q = ((du + 0.05) / 0.36) ** 2 + ((dv - 0.02) / 0.3) ** 2 + 0.06 * Math.sin(du * 14 + dv * 9); if (q < 0.55) return hash(x >> 1, r >> 1, 160) < 0.1 ? '#a8d4f8' : '#4a8fd8'; if (q < 0.7) return '#8c8c84'; return null; }); tree(g, CX - 12, CY - 2, 21, 0.8); tree(g, CX + 14, CY + 4, 22, 0.7); stoneDot(g, CX + 2, CY - 1, 2, '#6c6c64'); }   // 후원(정원)
+      else if (dy === 0) { platform(g, 20, 9, 2, '#b3a684', '#c8bb9b'); pillarGrid(g, 3, 2, 0.5, 0.4, 3, 2, '#9a8e78'); }                                                          // 업무·생활 건물지
+      else if (dx === -1 && dy === 1) { paintIso(g, (du, dv, x, r) => { for (const v0 of [-0.16, 0.16]) if (Math.abs(dv - v0) < 0.07 && Math.abs(du) < 0.28) return Math.abs(Math.abs(dv - v0) - 0.07) < 0.02 || Math.abs(Math.abs(du) - 0.28) < 0.03 ? '#bdb7a6' : '#4a4036'; return null; }); }   // 대형 화장실 유구
+      else if (dx === 1 && dy === 1) { box(g, CX, CY - 4, 20, 9, 14, '#eef0ee', { roof: '#6a8a70', win: [6, 8, 4, 5], winCol: '#a8d8f0', band: 0 }); RC(g, CX - 6, CY - 20, 12, 3, '#3a4a5a'); RC(g, CX - 5, CY - 19, 10, 1, '#fff'); }   // 왕궁리유적전시관
+    }
+    SITEC.set(key, c); return c; };
   return S;
 }

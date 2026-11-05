@@ -149,7 +149,7 @@ public class GameView extends View {
         bp.setStyle(Paint.Style.FILL); bp.setColor(0x66000000); cv.drawRoundRect(gear, 14, 14, bp);   // 설정 버튼
         float old = tp.getTextSize(); tp.setColor(0xCCFFFFFF); tp.setTextSize(13 * density);
         cv.drawText("조작", gear.centerX(), gear.centerY() + 5 * density, tp); tp.setTextSize(old);
-        postInvalidateDelayed(33);
+        postInvalidateOnAnimation();
     }
 
     void key(int code, boolean down) {

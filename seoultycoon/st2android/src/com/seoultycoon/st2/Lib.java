@@ -50,7 +50,11 @@ final class Lib {
         H.regS("java/lang/Math", "(II)I+max", (t, a) -> Math.max((int) a[0], (int) a[1]));
         H.regS("java/lang/Math", "(II)I+min", (t, a) -> Math.min((int) a[0], (int) a[1]));
         // ---- System / Runtime / Random / Stack
-        H.regS("java/lang/System", "()J+currentTimeMillis", (t, a) -> { H.vnow += 2; return 1700000000000L + H.vnow; });
+        H.regS("java/lang/System", "()J+currentTimeMillis", (t, a) -> {
+            // 실시간만 흐르게 한다. 같은 시각을 연속으로 읽으면 바쁜 대기(spin)로 보고 이번 조각을 양보
+            if (H.vnow == H.spinTime) { if (++H.spinLast >= 4) { H.spinLast = 0; H.yieldNow(1); } } else { H.spinTime = H.vnow; H.spinLast = 0; }
+            if (H.trace != null) H.trace.println("TIME " + H.vnow);
+            return 1700000000000L + H.vnow; });
         H.regS("java/lang/System", "()V+gc", (t, a) -> 0);
         H.regS("java/lang/System", "(I)V+exit", (t, a) -> { H.exited = true; H.vm.stop = true; return 0; });
         H.regS("java/lang/System", "(Ljava/lang/Object;ILjava/lang/Object;II)V+arraycopy", (t, a) -> {
@@ -99,7 +103,7 @@ final class Lib {
         H.reg("java/lang/Thread", "(Ljava/lang/Runnable;Ljava/lang/String;)V+<init>", (t, a) -> { H.st.put(t, new int[]{(int) a[0]}); return 0; });
         H.reg("java/lang/Thread", "(Ljava/lang/String;)V+<init>", (t, a) -> { H.st.put(t, new int[]{0}); return 0; });
         H.reg("java/lang/Thread", "()V+start", (t, a) -> { Thr th = new Thr(); th.h = t; th.n = H.threads.size(); int[] st = (int[]) H.st.get(t); th.target = st[0] != 0 ? st[0] : t; H.threads.add(th); H.thrOf.put(t, th); return 0; });
-        H.regS("java/lang/Thread", "(J)V+sleep", (t, a) -> { H.yieldNow((int) Math.max(a[0], 1)); return 0; });
+        H.regS("java/lang/Thread", "(J)V+sleep", (t, a) -> { if (H.trace != null) H.trace.println("SLEEP " + a[0] + H.vm.stkDump()); H.yieldNow((int) Math.max(a[0], 1)); return 0; });
         H.regS("java/lang/Thread", "()V+yield", (t, a) -> { H.yieldNow(0); return 0; });
         H.regS("java/lang/Thread", "()Ljava/lang/Thread;+currentThread", (t, a) -> H.curThread != null ? H.curThread.h : H.single("java/lang/Thread"));
         H.reg("java/lang/Thread", "()V+join", (t, a) -> { H.yieldNow(5); return 0; });

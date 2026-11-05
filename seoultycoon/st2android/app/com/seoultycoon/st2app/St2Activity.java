@@ -46,15 +46,17 @@ public class St2Activity extends Activity implements St2View.Opener {
         loop = new Thread(null, new Runnable() { public void run() {
             try {
                 InputStream in = getAssets().open("st2/client.bin1116"); byte[] img = AndroidPlatform.all(in);
-                host = new Host(pf, img); host.defaultName = name; view.game_host = host;
+                host = new Host(pf, img); host.defaultName = name; view.game_host = host; host.timeScale = speed();
                 host.boot(); host.startApp();
                 long last = System.nanoTime(); int[] px = new int[240 * 296];
                 while (running) {
                     long t0 = System.nanoTime(); int dt = (int) Math.min(100, (t0 - last) / 1000000); last = t0;
-                    host.tick(Math.max(20, dt));
-                    Surf s = host.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; synchronized (lcd) { lcd.setPixels(px, 0, 240, 0, 0, 240, 296); }
-                    view.frames++;
-                    long el = (System.nanoTime() - t0) / 1000000; if (el < 33) Thread.sleep(33 - el);
+                    host.timeScale = speed();
+                    if (host.tick(Math.max(8, dt))) {
+                        Surf s = host.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; synchronized (lcd) { lcd.setPixels(px, 0, 240, 0, 0, 240, 296); }
+                        view.frames++;
+                    }
+                    long el = (System.nanoTime() - t0) / 1000000; if (el < 16) Thread.sleep(16 - el);
                 }
             } catch (Throwable t) {
                 android.util.Log.e("st2", "fatal", t);
@@ -67,8 +69,19 @@ public class St2Activity extends Activity implements St2View.Opener {
         loop.start();
     }
 
+    static final double[] SPEEDS = {1.0, 1.5, 2.0, 3.0};
+    double speed() { return SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, getSharedPreferences("st2", MODE_PRIVATE).getInt("speed", 2)))]; }
     public void openModeDialog() {
-        final String[] names = {"피처폰 버튼 (키패드)", "조이스틱 + 버튼", "터치 전용 (전체 화면)\n  탭=확인 · 쓸기=방향 · 길게/두 손가락=취소"};
+        new AlertDialog.Builder(this).setTitle("설정").setItems(new String[]{"조작 방식", "게임 속도 (부드러움)"}, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface d, int w) { if (w == 0) openControlDialog(); else openSpeedDialog(); } }).show();
+    }
+    void openSpeedDialog() {
+        final String[] n = {"1배 (원본 속도, 끊겨 보임)", "1.5배", "2배 (기본)", "3배 (가장 부드럽고 빠름)"};
+        new AlertDialog.Builder(this).setTitle("게임 속도").setSingleChoiceItems(n, getSharedPreferences("st2", MODE_PRIVATE).getInt("speed", 2), new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface d, int w) { getSharedPreferences("st2", MODE_PRIVATE).edit().putInt("speed", w).apply(); d.dismiss(); } }).show();
+    }
+    void openControlDialog() {
+        final String[] names = {"피처폰 버튼 (키패드)", "방향키 버튼 + 확인/취소", "터치 전용 (전체 화면)\n  탭=확인 · 쓸기=방향 · 길게/두 손가락=취소"};
         new AlertDialog.Builder(this).setTitle("조작 방식").setSingleChoiceItems(names, view.mode, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface d, int w) { view.setMode(w); getSharedPreferences("st2", MODE_PRIVATE).edit().putInt("mode", w).apply(); d.dismiss(); } }).show();
     }

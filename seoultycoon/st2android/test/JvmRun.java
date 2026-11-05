@@ -27,7 +27,7 @@ public class JvmRun {
         if (a.length > 5 && !a[5].isEmpty()) for (String k : a[5].split(",")) { String[] p = k.split(":"); keys.put(Integer.parseInt(p[0]), new int[]{Integer.parseInt(p[1]), Integer.parseInt(p[2])}); }
         for (int r = 1; r <= rounds; r++) {
             if (keys.containsKey(r)) H.postKey(keys.get(r)[0], keys.get(r)[1]);
-            H.tick(50);
+            H.tick(System.getenv("DT") != null ? Integer.parseInt(System.getenv("DT")) : 50);
             if (r % Math.max(1, rounds / 10) == 0 || keys.containsKey(r - 3) || (System.getenv("SHOT") != null && r % Integer.parseInt(System.getenv("SHOT")) == 0)) {
                 BufferedImage im = new BufferedImage(240, 320, BufferedImage.TYPE_INT_ARGB); im.setRGB(0, 0, 240, 296, H.screen.px, 0, H.screen.w); ImageIO.write(im, "png", out.resolve("f" + r + ".png").toFile()); }
         }

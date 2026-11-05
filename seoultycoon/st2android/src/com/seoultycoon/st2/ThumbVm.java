@@ -16,6 +16,7 @@ public final class ThumbVm {
     public void map(int base, int size) { for (int a = base >>> 12; a < ((base + size + 4095) >>> 12); a++) if (pg[a] == null) pg[a] = new byte[4096]; }
     byte[] page(int a) { byte[] p = pg[a >>> 12]; if (p == null) throw new IllegalStateException(String.format("unmapped %08x pc=%08x", a, r[15])); return p; }
     public int u8(int a) { return page(a)[a & 4095] & 0xff; }
+    public String stkDump() { return stk(); }
     String stk() { StringBuilder sb = new StringBuilder(" STK"); for (int i = 0; i < 64; i++) { int w = r32(r[13] + 4 * i); if ((w & 1) == 1 && w > 0x1000000 && w < 0x1083000) sb.append(' ').append(Integer.toHexString(w - 0x1000000)); } return sb.toString(); }
     public int watch = -1, watchVal = Integer.MIN_VALUE;
     public void w8(int a, int v) { if (watch != -1 && (a & ~3) == watch) { new Throwable("WATCH w8 " + Integer.toHexString(a) + "=" + Integer.toHexString(v) + " pc=" + Integer.toHexString(r[15] - 0x1000000)).printStackTrace(); } page(a)[a & 4095] = (byte) v; }

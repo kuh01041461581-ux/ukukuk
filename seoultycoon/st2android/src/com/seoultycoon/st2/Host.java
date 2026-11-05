@@ -372,7 +372,6 @@ public final class Host {
     final HashMap<Integer, Lib.Thr> thrOf = new HashMap<>();
     Lib.Thr curThread;
     void yieldNow(int ms) { if (curThread != null) curThread.wake = vnow + ms; vm.stop = true; }
-    boolean idleLast = false;
     /** 한 스레드를 한 조각(최대 count 명령) 실행. 완료되면 done */
     void runSlice(Lib.Thr t, int count) {
         curThread = t;
@@ -419,21 +418,34 @@ public final class Host {
         int init = r32(r32(ms)) & ~1, start = r32(r32(ms + 4)) & ~1;
         call(init, new int[]{0, obj}, null); call(start, new int[]{0, obj, 0}, null);
     }
-    /** 게임 한 프레임: 키 이벤트 전달 → 스레드 조각 실행 → 그리기. 반환: 화면이 갱신되었는가 */
+    /** 실시간 dtMs 만큼 게임 시간을 흘린다. 게임은 Thread.sleep(0)+currentTimeMillis 로 직접 프레임 간격을 맞추므로,
+     *  시간은 실제 경과(dtMs)로만 흐르게 하고(바쁜 대기는 currentTimeMillis 에서 감지해 조각을 양보) 2ms 단위로 잘게 스케줄한다.
+     *  반환: 이번 호출에서 화면이 다시 그려졌는가 */
     public boolean tick(int dtMs) {
-        if (verbose) pf.log("TICK " + vnow);
-        vnow += dtMs;
-        int[] k; while ((k = pollKey()) != null) { pf.log("key " + k[0] + " " + k[1] + " card=" + Integer.toHexString(currentCard) + " " + (currentCard != 0 ? cnameOf(currentCard) : "")); if (currentCard != 0) pf.log("-> " + vcall(currentCard, "(II)Z+keyNotify", k[0], k[1])); }
-        boolean worked = false;
-        for (Lib.Thr t : new ArrayList<>(threads)) {
-            if (t.done || t.wake > vnow) continue;
-            long c0 = hostCalls; runSlice(t, idleLast ? 300_000 : 8_000_000); idleLast = hostCalls == c0; worked = true;
+        if (verbose && trace != null) trace.println("TICK " + vnow);
+        int[] k; while ((k = pollKey()) != null) { if (currentCard != 0) vcall(currentCard, "(II)Z+keyNotify", k[0], k[1]); }
+        scaleAcc += dtMs * timeScale; int adv = (int) scaleAcc; scaleAcc -= adv;
+        long end = vnow + adv;
+        for (;;) {
+            for (Lib.Thr t : new ArrayList<>(threads)) {
+                if (t.done || t.wake > vnow) continue;
+                runSlice(t, 8_000_000);
+            }
+            if (vnow >= end) break;
+            long next = end;
+            for (Lib.Thr t : threads) if (!t.done && t.wake > vnow && t.wake < next) next = t.wake;
+            vnow = Math.max(vnow + 1, Math.min(next, vnow + 2));
         }
-        if (currentCard != 0) {
+        boolean painted = false;
+        if (currentCard != 0 && (repaintReq || ++paintSkip >= 10)) {
+            repaintReq = false; paintSkip = 0;
             if (gfxScreen == 0) gfxScreen = GfxLib.makeGfx(this, screen);
-            screen.hasClip = false; vcall(currentCard, "(Lorg/kwis/msp/lcdui/Graphics;)V+paint", gfxScreen);
+            screen.hasClip = false; vcall(currentCard, "(Lorg/kwis/msp/lcdui/Graphics;)V+paint", gfxScreen); painted = true;
         }
-        return true;
+        return painted;
     }
+    public volatile double timeScale = 1.0; double scaleAcc = 0;
+    int paintSkip = 0;
+    int spinLast = 0; long spinTime = -1;
     long hostCalls = 0;
 }

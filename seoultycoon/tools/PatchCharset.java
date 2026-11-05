@@ -20,6 +20,12 @@ public class PatchCharset {
                         for (AbstractInsnNode in = m.instructions.getFirst(); in != null; in = in.getNext()) {
                             if (in instanceof MethodInsnNode) {
                                 MethodInsnNode mi = (MethodInsnNode) in;
+                                if (mi.getOpcode() == Opcodes.INVOKESTATIC && mi.owner.equals("java/lang/System") && mi.name.equals("currentTimeMillis")) {
+                                    m.instructions.set(mi, new MethodInsnNode(Opcodes.INVOKESTATIC, "com/seoultycoon/Cp", "now", "()J", false)); changed++; again = true; break;
+                                }
+                                if (mi.getOpcode() == Opcodes.INVOKESTATIC && mi.owner.equals("java/lang/Thread") && mi.name.equals("sleep") && mi.desc.equals("(J)V")) {
+                                    m.instructions.set(mi, new MethodInsnNode(Opcodes.INVOKESTATIC, "com/seoultycoon/Cp", "sleep", "(J)V", false)); changed++; again = true; break;
+                                }
                                 if (mi.owner.equals("java/lang/String") && mi.name.equals("getBytes") && mi.desc.equals("()[B") && mi.getOpcode() == Opcodes.INVOKEVIRTUAL) {
                                     m.instructions.set(mi, new MethodInsnNode(Opcodes.INVOKESTATIC, "com/seoultycoon/Cp", "bytes", "(Ljava/lang/String;)[B", false));
                                     changed++; again = true; break;

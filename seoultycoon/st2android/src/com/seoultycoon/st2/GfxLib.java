@@ -96,7 +96,6 @@ final class GfxLib {
 
     // ---- 라벨 시트(글자가 겹쳐 있어 원본 조각 경계로는 잘리지 않음)는 글자 단위로 다시 그린다
     static final String[] MENU_LABELS = {"현황", "비서", "행사", "정보"};
-    static int menuIdx = 0;
     static final int[] daysDigit = {-1, -1, -1, -1};
     static void label(Host H, Surf dst, String t, int x, int y) {
         int[] dims = new int[2]; byte[] m = H.pf.renderText(t, dims); if (m == null) return;
@@ -137,9 +136,8 @@ final class GfxLib {
             return false;
         }
         if (src.w == 70 && src.h == 9) {                                                                 // 시청 팝업 메뉴 라벨
-            int n = cx == 169 ? 0 : menuIdx + 1; menuIdx = Math.min(3, n);
+            int srcx = cx - x; int[] st = {0, 20, 38, 57}; int menuIdx = 0; for (int i = 1; i < 4; i++) if (Math.abs(srcx - st[i]) < Math.abs(srcx - st[menuIdx])) menuIdx = i;   // 선택 항목이 먼저 그려지므로 그리는 순서가 아니라 시트 속 위치로 라벨을 고른다
             label(H, dst, MENU_LABELS[menuIdx], cx - 4, cy - 2); return true; }
-        if (src.w == 48 && src.h == 34 && cx == 143) menuIdx = -1;                                       // 첫 항목 막대: 순서 초기화
         if (src.w == 10 && src.h == 36) {                                                                // 아이콘: 12행 칸에 맞춰 자르기
             int k = Math.round((float) (cy - y) / 12f); if (k < 0 || k > 2) return true;
             Surf cell = new Surf(10, 12, false); System.arraycopy(src.px, k * 120, cell.px, 0, 120);

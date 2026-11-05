@@ -24,6 +24,7 @@ public class GameActivity extends Activity implements GameView.Host {
         view = new GameView(this);
         view.host = this;
         view.mode = getSharedPreferences("st", MODE_PRIVATE).getInt("mode", GameView.MODE_PHONE);
+        Cp.setScale(SPEEDS[Math.max(0, Math.min(3, getSharedPreferences("st", MODE_PRIVATE).getInt("speed", 1)))]);
         Sound.ctx = getApplicationContext();
         setContentView(view);
         view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -41,8 +42,18 @@ public class GameActivity extends Activity implements GameView.Host {
         }
     }
 
+    static final double[] SPEEDS = {1.0, 1.5, 2.0, 3.0};
     public void openModeDialog() {
-        final String[] names = {"피처폰 버튼 (키패드)", "조이스틱 + 버튼", "터치 전용 (전체 화면)\n  탭=확인 · 쓸기=방향 · 길게/두 손가락=취소"};
+        new AlertDialog.Builder(this).setTitle("설정").setItems(new String[]{"조작 방식", "게임 속도 (부드러움)"}, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface d, int w) { if (w == 0) openControlDialog(); else openSpeedDialog(); } }).show();
+    }
+    void openSpeedDialog() {
+        final String[] n = {"1배 (원본 속도)", "1.5배 (기본)", "2배", "3배 (가장 빠름)"};
+        new AlertDialog.Builder(this).setTitle("게임 속도").setSingleChoiceItems(n, getSharedPreferences("st", MODE_PRIVATE).getInt("speed", 1), new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface d, int w) { getSharedPreferences("st", MODE_PRIVATE).edit().putInt("speed", w).apply(); Cp.setScale(SPEEDS[w]); d.dismiss(); } }).show();
+    }
+    void openControlDialog() {
+        final String[] names = {"피처폰 버튼 (키패드)", "방향키 버튼 + 확인/취소", "터치 전용 (전체 화면)\n  탭=확인 · 쓸기=방향 · 길게/두 손가락=취소"};
         new AlertDialog.Builder(this).setTitle("조작 방식").setSingleChoiceItems(names, view.mode, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface d, int w) {
                 view.setMode(w); getSharedPreferences("st", MODE_PRIVATE).edit().putInt("mode", w).apply(); d.dismiss();

@@ -31,7 +31,7 @@ public class St2View extends View {
     final Paint bp = new Paint(Paint.ANTI_ALIAS_FLAG), tp = new Paint(Paint.ANTI_ALIAS_FLAG), sp = new Paint(Paint.ANTI_ALIAS_FLAG), gp = new Paint();
     final RectF game = new RectF(), pad = new RectF(), gear = new RectF();
     final Rect src = new Rect(0, 0, 240, 296);
-    Bitmap big; Canvas bigC; int bigK; final Paint sm = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
+    Bitmap big; Canvas bigC; int bigK; int shownFrame = -1; final Paint sm = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
     public volatile String err; public volatile int frames;
     public Host game_host; public android.graphics.Bitmap lcd;
     final Handler ui = new Handler(Looper.getMainLooper());
@@ -137,8 +137,8 @@ public class St2View extends View {
         if (lcd != null) {
             // 픽셀 도트가 비정수 배율에서 일그러지지 않게: 정수 배율(올림)로 먼저 키운 뒤 부드럽게 줄여서 그린다
             int k = Math.max(1, Math.min(8, (int) Math.ceil(game.width() / 240f)));
-            if (big == null || bigK != k) { if (big != null) big.recycle(); big = Bitmap.createBitmap(240 * k, 296 * k, Bitmap.Config.ARGB_8888); bigC = new Canvas(big); bigK = k; }
-            synchronized (lcd) { bigC.drawBitmap(lcd, src, new Rect(0, 0, 240 * k, 296 * k), gp); }
+            if (big == null || bigK != k) { if (big != null) big.recycle(); big = Bitmap.createBitmap(240 * k, 296 * k, Bitmap.Config.ARGB_8888); bigC = new Canvas(big); bigK = k; shownFrame = -1; }
+            if (shownFrame != frames) { shownFrame = frames; synchronized (lcd) { bigC.drawBitmap(lcd, src, new Rect(0, 0, 240 * k, 296 * k), gp); } }
             cv.drawBitmap(big, new Rect(0, 0, 240 * k, 296 * k), game, sm);
         }
         bp.setStyle(Paint.Style.FILL);
@@ -167,7 +167,7 @@ public class St2View extends View {
         bp.setStyle(Paint.Style.FILL); bp.setColor(0x66000000); cv.drawRoundRect(gear, 14, 14, bp);   // 설정 버튼
         float old = tp.getTextSize(); tp.setColor(0xCCFFFFFF); tp.setTextSize(13 * density);
         cv.drawText("조작", gear.centerX(), gear.centerY() + 5 * density, tp); tp.setTextSize(old);
-        postInvalidateDelayed(33);
+        postInvalidateOnAnimation();
     }
 
     void key(int code, boolean down) { if (game_host != null) game_host.postKey(down ? 1 : 2, code); }

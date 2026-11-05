@@ -57,14 +57,19 @@ class Output:
             return
         from .package import page_setup_of, strip_section_props, split_chunks
         page = page_setup_of(pkg)
-        if page and br.is_empty_doc():
+        empty = br.is_empty_doc()
+        if page and empty:
             br.apply_page_setup(page)
         strip_section_props(pkg)
-        step = app.ui.get("insert_mode", "step") == "step"
+        # 차례대로 입력은 '빈 문서'에서만: 매번 문서 맨 끝에 붙여 순서가 절대 뒤집히지 않게 한다.
+        # 이미 내용이 있는 문서(커서가 중간)에는 한 번에 넣어 순서를 지킨다.
+        step = app.ui.get("insert_mode", "whole") == "step" and empty
         chunks = split_chunks(pkg) if step else [pkg]
         n = len(chunks)
         try:
             for i, ch in enumerate(chunks, 1):
+                if step:
+                    br.move_doc_end()
                 path = ch.save(tmp_hwpx(prefix))
                 try:
                     br.insert_file(path)
@@ -1229,8 +1234,8 @@ class Widget(tk.Tk):
         Btn(parent, "내 정보 (과·담당자)", self.open_profile, icon_name="user").pack(fill="x", pady=4)
         Btn(parent, "한글에 다시 연결", self.connect, kind="flat", icon_name="link").pack(fill="x", pady=4)
         self.section(parent, "넣는 방식")
-        self._mode_var = tk.StringVar(value=self.ui.get("insert_mode", "step"))
-        for val, txt in (("step", "차례대로 입력 (문단마다)"), ("whole", "한 번에 넣기")):
+        self._mode_var = tk.StringVar(value=self.ui.get("insert_mode", "whole"))
+        for val, txt in (("whole", "한 번에 넣기 (기본, 순서 안전)"), ("step", "차례대로 입력 (빈 문서에서만)")):
             tk.Radiobutton(parent, text=txt, variable=self._mode_var, value=val, bg=C_BG, font=FONT, anchor="w",
                            fg=C_TEXT, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0,
                            command=lambda: self.ui.__setitem__("insert_mode", self._mode_var.get())).pack(fill="x")
@@ -1288,7 +1293,11 @@ class Widget(tk.Tk):
             if which == "cover":
                 pkg = registry.load_form("weekly_cover").render({"start": monday.isoformat()})
             elif which == "plan":
-                pkg = registry.load_form("weekly_plan").render({"org": org, "items": data["items"]})
+                prof = PR.load_profile()
+                items = data["items"] or [{"title": "(행사·업무명)", "dept": prof.get("dept", ""), "staff": prof.get("staff_name", ""),
+                                           "phone": prof.get("staff_ext", ""),
+                                           "lines": [("일시", ""), ("장소", ""), ("주최", ""), ("내용", "")]}]
+                pkg = registry.load_form("weekly_plan").render({"org": org, "items": items})
             else:
                 end = monday + datetime.timedelta(days=6)
                 evs = [e for e in weekly.extract_events(data["items"]) if monday <= T.parse_date(e["date"]) <= end]

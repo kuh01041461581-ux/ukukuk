@@ -104,6 +104,15 @@ class HwpBridge:
             err = e
         raise BridgeError("한글에 끼워 넣지 못했어요%s" % (" (%s)" % err if err else ""))
 
+    def move_doc_end(self):
+        """커서를 문서 맨 끝으로 — 조각을 차례로 넣을 때 순서가 뒤집히지 않게 매번 끝에 붙인다"""
+        hwp = self._need()
+        try:
+            hwp.HAction.Run("MoveDocEnd")
+            return True
+        except Exception:                                  # noqa: BLE001
+            return False
+
     def break_para(self):
         """문단 나눔(Enter) — 조각을 이어 넣을 때 앞 조각 끝에 다음 조각이 붙지 않게"""
         hwp = self._need()

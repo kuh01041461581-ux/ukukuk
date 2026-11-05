@@ -30,6 +30,9 @@ class FakeBridge:
     def compose_chars(self, text, shape_no, char_size=-3):
         self.composed = getattr(self, 'composed', []) + [(text, shape_no)]
 
+    def move_doc_end(self):
+        self.moves = getattr(self, 'moves', 0) + 1
+
     def break_para(self):
         self.breaks = getattr(self, 'breaks', 0) + 1
 
@@ -104,9 +107,11 @@ class GuiTests(unittest.TestCase):
         self.widget.ui["insert_mode"] = "step"
         self.widget.ui["insert_delay"] = 0
         n0 = len(self.br.inserted)
+        m0 = getattr(self.br, "moves", 0)
         self.widget.make_report("report_event")
         k = len(self.br.inserted) - n0
         self.assertGreater(k, 5)
+        self.assertEqual(self.br.moves - m0, k)          # 조각마다 문서 끝으로 이동한 뒤 넣는다(순서 보장)
         self.assertTrue(getattr(self.br, "page", None))
         self.assertEqual(self.br.breaks, k - 1)          # 조각 사이마다 문단 나눔(마지막 뒤엔 없음)
         for p, size in self.br.inserted[n0:]:
@@ -115,6 +120,26 @@ class GuiTests(unittest.TestCase):
         n1 = len(self.br.inserted)
         self.widget.make_report("report_event")
         self.assertEqual(len(self.br.inserted) - n1, 1)                 # 한 번에: 정확히 한 번(두 번 들어가지 않음)
+
+    def test_non_empty_doc_inserts_whole(self):
+        """내용이 있는 문서에서는 '차례대로'를 켜도 한 번에 넣는다(커서가 중간이면 순서가 뒤집힐 수 있어서)"""
+        self.widget.ui["insert_mode"] = "step"
+        self.br.is_empty_doc = lambda: False
+        n0 = len(self.br.inserted)
+        self.widget.make_report("report_event")
+        self.assertEqual(len(self.br.inserted) - n0, 1)
+        del self.br.is_empty_doc
+
+    def test_weekly_plan_without_items_still_has_lines(self):
+        """일정을 입력하지 않아도 주간업무계획에 항목 틀(제목·일시·장소·주최·내용)이 나온다"""
+        from hwpgen.package import ptext, Package
+        wt = self.widget
+        wt.ui["insert_mode"] = "whole"
+        import hwpgen.profile as PRM
+        PRM.save_week(__import__("hwpgen.textfmt", fromlist=["x"]).week_monday(__import__("datetime").date.today()), {"items": []})
+        n0 = len(self.br.inserted)
+        wt.make_week("plan")
+        self.assertEqual(len(self.br.inserted) - n0, 1)
 
     def test_one_click(self):
         self.widget.ui["insert_mode"] = "whole"

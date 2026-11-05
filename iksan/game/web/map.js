@@ -7,7 +7,7 @@ export class MapView {
     this._bind(); this.fit(); this.loop();
   }
   fit() { const r = this.cv.getBoundingClientRect(); const dpr = window.devicePixelRatio || 1; this.cv.width = Math.round(r.width * dpr); this.cv.height = Math.round(r.height * dpr); this.dpr = dpr;
-    this.zoom = Math.max(2, Math.round(2 * dpr)); this.center(this.m.plots[0]); }
+    this.zoom = Math.max(2, Math.round(1.5 * dpr)); this.center(this.g.plots.find(p => p.landmark === 'mireuk') || this.m.plots[0]); }
   w2s(x, y) { return [(x - y) * (TW / 2), (x + y) * (TH / 2)]; }
   center(p) { const [sx, sy] = this.w2s(p.x, p.y); this.ox = this.cv.width / 2 - sx * this.zoom; this.oy = this.cv.height / 2 - sy * this.zoom; }
   _bind() {
@@ -33,10 +33,13 @@ export class MapView {
       const [sx, sy] = this.w2s(x, y), dx = Math.round(this.ox + (sx - CX) * z), dy = Math.round(this.oy + (sy - CY + 8) * z);
       if (dx < -40 * z || dy < -70 * z || dx > c.width || dy > c.height + 20 * z) continue;
       const t = m.tiles[y][x], v = (x * 7 + y * 13) & 1; let spr;
-      switch (t) { case 'grass': spr = S.grass[v]; break; case 'city': spr = S.city[v]; break; case 'road': spr = S.road; break; case 'water': spr = S.water[frame]; break; case 'field': spr = S.field; break; case 'mountain': spr = S.mountain[v]; break; default: spr = S.grass[0]; }
+      switch (t) { case 'grass': spr = S.grass[(x * 5 + y * 3) % 3]; break; case 'city': spr = S.city[v]; break; case 'road': spr = S.road[v]; break; case 'water': spr = S.water[frame]; break; case 'field': spr = S.field[v]; break; case 'mountain': spr = S.mountain[(x * 3 + y * 7) % 3]; break; default: spr = S.grass[0]; }
       g.drawImage(spr, dx, dy, 32 * z, 64 * z);
       const p = plotAt.get(x + ',' + y);
-      if (p) { const b = p.building ? S.b[p.building] : (this.sel === p.id ? S.marker : S.empty); g.drawImage(b, dx, dy, 32 * z, 64 * z); if (this.sel === p.id && p.building) g.drawImage(S.marker, dx, dy - 2 * z, 32 * z, 64 * z); }
+      if (!p) { const hv = ((x * 73856093) ^ (y * 19349663)) >>> 0; const r = (hv % 100) / 100;
+        if (t === 'city' && r < 0.55) g.drawImage(S.deco[hv % 4], dx, dy, 32 * z, 64 * z);
+        else if (t === 'grass' && r < (this.m.tiles[y][x] === 'grass' ? 0.2 : 0)) g.drawImage(S.tree[hv % 3], dx, dy, 32 * z, 64 * z); }
+      if (p) { const b = p.building ? S.b[p.building] : (p.landmark ? S.b['ruin_' + (p.landmark === 'station' ? 'station' : p.landmark)] : (this.sel === p.id ? S.marker : S.empty)); if (this.sel === p.id) g.drawImage(S.marker, dx, dy, 32 * z, 64 * z); g.drawImage(b, dx, dy, 32 * z, 64 * z); }
     }
   }
 }

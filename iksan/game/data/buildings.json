@@ -1,11 +1,151 @@
 {
-  "house":     { "name": "단독주택",   "cost": 6,  "zones": null,                     "pop": 0.25, "tax": 0.3, "upkeep": 0.2, "support": 0, "level": 2 },
-  "apartment": { "name": "아파트 단지", "cost": 14, "zones": ["new", "old"],           "pop": 0.9,  "tax": 0.9, "upkeep": 0.6, "support": 0, "level": 4 },
-  "shop":      { "name": "상가",       "cost": 8,  "zones": ["old", "new"],           "pop": 0.1,  "tax": 1.0, "upkeep": 0.3, "support": 1, "level": 3 },
-  "factory":   { "name": "공장·식품단지","cost": 16, "zones": ["ind"],                  "pop": 0.4,  "tax": 1.6, "upkeep": 0.8, "support": -1, "level": 5 },
-  "farm":      { "name": "농산물 유통센터","cost": 6, "zones": ["farm", "ind"],         "pop": 0.1,  "tax": 0.5, "upkeep": 0.2, "support": 1, "level": 2 },
-  "heritage":  { "name": "유적 정비·전시관","cost": 12, "zones": ["baekje"],             "pop": 0.1,  "tax": 0.8, "upkeep": 0.5, "support": 3, "level": 5 },
-  "tourist":   { "name": "관광단지·한옥마을","cost": 11, "zones": ["baekje", "farm"],     "pop": 0.15, "tax": 1.2, "upkeep": 0.5, "support": 2, "level": 4 },
-  "park":      { "name": "공원",       "cost": 7,  "zones": null,                     "pop": 0.0,  "tax": 0.0, "upkeep": 0.2, "support": 3, "level": 2 },
-  "school":    { "name": "학교·병원",   "cost": 10, "zones": ["new", "old", "farm"],   "pop": 0.2,  "tax": 0.0, "upkeep": 0.5, "support": 3, "level": 3 }
+  "house": {
+    "name": "단독주택",
+    "cost": 6,
+    "zones": null,
+    "pop": 0.25,
+    "tax": 0.3,
+    "upkeep": 0.2,
+    "support": 0,
+    "level": 2
+  },
+  "apartment": {
+    "name": "아파트 단지",
+    "cost": 14,
+    "zones": [
+      "new",
+      "old"
+    ],
+    "pop": 0.9,
+    "tax": 0.9,
+    "upkeep": 0.6,
+    "support": 0,
+    "level": 4
+  },
+  "shop": {
+    "name": "상가",
+    "cost": 8,
+    "zones": [
+      "old",
+      "new"
+    ],
+    "pop": 0.1,
+    "tax": 1.0,
+    "upkeep": 0.3,
+    "support": 1,
+    "level": 3
+  },
+  "factory": {
+    "name": "공장·식품단지",
+    "cost": 16,
+    "zones": [
+      "ind"
+    ],
+    "pop": 0.4,
+    "tax": 1.6,
+    "upkeep": 0.8,
+    "support": -1,
+    "level": 5
+  },
+  "farm": {
+    "name": "농산물 유통센터",
+    "cost": 6,
+    "zones": [
+      "farm",
+      "ind"
+    ],
+    "pop": 0.1,
+    "tax": 0.5,
+    "upkeep": 0.2,
+    "support": 1,
+    "level": 2
+  },
+  "heritage": {
+    "name": "유적 정비·전시관",
+    "cost": 12,
+    "zones": [
+      "baekje"
+    ],
+    "pop": 0.1,
+    "tax": 0.8,
+    "upkeep": 0.5,
+    "support": 3,
+    "level": 5
+  },
+  "tourist": {
+    "name": "관광단지·한옥마을",
+    "cost": 11,
+    "zones": [
+      "baekje",
+      "farm"
+    ],
+    "pop": 0.15,
+    "tax": 1.2,
+    "upkeep": 0.5,
+    "support": 2,
+    "level": 4
+  },
+  "park": {
+    "name": "공원",
+    "cost": 7,
+    "zones": null,
+    "pop": 0.0,
+    "tax": 0.0,
+    "upkeep": 0.2,
+    "support": 3,
+    "level": 2
+  },
+  "school": {
+    "name": "학교·병원",
+    "cost": 10,
+    "zones": [
+      "new",
+      "old",
+      "farm"
+    ],
+    "pop": 0.2,
+    "tax": 0.0,
+    "upkeep": 0.5,
+    "support": 3,
+    "level": 3
+  },
+  "restore_mireuk": {
+    "name": "미륵사지 석탑 복원",
+    "cost": 20,
+    "zones": [
+      "baekje"
+    ],
+    "landmark": "mireuk",
+    "pop": 0.2,
+    "tax": 1.6,
+    "upkeep": 0.6,
+    "support": 4,
+    "level": 6
+  },
+  "restore_wanggung": {
+    "name": "왕궁리 오층석탑 정비",
+    "cost": 18,
+    "zones": [
+      "baekje"
+    ],
+    "landmark": "wanggung",
+    "pop": 0.2,
+    "tax": 1.4,
+    "upkeep": 0.6,
+    "support": 4,
+    "level": 6
+  },
+  "station_dev": {
+    "name": "익산역 역세권 개발",
+    "cost": 22,
+    "zones": [
+      "old"
+    ],
+    "landmark": "station",
+    "pop": 0.8,
+    "tax": 2.4,
+    "upkeep": 0.9,
+    "support": 2,
+    "level": 6
+  }
 }

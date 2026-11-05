@@ -28,7 +28,8 @@
             "note": "범람 피해!"
           }
         }
-      ]
+      ],
+      "scene": "flood"
     },
     {
       "id": "snow",
@@ -50,7 +51,8 @@
             "support": -2
           }
         }
-      ]
+      ],
+      "scene": "snow"
     },
     {
       "id": "harvest",
@@ -70,7 +72,8 @@
           "label": "지켜본다",
           "fx": {}
         }
-      ]
+      ],
+      "scene": "harvest"
     },
     {
       "id": "festival_seodong",
@@ -78,7 +81,8 @@
       "needsVerification": true,
       "title": "서동축제(개최월 확인 필요)",
       "text": "",
-      "choices": []
+      "choices": [],
+      "scene": null
     },
     {
       "id": "festival_jewel",
@@ -86,7 +90,8 @@
       "needsVerification": true,
       "title": "보석 관련 행사(개최월 확인 필요)",
       "text": "",
-      "choices": []
+      "choices": [],
+      "scene": null
     }
   ],
   "random": [
@@ -109,7 +114,8 @@
             "support": -5
           }
         }
-      ]
+      ],
+      "scene": "fire"
     },
     {
       "id": "company_invest",
@@ -130,7 +136,8 @@
           "label": "신중히 검토",
           "fx": {}
         }
-      ]
+      ],
+      "scene": "factory"
     },
     {
       "id": "culture_tour",
@@ -150,7 +157,8 @@
           "label": "현상 유지",
           "fx": {}
         }
-      ]
+      ],
+      "scene": "baekje"
     },
     {
       "id": "citizen_complaint",
@@ -171,7 +179,8 @@
             "support": -2
           }
         }
-      ]
+      ],
+      "scene": "town"
     }
   ],
   "bribe": [
@@ -194,7 +203,8 @@
             "support": 1
           }
         }
-      ]
+      ],
+      "scene": "bribe"
     },
     {
       "id": "bribe_sponsor",
@@ -214,7 +224,8 @@
             "integrity": 3
           }
         }
-      ]
+      ],
+      "scene": "bribe"
     },
     {
       "id": "bribe_secretary",
@@ -235,7 +246,8 @@
             "integrity": 4
           }
         }
-      ]
+      ],
+      "scene": "bribe"
     }
   ]
 }

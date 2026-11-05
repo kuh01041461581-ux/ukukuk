@@ -20,12 +20,15 @@ export function genMap(seed = 7) {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       if (t[y][x] === 'water') continue;
       const road = ((x - x0) % 4 === 0) || ((y - y0) % 4 === 0);
-      t[y][x] = id === 'farm' ? (road ? 'road' : (rng() < 0.6 ? 'field' : 'grass')) : (road ? 'road' : 'city');
+      t[y][x] = (id === 'farm' || id === 'baekje') ? (road ? 'road' : (id === 'farm' && rng() < 0.6 ? 'field' : 'grass')) : (road ? 'road' : 'city');
     }
     // 부지: 도로로 둘러싸인 칸 중앙 (2,2) 간격
     let n = 0;
     for (let y = y0 + 1; y < y1 && n < 6; y += 4) for (let x = x0 + 1; x < x1 && n < 6; x += 4) { if (t[y][x] === 'water') continue; plots.push({ id: `${id}${n}`, zone: id, x: x + 1, y: y + 1, building: null }); n++; }
   }
+  // 랜드마크: 처음엔 '유적터/역 부지'로 비어 있고, 복원·개발하면 상징 건물이 나타남
+  const LM = { baekje0: { landmark: 'mireuk', name: '미륵사지 유적터', built: '미륵사지 석탑' }, baekje5: { landmark: 'wanggung', name: '왕궁리 유적터', built: '왕궁리 오층석탑' }, old1: { landmark: 'station', name: '익산역 앞 부지', built: '익산역' } };
+  for (const p of plots) if (LM[p.id]) Object.assign(p, LM[p.id]);
   // 권역 간 연결 도로
   for (let x = 3; x < 37; x++) if (t[15][x] !== 'water') { if (t[15][x] !== 'city') t[15][x] = 'road'; }
   for (let y = 9; y < 22; y++) if (t[y][18] !== 'water') { if (t[y][18] !== 'city') t[y][18] = 'road'; }

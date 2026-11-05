@@ -4,8 +4,8 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ZONE_KEY = { oldLevel: 'old', newLevel: 'new', baekjeLevel: 'baekje', indLevel: 'ind', farmLevel: 'farm' };
 
 export class Game {
-  constructor({ config, events, buildings = {}, plots = [], seed = 1, startMonth = 1 }) {
-    this.cfg = config; this.ev = events; this.bd = buildings; this.plots = plots.map(p => ({ ...p })); this.rng = mulberry32(seed);
+  constructor({ config, events, buildings = {}, plots = [], seed = 1, startMonth = 1, player = { gender: 'm', name: '시장' } }) {
+    this.cfg = config; this.ev = events; this.bd = buildings; this.plots = plots.map(p => ({ ...p })); this.rng = mulberry32(seed); this.player = { gender: player.gender === 'f' ? 'f' : 'm', name: (player.name || '시장').slice(0, 6) }; this.scene = null;
     const s = config.start;
     this.s = { budget: s.budget, population: s.population, support: s.support, fatigue: s.fatigue, politics: s.politics,
                integrity: s.integrity, auditRisk: s.auditRisk, audits: s.audits, monthIndex: 0, startMonth, term: 1, ap: config.actionsPerMonth,
@@ -47,6 +47,7 @@ export class Game {
         const p = this.plots.find(q => q.id === arg.plot), b = this.bd[arg.type];
         if (!p || !b) return { ok: false, msg: '부지/건물을 선택하세요.' };
         if (p.building) return { ok: false, msg: '이미 건물이 있는 부지입니다.' };
+        if (b.landmark ? b.landmark !== p.landmark : !!p.landmark) return { ok: false, msg: p.landmark ? `${p.name}에는 복원·개발 사업만 할 수 있습니다.` : `${b.name}은(는) 해당 랜드마크 부지에만 가능합니다.` };
         if (b.zones && !b.zones.includes(p.zone)) return { ok: false, msg: `${b.name}은(는) 이 권역에 지을 수 없습니다.` };
         if (s.budget < b.cost) return { ok: false, msg: `예산이 부족합니다. (필요 ${b.cost})` };
         s.budget -= b.cost; s.fatigue = clamp(s.fatigue + 6, 0, 100); p.building = arg.type;
@@ -112,7 +113,7 @@ export class Game {
     if (since >= 3 && this.rng() < p) { const b = this.ev.bribe; this.queue.push({ ...b[Math.floor(this.rng() * b.length)], _bribe: true }); s.lastBribeMonth = s.monthIndex; }
   }
   _next() {
-    if (this.queue.length) { this.decision = this.queue.shift(); this.phase = 'decision'; } else { this.decision = null; this.phase = 'player'; }
+    if (this.queue.length) { this.decision = this.queue.shift(); this.phase = 'decision'; this.scene = this.decision.scene || null; } else { this.decision = null; this.phase = 'player'; this.scene = null; }
   }
   choose(i) {
     if (this.phase !== 'decision') return;
@@ -140,7 +141,7 @@ export class Game {
     this.lastShare = Math.round(share * 10) / 10;
     if (share >= this.cfg.election.winThreshold) {
       if (s.term >= this.cfg.term.maxTerms) { this.say(`선거 승리 (득표율 ${this.lastShare}%) — 마지막 임기를 마무리했습니다.`); return this._end('full'); }
-      this.phase = 'election'; this.decision = { title: '선거 결과', text: `득표율 ${this.lastShare}% — 당선! (${s.term}임기 종료, 연임 ${s.term}회)`,
+      this.scene = 'election_win'; this.phase = 'election'; this.decision = { title: '선거 결과', text: `득표율 ${this.lastShare}% — 당선! (${s.term}임기 종료, 연임 ${s.term}회)`,
         choices: [{ label: '엔딩 보기', _end: true }, { label: '계속 플레이 (다음 임기)', _end: false }] };
     } else this._end('defeat');
   }
@@ -156,7 +157,7 @@ export class Game {
     const s = this.s, score = s.population * 2 + this.avgLevel() + s.support + s.integrity / 2 + Math.max(0, s.budget) / 10 + s.term * 5;
     const grade = type === 'impeach' ? 'F' : score > 260 ? 'S' : score > 210 ? 'A' : score > 160 ? 'B' : score > 110 ? 'C' : 'D';
     const text = { impeach: '감사 누적으로 탄핵되었습니다.', defeat: '재선에 실패했습니다. 시민의 선택은 냉정했습니다.', retire: '시민의 박수 속에 명예롭게 퇴임합니다.', full: '12년의 시정을 모두 마쳤습니다. 익산의 역사가 되었습니다.' }[type];
-    this.ending = { type, grade, score: Math.round(score), text, years: this.totalYear, term: s.term, gifts: s.giftsTaken, population: s.population, support: Math.round(s.support) };
-    this.phase = 'ending'; this.decision = null;
+    this.ending = { type, name: this.player.name, gender: this.player.gender, grade, score: Math.round(score), text, years: this.totalYear, term: s.term, gifts: s.giftsTaken, population: s.population, support: Math.round(s.support) };
+    this.phase = 'ending'; this.decision = null; this.scene = { impeach: 'ending_impeach', defeat: 'ending_defeat', retire: 'ending_retire', full: 'ending_full' }[type];
   }
 }

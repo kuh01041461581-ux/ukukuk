@@ -5,6 +5,9 @@ on:
     paths: ["hwp_form_generator/**", ".github/workflows/build-hwpforms.yml"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -28,3 +31,12 @@ jobs:
         with:
           name: HwpFormGenerator
           path: hwp_form_generator/dist/HwpFormGenerator.exe
+      - name: 릴리스에 올리기 (latest-hwpforms)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-hwpforms --yes --cleanup-tag || true
+          gh release create latest-hwpforms dist/HwpFormGenerator.exe --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease --title "한글 양식 생성기 (최신 빌드)" \
+            --notes "한글 옆에 붙여 쓰는 양식 도우미. HwpFormGenerator.exe 를 내려받아 실행하세요. 커밋 $GITHUB_SHA"

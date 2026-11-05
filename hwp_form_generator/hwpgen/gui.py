@@ -970,7 +970,7 @@ class Widget(tk.Tk):
         self.q = tk.StringVar()
         self._build_frame()
         self.show_tab(self.tab)
-        self.protocol("WM_DELETE_WINDOW", self.close)
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.after(100, self.win11_style)
         self.after(300, self.auto_connect)
         self.after(1500, self.tick)
@@ -1234,6 +1234,8 @@ class Widget(tk.Tk):
         self.section(parent, "설정")
         Btn(parent, "내 정보 (과·담당자)", self.open_profile, icon_name="user").pack(fill="x", pady=4)
         Btn(parent, "한글에 다시 연결", self.connect, kind="flat", icon_name="link").pack(fill="x", pady=4)
+        Btn(parent, "프로그램 완전 종료", self.quit_app, kind="flat", icon_name="tray",
+            tip="창을 닫으면 트레이로 가요. 아예 끄려면 여기 또는 트레이 아이콘 메뉴의 '종료'").pack(fill="x", pady=4)
         self.section(parent, "넣는 방식")
         self._mode_var = tk.StringVar(value=self.ui.get("insert_mode", "whole"))
         for val, txt in (("whole", "한 번에 넣기 (기본, 순서 안전)"), ("step", "차례대로 입력 (빈 문서에서만)")):
@@ -1413,7 +1415,7 @@ class Widget(tk.Tk):
     def to_tray(self):
         """창을 숨기고 알림 영역(트레이)에 아이콘만 남긴다. 아이콘을 누르면 다시 나타남."""
         if getattr(self, "_tray", None) is not None:
-            return
+            return True
         try:
             import pystray
             import queue
@@ -1426,11 +1428,16 @@ class Widget(tk.Tk):
             self._tray.run_detached()
         except Exception:                                # noqa: BLE001
             self._tray = None
-            self.iconify()                               # 트레이를 못 쓰면 작업표시줄로 최소화
-            self.say("트레이를 쓸 수 없어 최소화했어요 (pystray 필요)", ok=False)
-            return
+            return False
         self.withdraw()
         self.after(250, self._poll_tray)
+        try:                                             # 처음 숨길 때 한 번 알려 준다(트레이 아이콘 말풍선)
+            if not self.ui.get("tray_told"):
+                self._tray.notify("창을 닫아도 계속 실행돼요. 이 아이콘을 누르면 다시 열려요.", "양식 도우미")
+                self.ui["tray_told"] = True
+        except Exception:                                # noqa: BLE001
+            pass
+        return True
 
     def _poll_tray(self):
         q = getattr(self, "_tray_q", None)
@@ -1444,7 +1451,7 @@ class Widget(tk.Tk):
                     return
                 if cmd == "quit":
                     self.from_tray()
-                    self.close()
+                    self.quit_app()
                     return
         except Exception:                                # noqa: BLE001
             pass
@@ -1501,7 +1508,12 @@ class Widget(tk.Tk):
         self.geometry("%dx%d+%d+%d" % (WIDGET_W, h, x, y))
         self.docked = True
 
-    def close(self):
+    def on_close(self):
+        """창 닫기(X) = 트레이로 보내기. 트레이를 쓸 수 없으면 그냥 종료한다. 완전 종료는 트레이 메뉴 '종료' 또는 더보기."""
+        if not self.to_tray():
+            self.quit_app()
+
+    def quit_app(self):
         if getattr(self, "_tray", None) is not None:
             try:
                 self._tray.stop()

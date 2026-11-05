@@ -83,6 +83,19 @@ class GuiTests(unittest.TestCase):
         self.widget.make_reference()
         self.assertEqual(len(self.br.inserted) - n0, 1)
 
+    def test_close_goes_to_tray_and_quit_is_separate(self):
+        w = self.widget
+        calls = []
+        orig_tray, orig_quit = w.to_tray, w.quit_app
+        w.to_tray = lambda: calls.append("tray") or True
+        w.quit_app = lambda: calls.append("quit")
+        w.on_close()
+        self.assertEqual(calls, ["tray"])                 # X = 트레이로
+        w.to_tray = lambda: calls.append("tray2") or False
+        w.on_close()
+        self.assertEqual(calls[-2:], ["tray2", "quit"])   # 트레이를 못 쓰면 그냥 종료
+        w.to_tray, w.quit_app = orig_tray, orig_quit
+
     def test_alpha_and_tray(self):
         self.widget.set_alpha(70)
         self.assertAlmostEqual(self.widget.alpha, 0.7)

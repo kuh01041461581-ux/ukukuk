@@ -142,10 +142,10 @@ final class GfxLib {
         if (src.w == 48 && src.h == 34) {                                                                // 팝업 마름모 버튼: 선택=빨강, 그 외=파랑
             int row0 = (cy - y) < 9 ? 0 : 14; Surf cell = new Surf(48, 14, false); System.arraycopy(src.px, row0 * 48, cell.px, 0, 48 * 14);
             boolean hc = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, cy); dst.hasClip = hc; curBarX = x; curBarY = cy; return true; }
-        if (src.w == 10 && src.h == 36) {                                                                // 아이콘: 12행 칸에 맞춰 자르기
-            int k = Math.round((float) (cy - y) / 12f); if (k < 0 || k > 2) return true;
-            Surf cell = new Surf(10, 12, false); System.arraycopy(src.px, k * 120, cell.px, 0, 120);
-            boolean hc2 = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, curBarY + 1); dst.hasClip = hc2; return true; }
+        if (src.w == 10 && src.h == 36) {                                                                // 아이콘 4개(그래프/얼굴/폭죽/서류)가 세로로 이어진 시트
+            int k = Math.round((float) (cy - y) / 12f); if (k < 0 || k > 3) return true;
+            int[] b = {0, 7, 17, 27, 36}; int h = b[k + 1] - b[k]; Surf cell = new Surf(10, h, false); System.arraycopy(src.px, b[k] * 10, cell.px, 0, 10 * h);
+            boolean hc2 = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, curBarY + (14 - h) / 2); dst.hasClip = hc2; return true; }
         return false;
     }
     static String[] tf(Host H, int t) { Object o = H.st.get(t); if (o instanceof String[]) return (String[]) o; String[] n = {"", "0"}; H.st.put(t, n); return n; }

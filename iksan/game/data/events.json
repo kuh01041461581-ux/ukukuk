@@ -118,6 +118,40 @@
       "text": "",
       "choices": [],
       "scene": null
+    },
+    {
+      "id": "festival_chrysanthemum",
+      "month": 10,
+      "title": "천만송이 국화축제 개막",
+      "text": "도심 중앙체육공원 일대에서 천만송이 국화축제가 열립니다(10월 하순~11월 초, 지난해 방문객 약 76만 명). 어떻게 준비하시겠습니까?",
+      "scene": "harvest",
+      "choices": [
+        {
+          "label": "대대적 홍보와 야간 조명 (예산 -18, 피로 +10)",
+          "fx": {
+            "budget": -18,
+            "fatigue": 10,
+            "support": 6,
+            "oldLevel": 3,
+            "baekjeLevel": 1
+          }
+        },
+        {
+          "label": "예년 규모 (예산 -10)",
+          "fx": {
+            "budget": -10,
+            "support": 3,
+            "oldLevel": 1
+          }
+        },
+        {
+          "label": "규모 축소",
+          "fx": {
+            "support": -3
+          }
+        }
+      ],
+      "source": "2026 제23회 천만송이 국화축제 10/23~11/1 (복수 언론 보도)"
     }
   ],
   "random": [

@@ -78,6 +78,8 @@ export function makeSprites() {
     for (let k = 0; k < stones; k++) { const sx = CX - 10 + Math.floor(hash(k, gseed, 1) * 20), sy = CY - 4 + Math.floor(hash(k, gseed, 2) * 8); box(g, sx, sy, 2, 1, 1 + (k % 2), '#c8c2b0', { roof: '#e0dac8', out: '#6a6454' }); }
     for (let x = -10; x <= 10; x += 2) { P(g, CX + x, CY - 6 + ((Math.abs(x) * 5 / 11) | 0), '#e8e4d8'); } }, gseed);
   B.ruin_mireuk = ruin(100, 8); B.ruin_wanggung = ruin(101, 6); B.ruin_station = withGround(g => { for (let x = -12; x <= 12; x++) { P(g, CX + x, CY - 1 + ((Math.abs(x) * 5 / 12) | 0) * 0, '#555'); } box(g, CX - 6, CY - 3, 3, 1, 2, '#999', { roof: '#bbb' }); }, 102, ['#d6d0c0', '#c8c2b0']);
+  B.ruin_food = withGround(g => { for (let x = -11; x <= 11; x += 2) P(g, CX + x, CY - 2 + ((Math.abs(x) * 5 / 12) | 0), '#c9a23a'); box(g, CX - 7, CY - 2, 3, 1, 2, '#9aa5af', { roof: '#bcc6ce' }); box(g, CX + 7, CY - 1, 2, 1, 5, '#e0c060', { roof: '#f0d878' }); }, 106, ['#d2cdbd', '#c4bfae']);
+  B.food_cluster = withGround(g => { box(g, CX, CY - 2, 12, 5, 10, '#eef2ee', { roof: '#c4d8c8', win: [4, 5], winCol: '#8ec7a0', band: 5 }); box(g, CX - 7, CY - 5, 3, 1, 14, '#9fd0a8', { roof: '#c8e6cc' }); for (let a = -2; a <= 2; a++) for (let b = 0; b < 3; b++) P(g, CX + 6 + a, CY - 20 + b, '#e84a4a'); for (let i = 0; i < 8; i++) P(g, CX + 6, CY - 17 + i, '#ccc'); }, 107);
   B.restore_mireuk = withGround(g => { // 미륵사지 석탑: 넓은 기단 + 6층 + 상륜
     stoneTier(g, CX, CY - 1, 12, 5, 3, '#b8b3a2'); let y = CY - 4; const ws = [9, 8, 7, 6, 5, 4];
     ws.forEach((w, i) => { stoneTier(g, CX, y, w, Math.max(2, Math.round(w / 2.2)), 4, '#cfcab8'); y -= 5; box(g, CX, y + 4, w + 1, Math.max(2, Math.round(w / 2.2)), 1, '#9a957f', { roof: '#b5b09b' }); y -= 0; });

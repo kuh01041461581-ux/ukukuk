@@ -147,5 +147,18 @@
     "upkeep": 0.9,
     "support": 2,
     "level": 6
+  },
+  "food_cluster": {
+    "name": "국가식품클러스터 확장",
+    "cost": 24,
+    "zones": [
+      "ind"
+    ],
+    "landmark": "food",
+    "pop": 0.6,
+    "tax": 2.8,
+    "upkeep": 1.0,
+    "support": 2,
+    "level": 7
   }
 }

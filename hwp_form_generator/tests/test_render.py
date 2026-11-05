@@ -241,6 +241,23 @@ class NewFormsTests(unittest.TestCase):
         self.assertEqual(paras[7:], [" "])
         self.assertNotIn("첫 문단", ptext(pkg.section(0)))
 
+    def test_starters_keep_labels_and_markers(self):
+        """단추를 누르면 항목 이름(사업개요·일시·장소 …)과 ◦ ▸ - 표시, 표 머리·구분 이름이 서식대로 들어간다"""
+        want = {
+            "report_event": ("행사개요", "일    시 :", "장    소 :", "사업내용 :", "식순 및 시간표", "등록 및 개회", "개 회 사", "국장님 하실 일"),
+            "report_project": ("사업개요", "사업기간 :", "사업장소 :", "사 업 비 :", "사업내용 :", "지난 실적", "향후 계획", "참고자료", "▸"),
+            "report_mayor": ("(일    시)", "(장    소)", "(참석인원)", "(진행방식)", "시 간", "주 요 내 용", "비 고"),
+            "meeting_issue": ("▸일시/장소 :", "▸참 석 자 :", "-", "▸주요내용 :"),
+            "written_item": ("ㅇ (사업내용)", "ㅇ (총사업비)", "-", "□ 요구사항 :"),
+        }
+        for fid, needles in want.items():
+            f = registry.load_form(fid, ROOTS)
+            pkg = check_package(self, f.render(self.VALUES, f.meta["starter"]))
+            sec = pkg.section(0)
+            txt = " ".join("".join(t.text or "" for t in p.iter(HP + "t")) for p in sec.iter(HP + "p"))
+            for n in needles:
+                self.assertIn(n, txt, (fid, n))
+
     def test_query_items(self):
         """질의서: ㅇ (사업내용) 줄·- 줄·□ 요구사항, 정책질의서 <Q> 상자, 총괄표 사업명 자리"""
         f = registry.load_form("written_item", ROOTS)

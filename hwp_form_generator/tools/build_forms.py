@@ -80,13 +80,14 @@ def build(dept_report, mayor_report, plan, schedule):
         dept_report, os.path.join(FORMS, "report_event"), "report_event", "행사 보고 (식순·시간표)", "문화교육국 보고",
         fields, note="제목 상자 + 담당자 줄 + 행사개요 + 식순·시간표(표) + 국장님 하실 일",
         starter="□ 행사개요\n◦ 사 업 명: \n◦ 회의주제: \n◦ 일시: \n◦ 장소: \n◦ 사업내용: \n◦ 대행기관: \n\n"
-                "□ 식순 및 시간표\n| |\n| | |\n| | |\n| | |\n| |\n| | |\n| | |\n\n"
-                "□ 국장님 하실 일\n◦ ")
+                "□ 식순 및 시간표\n| **등록 및 개회** |\n| | **참석자 등록** |\n| | **개 회 사** | |\n| | **축    사** | |\n"
+                "| | **기념촬영** | |\n| | **장내 정리** |\n| **본 행 사** |\n| | | |\n| | | |\n| | **폐회사** |\n\n"
+                "□ 국장님 하실 일\n◦ \n")
     out["report_project"] = report.register_report(
         dept_report, os.path.join(FORMS, "report_project"), "report_project", "사업 보고 (개요·실적·계획)", "문화교육국 보고",
         fields, note="제목 상자 + 담당자 줄 + 사업개요 + 지난 실적 + 향후 계획 + 참고자료",
         starter="□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n"
-                "□ 지난 실적\n◦ \n\n□ 향후 계획\n◦ \n\n□ 참고자료\n◦ ")
+                "□ 지난 실적\n◦ \n▸\n\n□ 향후 계획\n◦ \n▸\n\n□ 참고자료\n◦ ")
     s = detect_mayor_fields(mayor_report)
     out["report_mayor"] = report.register_report(
         mayor_report, os.path.join(FORMS, "report_mayor"), "report_mayor",
@@ -100,7 +101,7 @@ def build(dept_report, mayor_report, plan, schedule):
             {"key": "staff", "label": "담 당 자 (이름 내선 / 휴대폰)", "sample": s["staff"], "profile": "staff_full"},
         ],
         note="'보 고' 머리표 + 제목 상자 + □ 본문. 시장님 보고용. 보고 내용은 1장으로, 참고자료는 뒤에 쪽을 더 붙여 넣습니다",
-        starter="□ 개요\n◦ 일시: \n◦ 장소: \n◦ 참석인원: \n\n□ 주요내용\n◦ \n\n□ 향후 계획\n◦ ")
+        starter="□ 개요\n◦ 일시: \n◦ 장소: \n◦ 주제: \n◦ 참석인원: \n◦ 진행방식: \n\n□ 시간계획\n| 시 간 | 소요 | 주 요 내 용 | 비 고 |\n| | | | |\n| | | | |\n| | | | |")
     out["weekly_plan"] = weekly.register_plan(plan, os.path.join(FORMS, "weekly_plan"))
     out["weekly_cover"] = weekly.register_cover(plan, os.path.join(FORMS, "weekly_cover"))
     out["weekly_schedule"] = weekly.register_schedule(schedule, os.path.join(FORMS, "weekly_schedule"))
@@ -142,7 +143,7 @@ def build_extra(paths):
                 {"key": "title", "label": "현안 제목", "sample": hdr[k + 1]},
                 {"key": "dept", "label": "부서(과)", "sample": hdr[k + 2], "repl": "({{dept}})", "profile": "dept"},
             ], note="현안업무(번호) 제목 상자 + □ 금 후 계 획 + ◦ ▸ - 단계",
-            starter="□ 금 후 계 획\n◦ \n▸일시/장소: \n▸참 석 자: \n▸주요내용: ", slice_=(12, 22))
+            starter="□ 금 후 계 획\n◦ \n▸일시/장소: \n▸참 석 자: \n- \n- \n▸주요내용: ", slice_=(12, 22))
     if "meeting_ref" in paths:
         ts = _flat_texts_para(paths["meeting_ref"], 34, 36)         # 제목 상자(34) + 계장·담당자 줄(35)
         info = next(t for t in ts if _re.match(r"\S*계장\s+\S+\s+\d+\s*/", t))
@@ -312,7 +313,7 @@ def build_queries(paths):
     out = {}
     F = FORMS
     ITEM_STARTER = ("□ 사업개요\nㅇ (사업내용) \nㅇ (사업위치) \nㅇ (사업기간) \nㅇ (총사업비) \nㅇ (주관/시행) \n\n"
-                    "□ 필요성 및 기대효과\nㅇ \nㅇ \n\n□ 요구사항 : ")
+                    "□ 필요성 및 기대효과\nㅇ \n- \nㅇ \n- \n\n□ 요구사항 : ")
     if "written" in paths:
         w = paths["written"]
         ts = _flat_texts_para(w, 13, 14)

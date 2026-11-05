@@ -70,5 +70,16 @@
       "level": 20,
       "note": "서·남부 웅포·망성·성당·용안·함라·춘포·오산 · 금강/만경강변 평야"
     }
-  ]
+  ],
+  "zoning": {
+    "maxLevel": 3,
+    "baseGrow": 0.22,
+    "supportBonus": 0.12,
+    "budgetBonus": 0.08,
+    "nearIndPenalty": 0.1,
+    "pollutionRange": 9,
+    "pollutionPerLv": 0.18,
+    "parkBonusRange": 7,
+    "parkBonus": 0.15
+  }
 }

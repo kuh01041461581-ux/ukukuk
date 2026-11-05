@@ -75,7 +75,7 @@ export class Game {
         if (b.zones && !b.zones.includes(p.zone)) return { ok: false, msg: `${b.name}은(는) 이 권역에 지을 수 없습니다.` };
         const cost = Math.round(b.cost * (this.sec.costMul || 1) * 10) / 10;
         if (s.budget < cost) return { ok: false, msg: `예산이 부족합니다. (필요 ${cost})` };
-        s.budget -= cost; s.fatigue = clamp(s.fatigue + fg(6), 0, 100); p.building = arg.type;
+        s.budget -= cost; s.fatigue = clamp(s.fatigue + fg(6), 0, 100); p.building = arg.type; if (b.zoning) p.lv = 1; else delete p.lv;
         s.population = Math.round((s.population + b.pop) * 100) / 100; s.support = clamp(s.support + b.support, 0, 100);
         const z = this.zone(p.zone); z.level = clamp(z.level + b.level, 0, 100);
         msg = `${b.name} 건설 (${z.name}). 발전도 ${z.level}`; break; }
@@ -101,7 +101,9 @@ export class Game {
     // 1. 수입·지출
     const tax = Math.round(s.population * C.income.taxPerManPop * 10) / 10 * (this.sec.taxMul || 1);
     const gov = C.income.baseSupportGov, upkeep = Math.round(this.zones.reduce((a, z) => a + z.level, 0) * C.income.upkeepPerZoneLevel * 10) / 10;
-    const bTax = this.plots.reduce((a, p) => a + (p.building ? this.bd[p.building].tax : 0), 0), bUp = this.plots.reduce((a, p) => a + (p.building ? this.bd[p.building].upkeep : 0), 0);
+    const tx = p => { const b = this.bd[p.building]; return b.zoning ? b.taxLv[(p.lv || 1) - 1] : b.tax; }, up = p => { const b = this.bd[p.building]; return b.zoning ? b.upLv[(p.lv || 1) - 1] : b.upkeep; };
+    const bTax = this.plots.reduce((a, p) => a + (p.building ? tx(p) : 0), 0), bUp = this.plots.reduce((a, p) => a + (p.building ? up(p) : 0), 0);
+    this._zoningTick();
     let pTax = 0, pUp = 0;
     for (const id of this.active) { const p = this.pol[id]; pUp += p.upkeep || 0; for (const [k, v] of Object.entries(p.monthly || {})) { if (k === 'tax') pTax += v; else this._apply({ [k]: v }); } }
     s.budget = Math.round((s.budget + tax + gov + bTax + pTax - upkeep - bUp - pUp) * 10) / 10;
@@ -125,6 +127,19 @@ export class Game {
     s.monthIndex++; s.ap = C.actionsPerMonth;
     if (s.monthIndex % C.term.months === 0) { this.phase = 'election'; return this._election(); }
     this._enqueueMonthEvents(); this._next();
+  }
+  /** 구역 지정형 단지: 수요(지지도·예산)·주변(산업 오염/공원)에 따라 월마다 성장, 산업단지는 인근 주거 지지도를 깎는다 */
+  _zoningTick() {
+    const Z = this.cfg.zoning; if (!Z) return; const s = this.s, dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+    const zp = this.plots.filter(p => p.building && this.bd[p.building].zoning);
+    let pollution = 0, parkBoost = 0;
+    for (const p of zp) {
+      const kind = this.bd[p.building].zoning; let chance = Z.baseGrow + (s.support > 55 ? Z.supportBonus : 0) + (s.budget > 50 ? Z.budgetBonus : 0) - (s.support < 35 ? 0.12 : 0);
+      if (kind === 'res') { const ind = zp.filter(q => this.bd[q.building].zoning === 'ind' && dist(p, q) <= Z.pollutionRange); if (ind.length) { chance -= Z.nearIndPenalty; pollution += ind.reduce((a, q) => a + (q.lv || 1), 0) * Z.pollutionPerLv; }
+        if (this.plots.some(q => q.building === 'park' && dist(p, q) <= Z.parkBonusRange)) { chance += Z.parkBonus; parkBoost += 0.08; } }
+      if ((p.lv || 1) < Z.maxLevel && this.rng() < chance) { p.lv = (p.lv || 1) + 1; s.population = Math.round((s.population + this.bd[p.building].pop) * 100) / 100; this.zone(p.zone).level = clamp(this.zone(p.zone).level + 1.5, 0, 100); this.say(`${this.zone(p.zone).name} ${this.bd[p.building].name.replace(' 지정', '')}가 Lv${p.lv}로 성장했습니다.`); }
+    }
+    s.support = clamp(s.support - Math.min(pollution, 4) + Math.min(parkBoost, 1), 0, 100);
   }
   _snap() { const s = this.s; return { m: s.monthIndex, budget: s.budget, pop: s.population, support: Math.round(s.support), integrity: Math.round(s.integrity) }; }
   _checkOverwork() { /* 입원은 월말 처리 */ }

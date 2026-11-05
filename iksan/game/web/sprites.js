@@ -167,6 +167,7 @@ export function makeSprites() {
   B.ruin_mireuk = ruin(100, 14); B.ruin_wanggung = ruin(101, 10);
   B.ruin_food = withGround(g => { for (let x = -24; x <= 24; x += 2) RC(g, CX + x, CY - 4 + Math.round(Math.abs(x) * 0.5), 1, 1, '#c9a23a'); box(g, CX - 14, CY - 4, 6, 3, 4, '#9aa5af', { roof: '#bcc6ce' }); box(g, CX + 14, CY - 2, 4, 2, 10, '#e0c060', { roof: '#f0d878' }); }, 106, ['#d2cdbd', '#c4bfae']);
   // 기존 익산역(낡은 역사): 낮고 긴 맞배지붕 + 승강장 지붕
+  B.zone_dummy = null;
   B.station_old = withGround(g => { box(g, CX, CY - 4, 24, 11, 16, '#cfc3a8', { roof: '#8a5a4a', win: [7, 9, 4, 4], winCol: '#b8d0e0', band: 0 }); box(g, CX, CY - 12, 7, 3, 12, '#c4b898', { roof: '#7a4a3a', win: [4, 5, 2, 3] }); RC(g, CX - 5, CY - 36, 10, 5, '#2a3a5a'); RC(g, CX - 4, CY - 35, 8, 3, '#fff'); box(g, CX - 18, CY + 8, 6, 2, 8, '#9aa0a8', { roof: '#c0c6ce' }); });
   // 미륵사지 서탑(국보 11호): 현존 6층, 높이 약 14.5m·폭 약 12m 로 낮고 넓은 비례. 목탑 양식 — 각 층 몸돌에 기둥·감실, 얇고 넓은 지붕돌 네 귀퉁이가 살짝 들림
   const GR = '#d4d0c4';
@@ -199,5 +200,15 @@ export function makeSprites() {
   B.station_dev = withGround(g => { box(g, CX, CY - 4, 26, 12, 14, '#e8e4d6', { roof: '#5a6a80', win: [6, 8, 4, 5], winCol: '#9fd0f0', band: 0, topFn: (dx, dy, c) => (dy % 5 === 0 ? shade(c, 1.08) : null) }); box(g, CX + 12, CY - 14, 7, 3, 38, '#d4c9ae', { roof: '#5a6a80', win: [4, 7, 2, 4], winCol: '#9fd0f0' });
     for (let a = -4; a <= 4; a++) for (let b = 0; b < 8; b++) if (Math.hypot(a, b - 3.5) < 4.6) P(g, CX + 12 + a, CY - 68 + b, '#f4f0e0'); RC(g, CX + 12, CY - 65, 1, 3, '#333'); RC(g, CX + 12, CY - 65, 2, 1, '#333'); box(g, CX - 14, CY + 6, 10, 3, 7, '#9aa8b8', { roof: '#c4d0dc' }); }, 105);
   B.food_cluster = withGround(g => { box(g, CX, CY - 4, 24, 11, 20, '#eef2ee', { roof: '#c4d8c8', win: [7, 9, 4, 4], winCol: '#8ec7a0', band: 10 }); box(g, CX - 16, CY - 8, 6, 3, 30, '#9fd0a8', { roof: '#c8e6cc', band: 6 }); for (let a = -2; a <= 3; a++) RC(g, CX + 14 + a * 2, CY - 42, 2, 6, '#e84a4a'); RC(g, CX + 14, CY - 36, 1, 16, '#ccc'); box(g, CX + 4, CY + 8, 8, 3, 8, '#cfe0d2', { roof: '#e8f2ea' }); }, 107);
+  // ---- 구역 지정형 단지(레벨 1~3) ----
+  B.zone_res1 = B.house;
+  B.zone_res2 = withGround(g => { box(g, CX - 9, CY - 2, 11, 5, 26, '#d6d2ca', { roof: '#8a98ae', win: [5, 7, 3, 4], winCol: '#ffe9a0' }); box(g, CX + 12, CY + 2, 9, 4, 20, '#e0d6c4', { roof: '#b5543e', win: [5, 7, 3, 4] }); });
+  B.zone_res3 = B.apartment;
+  B.zone_com1 = withGround(g => { box(g, CX, CY - 4, 14, 6, 10, '#f0d494', { roof: '#e08a4c', win: [6, 8, 3, 4], winCol: '#fff2c0' }); for (let x = -13; x <= 13; x++) if (x % 6 < 3) RC(g, CX + x, CY - 6 + Math.round(Math.abs(x) * 6 / 14), 1, 3, '#d94a4a'); });
+  B.zone_com2 = B.shop;
+  B.zone_com3 = withGround(g => { box(g, CX - 6, CY - 2, 14, 7, 24, '#f4d68c', { roof: '#c8693f', win: [6, 8, 3, 4], winCol: '#fff2c0' }); box(g, CX + 12, CY + 2, 9, 4, 40, '#b9bfd0', { roof: '#d6dae3', win: [4, 7, 3, 4], winCol: '#a8d0f0' }); RC(g, CX - 14, CY - 28, 12, 3, '#2a3a5a'); RC(g, CX - 13, CY - 27, 10, 1, '#ffe070'); });
+  B.zone_ind1 = withGround(g => { box(g, CX, CY - 4, 18, 8, 12, '#a9b2ba', { roof: '#c6ced4', band: 5, win: [9, 9, 3, 2], winCol: '#ffd070' }); box(g, CX + 14, CY + 4, 4, 2, 6, '#c0402f', { roof: '#d85a44' }); });
+  B.zone_ind2 = withGround(g => { box(g, CX - 4, CY - 4, 20, 9, 18, '#9aa5af', { roof: '#bcc6ce', band: 6, win: [8, 9, 4, 3], winCol: '#ffd070' }); box(g, CX + 14, CY - 10, 3, 2, 30, '#8a6a58', { roof: '#6a4a3a', band: 5 }); for (let i = 0; i < 6; i++) RC(g, CX + 13 + i % 2, CY - 44 - i * 2, 5, 3, i < 3 ? '#f0f0f0' : '#d0d0d0'); });
+  B.zone_ind3 = B.factory;
   return S;
 }

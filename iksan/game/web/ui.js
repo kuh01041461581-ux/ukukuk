@@ -17,9 +17,9 @@ function plotPanel() {
   const p = selPlot && g.plots.find(q => q.id === selPlot); if (!p) return '<div class="zone"><small>지도에서 부지를 눌러 건설하세요. 드래그로 이동. 유적터·역 앞 부지는 복원·개발 사업을 할 수 있습니다.</small></div>';
   const z = g.zone(p.zone);
   const up = Object.entries(buildings).filter(([k, b]) => b.upgradeFrom === p.building);
-  if (p.building && !up.length) return `<div class="zone"><b>${p.name ? p.built : z.name}</b> — ${buildings[p.building].name} 운영 중</div>`;
+  if (p.building && !up.length) return `<div class="zone"><b>${p.name ? p.built : z.name}</b> — ${buildings[p.building].name.replace(' 지정', '')}${p.lv ? ' Lv' + p.lv + '/3 (수요에 따라 성장)' : ''} 운영 중</div>`;
   const list = p.building ? up : Object.entries(buildings).filter(([k, b]) => !b.hidden && !b.upgradeFrom && (b.landmark ? b.landmark === p.landmark : (!p.landmark && (!b.zones || b.zones.includes(p.zone)))));
-  return `<div class="zone"><b>${p.name || z.name + ' · 빈 부지'}</b>${p.building ? ' — ' + buildings[p.building].name + ' 운영 중' : ''}` + list.map(([k, b]) => `<button data-b="${k}" style="width:100%;margin-top:4px;text-align:left">${b.name} — 예산 ${b.cost} · 인구 +${b.pop} · 월 수익 ${(b.tax - b.upkeep).toFixed(1)}${b.support ? ' · 지지도 ' + (b.support > 0 ? '+' : '') + b.support : ''}</button>`).join('') + '</div>';
+  return `<div class="zone"><b>${p.name || z.name + ' · 빈 부지'}</b>${p.building ? ' — ' + buildings[p.building].name.replace(' 지정', '') + (p.lv ? ' Lv' + p.lv + '/3' : '') + ' 운영 중' : ''}` + list.map(([k, b]) => `<button data-b="${k}" style="width:100%;margin-top:4px;text-align:left">${b.name} — 예산 ${b.cost} · 인구 +${b.pop} · ${b.zoning ? '월 수익 Lv1 ' + (b.taxLv[0] - b.upLv[0]).toFixed(1) + ' → Lv3 ' + (b.taxLv[2] - b.upLv[2]).toFixed(1) + '<br><small>' + b.desc + '</small>' : '월 수익 ' + (b.tax - b.upkeep).toFixed(1)}${b.support ? ' · 지지도 ' + (b.support > 0 ? '+' : '') + b.support : ''}</button>`).join('') + '</div>';
 }
 function bindBuild(root) { root.querySelectorAll('[data-b]').forEach(b => b.onclick = () => { const r = g.act('build', { plot: selPlot, type: b.dataset.b }); if (!r.ok) alert(r.msg); render(); }); }
 function scene(canvasId, id) { if (stopScene) { stopScene(); stopScene = null; } const cv = document.getElementById(canvasId); if (cv && HAS_SCENE(id)) stopScene = playScene(cv, id, { female: profile.gender === 'f', secretary: true }); }
@@ -68,7 +68,7 @@ function render() {
   bindBuild(app);
   const cv = document.getElementById('map');
   const zi = document.getElementById('zin'); if (zi) { zi.onclick = () => mv && mv.setZoom(mv.zoom + 1); document.getElementById('zout').onclick = () => mv && mv.setZoom(mv.zoom - 1); }
-  if (cv) { mv = new MapView(cv, g, MAPDATA, p => { selPlot = p && p.id; const pp = document.getElementById('plotpanel'); pp.innerHTML = plotPanel(); bindBuild(pp); }); if (selPlot) mv.sel = selPlot; }
+  if (cv) { mv = new MapView(cv, g, MAPDATA, p => { selPlot = p && p.id; const pp = document.getElementById('plotpanel'); pp.innerHTML = plotPanel(); bindBuild(pp); }); if (selPlot) mv.sel = selPlot; window.__mv = mv; }
 }
 render();
 window.__game = () => g; window.__render = render;

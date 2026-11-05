@@ -175,5 +175,78 @@
     "upkeep": 0.4,
     "support": 0,
     "level": 0
+  },
+  "zone_res": {
+    "name": "주거단지 지정",
+    "cost": 8,
+    "zones": [
+      "old",
+      "new",
+      "farm"
+    ],
+    "zoning": "res",
+    "pop": 0.15,
+    "tax": 0,
+    "taxLv": [
+      0.5,
+      1.1,
+      1.8
+    ],
+    "upLv": [
+      0.2,
+      0.45,
+      0.8
+    ],
+    "support": 0,
+    "level": 1,
+    "desc": "수요에 따라 주택→연립→아파트로 자란다"
+  },
+  "zone_com": {
+    "name": "상업단지 지정",
+    "cost": 8,
+    "zones": [
+      "old",
+      "new"
+    ],
+    "zoning": "com",
+    "pop": 0.05,
+    "tax": 0,
+    "taxLv": [
+      0.7,
+      1.5,
+      2.4
+    ],
+    "upLv": [
+      0.25,
+      0.5,
+      0.9
+    ],
+    "support": 0,
+    "level": 1,
+    "desc": "인구·지지도가 오르면 상가→시장→복합상가로 성장"
+  },
+  "zone_ind": {
+    "name": "산업단지 지정",
+    "cost": 10,
+    "zones": [
+      "ind",
+      "new"
+    ],
+    "zoning": "ind",
+    "pop": 0.1,
+    "tax": 0,
+    "taxLv": [
+      0.9,
+      1.9,
+      3.1
+    ],
+    "upLv": [
+      0.3,
+      0.6,
+      1.0
+    ],
+    "support": -1,
+    "level": 1,
+    "desc": "세수가 크지만 인근 주거 지지도를 갉아먹는다(오염·소음)"
   }
 }

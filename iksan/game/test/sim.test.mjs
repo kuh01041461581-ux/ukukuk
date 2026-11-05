@@ -61,4 +61,10 @@ for (const pol of ['honest', 'greedy', 'idle']) {
   const a = mk('finance'), b = mk('admin'), c = mk('politic'); a.s.budget = b.s.budget = 100; a.act('build', { plot: 'old0', type: 'house' }); b.act('build', { plot: 'old0', type: 'house' });
   assert.ok(a.s.budget > b.s.budget, '경제 비서 할인 없음'); assert.ok(b.s.fatigue < c.s.fatigue + 6 && b.s.fatigue >= 0);
   const d = mk('admin'); d.s.fatigue = 0; d.act('meet'); const e = mk('politic'); e.s.fatigue = 0; e.act('meet'); assert.ok(d.s.fatigue <= e.s.fatigue); }
+// 9) 구역 지정형 단지: 성장·산업 오염
+{ const g = new Game({ config, events, buildings, policies, secretaries, plots: MAP.plots, seed: 11, startMonth: 1 }); while (g.phase === 'decision') g.choose(g.decision._bribe ? 1 : 0);
+  g.s.budget = 900; g.s.ap = 9; assert.ok(g.act('build', { plot: 'new0', type: 'zone_res' }).ok); assert.equal(g.plots.find(p => p.id === 'new0').lv, 1);
+  assert.equal(g.act('build', { plot: 'new1', type: 'zone_ind' }).ok, true);
+  for (let i = 0; i < 80 && g.phase !== 'ending'; i++) { while (g.phase === 'decision') g.choose(g.decision._bribe ? 1 : g.decision.choices.length - 1); if (g.phase === 'election') g.electionChoice(1); else if (g.phase === 'player') { g.s.budget = Math.max(g.s.budget, 300); g.endMonth(); } }
+  const lvs = g.plots.filter(p => p.lv).map(p => p.lv); assert.ok(lvs.every(v => v >= 1 && v <= 3)); assert.ok(lvs.some(v => v >= 2), '단지가 성장하지 않음'); console.log('단지 레벨', lvs.join(',')); }
 console.log('ALL TESTS PASSED');

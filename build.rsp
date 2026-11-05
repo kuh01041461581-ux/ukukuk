@@ -583,7 +583,6 @@
 -resource:spr\ms_rib.png,spr.ms_rib.png
 -resource:spr\ms_crn.png,spr.ms_crn.png
 -resource:spr\ms_cstar.png,spr.ms_cstar.png
--resource:spr\ms_hfw.png,spr.ms_hfw.png
 -resource:spr\ms_so_ok.png,spr.ms_so_ok.png
 -resource:spr\ms_so_no.png,spr.ms_so_no.png
 -resource:spr\ms_chalk.png,spr.ms_chalk.png

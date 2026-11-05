@@ -29,18 +29,13 @@ OUTLINE_DEPT = """□ 행사개요
 | 14:00~14:30(30') | [기조강연] 가나다 | 발표: 갑을 |
 """
 
-OUTLINE_MAYOR = """□ 개요
-◦ 일시: 2026. 9. 16.(수) 14:00
+OUTLINE_MAYOR = """□ 직무연수 계획
+◦ 일자: 2026. 9. 16.(수) 14:00
+▸ 1일차 연수
 ◦ 장소: 익산시청 지하 1층 로비
-◦ 참석인원: 50명 내외
-| 구 분 | 참석대상 |
-| 익 산 시 | 시장, 부시장 |
-| 시 민 | 시민 20~30명 |
-◦ 진행방식 분과별 발표 후 토론
-□ 시간계획
-| 시 간 | 소요 | 주 요 내 용 | 비 고 |
-| 14:00 ~ 14:05 | 5′ | ◦ 개회 및 안내 | 사회자 |
-| 14:05 ~ 14:10 | 5′ | ◦ 인사말씀 | 시장님 |
+◦ 참석자: 50명 내외
+◦ 주요내용: 분과별 발표 후 토론
+▸ 토론
 """
 
 
@@ -145,11 +140,8 @@ class RenderTests(unittest.TestCase):
         pkg2 = check_package(self, pkg)
         txt = ptext(pkg2.section(0))
         self.assertIn("2026. 9. 14.(월)", txt)
-        self.assertIn("(일    시)", txt)
-        self.assertIn("(참석인원)", txt)
+        self.assertIn("직무연수 계획", txt)
         self.assertIn("타운홀미팅 시험", txt)
-        # 개요가 헤더표 안 본문 칸에 들어갔는지
-        self.assertEqual(sorted(t.get("colCnt") for t in pkg2.section(0).iter(HP + "tbl")).count("4"), 1)
 
     def test_weekly_plan(self):
         f = registry.load_form("weekly_plan", ROOTS)
@@ -236,7 +228,7 @@ class NewFormsTests(unittest.TestCase):
               "request": "건의 문구", "issue": "현안 제목"}
 
     def test_all_new_forms_render(self):
-        want = {"meeting_cover": "현안·당면 업무보고", "meeting_issue": "현안업무(3)", "meeting_card": "△△계장", "meeting_card_full": "프로그램 내용",
+        want = {"meeting_cover": "현안·당면 업무보고", "meeting_issue": "현안업무(3)", "meeting_card": "프로그램 내용",
                 "audit_cover": "제282회", "audit_common": "감사자료 과 공통사항", "budget_cover": "주요사업 설명자료",
                 "budget_project": "세부사업명 : 세부 C", "press_release": "시험 제목", "written_cover": "서면질의서", "written_list": "서면질의 목록",
                 "written_item": "< ○○위원회 / ○○부 소관 / 일반회계 >", "policy_cover": "정책질의서", "policy_list": "활동사업 목록",
@@ -271,7 +263,7 @@ class NewFormsTests(unittest.TestCase):
         want = {
             "report_event": ("행사개요", "일    시 :", "장    소 :", "사업내용 :", "식순 및 시간표", "등록 및 개회", "개 회 사", "국장님 하실 일"),
             "report_project": ("사업개요", "사업기간 :", "사업장소 :", "사 업 비 :", "사업내용 :", "지난 실적", "향후 계획", "참고자료", "▸"),
-            "report_mayor": ("(일    시)", "(장    소)", "(참석인원)", "(진행방식)", "시 간", "주 요 내 용", "비 고"),
+            "report_mayor": ("◦ 일    자", "◦ 장    소", "◦ 참 석 자", "◦ 주요내용"),
             "meeting_issue": ("▸일시/장소 :", "▸참 석 자 :", "-", "▸주요내용 :"),
             "written_item": ("ㅇ (사업내용)", "ㅇ (총사업비)", "-", "□ 요구사항 :"),
         }
@@ -292,7 +284,7 @@ class NewFormsTests(unittest.TestCase):
         m = registry.load_form("meeting_issue", ROOTS)
         self.assertEqual(m.meta["fields"][1].get("default"), "고도 익산 역사·문화자원 브랜드화 및 지역 명소화")   # 현안 제목 기본값
         txt = ptext(m.render({"no": "5", "title": "제목", "dept": "문화유산과"}, m.meta["starter"]).section(0))
-        for s in ("지난주 실적", "금 후 계 획", "▸기간/장소", "▸일시/장소"):
+        for s in ("지난주 실적", "금 후 계 획", "▸참 석 자", "▸일시/장소"):
             self.assertIn(s, txt)
 
     def test_query_items(self):
@@ -326,7 +318,7 @@ class NewFormsTests(unittest.TestCase):
         import zipfile
         bad = ("010-", "전주영", "김형남", "조상미", "조선영", "진소현", "박수진", "조승재", "윤보훈", "전북권", "숭림사", "고선희", "조진선", "이선아", "859-7410", "아동학대", "김태곤", "박환조", "고광민", "남철기", "설재진", "양선화",
                "이용범", "박미자", "홀로그램", "전주영", "김형남", "정서윤", "함열", "아이행복")
-        for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "meeting_card_full", "audit_cover", "audit_common",
+        for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_common",
                                     "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
                     "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref"):
             d = os.path.join(FORMS, fid)

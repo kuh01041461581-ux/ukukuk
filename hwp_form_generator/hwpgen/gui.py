@@ -949,12 +949,12 @@ class Widget(tk.Tk):
                     "국회단계 정책질의서": "assembly", "행정사무감사": "audit"}
     GROUP_ORDER = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "참고자료(백데이터)", "보도자료", "국회단계 서면질의서",
                    "국회단계 정책질의서", "국회단계 질의서", "행정사무감사"]
-    FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card_full", "meeting_card",
+    FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card",
                   "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
                   "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item",
                   "policy_ref", "audit_cover", "audit_common"]
     FORM_ICONS = {"report_event": "event", "report_project": "project", "report_mayor": "mayor",
-                  "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project", "meeting_card_full": "plan",
+                  "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project",
                   "audit_cover": "cover", "audit_common": "plan",
                   "budget_cover": "cover", "budget_project": "project", "budget_ref_cover": "cover",
                   "budget_ref_detail": "project", "budget_ref_return": "plan"}

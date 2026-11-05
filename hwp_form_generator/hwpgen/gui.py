@@ -55,7 +55,7 @@ class Output:
             messagebox.showwarning("한글에 넣기", "열려 있는 한글에 연결하지 못했어요.\n"
                                    "한글을 열고 문서를 띄운 뒤 다시 눌러 주세요.")
             return
-        from .package import page_setup_of, strip_section_props, split_chunks
+        from .package import page_setup_of, strip_section_props, split_chunks, with_lead_blank
         page = page_setup_of(pkg)
         empty = br.is_empty_doc()
         keep_section = bool(empty and page)          # 빈 문서에 첫 양식을 넣을 때만 샘플의 쪽 설정(용지·여백)을 가져온다
@@ -65,13 +65,17 @@ class Output:
             strip_section_props(pkg)                 # 이미 내용이 있는 문서의 쪽 설정은 건드리지 않는다
         # 차례대로 입력은 커서가 문서 맨 끝일 때(빈 문서 포함)만: 매번 끝에 붙여 순서가 절대 뒤집히지 않게 한다.
         # 문서 중간에 넣을 때는 한 번에 넣어 순서를 지킨다.
-        step = app.ui.get("insert_mode", "step") == "step" and (empty or br.at_doc_end())
+        at_end = empty or br.at_doc_end()
+        step = app.ui.get("insert_mode", "step") == "step" and at_end
+        if not empty:
+            br.prepare_insert(at_end)                # 앞 내용과 한 줄로 붙지 않게 새 줄에서 시작
+            with_lead_blank(pkg)                     # 첫 문단이 앞 문단의 모양을 물려받지 않게 빈 받침 문단 하나
         chunks = split_chunks(pkg) if step else [pkg]
         n = len(chunks)
         try:
             for i, ch in enumerate(chunks, 1):
                 if step:
-                    br.move_doc_end()
+                    br.move_doc_end()                # 매번 문서 끝에 붙인다(앞 조각이 남긴 받침 문단에 합쳐짐)
                 path = ch.save(tmp_hwpx(prefix))
                 try:
                     br.insert_file(path, keep_section=(keep_section and i == 1))
@@ -80,8 +84,6 @@ class Output:
                         os.remove(path)
                     except OSError:
                         pass
-                if n > 1 and i < n:
-                    br.break_para()                  # 다음 조각은 새 문단에서 시작
                 if n > 1:
                     app.say("입력 중… %d/%d" % (i, n))
                     app.update()

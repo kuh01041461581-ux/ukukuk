@@ -296,9 +296,29 @@ def strip_section_props(pkg):
     return pkg
 
 
+def _empty_like_para(src):
+    """src 와 같은 문단 모양(정렬·들여쓰기·간격·쪽 나눔)을 가진 빈 문단 — 이어 넣을 때 '받침 문단'으로 쓴다"""
+    d = copy.deepcopy(src)
+    cp = None
+    for run in d.findall(HP + "run"):
+        if cp is None:
+            cp = run.get("charPrIDRef")
+        d.remove(run)
+    for ls in list(d.iter(HP + "linesegarray")):
+        ls.getparent().remove(ls)
+    run = etree.Element(HP + "run")
+    run.set("charPrIDRef", cp or "0")
+    etree.SubElement(run, HP + "t")
+    d.insert(0, run)
+    return d
+
+
 def split_chunks(pkg):
     """본문 문단을 '차례대로 입력되는 느낌'으로 넣기 위해 문단 단위 조각으로 나눈다.
-    빈 문단은 앞 조각에 붙인다. 각 조각은 같은 서식 정의(header)를 가진 독립 문서."""
+    - 빈 문단은 앞 조각에 붙인다.
+    - 조각 끝마다 '다음 조각 첫 문단과 같은 모양의 빈 문단'을 붙인다. 한글은 끼워 넣는 파일의 첫 문단을 커서가 있는
+      문단에 합치므로, 이 받침 문단에 다음 조각이 합쳐지면 정렬·들여쓰기가 앞 문단에서 새지 않고 줄도 붙지 않는다.
+    각 조각은 같은 서식 정의(header)를 가진 독립 문서."""
     pkg.files.update({n: dump_xml(r) for n, r in pkg._xml.items()})
     sec = pkg.section(0)
     ps = sec.findall(HP + "p")
@@ -312,12 +332,26 @@ def split_chunks(pkg):
         groups[1] = groups[0] + groups[1]          # 쪽 설정만 든 빈 첫 문단은 다음 조각에 붙인다(맨 위에 빈 줄이 생기지 않게)
         groups.pop(0)
     out = []
-    for g in groups:
+    for gi, g in enumerate(groups):
         clone_pkg = Package(dict(pkg.files))
         s2 = clone_pkg.section(0)
         for q in list(s2.findall(HP + "p")):
             s2.remove(q)
         for q in g:
             s2.append(copy.deepcopy(q))
+        if gi + 1 < len(groups):
+            s2.append(_empty_like_para(groups[gi + 1][0]))
         out.append(clone_pkg)
     return out
+
+
+def with_lead_blank(pkg):
+    """내용이 있는 문서에 이어 넣을 때: 앞 문단과 한 줄로 붙지 않게 맨 앞에 빈 문단을 하나 둔다(받침)"""
+    sec = pkg.section(0)
+    ps = sec.findall(HP + "p")
+    if not ps:
+        return pkg
+    blank = _empty_like_para(ps[0])
+    blank.set("pageBreak", "0")
+    ps[0].addprevious(blank)
+    return pkg

@@ -385,7 +385,14 @@ class BridgeTests(unittest.TestCase):
         chunks = split_chunks(pkg)
         self.assertGreater(len(chunks), 5)
         total = sum(len(c.section(0).findall(HP + "p")) for c in chunks)
-        self.assertEqual(total, len(pkg.section(0).findall(HP + "p")))
+        self.assertEqual(total, len(pkg.section(0).findall(HP + "p")) + len(chunks) - 1)   # 조각마다(마지막 빼고) 받침 문단 하나
+        # 받침 문단: 다음 조각 첫 문단과 문단 모양이 같고 내용이 없다
+        for a, b in zip(chunks, chunks[1:]):
+            donor = a.section(0).findall(HP + "p")[-1]
+            first = b.section(0).findall(HP + "p")[0]
+            self.assertEqual(donor.get("paraPrIDRef"), first.get("paraPrIDRef"))
+            self.assertEqual(donor.get("pageBreak"), first.get("pageBreak"))
+            self.assertEqual("".join(t.text or "" for t in donor.iter(HP + "t")), "")
         for c in chunks:
             check_package(self, c) if False else Package.load(c.to_bytes())
 

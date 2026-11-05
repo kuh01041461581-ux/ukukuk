@@ -36,6 +36,10 @@ class FakeBridge:
     def move_doc_end(self):
         self.moves = getattr(self, 'moves', 0) + 1
 
+    def prepare_insert(self, at_end):
+        self.prepared = getattr(self, 'prepared', []) + [at_end]
+        return True
+
     def break_para(self):
         self.breaks = getattr(self, 'breaks', 0) + 1
 
@@ -156,7 +160,7 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(self.br.moves - m0, k)          # 조각마다 문서 끝으로 이동한 뒤 넣는다(순서 보장)
         self.assertTrue(getattr(self.br, "page", None))
         self.assertEqual(self.br.keeps[n0:], [True] + [False] * (k - 1))   # 첫 조각만 쪽 설정을 가져온다
-        self.assertEqual(self.br.breaks, k - 1)          # 조각 사이마다 문단 나눔(마지막 뒤엔 없음)
+        self.assertEqual(getattr(self.br, 'breaks', 0), 0)   # 문단 나눔(Enter)에 의존하지 않는다 — 받침 문단으로 이어 붙임
         for p, size in self.br.inserted[n0:]:
             self.assertGreater(size, 1000)
         self.widget.ui["insert_mode"] = "whole"

@@ -113,6 +113,19 @@ class HwpBridge:
         except Exception:                                  # noqa: BLE001
             return False
 
+    def prepare_insert(self, at_end):
+        """내용이 있는 문서에 넣기 전: (문서 끝이면 끝으로 가서) 커서가 문단 중간이면 문단을 나눠 새 줄에서 시작하게 한다"""
+        hwp = self._need()
+        try:
+            if at_end:
+                hwp.HAction.Run("MoveDocEnd")
+            pos = hwp.GetPos()
+            if pos and pos[2] != 0:
+                hwp.HAction.Run("BreakPara")
+            return True
+        except Exception:                                  # noqa: BLE001
+            return False
+
     def break_para(self):
         """문단 나눔(Enter) — 조각을 이어 넣을 때 앞 조각 끝에 다음 조각이 붙지 않게"""
         hwp = self._need()

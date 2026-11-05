@@ -776,12 +776,29 @@ internal sealed class BatGame : MiniGame
 			wait -= dt; if (wait <= 0) NextPitch();
 		}
 	}
+	// 방망이 그림은 화면에 나오는 크기로 한 번만 곱게 줄여 두고 매 프레임에는 그대로 찍어요 (결과는 같고 훨씬 가벼워요)
+	private static readonly Dictionary<long, Bitmap> batCache = new Dictionary<long, Bitmap>();
+	private static void BatDraw(Graphics g, Bitmap bm, float x, float y, float w, float h)
+	{
+		float S = ImgCache.Scale(g); int pw = Math.Max(2, (int)Math.Ceiling(w * S)), ph = Math.Max(2, (int)Math.Ceiling(h * S));
+		long key = ((long)System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(bm) << 32) ^ ((long)pw << 16) ^ (long)ph; Bitmap sc;
+		if (!batCache.TryGetValue(key, out sc))
+		{
+			if (batCache.Count > 80) { foreach (Bitmap o in batCache.Values) o.Dispose(); batCache.Clear(); }
+			sc = new Bitmap(pw, ph, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+			using (Graphics sg = Graphics.FromImage(sc)) using (System.Drawing.Imaging.ImageAttributes ia = new System.Drawing.Imaging.ImageAttributes())
+			{ ia.SetWrapMode(WrapMode.TileFlipXY); sg.InterpolationMode = InterpolationMode.HighQualityBicubic; sg.PixelOffsetMode = PixelOffsetMode.HighQuality; sg.CompositingMode = CompositingMode.SourceCopy; sg.DrawImage(bm, new Rectangle(0, 0, pw, ph), 0, 0, bm.Width, bm.Height, GraphicsUnit.Pixel, ia); }
+			batCache[key] = sc;
+		}
+		g.InterpolationMode = InterpolationMode.Bilinear; g.PixelOffsetMode = PixelOffsetMode.Half;
+		g.DrawImage(sc, new RectangleF(x, y, w, h), new RectangleF(0, 0, sc.Width, sc.Height), GraphicsUnit.Pixel);
+	}
 	// 방망이 그림(스프라이트)을 손잡이 A → 끝 B 방향으로 늘여 그려요
 	private static bool SprBat(Graphics g, PointF a, PointF b, float wb)
 	{
 		float dx = b.X - a.X, dy = b.Y - a.Y, len = (float)Math.Sqrt(dx * dx + dy * dy); if (len < 6f) return false; Bitmap bm = Spr.Get("ms_bat" + (DateTime.Now.DayOfYear % 3)) ?? Spr.Get("bat"); if (bm == null) return false;
 		float w = Math.Max(len * 0.17f, wb * 1.1f); GraphicsState st = g.Save(); g.TranslateTransform(a.X, a.Y); g.RotateTransform((float)(Math.Atan2(dy, dx) * 180 / Math.PI) + 90f);
-		g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.PixelOffsetMode = PixelOffsetMode.Half; g.DrawImage(bm, new RectangleF(-w / 2, -len, w, len), new RectangleF(0, 0, bm.Width, bm.Height), GraphicsUnit.Pixel); g.Restore(st); return true;
+		BatDraw(g, bm, -w / 2, -len, w, len); g.Restore(st); return true;
 	}
 	private static void BallDraw(Graphics g, PointF c, float r, float rot)
 	{
@@ -810,7 +827,7 @@ internal sealed class BatGame : MiniGame
 	{
 		Bitmap bm = Spr.Get("ms_bat" + (DateTime.Now.DayOfYear % 3)) ?? Spr.Get("bat"); float len = 108f, w = 18f;
 		GraphicsState st = g.Save(); g.TranslateTransform(bfX, bfY); g.RotateTransform(bfRot);
-		if (bm != null) { g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.DrawImage(bm, new RectangleF(-w / 2, -len / 2, w, len), new RectangleF(0, 0, bm.Width, bm.Height), GraphicsUnit.Pixel); }
+		if (bm != null) BatDraw(g, bm, -w / 2, -len / 2, w, len);
 		else using (Pen p = new Pen(Color.FromArgb(222, 172, 110), 9f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLine(p, 0, -len / 2, 0, len / 2);
 		g.Restore(st);
 	}

@@ -1,0 +1,19 @@
+[package]
+name = "wie-android"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Runs 32-bit ARM Android native game libraries (armeabi) on the WIE ARM core"
+publish = false
+
+[dependencies]
+anyhow = { workspace = true }
+futures = { workspace = true, features = ["executor"] }
+spin = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "^0.3", features = ["env-filter"] }
+elf = { version = "^0.8" }
+
+wie-backend = { workspace = true }
+wie-core-arm = { workspace = true }
+wie-util = { workspace = true }

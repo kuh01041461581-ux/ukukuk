@@ -139,11 +139,13 @@ def build_extra(paths):
         k = hdr.index(no_t)
         out["meeting_issue"] = report.register_report(
             paths["meeting"], os.path.join(F, "meeting_issue"), "meeting_issue", "현안업무 보고 (1쪽)", "간부회의", [
-                {"key": "no", "label": "현안업무 번호", "sample": no_t, "repl": "현안업무({{no}})", "default": "1"},
-                {"key": "title", "label": "현안 제목", "sample": hdr[k + 1]},
+                {"key": "no", "label": "현안업무 번호", "sample": no_t, "repl": "현안업무({{no}})",
+                 "default": _re.search(r"\d+", no_t).group(0)},
+                {"key": "title", "label": "현안 제목", "sample": hdr[k + 1], "default": hdr[k + 1]},
                 {"key": "dept", "label": "부서(과)", "sample": hdr[k + 2], "repl": "({{dept}})", "profile": "dept"},
             ], note="현안업무(번호) 제목 상자 + □ 금 후 계 획 + ◦ ▸ - 단계",
-            starter="□ 금 후 계 획\n◦ \n▸일시/장소: \n▸참 석 자: \n- \n- \n▸주요내용: ", slice_=(12, 22))
+            starter="□ 지난주 실적\n◦ \n▸기간/장소: \n▸주요내용: \n\n□ 금 후 계 획\n◦ \n▸일시/장소: \n▸참 석 자: \n- \n- \n▸주요내용: ",
+            slice_=(12, 22))
     if "meeting_ref" in paths:
         ts = _flat_texts_para(paths["meeting_ref"], 34, 36)         # 제목 상자(34) + 계장·담당자 줄(35)
         info = next(t for t in ts if _re.match(r"\S*계장\s+\S+\s+\d+\s*/", t))
@@ -153,10 +155,12 @@ def build_extra(paths):
         staff = staff_t.replace("담당자", "", 1).strip()
         out["meeting_card"] = report.register_report(
             paths["meeting_ref"], os.path.join(F, "meeting_card"), "meeting_card", "참고자료 사업 카드", "간부회의", [
-                {"key": "title", "label": "사업명", "sample": card_title},
-                {"key": "team_title", "label": "계 (예: 문화도시계장)", "sample": team_title, "profile": "team_title"},
-                {"key": "lead", "label": "계장 (이름 내선 / 휴대폰)", "sample": lead, "profile": "lead_full"},
-                {"key": "staff", "label": "담당자 (이름 내선 / 휴대폰)", "sample": staff, "profile": "staff_full"},
+                {"key": "title", "label": "사업명", "sample": card_title, "default": "(사업명)"},
+                {"key": "team", "label": "계 이름 (예: 고도육성계)", "sample": team_title[:-1], "profile": "team", "blank": "      "},
+                {"key": "lead", "label": "계장 (이름 내선 / 휴대폰)", "sample": lead, "profile": "lead_full",
+                 "blank": "이름 내선 / 휴대폰"},
+                {"key": "staff", "label": "담당자 (이름 내선 / 휴대폰)", "sample": staff, "profile": "staff_full",
+                 "blank": "이름 내선 / 휴대폰"},
             ], note="사업명 상자 + 계장·담당자 줄 + □ 지난주 실적 / □ 금 후 계 획",
             starter="□ 지난주 실적\n◦ \n▸기간/장소: \n▸주요내용: \n\n□ 금 후 계 획\n◦ \n▸일시/장소: \n▸주요내용: ",
             slice_=(34, 48), drop=[36])
@@ -328,11 +332,11 @@ def build_queries(paths):
             blank_tables={"12": 1})
         out["written_item"] = report.register_report(
             w, os.path.join(F, "written_item"), "written_item", "서면질의서 (사업 1건)", "국회단계 서면질의서", [
-                {"key": "title", "label": "세부사업명 (예: ○○○ 지원(신규))", "sample": title},
-                {"key": "committee", "label": "상임위원회", "sample": head,
+                {"key": "title", "label": "세부사업명 (예: ○○○ 지원(신규))", "sample": title, "default": "(세부사업명)(신규)"},
+                {"key": "committee", "label": "상임위원회", "sample": head, "default": "[상임위원회]",
                  "repl": "< {{committee}} / {{ministry}} 소관 / {{account}} >"},
-                {"key": "ministry", "label": "소관 부처"},
-                {"key": "account", "label": "회계 (예: 일반회계)"},
+                {"key": "ministry", "label": "소관 부처", "default": "[소관 부처]"},
+                {"key": "account", "label": "회계 (예: 일반회계)", "default": "[회계]"},
             ], note="2027년도 예산안 서면질의 머리 + □ 총괄표(표) + □ 사업개요/필요성 및 기대효과/요구사항",
             starter=ITEM_STARTER, slice_=(13, 39), body_from_text="□ 사업개요", fix=_written_fix)
     if "policy" in paths:
@@ -348,16 +352,20 @@ def build_queries(paths):
         out["policy_item"] = report.register_report(
             p, os.path.join(F, "policy_item"), "policy_item", "정책질의서 (사업 1건)", "국회단계 정책질의서", [
                 {"key": "no", "label": "연번", "sample": "1.", "once": True, "repl": "{{no}}.", "default": "1"},
-                {"key": "title", "label": "사업명", "sample": t13[1].split(".", 1)[1].strip(), "once": True},
+                {"key": "title", "label": "사업명", "sample": t13[1].split(".", 1)[1].strip(), "once": True,
+                 "default": "(사업명)"},
                 {"key": "kind", "label": "신규/계속", "sample": t13[2], "exact": True, "once": True, "default": "신규"},
             ], note="정책질의서 머리 + □ 질의 취지·◦ 설명 + <Q> 질의 상자",
-            starter="□ \n◦ \n\n◦ \n\n| **<Q>** |", slice_=(13, 35), body_from_text="□")
+            starter="□ [질의 취지: 사업의 목적을 한 줄로]\n◦ [정부 정책·추진 배경]\n\n◦ [익산의 현황·기반]\n\n◦ [문제점·추진 과제]\n\n"
+                    "◦ [이에 따라 필요한 사항]\n\n| **<Q>** [질의 목적]을 위해 [사업명 · 요구 사업비 국비 ○○억원 반영]이 필요하다고 생각하는데, **이에 대한 견해**를 말씀해 주시기 바람 |",
+            slice_=(13, 35), body_from_text="□")
         t35 = _flat_texts_para(p, 35, 36)
         out["policy_ref"] = report.register_report(
             p, os.path.join(F, "policy_ref"), "policy_ref", "참고1 조서 (사업 1건)", "국회단계 정책질의서", [
                 {"key": "ref", "label": "참고 번호 (예: 참고1)", "sample": t35[0], "exact": True, "once": True, "default": "참고1"},
-                {"key": "title", "label": "사업명", "sample": t35[1].replace("(조서)", "").strip()},
-                {"key": "request", "label": "건의 문구 (파란 상자)", "sample": _flat_texts_para(p, 66, 67)[0]},
+                {"key": "title", "label": "사업명", "sample": t35[1].replace("(조서)", "").strip(), "default": "(사업명)"},
+                {"key": "request", "label": "건의 문구 (파란 상자)", "sample": _flat_texts_para(p, 66, 67)[0],
+                 "default": "(사업명) ○○억원 반영 건의드림"},
             ], note="참고1 (조서) 머리 + 회계/기금명 표 + □ 사업개요/필요성/추진상황 및 계획 + 건의 상자 + 담당 표(이름 비움)",
             starter="□ 사업개요\nㅇ (사업내용) \nㅇ (사업위치) \nㅇ (사업기간) \nㅇ (총사업비) \nㅇ (주관/시행) \n\n"
                     "□ 필 요 성 \nㅇ \n\n□ 추진상황 및 계획\nㅇ ",

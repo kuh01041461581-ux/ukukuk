@@ -7,19 +7,23 @@
   "fields": [
     {
       "key": "title",
-      "label": "세부사업명 (예: ○○○ 지원(신규))"
+      "label": "세부사업명 (예: ○○○ 지원(신규))",
+      "default": "(세부사업명)(신규)"
     },
     {
       "key": "committee",
-      "label": "상임위원회"
+      "label": "상임위원회",
+      "default": "[상임위원회]"
     },
     {
       "key": "ministry",
-      "label": "소관 부처"
+      "label": "소관 부처",
+      "default": "[소관 부처]"
     },
     {
       "key": "account",
-      "label": "회계 (예: 일반회계)"
+      "label": "회계 (예: 일반회계)",
+      "default": "[회계]"
     }
   ],
   "has_body": true,

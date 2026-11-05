@@ -7,22 +7,26 @@
   "fields": [
     {
       "key": "title",
-      "label": "사업명"
+      "label": "사업명",
+      "default": "(사업명)"
     },
     {
-      "key": "team_title",
-      "label": "계 (예: 문화도시계장)",
-      "profile": "team_title"
+      "key": "team",
+      "label": "계 이름 (예: 고도육성계)",
+      "profile": "team",
+      "blank": "      "
     },
     {
       "key": "lead",
       "label": "계장 (이름 내선 / 휴대폰)",
-      "profile": "lead_full"
+      "profile": "lead_full",
+      "blank": "이름 내선 / 휴대폰"
     },
     {
       "key": "staff",
       "label": "담당자 (이름 내선 / 휴대폰)",
-      "profile": "staff_full"
+      "profile": "staff_full",
+      "blank": "이름 내선 / 휴대폰"
     }
   ],
   "has_body": true,

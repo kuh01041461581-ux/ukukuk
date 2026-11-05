@@ -258,6 +258,18 @@ class NewFormsTests(unittest.TestCase):
             for n in needles:
                 self.assertIn(n, txt, (fid, n))
 
+    def test_guides_are_not_mangled(self):
+        """안내문 [..] 은 글자 그대로 들어가고 항목 이름(…)처럼 바뀌지 않는다. 현안 보고는 지난주 실적+금후 계획 두 구역"""
+        f = registry.load_form("policy_item", ROOTS)
+        txt = ptext(f.render(self.VALUES, f.meta["starter"]).section(0))
+        for s in ("[정부 정책·추진 배경]", "[익산의 현황·기반]", "[문제점·추진 과제]", "이에 대한 견해를 말씀해 주시기 바람", "<Q>"):
+            self.assertIn(s, txt)
+        m = registry.load_form("meeting_issue", ROOTS)
+        self.assertEqual(m.meta["fields"][1].get("default"), "고도 익산 역사·문화자원 브랜드화 및 지역 명소화")   # 현안 제목 기본값
+        txt = ptext(m.render({"no": "5", "title": "제목", "dept": "문화유산과"}, m.meta["starter"]).section(0))
+        for s in ("지난주 실적", "금 후 계 획", "▸기간/장소", "▸일시/장소"):
+            self.assertIn(s, txt)
+
     def test_query_items(self):
         """질의서: ㅇ (사업내용) 줄·- 줄·□ 요구사항, 정책질의서 <Q> 상자, 총괄표 사업명 자리"""
         f = registry.load_form("written_item", ROOTS)

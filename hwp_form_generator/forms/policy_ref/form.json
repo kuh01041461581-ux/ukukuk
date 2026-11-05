@@ -12,11 +12,13 @@
     },
     {
       "key": "title",
-      "label": "사업명"
+      "label": "사업명",
+      "default": "(사업명)"
     },
     {
       "key": "request",
-      "label": "건의 문구 (파란 상자)"
+      "label": "건의 문구 (파란 상자)",
+      "default": "(사업명) ○○억원 반영 건의드림"
     }
   ],
   "has_body": true,

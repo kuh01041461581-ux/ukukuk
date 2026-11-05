@@ -1,4 +1,5 @@
-import { makeSprites, roadSprite, railSprite, crossSprite, TW, TH, CX, CY } from './sprites.js';
+import { makeSprites, roadSprite, railSprite, crossSprite, lotSprite, TW, TH, CX, CY } from './sprites.js';
+const KIND = { house: 'res', apartment: 'res', school: 'res', park: 'res', shop: 'com', station_old: 'com', station_dev: 'com', tourist: 'com', factory: 'ind', food_cluster: 'ind', farm: 'ind', heritage: 'cul', restore_mireuk: 'cul', restore_wanggung: 'cul' };
 // 아이소메트릭 맵 렌더러: 드래그로 이동, 탭으로 부지 선택. 도트는 정수 배율로 확대.
 export class MapView {
   constructor(canvas, game, mapData, onSelect) {
@@ -23,6 +24,14 @@ export class MapView {
     let best = null, bd = 1e9;
     for (const p of this.g.plots) { const [sx, sy] = this.w2s(p.x, p.y); const x = this.ox + sx * this.zoom, y = this.oy + (sy + 8) * this.zoom; const d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = p; } }
     if (best && bd < 36 * this.zoom) { this.sel = best.id; this.onSelect(best); } else { this.sel = null; this.onSelect(null); }
+  }
+  lotTile(x, y) {
+    const L = this.m.lots[x + ',' + y]; if (!L) return this.S.city[0];
+    const p = this.g.plots.find(q => q.id === L.id), kind = p && p.building ? (KIND[p.building] || 'res') : (p && p.landmark ? 'cul' : 'empty');
+    let fence = 0; const same = (dx, dy) => { const o = this.m.lots[(x + dx) + ',' + (y + dy)]; return o && o.id === L.id; };
+    if (!same(1, 0)) fence |= 1; if (!same(-1, 0)) fence |= 2; if (!same(0, 1)) fence |= 4; if (!same(0, -1)) fence |= 8;
+    if (L.role === 'drive' && L.dir) fence &= ~(L.dir[0] > 0 ? 1 : L.dir[0] < 0 ? 2 : L.dir[1] > 0 ? 4 : 8);
+    return lotSprite(kind, fence, L.role, L.dir, kind + 'z');
   }
   // 도로·철도 자동 타일링: 이웃 연결 마스크로 스프라이트 선택
   linear(x, y, t) {
@@ -49,7 +58,7 @@ export class MapView {
       const [sx, sy] = this.w2s(x, y), dx = Math.round(this.ox + (sx - CX) * z), dy = Math.round(this.oy + (sy - CY + 16) * z);
       if (dx < -70 * z || dy < -130 * z || dx > c.width || dy > c.height + 40 * z) continue;
       const t = m.tiles[y][x], v = (x * 7 + y * 13) & 1; let spr;
-      switch (t) { case 'grass': spr = S.grass[(x * 5 + y * 3) % 3]; break; case 'city': spr = S.city[v]; break; case 'road': case 'rail': case 'cross': case 'platform': spr = this.linear(x, y, t); break; case 'water': spr = S.water[frame]; break; case 'field': spr = S.field[v]; break; case 'mountain': spr = S.mountain[(x * 3 + y * 7) % 3]; break; default: spr = S.grass[0]; }
+      switch (t) { case 'grass': spr = S.grass[(x * 5 + y * 3) % 3]; break; case 'city': spr = S.city[v]; break; case 'road': case 'rail': case 'cross': case 'platform': spr = this.linear(x, y, t); break; case 'water': spr = S.water[frame]; break; case 'lot': spr = this.lotTile(x, y); break; case 'field': spr = S.field[v]; break; case 'mountain': spr = S.mountain[(x * 3 + y * 7) % 3]; break; default: spr = S.grass[0]; }
       g.drawImage(spr, dx, dy, 64 * z, 128 * z);
       const p = plotAt.get(x + ',' + y);
       if (!p) { const hv = ((x * 73856093) ^ (y * 19349663)) >>> 0; const r = (hv % 100) / 100;

@@ -111,6 +111,25 @@ export function crossSprite(base, roadMask, railHoriz, key) {
   const g = sp.getContext('2d'); for (const [ax, ay] of [[-16, -8], [16, 4]]) { RC(g, CX + ax, CY + ay - 8, 2, 8, '#d94a4a'); RC(g, CX + ax, CY + ay - 8, 2, 2, '#f0f0f0'); RC(g, CX + ax - 2, CY + ay - 10, 6, 2, '#f0d040'); }
   cache.set(k, sp); return sp;
 }
+// 단지 필지(3x3): 종류별 바닥·울타리·진입로. fence 마스크: 1=+x 2=-x 4=+y 8=-y 방향이 단지 바깥이면 울타리. drive=진입로 칸(도로 쪽 dir)
+export function lotSprite(kind, fence, role, dir, key) {
+  const k = 'o' + kind + fence + role + (dir ? dir.join('') : '') + key; if (cache.has(k)) return cache.get(k);
+  const base = withGround(() => {}, 80, ['#cfc9b8', '#c2bca9'], false);
+  const sp = overlay(base, (du, dv, x, r) => {
+    const f = (fence & 1 && du > 0.42) || (fence & 2 && du < -0.42) || (fence & 4 && dv > 0.42) || (fence & 8 && dv < -0.42);
+    if (f) { const post = (Math.floor((du + dv + 4) * 10) % 4) === 0; if (kind === 'res') return hash(x, r, 70) < 0.5 ? '#3f8a3c' : '#56a850'; if (kind === 'cul') return post ? '#6a4a2a' : '#b08a54'; return post ? '#5a5f68' : (r % 2 ? '#9aa0a8' : '#b8bec6'); }
+    if (role === 'drive' && dir) { const along = dir[0] !== 0 ? Math.abs(dv) < 0.13 && du * dir[0] > -0.1 : Math.abs(du) < 0.13 && dv * dir[1] > -0.1; if (along) return Math.abs((dir[0] !== 0 ? dv : du)) > 0.1 ? '#d8d4c8' : (hash(x, r, 71) < 0.2 ? '#4b5058' : '#585d65'); }
+    if (kind === 'res') { if (Math.abs(du) < 0.4 && Math.abs(dv) < 0.4) return hash(x, r, 73) < 0.1 ? '#6aae52' : (hash(x, r, 79) < 0.02 ? '#f4e45a' : '#7cc060'); return null; }
+    if (kind === 'com') { if (Math.abs(du) < 0.38 && Math.abs(dv) < 0.38) { if (Math.floor((dv + 1) * 9) % 3 === 0) return '#e8e8e0'; return hash(x, r, 74) < 0.2 ? '#4b5058' : '#585d65'; } return null; }
+    if (kind === 'ind') { if (Math.abs(du) < 0.4 && Math.abs(dv) < 0.4) return ((Math.abs(du) > 0.34 || Math.abs(dv) > 0.34) ? '#e0b830' : (hash(x, r, 75) < 0.18 ? '#a8a49a' : '#bcb8ac')); return null; }
+    if (kind === 'cul') { if (Math.abs(du) < 0.4 && Math.abs(dv) < 0.4) return hash(x, r, 76) < 0.35 ? '#b8aa8a' : '#c8bc9c'; return null; }
+    if (kind === 'empty') { if (Math.abs(du) < 0.42 && Math.abs(dv) < 0.42) return hash(x, r, 77) < 0.25 ? '#a8946c' : '#b8a47c'; return null; }
+    return null; });
+  const g = sp.getContext('2d');
+  if (role === 'yard') { if (kind === 'res' && hash(fence, key.length, 78) < 0.8) tree(g, CX + Math.round((hash(fence, 1, 79) - 0.5) * 20), CY - 2, 7 + fence, 0.8); if (kind === 'ind') { box(g, CX - 8, CY - 2, 5, 2, 5, '#c0402f', { roof: '#d85a44' }); box(g, CX + 8, CY + 2, 4, 2, 4, '#3a6ab0', { roof: '#5a86c8' }); }
+    if (kind === 'com') { box(g, CX - 6, CY, 5, 2, 3, '#d94a4a', { roof: '#f06a6a' }); } if (kind === 'empty') { RC(g, CX - 10, CY - 6, 1, 6, '#e8c040'); RC(g, CX + 10, CY - 2, 1, 6, '#e8c040'); } }
+  cache.set(k, sp); return sp;
+}
 export function makeSprites() {
   const S = { b: {} };
   S.grass = [0, 1, 2].map(i => ground(['#78bd58', '#69ab4c'], i, { dither: 0.22, fn: (x, r) => (hash(x, r, 5 + i) < 0.04 ? '#92d572' : hash(x, r, 8 + i) < 0.035 ? '#4a8c3e' : (hash(x >> 1, r >> 1, 12 + i) < 0.025 ? '#f4e45a' : null)) }));
@@ -149,12 +168,34 @@ export function makeSprites() {
   B.ruin_food = withGround(g => { for (let x = -24; x <= 24; x += 2) RC(g, CX + x, CY - 4 + Math.round(Math.abs(x) * 0.5), 1, 1, '#c9a23a'); box(g, CX - 14, CY - 4, 6, 3, 4, '#9aa5af', { roof: '#bcc6ce' }); box(g, CX + 14, CY - 2, 4, 2, 10, '#e0c060', { roof: '#f0d878' }); }, 106, ['#d2cdbd', '#c4bfae']);
   // 기존 익산역(낡은 역사): 낮고 긴 맞배지붕 + 승강장 지붕
   B.station_old = withGround(g => { box(g, CX, CY - 4, 24, 11, 16, '#cfc3a8', { roof: '#8a5a4a', win: [7, 9, 4, 4], winCol: '#b8d0e0', band: 0 }); box(g, CX, CY - 12, 7, 3, 12, '#c4b898', { roof: '#7a4a3a', win: [4, 5, 2, 3] }); RC(g, CX - 5, CY - 36, 10, 5, '#2a3a5a'); RC(g, CX - 4, CY - 35, 8, 3, '#fff'); box(g, CX - 18, CY + 8, 6, 2, 8, '#9aa0a8', { roof: '#c0c6ce' }); });
-  B.restore_mireuk = withGround(g => { stoneTier(g, CX, CY - 2, 24, 10, 6, '#b8b3a2'); let y = CY - 8; const ws = [18, 16, 14, 12, 10, 8];
-    ws.forEach((w, i) => { stoneTier(g, CX, y, w, Math.max(3, Math.round(w / 2.2)), 8, '#cfcab8'); y -= 9; eave(g, CX, y + 8, w, Math.max(3, Math.round(w / 2.2)), '#a8a38c'); y -= 2; });
-    RC(g, CX - 1, y - 8, 2, 8, '#b0aa90'); RC(g, CX - 3, y - 6, 6, 1, '#b0aa90'); RC(g, CX - 1, y - 12, 2, 4, '#e0c050'); }, 103);
-  B.restore_wanggung = withGround(g => { stoneTier(g, CX, CY - 2, 18, 8, 6, '#bdb8a6'); let y = CY - 8; const ws = [14, 12, 10, 8, 6];
-    ws.forEach((w, i) => { stoneTier(g, CX, y, w, Math.max(3, Math.round(w / 2.2)), 10, '#d8d3c0'); y -= 11; eave(g, CX, y + 10, w, Math.max(3, Math.round(w / 2.2)), '#aaa590'); y -= 2; });
-    RC(g, CX - 1, y - 10, 2, 10, '#b4ae94'); RC(g, CX - 2, y - 14, 4, 4, '#e0c050'); }, 104);
+  // 미륵사지 서탑(국보 11호): 현존 6층, 높이 약 14.5m·폭 약 12m 로 낮고 넓은 비례. 목탑 양식 — 각 층 몸돌에 기둥·감실, 얇고 넓은 지붕돌 네 귀퉁이가 살짝 들림
+  const GR = '#d4d0c4';
+  const pillars = (g, cx, cy, w, d, h, n, dark) => { const yTE = cy - h; for (let k = 0; k <= n; k++) { const dx = Math.round(-w + 2 + k * (2 * w - 4) / n); const kk = d * (1 - Math.abs(dx) / w); for (let y = Math.round(yTE + kk) + 1; y < Math.round(cy + kk) - 1; y++) { P(g, cx + dx, y, shade(dx < 0 ? GR : '#a8a498', 1.1)); P(g, cx + dx + 1, y, shade(dx < 0 ? GR : '#a8a498', 0.78)); } }
+    for (let k = 0; k < n; k++) { const dx = Math.round(-w + 2 + (k + 0.5) * (2 * w - 4) / n); const kk = d * (1 - Math.abs(dx) / w); for (let y = Math.round(yTE + kk) + 3; y < Math.round(cy + kk) - 3; y++) for (let q = -1; q <= 1; q++) if (Math.abs(dx + q) < w - 1) P(g, cx + dx + q, y, y < Math.round(yTE + kk) + 5 ? '#4a463c' : '#363228'); } };
+  const roofSlab = (g, cx, cy, w, d, col) => { box(g, cx, cy, w, d, 3, col, { roof: shade(col, 1.12), out: shade(col, 0.45), topFn: (dx, dy, c) => ((dx + dy) % 5 === 0 ? shade(c, 0.93) : null) }); for (const sx of [-1, 1]) { P(g, cx + sx * (w + 1), cy - 5 - 0, shade(col, 0.5)); P(g, cx + sx * (w + 1), cy - 6, shade(col, 1.05)); P(g, cx + sx * w, cy - 6, col); } };
+  B.restore_mireuk = withGround(g => {
+    box(g, CX, CY - 2, 28, 13, 3, '#b9b4a4', { roof: '#cbc6b6', out: '#6e6a5a', band: 0 });                       // 낮고 넓은 기단 1단
+    box(g, CX, CY - 5, 25, 11, 4, '#c4bfaf', { roof: '#d6d2c4', out: '#6e6a5a' });                              // 기단 2단
+    let y = CY - 9; const W = [20, 19, 17, 16, 14, 12], H = [10, 9, 8, 8, 7, 6];
+    for (let i = 0; i < 6; i++) { const w = W[i], d = Math.round(w / 2.15), h = H[i];
+      box(g, CX, y, w, d, h, GR, { roof: shade(GR, 1.12), out: '#6a665a' }); pillars(g, CX, y, w, d, h, i < 4 ? 3 : 2, true);
+      y -= h; roofSlab(g, CX, y + 1, w + 4, d + 2, '#c9c5b8'); y -= 3; }
+    box(g, CX, y + 1, 7, 3, 3, '#bdb8a8', { roof: '#cfcabb' }); RC(g, CX - 1, y - 8, 2, 9, '#b0ab98'); RC(g, CX - 3, y - 5, 6, 1, '#b0ab98'); RC(g, CX - 1, y - 12, 2, 3, '#e0c050');   // 노반·찰주
+  }, 103);
+  // 왕궁리 오층석탑(국보 289호): 높이 약 8.5m, 단층 기단+5층 탑신+상륜(노반·복발·앙화·보륜), 얇고 평평한 지붕돌+3단 옥개받침, 기단 네 귀 팔각 돌기둥
+  B.restore_wanggung = withGround(g => {
+    box(g, CX, CY - 2, 17, 8, 6, '#cbc7ba', { roof: '#dcd8cc', out: '#6e6a5a', band: 3 });                       // 단층 기단
+    for (const [dx, dy] of [[-15, 0], [15, 0], [0, 8], [0, -8]]) { RC(g, CX + dx - 1, CY - 2 + dy - 8, 3, 8, '#b8b4a6'); RC(g, CX + dx - 1, CY - 2 + dy - 8, 1, 8, '#dedacd'); }   // 우주(귀기둥)
+    let y = CY - 8; const W = [11, 9, 7, 6, 5], H = [12, 8, 7, 6, 5];
+    for (let i = 0; i < 5; i++) { const w = W[i], d = Math.round(w / 2.15), h = H[i];
+      box(g, CX, y, w, d, h, '#d8d4c8', { roof: '#e6e2d6', out: '#6a665a' }); RC(g, CX - w, y - Math.round(h / 2), 0, 0, '#000');
+      if (i === 0) { for (const sx of [-w + 1, w - 3]) RC(g, CX + sx, y - h + 2, 2, h - 3, '#a8a498'); }
+      y -= h; for (let st = 0; st < 3; st++) { box(g, CX, y + 3 - st, w + 1 + st, Math.round((w + 1 + st) / 2.15), 1, '#c9c5b8', { roof: '#d8d4c8', out: '#7a766a' }); }        // 옥개받침 3단
+      box(g, CX, y, w + 5, Math.round((w + 5) / 2.15), 2, '#cfcbbe', { roof: '#e2ded2', out: '#6a665a' }); y -= 2; }
+    box(g, CX, y + 1, 4, 2, 2, '#bdb8a8', { roof: '#cfcabb' }); y -= 2;                                          // 노반
+    for (let dy = -4; dy <= 0; dy++) { const w = Math.round(4 * Math.sqrt(1 - (dy / 4.5) ** 2)); RC(g, CX - w, y + dy - 1, 2 * w, 1, dy < -2 ? '#cfcabb' : '#b0ab98'); } y -= 5;   // 복발
+    for (let a = -3; a <= 3; a++) RC(g, CX + a, y - Math.abs(a) % 2, 1, 2, '#e0c050'); RC(g, CX - 1, y - 6, 2, 6, '#b4ae94'); RC(g, CX - 4, y - 4, 3, 1, '#a49e88'); RC(g, CX + 2, y - 3, 2, 1, '#a49e88');   // 앙화·부서진 보륜
+  }, 104);
   B.station_dev = withGround(g => { box(g, CX, CY - 4, 26, 12, 14, '#e8e4d6', { roof: '#5a6a80', win: [6, 8, 4, 5], winCol: '#9fd0f0', band: 0, topFn: (dx, dy, c) => (dy % 5 === 0 ? shade(c, 1.08) : null) }); box(g, CX + 12, CY - 14, 7, 3, 38, '#d4c9ae', { roof: '#5a6a80', win: [4, 7, 2, 4], winCol: '#9fd0f0' });
     for (let a = -4; a <= 4; a++) for (let b = 0; b < 8; b++) if (Math.hypot(a, b - 3.5) < 4.6) P(g, CX + 12 + a, CY - 68 + b, '#f4f0e0'); RC(g, CX + 12, CY - 65, 1, 3, '#333'); RC(g, CX + 12, CY - 65, 2, 1, '#333'); box(g, CX - 14, CY + 6, 10, 3, 7, '#9aa8b8', { roof: '#c4d0dc' }); }, 105);
   B.food_cluster = withGround(g => { box(g, CX, CY - 4, 24, 11, 20, '#eef2ee', { roof: '#c4d8c8', win: [7, 9, 4, 4], winCol: '#8ec7a0', band: 10 }); box(g, CX - 16, CY - 8, 6, 3, 30, '#9fd0a8', { roof: '#c8e6cc', band: 6 }); for (let a = -2; a <= 3; a++) RC(g, CX + 14 + a * 2, CY - 42, 2, 6, '#e84a4a'); RC(g, CX + 14, CY - 36, 1, 16, '#ccc'); box(g, CX + 4, CY + 8, 8, 3, 8, '#cfe0d2', { roof: '#e8f2ea' }); }, 107);

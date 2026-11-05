@@ -30,6 +30,12 @@ export function genMap(seed = 7) {
   // 랜드마크: 처음엔 '유적터/역 부지'로 비어 있고, 복원·개발하면 상징 건물이 나타남
   const LM = { baekje0: { landmark: 'mireuk', name: '미륵사지 유적터', built: '미륵사지 석탑' }, baekje5: { landmark: 'wanggung', name: '왕궁리 유적터', built: '왕궁리 오층석탑' }, baekje2: { landmark: 'food', name: '국가식품클러스터 부지(왕궁)', built: '국가식품클러스터' }, old1: { landmark: 'station', name: '익산역(기존 역사)', built: '익산역' } };
   for (const p of plots) if (LM[p.id]) Object.assign(p, LM[p.id]);
+  // 단지(lot): 부지 중심의 3x3 블록을 하나의 필지로 묶고, 가장 가까운 도로 쪽 가운데 칸을 진입로(drive)로 둔다
+  const lots = {};
+  for (const p of plots) { if (p.id === 'old1') continue; const key = (x, y) => x + ',' + y;
+    let dir = null; for (const [dx, dy] of [[0, -2], [0, 2], [-2, 0], [2, 0]]) if (t[p.y + dy] && t[p.y + dy][p.x + dx] === 'road') { dir = [dx / 2, dy / 2]; break; }
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = p.x + dx, y = p.y + dy; if (t[y][x] === 'road' || t[y][x] === 'water') continue; t[y][x] = 'lot';
+      lots[key(x, y)] = { id: p.id, role: (dx === 0 && dy === 0) ? 'center' : (dir && dx === dir[0] && dy === dir[1]) ? 'drive' : 'yard', dir, dx, dy }; } }
   // 철도: 호남선(동서, y=10) + 장항선(북쪽 x=24) — 도로와 떨어진 전용 선로(완충 행 y=9·11)이고, 도로와는 건널목에서만 만난다.
   // 익산역: 분기점 (24,10), 승강장 (22~26,10), 기존 역사 부지 (23,9)
   const RY = 10, RX = 24;
@@ -41,5 +47,5 @@ export function genMap(seed = 7) {
   const st = plots.find(p => p.id === 'old1'); if (st) { st.x = 23; st.y = 9; st.building = 'station_old'; }
   // 권역 간 연결 도로(남북): 도심 ↔ 남쪽 농업 권역
   for (let y = 20; y < 22; y++) if (t[y][18] !== 'water' && t[y][18] !== 'city') t[y][18] = 'road';
-  return { w: MAP_W, h: MAP_H, tiles: t, plots };
+  return { w: MAP_W, h: MAP_H, tiles: t, plots, lots };
 }

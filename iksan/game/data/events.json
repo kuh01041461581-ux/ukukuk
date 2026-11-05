@@ -1,0 +1,241 @@
+{
+  "_note": "month 가 null 인 달력 행사는 개최월 미검증이라 엔진이 건너뜀(needsVerification). 문구는 익산판으로 새로 작성한 초안.",
+  "calendar": [
+    {
+      "id": "monsoon",
+      "month": 7,
+      "title": "장마철 호우 주의보",
+      "text": "만경강 수위가 오르고 있습니다. 제방 점검에 예산을 쓰시겠습니까?",
+      "choices": [
+        {
+          "label": "제방 보강 (예산 -12)",
+          "fx": {
+            "budget": -12,
+            "support": 3
+          }
+        },
+        {
+          "label": "그대로 둔다",
+          "fx": {
+            "support": -4
+          },
+          "chance": {
+            "p": 0.35,
+            "fx": {
+              "budget": -25,
+              "support": -8
+            },
+            "note": "범람 피해!"
+          }
+        }
+      ]
+    },
+    {
+      "id": "snow",
+      "month": 1,
+      "title": "폭설 예보",
+      "text": "올겨울 첫 폭설이 예보되었습니다. 제설 인력을 투입할까요?",
+      "choices": [
+        {
+          "label": "제설 투입 (예산 -5, 피로 +8)",
+          "fx": {
+            "budget": -5,
+            "fatigue": 8,
+            "support": 2
+          }
+        },
+        {
+          "label": "자연 해빙을 기다린다",
+          "fx": {
+            "support": -2
+          }
+        }
+      ]
+    },
+    {
+      "id": "harvest",
+      "month": 10,
+      "title": "수확의 계절",
+      "text": "평야 지대의 쌀·농산물 수확이 한창입니다.",
+      "choices": [
+        {
+          "label": "직거래 장터 개최 (예산 -4)",
+          "fx": {
+            "budget": -4,
+            "support": 3,
+            "farmLevel": 2
+          }
+        },
+        {
+          "label": "지켜본다",
+          "fx": {}
+        }
+      ]
+    },
+    {
+      "id": "festival_seodong",
+      "month": null,
+      "needsVerification": true,
+      "title": "서동축제(개최월 확인 필요)",
+      "text": "",
+      "choices": []
+    },
+    {
+      "id": "festival_jewel",
+      "month": null,
+      "needsVerification": true,
+      "title": "보석 관련 행사(개최월 확인 필요)",
+      "text": "",
+      "choices": []
+    }
+  ],
+  "random": [
+    {
+      "id": "market_fire",
+      "weight": 2,
+      "title": "시장 화재",
+      "text": "원도심 시장에서 화재가 발생했습니다.",
+      "choices": [
+        {
+          "label": "긴급 복구비 지원 (예산 -10)",
+          "fx": {
+            "budget": -10,
+            "support": 4
+          }
+        },
+        {
+          "label": "자체 복구를 요청",
+          "fx": {
+            "support": -5
+          }
+        }
+      ]
+    },
+    {
+      "id": "company_invest",
+      "weight": 2,
+      "title": "기업 투자 제안",
+      "text": "식품 기업이 산업단지 입주를 제안합니다.",
+      "choices": [
+        {
+          "label": "유치한다 (예산 -8)",
+          "fx": {
+            "budget": -8,
+            "indLevel": 4,
+            "population": 0.5,
+            "support": 3
+          }
+        },
+        {
+          "label": "신중히 검토",
+          "fx": {}
+        }
+      ]
+    },
+    {
+      "id": "culture_tour",
+      "weight": 2,
+      "title": "관광객 급증",
+      "text": "백제 유적 방문객이 늘고 있습니다.",
+      "choices": [
+        {
+          "label": "안내센터 확충 (예산 -6)",
+          "fx": {
+            "budget": -6,
+            "baekjeLevel": 3,
+            "support": 3
+          }
+        },
+        {
+          "label": "현상 유지",
+          "fx": {}
+        }
+      ]
+    },
+    {
+      "id": "citizen_complaint",
+      "weight": 3,
+      "title": "시민 민원 폭주",
+      "text": "신도심 주거 단지에서 교통 민원이 접수됩니다.",
+      "choices": [
+        {
+          "label": "간담회 개최 (피로 +6)",
+          "fx": {
+            "fatigue": 6,
+            "support": 3
+          }
+        },
+        {
+          "label": "담당 부서에 일임",
+          "fx": {
+            "support": -2
+          }
+        }
+      ]
+    }
+  ],
+  "bribe": [
+    {
+      "id": "bribe_permit",
+      "title": "인허가 청탁",
+      "text": "건설업자가 봉투를 내밉니다. '인허가 좀 잘 봐주십시오.'",
+      "choices": [
+        {
+          "label": "받는다 (예산 +15)",
+          "fx": {
+            "budget": 15
+          },
+          "corrupt": 18
+        },
+        {
+          "label": "단호히 거절한다",
+          "fx": {
+            "integrity": 3,
+            "support": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "bribe_sponsor",
+      "title": "기업 후원금",
+      "text": "특정 기업이 '출연금'이라며 거액을 제안합니다. 대가로 입찰 편의를 바랍니다.",
+      "choices": [
+        {
+          "label": "받는다 (예산 +25)",
+          "fx": {
+            "budget": 25
+          },
+          "corrupt": 26
+        },
+        {
+          "label": "거절한다",
+          "fx": {
+            "integrity": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "bribe_secretary",
+      "title": "비서의 은밀한 제안",
+      "text": "비서가 속삭입니다. '이번 한 번만 눈감으시면 선거 자금이 넉넉해집니다.'",
+      "choices": [
+        {
+          "label": "받는다 (정치력 +6, 예산 +10)",
+          "fx": {
+            "budget": 10,
+            "politics": 6
+          },
+          "corrupt": 22
+        },
+        {
+          "label": "물리친다",
+          "fx": {
+            "integrity": 4
+          }
+        }
+      ]
+    }
+  ]
+}

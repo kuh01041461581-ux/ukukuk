@@ -1,0 +1,74 @@
+{
+  "term": {
+    "months": 48,
+    "maxTerms": 3
+  },
+  "start": {
+    "budget": 200,
+    "population": 26,
+    "support": 50,
+    "fatigue": 0,
+    "politics": 20,
+    "integrity": 70,
+    "auditRisk": 0,
+    "audits": 0
+  },
+  "actionsPerMonth": 2,
+  "income": {
+    "taxPerManPop": 0.35,
+    "baseSupportGov": 3,
+    "upkeepPerZoneLevel": 0.06
+  },
+  "fatigue": {
+    "overwork": 100,
+    "restRecover": 35,
+    "monthlyRecover": 8
+  },
+  "audit": {
+    "riskThreshold": 60,
+    "impeachAudits": 3,
+    "riskDecayPerMonth": 3,
+    "integrityGainOnClean": 1
+  },
+  "election": {
+    "winThreshold": 50,
+    "weights": {
+      "support": 0.75,
+      "politics": 0.15,
+      "integrity": 0.1
+    },
+    "noise": 4
+  },
+  "zones": [
+    {
+      "id": "old",
+      "name": "원도심",
+      "level": 30,
+      "note": "익산역·중앙시장·원도심"
+    },
+    {
+      "id": "new",
+      "name": "신도심·주거",
+      "level": 45,
+      "note": "영등·부송·모현·어양 일대"
+    },
+    {
+      "id": "baekje",
+      "name": "백제문화",
+      "level": 25,
+      "note": "금마·왕궁·낭산(미륵사지·왕궁리)"
+    },
+    {
+      "id": "ind",
+      "name": "산업·식품",
+      "level": 25,
+      "note": "삼기·함열·황등 일대"
+    },
+    {
+      "id": "farm",
+      "name": "농업·강변",
+      "level": 20,
+      "note": "웅포·망성·성당·용안·함라·여산·춘포·오산"
+    }
+  ]
+}

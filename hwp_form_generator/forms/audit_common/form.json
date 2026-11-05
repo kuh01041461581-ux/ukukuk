@@ -11,9 +11,9 @@
       "profile": "dept"
     }
   ],
-  "has_body": true,
+  "has_body": false,
   "style": {
-    "heading_prefix": "□",
+    "heading_prefix": "",
     "heading_pad2": false,
     "item1_prefix": " ◦",
     "kv": null

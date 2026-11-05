@@ -495,6 +495,10 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
             raise ValueError("샘플에서 '%s' 글자를 찾지 못했어요 (%s)" % (sample, f["key"]))
         used_keys.append(f["key"])
 
+    for t in section.iter(HP + "t"):          # 샘플에 남은 점 하나짜리 숨은 글자(목차 표식 등)는 지운다
+        if (t.text or "").strip() == ".":
+            t.text = ""
+
     # 5) 쓰지 않는 메모·구역 정리, 줄 배치 캐시 제거
     for el in list(section.iter(HP + "fieldBegin")):
         if el.get("type") == "MEMO":
@@ -607,8 +611,17 @@ class ReportForm:
         return self._protos
 
     # ---- 문단 만들기
+    def _kind(self, kind):
+        """견본이 없는 종류를 만나면 가장 가까운 견본으로 대신한다(양식에 따라 없을 수 있음)"""
+        protos = self._load_protos()[0]
+        for k in (kind, "item1", "para", "kv", "h1", "blank"):
+            if k in protos:
+                return k
+        raise ValueError("이 양식에는 본문 견본이 없어요")
+
     def _par(self, kind, specs):
         protos, _ = self._load_protos()
+        kind = self._kind(kind)
         p = clone(protos[kind])
         P.set_par_runs(p, specs)
         return self._renew(p)
@@ -620,7 +633,7 @@ class ReportForm:
 
     def _first_cp(self, kind):
         protos, _ = self._load_protos()
-        r = protos[kind].find(HP + "run")
+        r = protos[self._kind(kind)].find(HP + "run")
         return r.get("charPrIDRef") if r is not None else "0"
 
     def _heading(self, text):
@@ -630,7 +643,7 @@ class ReportForm:
         if st.get("heading_pad2") and len(re.sub(r"\s", "", text)) == 2:
             text = re.sub(r"\s", "", text)
             text = text[0] + "    " + text[1]
-        p = clone(protos["h1"])
+        p = clone(protos[self._kind("h1")])
         ts = [t for run in p.findall(HP + "run") for t in run.findall(HP + "t")]
         full = st.get("heading_prefix", "") + text
         if ts:

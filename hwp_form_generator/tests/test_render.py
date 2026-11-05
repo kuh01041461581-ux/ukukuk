@@ -164,7 +164,7 @@ class RenderTests(unittest.TestCase):
         ev = registry.load_form("report_event", ROOTS)
         pk = registry.load_form("report_project", ROOTS)
         t1 = ptext(check_package(self, ev.render({"title": "t"}, ev.meta["starter"])).section(0))
-        for s in ("행사개요", "회의주제", "식순 및 시간표", "등록 및 개회", "국장님 하실 일"):
+        for s in ("행사개요", "회의주제", "식순 및 시간표", "국장님 하실 일"):
             self.assertIn(s, t1)
         t2 = ptext(check_package(self, pk.render({"title": "t"}, pk.meta["starter"])).section(0))
         for s in ("사업개요", "지난 실적", "향후 계획", "참고자료"):

@@ -80,9 +80,7 @@ def build(dept_report, mayor_report, plan, schedule):
         dept_report, os.path.join(FORMS, "report_event"), "report_event", "행사 보고 (식순·시간표)", "문화교육국 보고",
         fields, note="제목 상자 + 담당자 줄 + 행사개요 + 식순·시간표(표) + 국장님 하실 일",
         starter="□ 행사개요\n◦ 사 업 명: \n◦ 회의주제: \n◦ 일시: \n◦ 장소: \n◦ 사업내용: \n◦ 대행기관: \n\n"
-                "□ 식순 및 시간표\n| 등록 및 개회 |\n| 00:00~00:00(00') | **참석자 등록** |\n"
-                "| 00:00~00:00(00') | **개 회 사** | |\n| 00:00~00:00(00') | **축    사** | |\n"
-                "| 00:00~00:00(00') | **기념촬영** | |\n| 00:00~00:00(00') | **폐회사** |\n\n"
+                "□ 식순 및 시간표\n| |\n| | |\n| | |\n| | |\n| |\n| | |\n| | |\n\n"
                 "□ 국장님 하실 일\n◦ ")
     out["report_project"] = report.register_report(
         dept_report, os.path.join(FORMS, "report_project"), "report_project", "사업 보고 (개요·실적·계획)", "문화교육국 보고",
@@ -144,7 +142,7 @@ def build_extra(paths):
                 {"key": "title", "label": "현안 제목", "sample": hdr[k + 1]},
                 {"key": "dept", "label": "부서(과)", "sample": hdr[k + 2], "repl": "({{dept}})", "profile": "dept"},
             ], note="현안업무(번호) 제목 상자 + □ 금 후 계 획 + ◦ ▸ - 단계",
-            starter="□ 금 후 계 획\n◦ \n▸일시/장소: \n▸참 석 자: \n- \n▸주요내용: ", slice_=(12, 22))
+            starter="□ 금 후 계 획\n◦ \n▸일시/장소: \n▸참 석 자: \n▸주요내용: ", slice_=(12, 22))
     if "meeting_ref" in paths:
         ts = _flat_texts_para(paths["meeting_ref"], 34, 36)         # 제목 상자(34) + 계장·담당자 줄(35)
         info = next(t for t in ts if _re.match(r"\S*계장\s+\S+\s+\d+\s*/", t))
@@ -174,7 +172,7 @@ def build_extra(paths):
         out["audit_common"] = report.register_report(
             paths["audit"], os.path.join(F, "audit_common"), "audit_common", "과 공통사항 목록", "행정사무감사", [
                 {"key": "dept", "label": "과 이름", "sample": dept, "profile": "dept"},
-            ], note="과 이름표 + 감사자료 과 공통사항 목록(1~)", allow_no_body=True, section_index=1, slice_=(37, 48), fix=_audit_common_fix)
+            ], note="과 이름표 + 감사자료 과 공통사항 목록(1~)", allow_no_body=True, frame_only=True, section_index=1, slice_=(37, 48), fix=_audit_common_fix)
     if "press" in paths:
         hd = _flat_texts_para(paths["press"], 0, 1)
         tl = _flat_texts_para(paths["press"], 1, 4)
@@ -314,7 +312,7 @@ def build_queries(paths):
     out = {}
     F = FORMS
     ITEM_STARTER = ("□ 사업개요\nㅇ (사업내용) \nㅇ (사업위치) \nㅇ (사업기간) \nㅇ (총사업비) \nㅇ (주관/시행) \n\n"
-                    "□ 필요성 및 기대효과\nㅇ \n- \nㅇ \n- \n\n□ 요구사항 : ")
+                    "□ 필요성 및 기대효과\nㅇ \nㅇ \n\n□ 요구사항 : ")
     if "written" in paths:
         w = paths["written"]
         ts = _flat_texts_para(w, 13, 14)
@@ -352,7 +350,7 @@ def build_queries(paths):
                 {"key": "title", "label": "사업명", "sample": t13[1].split(".", 1)[1].strip(), "once": True},
                 {"key": "kind", "label": "신규/계속", "sample": t13[2], "exact": True, "once": True, "default": "신규"},
             ], note="정책질의서 머리 + □ 질의 취지·◦ 설명 + <Q> 질의 상자",
-            starter="□ \n◦ \n\n◦ \n\n| **<Q>** (질의 내용) |", slice_=(13, 35), body_from_text="□")
+            starter="□ \n◦ \n\n◦ \n\n| **<Q>** |", slice_=(13, 35), body_from_text="□")
         t35 = _flat_texts_para(p, 35, 36)
         out["policy_ref"] = report.register_report(
             p, os.path.join(F, "policy_ref"), "policy_ref", "참고1 조서 (사업 1건)", "국회단계 질의서", [

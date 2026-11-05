@@ -1,0 +1,111 @@
+{
+  "id": "press_release",
+  "name": "보도자료",
+  "audience": "보도자료",
+  "kind": "report",
+  "note": "보도자료 머리표(담당·과장·계장·주무관·사진·영상) + 제목·부제 + 본문(문단마다 한 줄)",
+  "fields": [
+    {
+      "key": "pdate",
+      "label": "보도 날짜",
+      "type": "date",
+      "fmt": "long",
+      "default": "today"
+    },
+    {
+      "key": "ptime",
+      "label": "조간용/석간용",
+      "default": "조간용"
+    },
+    {
+      "key": "embargo",
+      "label": "보도 시점 안내 문구",
+      "default": ""
+    },
+    {
+      "key": "dept",
+      "label": "담당 부서(과)",
+      "profile": "dept",
+      "blank": "      "
+    },
+    {
+      "key": "team",
+      "label": "담당 계",
+      "profile": "team",
+      "blank": "      "
+    },
+    {
+      "key": "head_name",
+      "label": "과장 이름",
+      "profile": "head_name",
+      "blank": "      "
+    },
+    {
+      "key": "head_tel",
+      "label": "과장 전화",
+      "profile": "head_tel",
+      "blank": "859-    "
+    },
+    {
+      "key": "lead_name",
+      "label": "계장 이름",
+      "profile": "lead_name",
+      "blank": "      "
+    },
+    {
+      "key": "lead_tel",
+      "label": "계장 전화",
+      "profile": "lead_tel",
+      "blank": "859-    "
+    },
+    {
+      "key": "staff_name",
+      "label": "주무관 이름",
+      "profile": "staff_name",
+      "blank": "      "
+    },
+    {
+      "key": "staff_tel",
+      "label": "주무관 전화",
+      "profile": "staff_tel",
+      "blank": "859-    "
+    },
+    {
+      "key": "photo_time",
+      "label": "사진 제공 시각",
+      "default": "",
+      "blank": "      "
+    },
+    {
+      "key": "pages",
+      "label": "쪽 수",
+      "default": "1",
+      "blank": "1"
+    },
+    {
+      "key": "title",
+      "label": "보도 제목"
+    },
+    {
+      "key": "sub1",
+      "label": "부제 1",
+      "blank": " "
+    },
+    {
+      "key": "sub2",
+      "label": "부제 2",
+      "blank": " "
+    }
+  ],
+  "has_body": true,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null,
+    "body_mode": "plain",
+    "para_prefix": " "
+  },
+  "starter": "(첫 문단: 사업의 배경과 개요)\n(둘째 문단: 행사 일시·장소·내용)\n(셋째 문단: 참석자·성과)\n(마지막 문단: 향후 계획·인용)",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

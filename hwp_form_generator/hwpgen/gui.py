@@ -1105,7 +1105,7 @@ class Widget(tk.Tk):
             if q and q not in meta["name"] and q not in meta.get("audience", ""):
                 continue
             groups.setdefault(meta.get("audience", "기타"), []).append((fid, meta))
-        order = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "행정사무감사"]
+        order = ["문화교육국 보고", "시장님 보고", "보도자료", "간부회의", "예산 설명자료", "행정사무감사"]
         for g, lst in sorted(groups.items(), key=lambda kv: order.index(kv[0]) if kv[0] in order else 99):
             self.section(self.forms_box, g)
             for fid, meta in lst:

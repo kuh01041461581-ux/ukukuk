@@ -175,6 +175,38 @@ def build_extra(paths):
             paths["audit"], os.path.join(F, "audit_common"), "audit_common", "과 공통사항 목록", "행정사무감사", [
                 {"key": "dept", "label": "과 이름", "sample": dept, "profile": "dept"},
             ], note="과 이름표 + 감사자료 과 공통사항 목록(1~)", allow_no_body=True, section_index=1, slice_=(37, 48), fix=_audit_common_fix)
+    if "press" in paths:
+        hd = _flat_texts_para(paths["press"], 0, 1)
+        tl = _flat_texts_para(paths["press"], 1, 4)
+        dline = next(t for t in hd if _re.search(r"\d{4}\. \d+\. \d+\.\(", t))
+        dm = _re.search(r"(\d{4}\. \d+\. \d+\.\([월화수목금토일]\))\s*(\S+)?", dline)
+        i_dept = hd.index("부 서") + 1
+        i_head = next(i for i, t in enumerate(hd) if t.startswith("과"))
+        i_lead = next(i for i, t in enumerate(hd) if t.startswith("계") and "장" in t)
+        i_staff = hd.index("주무관")
+        out["press_release"] = report.register_report(
+            paths["press"], os.path.join(F, "press_release"), "press_release", "보도자료", "보도자료", [
+                {"key": "pdate", "label": "보도 날짜", "sample": dm.group(1), "type": "date", "fmt": "long", "default": "today"},
+                {"key": "ptime", "label": "조간용/석간용", "sample": dm.group(2) or "조간용", "default": "조간용"},
+                {"key": "embargo", "label": "보도 시점 안내 문구", "sample": next(t for t in hd if t.startswith("이 보도자료는")),
+                 "default": ""},
+                {"key": "dept", "label": "담당 부서(과)", "sample": hd[i_dept], "profile": "dept", "blank": "      "},
+                {"key": "team", "label": "담당 계", "sample": hd[i_dept + 3] if False else next(t for t in hd if t.endswith("계") and t != hd[i_dept]),
+                 "profile": "team", "blank": "      "},
+                {"key": "head_name", "label": "과장 이름", "sample": hd[i_head + 1], "profile": "head_name", "blank": "      "},
+                {"key": "head_tel", "label": "과장 전화", "sample": hd[i_head + 2], "profile": "head_tel", "blank": "859-    "},
+                {"key": "lead_name", "label": "계장 이름", "sample": hd[i_lead + 1], "profile": "lead_name", "blank": "      "},
+                {"key": "lead_tel", "label": "계장 전화", "sample": hd[i_lead + 2], "profile": "lead_tel", "blank": "859-    "},
+                {"key": "staff_name", "label": "주무관 이름", "sample": hd[i_staff + 1], "profile": "staff_name", "blank": "      "},
+                {"key": "staff_tel", "label": "주무관 전화", "sample": hd[i_staff + 2], "profile": "staff_tel", "blank": "859-    "},
+                {"key": "photo_time", "label": "사진 제공 시각", "sample": "15:00이후", "default": "", "blank": "      "},
+                {"key": "pages", "label": "쪽 수", "sample": "2쪽", "repl": "{{pages}}쪽", "default": "1", "blank": "1"},
+                {"key": "title", "label": "보도 제목", "sample": tl[0]},
+                {"key": "sub1", "label": "부제 1", "sample": tl[1], "blank": " "},
+                {"key": "sub2", "label": "부제 2", "sample": tl[2], "blank": " "},
+            ], note="보도자료 머리표(담당·과장·계장·주무관·사진·영상) + 제목·부제 + 본문(문단마다 한 줄)",
+            starter="(첫 문단: 사업의 배경과 개요)\n(둘째 문단: 행사 일시·장소·내용)\n(셋째 문단: 참석자·성과)\n(마지막 문단: 향후 계획·인용)",
+            body_from=7, plain_body=True)
     for key, fid, label in (("budget", "budget", "설명자료"), ("budget_ref", "budget_ref", "참고자료")):
         if key not in paths:
             continue

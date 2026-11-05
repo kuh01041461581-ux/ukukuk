@@ -321,7 +321,8 @@ def _cut_section(pkg, section_index, slice_, drop, blank_tables=None):
 
 
 def register_report(sample_path, out_dir, form_id, name, audience, fields, kind="report", note="", starter="",
-                    slice_=None, drop=None, section_index=0, allow_no_body=False, blank_tables=None, fix=None):
+                    slice_=None, drop=None, section_index=0, allow_no_body=False, blank_tables=None, fix=None,
+                    body_from=None, plain_body=False):
     """샘플 hwpx → 양식 폴더(form.json, template.hwpx, protos.xml).
 
     fields: [{"key","label","sample"(샘플에 들어 있던 글자),"repl"(선택: 바꿀 글자, {{키}} 포함),
@@ -335,7 +336,10 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
     flatten_mixed(section)
     if fix:
         fix(section)                      # 양식마다 손봐야 하는 틀 (예: 제목 칸 글자를 자리표시로)
-    body = detect_body(section)
+    if body_from is not None:             # □ 제목이 없는 본문(보도자료 등): 이 번호 문단부터 끝까지가 본문
+        body = (section, body_from, len(section.findall(HP + "p")))
+    else:
+        body = detect_body(section)
     has_body = body is not None
     if not has_body and not allow_no_body:
         raise ValueError("본문(□ 제목 줄)을 찾지 못했어요. □ 로 시작하는 제목 줄이 있는 양식이어야 해요.")
@@ -383,7 +387,14 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
             protos["item1"] = clone(protos["kv"])
         if "blank" not in protos:
             protos["blank"] = _empty_like(region[0])
-        if "h1" not in protos:
+        if plain_body:                        # 본문 = 줄마다 한 문단(앞 한 칸 들여쓰기) + 사이 빈 줄
+            plain = [p for p in kinds.get("other", []) + kinds.get("item1", []) if own_text(p).strip()]
+            if not plain:
+                raise ValueError("본문 문단을 찾지 못했어요")
+            protos["para"] = _empty_like(plain[0])
+            lead = re.match(r"^\s*", own_text(plain[0])).group(0)
+            style["body_mode"], style["para_prefix"] = "plain", lead
+        elif "h1" not in protos:
             raise ValueError("□ 제목 줄 모양을 찾지 못했어요")
 
         # 2) 표 견본
@@ -689,6 +700,15 @@ class ReportForm:
 
     def build_body(self, outline, idgen):
         out = []
+        st = self.meta["style"]
+        if st.get("body_mode") == "plain":      # 한 줄 = 한 문단, 문단 사이에 빈 줄
+            lines = [ln.strip() for ln in (outline or "").splitlines() if ln.strip()]
+            cp = self._first_cp("para")
+            for i, ln in enumerate(lines):
+                out.append(self._par("para", [(cp, st.get("para_prefix", "") + ln)]))
+                if i < len(lines) - 1:
+                    out.append(self._par("blank", [(self._first_cp("blank"), "")]))
+            return out
         for b in T.parse_outline(outline):
             k = b[0]
             if k == "h1":

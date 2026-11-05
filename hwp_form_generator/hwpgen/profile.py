@@ -60,6 +60,9 @@ def profile_value(p, key):
         return _who(p, "lead", True)
     if key == "staff_full":
         return _who(p, "staff", True)
+    if key in ("head_tel", "lead_tel", "staff_tel"):          # 859- + 내선 (익산시 대표번호 앞자리)
+        ext = p.get(key.split("_")[0] + "_ext", "")
+        return ("859-" + ext) if ext else ""
     if key == "team_title":
         return (p.get("team", "") + "계장") if p.get("team") else ""
     if key == "dept_team":

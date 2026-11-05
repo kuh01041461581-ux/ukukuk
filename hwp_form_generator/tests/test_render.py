@@ -204,17 +204,28 @@ class NewFormsTests(unittest.TestCase):
               "team_title": "△△계장", "lead": "홍길동 1111 / 010-0000-0000", "staff": "이순신 2222 / 010-1111-1111",
               "adate": "6. 11.", "session": "제282회", "org": "문화교육국", "mdt": "12. 9.(화) 10:00", "round": "(제2차 정례회)",
               "btitle": "― 2026년도 제2회 추가경정 예산(안) ―", "page": "2", "policy": "정책 A", "unit": "단위 B",
-              "detail": "세부 C"}
+              "detail": "세부 C", "pdate": "2026-11-10", "ptime": "조간용", "embargo": "", "team": "△△계",
+              "head_name": "가", "head_tel": "859-1", "lead_name": "나", "lead_tel": "859-2", "staff_name": "다",
+              "staff_tel": "859-3", "pages": "2", "sub1": "- 부제 -", "sub2": "", "photo_time": ""}
 
     def test_all_new_forms_render(self):
         want = {"meeting_cover": "현안·당면 업무보고", "meeting_issue": "현안업무(3)", "meeting_card": "△△계장",
                 "audit_cover": "제282회", "audit_common": "감사자료 과 공통사항", "budget_cover": "주요사업 설명자료",
-                "budget_project": "세부사업명 : 세부 C", "budget_ref_cover": "(참고자료)", "budget_ref_project": "단위사업 : 단위 B"}
+                "budget_project": "세부사업명 : 세부 C", "press_release": "시험 제목", "budget_ref_cover": "(참고자료)", "budget_ref_project": "단위사업 : 단위 B"}
         for fid, needle in want.items():
             f = registry.load_form(fid, ROOTS)
             outline = (f.meta.get("starter") or "") if f.meta.get("has_body", True) else ""
             pkg = check_package(self, f.render(self.VALUES, outline))
             self.assertIn(needle, ptext(pkg.section(0)), fid)
+
+    def test_press_release_body(self):
+        f = registry.load_form("press_release", ROOTS)
+        pkg = check_package(self, f.render(self.VALUES, "첫 문단\n둘째 문단\n\n셋째 문단"))
+        paras = ["".join(t.text or "" for r in p.findall(HP + "run") for t in r.findall(HP + "t"))
+                 for p in pkg.section(0).findall(HP + "p")]
+        body = [x for x in paras[7:]]
+        self.assertEqual([b for b in body if b.strip()], [" 첫 문단", " 둘째 문단", " 셋째 문단"])   # 앞 한 칸 들여쓰기
+        self.assertEqual(body[1], "")                                                                 # 문단 사이 빈 줄
 
     def test_sub_levels(self):
         f = registry.load_form("meeting_issue", ROOTS)
@@ -226,9 +237,9 @@ class NewFormsTests(unittest.TestCase):
 
     def test_privacy_new_forms(self):
         import zipfile
-        bad = ("010-", "전주영", "김형남", "조상미", "조선영", "진소현", "박수진", "조승재", "윤보훈", "전북권", "숭림사")
+        bad = ("010-", "전주영", "김형남", "조상미", "조선영", "진소현", "박수진", "조승재", "윤보훈", "전북권", "숭림사", "고선희", "조진선", "이선아", "859-7410", "아동학대")
         for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_common",
-                                    "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_project"):
+                                    "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_project", "press_release"):
             d = os.path.join(FORMS, fid)
             blob = zipfile.ZipFile(os.path.join(d, "template.hwpx")).read("Contents/section0.xml").decode("utf-8")
             blob += open(os.path.join(d, "protos.xml"), encoding="utf-8").read() + open(os.path.join(d, "form.json"), encoding="utf-8").read()

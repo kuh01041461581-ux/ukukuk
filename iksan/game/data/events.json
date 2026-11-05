@@ -77,12 +77,38 @@
     },
     {
       "id": "festival_seodong",
-      "month": null,
-      "needsVerification": true,
-      "title": "서동축제(개최월 확인 필요)",
-      "text": "",
-      "choices": [],
-      "scene": null
+      "month": 5,
+      "needsVerification": false,
+      "title": "익산 서동축제 개막",
+      "text": "백제 서동·선화공주 설화를 주제로 한 서동축제가 5월 초(1~3일 안팎) 열립니다. 올해는 어떻게 치르시겠습니까?",
+      "choices": [
+        {
+          "label": "대규모 개최 (예산 -15, 피로 +10)",
+          "fx": {
+            "budget": -15,
+            "fatigue": 10,
+            "support": 6,
+            "baekjeLevel": 3,
+            "politics": 2
+          }
+        },
+        {
+          "label": "예년 규모로 개최 (예산 -8)",
+          "fx": {
+            "budget": -8,
+            "support": 3,
+            "baekjeLevel": 1
+          }
+        },
+        {
+          "label": "규모를 줄인다",
+          "fx": {
+            "support": -3
+          }
+        }
+      ],
+      "scene": "baekje",
+      "source": "2026 서동축제 5월 1~3일 개최 (뉴시스·익산열린신문 보도). 다른 해도 5월 초 개최가 관례인지는 추가 확인 필요"
     },
     {
       "id": "festival_jewel",

@@ -42,7 +42,8 @@ internal abstract class MiniGame
 	public virtual bool WideCap { get { return false; } }
 	public virtual bool CenterPlay { get { return false; } }   // 가로 화면에서도 놀이판은 세로 크기 그대로 가운데에 두고, 양옆은 배경으로 채워요
 	public float PlayOX { get { return CenterPlay && LW > W ? (LW - W) / 2f : 0f; } }
-	internal static float curOX = 0f;   // 가로 화면도 지원하는 게임인지
+	internal static float curOX = 0f;
+	protected static GraphicsState HudS(Graphics g, int side) { GraphicsState hs = g.Save(); if (curOX != 0f) g.TranslateTransform(side * curOX, 0f); return hs; }   // 가로 화면에서 화면 모서리 정보창을 양옆 끝으로 옮겨요 (-1 왼쪽 · +1 오른쪽)   // 가로 화면도 지원하는 게임인지
 	internal static bool WantWide = LoadWide();   // 가로로 보기 (게임 화면 오른쪽 위 버튼 · R 키)
 	private static string WidePath { get { return System.IO.Path.Combine(Environment.GetEnvironmentVariable("OT_DIR") ?? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OvertimeReminder"), "orient.txt"); } }
 	private static bool LoadWide() { try { return !(System.IO.File.Exists(WidePath) && System.IO.File.ReadAllText(WidePath).Trim() == "p"); } catch { return true; } }

@@ -713,7 +713,9 @@ internal sealed class KartGame : MiniGame
 		if (splashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(110 * splashT / 0.7f), 120, 190, 255))) g.FillRectangle(b, -curOX, 0, curLW, H);
 		if (warnT > 0f && ((int)(t * 8)) % 2 == 0) { using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 240, 70, 70))) g.FillEllipse(b, 182, 590 - 14, 36, 36); Txt(g, "!", 16f, 2, Color.White, 182, 576, 36, 36, StringAlignment.Center); Balloon(g, 200f + (1f - warnT / 1.1f) * 0f, 600f - (1f - warnT / 1.1f) * 40f, 10f, t); }
 		// HUD
+		GraphicsState hs = HudS(g, -1);
 		Panel(g, new RectangleF(10, 40, 120, 56)); Txt(g, place + "등", 22f, 2, place == 1 ? Color.FromArgb(255, 220, 90) : Color.White, 10, 40, 120, 56, StringAlignment.Center);
+		g.Restore(hs); hs = HudS(g, 1);
 		Panel(g, new RectangleF(140, 40, 250, 56)); Txt(g, Math.Min(Laps, lap + 1) + " / " + Laps + " 바퀴", 11f, 2, Color.White, 214, 42, 164, 24, StringAlignment.Center); Dial(g, 176f, 87f, 31f, t);
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(214, 70, 164, 12), 6)) using (SolidBrush b = new SolidBrush(Color.FromArgb(110, 0, 0, 0))) g.FillPath(b, gp);
 		float cf = bst >= 2 ? 1f : Math.Min(1f, gauge); if (cf > 0.02f) using (GraphicsPath gp = Gfx.Round(new RectangleF(214, 70, 164 * cf, 12), 6)) using (LinearGradientBrush b = new LinearGradientBrush(new RectangleF(212, 70, 168, 12), Color.FromArgb(80, 190, 255), Color.FromArgb(255, 150, 40), 0f)) g.FillPath(b, gp);
@@ -726,11 +728,13 @@ internal sealed class KartGame : MiniGame
 		if (getT > 0f) { float gk = 1f - getT / 0.45f; Spr.Draw(g, "ms_kt_get", ib.X + 32, ib.Y + 30, 60f + 50f * gk, 60f + 50f * gk, gk * 40f); }
 		if (item >= 0) { int shown = itemRoll > 0f ? ((int)(t * 14)) % 4 : item; ItemIcon(g, ib.X + 32, ib.Y + 28, shown); Txt(g, itemRoll > 0f ? "" : ItemName[item], 8f, 2, Color.White, ib.X, ib.Y + 44, ib.Width, 18, StringAlignment.Center); }
 		else Txt(g, "아이템", 8.5f, 1, Color.FromArgb(150, 255, 255, 255), ib.X, ib.Y, ib.Width, ib.Height, StringAlignment.Center);
+		g.Restore(hs); hs = HudS(g, -1);
 		// 순위표 (작게)
 		List<KeyValuePair<string, float>> rk = new List<KeyValuePair<string, float>>(); rk.Add(new KeyValuePair<string, float>("마룡이", MyDist)); foreach (Car c in cars) rk.Add(new KeyValuePair<string, float>(c.Name, Dist(c)));
 		rk.Sort((a, b) => b.Value.CompareTo(a.Value)); Panel(g, new RectangleF(10, 104, 92, 6 * 15 + 8));
 		for (int i = 0; i < rk.Count; i++) Txt(g, (i + 1) + " " + rk[i].Key, 8f, rk[i].Key == "마룡이" ? 2 : 1, rk[i].Key == "마룡이" ? Color.FromArgb(255, 230, 120) : Color.FromArgb(225, 255, 255, 255), 16, 108 + i * 15, 86, 15, StringAlignment.Near);
 		{ RectangleF mr = new RectangleF(10, 470, 112, 104); Panel(g, mr); MiniMap(g, mr); }
+		g.Restore(hs);
 		if (msgT > 0f) Hint(g, msg, 170, 14f, true, Math.Min(1f, msgT * 2f));
 		if (el < 5f) Hint(g, course == 2 ? "빙판이라 미끄러워요! 핸들을 미리 꺾어요" : (course == 4 ? "중력이 약해요! 점프하면 오래 날아요" : "←→ 핸들 · Shift 드리프트로 부스터 모으기 · X 부스터 · Z 아이템"), 432, 10.5f, false, Math.Min(1f, (5f - el) * 2f));
 	}

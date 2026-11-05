@@ -74,7 +74,7 @@ internal sealed class CoverGame : MiniGame
 	public override void Reset() { en.Clear(); ob.Clear(); tr.Clear(); cas.Clear(); smk.Clear(); dead.Clear(); rings.Clear(); fqs.Clear(); debs.Clear(); holes.Clear(); sel = true; hurtT = 0; lives = 3; kills = 0; Score = 0; Over = false; peek = 0; cd = 0; reloadP = 0; gauge = 0; el = 0; spawnT = 1f; obT = 22f; ultT = 0; beamT = 0; flash = 0; msg = ""; msgT = 0; reloading = false; ammo = 0; recoil = 0; kick = 0; camK = 0; pop = 0; ox = OX; aimX = OX; Fx.Clear(); }
 	private void Start(int i) { gun = i; sel = false; ammo = Mag[i]; msg = GN[i] + " 장착!"; msgT = 1.2f; Sfx.Play("ok2"); }
 	private RectangleF Card(int i) { return new RectangleF(24 + (LW - W) / 2f + (i % 2) * 180, 112 + (i / 2) * 208, 172, 200); }
-	private static RectangleF UltBtn { get { return new RectangleF(318, 534, 70, 52); } }
+	private RectangleF UltBtn { get { return new RectangleF(LW - 82, 534, 70, 52); } }
 	public override void Click(float x, float y)
 	{
 		if (sel) { for (int i = 0; i < 4; i++) if (Card(i).Contains(x, y)) { Start(i); return; } return; }

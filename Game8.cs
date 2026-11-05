@@ -1084,18 +1084,22 @@ internal sealed class SurvivalGame : MiniGame
 			float l = (float)Math.Sqrt(dx * dx + dy * dy), ax = 200f + dx / l * 170f, ay = 330f + dy / l * 250f; ax = Clamp(ax, 24f, W - 24f); ay = Clamp(ay, 70f, H - 70f);
 			Star(g, ax, ay, 11f, Color.FromArgb(230, 255, 214, 60));
 		}
-		// 상단 HUD
+		// 상단 HUD (가로 화면에서는 왼쪽 정보는 왼쪽 끝, 오른쪽 정보는 오른쪽 끝으로)
+		GraphicsState hs = HudS(g, -1);
 		float fr = hp / maxHp;
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(14, 42, 190, 14), 7)) using (SolidBrush b = new SolidBrush(Color.FromArgb(130, 10, 10, 20))) g.FillPath(b, gp);
 		if (fr > 0.01f) using (GraphicsPath gp = Gfx.Round(new RectangleF(14, 42, Math.Max(14f, 190f * fr), 14), 7)) using (SolidBrush b = new SolidBrush(fr > 0.4f ? Color.FromArgb(240, 90, 110) : Color.FromArgb(255, 60, 60))) g.FillPath(b, gp);
 		Txt(g, "체력 " + (int)Math.Ceiling(hp) + " / " + (int)maxHp, 9f, 2, Color.White, 20, 41, 180, 16, StringAlignment.Near);
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(14, 60, 190, 10), 5)) using (SolidBrush b = new SolidBrush(Color.FromArgb(130, 10, 10, 20))) g.FillPath(b, gp);
 		float xf = Math.Min(1f, (float)xp / XpNeed); if (xf > 0.01f) using (GraphicsPath gp = Gfx.Round(new RectangleF(14, 60, Math.Max(10f, 190f * xf), 10), 5)) using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 200, 255))) g.FillPath(b, gp);
+		g.Restore(hs); hs = HudS(g, 1);
 		Txt(g, "Lv." + lvl + " · 처치 " + kills + " · 무기 " + WSlots() + "/6 능력 " + PSlots() + "/5", 10f, 2, Color.White, 212, 40, 190, 22, StringAlignment.Near);
+		g.Restore(hs); hs = HudS(g, -1);
 		// 능력 목록
 		int ix = 14; for (int i = 0; i < 10; i++) if (wl[i] > 0) { IconW(g, i, ix + 12, 88, 12f, wl[i]); ix += 27; }
 		int jx2 = 14; for (int i = 0; i < 11; i++) if (pl[i] > 0) { IconP(g, i, jx2 + 10, 113, 10f, pl[i]); jx2 += 23; }
 		int rx = 14; for (int i = 0; i < 8; i++) if (rel[i] > 0) { IconR(g, i, rx + 10, 137, 10f, rel[i]); rx += 23; }
+		g.Restore(hs); hs = HudS(g, 1);
 		// 스트레스 게이지
 		{
 			float sf = Math.Min(1f, stress / 100f); bool full = stress >= 100f;
@@ -1103,7 +1107,9 @@ internal sealed class SurvivalGame : MiniGame
 			if (sf > 0.01f) Rr(g, full ? Color.FromArgb(255, (int)(150 + 100 * Math.Sin(t * 12) * Math.Sin(t * 12)), 60) : Color.FromArgb(255, 170, 70), 212, 60, Math.Max(10f, 174f * sf), 10, 5);
 			Txt(g, full ? "[스페이스/클릭] 퇴근 선언!" : "스트레스 " + (int)stress + "%", 8.5f, 2, Color.White, 212, 70, 174, 14, StringAlignment.Near);
 		}
+		g.Restore(hs); hs = HudS(g, -1);
 		Txt(g, StName[stage], 9f, 1, Color.FromArgb(200, 255, 255, 255), 14, 576, 120, 18, StringAlignment.Near);
+		g.Restore(hs);
 		if (msgT > 0) Txt(g, msg, 13f, 2, Color.FromArgb((int)(255 * Math.Min(1f, msgT)), 255, 236, 140), 0, 400, W, 26, StringAlignment.Center);
 		if (hurtT > 0.3f) using (SolidBrush b = new SolidBrush(Color.FromArgb(40, 255, 0, 0))) g.FillRectangle(b, -curOX, 0, curLW, H);
 		if (flashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(70 * Math.Min(1f, flashT)), 255, 30, 30))) g.FillRectangle(b, -curOX, 0, curLW, H);

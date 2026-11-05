@@ -326,7 +326,7 @@ internal sealed class FreeKickGame : MiniGame
 				Txt(g, "파워 " + (int)Math.Round(lockedPower * 100f) + "%", 8.5f, 1, Color.FromArgb(200, 255, 255, 255), gr.X, gr.Y - 15, 90, 14, StringAlignment.Near);
 			}
 		}
-		for (int fi = 0; fi < 3; fi++) if (Spr.Get("ms_sc_flag") != null) DrawFx(g, "sc_flag", W - 22f - fi * 26f, 92f, 22f, fi < lives ? 1f : 0.25f);
+		{ GraphicsState hs = HudS(g, 1); for (int fi = 0; fi < 3; fi++) if (Spr.Get("ms_sc_flag") != null) DrawFx(g, "sc_flag", W - 22f - fi * 26f, 92f, 22f, fi < lives ? 1f : 0.25f); g.Restore(hs); }
 		if (st >= 3 && msg.Length > 0 && resT > 0f)
 		{
 			int al = (int)(255 * Math.Min(1f, resT)); bool good = scored; Txt(g, msg, 24f, 2, good ? Color.FromArgb(al, 255, 226, 100) : Color.FromArgb(al, 255, 150, 160), 0, 120, W, 42, StringAlignment.Center);

@@ -169,8 +169,10 @@ internal sealed class BasketGame : MiniGame
 		if (ps) { string pn = flying ? (lT < 0.2f ? "ms_bk_s1" : "ms_bk_s2") : "ms_bk_s0"; Bitmap pbm = Spr.Get(pn); float psq = charging ? 1f - 0.07f * gv : 1f; float ph2 = 130f * psq; float pw2 = ph2 * pbm.Width / pbm.Height; float bob = flying ? 0f : (float)Math.Sin(tm * 3) * 1.2f; float lift = flying && lT < 0.45f ? -18f * (float)Math.Sin(lT / 0.45f * 3.14f) : 0f; Spr.Draw(g, pn, sx - 35f, 550f - ph2 / 2f + bob + lift, pw2, ph2, 0f); }
 		else DrawSpr(g, "m_bk" + (flying ? 5 : (charging ? 4 : 2)), sx - 58f, 576, 100f, (float)Math.Sin(tm * 3) * 1.5f);
 		if (popT > 0) Txt(g, pop, 18f, 2, Color.FromArgb((int)(255 * Math.Min(1f, popT)), 255, 226, 120), 0, 350, W, 32, StringAlignment.Center);
+		{ GraphicsState hs = HudS(g, -1);
 		if (streak >= 3) Txt(g, "ON FIRE! 보너스 +1", 11f, 2, Color.FromArgb(255, 150, 70), 14, 66, 200, 22, StringAlignment.Near);
 		if (streak >= 2) Txt(g, streak + "연속 성공!", 11f, 1, Color.FromArgb(255, 214, 90), 14, 44, 180, 22, StringAlignment.Near);
+		g.Restore(hs); }
 	}
 }
 

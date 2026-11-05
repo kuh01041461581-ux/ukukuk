@@ -444,6 +444,8 @@ public final class Host {
         }
         return painted;
     }
+    /** 화면 터치 좌표(240x296 기준)로 직접 선택하는 키 열(해당 UI 가 아니면 null) */
+    public int[] tapKeys(int gx, int gy) { return GfxLib.tapKeys(this, gx, gy); }
     public volatile double timeScale = 1.0; double scaleAcc = 0;
     int paintSkip = 0;
     int spinLast = 0; long spinTime = -1;

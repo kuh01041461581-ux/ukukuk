@@ -96,6 +96,25 @@ final class GfxLib {
 
     // ---- 라벨 시트(글자가 겹쳐 있어 원본 조각 경계로는 잘리지 않음)는 글자 단위로 다시 그린다
     static int curBarX = 0, curBarY = 0;
+    /** 시청 팝업 막대 위치(터치로 항목을 바로 고르기 위해): {x, y, 선택여부, 그려진 시각} */
+    static final java.util.ArrayList<int[]> bars = new java.util.ArrayList<>();
+    static synchronized void recordBar(Host H, int x, int y, boolean sel) {
+        for (int[] b : bars) if (b[1] == y) { b[0] = x; b[2] = sel ? 1 : 0; b[3] = (int) H.vnow; return; }
+        bars.add(new int[]{x, y, sel ? 1 : 0, (int) H.vnow});
+    }
+    /** 화면(240x296) 좌표 (gx,gy) 를 눌렀을 때 보낼 키 열. 팝업 막대를 눌렀으면 [방향키 n번..., 확인], 아니면 null */
+    static synchronized int[] tapKeys(Host H, int gx, int gy) {
+        java.util.ArrayList<int[]> cur = new java.util.ArrayList<>();
+        for (int[] b : bars) if ((int) H.vnow - b[3] < 400) cur.add(b);
+        if (cur.size() < 2) return null;
+        cur.sort((p, q) -> p[1] - q[1]);
+        int sel = -1, hit = -1;
+        for (int i = 0; i < cur.size(); i++) { int[] b = cur.get(i); if (b[2] == 1) sel = i; if (gx >= b[0] - 3 && gx <= b[0] + 51 && gy >= b[1] - 3 && gy <= b[1] + 17) hit = i; }
+        if (sel < 0 || hit < 0) return null;
+        int d = hit - sel, n = Math.abs(d); int[] seq = new int[n + 1];
+        for (int i = 0; i < n; i++) seq[i] = d > 0 ? 56 : 50;
+        seq[n] = 53; return seq;
+    }
     static final String[] MENU_LABELS = {"현황", "비서", "행사", "정보"};
     static final int[] daysDigit = {-1, -1, -1, -1};
     static void label(Host H, Surf dst, String t, int x, int y) {
@@ -141,7 +160,7 @@ final class GfxLib {
             label(H, dst, MENU_LABELS[menuIdx], curBarX + 19, curBarY + 1); return true; }
         if (src.w == 48 && src.h == 34) {                                                                // 팝업 마름모 버튼: 선택=빨강, 그 외=파랑
             int row0 = (cy - y) < 9 ? 0 : 14; Surf cell = new Surf(48, 14, false); System.arraycopy(src.px, row0 * 48, cell.px, 0, 48 * 14);
-            boolean hc = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, cy); dst.hasClip = hc; curBarX = x; curBarY = cy; return true; }
+            boolean hc = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, cy); dst.hasClip = hc; curBarX = x; curBarY = cy; recordBar(H, x, cy, row0 == 0); return true; }
         if (src.w == 10 && src.h == 36) {                                                                // 아이콘 4개(그래프/얼굴/폭죽/서류)가 세로로 이어진 시트
             int k = Math.round((float) (cy - y) / 12f); if (k < 0 || k > 3) return true;
             int[] b = {0, 7, 17, 27, 36}; int h = b[k + 1] - b[k]; Surf cell = new Surf(10, h, false); System.arraycopy(src.px, b[k] * 10, cell.px, 0, 10 * h);

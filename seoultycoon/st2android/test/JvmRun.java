@@ -34,6 +34,7 @@ public class JvmRun {
         if (System.getenv("SCAN") != null) { int v = Integer.parseInt(System.getenv("SCAN")); for (int aa = 0x50000000; aa < H.hiEnd(); aa += 4) if (H.vm.r32(aa) == v) { StringBuilder sb = new StringBuilder("SCAN " + Integer.toHexString(aa) + ":"); for (int k = -8; k <= 8; k++) sb.append(" ").append(H.vm.r32(aa + 4 * k)); System.out.println(sb); } }
         if (System.getenv("DUMP") != null) { int base = (int) Long.parseLong(System.getenv("DUMP"), 16); StringBuilder sb = new StringBuilder("DUMP"); for (int k = -16; k < 48; k++) sb.append(' ').append(H.vm.r32(base + 4 * k)); System.out.println(sb); }
         if (System.getenv("CLS") != null) { int h = (int) Long.parseLong(System.getenv("CLS"), 16); System.out.println("CLS " + H.describe(h)); }
+        if (System.getenv("TAP") != null) { String[] q = System.getenv("TAP").split(","); System.out.println("TAPKEYS " + java.util.Arrays.toString(H.tapKeys(Integer.parseInt(q[0]), Integer.parseInt(q[1])))); }
         System.out.println("done");
     }
 }

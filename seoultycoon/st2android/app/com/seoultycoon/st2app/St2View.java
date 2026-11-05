@@ -181,7 +181,12 @@ public class St2View extends View {
             ui.postDelayed(new Runnable() { public void run() { key(c, false); } }, t + 45);
         }
     }
-    boolean navTap(float x, float y) { return false; }
+    boolean navTap(float x, float y) {                       // 시청 팝업 항목을 눌러 바로 선택
+        if (!game.contains(x, y) || game_host == null) return false;
+        int[] seq = game_host.tapKeys((int) ((x - game.left) / game.width() * 240f), (int) ((y - game.top) / game.height() * 296f));
+        if (seq == null) return false;
+        playSeq(seq); return true;
+    }
     void tapKey(final int code) { key(code, true); ui.postDelayed(new Runnable() { public void run() { key(code, false); } }, 40); }
 
     /** 4방향 + 히스테리시스: 현재 방향 축을 쉽게 바꾸지 않아 대각선 근처에서 떨리지 않음 */

@@ -713,26 +713,31 @@ internal sealed class KartGame : MiniGame
 		if (splashT > 0f) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(110 * splashT / 0.7f), 120, 190, 255))) g.FillRectangle(b, -curOX, 0, curLW, H);
 		if (warnT > 0f && ((int)(t * 8)) % 2 == 0) { using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 240, 70, 70))) g.FillEllipse(b, 182, 590 - 14, 36, 36); Txt(g, "!", 16f, 2, Color.White, 182, 576, 36, 36, StringAlignment.Center); Balloon(g, 200f + (1f - warnT / 1.1f) * 0f, 600f - (1f - warnT / 1.1f) * 40f, 10f, t); }
 		// HUD
-		GraphicsState hs = HudS(g, -1);
+		GraphicsState hs = HudS(g, -1); bool wd = curOX > 0f; if (wd) g.TranslateTransform(0f, 72f);   // 가로 화면: 아이템은 왼쪽 위 · 바퀴 수는 오른쪽 위 · 계기판은 왼쪽 아래 · 미니맵은 오른쪽 아래
 		Panel(g, new RectangleF(10, 40, 120, 56)); Txt(g, place + "등", 22f, 2, place == 1 ? Color.FromArgb(255, 220, 90) : Color.White, 10, 40, 120, 56, StringAlignment.Center);
 		g.Restore(hs); hs = HudS(g, 1);
-		Panel(g, new RectangleF(140, 40, 250, 56)); Txt(g, Math.Min(Laps, lap + 1) + " / " + Laps + " 바퀴", 11f, 2, Color.White, 214, 42, 164, 24, StringAlignment.Center); Dial(g, 176f, 87f, 31f, t);
+		Panel(g, wd ? new RectangleF(206, 40, 184, 56) : new RectangleF(140, 40, 250, 56)); Txt(g, Math.Min(Laps, lap + 1) + " / " + Laps + " 바퀴", 11f, 2, Color.White, 214, 42, 164, 24, StringAlignment.Center); if (!wd) Dial(g, 176f, 87f, 31f, t);
 		using (GraphicsPath gp = Gfx.Round(new RectangleF(214, 70, 164, 12), 6)) using (SolidBrush b = new SolidBrush(Color.FromArgb(110, 0, 0, 0))) g.FillPath(b, gp);
 		float cf = bst >= 2 ? 1f : Math.Min(1f, gauge); if (cf > 0.02f) using (GraphicsPath gp = Gfx.Round(new RectangleF(214, 70, 164 * cf, 12), 6)) using (LinearGradientBrush b = new LinearGradientBrush(new RectangleF(212, 70, 168, 12), Color.FromArgb(80, 190, 255), Color.FromArgb(255, 150, 40), 0f)) g.FillPath(b, gp);
 		if (driftDir != 0 && bst < 2) using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(120 + 100 * Math.Sin(t * 20)), 255, 255, 255))) g.FillRectangle(b, 214 + 164 * cf - 3, 70, 3, 12);
 		Txt(g, bst >= 2 ? "부스터 가득 · X 키로 써요" : "드리프트하면 부스터 게이지가 차요", 7.5f, 1, Color.FromArgb(220, 255, 255, 255), 214, 82, 164, 12, StringAlignment.Center);
+		g.Restore(hs);
+		if (wd) { hs = HudS(g, -1); Panel(g, new RectangleF(10, 528, 80, 52)); g.TranslateTransform(-126f, 479f); Dial(g, 176f, 87f, 31f, t); g.Restore(hs); }
+		hs = HudS(g, wd ? -1 : 1); if (wd) g.TranslateTransform(-236f, -392f);
 		// 드리프트 부스터 칸 (2개까지)
 		for (int q = 0; q < 2; q++) { RectangleF br = new RectangleF(316 + q * 34, 432, 30, 34); Panel(g, br); if (q < bst) BoostIcon(g, br.X + 15, br.Y + 17, 1f + (q == bst - 1 ? (float)Math.Sin(t * 6) * 0.06f : 0f)); }
 		Txt(g, "X 부스터", 7f, 1, Color.FromArgb(220, 255, 255, 255), 316, 467, 64, 14, StringAlignment.Center);
+		g.Restore(hs); hs = HudS(g, wd ? -1 : 1); if (wd) g.TranslateTransform(-306f, -446f);
 		RectangleF ib = new RectangleF(316, 486, 64, 64); Panel(g, ib);
 		if (getT > 0f) { float gk = 1f - getT / 0.45f; Spr.Draw(g, "ms_kt_get", ib.X + 32, ib.Y + 30, 60f + 50f * gk, 60f + 50f * gk, gk * 40f); }
 		if (item >= 0) { int shown = itemRoll > 0f ? ((int)(t * 14)) % 4 : item; ItemIcon(g, ib.X + 32, ib.Y + 28, shown); Txt(g, itemRoll > 0f ? "" : ItemName[item], 8f, 2, Color.White, ib.X, ib.Y + 44, ib.Width, 18, StringAlignment.Center); }
 		else Txt(g, "아이템", 8.5f, 1, Color.FromArgb(150, 255, 255, 255), ib.X, ib.Y, ib.Width, ib.Height, StringAlignment.Center);
-		g.Restore(hs); hs = HudS(g, -1);
+		g.Restore(hs); hs = HudS(g, -1); if (wd) g.TranslateTransform(0f, 72f);
 		// 순위표 (작게)
 		List<KeyValuePair<string, float>> rk = new List<KeyValuePair<string, float>>(); rk.Add(new KeyValuePair<string, float>("마룡이", MyDist)); foreach (Car c in cars) rk.Add(new KeyValuePair<string, float>(c.Name, Dist(c)));
 		rk.Sort((a, b) => b.Value.CompareTo(a.Value)); Panel(g, new RectangleF(10, 104, 92, 6 * 15 + 8));
 		for (int i = 0; i < rk.Count; i++) Txt(g, (i + 1) + " " + rk[i].Key, 8f, rk[i].Key == "마룡이" ? 2 : 1, rk[i].Key == "마룡이" ? Color.FromArgb(255, 230, 120) : Color.FromArgb(225, 255, 255, 255), 16, 108 + i * 15, 86, 15, StringAlignment.Near);
+		g.Restore(hs); hs = HudS(g, wd ? 1 : -1); if (wd) g.TranslateTransform(268f, 0f);
 		{ RectangleF mr = new RectangleF(10, 470, 112, 104); Panel(g, mr); MiniMap(g, mr); }
 		g.Restore(hs);
 		if (msgT > 0f) Hint(g, msg, 170, 14f, true, Math.Min(1f, msgT * 2f));

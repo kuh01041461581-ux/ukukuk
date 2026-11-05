@@ -1,0 +1,17 @@
+{
+  "id": "policy_list",
+  "name": "국회단계 활동사업 목록",
+  "audience": "국회단계 질의서",
+  "kind": "report",
+  "note": "익산시 국회단계 활동사업 목록(표 머리만, 연번~비고)",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

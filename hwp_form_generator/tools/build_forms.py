@@ -284,6 +284,88 @@ def _audit_common_fix(section):
                 t.text = ""
 
 
+def _written_fix(section):
+    """서면질의서 한 건: 총괄표의 값 칸은 비우고 세부사업명 칸만 {{title}} 자리표시로"""
+    from hwpgen.package import ptext
+    tbl = next(t for t in section.iter(HP + "tbl") if "(단위: 백만원)" in ptext(t))
+    trs = tbl.findall(HP + "tr")
+    for tr in trs[2:]:
+        for ci, tc in enumerate(tr.findall(HP + "tc")):
+            ts_ = list(tc.iter(HP + "t"))
+            for t in ts_:
+                t.text = ""
+            if ci == 0 and ts_:
+                ts_[0].text = "{{title}}"
+
+
+def _people_table_fix(section):
+    """'담당' 표(기획처·부처·도·시 담당자 이름·전화): 구조만 남기고 이름·전화는 모두 비운다"""
+    from hwpgen.package import ptext
+    for tbl in section.iter(HP + "tbl"):
+        first = ptext(tbl.find(HP + "tr").find(HP + "tc")).strip()
+        if first == "담당" and int(tbl.get("rowCnt")) >= 4:
+            for t in tbl.iter(HP + "t"):
+                if (t.text or "").strip() != "담당":
+                    t.text = ""
+
+
+def build_queries(paths):
+    """국회단계 사업 서면질의서·정책질의서. paths: {written, policy}"""
+    out = {}
+    F = FORMS
+    ITEM_STARTER = ("□ 사업개요\nㅇ (사업내용) \nㅇ (사업위치) \nㅇ (사업기간) \nㅇ (총사업비) \nㅇ (주관/시행) \n\n"
+                    "□ 필요성 및 기대효과\nㅇ \n- \nㅇ \n- \n\n□ 요구사항 : ")
+    if "written" in paths:
+        w = paths["written"]
+        ts = _flat_texts_para(w, 13, 14)
+        title, head = ts[1], ts[2]
+        out["written_cover"] = report.register_report(
+            w, os.path.join(F, "written_cover"), "written_cover", "서면질의서 표지", "국회단계 질의서", [
+                {"key": "dept", "label": "부서(과)", "sample": _flat_texts_para(w, 5, 6)[0], "profile": "dept"},
+            ], note="총괄본 · 국회단계 사업 서면질의서 · 부서", slice_=(0, 7), allow_no_body=True, frame_only=True)
+        out["written_list"] = report.register_report(
+            w, os.path.join(F, "written_list"), "written_list", "서면질의 목록", "국회단계 질의서", [],
+            note="서면질의 목록(의원명·제출일자 + 회계/기금·세부사업명·예산 표 머리)", slice_=(7, 13), allow_no_body=True, frame_only=True,
+            blank_tables={"12": 1})
+        out["written_item"] = report.register_report(
+            w, os.path.join(F, "written_item"), "written_item", "서면질의서 (사업 1건)", "국회단계 질의서", [
+                {"key": "title", "label": "세부사업명 (예: ○○○ 지원(신규))", "sample": title},
+                {"key": "committee", "label": "상임위원회", "sample": head,
+                 "repl": "< {{committee}} / {{ministry}} 소관 / {{account}} >"},
+                {"key": "ministry", "label": "소관 부처"},
+                {"key": "account", "label": "회계 (예: 일반회계)"},
+            ], note="2027년도 예산안 서면질의 머리 + □ 총괄표(표) + □ 사업개요/필요성 및 기대효과/요구사항",
+            starter=ITEM_STARTER, slice_=(13, 39), body_from_text="□ 사업개요", fix=_written_fix)
+    if "policy" in paths:
+        p = paths["policy"]
+        out["policy_cover"] = report.register_report(
+            p, os.path.join(F, "policy_cover"), "policy_cover", "정책질의서 표지", "국회단계 질의서", [],
+            note="총괄본 · 국회단계 사업 정책질의서 · 익산시", slice_=(0, 9), allow_no_body=True, frame_only=True)
+        out["policy_list"] = report.register_report(
+            p, os.path.join(F, "policy_list"), "policy_list", "국회단계 활동사업 목록", "국회단계 질의서", [],
+            note="익산시 국회단계 활동사업 목록(표 머리만, 연번~비고)", slice_=(9, 13), allow_no_body=True, frame_only=True,
+            blank_tables={"9": 4})
+        t13 = _flat_texts_para(p, 13, 14)
+        out["policy_item"] = report.register_report(
+            p, os.path.join(F, "policy_item"), "policy_item", "정책질의서 (사업 1건)", "국회단계 질의서", [
+                {"key": "no", "label": "연번", "sample": "1.", "once": True, "repl": "{{no}}.", "default": "1"},
+                {"key": "title", "label": "사업명", "sample": t13[1].split(".", 1)[1].strip(), "once": True},
+                {"key": "kind", "label": "신규/계속", "sample": t13[2], "exact": True, "once": True, "default": "신규"},
+            ], note="정책질의서 머리 + □ 질의 취지·◦ 설명 + <Q> 질의 상자",
+            starter="□ \n◦ \n\n◦ \n\n| **<Q>** (질의 내용) |", slice_=(13, 35), body_from_text="□")
+        t35 = _flat_texts_para(p, 35, 36)
+        out["policy_ref"] = report.register_report(
+            p, os.path.join(F, "policy_ref"), "policy_ref", "참고1 조서 (사업 1건)", "국회단계 질의서", [
+                {"key": "ref", "label": "참고 번호 (예: 참고1)", "sample": t35[0], "exact": True, "once": True, "default": "참고1"},
+                {"key": "title", "label": "사업명", "sample": t35[1].replace("(조서)", "").strip()},
+                {"key": "request", "label": "건의 문구 (파란 상자)", "sample": _flat_texts_para(p, 66, 67)[0]},
+            ], note="참고1 (조서) 머리 + 회계/기금명 표 + □ 사업개요/필요성/추진상황 및 계획 + 건의 상자 + 담당 표(이름 비움)",
+            starter="□ 사업개요\nㅇ (사업내용) \nㅇ (사업위치) \nㅇ (사업기간) \nㅇ (총사업비) \nㅇ (주관/시행) \n\n"
+                    "□ 필 요 성 \nㅇ \n\n□ 추진상황 및 계획\nㅇ ",
+            slice_=(35, 68), body_from_text="□ 사업개요", body_tail=2, blank_tables={"37": 1}, fix=_people_table_fix)
+    return out
+
+
 def _flat_texts_para(path, a, b, section_index=0):
     from hwpgen.report import flatten_mixed
     pkg = Package.load(path)
@@ -301,6 +383,7 @@ if __name__ == "__main__":
         sys.exit(1)
     res = build(*pos) if pos else {}
     if extra:
-        res.update(build_extra(extra))
+        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy")}))
+        res.update(build_queries({k: v for k, v in extra.items() if k in ("written", "policy")}))
     for k, v in res.items():
         print(k, "→", {a: b for a, b in v.items() if a != "style"})

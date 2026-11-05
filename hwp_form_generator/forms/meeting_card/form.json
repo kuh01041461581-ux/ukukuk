@@ -31,6 +31,14 @@
     "heading_pad2": false,
     "item1_prefix": "  ◦",
     "kv": null,
+    "item1_cps": [
+      "161",
+      "161"
+    ],
+    "item2_cps": [
+      "163",
+      "163"
+    ],
     "item2_prefix": "    ▸",
     "item2_sep": ""
   },

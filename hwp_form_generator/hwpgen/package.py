@@ -258,3 +258,63 @@ def derive_charpr(pkg, cid, bold=None, shade_none=False):
     props.append(new)
     props.set("itemCnt", str(len(props.findall(HH + "charPr"))))
     return nid
+
+
+# ---------------------------------------------------------------- 열린 문서에 넣을 때 쓰는 가공
+def page_setup_of(pkg):
+    """구역 설정(secPr)의 용지·여백 → dict (없으면 None)"""
+    sec = pkg.section(0)
+    pp = next(sec.iter(HP + "pagePr"), None)
+    if pp is None:
+        return None
+    mg = pp.find(HP + "margin")
+    d = {"width": int(pp.get("width")), "height": int(pp.get("height")), "landscape": pp.get("landscape") != "WIDELY"
+         and pp.get("landscape") == "NARROWLY"}
+    for k in ("left", "right", "top", "bottom", "header", "footer", "gutter"):
+        d[k] = int(mg.get(k, "0")) if mg is not None else 0
+    return d
+
+
+def _has_content(p):
+    if any((t.text or "").strip() for t in p.iter(HP + "t")):
+        return True
+    return any(local(e) in ("tbl", "pic", "container", "ole", "equation", "video", "chart") for e in p.iter())
+
+
+def strip_section_props(pkg):
+    """열려 있는 문서 중간에 끼워 넣을 때 쪽 설정(secPr)이 같이 들어가 쪽·여백이 바뀌지 않게 빼 준다.
+    비어 버린 문단(구역 설정만 싣고 있던 문단)은 지운다."""
+    sec = pkg.section(0)
+    for run in sec.iter(HP + "run"):
+        if run.find(HP + "secPr") is not None:
+            for c in list(run):
+                if local(c) == "secPr" or (local(c) == "ctrl" and c.find(HP + "colPr") is not None):
+                    run.remove(c)
+    for i, p in enumerate(list(sec.findall(HP + "p"))):
+        if i == 0 and not _has_content(p) and len(sec.findall(HP + "p")) > 1:
+            sec.remove(p)
+    return pkg
+
+
+def split_chunks(pkg):
+    """본문 문단을 '차례대로 입력되는 느낌'으로 넣기 위해 문단 단위 조각으로 나눈다.
+    빈 문단은 앞 조각에 붙인다. 각 조각은 같은 서식 정의(header)를 가진 독립 문서."""
+    pkg.files.update({n: dump_xml(r) for n, r in pkg._xml.items()})
+    sec = pkg.section(0)
+    ps = sec.findall(HP + "p")
+    groups = []
+    for p in ps:
+        if groups and not _has_content(p):
+            groups[-1].append(p)
+        else:
+            groups.append([p])
+    out = []
+    for g in groups:
+        clone_pkg = Package(dict(pkg.files))
+        s2 = clone_pkg.section(0)
+        for q in list(s2.findall(HP + "p")):
+            s2.remove(q)
+        for q in g:
+            s2.append(copy.deepcopy(q))
+        out.append(clone_pkg)
+    return out

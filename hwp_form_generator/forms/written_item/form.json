@@ -1,0 +1,51 @@
+{
+  "id": "written_item",
+  "name": "서면질의서 (사업 1건)",
+  "audience": "국회단계 질의서",
+  "kind": "report",
+  "note": "2027년도 예산안 서면질의 머리 + □ 총괄표(표) + □ 사업개요/필요성 및 기대효과/요구사항",
+  "fields": [
+    {
+      "key": "title",
+      "label": "세부사업명 (예: ○○○ 지원(신규))"
+    },
+    {
+      "key": "committee",
+      "label": "상임위원회"
+    },
+    {
+      "key": "ministry",
+      "label": "소관 부처"
+    },
+    {
+      "key": "account",
+      "label": "회계 (예: 일반회계)"
+    }
+  ],
+  "has_body": true,
+  "style": {
+    "heading_prefix": "□ ",
+    "heading_pad2": false,
+    "item1_prefix": " ㅇ",
+    "kv": {
+      "fmt": "paren",
+      "bullet": "93",
+      "label": "93",
+      "gap": "93",
+      "value": "110",
+      "by_label": {
+        "사업내용": "110",
+        "사업위치": "93",
+        "사업기간": "96",
+        "총사업비": "111",
+        "주관/시행": "97"
+      }
+    },
+    "item1_cps": [
+      "93",
+      "100"
+    ]
+  },
+  "starter": "□ 사업개요\nㅇ (사업내용) \nㅇ (사업위치) \nㅇ (사업기간) \nㅇ (총사업비) \nㅇ (주관/시행) \n\n□ 필요성 및 기대효과\nㅇ \n- \nㅇ \n- \n\n□ 요구사항 : ",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

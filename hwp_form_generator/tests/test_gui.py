@@ -30,6 +30,15 @@ class FakeBridge:
     def compose_chars(self, text, shape_no, char_size=-3):
         self.composed = getattr(self, 'composed', []) + [(text, shape_no)]
 
+    def break_para(self):
+        self.breaks = getattr(self, 'breaks', 0) + 1
+
+    def is_empty_doc(self):
+        return True
+
+    def apply_page_setup(self, d):
+        self.page = d
+
     def insert_text(self, s):
         self.texts = getattr(self, 'texts', []) + [s]
 
@@ -88,7 +97,27 @@ class GuiTests(unittest.TestCase):
         self.widget.put_symbol('❶')
         self.assertEqual(self.br.texts[-2:], ['○', '❶'])
 
+    def test_step_by_step(self):
+        """차례대로 입력: 여러 조각으로 나뉘어 들어가고, 쪽 설정(secPr)은 빠지며, 빈 문서면 용지·여백 적용"""
+        import zipfile
+        from hwpgen.package import HP
+        self.widget.ui["insert_mode"] = "step"
+        self.widget.ui["insert_delay"] = 0
+        n0 = len(self.br.inserted)
+        self.widget.make_report("report_event")
+        k = len(self.br.inserted) - n0
+        self.assertGreater(k, 5)
+        self.assertTrue(getattr(self.br, "page", None))
+        self.assertEqual(self.br.breaks, k - 1)          # 조각 사이마다 문단 나눔(마지막 뒤엔 없음)
+        for p, size in self.br.inserted[n0:]:
+            self.assertGreater(size, 1000)
+        self.widget.ui["insert_mode"] = "whole"
+        n1 = len(self.br.inserted)
+        self.widget.make_report("report_event")
+        self.assertEqual(len(self.br.inserted) - n1, 1)                 # 한 번에: 정확히 한 번(두 번 들어가지 않음)
+
     def test_one_click(self):
+        self.widget.ui["insert_mode"] = "whole"
         n0 = len(self.br.inserted)
         for fid in ("report_event", "report_mayor"):
             self.widget.make_report(fid)

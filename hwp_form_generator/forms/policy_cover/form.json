@@ -1,0 +1,17 @@
+{
+  "id": "policy_cover",
+  "name": "정책질의서 표지",
+  "audience": "국회단계 질의서",
+  "kind": "report",
+  "note": "총괄본 · 국회단계 사업 정책질의서 · 익산시",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

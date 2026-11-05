@@ -80,16 +80,62 @@ class HwpBridge:
         return self.hwp
 
     def insert_file(self, path):
+        """열린 문서의 커서 위치에 파일을 끼워 넣는다. 글자·문단 모양·스타일을 원본 그대로 유지(InsertFile 동작).
+        쪽 설정(구역)은 가져오지 않는다. 한 번만 넣는다(성공을 거짓값으로 알려 주는 경우가 있어 재시도하지 않음)."""
         hwp = self._need()
         path = os.path.abspath(path)
-        last = None
-        for fmt in ("HWPX", ""):
-            try:
-                if hwp.Insert(path, fmt, ""):
-                    return True
-            except Exception as e:
-                last = e
-        raise BridgeError("한글에 끼워 넣지 못했어요%s — '새 문서로 열기'를 써 보세요" % (" (%s)" % last if last else ""))
+        err = None
+        try:
+            ps = hwp.HParameterSet.HInsertFile
+            hwp.HAction.GetDefault("InsertFile", ps.HSet)
+            ps.filename = path
+            ps.KeepSection = 0
+            ps.KeepCharshape = 1
+            ps.KeepParashape = 1
+            ps.KeepStyle = 1
+            if hwp.HAction.Execute("InsertFile", ps.HSet):
+                return True
+        except Exception as e:                             # noqa: BLE001
+            err = e
+        try:                                               # 위가 안 될 때만 한 번: 옛 방식 Insert (오류 없으면 성공으로 본다)
+            hwp.Insert(path, "HWPX", "")
+            return True
+        except Exception as e:                             # noqa: BLE001
+            err = e
+        raise BridgeError("한글에 끼워 넣지 못했어요%s" % (" (%s)" % err if err else ""))
+
+    def break_para(self):
+        """문단 나눔(Enter) — 조각을 이어 넣을 때 앞 조각 끝에 다음 조각이 붙지 않게"""
+        hwp = self._need()
+        try:
+            hwp.HAction.Run("BreakPara")
+        except Exception:                                  # noqa: BLE001
+            pass
+
+    def is_empty_doc(self):
+        """지금 문서가 비어 있는지(새 문서) — 그럴 때만 샘플의 용지·여백을 적용한다"""
+        try:
+            return not self.get_text().strip()
+        except Exception:                                  # noqa: BLE001
+            return False
+
+    def apply_page_setup(self, d):
+        """용지 크기·여백(HWPUNIT)을 지금 문서에 적용. 안 되면 조용히 넘어간다."""
+        hwp = self._need()
+        try:
+            ps = hwp.HParameterSet.HSecDef
+            hwp.HAction.GetDefault("PageSetup", ps.HSet)
+            pd = ps.PageDef
+            pd.PaperWidth, pd.PaperHeight = d["width"], d["height"]
+            pd.Landscape = 1 if d.get("landscape") else 0
+            pd.LeftMargin, pd.RightMargin = d["left"], d["right"]
+            pd.TopMargin, pd.BottomMargin = d["top"], d["bottom"]
+            pd.HeaderLen, pd.FooterLen, pd.GutterLen = d["header"], d["footer"], d["gutter"]
+            ps.HSet.SetItem("ApplyClass", 24)
+            ps.HSet.SetItem("ApplyTo", 3)                 # 문서 전체
+            return bool(hwp.HAction.Execute("PageSetup", ps.HSet))
+        except Exception:                                  # noqa: BLE001
+            return False
 
     def insert_text(self, text):
         """커서 위치에 글자(기호) 넣기. 지금 글자 모양을 그대로 따른다."""

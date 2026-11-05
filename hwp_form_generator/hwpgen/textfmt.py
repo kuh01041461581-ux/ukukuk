@@ -111,7 +111,7 @@ def parse_outline(text):
             else:
                 blocks.append(("item2", body))
             continue
-        if re.match(r"^[-－–ㅡ*]\s+", s) or (raw[:2].isspace() and re.match(r"^[-－–]\s*", s)):
+        if re.match(r"^[-－–ㅡ*](\s+|$)", s) or (raw[:2].isspace() and re.match(r"^[-－–]\s*", s)):
             blocks.append(("item3", re.sub(r"^[-－–ㅡ*]\s*", "", s)))
             continue
         body = s

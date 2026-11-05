@@ -206,12 +206,16 @@ class NewFormsTests(unittest.TestCase):
               "btitle": "― 2026년도 제2회 추가경정 예산(안) ―", "page": "2", "policy": "정책 A", "unit": "단위 B",
               "detail": "세부 C", "pdate": "2026-11-10", "ptime": "조간용", "embargo": "", "team": "△△계",
               "head_name": "가", "head_tel": "859-1", "lead_name": "나", "lead_tel": "859-2", "staff_name": "다",
-              "staff_tel": "859-3", "pages": "2", "sub1": "- 부제 -", "sub2": "", "photo_time": ""}
+              "staff_tel": "859-3", "pages": "2", "sub1": "- 부제 -", "sub2": "", "photo_time": "",
+              "committee": "○○위원회", "ministry": "○○부", "account": "일반회계", "kind": "신규", "no": "3", "ref": "참고1",
+              "request": "건의 문구"}
 
     def test_all_new_forms_render(self):
         want = {"meeting_cover": "현안·당면 업무보고", "meeting_issue": "현안업무(3)", "meeting_card": "△△계장",
                 "audit_cover": "제282회", "audit_common": "감사자료 과 공통사항", "budget_cover": "주요사업 설명자료",
-                "budget_project": "세부사업명 : 세부 C", "press_release": "시험 제목", "budget_ref_cover": "(참고자료)", "budget_ref_project": "단위사업 : 단위 B"}
+                "budget_project": "세부사업명 : 세부 C", "press_release": "시험 제목", "written_cover": "서면질의서", "written_list": "서면질의 목록",
+                "written_item": "< ○○위원회 / ○○부 소관 / 일반회계 >", "policy_cover": "정책질의서", "policy_list": "활동사업 목록",
+                "policy_item": "정책질의서", "policy_ref": "건의 문구", "budget_ref_cover": "(참고자료)", "budget_ref_project": "단위사업 : 단위 B"}
         for fid, needle in want.items():
             f = registry.load_form(fid, ROOTS)
             outline = (f.meta.get("starter") or "") if f.meta.get("has_body", True) else ""
@@ -227,6 +231,25 @@ class NewFormsTests(unittest.TestCase):
         self.assertEqual([b for b in body if b.strip()], [" 첫 문단", " 둘째 문단", " 셋째 문단"])   # 앞 한 칸 들여쓰기
         self.assertEqual(body[1], "")                                                                 # 문단 사이 빈 줄
 
+    def test_query_items(self):
+        """질의서: ㅇ (사업내용) 줄·- 줄·□ 요구사항, 정책질의서 <Q> 상자, 총괄표 사업명 자리"""
+        f = registry.load_form("written_item", ROOTS)
+        pkg = check_package(self, f.render(self.VALUES, "□ 사업개요\nㅇ (사업내용) 가나다\n\n□ 필요성 및 기대효과\nㅇ 첫째\n- 하위\n\n□ 요구사항 : 10억원 반영"))
+        txt = ptext(pkg.section(0))
+        self.assertEqual(txt.count("시험 제목"), 2)                   # 머리 + 총괄표 첫 칸
+        for s in ("(사업내용)", "가나다", "하위", "□ 요구사항 : 10억원 반영"):
+            self.assertIn(s, txt)
+        g = registry.load_form("policy_item", ROOTS)
+        pkg = check_package(self, g.render(self.VALUES, "□ 취지\nㅇ 설명\n\n| **<Q>** 질의 내용 |"))
+        sec = pkg.section(0)
+        self.assertIn("질의 내용", ptext(sec))
+        base = g.render(self.VALUES, "□ 취지\nㅇ 설명").section(0)
+        self.assertEqual(len(list(sec.iter(HP + "tbl"))) - len(list(base.iter(HP + "tbl"))), 1)   # <Q> 상자 한 개가 더 생김
+        h = registry.load_form("policy_ref", ROOTS)
+        pkg = check_package(self, h.render(self.VALUES, h.meta["starter"]))
+        tails = [p for p in pkg.section(0).findall(HP + "p")][-2:]
+        self.assertTrue(all(any(c.tag == HP + "tbl" for r in p.findall(HP + "run") for c in r) for p in tails))  # 건의 상자·담당 표는 끝에 남음
+
     def test_sub_levels(self):
         f = registry.load_form("meeting_issue", ROOTS)
         pkg = check_package(self, f.render(self.VALUES, "□ 금 후 계 획\n◦ 협의\n▸일시/장소: 2026. 11. 11.(수) / 센터\n- (익산시) 담당\n▸주요내용: 설계 협의"))
@@ -237,14 +260,70 @@ class NewFormsTests(unittest.TestCase):
 
     def test_privacy_new_forms(self):
         import zipfile
-        bad = ("010-", "전주영", "김형남", "조상미", "조선영", "진소현", "박수진", "조승재", "윤보훈", "전북권", "숭림사", "고선희", "조진선", "이선아", "859-7410", "아동학대")
+        bad = ("010-", "전주영", "김형남", "조상미", "조선영", "진소현", "박수진", "조승재", "윤보훈", "전북권", "숭림사", "고선희", "조진선", "이선아", "859-7410", "아동학대", "김태곤", "박환조", "고광민", "남철기", "설재진", "양선화",
+               "이용범", "박미자", "홀로그램")
         for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_common",
-                                    "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_project", "press_release"):
+                                    "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_project", "press_release",
+                    "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref"):
             d = os.path.join(FORMS, fid)
             blob = zipfile.ZipFile(os.path.join(d, "template.hwpx")).read("Contents/section0.xml").decode("utf-8")
             blob += open(os.path.join(d, "protos.xml"), encoding="utf-8").read() + open(os.path.join(d, "form.json"), encoding="utf-8").read()
             for w in bad:
                 self.assertNotIn(w, blob, (fid, w))
+
+
+class BridgeTests(unittest.TestCase):
+    def test_insert_once_even_if_falsy(self):
+        from hwpgen.bridge import HwpBridge
+
+        class PS:
+            HSet = object()
+            filename = KeepSection = KeepCharshape = KeepParashape = KeepStyle = None
+
+        class HAction:
+            def __init__(s, owner):
+                s.o = owner
+
+            def GetDefault(s, name, hset):
+                pass
+
+            def Execute(s, name, hset):
+                s.o.calls.append(name)
+                return False                      # 성공해도 거짓값을 돌려주는 한글
+
+        class FakeHwp:
+            Version = "1"
+
+            def __init__(s):
+                s.calls = []
+                s.HAction = HAction(s)
+                s.HParameterSet = type("X", (), {"HInsertFile": PS()})()
+
+            def Insert(s, path, fmt, arg):
+                s.calls.append("Insert:" + fmt)
+
+        b = HwpBridge()
+        b.hwp = FakeHwp()
+        b.insert_file(os.path.join(FORMS, "report_event", "template.hwpx"))
+        # InsertFile 이 거짓값이면 옛 Insert 로 '한 번만' 더 시도 — 각각 한 번씩, 그 이상은 없다
+        self.assertEqual(b.hwp.calls, ["InsertFile", "Insert:HWPX"])
+        ps = b.hwp.HParameterSet.HInsertFile
+        self.assertEqual((ps.KeepSection, ps.KeepCharshape, ps.KeepParashape, ps.KeepStyle), (0, 1, 1, 1))
+
+    def test_strip_and_chunks(self):
+        from hwpgen.package import strip_section_props, split_chunks, page_setup_of
+        f = registry.load_form("report_event", ROOTS)
+        pkg = f.render({"title": "t"}, f.meta["starter"])
+        page = page_setup_of(pkg)
+        self.assertTrue(page and page["width"] > 50000)
+        strip_section_props(pkg)
+        self.assertFalse(list(pkg.section(0).iter(HP + "secPr")))
+        chunks = split_chunks(pkg)
+        self.assertGreater(len(chunks), 5)
+        total = sum(len(c.section(0).findall(HP + "p")) for c in chunks)
+        self.assertEqual(total, len(pkg.section(0).findall(HP + "p")))
+        for c in chunks:
+            check_package(self, c) if False else Package.load(c.to_bytes())
 
 
 class ComposeTests(unittest.TestCase):

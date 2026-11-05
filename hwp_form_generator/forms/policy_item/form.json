@@ -1,0 +1,36 @@
+{
+  "id": "policy_item",
+  "name": "정책질의서 (사업 1건)",
+  "audience": "국회단계 질의서",
+  "kind": "report",
+  "note": "정책질의서 머리 + □ 질의 취지·◦ 설명 + <Q> 질의 상자",
+  "fields": [
+    {
+      "key": "no",
+      "label": "연번",
+      "default": "1"
+    },
+    {
+      "key": "title",
+      "label": "사업명"
+    },
+    {
+      "key": "kind",
+      "label": "신규/계속",
+      "default": "신규"
+    }
+  ],
+  "has_body": true,
+  "style": {
+    "heading_prefix": "□ ",
+    "heading_pad2": false,
+    "item1_prefix": "  ◦",
+    "kv": null,
+    "item1_cps": [
+      "14",
+      "27"
+    ]
+  },
+  "starter": "□ \n◦ \n\n◦ \n\n| **<Q>** (질의 내용) |",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

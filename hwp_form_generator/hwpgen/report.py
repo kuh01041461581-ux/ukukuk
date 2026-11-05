@@ -94,8 +94,38 @@ def classify(p):
     return "other"
 
 
+def cp_info(pkg):
+    """charPr id → (글꼴 묶음, 크기, 굵게, 자간)"""
+    from .package import HH
+    out = {}
+    for c in pkg.header().iter(HH + "charPr"):
+        fr = c.find(HH + "fontRef")
+        sp = c.find(HH + "spacing")
+        out[c.get("id")] = (tuple(sorted(fr.attrib.items())), c.get("height"), c.find(HH + "bold") is not None,
+                            int(sp.get("hangul", "0")) if sp is not None else 0)
+    return out
+
+
+def typical_cp(info, cps):
+    """본문 글자 모양으로 쓸 '대표' 글자 모양.
+    같은 글꼴·크기끼리 묶어 가장 많은 묶음에서 고르고(굵게는 강조라 제외), 자간은 여러 줄에서 같은 값이면 그 값,
+    줄마다 제각각이면 가장 덜 줄인 값을 쓴다 (샘플은 줄이 넘치지 않게 문단마다 자간을 손으로 줄여 둔 것이라
+    그중 하나를 모든 줄에 쓰면 글자가 옹색해진다)."""
+    cps = [c for c in cps if c and c in info]
+    if not cps:
+        return None
+    plain = [c for c in cps if not info[c][2]] or cps
+    key = lambda c: info[c][:2]                                    # noqa: E731
+    most = collections.Counter(key(c) for c in plain).most_common(1)[0][0]
+    group = [c for c in plain if key(c) == most]
+    counts = collections.Counter(info[c][3] for c in group).most_common()
+    sp = counts[0][0] if counts[0][1] >= 2 else max(info[c][3] for c in group)
+    return next(c for c in group if info[c][3] == sp)
+
+
 def _kv_roles(p):
-    """◦ 이름 : 값 줄의 글자 모양 역할(글머리·이름·값)을 추정한다."""
+    """◦ 이름 : 값 줄의 글자 모양 역할(글머리·이름·값)을 추정한다.
+    값 = 이름 뒤 조각 중 글자가 가장 많은 조각(끝에 붙은 짧은 조각의 모양에 끌려가지 않게)"""
     runs = [(r.get("charPrIDRef"), "".join(t.text or "" for t in r.findall(HP + "t"))) for r in p.findall(HP + "run")]
     runs = [(c, t) for c, t in runs if t != ""]
     if not runs:
@@ -103,28 +133,28 @@ def _kv_roles(p):
     full = "".join(t for _, t in runs)
     paren = bool(re.match(r"^\s*[%s]\s*\(" % re.escape(T.BULLETS), full))
     bullet_cp = runs[0][0]
-    label_cp = value_cp = gap_cp = None
     if len(runs) == 1:
         return {"fmt": "paren" if paren else "colon", "bullet": bullet_cp, "label": bullet_cp, "gap": bullet_cp,
                 "value": bullet_cp}
+    label_cp = gap_cp = None
+    label_i = 0                               # 이름이 들어 있는 조각 번호(글머리와 한 조각이면 0)
     if paren:
-        for c, t in runs[1:]:
-            if label_cp is None and "(" in t:
-                label_cp = c
-            elif label_cp is not None and value_cp is None and t.strip():
-                value_cp = c
+        for i, (c, t) in enumerate(runs):
+            if "(" in t and label_cp is None and not (i == 0 and not re.search(r"\(", t)):
+                label_cp, label_i = c, i
             elif label_cp is None and not t.strip():
                 gap_cp = c
-        # 값이 여러 조각이면 첫 조각을 값 모양으로
     else:
-        for c, t in runs[1:]:
+        for i, (c, t) in enumerate(runs[1:], 1):
             if label_cp is None and t.strip() and ":" not in t and "：" not in t:
-                label_cp = c
+                label_cp, label_i = c, i
             elif ":" in t or "：" in t:
-                value_cp = c
                 break
     label_cp = label_cp or bullet_cp
-    value_cp = value_cp or runs[-1][0]
+    rest = [(c, t) for c, t in runs[label_i + 1:] if t.strip() and t.strip() not in (":", "：")]
+    if not rest:
+        rest = [(c, t) for c, t in runs[1:] if t.strip()] or runs[-1:]
+    value_cp = max(rest, key=lambda x: len(x[1].strip()))[0]
     return {"fmt": "paren" if paren else "colon", "bullet": bullet_cp, "label": label_cp,
             "gap": gap_cp or label_cp, "value": value_cp}
 
@@ -322,7 +352,7 @@ def _cut_section(pkg, section_index, slice_, drop, blank_tables=None):
 
 def register_report(sample_path, out_dir, form_id, name, audience, fields, kind="report", note="", starter="",
                     slice_=None, drop=None, section_index=0, allow_no_body=False, blank_tables=None, fix=None,
-                    body_from=None, plain_body=False):
+                    body_from=None, plain_body=False, body_from_text=None, body_tail=0, frame_only=False):
     """샘플 hwpx → 양식 폴더(form.json, template.hwpx, protos.xml).
 
     fields: [{"key","label","sample"(샘플에 들어 있던 글자),"repl"(선택: 바꿀 글자, {{키}} 포함),
@@ -336,8 +366,17 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
     flatten_mixed(section)
     if fix:
         fix(section)                      # 양식마다 손봐야 하는 틀 (예: 제목 칸 글자를 자리표시로)
-    if body_from is not None:             # □ 제목이 없는 본문(보도자료 등): 이 번호 문단부터 끝까지가 본문
-        body = (section, body_from, len(section.findall(HP + "p")))
+    if frame_only:                        # 틀만 있는 양식(표지·목록 등): 본문 찾기를 하지 않는다
+        body_from_text = body_from = None
+    if body_from_text is not None:        # 본문이 시작하는 문단을 글자로 지정 (쪽을 잘라 번호가 바뀌어도 안전)
+        body_from = next((i for i, p in enumerate(section.findall(HP + "p"))
+                          if own_text(p).strip().startswith(body_from_text)), None)
+        if body_from is None:
+            raise ValueError("본문 시작 글자 '%s' 를 찾지 못했어요" % body_from_text)
+    if frame_only:
+        body = None
+    elif body_from is not None:             # 본문 범위를 직접 지정: 이 문단부터 (끝에서 body_tail 개 문단은 틀로 남김)
+        body = (section, body_from, len(section.findall(HP + "p")) - body_tail)
     else:
         body = detect_body(section)
     has_body = body is not None
@@ -366,17 +405,26 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
             protos["kv"] = _empty_like(kinds["kv"][0])
             roles_list = [r for r in (_kv_roles(p) for p in kinds["kv"]) if r]
             style["kv"] = roles_list[0]
+            info = cp_info(pkg)
             for key in ("label", "bullet", "gap", "value"):
-                style["kv"][key] = collections.Counter(r[key] for r in roles_list).most_common(1)[0][0]
+                style["kv"][key] = (typical_cp(info, [r[key] for r in roles_list]) if key in ("label", "value")
+                                    else collections.Counter(r[key] for r in roles_list).most_common(1)[0][0])
             style["item1_prefix"] = _prefix_of(kinds["kv"][0])[0] or style["item1_prefix"]
             by = collections.defaultdict(list)       # 항목 이름별 값 글자 모양 (예: 일시·진행방식만 굵게 밑줄)
             for p in kinds["kv"]:
                 ro, lab = _kv_roles(p), _kv_label(p)
                 if ro and lab:
                     by[lab].append(ro["value"])
-            style["kv"]["by_label"] = {k: collections.Counter(v).most_common(1)[0][0] for k, v in by.items()}
+            style["kv"]["by_label"] = {k: typical_cp(info, v) for k, v in by.items()}
         if kinds.get("item1"):
             style["item1_prefix"] = _prefix_of(kinds["item1"][0])[0] or style["item1_prefix"]
+        for lvl in ("item1", "item2", "item3"):       # 글머리(앞 조각)와 본문(가장 긴 조각)의 글자 모양을 따로
+            if kinds.get(lvl):
+                first = [next((x.get("charPrIDRef") for x in p.findall(HP + "run")
+                               if "".join(t.text or "" for t in x.findall(HP + "t")) != ""), None) for p in kinds[lvl]]
+                dom = [dominant_cp(p) for p in kinds[lvl]]
+                mode = lambda xs: collections.Counter(x for x in xs if x).most_common(1)[0][0] if any(xs) else None  # noqa: E731
+                style[lvl + "_cps"] = [mode(first), typical_cp(cp_info(pkg), dom)]
         for lvl in ("item2", "item3"):                # ▸ 둘째 단계, - 셋째 단계: 들여쓰기·기호·기호 뒤 공백을 샘플 그대로
             if kinds.get(lvl):
                 pre, sep = _prefix_of(kinds[lvl][0])
@@ -619,7 +667,11 @@ class ReportForm:
         proto = kind if kind in protos else ("item2" if kind == "item3" and "item2" in protos else "item1")
         if proto == "item1" and kind == "item1" and not pre.endswith(" "):
             sep = " "
-        return self._par(proto, [(self._first_cp(proto), "%s%s%s" % (pre, sep, text))])
+        cps = st.get(proto + "_cps") or [self._first_cp(proto)] * 2
+        bullet_cp, text_cp = cps[0] or self._first_cp(proto), cps[1] or cps[0] or self._first_cp(proto)
+        if bullet_cp == text_cp:
+            return self._par(proto, [(text_cp, "%s%s%s" % (pre, sep, text))])
+        return self._par(proto, [(bullet_cp, pre + sep), (text_cp, text)])      # 글머리 모양 + 본문 모양
 
     def _kv2(self, label, value):
         return self._item("item2", "%s : %s" % (T.pad_label(label), value))

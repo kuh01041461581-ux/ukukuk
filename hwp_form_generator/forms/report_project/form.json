@@ -47,11 +47,11 @@
       "blank": "(      )"
     }
   ],
+  "has_body": true,
   "style": {
     "heading_prefix": " ",
     "heading_pad2": false,
     "item1_prefix": " ◦",
-    "item2_prefix": "  -",
     "kv": {
       "fmt": "colon",
       "bullet": "35",
@@ -66,7 +66,11 @@
         "사업내용": "35",
         "대행기관": "35"
       }
-    }
+    },
+    "item1_cps": [
+      "45",
+      "45"
+    ]
   },
   "starter": "□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n□ 지난 실적\n◦ \n\n□ 향후 계획\n◦ \n\n□ 참고자료\n◦ ",
   "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"

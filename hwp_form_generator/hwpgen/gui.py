@@ -41,8 +41,11 @@ class Output:
         self.app = app
 
     def insert(self, pkg, prefix):
-        """열려 있는 한글 문서의 커서 위치에 서식째 넣는다. 새 문서는 만들지 않는다."""
-        br = self.app.bridge
+        """열려 있는 한글 문서의 커서 위치에 서식째 넣는다(새 문서는 만들지 않음).
+        - 샘플의 쪽 설정(secPr)은 빼서 문서 중간에서 쪽·여백이 바뀌지 않게 한다. 빈 문서일 때만 샘플 용지·여백을 적용.
+        - 기본은 문단 단위로 차례대로 넣어 '입력되는' 느낌을 준다(더보기에서 '한 번에'로 바꿀 수 있음)."""
+        import time
+        app, br = self.app, self.app.bridge
         if not br.connected:
             try:
                 br.connect(launch=False)
@@ -52,17 +55,33 @@ class Output:
             messagebox.showwarning("한글에 넣기", "열려 있는 한글에 연결하지 못했어요.\n"
                                    "한글을 열고 문서를 띄운 뒤 다시 눌러 주세요.")
             return
-        path = pkg.save(tmp_hwpx(prefix))
+        from .package import page_setup_of, strip_section_props, split_chunks
+        page = page_setup_of(pkg)
+        if page and br.is_empty_doc():
+            br.apply_page_setup(page)
+        strip_section_props(pkg)
+        step = app.ui.get("insert_mode", "step") == "step"
+        chunks = split_chunks(pkg) if step else [pkg]
+        n = len(chunks)
         try:
-            br.insert_file(path)
-            self.app.say("열려 있는 문서의 커서 위치에 넣었어요")
+            for i, ch in enumerate(chunks, 1):
+                path = ch.save(tmp_hwpx(prefix))
+                try:
+                    br.insert_file(path)
+                finally:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                if n > 1 and i < n:
+                    br.break_para()                  # 다음 조각은 새 문단에서 시작
+                if n > 1:
+                    app.say("입력 중… %d/%d" % (i, n))
+                    app.update()
+                    time.sleep(app.ui.get("insert_delay", 0.12))
+            app.say("열려 있는 문서의 커서 위치에 넣었어요")
         except B.BridgeError as e:
             messagebox.showerror("한글에 넣기", str(e))
-        finally:
-            try:
-                os.remove(path)
-            except OSError:
-                pass
 
     def open_new(self, pkg, prefix, path=None):
         path = path or pkg.save(tmp_hwpx(prefix))
@@ -1209,6 +1228,12 @@ class Widget(tk.Tk):
         self.section(parent, "설정")
         Btn(parent, "내 정보 (과·담당자)", self.open_profile, icon_name="user").pack(fill="x", pady=4)
         Btn(parent, "한글에 다시 연결", self.connect, kind="flat", icon_name="link").pack(fill="x", pady=4)
+        self.section(parent, "넣는 방식")
+        self._mode_var = tk.StringVar(value=self.ui.get("insert_mode", "step"))
+        for val, txt in (("step", "차례대로 입력 (문단마다)"), ("whole", "한 번에 넣기")):
+            tk.Radiobutton(parent, text=txt, variable=self._mode_var, value=val, bg=C_BG, font=FONT, anchor="w",
+                           fg=C_TEXT, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0,
+                           command=lambda: self.ui.__setitem__("insert_mode", self._mode_var.get())).pack(fill="x")
         self.section(parent, "창 투명도")
         row = tk.Frame(parent, bg=C_BG)
         row.pack(fill="x")

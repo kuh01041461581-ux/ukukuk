@@ -26,6 +26,18 @@
     "heading_pad2": false,
     "item1_prefix": "  ◦",
     "kv": null,
+    "item1_cps": [
+      "94",
+      "93"
+    ],
+    "item2_cps": [
+      "88",
+      "88"
+    ],
+    "item3_cps": [
+      "88",
+      "88"
+    ],
     "item2_prefix": "    ▸",
     "item2_sep": "",
     "item3_prefix": "      -",

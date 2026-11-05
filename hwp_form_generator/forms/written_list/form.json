@@ -1,0 +1,17 @@
+{
+  "id": "written_list",
+  "name": "서면질의 목록",
+  "audience": "국회단계 질의서",
+  "kind": "report",
+  "note": "서면질의 목록(의원명·제출일자 + 회계/기금·세부사업명·예산 표 머리)",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

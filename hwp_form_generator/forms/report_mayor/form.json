@@ -37,11 +37,11 @@
       "profile": "staff_full"
     }
   ],
+  "has_body": true,
   "style": {
     "heading_prefix": " □ ",
     "heading_pad2": true,
     "item1_prefix": "   ◦",
-    "item2_prefix": "  -",
     "kv": {
       "fmt": "paren",
       "bullet": "56",

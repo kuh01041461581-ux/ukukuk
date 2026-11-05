@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -92,7 +92,7 @@ internal sealed class MatchPuzzleGame : MiniGame
 		int c = (int)Math.Floor((x - GX) / CELL), r = (int)Math.Floor((y - GY) / CELL); if (r < 0 || r >= N || c < 0 || c >= N) { selR = -1; return; }
 		idleT = 0f; hintR = -1;
 		if (itemMode == 0) { itemMode = -1; inv[0]--; pendR = -1; for (int i = 0; i < N; i++) for (int j = 0; j < N; j++) mark[i, j] = false; mark[r, c] = true; ExpandSpecials(); chain = 1; state = 2; stateT = 0f; Sfx.Play("thud2"); Shake = Math.Max(Shake, 0.08f); return; }
-		if (selR < 0) { if (spec[r, c] >= 20) { Sfx.Play("bad2"); msg = "굳은 블록은 옆에서 줄을 맞춰 깨요 (철은 폭탄·드릴로만)"; msgT = 1.5f; return; } if (lockc[r, c] > 0) { Sfx.Play("bad2"); msg = "잠긴 칸은 옆 칸과 못 바꿔요 · 줄을 맞춰 풀어요"; msgT = 1.5f; return; } selR = r; selC = c; Sfx.Play("tick"); return; }
+		if (selR < 0) { if (spec[r, c] >= 20) { Sfx.Play("bad2"); msg = "굳은 블록은 줄을 맞춰 깨요 (철은 폭탄·드릴만)"; msgT = 1.5f; return; } if (lockc[r, c] > 0) { Sfx.Play("bad2"); msg = "잠긴 칸은 못 바꿔요 · 줄을 맞춰 풀어요"; msgT = 1.5f; return; } selR = r; selC = c; Sfx.Play("tick"); return; }
 		if (selR == r && selC == c) { selR = -1; return; }
 		if (Adj(selR, selC, r, c)) { if (lockc[r, c] > 0 || spec[r, c] >= 20) { Sfx.Play("bad2"); msg = "잠긴 칸이에요"; msgT = 1.2f; selR = -1; return; } StartSwap(selR, selC, r, c); selR = -1; } else if (lockc[r, c] > 0 || spec[r, c] >= 20) { Sfx.Play("bad2"); } else { selR = r; selC = c; Sfx.Play("tick"); }
 	}

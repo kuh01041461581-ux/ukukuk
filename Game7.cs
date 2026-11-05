@@ -657,7 +657,7 @@ internal sealed class FlapGame : MiniGame
 		bombs--; bombT = 1.1f; bombX = px + 20f; bombY = py; inv = Math.Max(inv, 1.3f); flash = 1f; ebs.Clear(); Shake = 0.6f; Sfx.Play("fanfare");
 		foreach (Fo f in fos) Dmg(f, f.Boss ? 40f : 30f);
 		for (int i = 0; i < 24; i++) Spark(px + 20f, py, Color.FromArgb(160, 230, 255), 260f);
-		rideT = 5f; msg = "마룡이 비행기 탑승! 닿는 적은 부서지고 탄은 막아요"; msgT = 2f;
+		rideT = 5f; msg = "비행기 탑승! 닿는 적은 부서지고 탄도 막아요"; msgT = 2f;
 	}
 	// 마룡이가 타는 큰 종이비행기 (깔끔한 접힌 면 + 흰 선)
 	private static void PaperPlane(Graphics g, double t)

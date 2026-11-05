@@ -139,7 +139,7 @@ export class Game {
     if (since >= 3 && this.rng() < p) { const b = this.ev.bribe; this.queue.push({ ...b[Math.floor(this.rng() * b.length)], _bribe: true }); s.lastBribeMonth = s.monthIndex; }
   }
   _next() {
-    if (this.queue.length) { this.decision = this.queue.shift(); if (this.decision._bribe && this.sec.warnBribe && !this.decision._warned) this.decision = { ...this.decision, _warned: true, text: this.decision.text + ' ⚠ 정무 비서: "받으시면 감사 위험이 크게 오릅니다."' }; this.phase = 'decision'; this.scene = this.decision.scene || null; } else { this.decision = null; this.phase = 'player'; this.scene = null; }
+    if (this.queue.length) { this.decision = this.queue.shift(); if (this.decision.advice && this.decision.advice[this.secId]) this.decision = { ...this.decision, secLine: this.decision.advice[this.secId] }; if (this.decision._bribe && this.sec.warnBribe && !this.decision._warned) this.decision = { ...this.decision, _warned: true, text: this.decision.text + ' ⚠ 정무 비서: "받으시면 감사 위험이 크게 오릅니다."' }; this.phase = 'decision'; this.scene = this.decision.scene || null; } else { this.decision = null; this.phase = 'player'; this.scene = null; }
   }
   choose(i) {
     if (this.phase !== 'decision') return;

@@ -34,7 +34,9 @@ function box(g, cx, cy, w, d, h, base, o = {}) {
   }
 }
 function tree(g, x, y, s = 0) { const gr = ['#2e7d3a', '#3f9a48', '#58b15a']; for (let i = 0; i < 7; i++) for (let j = -Math.min(i, 3); j <= Math.min(i, 3); j++) { const v = hash(x + j, i, s); P(g, x + j, y - 9 + i, v < 0.3 ? gr[0] : v < 0.7 ? gr[1] : gr[2]); } for (let j = -3; j <= 3; j++) P(g, x + j, y - 2, '#256a31'); P(g, x, y - 1, '#6b4a2a'); P(g, x, y, '#5a3d22'); }
-function withGround(draw, gseed = 80, pal = ['#cfc9b8', '#c2bca9']) { const c = mk(), g = c.getContext('2d'); g.drawImage(ground(pal, gseed, { dither: 0.25, fn: (x, r, col, e) => (e <= 1 ? shade(col, 0.95) : null) }), 0, 0); draw(g); return c; }
+function withGround(draw, gseed = 80, pal = ['#cfc9b8', '#c2bca9'], shadow = true) { const c = mk(), g = c.getContext('2d'); g.drawImage(ground(pal, gseed, { dither: 0.25, fn: (x, r, col, e) => (e <= 1 ? shade(col, 0.95) : null) }), 0, 0);
+  if (shadow) { g.fillStyle = 'rgba(30,30,50,0.22)'; for (let dy = -3; dy <= 4; dy++) { const w = Math.round(11 * (1 - Math.abs(dy) / 5)); g.fillRect(CX + 3 - w, CY + 1 + dy, 2 * w, 1); } }
+  draw(g); return c; }
 // 지붕 있는 한옥풍
 function hanok(g, cx, cy, w, d, h, wall, roofCol) {
   box(g, cx, cy, w - 1, d - 1, h, wall, { roof: shade(wall, 1.05), win: [4, 4], winCol: '#6a4a30' });
@@ -104,7 +106,7 @@ export function makeSprites() {
       for (let y = top; y < CY - 2 + (1 - t) * 3; y++) { const rel = (y - top) / Math.max(1, prof); let col = dx < -1 ? '#5f8a49' : '#44703a'; if (rel < 0.25 && prof > 12) col = dx < -1 ? '#a6a79a' : '#838579'; if (hash(dx, y, 62) < 0.25) col = shade(col, 0.88); if (y === top) col = shade(col, 0.55); P(g, CX + dx, y, col); } }
     for (let k = 0; k < 5; k++) { const tx = CX - 8 + Math.floor(hash(k, i, 63) * 16), ty = CY - 2 - Math.floor(hash(k, i, 64) * 6); P(g, tx, ty, '#2c5a2e'); P(g, tx, ty - 1, '#3d7a40'); } return c; });
   S.marker = ground(['#ffe27a', '#ffd04a'], 90, { dither: 0.2, fn: (x, r, col, e) => (e <= 2 ? '#e8962a' : null) });
-  S.empty = withGround(g => { const e = ground(['#c1ba9e', '#b2ab90'], 91, { dither: 0.3, fn: (x, r, col, e2) => (e2 <= 1 ? '#8e8772' : null) }); g.drawImage(e, 0, 0); });
+  S.empty = withGround(g => { const e = ground(['#c1ba9e', '#b2ab90'], 91, { dither: 0.3, fn: (x, r, col, e2) => (e2 <= 1 ? '#8e8772' : null) }); g.drawImage(e, 0, 0); }, 80, ['#cfc9b8', '#c2bca9'], false);
   // 장식(배경) 건물/나무 — 플레이어 부지가 아님
   S.deco = [
     withGround(g => box(g, CX, CY - 2, 8, 4, 7, '#e4d6bc', { roof: '#b5543e', win: [4, 4] })),

@@ -29,7 +29,12 @@
           }
         }
       ],
-      "scene": "flood"
+      "scene": "flood",
+      "advice": {
+        "admin": "제방 점검은 미리 해 둘수록 좋습니다.",
+        "politic": "재난 대응 특별교부세를 신청할 수 있습니다.",
+        "finance": "피해 복구비보다 예방비가 쌉니다."
+      }
     },
     {
       "id": "snow",
@@ -152,6 +157,126 @@
         }
       ],
       "source": "2026 제23회 천만송이 국화축제 10/23~11/1 (복수 언론 보도)"
+    },
+    {
+      "id": "newyear",
+      "weight": 2,
+      "title": "신년 시정 연설",
+      "text": "새해를 맞아 시정 운영 방향을 밝힙니다.",
+      "choices": [
+        {
+          "label": "희망 메시지 (피로 +4)",
+          "fx": {
+            "fatigue": 4,
+            "support": 3
+          }
+        },
+        {
+          "label": "간단히 마친다",
+          "fx": {}
+        }
+      ],
+      "scene": "snow",
+      "month": 1
+    },
+    {
+      "id": "children",
+      "weight": 2,
+      "title": "어린이날 행사",
+      "text": "어린이날 행사 지원을 요청받았습니다.",
+      "choices": [
+        {
+          "label": "대규모 행사 (예산 -6)",
+          "fx": {
+            "budget": -6,
+            "support": 3
+          }
+        },
+        {
+          "label": "소규모 행사",
+          "fx": {
+            "support": 1
+          }
+        }
+      ],
+      "scene": "town",
+      "month": 5
+    },
+    {
+      "id": "typhoon",
+      "weight": 2,
+      "title": "태풍 북상",
+      "text": "태풍이 서해안으로 북상 중입니다. 농작물·시설 피해가 우려됩니다.",
+      "choices": [
+        {
+          "label": "사전 대피·점검 (예산 -8)",
+          "fx": {
+            "budget": -8,
+            "support": 3
+          }
+        },
+        {
+          "label": "경과를 지켜본다",
+          "fx": {
+            "support": -2
+          },
+          "chance": {
+            "p": 0.4,
+            "fx": {
+              "budget": -18,
+              "support": -6
+            },
+            "note": "태풍 피해 발생!"
+          }
+        }
+      ],
+      "scene": "flood",
+      "month": 8
+    },
+    {
+      "id": "kimjang",
+      "weight": 2,
+      "title": "김장 나눔",
+      "text": "연말 김장 나눔 행사에 참석 요청이 왔습니다.",
+      "choices": [
+        {
+          "label": "참석한다 (피로 +3)",
+          "fx": {
+            "fatigue": 3,
+            "support": 3
+          }
+        },
+        {
+          "label": "실무자에게 맡긴다",
+          "fx": {}
+        }
+      ],
+      "scene": "harvest",
+      "month": 11
+    },
+    {
+      "id": "year_end",
+      "weight": 2,
+      "title": "연말 불우이웃 돕기",
+      "text": "연말 불우이웃 돕기 성금 전달식이 열립니다.",
+      "choices": [
+        {
+          "label": "시장 명의 기부 (예산 -4)",
+          "fx": {
+            "budget": -4,
+            "support": 3,
+            "integrity": 1
+          }
+        },
+        {
+          "label": "참석만 한다",
+          "fx": {
+            "support": 1
+          }
+        }
+      ],
+      "scene": "snow",
+      "month": 12
     }
   ],
   "random": [
@@ -237,6 +362,310 @@
           "label": "담당 부서에 일임",
           "fx": {
             "support": -2
+          }
+        }
+      ],
+      "scene": "town"
+    },
+    {
+      "id": "ktx_delay",
+      "weight": 2,
+      "title": "KTX 증편 요구",
+      "text": "익산역 KTX·SRT 증편을 요구하는 시민 청원이 이어집니다. 철도공사와 협의할까요?",
+      "choices": [
+        {
+          "label": "직접 협의 (정치력 -3, 피로 +8)",
+          "fx": {
+            "politics": -3,
+            "fatigue": 8,
+            "support": 5,
+            "oldLevel": 2
+          }
+        },
+        {
+          "label": "청원을 접수만 한다",
+          "fx": {
+            "support": -2
+          }
+        }
+      ],
+      "scene": "town",
+      "advice": {
+        "admin": "역세권은 도시 얼굴입니다. 협의해 둘 만합니다.",
+        "politic": "국토부 라인을 한 번 타 보시지요. 정치력이 좀 듭니다.",
+        "finance": "증편되면 상권 세수가 늘어납니다."
+      }
+    },
+    {
+      "id": "mireuk_world",
+      "weight": 2,
+      "title": "세계유산 관광객 증가",
+      "text": "미륵사지·왕궁리 유적 방문객이 늘며 주변 숙박·식당 민원이 접수됩니다.",
+      "choices": [
+        {
+          "label": "탐방로·주차장 정비 (예산 -9)",
+          "fx": {
+            "budget": -9,
+            "baekjeLevel": 3,
+            "support": 3
+          }
+        },
+        {
+          "label": "민간에 맡긴다",
+          "fx": {
+            "support": -1
+          }
+        }
+      ],
+      "scene": "baekje",
+      "advice": {
+        "admin": "문화재청 협의가 필요한 사안입니다.",
+        "politic": "세계유산 브랜드는 국비 확보 명분이 됩니다.",
+        "finance": "정비비보다 관광 수입이 큽니다."
+      }
+    },
+    {
+      "id": "industrial_aging",
+      "weight": 2,
+      "title": "노후 산단 재생 제안",
+      "text": "1970년대 조성된 국가산단의 시설 노후가 심각합니다. 재생 사업을 추진할까요?",
+      "choices": [
+        {
+          "label": "재생 사업 착수 (예산 -16)",
+          "fx": {
+            "budget": -16,
+            "indLevel": 4,
+            "newLevel": 2,
+            "support": 2
+          }
+        },
+        {
+          "label": "다음 임기로 미룬다",
+          "fx": {
+            "support": -2
+          }
+        }
+      ],
+      "scene": "factory",
+      "advice": {
+        "finance": "입주 기업이 떠나면 세수가 급감합니다.",
+        "politic": "산업부 재생 공모에 응모할 수 있습니다.",
+        "admin": "안전 점검부터 하시지요."
+      }
+    },
+    {
+      "id": "food_cluster_news",
+      "weight": 2,
+      "title": "식품 기업 입주 문의",
+      "text": "국가식품클러스터에 입주를 희망하는 기업이 늘고 있습니다.",
+      "choices": [
+        {
+          "label": "인센티브 제공 (예산 -10)",
+          "fx": {
+            "budget": -10,
+            "indLevel": 3,
+            "baekjeLevel": 1,
+            "population": 0.3,
+            "support": 3
+          }
+        },
+        {
+          "label": "기존 계획대로",
+          "fx": {}
+        }
+      ],
+      "scene": "factory",
+      "advice": {
+        "finance": "고용 창출 효과가 큽니다.",
+        "politic": "중앙부처 지원과 묶어서 홍보하지요.",
+        "admin": "부지 여유를 먼저 확인하겠습니다."
+      }
+    },
+    {
+      "id": "heat_wave",
+      "weight": 2,
+      "title": "폭염 대책",
+      "text": "기록적 폭염으로 노인 건강 문제가 우려됩니다.",
+      "choices": [
+        {
+          "label": "무더위 쉼터 확대 (예산 -5)",
+          "fx": {
+            "budget": -5,
+            "support": 4
+          }
+        },
+        {
+          "label": "기존 대응 유지",
+          "fx": {
+            "support": -3
+          }
+        }
+      ],
+      "scene": "town"
+    },
+    {
+      "id": "school_merge",
+      "weight": 2,
+      "title": "학교 통폐합 논란",
+      "text": "학생 수 감소로 농어촌 학교 통폐합이 거론됩니다.",
+      "choices": [
+        {
+          "label": "통학 지원 후 통합 (예산 -6)",
+          "fx": {
+            "budget": -6,
+            "farmLevel": -1,
+            "support": -1,
+            "integrity": 1
+          }
+        },
+        {
+          "label": "존치 약속 (예산 -3, 지지도 +)",
+          "fx": {
+            "budget": -3,
+            "support": 4,
+            "farmLevel": 1
+          }
+        }
+      ],
+      "scene": "town"
+    },
+    {
+      "id": "chuseok",
+      "weight": 2,
+      "title": "명절 민원 폭주",
+      "text": "추석을 앞두고 도로 정체와 전통시장 지원 요청이 많습니다.",
+      "choices": [
+        {
+          "label": "전통시장 상품권 발행 (예산 -8)",
+          "fx": {
+            "budget": -8,
+            "support": 5,
+            "oldLevel": 2
+          }
+        },
+        {
+          "label": "유지",
+          "fx": {
+            "support": -1
+          }
+        }
+      ],
+      "scene": "town"
+    },
+    {
+      "id": "pepper_paste",
+      "weight": 2,
+      "title": "장류 특화 제안",
+      "text": "함열읍 일대 고추장·장류 산업의 브랜드화 제안이 올라왔습니다.",
+      "choices": [
+        {
+          "label": "브랜드 사업 지원 (예산 -7)",
+          "fx": {
+            "budget": -7,
+            "indLevel": 2,
+            "farmLevel": 2,
+            "support": 2
+          }
+        },
+        {
+          "label": "검토",
+          "fx": {}
+        }
+      ],
+      "scene": "harvest"
+    },
+    {
+      "id": "gov_audit_visit",
+      "weight": 2,
+      "title": "중앙 감사 예고",
+      "text": "중앙부처가 시정 운영 전반에 대한 현장 감사를 예고했습니다.",
+      "choices": [
+        {
+          "label": "자료 정비 (피로 +10)",
+          "fx": {
+            "fatigue": 10,
+            "auditRisk": -12,
+            "integrity": 2
+          }
+        },
+        {
+          "label": "평소대로",
+          "fx": {
+            "auditRisk": 6
+          }
+        }
+      ],
+      "scene": "bribe",
+      "advice": {
+        "politic": "감사 전 정리는 정치적으로도 유리합니다.",
+        "admin": "서류 정리는 제가 돕겠습니다.",
+        "finance": "예산 집행 내역부터 점검하지요."
+      }
+    },
+    {
+      "id": "river_cleanup",
+      "weight": 2,
+      "title": "만경강 정비 요구",
+      "text": "생태 하천 정비를 요구하는 시민단체 청원이 있습니다.",
+      "choices": [
+        {
+          "label": "정비 사업 (예산 -9)",
+          "fx": {
+            "budget": -9,
+            "farmLevel": 3,
+            "support": 3
+          }
+        },
+        {
+          "label": "예산 부족을 사유로 반려",
+          "fx": {
+            "support": -3
+          }
+        }
+      ],
+      "scene": "flood"
+    },
+    {
+      "id": "jewel_trade",
+      "weight": 2,
+      "title": "보석 산업 박람회 제안",
+      "text": "왕궁면 보석 산업 관계자들이 박람회 개최를 제안합니다.",
+      "choices": [
+        {
+          "label": "유치한다 (예산 -12)",
+          "fx": {
+            "budget": -12,
+            "baekjeLevel": 2,
+            "indLevel": 2,
+            "support": 4
+          }
+        },
+        {
+          "label": "보류",
+          "fx": {}
+        }
+      ],
+      "scene": "baekje"
+    },
+    {
+      "id": "apartment_boom",
+      "weight": 2,
+      "title": "신규 아파트 분양 열기",
+      "text": "마동·모현동 일대 신규 아파트 분양이 흥행했습니다.",
+      "choices": [
+        {
+          "label": "기반시설 확충 (예산 -10)",
+          "fx": {
+            "budget": -10,
+            "newLevel": 3,
+            "population": 0.5,
+            "support": 3
+          }
+        },
+        {
+          "label": "민간에 맡긴다",
+          "fx": {
+            "population": 0.2
           }
         }
       ],

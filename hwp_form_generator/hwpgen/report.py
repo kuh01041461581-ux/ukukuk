@@ -253,7 +253,7 @@ def _empty_like(p):
     return q
 
 
-def sanitize_package(pkg, keep_sections=("Contents/section0.xml",)):
+def sanitize_package(pkg, keep_sections=("Contents/section0.xml",), extra_roots=()):
     """개인 정보가 새지 않게: 미리보기 글·그림 제거, 쓰지 않는 그림은 작은 빈 그림으로 바꾼다, 문서 정보 비움."""
     for n in list(pkg.files):
         if n.startswith("Preview/"):
@@ -280,10 +280,16 @@ def sanitize_package(pkg, keep_sections=("Contents/section0.xml",)):
             if m.get("name") in ("CreatedDate", "ModifiedDate", "date"):
                 m.text = ""
         pkg.files["Contents/content.hpf"] = P.dump_xml(root)
-    # 그림: 본문에서 쓰는 것만 남기고 나머지는 1×1 빈 그림
+    # 그림: 양식이 실제로 쓰는 것만 남기고 나머지는 1×1 빈 그림.
+    # '쓴다' = 본문 + 서식 정의(header.xml 의 배경 그림 등) + 마스터쪽 + 따로 보관하는 견본(표 줄 등) 어디서든 가리키는 것
     used = set()
-    for n in pkg.section_names():
-        for el in pkg.xml(n).iter():
+    roots = [pkg.xml(n) for n in pkg.section_names()] + list(extra_roots)
+    roots.append(pkg.header())
+    for n in list(pkg.files):
+        if re.fullmatch(r"Contents/masterpage\d+\.xml", n):
+            roots.append(pkg.xml(n))
+    for root in roots:
+        for el in root.iter():
             v = el.get("binaryItemIDRef")
             if v:
                 used.add(v)
@@ -508,7 +514,8 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
         ctrl = el.getparent()
         ctrl.getparent().remove(ctrl)
     P.strip_lineseg(section)
-    sanitize_package(pkg)
+    sanitize_package(pkg, extra_roots=list(protos.values()) + [w for info in tables for w in [info["wrapper"]] +
+                                                                [x["tr"] for x in info["rows"]]])
 
     leftover = [t for _, t in frame_texts(section, None) if BODY_MARK not in t and "{{" not in t]
 

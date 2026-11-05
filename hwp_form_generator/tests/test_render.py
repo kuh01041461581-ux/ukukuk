@@ -366,6 +366,30 @@ class ComposeTests(unittest.TestCase):
             self.assertEqual(len(comps[0]), 2)
 
 
+class ImageTests(unittest.TestCase):
+    def test_referenced_images_are_real(self):
+        """양식이 가리키는 그림(표 머리 줄 속 그림·배경 그림 포함)은 빈 그림으로 바뀌어 있으면 안 된다"""
+        import re
+        import zipfile
+        from hwpgen import tinyimg
+        checked = 0
+        for fid, folder, meta in registry.list_forms(ROOTS):
+            z = zipfile.ZipFile(os.path.join(folder, "template.hwpx"))
+            blob = z.read("Contents/section0.xml").decode("utf-8") + z.read("Contents/header.xml").decode("utf-8")
+            pp = os.path.join(folder, "protos.xml")
+            if os.path.exists(pp):
+                blob += open(pp, encoding="utf-8").read()
+            refs = set(re.findall(r'binaryItemIDRef="([^"]+)"', blob))
+            names = {os.path.splitext(os.path.basename(n))[0]: n for n in z.namelist() if n.startswith("BinData/")}
+            for ref in refs:
+                if ref not in names:
+                    continue
+                data = z.read(names[ref])
+                self.assertNotEqual(data, tinyimg.blank_like(names[ref]), (fid, ref, "빈 그림으로 바뀜"))
+                checked += 1
+        self.assertGreater(checked, 5)
+
+
 class OutlineTests(unittest.TestCase):
     def test_pad_label(self):
         self.assertEqual(T.pad_label("일시"), "일    시")

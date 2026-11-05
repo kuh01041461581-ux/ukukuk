@@ -354,7 +354,7 @@ def register_schedule(sample_path, out_dir, org_sample="문화교육국"):
             P.set_par_runs(p, [(cp, "{{org}} 주간 주요일정")])
     _mark_period(sec)
     P.strip_lineseg(sec)
-    sanitize_package(pkg)
+    sanitize_package(pkg, extra_roots=[protos])
     os.makedirs(out_dir, exist_ok=True)
     pkg.save(os.path.join(out_dir, "template.hwpx"))
     with open(os.path.join(out_dir, "protos.xml"), "w", encoding="utf-8") as f:

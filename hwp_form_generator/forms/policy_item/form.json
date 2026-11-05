@@ -1,7 +1,7 @@
 {
   "id": "policy_item",
   "name": "정책질의서 (사업 1건)",
-  "audience": "국회단계 질의서",
+  "audience": "국회단계 정책질의서",
   "kind": "report",
   "note": "정책질의서 머리 + □ 질의 취지·◦ 설명 + <Q> 질의 상자",
   "fields": [

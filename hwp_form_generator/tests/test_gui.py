@@ -38,6 +38,9 @@ class FakeBridge:
     def break_para(self):
         self.breaks = getattr(self, 'breaks', 0) + 1
 
+    def at_doc_end(self):
+        return getattr(self, 'at_end', True)
+
     def is_empty_doc(self):
         return True
 
@@ -66,6 +69,13 @@ class GuiTests(unittest.TestCase):
         cls.widget.update()
         cls.app = gui.DetailWindow(cls.widget)
         cls.app.update()
+
+    def setUp(self):
+        # 시험끼리 영향을 주지 않게: 기본은 '한 번에', 빈 문서·문서 끝 상태
+        self.widget.ui["insert_mode"] = "whole"
+        self.widget.ui["insert_delay"] = 0
+        self.br.__dict__.pop("is_empty_doc", None)
+        self.br.at_end = True
 
     @classmethod
     def tearDownClass(cls):
@@ -136,14 +146,59 @@ class GuiTests(unittest.TestCase):
         self.widget.make_report("report_event")
         self.assertEqual(len(self.br.inserted) - n1, 1)                 # 한 번에: 정확히 한 번(두 번 들어가지 않음)
 
+    def test_step_default_and_tabs_and_week(self):
+        w = self.widget
+        self.assertEqual(w.ui.get("insert_mode", "step"), "whole")      # setUp 이 바꿔 둠 — 실제 기본값은 아래에서
+        fresh = self.gui.Widget.__dict__["TABS"]
+        self.assertEqual([k for _, k in fresh][:6], ["report", "week", "budget", "press", "assembly", "audit"])
+        # 양식이 탭마다 나뉘어 들어간다
+        def ids(tab):
+            return {fid for g in w.tab_forms(tab).values() for fid, _ in g}
+        self.assertEqual(ids("report") >= {"report_event", "report_project", "report_mayor"}, True)
+        self.assertIn("meeting_issue", ids("week"))
+        self.assertTrue({"budget_cover", "budget_project", "budget_ref_cover", "budget_ref_project"} <= ids("budget"))
+        self.assertEqual(ids("press"), {"press_release"})
+        self.assertTrue({"written_item", "policy_item", "policy_ref"} <= ids("assembly"))
+        self.assertTrue({"audit_cover", "audit_common"} <= ids("audit"))
+        # 작성 대상 주 = 다음 주
+        import datetime
+        from hwpgen import textfmt as TT
+        w.ui.pop("week_offset", None)
+        self.assertEqual(w.target_monday(), TT.week_monday(datetime.date.today()) + datetime.timedelta(days=7))
+        self.assertEqual(w.default_value("target_monday"), w.target_monday().isoformat())
+        w.shift_week(-1)
+        self.assertEqual(w.target_monday(), TT.week_monday(datetime.date.today()))
+        w.shift_week(1)
+
+    def test_covers_use_target_week(self):
+        from hwpgen.package import ptext
+        w = self.widget
+        w.ui["week_offset"] = 1
+        w.make_week("cover")
+        self.assertIn(self.expected_range(w), self.br.last_text)
+        w.make_report("meeting_cover")
+        self.assertIn(self.expected_mdate(w), self.br.last_text)
+
+    @staticmethod
+    def expected_range(w):
+        from hwpgen import textfmt as TT
+        import datetime
+        m = w.target_monday()
+        return TT.fmt_range_short(m, m + datetime.timedelta(days=6))
+
+    @staticmethod
+    def expected_mdate(w):
+        from hwpgen import textfmt as TT
+        return TT.fmt_date_long(w.target_monday())
+
     def test_non_empty_doc_inserts_whole(self):
         """내용이 있는 문서에서는 '차례대로'를 켜도 한 번에 넣는다(커서가 중간이면 순서가 뒤집힐 수 있어서)"""
         self.widget.ui["insert_mode"] = "step"
         self.br.is_empty_doc = lambda: False
+        self.br.at_end = False                       # 커서가 문서 중간
         n0 = len(self.br.inserted)
         self.widget.make_report("report_event")
         self.assertEqual(len(self.br.inserted) - n0, 1)
-        del self.br.is_empty_doc
 
     def test_weekly_plan_without_items_still_has_lines(self):
         """일정을 입력하지 않아도 주간업무계획에 항목 틀(제목·일시·장소·주최·내용)이 나온다"""

@@ -1,7 +1,7 @@
 {
   "id": "written_cover",
   "name": "서면질의서 표지",
-  "audience": "국회단계 질의서",
+  "audience": "국회단계 서면질의서",
   "kind": "report",
   "note": "총괄본 · 국회단계 사업 서면질의서 · 부서",
   "fields": [

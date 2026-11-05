@@ -10,7 +10,7 @@
       "label": "회의 날짜",
       "type": "date",
       "fmt": "long",
-      "default": "today"
+      "default": "target_monday"
     },
     {
       "key": "mtime",

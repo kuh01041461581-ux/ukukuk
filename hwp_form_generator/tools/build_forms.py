@@ -130,7 +130,7 @@ def build_extra(paths):
         cover_dept = ts[i + 1]
         out["meeting_cover"] = report.register_report(
             paths["meeting"], os.path.join(F, "meeting_cover"), "meeting_cover", "간부회의 표지", "간부회의", [
-                {"key": "mdate", "label": "회의 날짜", "sample": m.group(1), "type": "date", "fmt": "long", "default": "today"},
+                {"key": "mdate", "label": "회의 날짜", "sample": m.group(1), "type": "date", "fmt": "long", "default": "target_monday"},
                 {"key": "mtime", "label": "회의 시각", "sample": m.group(2), "default": "08:30"},
                 {"key": "dept", "label": "부서(과)", "sample": cover_dept, "profile": "dept"},
             ], note="간부회의 표지: 날짜·시각 상자 + 현안·당면 업무보고 + 부서", slice_=(0, 8), allow_no_body=True)
@@ -319,15 +319,15 @@ def build_queries(paths):
         ts = _flat_texts_para(w, 13, 14)
         title, head = ts[1], ts[2]
         out["written_cover"] = report.register_report(
-            w, os.path.join(F, "written_cover"), "written_cover", "서면질의서 표지", "국회단계 질의서", [
+            w, os.path.join(F, "written_cover"), "written_cover", "서면질의서 표지", "국회단계 서면질의서", [
                 {"key": "dept", "label": "부서(과)", "sample": _flat_texts_para(w, 5, 6)[0], "profile": "dept"},
             ], note="총괄본 · 국회단계 사업 서면질의서 · 부서", slice_=(0, 7), allow_no_body=True, frame_only=True)
         out["written_list"] = report.register_report(
-            w, os.path.join(F, "written_list"), "written_list", "서면질의 목록", "국회단계 질의서", [],
+            w, os.path.join(F, "written_list"), "written_list", "서면질의 목록", "국회단계 서면질의서", [],
             note="서면질의 목록(의원명·제출일자 + 회계/기금·세부사업명·예산 표 머리)", slice_=(7, 13), allow_no_body=True, frame_only=True,
             blank_tables={"12": 1})
         out["written_item"] = report.register_report(
-            w, os.path.join(F, "written_item"), "written_item", "서면질의서 (사업 1건)", "국회단계 질의서", [
+            w, os.path.join(F, "written_item"), "written_item", "서면질의서 (사업 1건)", "국회단계 서면질의서", [
                 {"key": "title", "label": "세부사업명 (예: ○○○ 지원(신규))", "sample": title},
                 {"key": "committee", "label": "상임위원회", "sample": head,
                  "repl": "< {{committee}} / {{ministry}} 소관 / {{account}} >"},
@@ -338,15 +338,15 @@ def build_queries(paths):
     if "policy" in paths:
         p = paths["policy"]
         out["policy_cover"] = report.register_report(
-            p, os.path.join(F, "policy_cover"), "policy_cover", "정책질의서 표지", "국회단계 질의서", [],
+            p, os.path.join(F, "policy_cover"), "policy_cover", "정책질의서 표지", "국회단계 정책질의서", [],
             note="총괄본 · 국회단계 사업 정책질의서 · 익산시", slice_=(0, 9), allow_no_body=True, frame_only=True)
         out["policy_list"] = report.register_report(
-            p, os.path.join(F, "policy_list"), "policy_list", "국회단계 활동사업 목록", "국회단계 질의서", [],
+            p, os.path.join(F, "policy_list"), "policy_list", "국회단계 활동사업 목록", "국회단계 정책질의서", [],
             note="익산시 국회단계 활동사업 목록(표 머리만, 연번~비고)", slice_=(9, 13), allow_no_body=True, frame_only=True,
             blank_tables={"9": 4})
         t13 = _flat_texts_para(p, 13, 14)
         out["policy_item"] = report.register_report(
-            p, os.path.join(F, "policy_item"), "policy_item", "정책질의서 (사업 1건)", "국회단계 질의서", [
+            p, os.path.join(F, "policy_item"), "policy_item", "정책질의서 (사업 1건)", "국회단계 정책질의서", [
                 {"key": "no", "label": "연번", "sample": "1.", "once": True, "repl": "{{no}}.", "default": "1"},
                 {"key": "title", "label": "사업명", "sample": t13[1].split(".", 1)[1].strip(), "once": True},
                 {"key": "kind", "label": "신규/계속", "sample": t13[2], "exact": True, "once": True, "default": "신규"},
@@ -354,7 +354,7 @@ def build_queries(paths):
             starter="□ \n◦ \n\n◦ \n\n| **<Q>** |", slice_=(13, 35), body_from_text="□")
         t35 = _flat_texts_para(p, 35, 36)
         out["policy_ref"] = report.register_report(
-            p, os.path.join(F, "policy_ref"), "policy_ref", "참고1 조서 (사업 1건)", "국회단계 질의서", [
+            p, os.path.join(F, "policy_ref"), "policy_ref", "참고1 조서 (사업 1건)", "국회단계 정책질의서", [
                 {"key": "ref", "label": "참고 번호 (예: 참고1)", "sample": t35[0], "exact": True, "once": True, "default": "참고1"},
                 {"key": "title", "label": "사업명", "sample": t35[1].replace("(조서)", "").strip()},
                 {"key": "request", "label": "건의 문구 (파란 상자)", "sample": _flat_texts_para(p, 66, 67)[0]},

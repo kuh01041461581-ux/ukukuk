@@ -61,9 +61,9 @@ class Output:
         if page and empty:
             br.apply_page_setup(page)
         strip_section_props(pkg)
-        # 차례대로 입력은 '빈 문서'에서만: 매번 문서 맨 끝에 붙여 순서가 절대 뒤집히지 않게 한다.
-        # 이미 내용이 있는 문서(커서가 중간)에는 한 번에 넣어 순서를 지킨다.
-        step = app.ui.get("insert_mode", "whole") == "step" and empty
+        # 차례대로 입력은 커서가 문서 맨 끝일 때(빈 문서 포함)만: 매번 끝에 붙여 순서가 절대 뒤집히지 않게 한다.
+        # 문서 중간에 넣을 때는 한 번에 넣어 순서를 지킨다.
+        step = app.ui.get("insert_mode", "step") == "step" and (empty or br.at_doc_end())
         chunks = split_chunks(pkg) if step else [pkg]
         n = len(chunks)
         try:
@@ -83,7 +83,7 @@ class Output:
                 if n > 1:
                     app.say("입력 중… %d/%d" % (i, n))
                     app.update()
-                    time.sleep(app.ui.get("insert_delay", 0.12))
+                    time.sleep(app.ui.get("insert_delay", 0.16))
             app.say("열려 있는 문서의 커서 위치에 넣었어요")
         except B.BridgeError as e:
             messagebox.showerror("한글에 넣기", str(e))
@@ -177,8 +177,11 @@ class ReportTab(ttk.Frame):
             ttk.Label(self.fields, text=f["label"], font=FONT_S).grid(row=i, column=0, sticky="w", pady=1)
             v = tk.StringVar()
             val = ""
-            if f.get("default") == "today":
-                val = datetime.date.today().isoformat()
+            dv = f.get("default")
+            if dv in ("today", "target_monday"):
+                val = self.app.default_value(dv) if hasattr(self.app, "default_value") else datetime.date.today().isoformat()
+            elif dv:
+                val = dv
             if f.get("profile") and prof.get("autofill", True):
                 val = PR.profile_value(prof, f["profile"]) or val
             v.set(val)
@@ -277,7 +280,8 @@ class WeeklyTab(ttk.Frame):
     def __init__(self, master, app):
         super().__init__(master, padding=8)
         self.app = app
-        self.monday = T.week_monday(datetime.date.today())
+        tm = getattr(app, "target_monday", None)
+        self.monday = tm() if tm else T.week_monday(datetime.date.today())
         self.data = PR.load_week(self.monday)
         top = ttk.Frame(self)
         top.pack(fill="x")
@@ -657,6 +661,8 @@ class DetailWindow(tk.Toplevel):
         self.bridge = widget.bridge
         self.out = widget.out
         self.say = widget.say
+        self.target_monday = widget.target_monday
+        self.default_value = widget.default_value
         self.geometry("%dx%d+%d+%d" % (PANEL_W, 720, 60, 40))
         self.nb = ttk.Notebook(self)
         self.nb.pack(fill="both", expand=True)
@@ -931,7 +937,18 @@ class Chip(_Anim, tk.Canvas):
 class Widget(tk.Tk):
     """한글 옆에 떠 있는 양식 단추 모음. 단추를 누르면 열려 있는 한글 문서에 바로 만들어 넣는다."""
 
-    TABS = [("보고", "report"), ("주간", "week"), ("기호", "sym"), ("겹치기", "cmp"), ("더보기", "more")]
+    TABS = [("보고", "report"), ("주간", "week"), ("예산설명", "budget"), ("보도자료", "press"),
+            ("국회질의", "assembly"), ("행정감사", "audit"), ("기호", "sym"), ("더보기", "more")]
+    # 양식 묶음(audience) → 탭. 사용자가 추가한 양식은 '보고' 탭에 들어간다
+    AUDIENCE_TAB = {"문화교육국 보고": "report", "시장님 보고": "report", "간부회의": "week", "예산 설명자료": "budget",
+                    "보도자료": "press", "국회단계 질의서": "assembly", "국회단계 서면질의서": "assembly",
+                    "국회단계 정책질의서": "assembly", "행정사무감사": "audit"}
+    GROUP_ORDER = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "보도자료", "국회단계 서면질의서",
+                   "국회단계 정책질의서", "국회단계 질의서", "행정사무감사"]
+    FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card",
+                  "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_project", "press_release",
+                  "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item",
+                  "policy_ref", "audit_cover", "audit_common"]
     FORM_ICONS = {"report_event": "event", "report_project": "project", "report_mayor": "mayor",
                   "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project",
                   "audit_cover": "cover", "audit_common": "plan",
@@ -1041,10 +1058,13 @@ class Widget(tk.Tk):
         self.tabbar = tk.Frame(self, bg=C_BG)
         self.tabbar.pack(fill="x", padx=8)
         self.tab_lbl, self.tab_bar = {}, {}
-        for name, key in self.TABS:
+        per_row = 4
+        for c in range(per_row):
+            self.tabbar.columnconfigure(c, weight=1, uniform="tab")
+        for idx, (name, key) in enumerate(self.TABS):
             col = tk.Frame(self.tabbar, bg=C_BG)
-            col.pack(side="left", padx=1)
-            l = tk.Label(col, text=name, bg=C_BG, fg=C_SUB, font=FONT, padx=8, pady=4, cursor="hand2")
+            col.grid(row=idx // per_row, column=idx % per_row, sticky="ew", padx=1)
+            l = tk.Label(col, text=name, bg=C_BG, fg=C_SUB, font=FONT, padx=4, pady=4, cursor="hand2")
             l.pack()
             bar = tk.Frame(col, bg=C_BG, height=2)
             bar.pack(fill="x", padx=6)
@@ -1073,8 +1093,8 @@ class Widget(tk.Tk):
         self.unbind_all("<Button-5>")
         for w in self.body.winfo_children():
             w.destroy()
-        {"report": self.build_report, "week": self.build_week, "sym": self.build_symbols,
-         "cmp": self.build_compose, "more": self.build_more}[key](self.body)
+        {"week": self.build_week, "sym": self.build_symbols, "more": self.build_more}.get(
+            key, lambda parent, k=key: self.build_forms_tab(parent, k))(self.body)
         self.ui["tab"] = key
 
     def section(self, parent, text):
@@ -1093,72 +1113,92 @@ class Widget(tk.Tk):
             self.after_cancel(self._msg_job)
         self._msg_job = self.after(3500, self.hint)
 
-    # ---------------------------------------------------------------- 보고 탭
-    def build_report(self, parent):
-        prof = PR.load_profile()
-        if not (prof.get("dept") or prof.get("staff_name")):
-            box = tk.Frame(parent, bg="#fff7e0", highlightthickness=1, highlightbackground="#f1dfa2")
-            box.pack(fill="x", pady=(0, 4))
-            tk.Label(box, text="내 정보(과·담당자)를 한 번 적어 두면\n양식에 자동으로 채워져요", bg="#fff7e0", fg="#6b5600",
-                     font=FONT_S, justify="left", padx=10, pady=6).pack(anchor="w")
-            Btn(box, "내 정보 입력", self.open_profile, icon_name="user", h=32).pack(fill="x", padx=8, pady=(0, 8))
-        forms = {}
-        for fid, folder, meta in registry.list_forms():
-            if meta["kind"] == "report":
-                forms[fid] = meta
-        if len(forms) > 6:
-            box = tk.Frame(parent, bg="white", highlightthickness=1, highlightbackground=C_LINE, highlightcolor=C_ACC)
-            box.pack(fill="x", pady=(0, 4))
-            tk.Label(box, text="검색", bg="white", fg=C_SUB, font=FONT_S, padx=8).pack(side="left")
-            e = tk.Entry(box, textvariable=self.q, font=FONT, relief="flat", bd=0, bg="white", highlightthickness=0)
-            e.pack(side="left", fill="x", expand=True, ipady=5)
-            self.q.trace_add("write", lambda *a: self._fill_forms(forms))
-        self.forms_box = self.scroll_area(parent)
-        self._fill_forms(forms)
-
-    def _fill_forms(self, forms):
-        for w in self.forms_box.winfo_children():
-            w.destroy()
-        q = self.q.get().strip()
-        recent = [f for f in self.ui.get("recent_forms", []) if f in forms]
-        if recent and not q:
-            self.section(self.forms_box, "최근 사용")
-            for fid in recent[:3]:
-                self._form_btn(forms[fid], fid)
+    # ---------------------------------------------------------------- 양식 탭(보고·예산설명·보도자료·국회질의·행정감사)
+    def tab_forms(self, tab):
+        """이 탭에 들어갈 보고서류 양식 {묶음: [(id, meta)]} (순서 고정)"""
         groups = {}
-        for fid, meta in forms.items():
-            if q and q not in meta["name"] and q not in meta.get("audience", ""):
+        for fid, folder, meta in registry.list_forms():
+            if meta["kind"] != "report":
                 continue
-            groups.setdefault(meta.get("audience", "기타"), []).append((fid, meta))
-        order = ["문화교육국 보고", "시장님 보고", "보도자료", "간부회의", "예산 설명자료", "행정사무감사"]
-        for g, lst in sorted(groups.items(), key=lambda kv: order.index(kv[0]) if kv[0] in order else 99):
-            self.section(self.forms_box, g)
+            aud = meta.get("audience", "기타")
+            if self.AUDIENCE_TAB.get(aud, "report") == tab:
+                groups.setdefault(aud, []).append((fid, meta))
+        key = lambda kv: self.GROUP_ORDER.index(kv[0]) if kv[0] in self.GROUP_ORDER else 99      # noqa: E731
+        fkey = lambda it: self.FORM_ORDER.index(it[0]) if it[0] in self.FORM_ORDER else 99       # noqa: E731
+        return {k: sorted(v, key=fkey) for k, v in sorted(groups.items(), key=key)}
+
+    def build_forms_tab(self, parent, tab):
+        if tab == "report":
+            prof = PR.load_profile()
+            if not (prof.get("dept") or prof.get("staff_name")):
+                box = tk.Frame(parent, bg="#fff7e0", highlightthickness=1, highlightbackground="#f1dfa2")
+                box.pack(fill="x", pady=(0, 4))
+                tk.Label(box, text="내 정보(과·담당자)를 한 번 적어 두면\n양식에 자동으로 채워져요", bg="#fff7e0", fg="#6b5600",
+                         font=FONT_S, justify="left", padx=10, pady=6).pack(anchor="w")
+                Btn(box, "내 정보 입력", self.open_profile, icon_name="user", h=32).pack(fill="x", padx=8, pady=(0, 8))
+        box = self.scroll_area(parent)
+        self.forms_box = box
+        groups = self.tab_forms(tab)
+        if not groups:
+            tk.Label(box, text="이 탭에 양식이 없어요", bg=C_BG, fg=C_SUB, font=FONT_S).pack(pady=10)
+        for g, lst in groups.items():
+            self.section(box, g)
             for fid, meta in lst:
                 self._form_btn(meta, fid)
             if any(f == "report_mayor" for f, _ in lst):
-                Btn(self.forms_box, "참고자료 쪽 추가", self.make_reference, kind="flat", icon_name="clip", h=32,
+                Btn(box, "참고자료 쪽 추가", self.make_reference, kind="flat", icon_name="clip", h=32,
                     tip="보고 1장 뒤에 새 쪽과 '참고자료' 제목을 붙여요").pack(fill="x", pady=2)
-        if not groups:
-            tk.Label(self.forms_box, text="맞는 양식이 없어요", bg=C_BG, fg=C_SUB, font=FONT_S).pack(pady=10)
 
-    def _form_btn(self, meta, fid):
-        Btn(self.forms_box, meta["name"].split(" (")[0], lambda f=fid: self.make_report(f),
+    def _form_btn(self, meta, fid, parent=None):
+        Btn(parent or self.forms_box, meta["name"].split(" (")[0], lambda f=fid: self.make_report(f),
             tip=meta.get("note", ""), icon_name=self.FORM_ICONS.get(fid, "doc")).pack(fill="x", pady=4)
 
     # ---------------------------------------------------------------- 주간 탭
+    def target_monday(self):
+        """작성할 주의 월요일. 기본은 '다음 주'(보통 다음 주 계획을 이번 주에 쓰므로) — ◀ ▶ 로 바꿀 수 있다"""
+        off = int(self.ui.get("week_offset", 1))
+        return T.week_monday(datetime.date.today()) + datetime.timedelta(days=7 * off)
+
+    def shift_week(self, d):
+        self.ui["week_offset"] = int(self.ui.get("week_offset", 1)) + d
+        self.show_tab("week")
+
+    def default_value(self, token):
+        """양식 칸의 기본값 약속어: today(오늘) / target_monday(작성 대상 주의 월요일)"""
+        if token == "today":
+            return datetime.date.today().isoformat()
+        if token == "target_monday":
+            return self.target_monday().isoformat()
+        return ""
+
     def build_week(self, parent):
-        monday = T.week_monday(datetime.date.today())
+        monday = self.target_monday()
         end = monday + datetime.timedelta(days=6)
+        off = int(self.ui.get("week_offset", 1))
+        name = {-1: "지난 주", 0: "이번 주", 1: "다음 주", 2: "다다음 주"}.get(off, "%+d주" % off)
+        bar = tk.Frame(parent, bg=C_BG)
+        bar.pack(fill="x", pady=(6, 0))
+        Chip(bar, "◀", lambda: self.shift_week(-1), size=30, tip="앞 주").pack(side="left")
+        mid = tk.Frame(bar, bg=C_BG)
+        mid.pack(side="left", fill="x", expand=True)
+        tk.Label(mid, text="%s 작성" % name, bg=C_BG, fg=C_ACC, font=FONT_B).pack()
+        tk.Label(mid, text="%s ~ %s" % (T.fmt_date_short(monday), T.fmt_date_short(end)), bg=C_BG, fg=C_SUB,
+                 font=FONT_S).pack()
+        Chip(bar, "▶", lambda: self.shift_week(1), size=30, tip="다음 주").pack(side="right")
         n = len(PR.load_week(monday).get("items", []))
-        self.section(parent, "이번 주  %s ~ %s" % (T.fmt_date_short(monday), T.fmt_date_short(end)))
-        tk.Label(parent, text="입력한 일정 %d건" % n, bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w").pack(fill="x", pady=(0, 2))
-        for txt, which, ic, tip in (("주간업무계획 표지", "cover", "cover", "날짜 상자·제목 배너·순서 목차"),
-                                    ("주간업무계획", "plan", "plan", "이번 주 일정을 ❶ 행사명 + ◦ 일시/장소로"),
+        tk.Label(parent, text="입력한 일정 %d건" % n, bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w").pack(fill="x", pady=(4, 0))
+        box = self.scroll_area(parent)
+        self.section(box, "주간업무")
+        for txt, which, ic, tip in (("주간업무계획 표지", "cover", "cover", "날짜 상자·제목 배너·순서 목차 (대상 주 날짜 자동)"),
+                                    ("주간업무계획", "plan", "plan", "대상 주 일정을 ❶ 행사명 + ◦ 일시/장소로"),
                                     ("주간 주요일정", "schedule", "schedule", "월~일 표에 시간·일정명·장소")):
-            Btn(parent, txt, lambda w=which: self.make_week(w), tip=tip, icon_name=ic).pack(fill="x", pady=4)
-        self.section(parent, "일정 입력")
-        Btn(parent, "이번 주 일정 입력·가져오기", lambda: self.open_detail("weekly"), kind="flat", icon_name="plus",
+            Btn(box, txt, lambda w=which: self.make_week(w), tip=tip, icon_name=ic).pack(fill="x", pady=4)
+        Btn(box, "일정 입력·가져오기", lambda: self.open_detail("weekly"), kind="flat", icon_name="plus", h=32,
             tip="한 번 적으면 계획과 주요일정이 같이 나와요").pack(fill="x", pady=2)
+        for g, lst in self.tab_forms("week").items():
+            self.section(box, g)
+            for fid, meta in lst:
+                self._form_btn(meta, fid, box)
 
     # ---------------------------------------------------------------- 기호 탭
     def scroll_area(self, parent):
@@ -1181,6 +1221,7 @@ class Widget(tk.Tk):
 
     def build_symbols(self, parent):
         parent = self.scroll_area(parent)
+        self.build_compose(parent)                        # 글자 겹치기(네모·원 안 숫자)를 맨 위에
         recent = self.ui.get("recent_syms", [])
         if recent:
             self.section(parent, "최근")
@@ -1237,8 +1278,8 @@ class Widget(tk.Tk):
         Btn(parent, "프로그램 완전 종료", self.quit_app, kind="flat", icon_name="tray",
             tip="창을 닫으면 트레이로 가요. 아예 끄려면 여기 또는 트레이 아이콘 메뉴의 '종료'").pack(fill="x", pady=4)
         self.section(parent, "넣는 방식")
-        self._mode_var = tk.StringVar(value=self.ui.get("insert_mode", "whole"))
-        for val, txt in (("whole", "한 번에 넣기 (기본, 순서 안전)"), ("step", "차례대로 입력 (빈 문서에서만)")):
+        self._mode_var = tk.StringVar(value=self.ui.get("insert_mode", "step"))
+        for val, txt in (("step", "차례대로 입력 (문서 끝에서, 기본)"), ("whole", "한 번에 넣기")):
             tk.Radiobutton(parent, text=txt, variable=self._mode_var, value=val, bg=C_BG, font=FONT, anchor="w",
                            fg=C_TEXT, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0,
                            command=lambda: self.ui.__setitem__("insert_mode", self._mode_var.get())).pack(fill="x")
@@ -1266,8 +1307,11 @@ class Widget(tk.Tk):
             vals = {}
             for fl in f.fields:
                 v = ""
-                if fl.get("default") == "today":
-                    v = datetime.date.today().isoformat()
+                d = fl.get("default")
+                if d in ("today", "target_monday"):
+                    v = self.default_value(d)
+                elif d:
+                    v = d
                 if fl.get("profile") and prof.get("autofill", True):
                     v = PR.profile_value(prof, fl["profile"]) or v
                 vals[fl["key"]] = v
@@ -1290,7 +1334,7 @@ class Widget(tk.Tk):
         self.busy(lambda: self.out.insert(pkg, "참고자료"))
 
     def make_week(self, which):
-        monday = T.week_monday(datetime.date.today())
+        monday = self.target_monday()
         data = PR.load_week(monday)
         org = PR.load_profile().get("org") or "문화교육국"
         try:

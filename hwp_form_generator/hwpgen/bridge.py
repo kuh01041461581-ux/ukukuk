@@ -128,6 +128,18 @@ class HwpBridge:
         except Exception:                                  # noqa: BLE001
             return False
 
+    def at_doc_end(self):
+        """커서가 문서 맨 끝에 있는지 (그렇다면 조각을 차례로 이어 붙여도 순서가 뒤집힐 수 없다)"""
+        hwp = self._need()
+        try:
+            p0 = hwp.GetPos()
+            hwp.HAction.Run("MoveDocEnd")
+            p1 = hwp.GetPos()
+            hwp.SetPos(*p0)
+            return tuple(p0) == tuple(p1)
+        except Exception:                                  # noqa: BLE001
+            return False
+
     def apply_page_setup(self, d):
         """용지 크기·여백(HWPUNIT)을 지금 문서에 적용. 안 되면 조용히 넘어간다."""
         hwp = self._need()

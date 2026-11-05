@@ -10,6 +10,7 @@
      일정.json:  {"org": "문화교육국", "start": "2026-11-09", "events": [{"date","time","title","place","dept"}]}
   python app.py extract --plan 주간업무계획.hwpx --org 문화교육국 --out 계획.json
      (시 전체 주간업무계획 hwpx 에서 우리 국 항목만 뽑아 JSON 으로)
+  python app.py convert --src 옛양식.hwp --out 새양식.hwpx    (한글이 켜져 있어야 함: .hwp → .hwpx)
   python app.py add-form --sample 새양식.hwpx --id my_form --name "이름" --audience "구분" --title "샘플 제목 글자"
 """
 import argparse
@@ -32,6 +33,9 @@ def main(argv=None):
     e.add_argument("--plan", required=True)
     e.add_argument("--org", required=True)
     e.add_argument("--out", required=True)
+    cv = sub.add_parser("convert")
+    cv.add_argument("--src", required=True)
+    cv.add_argument("--out", required=True)
     a = sub.add_parser("add-form")
     a.add_argument("--sample", required=True)
     a.add_argument("--id", required=True)
@@ -64,6 +68,11 @@ def main(argv=None):
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump({"org": args.org, "items": items}, f, ensure_ascii=False, indent=2)
         print("항목 %d개 → %s" % (len(items), args.out))
+    elif args.cmd == "convert":
+        from .bridge import HwpBridge
+        br = HwpBridge()
+        br.connect()
+        print("변환했어요:", br.convert_to_hwpx(args.src, args.out))
     elif args.cmd == "add-form":
         fields = []
         if args.title:

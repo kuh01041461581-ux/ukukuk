@@ -135,6 +135,26 @@ class HwpBridge:
                 errs.append(str(e))
         raise BridgeError("글자 겹치기 명령을 쓰지 못했어요: %s" % "; ".join(errs))
 
+    def convert_to_hwpx(self, src, dst):
+        """옛 형식(.hwp)을 한글이 직접 열어 .hwpx 로 저장한다(서식이 가장 정확). 열었던 문서는 닫는다."""
+        hwp = self._need()
+        src, dst = os.path.abspath(src), os.path.abspath(dst)
+        try:
+            if not hwp.Open(src, "HWP", "forceopen:true"):
+                raise BridgeError("한글에서 파일을 열지 못했어요")
+            ok = hwp.SaveAs(dst, "HWPX", "")
+            try:
+                hwp.XHwpDocuments.Active_XHwpDocument.Close(False)
+            except Exception:                              # noqa: BLE001
+                pass
+            if not ok or not os.path.exists(dst):
+                raise BridgeError("hwpx 로 저장하지 못했어요")
+            return dst
+        except BridgeError:
+            raise
+        except Exception as e:                             # noqa: BLE001
+            raise BridgeError("한글로 변환하지 못했어요: %s" % e)
+
     def open_file(self, path):
         hwp = self._need()
         path = os.path.abspath(path)

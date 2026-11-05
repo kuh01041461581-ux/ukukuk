@@ -1,0 +1,39 @@
+{
+  "id": "meeting_card",
+  "name": "참고자료 사업 카드",
+  "audience": "간부회의",
+  "kind": "report",
+  "note": "사업명 상자 + 계장·담당자 줄 + □ 지난주 실적 / □ 금 후 계 획",
+  "fields": [
+    {
+      "key": "title",
+      "label": "사업명"
+    },
+    {
+      "key": "team_title",
+      "label": "계 (예: 문화도시계장)",
+      "profile": "team_title"
+    },
+    {
+      "key": "lead",
+      "label": "계장 (이름 내선 / 휴대폰)",
+      "profile": "lead_full"
+    },
+    {
+      "key": "staff",
+      "label": "담당자 (이름 내선 / 휴대폰)",
+      "profile": "staff_full"
+    }
+  ],
+  "has_body": true,
+  "style": {
+    "heading_prefix": "□ ",
+    "heading_pad2": false,
+    "item1_prefix": "  ◦",
+    "kv": null,
+    "item2_prefix": "    ▸",
+    "item2_sep": ""
+  },
+  "starter": "□ 지난주 실적\n◦ \n▸기간/장소: \n▸주요내용: \n\n□ 금 후 계 획\n◦ \n▸일시/장소: \n▸주요내용: ",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

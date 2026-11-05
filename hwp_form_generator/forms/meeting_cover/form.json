@@ -1,0 +1,35 @@
+{
+  "id": "meeting_cover",
+  "name": "간부회의 표지",
+  "audience": "간부회의",
+  "kind": "report",
+  "note": "간부회의 표지: 날짜·시각 상자 + 현안·당면 업무보고 + 부서",
+  "fields": [
+    {
+      "key": "mdate",
+      "label": "회의 날짜",
+      "type": "date",
+      "fmt": "long",
+      "default": "today"
+    },
+    {
+      "key": "mtime",
+      "label": "회의 시각",
+      "default": "08:30"
+    },
+    {
+      "key": "dept",
+      "label": "부서(과)",
+      "profile": "dept"
+    }
+  ],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

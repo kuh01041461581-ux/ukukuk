@@ -103,7 +103,8 @@ class GuiTests(unittest.TestCase):
             rt.tree.selection_set(iid)
             rt.on_select()
             self.app.update()
-            rt.vars["title"].set("시험 제목")
+            if "title" in rt.vars:
+                rt.vars["title"].set("시험 제목")
             rt.go("insert")
         self.assertGreaterEqual(len(self.br.inserted), len(rt.form_ids))
         for p, size in self.br.inserted:

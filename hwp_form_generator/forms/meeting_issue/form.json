@@ -1,0 +1,36 @@
+{
+  "id": "meeting_issue",
+  "name": "현안업무 보고 (1쪽)",
+  "audience": "간부회의",
+  "kind": "report",
+  "note": "현안업무(번호) 제목 상자 + □ 금 후 계 획 + ◦ ▸ - 단계",
+  "fields": [
+    {
+      "key": "no",
+      "label": "현안업무 번호",
+      "default": "1"
+    },
+    {
+      "key": "title",
+      "label": "현안 제목"
+    },
+    {
+      "key": "dept",
+      "label": "부서(과)",
+      "profile": "dept"
+    }
+  ],
+  "has_body": true,
+  "style": {
+    "heading_prefix": "□ ",
+    "heading_pad2": false,
+    "item1_prefix": "  ◦",
+    "kv": null,
+    "item2_prefix": "    ▸",
+    "item2_sep": "",
+    "item3_prefix": "      -",
+    "item3_sep": ""
+  },
+  "starter": "□ 금 후 계 획\n◦ \n▸일시/장소: \n▸참 석 자: \n- \n▸주요내용: ",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

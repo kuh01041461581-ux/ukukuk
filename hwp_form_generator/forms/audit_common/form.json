@@ -1,0 +1,23 @@
+{
+  "id": "audit_common",
+  "name": "과 공통사항 목록",
+  "audience": "행정사무감사",
+  "kind": "report",
+  "note": "과 이름표 + 감사자료 과 공통사항 목록(1~)",
+  "fields": [
+    {
+      "key": "dept",
+      "label": "과 이름",
+      "profile": "dept"
+    }
+  ],
+  "has_body": true,
+  "style": {
+    "heading_prefix": "□",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

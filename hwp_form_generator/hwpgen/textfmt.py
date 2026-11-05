@@ -6,6 +6,8 @@ import re
 WEEKDAYS = "월화수목금토일"
 BULLETS = "◦○ㅇ∘•ㆍ·"
 HEAD_MARKS = "□■▣◆▶"
+SUB_MARKS = "▸►▹‣"          # 둘째 단계 글머리
+DASH_MARKS = "-－–ㅡ"        # 셋째 단계 글머리
 
 
 def weekday_ko(d):
@@ -101,8 +103,16 @@ def parse_outline(text):
         if s.startswith("#"):
             blocks.append(("h1", s.lstrip("#").strip()))
             continue
+        if s[0] in SUB_MARKS:                                   # ▸ 둘째 단계 ("▸ 일시: 값" 이면 이름 맞춤)
+            body = s[1:].strip()
+            m = re.match(r"^([^\s:：()][^:：]{0,11}?)\s*[:：]\s*(.*)$", body)
+            if m and len(re.sub(r"\s", "", m.group(1))) <= 8:
+                blocks.append(("kv2", m.group(1), m.group(2)))
+            else:
+                blocks.append(("item2", body))
+            continue
         if re.match(r"^[-－–ㅡ*]\s+", s) or (raw[:2].isspace() and re.match(r"^[-－–]\s*", s)):
-            blocks.append(("item2", re.sub(r"^[-－–ㅡ*]\s*", "", s)))
+            blocks.append(("item3", re.sub(r"^[-－–ㅡ*]\s*", "", s)))
             continue
         body = s
         if s[0] in BULLETS:

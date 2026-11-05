@@ -186,7 +186,7 @@ class ReportTab(ttk.Frame):
         if not self.form:
             return
         try:
-            pkg = self.form.render(self.values(), self.body.get("1.0", "end"))
+            pkg = self.form.render(self.values(), self.body.get("1.0", "end") if self.form.meta.get("has_body", True) else "")
         except Exception as e:                      # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
@@ -550,9 +550,18 @@ class FormsTab(ttk.Frame):
             self.tv.insert("", "end", iid=fid, text=meta["name"], values=(names.get(meta["kind"], meta["kind"]), "내 양식" if mine else "기본"))
 
     def add(self):
-        path = filedialog.askopenfilename(title="양식으로 쓸 한글 파일", filetypes=[("한글 문서", "*.hwpx")])
+        path = filedialog.askopenfilename(title="양식으로 쓸 한글 파일", filetypes=[("한글 문서", "*.hwpx *.hwp")])
         if not path:
             return
+        if path.lower().endswith(".hwp"):                      # 옛 형식은 열려 있는 한글이 hwpx 로 바꿔 준다
+            try:
+                if not self.app.bridge.connected:
+                    self.app.bridge.connect(launch=False)
+                out = tmp_hwpx("convert")
+                path = self.app.bridge.convert_to_hwpx(path, out)
+            except Exception as e:                           # noqa: BLE001
+                messagebox.showerror("양식 추가", "%s\n\n한글을 열어 둔 상태에서 다시 해 보시거나, 한글에서 '다른 이름으로 저장 → HWPX' 로 저장한 파일을 고르세요." % e)
+                return
         try:
             Package.load(path)
         except Exception as e:                           # noqa: BLE001
@@ -898,7 +907,11 @@ class Widget(tk.Tk):
     """한글 옆에 떠 있는 양식 단추 모음. 단추를 누르면 열려 있는 한글 문서에 바로 만들어 넣는다."""
 
     TABS = [("보고", "report"), ("주간", "week"), ("기호", "sym"), ("겹치기", "cmp"), ("더보기", "more")]
-    FORM_ICONS = {"report_event": "event", "report_project": "project", "report_mayor": "mayor"}
+    FORM_ICONS = {"report_event": "event", "report_project": "project", "report_mayor": "mayor",
+                  "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project",
+                  "audit_cover": "cover", "audit_common": "plan",
+                  "budget_cover": "cover", "budget_project": "project", "budget_ref_cover": "cover",
+                  "budget_ref_project": "project"}
 
     def __init__(self, bridge=None):
         super().__init__()
@@ -1069,12 +1082,13 @@ class Widget(tk.Tk):
             if meta["kind"] == "report":
                 forms[fid] = meta
         if len(forms) > 6:
-            e = tk.Entry(parent, textvariable=self.q, font=FONT, relief="flat", highlightthickness=1,
-                         highlightbackground=C_LINE, highlightcolor=C_ACC, bg="white")
-            e.pack(fill="x", ipady=5, pady=(0, 2))
+            box = tk.Frame(parent, bg="white", highlightthickness=1, highlightbackground=C_LINE, highlightcolor=C_ACC)
+            box.pack(fill="x", pady=(0, 4))
+            tk.Label(box, text="검색", bg="white", fg=C_SUB, font=FONT_S, padx=8).pack(side="left")
+            e = tk.Entry(box, textvariable=self.q, font=FONT, relief="flat", bd=0, bg="white", highlightthickness=0)
+            e.pack(side="left", fill="x", expand=True, ipady=5)
             self.q.trace_add("write", lambda *a: self._fill_forms(forms))
-        self.forms_box = tk.Frame(parent, bg=C_BG)
-        self.forms_box.pack(fill="both", expand=True)
+        self.forms_box = self.scroll_area(parent)
         self._fill_forms(forms)
 
     def _fill_forms(self, forms):
@@ -1091,7 +1105,8 @@ class Widget(tk.Tk):
             if q and q not in meta["name"] and q not in meta.get("audience", ""):
                 continue
             groups.setdefault(meta.get("audience", "기타"), []).append((fid, meta))
-        for g, lst in groups.items():
+        order = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "행정사무감사"]
+        for g, lst in sorted(groups.items(), key=lambda kv: order.index(kv[0]) if kv[0] in order else 99):
             self.section(self.forms_box, g)
             for fid, meta in lst:
                 self._form_btn(meta, fid)
@@ -1223,7 +1238,8 @@ class Widget(tk.Tk):
                 if fl.get("profile") and prof.get("autofill", True):
                     v = PR.profile_value(prof, fl["profile"]) or v
                 vals[fl["key"]] = v
-            pkg = f.render(vals, f.meta.get("starter") or T.DEFAULT_STARTER)
+            outline = (f.meta.get("starter") or T.DEFAULT_STARTER) if f.meta.get("has_body", True) else ""
+            pkg = f.render(vals, outline)
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return

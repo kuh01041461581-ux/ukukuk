@@ -199,6 +199,43 @@ class RenderTests(unittest.TestCase):
         self.assertIn("(일)", txt)
 
 
+class NewFormsTests(unittest.TestCase):
+    VALUES = {"title": "시험 제목", "dept": "○○과", "date": "2026-11-09", "mdate": "2026-11-09", "mtime": "08:30", "no": "3",
+              "team_title": "△△계장", "lead": "홍길동 1111 / 010-0000-0000", "staff": "이순신 2222 / 010-1111-1111",
+              "adate": "6. 11.", "session": "제282회", "org": "문화교육국", "mdt": "12. 9.(화) 10:00", "round": "(제2차 정례회)",
+              "btitle": "― 2026년도 제2회 추가경정 예산(안) ―", "page": "2", "policy": "정책 A", "unit": "단위 B",
+              "detail": "세부 C"}
+
+    def test_all_new_forms_render(self):
+        want = {"meeting_cover": "현안·당면 업무보고", "meeting_issue": "현안업무(3)", "meeting_card": "△△계장",
+                "audit_cover": "제282회", "audit_common": "감사자료 과 공통사항", "budget_cover": "주요사업 설명자료",
+                "budget_project": "세부사업명 : 세부 C", "budget_ref_cover": "(참고자료)", "budget_ref_project": "단위사업 : 단위 B"}
+        for fid, needle in want.items():
+            f = registry.load_form(fid, ROOTS)
+            outline = (f.meta.get("starter") or "") if f.meta.get("has_body", True) else ""
+            pkg = check_package(self, f.render(self.VALUES, outline))
+            self.assertIn(needle, ptext(pkg.section(0)), fid)
+
+    def test_sub_levels(self):
+        f = registry.load_form("meeting_issue", ROOTS)
+        pkg = check_package(self, f.render(self.VALUES, "□ 금 후 계 획\n◦ 협의\n▸일시/장소: 2026. 11. 11.(수) / 센터\n- (익산시) 담당\n▸주요내용: 설계 협의"))
+        txt = ptext(pkg.section(0))
+        self.assertIn("▸일시/장소 : 2026. 11. 11.(수) / 센터", txt.replace("일시/장소", "일시/장소"))
+        self.assertIn("-(익산시) 담당", txt.replace(" ", "", 0).replace("- (익산시)", "-(익산시)"))
+        self.assertIn("▸주요내용", txt)
+
+    def test_privacy_new_forms(self):
+        import zipfile
+        bad = ("010-", "전주영", "김형남", "조상미", "조선영", "진소현", "박수진", "조승재", "윤보훈", "전북권", "숭림사")
+        for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_common",
+                                    "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_project"):
+            d = os.path.join(FORMS, fid)
+            blob = zipfile.ZipFile(os.path.join(d, "template.hwpx")).read("Contents/section0.xml").decode("utf-8")
+            blob += open(os.path.join(d, "protos.xml"), encoding="utf-8").read() + open(os.path.join(d, "form.json"), encoding="utf-8").read()
+            for w in bad:
+                self.assertNotIn(w, blob, (fid, w))
+
+
 class ComposeTests(unittest.TestCase):
     def test_compose_package(self):
         from hwpgen import compose
@@ -224,7 +261,7 @@ class OutlineTests(unittest.TestCase):
         self.assertEqual(b[0], ("h1", "개요"))
         self.assertEqual(b[1], ("kv", "일시", "2026"))
         self.assertEqual(b[2], ("kv", "장소", "시청"))
-        self.assertEqual(b[3], ("item2", "하위"))
+        self.assertEqual(b[3], ("item3", "하위"))
         self.assertEqual(b[4], ("item1", "그냥 글"))
         self.assertEqual(b[5], ("table", [["a", "b"], ["c", "d"]]))
 

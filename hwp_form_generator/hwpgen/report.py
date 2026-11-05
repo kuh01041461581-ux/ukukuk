@@ -87,8 +87,10 @@ def classify(p):
         if re.match(r"^[%s]\s*(\([^()]{1,12}\)|[^\s:：()][^:：]{0,11}?\s*[:：])" % re.escape(T.BULLETS), s):
             return "kv"
         return "item1"
-    if re.match(r"^[-－–ㅡ]\s", s):
+    if s[0] in T.SUB_MARKS:
         return "item2"
+    if s[0] in T.DASH_MARKS:
+        return "item3"
     return "other"
 
 
@@ -135,9 +137,10 @@ def _kv_label(p):
 
 
 def _prefix_of(p):
+    """글머리 앞부분(들여쓰기+기호)과 기호 뒤 공백 유무"""
     s = own_text(p)
-    m = re.match(r"^(\s*[%s])" % re.escape(T.BULLETS + "-－–"), s)
-    return m.group(1) if m else ""
+    m = re.match(r"^(\s*[%s])(\s?)" % re.escape(T.BULLETS + T.SUB_MARKS + T.DASH_MARKS), s)
+    return (m.group(1), m.group(2)) if m else ("", " ")
 
 
 def _row_info(tr):
@@ -263,91 +266,156 @@ def sanitize_package(pkg, keep_sections=("Contents/section0.xml",)):
     return pkg
 
 
-def register_report(sample_path, out_dir, form_id, name, audience, fields, kind="report", note="", starter=""):
+def flatten_mixed(section):
+    """<t>2026.<fwSpace/> 12. 9.</t> 처럼 고정폭 공백이 끼어 글자가 갈라진 칸을 한 덩어리 글자로 합친다."""
+    for t in section.iter(HP + "t"):
+        if len(t) and all(local(c) in ("fwSpace", "nbSpace") for c in t):
+            s = t.text or ""
+            for c in list(t):
+                s += ("\u3000" if local(c) == "fwSpace" else "\u00a0") + (c.tail or "")
+                t.remove(c)
+            t.text = s
+
+
+def _blank_tables(section, blank_tables):
+    """{문단번호: 남길 줄 수} — 그 문단의 표에서 앞의 N줄(표 머리)만 남기고 나머지 칸의 글자를 비운다(칸 모양은 그대로)."""
+    ps = section.findall(HP + "p")
+    for idx, keep in (blank_tables or {}).items():
+        tbl = next(ps[int(idx)].iter(HP + "tbl"))
+        for tr in tbl.findall(HP + "tr")[keep:]:
+            for t in tr.iter(HP + "t"):
+                t.text = ""
+
+
+def _cut_section(pkg, section_index, slice_, drop, blank_tables=None):
+    """문서의 한 구역에서 문단 [a, b) 만 남긴다(구역 설정 문단은 앞에 붙여 둠). 남긴 구역은 section0 자리로 옮긴다."""
+    names = pkg.section_names()
+    section = pkg.xml(names[section_index])
+    if section_index != 0:
+        pkg._xml["Contents/section0.xml"] = section
+        pkg.files["Contents/section0.xml"] = b""
+    _blank_tables(section, blank_tables)
+    if slice_ is None and not drop:
+        return section
+    ps = section.findall(HP + "p")
+    a, b = slice_ if slice_ else (0, len(ps))
+    keep = [ps[i] for i in range(a, min(b, len(ps))) if i not in set(drop or ())]
+    carrier = None
+    if a > 0 or section_index != 0 and a > 0:
+        carrier = clone(ps[0])
+        for run in carrier.findall(HP + "run"):
+            if any(local(c) == "secPr" for c in run):
+                for c in list(run):
+                    if local(c) in ("tbl", "pic", "container", "t"):
+                        run.remove(c)
+            else:
+                carrier.remove(run)
+        P.strip_lineseg(carrier)
+    for p in ps:
+        section.remove(p)
+    if carrier is not None:
+        section.append(carrier)
+    for p in keep:
+        section.append(p)
+    return section
+
+
+def register_report(sample_path, out_dir, form_id, name, audience, fields, kind="report", note="", starter="",
+                    slice_=None, drop=None, section_index=0, allow_no_body=False, blank_tables=None, fix=None):
     """샘플 hwpx → 양식 폴더(form.json, template.hwpx, protos.xml).
 
-    fields: [{"key","label","sample"(샘플에 들어 있던 글자),"type": text|date|multiline, "fmt":..., "profile": 키}]
+    fields: [{"key","label","sample"(샘플에 들어 있던 글자),"repl"(선택: 바꿀 글자, {{키}} 포함),
+              "type": text|date|multiline, "fmt":..., "profile": 키}]
+    slice_=(a,b): 문서가 여러 쪽일 때 그 중 문단 a~b 만 양식으로 / drop: 뺄 문단 번호 / section_index: 몇 번째 구역
+    allow_no_body: 본문(□ 제목) 없이 틀만 있는 양식(표지 등)도 허용
     반환: dict(결과 요약, 'leftover': 입력 칸으로 지정되지 않고 고정 글자로 남은 것들)
     """
     pkg = Package.load(sample_path)
-    section = pkg.section(0)
+    section = _cut_section(pkg, section_index, slice_, drop, blank_tables)
+    flatten_mixed(section)
+    if fix:
+        fix(section)                      # 양식마다 손봐야 하는 틀 (예: 제목 칸 글자를 자리표시로)
     body = detect_body(section)
-    if body is None:
+    has_body = body is not None
+    if not has_body and not allow_no_body:
         raise ValueError("본문(□ 제목 줄)을 찾지 못했어요. □ 로 시작하는 제목 줄이 있는 양식이어야 해요.")
-    lst, a, b = body
-    ps = lst.findall(HP + "p")
-    region = ps[a:b]
+    protos, tables = {}, []
+    style = {"heading_prefix": "", "heading_pad2": False, "item1_prefix": " ◦", "kv": None}
+    if has_body:
+        lst, a, b = body
+        ps = lst.findall(HP + "p")
+        region = ps[a:b]
 
-    # 1) 견본 문단 뽑기
-    kinds = collections.defaultdict(list)
-    for p in region:
-        kinds[classify(p)].append(p)
-    protos = {}
-    for k in ("h1", "item1", "item2", "blank"):
-        if kinds.get(k):
-            protos[k] = _empty_like(kinds[k][0])
-    style = {"heading_prefix": "", "heading_pad2": False, "item1_prefix": " ◦", "item2_prefix": "  -", "kv": None}
-    if kinds.get("h1"):
-        h = own_text(kinds["h1"][0])
-        m = re.match(r"^([\s%s]*)(.*)$" % re.escape(T.HEAD_MARKS), h)
-        style["heading_prefix"] = m.group(1) if m else ""
-        style["heading_pad2"] = bool(re.fullmatch(r"\S\s{2,}\S", (m.group(2) if m else "").strip()))
-    if kinds.get("kv"):
-        protos["kv"] = _empty_like(kinds["kv"][0])
-        roles_list = [r for r in (_kv_roles(p) for p in kinds["kv"]) if r]
-        style["kv"] = roles_list[0]
-        for key in ("label", "bullet", "gap", "value"):
-            style["kv"][key] = collections.Counter(r[key] for r in roles_list).most_common(1)[0][0]
-        style["item1_prefix"] = _prefix_of(kinds["kv"][0]) or style["item1_prefix"]
-        by = collections.defaultdict(list)       # 항목 이름별 값 글자 모양 (예: 일시·진행방식만 굵게 밑줄)
-        for p in kinds["kv"]:
-            ro, lab = _kv_roles(p), _kv_label(p)
-            if ro and lab:
-                by[lab].append(ro["value"])
-        style["kv"]["by_label"] = {k: collections.Counter(v).most_common(1)[0][0] for k, v in by.items()}
-    if kinds.get("item1"):
-        style["item1_prefix"] = _prefix_of(kinds["item1"][0]) or style["item1_prefix"]
-    if kinds.get("item2"):
-        style["item2_prefix"] = _prefix_of(kinds["item2"][0]) or style["item2_prefix"]
-    if "kv" not in protos and "item1" in protos:
-        protos["kv"] = clone(protos["item1"])
-    if "item1" not in protos and "kv" in protos:
-        protos["item1"] = clone(protos["kv"])
-    if "blank" not in protos:
-        protos["blank"] = _empty_like(region[0])
-    if "h1" not in protos:
-        raise ValueError("□ 제목 줄 모양을 찾지 못했어요")
+        # 1) 견본 문단 뽑기
+        kinds = collections.defaultdict(list)
+        for p in region:
+            kinds[classify(p)].append(p)
+        for k in ("h1", "item1", "item2", "item3", "blank"):
+            if kinds.get(k):
+                protos[k] = _empty_like(kinds[k][0])
+        if kinds.get("h1"):
+            h = own_text(kinds["h1"][0])
+            m = re.match(r"^([\s%s]*)(.*)$" % re.escape(T.HEAD_MARKS), h)
+            style["heading_prefix"] = m.group(1) if m else ""
+            style["heading_pad2"] = bool(re.fullmatch(r"\S\s{2,}\S", (m.group(2) if m else "").strip()))
+        if kinds.get("kv"):
+            protos["kv"] = _empty_like(kinds["kv"][0])
+            roles_list = [r for r in (_kv_roles(p) for p in kinds["kv"]) if r]
+            style["kv"] = roles_list[0]
+            for key in ("label", "bullet", "gap", "value"):
+                style["kv"][key] = collections.Counter(r[key] for r in roles_list).most_common(1)[0][0]
+            style["item1_prefix"] = _prefix_of(kinds["kv"][0])[0] or style["item1_prefix"]
+            by = collections.defaultdict(list)       # 항목 이름별 값 글자 모양 (예: 일시·진행방식만 굵게 밑줄)
+            for p in kinds["kv"]:
+                ro, lab = _kv_roles(p), _kv_label(p)
+                if ro and lab:
+                    by[lab].append(ro["value"])
+            style["kv"]["by_label"] = {k: collections.Counter(v).most_common(1)[0][0] for k, v in by.items()}
+        if kinds.get("item1"):
+            style["item1_prefix"] = _prefix_of(kinds["item1"][0])[0] or style["item1_prefix"]
+        for lvl in ("item2", "item3"):                # ▸ 둘째 단계, - 셋째 단계: 들여쓰기·기호·기호 뒤 공백을 샘플 그대로
+            if kinds.get(lvl):
+                pre, sep = _prefix_of(kinds[lvl][0])
+                style[lvl + "_prefix"], style[lvl + "_sep"] = pre, sep
+        if "kv" not in protos and "item1" in protos:
+            protos["kv"] = clone(protos["item1"])
+        if "item1" not in protos and "kv" in protos:
+            protos["item1"] = clone(protos["kv"])
+        if "blank" not in protos:
+            protos["blank"] = _empty_like(region[0])
+        if "h1" not in protos:
+            raise ValueError("□ 제목 줄 모양을 찾지 못했어요")
 
-    # 2) 표 견본
-    from .package import HH
-    bold_ids = {c.get("id") for c in pkg.header().iter(HH + "charPr") if c.find(HH + "bold") is not None}
-    tables = []
-    for p in kinds.get("table", []):
-        for run in p.findall(HP + "run"):
-            for tbl in run.findall(HP + "tbl"):
-                info = extract_table_protos(tbl)
-                if not info["rows"]:
-                    continue
-                wrapper = clone(p)
-                for t in wrapper.findall(HP + "run"):
-                    for tt in t.findall(HP + "t"):
-                        tt.text = ""
-                for w in wrapper.iter(HP + "tbl"):
-                    for tr in w.findall(HP + "tr"):
-                        w.remove(tr)
-                info["wrapper"] = wrapper
-                tables.append(info)
+        # 2) 표 견본
+        from .package import HH
+        bold_ids = {c.get("id") for c in pkg.header().iter(HH + "charPr") if c.find(HH + "bold") is not None}
+        for p in kinds.get("table", []):
+            for run in p.findall(HP + "run"):
+                for tbl in run.findall(HP + "tbl"):
+                    info = extract_table_protos(tbl)
+                    if not info["rows"]:
+                        continue
+                    wrapper = clone(p)
+                    for t in wrapper.findall(HP + "run"):
+                        for tt in t.findall(HP + "t"):
+                            tt.text = ""
+                    for w in wrapper.iter(HP + "tbl"):
+                        for tr in w.findall(HP + "tr"):
+                            w.remove(tr)
+                    info["wrapper"] = wrapper
+                    tables.append(info)
 
-    # 3) 본문을 {{BODY}} 한 줄로
-    marker = clone(protos["blank"])
-    P.set_par_runs(marker, [(marker.find(HP + "run").get("charPrIDRef") if marker.find(HP + "run") is not None else "0",
-                             BODY_MARK)])
-    first = region[0]
-    lst.replace(first, marker)
-    for p in region[1:]:
-        lst.remove(p)
+        # 3) 본문을 {{BODY}} 한 줄로
+        marker = clone(protos["blank"])
+        P.set_par_runs(marker, [(marker.find(HP + "run").get("charPrIDRef") if marker.find(HP + "run") is not None
+                                 else "0", BODY_MARK)])
+        first = region[0]
+        lst.replace(first, marker)
+        for p in region[1:]:
+            lst.remove(p)
 
     # 4) 입력 칸 자리표시
+    flatten_mixed(section)
     used_keys = []
     for f in fields:
         sample = f.get("sample")
@@ -355,9 +423,15 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
             continue
         hit = 0
         for t in section.iter(HP + "t"):
-            if t.text and sample in t.text and BODY_MARK not in t.text:
-                t.text = t.text.replace(sample, "{{%s}}" % f["key"])
+            txt = t.text or ""
+            if not txt or BODY_MARK in txt:
+                continue
+            ok = (txt.strip() == sample.strip()) if f.get("exact") else (sample in txt)
+            if ok:
+                t.text = txt.replace(sample.strip() if f.get("exact") else sample, f.get("repl") or "{{%s}}" % f["key"])
                 hit += 1
+                if f.get("once"):
+                    break
         if not hit:
             raise ValueError("샘플에서 '%s' 글자를 찾지 못했어요 (%s)" % (sample, f["key"]))
         used_keys.append(f["key"])
@@ -406,7 +480,8 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
 
     form = {
         "id": form_id, "name": name, "audience": audience, "kind": kind, "note": note,
-        "fields": [{k: v for k, v in f.items() if k != "sample"} for f in fields],
+        "fields": [{k: v for k, v in f.items() if k not in ("sample", "repl", "exact", "once")} for f in fields],
+        "has_body": has_body,
         "style": style,
         "starter": starter,
         "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |",
@@ -523,14 +598,20 @@ class ReportForm:
         return self._par("kv", specs)
 
     def _item(self, kind, text):
+        """◦(item1) ▸(item2) -(item3) 줄. 샘플에 없는 단계는 아래 단계 견본을 빌려 쓴다."""
         st = self.meta["style"]
-        prefix = st["item1_prefix"] if kind == "item1" else st["item2_prefix"]
-        proto = "item1"
-        if kind == "item2" and "item2" in self._load_protos()[0]:
-            proto = "item2"
-        cp = self._first_cp(proto)
-        sep = " " if not prefix.endswith(" ") else ""
-        return self._par(proto, [(cp, "%s%s%s" % (prefix, sep, text))])
+        protos = self._load_protos()[0]
+        defaults = {"item1": (st["item1_prefix"], " "), "item2": ("    ▸", ""), "item3": ("      -", "")}
+        pre, sep = defaults[kind]
+        if kind != "item1":
+            pre, sep = st.get(kind + "_prefix", pre), st.get(kind + "_sep", sep)
+        proto = kind if kind in protos else ("item2" if kind == "item3" and "item2" in protos else "item1")
+        if proto == "item1" and kind == "item1" and not pre.endswith(" "):
+            sep = " "
+        return self._par(proto, [(self._first_cp(proto), "%s%s%s" % (pre, sep, text))])
+
+    def _kv2(self, label, value):
+        return self._item("item2", "%s : %s" % (T.pad_label(label), value))
 
     def _table(self, rows, idgen):
         _, tables = self._load_protos()
@@ -614,8 +695,10 @@ class ReportForm:
                 out.append(self._heading(b[1]))
             elif k == "kv":
                 out.append(self._kv(b[1], b[2]))
-            elif k in ("item1", "item2"):
+            elif k in ("item1", "item2", "item3"):
                 out.append(self._item(k, b[1]))
+            elif k == "kv2":
+                out.append(self._kv2(b[1], b[2]))
             elif k == "blank":
                 out.append(self._par("blank", [(self._first_cp("blank"), "")]))
             elif k == "pagebreak":
@@ -668,6 +751,9 @@ class ReportForm:
                 marker = p
                 break
         if marker is None:
+            if not self.meta.get("has_body", True):
+                P.strip_lineseg(section)
+                return pkg
             raise ValueError("양식에 {{BODY}} 자리가 없어요")
         parent = marker.getparent()
         idx = parent.index(marker)

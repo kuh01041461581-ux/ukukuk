@@ -1,0 +1,39 @@
+{
+  "id": "budget_ref_cover",
+  "name": "예산 참고자료 표지",
+  "audience": "예산 설명자료",
+  "kind": "report",
+  "note": "의회 회기·예산 제목·국(과) 표지",
+  "fields": [
+    {
+      "key": "mdt",
+      "label": "회의 날짜·시각 (예: 12. 9.(화) 10:00)"
+    },
+    {
+      "key": "session",
+      "label": "회기 (제284회 익산시의회)"
+    },
+    {
+      "key": "round",
+      "label": "정례회 구분"
+    },
+    {
+      "key": "btitle",
+      "label": "예산 제목"
+    },
+    {
+      "key": "org",
+      "label": "국·과 이름",
+      "profile": "dept"
+    }
+  ],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

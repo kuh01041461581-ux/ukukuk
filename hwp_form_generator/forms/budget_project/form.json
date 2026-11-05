@@ -1,0 +1,47 @@
+{
+  "id": "budget_project",
+  "name": "사업별 설명자료 (1사업 1쪽)",
+  "audience": "예산 설명자료",
+  "kind": "report",
+  "note": "정책명·단위사업·세부사업명 + 사업개요 및 경비내역 표(머리만) + □ 사업개요/증감사유/관계법령/기대효과",
+  "fields": [
+    {
+      "key": "page",
+      "label": "쪽 번호"
+    },
+    {
+      "key": "policy",
+      "label": "정책명"
+    },
+    {
+      "key": "unit",
+      "label": "단위사업"
+    },
+    {
+      "key": "detail",
+      "label": "세부사업명"
+    }
+  ],
+  "has_body": true,
+  "style": {
+    "heading_prefix": "□ ",
+    "heading_pad2": false,
+    "item1_prefix": "  ◦",
+    "kv": {
+      "fmt": "colon",
+      "bullet": "121",
+      "label": "121",
+      "gap": "121",
+      "value": "55",
+      "by_label": {
+        "사업기간": "55",
+        "사업비": "55",
+        "사업내용": "55"
+      }
+    },
+    "item2_prefix": "    ▸",
+    "item2_sep": ""
+  },
+  "starter": "□ 사 업 개 요\n◦ 사업기간: \n◦ 사 업 비: \n◦ 사업내용: \n\n□ 증 감 사 유\n◦ \n▸\n\n□ 관 계 법 령\n◦ \n\n□ 기 대 효 과\n◦ ",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

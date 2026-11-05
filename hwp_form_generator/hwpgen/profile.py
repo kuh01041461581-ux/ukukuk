@@ -60,6 +60,8 @@ def profile_value(p, key):
         return _who(p, "lead", True)
     if key == "staff_full":
         return _who(p, "staff", True)
+    if key == "team_title":
+        return (p.get("team", "") + "계장") if p.get("team") else ""
     if key == "dept_team":
         return " ".join(x for x in (p.get("dept", ""), p.get("team", "")) if x)
     return ""

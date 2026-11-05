@@ -1,0 +1,31 @@
+{
+  "id": "audit_cover",
+  "name": "행정사무감사 표지",
+  "audience": "행정사무감사",
+  "kind": "report",
+  "note": "2026 행정사무감사자료 표지(회기·국 이름)",
+  "fields": [
+    {
+      "key": "adate",
+      "label": "표지 날짜 (예: 6. 11.)"
+    },
+    {
+      "key": "session",
+      "label": "회기 (예: 제282회)"
+    },
+    {
+      "key": "org",
+      "label": "국 이름",
+      "profile": "org"
+    }
+  ],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

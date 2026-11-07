@@ -13,7 +13,7 @@ public class JvmRun {
                 BufferedImage m = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB); Graphics2D g = m.createGraphics(); g.setFont(font); FontMetrics fm = g.getFontMetrics(); int w = fm.stringWidth(s) + 1, h = 14; g.dispose();
                 BufferedImage im = new BufferedImage(Math.max(w, 1), h, BufferedImage.TYPE_INT_ARGB); g = im.createGraphics(); g.setFont(font); g.setColor(Color.WHITE); g.drawString(s, 0, 11); g.dispose();
                 byte[] r = new byte[w * h]; for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) r[y * w + x] = (byte) (im.getRGB(x, y) >>> 24 >= 128 ? 255 : 0); dims[0] = w; dims[1] = h; return r; }
-            public byte[] readFile(String n) { try { return Files.readAllBytes(out.resolve("save").resolve(n)); } catch (IOException e) { return null; } }
+            public byte[] readFile(String n) { String mod = System.getenv("MOD"); if (mod != null && n.equals("data1.pak")) try { return Files.readAllBytes(Paths.get(mod).resolve(n)); } catch (IOException e0) { } try { return Files.readAllBytes(out.resolve("save").resolve(n)); } catch (IOException e) { return null; } }
             public void writeFile(String n, byte[] d) { try { Files.write(out.resolve("save").resolve(n), d); } catch (IOException e) {} }
             public boolean fileExists(String n) { return Files.exists(out.resolve("save").resolve(n)); }
             public void playClip(int id, byte[] m, boolean loop) { System.out.println("PLAYCLIP id=" + id + " len=" + m.length + " head=" + new String(m, 0, 4) + " loop=" + loop); }

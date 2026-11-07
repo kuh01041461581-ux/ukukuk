@@ -31,6 +31,7 @@ public class AndroidPlatform implements Platform {
         dims[0] = w; dims[1] = h; return r;
     }
     public byte[] readFile(String n) {
+        if (n.equals("data1.pak")) try { return all(am.open("st2mod/" + n)); } catch (IOException e0) { }   // 모드 건물·지형 그림 묶음 우선
         File f = new File(dir, n);
         try { if (f.exists()) return all(new FileInputStream(f)); } catch (IOException e) { }
         try { return all(am.open("st2/" + n)); } catch (IOException e) { return null; }       // data1.pak 처럼 처음엔 assets 에서
@@ -38,6 +39,7 @@ public class AndroidPlatform implements Platform {
     public void writeFile(String n, byte[] d) { try { FileOutputStream o = new FileOutputStream(new File(dir, n)); o.write(d); o.close(); } catch (IOException e) { } }
     public boolean fileExists(String n) {
         if (new File(dir, n).exists()) return true;
+        if (n.equals("data1.pak")) try { am.open("st2mod/" + n).close(); return true; } catch (IOException e0) { }
         try { am.open("st2/" + n).close(); return n.equals("data1.pak"); } catch (IOException e) { return false; }
     }
     public void log(String s) { android.util.Log.d("st2", s); }

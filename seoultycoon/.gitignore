@@ -5,3 +5,5 @@ __pycache__/
 *.idsig
 st2android/mod/*.d
 st2android/mod/client.bin1116
+st2android/mod/data1.pak
+st2android/mod/*.m

@@ -105,7 +105,13 @@ for p in range(30, 33):                                # 보이드 오른쪽 루
 
 # 저층부(베이지 2층 부속동): 앞-왼쪽으로 튀어나옴 p∈[-14,12], q∈[10,34], z∈[0,11]
 BEI_L, BEI_R, BEI_T, BEI_W = hexc('e8d9a6'), hexc('cdbd86'), hexc('f1e6bd'), hexc('7f98b3')
-pp0, pp1, qq0, qq1, ZH = -14, 12, 8, 34, 11
+pp0, pp1, qq0, qq1, ZH = -18, 0, 6, 36, 12      # pp1=0: 타워 왼쪽 면(p=0)에 딱 붙임
+# 접지 그림자: 저층부 바닥 둘레(오른쪽·아래)에 어두운 띠를 먼저 깐다
+gs = Image.new('RGBA', (128, 128), (0, 0, 0, 0)); gd = ImageDraw.Draw(gs)
+def ptg(p, q, z): return pt(p, q, z)
+gd.polygon([ptg(pp0, qq0, 0), ptg(pp1, qq0, 0), (ptg(pp1, qq0, 0)[0] + 5, ptg(pp1, qq0, 0)[1] + 3), (ptg(pp0, qq0, 0)[0] + 5, ptg(pp0, qq0, 0)[1] + 3)], fill=(30, 40, 30, 120))
+gd.polygon([ptg(pp0, qq1, 0), ptg(pp0, qq0, 0), (ptg(pp0, qq0, 0)[0] - 2, ptg(pp0, qq0, 0)[1] + 3), (ptg(pp0, qq1, 0)[0] - 3, ptg(pp0, qq1, 0)[1] + 2)], fill=(30, 40, 30, 90))
+base.alpha_composite(gs); d = ImageDraw.Draw(base); px = base.load()
 poly([pt(pp0, qq0, 0), pt(pp0, qq1, 0), pt(pp0, qq1, ZH), pt(pp0, qq0, ZH)], BEI_L)       # 왼면(p=pp0)
 poly([pt(pp0, qq0, 0), pt(pp1, qq0, 0), pt(pp1, qq0, ZH), pt(pp0, qq0, ZH)], BEI_R)       # 오른면(q=qq0)
 poly([pt(pp0, qq0, ZH), pt(pp1, qq0, ZH), pt(pp1, qq1, ZH), pt(pp0, qq1, ZH)], BEI_T)      # 지붕
@@ -117,6 +123,11 @@ for p in range(pp0 + 2, pp1 - 1):
     for z in (2, 3, 4, 7, 8, 9):
         if p % 3 != 0: put(p, qq0, z, hexc('6f87a3'))
 d.line([pt(pp0, qq0, 6), pt(pp1, qq0, 6)], fill=hexc('b3a46e'))
+for p in range(-11, -6):                              # 정문(어두운 유리문)
+    for z in range(0, 5): put(p, qq0, z, hexc('3b4f66') if z else hexc('242f3f'))
+d.line([pt(pp0, qq0, ZH), pt(pp1, qq0, ZH)], fill=hexc('fff6d6'))                # 지붕 앞 가장자리 밝은 선
+d.line([pt(pp0, qq0, 0), pt(pp1, qq0, 0)], fill=hexc('8d7e52'))                  # 바닥 접지선
+d.line([pt(pp0, qq0, 0), pt(pp0, qq1, 0)], fill=hexc('8d7e52'))
 
 # 현수막(왼면 위쪽, 파랑·흰색): q 3~15, z 22~38
 for q in range(3, 16):

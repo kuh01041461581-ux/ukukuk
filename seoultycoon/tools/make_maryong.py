@@ -1,4 +1,4 @@
-"""익산 마스코트 '마룡이' 도트 초상화 생성 → st2android/mod/f0.d(김비서 초상 66x63), ff0.d(표정 아이콘 24x26).
+"""익산 마스코트 '마룡이' 도트 초상화 생성 → st2android/mod/f7.d(만능비서 초상 62x64).
 원본 사진은 work/maryong_src.jpg (개인용, 커밋하지 않음). 없으면 건너뛴다.
 사용: python3 -I tools/make_maryong.py [미리보기.png]"""
 import os, sys
@@ -51,13 +51,13 @@ def pixelate(img, size, colors=22, outline=(18, 52, 58, 255)):
     ol = Image.new('RGBA', (w, h), outline); ol.putalpha(ring.point(lambda v: 255 if v > 0 else 0))
     cv.alpha_composite(ol); cv.alpha_composite(body, (ox, oy)); return cv
 upper = rgba.crop((0, 0, rgba.width, int(rgba.height * 0.82)))
-big = pixelate(upper, (66, 63), colors=28)
+big = pixelate(upper, (62, 64), colors=28)
 # 얼굴 아이콘: 머리(위 60%)만 잘라 24x26
 head = full.crop((105, 30, 465, 360))                           # 더듬이~볼(날개 제외)
 small = pixelate(head, (24, 26), colors=16)
 md = root + '/st2android/mod'; os.makedirs(md, exist_ok=True)
-big.save(md + '/f0.d', format='PNG'); small.save(md + '/ff0.d', format='PNG')
+big.save(md + '/f7.d', format='PNG')      # 만능비서(머든지) 초상 자리 = f7 (비서 순서와 초상 순서가 같다는 추정)
 if len(sys.argv) > 1:
     bgc = Image.new('RGBA', (66 * 2 + 24 * 2 + 30, 63 * 1), (185, 30, 100, 255)); bgc.alpha_composite(big, (4, 0)); bgc.alpha_composite(small, (80, 10))
     bgc.resize((bgc.width * 5, bgc.height * 5), Image.NEAREST).save(sys.argv[1])
-print('마룡이 → f0.d, ff0.d')
+print('마룡이 → f7.d')

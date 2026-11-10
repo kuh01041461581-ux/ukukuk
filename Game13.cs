@@ -68,8 +68,10 @@ internal sealed class JumpRopeGame : MiniGame
 		if (!front) DrawRope(g, midY, false, tripDraw);
 		// 핸들 잡은 두 친구(기둥)
 		foreach (float hx in new[] { LX, RX }) { using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 110, 80))) g.FillRectangle(b, hx - 4, HandY, 8, Floor - HandY + 8); using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 90, 90))) g.FillEllipse(b, hx - 8, HandY - 8, 16, 16); using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 255, 255, 255))) g.FillEllipse(b, hx - 3, HandY - 5, 6, 6); }
+		foreach (float hx in new[] { LX, RX }) { using (Pen p = new Pen(Color.FromArgb(70, 70, 40, 20), 1.5f)) for (int k = 0; k < 4; k++) g.DrawLine(p, hx - 4, HandY + 10 + k * 7, hx + 4, HandY + 12 + k * 7); using (SolidBrush b = new SolidBrush(Color.FromArgb(170, 255, 255, 255))) g.FillEllipse(b, hx - 5, HandY - 6, 5, 5); }
 		float sq = jumping ? 1f + 0.05f * (float)Math.Sin(jt / jdur * 3.14f) : (tripped ? 1f : 1f); float tilt = tripped ? Math.Min(80f, tripT * 160f) : 0f;
 		DrawMascot(g, px, Floor - h + (tripped ? 6f : 0f), 92f * sq, tilt);
+		if (front && !tripped) DrawRope(g, HandY - Amp * (float)Math.Cos(ph - 0.45f), true, false, 0.28f);
 		if (front) DrawRope(g, midY, true, tripDraw);
 		Txt(g, jumps.ToString(), 44f, 2, Color.White, 0, 80, LW, 70, StringAlignment.Center);
 		Txt(g, "점프", 11f, 2, Color.FromArgb(220, 255, 255, 255), 0, 150, LW, 20, StringAlignment.Center);
@@ -77,12 +79,14 @@ internal sealed class JumpRopeGame : MiniGame
 		if (msgT > 0f) Txt(g, msg, 18f, 2, Color.FromArgb((int)(255 * Math.Min(1f, msgT * 2f)), 255, 236, 130), 0, 250, LW, 30, StringAlignment.Center);
 		if (jumps == 0 && !tripped) Hint(g, "클릭! 줄이 내려올 때 점프", 540 + 15.0, 13f, false, 1f);
 	}
-	private void DrawRope(Graphics g, float midY, bool front, bool trip)
+	private void DrawRope(Graphics g, float midY, bool front, bool trip, float ga = 1f)
 	{
 		PointF[] pts = new PointF[21]; for (int i = 0; i <= 20; i++) { float u = i / 20f; float x = LX + (RX - LX) * u; float y = HandY + (midY - HandY) * (float)Math.Sin(u * 3.1416f); pts[i] = new PointF(x, Math.Min(Floor + 6f, y)); }
+		if (ga < 1f) { using (Pen gp = new Pen(Color.FromArgb((int)(255 * ga), 255, 120, 110), 4f) { LineJoin = LineJoin.Round }) g.DrawLines(gp, pts); return; }
 		Color c = trip ? Color.FromArgb(255, 110, 80) : Color.FromArgb(front ? 255 : 160, 240, 80, 80);
 		using (Pen p = new Pen(Color.FromArgb(front ? 80 : 40, 0, 0, 0), front ? 7f : 5f) { LineJoin = LineJoin.Round }) { PointF[] sh = new PointF[pts.Length]; for (int i = 0; i < pts.Length; i++) sh[i] = new PointF(pts[i].X + 2f, pts[i].Y + 3f); g.DrawLines(p, sh); }
 		using (Pen p = new Pen(c, front ? 4.5f : 3f) { LineJoin = LineJoin.Round }) g.DrawLines(p, pts);
-		if (front) using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 1.4f)) g.DrawLines(p, pts);
+		using (Pen p = new Pen(Color.FromArgb(front ? 190 : 100, 255, 255, 255), front ? 3f : 2f) { DashPattern = new float[] { 1.6f, 3.2f } }) g.DrawLines(p, pts);
+		if (front) using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 1.2f)) g.DrawLines(p, pts);
 	}
 }

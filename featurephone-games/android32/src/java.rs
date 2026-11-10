@@ -59,7 +59,7 @@ pub fn call(_core: &mut ArmCore, state: &Shared, name: &str, sig: &str, args: &[
             // 네트워크가 없다고 답하면 게임이 "접속중" 화면을 한참 보여 준다: 그동안 호스트가 게임을 빠르게 돌려 준다
             let mut st = state.lock();
             st.fast_forward_until_ms = st.now_ms + 15_000;
-            JValue::Int(0)
+            JValue::Int(if cfg!(not(target_arch = "wasm32")) && std::env::var("NETAVAIL").is_ok() { 1 } else { 0 })
         }
         "isNetworkRoaming" | "isAirplaneModeOn" | "isFBOSupported" => JValue::Int(0),
         // ---- 볼륨 ----
@@ -88,6 +88,7 @@ pub fn call(_core: &mut ArmCore, state: &Shared, name: &str, sig: &str, args: &[
         "getUniqueNumberFromStrings" => {
             // 자바 원본(MidasAssetManager): 처음 요청된 순서대로 1, 2, 3 ... 번호를 부여한다
             let text = string_arg(state, &args[0]);
+            if std::env::var("TRACE_ASSET").is_ok() && cfg!(not(target_arch = "wasm32")) { eprintln!("[asset] {text}"); }
             let mut st = state.lock();
             let index = match st.asset_names.iter().position(|n| *n == text) {
                 Some(i) => i,

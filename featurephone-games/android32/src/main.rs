@@ -25,6 +25,7 @@ fn main() -> anyhow::Result<()> {
         eprintln!("실행 오류: {error:?}");
     }
     let state = state.lock();
+    for l in state.log.iter().take(80) { eprintln!("LOG {l}"); }
     eprintln!("--- 로그 {}줄, GL 호출 {}회", state.log.len(), state.gl_calls);
     Ok(result?)
 }
@@ -95,7 +96,11 @@ async fn run(so: Vec<u8>, state: Arc<Mutex<State>>) -> Result<()> {
         let dump_dir = std::env::var("DUMP").ok();
         for frame in 0..frames {
             st2.lock().now_ms += 33; // 약 30fps
-            let _: u32 = core2.run_function(native_loop, &[env_ptr, 0]).await?;
+            if let Err(e) = core2.run_function::<u32>(native_loop, &[env_ptr, 0]).await {
+                eprintln!("프레임 {frame} 오류: {e:?}\n{}", core2.dump_reg_stack(0x1000_0000));
+                for line in st2.lock().trace.iter() { eprintln!("  {line}"); }
+                return Err(e);
+            }
             if let Some(dir) = &dump_dir {
                 let st = st2.lock();
                 if st.gl.width > 0 && (frame % 10 == 0 || frame + 1 == frames) {

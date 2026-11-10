@@ -314,6 +314,18 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
         }
         // ---- 스레드/잠금 (단일 스레드) ----
         "pthread_mutex_lock" | "pthread_mutex_unlock" => Ret::U(0),
+        // C++ 함수 안 static 변수 초기화 보호: 첫 호출에만 1(초기화 진행)을 돌려준다
+        "__cxa_guard_acquire" => {
+            let g = p(core, 0)?;
+            let mut b = [0u8; 1];
+            core.read_bytes(g, &mut b)?;
+            Ret::U(if b[0] == 0 { 1 } else { 0 })
+        }
+        "__cxa_guard_release" => {
+            core.write_bytes(p(core, 0)?, &[1u8])?;
+            Ret::U(0)
+        }
+        "__cxa_guard_abort" => Ret::U(0),
         // ---- 오류/로그/중단 ----
         "__errno" => {
             let mut st = state.lock();
@@ -470,6 +482,7 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
                 Ret::U(0)
             } else {
                 // fread(ptr, size, count, FILE*)
+                if std::env::var("TRACE_FREAD").is_ok() && st.calls.get("fread").copied().unwrap_or(0) % 4000 == 0 { eprintln!("[fread] size={a1} n={a2} lr={lr:#x} pos={:?}", st.fds.get(&st.file_ptrs.get(&a3).copied().unwrap_or(-1)).map(|x| x.1)); }
                 let fd = st.file_ptrs.get(&a3).copied().unwrap_or(-1);
                 let Some((path, pos)) = st.fds.get(&fd).cloned() else { return Ret::U(0).write_with(core, lr) };
                 let total = (a1 as usize) * (a2 as usize);
@@ -489,6 +502,7 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
             let st = state.lock();
             let size = st.fs.get(&path).map(|f| f.len());
             let is_dir = st.fs.keys().any(|k| k.starts_with(&format!("{path}/")));
+            if std::env::var("TRACE_FS").is_ok() { eprintln!("[{name}] {path} -> {:?} dir={is_dir}", size); }
             drop(st);
             if size.is_none() && !is_dir {
                 Ret::U(-1i32 as u32)

@@ -3,7 +3,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use spin::Mutex;
-use wie_core_arm::{Allocator, ArmCore, ResultWriter, SvcId};
+use wie_core_arm::{Allocator, ArmCore, JumpTo, ResultWriter, SvcId};
 use wie_util::{ByteRead, ByteWrite, Result, WieError, read_generic, read_null_terminated_string_bytes, write_generic};
 
 pub const CAT_LIBC: u32 = 1;
@@ -53,6 +53,11 @@ pub struct State {
     pub asset_names: Vec<String>,
     /// 최근 호출 기록(문제 추적용)
     pub trace: std::collections::VecDeque<String>,
+    /// 스레드 지역 저장소(pthread_key): 키 -> 값
+    pub tls: BTreeMap<u32, u32>,
+    pub next_key: u32,
+    /// zlib 스트림: z_stream 주소 -> 압축 해제 상태
+    pub inflaters: BTreeMap<u32, (Box<miniz_oxide::inflate::stream::InflateState>, miniz_oxide::DataFormat)>,
 }
 
 #[derive(Clone, Debug)]
@@ -91,6 +96,9 @@ impl State {
             fast_forward_until_ms: 0,
             asset_names: Vec::new(),
             trace: Default::default(),
+            tls: BTreeMap::new(),
+            next_key: 1,
+            inflaters: BTreeMap::new(),
         }
     }
 }
@@ -573,6 +581,360 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
             st.next_texture = next;
             st.gl_calls += 1;
             Ret::U(0)
+        }
+
+        // ---- 스레드(단일 스레드로 흉내) ----
+        "pthread_once" => {
+            let (ctl, func) = (p(core, 0)?, p(core, 1)?);
+            let done: u32 = read_generic(core, ctl)?;
+            if done == 0 {
+                write_generic(core, ctl, 1u32)?;
+                let _: u32 = core.run_function(func, &[]).await?;
+            }
+            Ret::U(0)
+        }
+        "pthread_key_create" => {
+            let out = p(core, 0)?;
+            let key = { let mut st = state.lock(); let k = st.next_key; st.next_key += 1; k };
+            write_generic(core, out, key)?;
+            Ret::U(0)
+        }
+        "pthread_key_delete" => Ret::U(0),
+        "pthread_setspecific" => {
+            let (k, v) = (p(core, 0)?, p(core, 1)?);
+            state.lock().tls.insert(k, v);
+            Ret::U(0)
+        }
+        "pthread_getspecific" => Ret::U(state.lock().tls.get(&p(core, 0)?).copied().unwrap_or(0)),
+        "pthread_cond_wait" | "pthread_cond_broadcast" | "pthread_cond_signal" | "pthread_cond_init" | "pthread_cond_destroy" | "pthread_mutex_init" | "pthread_mutex_destroy" | "pthread_mutex_trylock" => Ret::U(0),
+        // ---- setjmp / longjmp ----
+        "setjmp" | "_setjmp" => {
+            let buf = p(core, 0)?;
+            let c = core.save_context();
+            for (i, v) in [c.r4, c.r5, c.r6, c.r7, c.r8, c.sb, c.sl, c.fp, c.sp, c.lr].iter().enumerate() {
+                write_generic(core, buf + 4 * i as u32, *v)?;
+            }
+            Ret::U(0)
+        }
+        "longjmp" | "_longjmp" => {
+            let (buf, val) = (p(core, 0)?, p(core, 1)?);
+            let mut vals = [0u32; 10];
+            for (i, v) in vals.iter_mut().enumerate() {
+                *v = read_generic(core, buf + 4 * i as u32)?;
+            }
+            let mut c = core.save_context();
+            c.r0 = if val == 0 { 1 } else { val };
+            (c.r4, c.r5, c.r6, c.r7, c.r8, c.sb, c.sl, c.fp, c.sp, c.lr) = (vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7], vals[8], vals[9]);
+            core.restore_context(&c);
+            return JumpTo(vals[9]).write(core, 0);
+        }
+        // ---- 메모리/문자열 추가 ----
+        "memcmp" => {
+            let (a, b, n) = (p(core, 0)?, p(core, 1)?, p(core, 2)? as usize);
+            let (mut x, mut y) = (vec![0u8; n], vec![0u8; n]);
+            core.read_bytes(a, &mut x)?;
+            core.read_bytes(b, &mut y)?;
+            Ret::U(match x.cmp(&y) { std::cmp::Ordering::Less => -1i32 as u32, std::cmp::Ordering::Equal => 0, _ => 1 })
+        }
+        "memchr" => {
+            let (a, c, n) = (p(core, 0)?, p(core, 1)? as u8, p(core, 2)? as usize);
+            let mut x = vec![0u8; n];
+            core.read_bytes(a, &mut x)?;
+            Ret::U(x.iter().position(|b| *b == c).map_or(0, |i| a + i as u32))
+        }
+        "strchr" | "strrchr" => {
+            let (a, c) = (p(core, 0)?, p(core, 1)? as u8);
+            let mut s = cstr(core, a)?;
+            s.push(0);
+            let pos = if name == "strchr" { s.iter().position(|b| *b == c) } else { s.iter().rposition(|b| *b == c) };
+            Ret::U(pos.map_or(0, |i| a + i as u32))
+        }
+        "atol" => {
+            let s = String::from_utf8_lossy(&cstr(core, p(core, 0)?)?).trim().to_string();
+            let digits: String = s.chars().enumerate().take_while(|(i, c)| c.is_ascii_digit() || (*i == 0 && (*c == '-' || *c == '+'))).map(|(_, c)| c).collect();
+            Ret::U(digits.parse::<i32>().unwrap_or(0) as u32)
+        }
+        "strtod" => {
+            let (a, end) = (p(core, 0)?, p(core, 1)?);
+            let s = cstr(core, a)?;
+            let text = String::from_utf8_lossy(&s).to_string();
+            let t = text.trim_start();
+            let skipped = text.len() - t.len();
+            let mut best = (0.0f64, 0usize);
+            for l in (1..=t.len()).rev() {
+                if let Ok(v) = t[..l].parse::<f64>() { best = (v, l); break; }
+            }
+            if end != 0 { write_generic(core, end, a + (skipped + best.1) as u32)?; }
+            Ret::D(best.0)
+        }
+        "wcslen" => {
+            let a = p(core, 0)?;
+            let mut n = 0u32;
+            loop { let v: u32 = read_generic(core, a + 4 * n)?; if v == 0 { break; } n += 1; }
+            Ret::U(n)
+        }
+        "wcscpy" => {
+            let (d, s) = (p(core, 0)?, p(core, 1)?);
+            let mut n = 0u32;
+            loop { let v: u32 = read_generic(core, s + 4 * n)?; write_generic(core, d + 4 * n, v)?; if v == 0 { break; } n += 1; }
+            Ret::U(d)
+        }
+        "realloc" => {
+            let (old, size) = (p(core, 0)?, p(core, 1)?);
+            if old == 0 {
+                Ret::U(guest_malloc(core, size.max(1))?)
+            } else {
+                let old_size: u32 = read_generic(core, old - 4)?;
+                let new = guest_malloc(core, size.max(1))?;
+                let n = old_size.min(size) as usize;
+                let mut buf = vec![0u8; n];
+                core.read_bytes(old, &mut buf)?;
+                core.write_bytes(new, &buf)?;
+                guest_free(core, old)?;
+                Ret::U(new)
+            }
+        }
+        "fopen" => {
+            let path = String::from_utf8_lossy(&cstr(core, p(core, 0)?)?).to_string();
+            let mode = String::from_utf8_lossy(&cstr(core, p(core, 1)?)?).to_string();
+            let mut st = state.lock();
+            let exists = st.fs.contains_key(&path);
+            if mode.starts_with('r') && !exists {
+                st.log.push(format!("[fs] fopen 실패(없음): {path}"));
+                Ret::U(0)
+            } else {
+                if mode.starts_with('w') || !exists {
+                    st.fs.insert(path.clone(), Vec::new());
+                    st.dirty.insert(path.clone());
+                }
+                let pos = if mode.starts_with('a') { st.fs[&path].len() } else { 0 };
+                let fd = st.next_fd;
+                st.next_fd += 1;
+                st.fds.insert(fd, (path, pos));
+                drop(st);
+                let ptr = guest_malloc(core, 16)?;
+                state.lock().file_ptrs.insert(ptr, fd);
+                Ret::U(ptr)
+            }
+        }
+        "fwrite" | "fputs" | "fputc" | "fprintf" if { let f = if name == "fwrite" { p(core, 3)? } else if name == "fprintf" || name == "fputs" { p(core, if name == "fputs" { 1 } else { 0 })? } else { p(core, 1)? }; state.lock().file_ptrs.contains_key(&f) } => {
+            let (data, file, ret) = match name.as_str() {
+                "fwrite" => {
+                    let (ptr, size, n, f) = (p(core, 0)?, p(core, 1)?, p(core, 2)?, p(core, 3)?);
+                    let mut d = vec![0u8; (size * n) as usize];
+                    core.read_bytes(ptr, &mut d)?;
+                    (d, f, n)
+                }
+                "fputs" => { let d = cstr(core, p(core, 0)?)?; (d, p(core, 1)?, 0) }
+                "fputc" => (vec![p(core, 0)? as u8], p(core, 1)?, p(core, 0)?),
+                _ => {
+                    let fmt = cstr(core, p(core, 1)?)?;
+                    let mut args = RegArgs { pos: 2 };
+                    let d = format_c(core, &fmt, &mut args)?;
+                    let n = d.len() as u32;
+                    (d, p(core, 0)?, n)
+                }
+            };
+            let mut st = state.lock();
+            if let Some(fd) = st.file_ptrs.get(&file).copied() {
+                if let Some((path, pos)) = st.fds.get(&fd).cloned() {
+                    if path != VFS_PATH {
+                        let f = st.fs.entry(path.clone()).or_default();
+                        if f.len() < pos + data.len() { f.resize(pos + data.len(), 0); }
+                        f[pos..pos + data.len()].copy_from_slice(&data);
+                        st.dirty.insert(path);
+                        st.fds.get_mut(&fd).unwrap().1 = pos + data.len();
+                    }
+                }
+            }
+            Ret::U(ret)
+        }
+        // ---- 출력(버린다) ----
+        "printf" | "fprintf" | "sprintf" | "snprintf" | "vsprintf" | "puts" | "fputs" | "fputc" | "fflush" | "fwrite" => {
+            match name.as_str() {
+                "sprintf" | "snprintf" => {
+                    let (buf, size, fmt_at, first) = if name == "sprintf" { (p(core, 0)?, u32::MAX, p(core, 1)?, 2) } else { (p(core, 0)?, p(core, 1)?, p(core, 2)?, 3) };
+                    let fmt = cstr(core, fmt_at)?;
+                    let mut args = RegArgs { pos: first };
+                    let mut text = format_c(core, &fmt, &mut args)?;
+                    let full = text.len() as u32;
+                    if size > 0 {
+                        if size != u32::MAX { text.truncate(size as usize - 1); }
+                        text.push(0);
+                        core.write_bytes(buf, &text)?;
+                    }
+                    Ret::U(full)
+                }
+                "vsprintf" => {
+                    let (buf, fmt, ap) = (p(core, 0)?, p(core, 1)?, p(core, 2)?);
+                    let fmt = cstr(core, fmt)?;
+                    let mut args = MemArgs { ptr: ap };
+                    let mut text = format_c(core, &fmt, &mut args)?;
+                    let full = text.len() as u32;
+                    text.push(0);
+                    core.write_bytes(buf, &text)?;
+                    Ret::U(full)
+                }
+                "fprintf" | "printf" => {
+                    let (fmt_at, first) = if name == "fprintf" { (p(core, 1)?, 2) } else { (p(core, 0)?, 1) };
+                    let fmt = cstr(core, fmt_at)?;
+                    let mut args = RegArgs { pos: first };
+                    let text = format_c(core, &fmt, &mut args)?;
+                    eprintln!("[stdio] {}", String::from_utf8_lossy(&text));
+                    Ret::U(text.len() as u32)
+                }
+                "fputs" | "puts" => {
+                    eprintln!("[stdio] {}", String::from_utf8_lossy(&cstr(core, p(core, 0)?)?));
+                    Ret::U(0)
+                }
+                _ => Ret::U(0),
+            }
+        }
+        // ---- 수학 ----
+        "sin" | "cos" | "sqrt" | "exp" | "log" | "log10" | "sinh" | "cosh" | "acos" | "asin" | "atan" | "tan" | "fabs" => {
+            let v = f64::from_bits(p(core, 0)? as u64 | (p(core, 1)? as u64) << 32);
+            Ret::D(match name.as_str() { "sin" => v.sin(), "cos" => v.cos(), "sqrt" => v.sqrt(), "exp" => v.exp(), "log" => v.ln(), "log10" => v.log10(), "sinh" => v.sinh(), "cosh" => v.cosh(), "acos" => v.acos(), "asin" => v.asin(), "atan" => v.atan(), "tan" => v.tan(), _ => v.abs() })
+        }
+        "atan2" | "fmod" => {
+            let a = f64::from_bits(p(core, 0)? as u64 | (p(core, 1)? as u64) << 32);
+            let b = f64::from_bits(p(core, 2)? as u64 | (p(core, 3)? as u64) << 32);
+            Ret::D(if name == "atan2" { a.atan2(b) } else { a % b })
+        }
+        "ldexp" => {
+            let a = f64::from_bits(p(core, 0)? as u64 | (p(core, 1)? as u64) << 32);
+            Ret::D(a * 2f64.powi(p(core, 2)? as i32))
+        }
+        "frexp" => {
+            let a = f64::from_bits(p(core, 0)? as u64 | (p(core, 1)? as u64) << 32);
+            let out = p(core, 2)?;
+            let (m, e) = if a == 0.0 || !a.is_finite() { (a, 0) } else { let e = a.abs().log2().floor() as i32 + 1; (a / 2f64.powi(e), e) };
+            write_generic(core, out, e as u32)?;
+            Ret::D(m)
+        }
+        "modf" => {
+            let a = f64::from_bits(p(core, 0)? as u64 | (p(core, 1)? as u64) << 32);
+            let out = p(core, 2)?;
+            let ip = a.trunc();
+            write_generic(core, out, ip.to_bits())?;
+            Ret::D(a - ip)
+        }
+        // ---- 시간 ----
+        "gettimeofday" => {
+            let tv = p(core, 0)?;
+            let now = { let st = state.lock(); st.now_ms + st.time_skew_ms };
+            if tv != 0 {
+                write_generic(core, tv, (now / 1000) as u32)?;
+                write_generic(core, tv + 4, ((now % 1000) * 1000) as u32)?;
+            }
+            Ret::U(0)
+        }
+        "time" => {
+            let now = { let st = state.lock(); st.now_ms + st.time_skew_ms };
+            let t = (now / 1000) as u32;
+            let out = p(core, 0)?;
+            if out != 0 { write_generic(core, out, t)?; }
+            Ret::U(t)
+        }
+        "ftell" => {
+            let st = state.lock();
+            let fd = st.file_ptrs.get(&p(core, 0)?).copied().unwrap_or(-1);
+            Ret::U(st.fds.get(&fd).map_or(-1i32 as u32, |f| f.1 as u32))
+        }
+        "srand48" | "atexit" | "__cxa_atexit" => Ret::U(0),
+        "strtol" => {
+            let s = String::from_utf8_lossy(&cstr(core, p(core, 0)?)?).trim().to_string();
+            Ret::U(s.parse::<i32>().unwrap_or(0) as u32)
+        }
+
+        // ---- zlib (inflate 만) ----
+        "inflateInit_" | "inflateInit2_" | "inflateReset" | "inflateEnd" => {
+            let strm = p(core, 0)?;
+            match name.as_str() {
+                "inflateEnd" => { state.lock().inflaters.remove(&strm); }
+                _ => {
+                    if std::env::var("DUMP_INFLATE").is_ok() { state.lock().next_key += 1; }
+                    let window = if name == "inflateInit2_" { p(core, 1)? as i32 } else { 15 };
+                    let fmt = if window < 0 { miniz_oxide::DataFormat::Raw } else { miniz_oxide::DataFormat::Zlib };
+                    state.lock().inflaters.insert(strm, (miniz_oxide::inflate::stream::InflateState::new_boxed(fmt), fmt));
+                    for off in [8u32, 20, 24] { write_generic(core, strm + off, 0u32)?; }
+                    write_generic(core, strm + 28, 1u32)?; // state 가 널이 아니도록
+                }
+            }
+            Ret::U(0)
+        }
+        "inflate" => {
+            let strm = p(core, 0)?;
+            let (next_in, avail_in, total_in, next_out, avail_out, total_out): (u32, u32, u32, u32, u32, u32) = (
+                read_generic(core, strm)?, read_generic(core, strm + 4)?, read_generic(core, strm + 8)?,
+                read_generic(core, strm + 12)?, read_generic(core, strm + 16)?, read_generic(core, strm + 20)?);
+            let mut input = vec![0u8; avail_in as usize];
+            core.read_bytes(next_in, &mut input)?;
+            let mut output = vec![0u8; avail_out as usize];
+            // 입력을 한 바이트씩 먹여서, 출력에 필요한 만큼만 입력을 소비한 것처럼 보이게 한다(zlib 과 같은 동작)
+            let flush = miniz_oxide::MZFlush::new(p(core, 1)? as i32).unwrap_or(miniz_oxide::MZFlush::None);
+            let mut result = miniz_oxide::StreamResult { bytes_consumed: 0, bytes_written: 0, status: Ok(miniz_oxide::MZStatus::Ok) };
+            {
+                let mut st = state.lock();
+                let Some((inf, _)) = st.inflaters.get_mut(&strm) else { return Ret::U(-2i32 as u32).write_with(core, lr) };
+                loop {
+                    if result.bytes_written >= output.len() { break; }
+                    let take = if result.bytes_consumed < input.len() { 1 } else { 0 };
+                    let r = miniz_oxide::inflate::stream::inflate(inf, &input[result.bytes_consumed..result.bytes_consumed + take], &mut output[result.bytes_written..], flush);
+                    result.bytes_consumed += r.bytes_consumed;
+                    result.bytes_written += r.bytes_written;
+                    result.status = r.status;
+                    match r.status {
+                        Ok(miniz_oxide::MZStatus::Ok) => {}
+                        _ => break,
+                    }
+                    if take == 0 && r.bytes_written == 0 { break; }
+                }
+            }
+            if std::env::var("DUMP_INFLATE").is_ok() { use std::io::Write; let _ = std::fs::OpenOptions::new().create(true).append(true).open(format!("/tmp/d4/infl_{}.bin", state.lock().next_key)).map(|mut f| f.write_all(&input[..result.bytes_consumed])); }
+            if std::env::var("TRACE_INFLATE").is_ok() { eprintln!("[inflate] in={avail_in} out={avail_out} -> consumed={} written={} {:?}", result.bytes_consumed, result.bytes_written, result.status); }
+            core.write_bytes(next_out, &output[..result.bytes_written])?;
+            write_generic(core, strm, next_in + result.bytes_consumed as u32)?;
+            write_generic(core, strm + 4, avail_in - result.bytes_consumed as u32)?;
+            write_generic(core, strm + 8, total_in + result.bytes_consumed as u32)?;
+            write_generic(core, strm + 12, next_out + result.bytes_written as u32)?;
+            write_generic(core, strm + 16, avail_out - result.bytes_written as u32)?;
+            write_generic(core, strm + 20, total_out + result.bytes_written as u32)?;
+            Ret::U(match result.status {
+                Ok(miniz_oxide::MZStatus::Ok) => 0,
+                Ok(miniz_oxide::MZStatus::StreamEnd) => 1,
+                Ok(miniz_oxide::MZStatus::NeedDict) => 2,
+                Err(miniz_oxide::MZError::Buf) => -5i32 as u32,
+                Err(miniz_oxide::MZError::Data) => -3i32 as u32,
+                Err(_) => -2i32 as u32,
+            })
+        }
+
+        "crc32" => {
+            let (crc, buf, len) = (p(core, 0)?, p(core, 1)?, p(core, 2)? as usize);
+            if buf == 0 {
+                Ret::U(0)
+            } else {
+                let mut d = vec![0u8; len];
+                core.read_bytes(buf, &mut d)?;
+                let mut c = !crc;
+                for b in d {
+                    c ^= b as u32;
+                    for _ in 0..8 { c = if c & 1 != 0 { (c >> 1) ^ 0xEDB8_8320 } else { c >> 1 }; }
+                }
+                Ret::U(!c)
+            }
+        }
+        "adler32" => {
+            let (adler, buf, len) = (p(core, 0)?, p(core, 1)?, p(core, 2)? as usize);
+            if buf == 0 {
+                Ret::U(1)
+            } else {
+                let mut d = vec![0u8; len];
+                core.read_bytes(buf, &mut d)?;
+                let (mut a, mut b) = (adler & 0xffff, adler >> 16);
+                for x in d { a = (a + x as u32) % 65521; b = (b + a) % 65521; }
+                Ret::U(b << 16 | a)
+            }
         }
         other => return fatal(format!("구현되지 않은 시스템 함수: {other}")),
     };

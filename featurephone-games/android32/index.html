@@ -96,7 +96,7 @@ try {
     if (now - last >= 30) {
       last = now;
       try {
-        let extra = game.wants_fast_forward(Date.now()) ? 6 : 0;   // 서버 접속 대기는 빠르게 넘긴다
+        let extra = (CFG.ff !== false && game.wants_fast_forward(Date.now())) ? 6 : 0;   // 서버 접속 대기는 빠르게 넘긴다
         for (let i = 0; i < extra; i++) await game.frame(Date.now());
         await game.frame(Date.now());
         const rgba = game.frame_rgba();

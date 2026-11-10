@@ -15,6 +15,8 @@ pub struct Library {
     pub base: u32,
     /// 이름 → 실제 주소 (Thumb 함수는 최하위 비트가 1)
     pub exports: BTreeMap<String, u32>,
+    /// 정적 생성자(.init_array) 주소들: 로드 직후 순서대로 실행해야 한다
+    pub init_functions: Vec<u32>,
 }
 
 const R_ARM_ABS32: u32 = 2;
@@ -99,7 +101,26 @@ pub fn load(core: &mut ArmCore, state: &Arc<Mutex<State>>, data: &[u8]) -> Resul
         }
     }
 
-    Ok(Library { base: BASE, exports })
+    // 4) 정적 생성자 목록 (.init_array)
+    let mut init_functions = Vec::new();
+    if let Some(dynamic) = file.dynamic().map_err(err)? {
+        let (mut array, mut size) = (0u32, 0u32);
+        for d in dynamic.iter() {
+            match d.d_tag {
+                25 => array = d.d_ptr() as u32,
+                27 => size = d.d_val() as u32,
+                _ => {}
+            }
+        }
+        for i in 0..size / 4 {
+            let f: u32 = wie_util::read_generic(core, BASE + array + i * 4)?;
+            if f != 0 && f != 0xffff_ffff {
+                init_functions.push(f);
+            }
+        }
+    }
+
+    Ok(Library { base: BASE, exports, init_functions })
 }
 
 /// 가져다 쓰는 함수/변수를 호스트 구현으로 연결한다. 함수는 SVC 스텁 주소, 데이터는 새로 할당한 변수 주소.

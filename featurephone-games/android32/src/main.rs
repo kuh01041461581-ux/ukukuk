@@ -43,6 +43,9 @@ async fn run(so: Vec<u8>, state: Arc<Mutex<State>>) -> Result<()> {
     eprintln!("올림: 기준주소 {:#x}, 내보낸 함수 {}개", lib.base, lib.exports.len());
 
     let env_ptr = hle::make_jni_env(&mut core, &state)?;
+    if let Ok(prefix) = env::var("BNV") {
+        return run_bnv(core, state, lib, env_ptr, &prefix).await;
+    }
     let find = |name: &str| *lib.exports.get(&format!("Java_co_kr_eamobile_CletEntry_{name}")).unwrap_or_else(|| panic!("{name} 없음"));
     let (init_kernel, init_vfs, init_storage, init_audio, init_display, start_app, native_loop) = (
         find("nativeInitKernel"),
@@ -113,6 +116,48 @@ async fn run(so: Vec<u8>, state: Arc<Mutex<State>>) -> Result<()> {
             }
         }
         eprintln!("프레임 {frames}개 완료");
+        Ok(())
+    })?;
+    thread.await
+}
+
+async fn run_bnv(mut core: ArmCore, state: Arc<Mutex<State>>, lib: loader::Library, env_ptr: u32, prefix: &str) -> Result<()> {
+    let find = |name: &str| *lib.exports.get(&format!("{prefix}_NativeClass_{name}")).unwrap_or_else(|| panic!("{name} 없음"));
+    let (vfs_init, path, size, init, frame) = (find("OnVFSInitialize"), find("OnNativePath"), find("OnNativeSize"), find("OnNativeInitialize"), find("OnNativeFrame"));
+    let fd_obj = hle::new_object(&state, hle::JObj::FileDescriptor(100));
+    let vfs_len = state.lock().vfs.len() as u32;
+    let path_obj = hle::new_object(&state, hle::JObj::Str("/data/data/game/files".into()));
+    let mut core2 = core.clone();
+    let st2 = state.clone();
+    let inits = lib.init_functions.clone();
+    let thread = core.run_in_thread(move || async move {
+        for f in &inits {
+            if let Err(error) = core2.run_function::<u32>(*f, &[]).await {
+                eprintln!("정적 생성자 {f:#x} 실패: {error:?}\n{}", core2.dump_reg_stack(0x1000_0000));
+                return Err(error);
+            }
+        }
+        eprintln!("정적 생성자 {}개 실행", inits.len());
+        macro_rules! step { ($name:expr, $call:expr) => {
+            match $call.await {
+                Ok(_) => eprintln!("{} 완료", $name),
+                Err(error) => {
+                    eprintln!("{} 실패: {error:?}\n{}", $name, core2.dump_reg_stack(0x1000_0000));
+                    for line in st2.lock().trace.iter() { eprintln!("  {line}"); }
+                    return Err(error);
+                }
+            }
+        }}
+        let _: u32 = 0;
+        step!("OnVFSInitialize", core2.run_function::<u32>(vfs_init, &[env_ptr, 0, fd_obj, 0, 0, 0, vfs_len, 0]));
+        step!("OnNativePath", core2.run_function::<u32>(path, &[env_ptr, 0, path_obj]));
+        step!("OnNativeSize", core2.run_function::<u32>(size, &[env_ptr, 0, 480, 800]));
+        step!("OnNativeInitialize", core2.run_function::<u32>(init, &[env_ptr, 0]));
+        let frames: usize = std::env::var("FRAMES").ok().and_then(|v| v.parse().ok()).unwrap_or(5);
+        for f in 0..frames {
+            st2.lock().now_ms += 33;
+            step!(format!("frame {f}"), core2.run_function::<u32>(frame, &[env_ptr, 0]));
+        }
         Ok(())
     })?;
     thread.await

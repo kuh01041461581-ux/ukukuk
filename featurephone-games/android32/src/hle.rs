@@ -35,8 +35,20 @@ pub struct State {
     pub file_ptrs: BTreeMap<u32, i32>,
     pub env_ptr: u32,
     pub gl: crate::gl::Gl,
+    /// 호스트(자바스크립트)로 보낼 이벤트(JSON 한 줄씩): 소리, 진동, 종료
+    pub events: Vec<String>,
+    /// 내용이 바뀐 저장 파일 경로
+    pub dirty: std::collections::BTreeSet<String>,
     /// 게임 시계(밀리초). 호스트가 프레임마다 갱신한다
     pub now_ms: u64,
+    /// 네트워크 접속 실패를 기다리지 않도록 게임 시계를 앞당긴 양(ms)
+    pub time_skew_ms: u64,
+    /// 게임에 돌려줄 결제(MTX) 결과: (콘텐츠 ID, 결과 코드, 보조 코드)
+    pub pending_mtx: Vec<(String, i32, i32)>,
+    /// 게임에 돌려줄 전면 광고 결과: (결과, 코드)
+    pub pending_fsad: Vec<(i32, i32)>,
+    /// 이 시각(ms)까지는 호스트가 게임을 빠르게 돌려 준다(서버 접속 대기 건너뛰기)
+    pub fast_forward_until_ms: u64,
     /// 에셋 이름 -> 번호(처음 요청된 순서대로 1,2,3...). 번호-1 = 인덱스
     pub asset_names: Vec<String>,
     /// 최근 호출 기록(문제 추적용)
@@ -70,7 +82,13 @@ impl State {
             file_ptrs: BTreeMap::new(),
             env_ptr: 0,
             gl: Default::default(),
+            events: Vec::new(),
+            dirty: Default::default(),
             now_ms: 1_700_000_000_000,
+            time_skew_ms: 0,
+            pending_mtx: Vec::new(),
+            pending_fsad: Vec::new(),
+            fast_forward_until_ms: 0,
             asset_names: Vec::new(),
             trace: Default::default(),
         }
@@ -287,7 +305,7 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
         }
         "ftime" => {
             let ptr = p(core, 0)?;
-            let now = state.lock().now_ms;
+            let now = { let st = state.lock(); st.now_ms + st.time_skew_ms };
             write_generic(core, ptr, (now / 1000) as u32)?; // time
             write_generic(core, ptr + 4, (now % 1000) as u16)?; // millitm
             write_generic(core, ptr + 6, 0u16)?;
@@ -345,6 +363,7 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
             } else {
                 if !exists || flags & 0x200 != 0 {
                     st.fs.insert(path.clone(), Vec::new());
+                    st.dirty.insert(path.clone());
                 }
                 let pos = if flags & 0x400 != 0 { st.fs[&path].len() } else { 0 };
                 let fd = st.next_fd;
@@ -397,6 +416,7 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
                             file.resize(pos + data.len(), 0);
                         }
                         file[pos..pos + data.len()].copy_from_slice(&data);
+                        st.dirty.insert(path.clone());
                         st.fds.get_mut(&fd).unwrap().1 = pos + data.len();
                     }
                     Ret::U(a2)
@@ -485,13 +505,20 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
         "mkdir" | "chdir" | "rmdir" | "fcntl" => Ret::U(0),
         "unlink" => {
             let path = String::from_utf8_lossy(&cstr(core, p(core, 0)?)?).to_string();
-            Ret::U(if state.lock().fs.remove(&path).is_some() { 0 } else { -1i32 as u32 })
+            let mut st = state.lock();
+            let removed = st.fs.remove(&path).is_some();
+            if removed {
+                st.dirty.insert(path);
+            }
+            Ret::U(if removed { 0 } else { -1i32 as u32 })
         }
         "rename" => {
             let (a, b) = (String::from_utf8_lossy(&cstr(core, p(core, 0)?)?).to_string(), String::from_utf8_lossy(&cstr(core, p(core, 1)?)?).to_string());
             let mut st = state.lock();
             match st.fs.remove(&a) {
                 Some(d) => {
+                    st.dirty.insert(a.clone());
+                    st.dirty.insert(b.clone());
                     st.fs.insert(b, d);
                     Ret::U(0)
                 }
@@ -500,6 +527,23 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
         }
         // ---- 소켓: 네트워크 기능은 지원하지 않음 ----
         "socket" | "connect" | "recv" | "select" | "setsockopt" | "getsockopt" | "shutdown" | "inet_addr" => {
+            // 네트워크는 지원하지 않는다: ENETUNREACH(101) 로 바로 실패시킨다
+            let cell = {
+                let existing = state.lock().errno_cell;
+                if existing == 0 {
+                    let c = guest_malloc(core, 4)?;
+                    state.lock().errno_cell = c;
+                    c
+                } else {
+                    existing
+                }
+            };
+            write_generic(core, cell, 101u32)?;
+            if name == "connect" {
+                // 서버 접속을 기다리는 동안은 호스트가 게임을 빠르게 돌려 준다(약 90초 동안)
+                let mut st = state.lock();
+                st.fast_forward_until_ms = st.now_ms + 90_000;
+            }
             state.lock().log.push(format!("[stub] {name}"));
             Ret::U(-1i32 as u32)
         }

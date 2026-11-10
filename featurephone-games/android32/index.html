@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>검은방</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { background: #000; image-rendering: auto; touch-action: none; width: min(100vw, calc(100vh * 0.6)); height: min(100vh, calc(100vw / 0.6)); }
+  #msg { position: fixed; left: 0; right: 0; top: 42%; text-align: center; color: #ddd; font: 16px/1.5 sans-serif; padding: 0 24px; white-space: pre-wrap; }
+  #fps { position: fixed; right: 6px; top: 4px; color: #6f6; font: 11px monospace; opacity: .7; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="screen" width="240" height="400"></canvas></div>
+<div id="msg">불러오는 중…</div>
+<div id="fps"></div>
+<script type="module">
+import init, { AndroidGame } from "./pkg/wie_android.js";
+
+const CFG = await (await fetch("game.json")).json();   // { title, lib, vfs, lcdWidth, lcdHeight, saveKey }
+document.title = CFG.title;
+const msg = document.getElementById("msg");
+const canvas = document.getElementById("screen");
+const ctx = canvas.getContext("2d");
+const fpsEl = document.getElementById("fps");
+const LCD_W = CFG.lcdWidth, LCD_H = CFG.lcdHeight;
+canvas.width = LCD_W; canvas.height = LCD_H;
+
+// ---------------- 저장소(IndexedDB) ----------------
+const DB = "wie_android_" + CFG.saveKey;
+const openDb = () => new Promise((res, rej) => { const r = indexedDB.open(DB, 1); r.onupgradeneeded = () => r.result.createObjectStore("files"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const dbAll = async (db) => new Promise((res, rej) => { const out = {}; const q = db.transaction("files").objectStore("files").openCursor(); q.onsuccess = () => { const c = q.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); }; q.onerror = () => rej(q.error); });
+const dbPut = (db, k, v) => new Promise((res, rej) => { const t = db.transaction("files", "readwrite"); if (v === null) t.objectStore("files").delete(k); else t.objectStore("files").put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); });
+
+// ---------------- 소리(WebAudio) ----------------
+let actx = null; const clips = new Map(); let vfsBytes = null; const playing = new Map();
+const ensureAudio = () => { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (actx && actx.state === "suspended") actx.resume(); };
+async function decodeClip(c) {
+  if (c.buffer || c.failed || !actx) return c.buffer;
+  try { const slice = vfsBytes.slice(c.offset, c.offset + c.length).buffer; c.buffer = await actx.decodeAudioData(slice); } catch (e) { c.failed = true; }
+  return c.buffer;
+}
+async function playClip(key, c, loop) {
+  stopClip(key);
+  if (!actx) return;
+  const buffer = await decodeClip(c); if (!buffer) return;
+  const src = actx.createBufferSource(); src.buffer = buffer; src.loop = !!loop;
+  const gain = actx.createGain(); gain.gain.value = c.kind === "music" ? 0.6 : 0.9;
+  src.connect(gain).connect(actx.destination); src.start(); playing.set(key, src); src.onended = () => { if (playing.get(key) === src) playing.delete(key); };
+}
+function stopClip(key) { const s = playing.get(key); if (s) { try { s.stop(); } catch (e) {} playing.delete(key); } }
+function handleEvents(list) {
+  for (const e of list) {
+    if (e.t === "load") clips.set(e.kind + e.id, { kind: e.kind, offset: e.offset, length: e.length });
+    else if (e.t === "play" || e.t === "resume") {
+      const key = (e.kind === "any" ? (clips.has("music" + e.id) ? "music" : "sound") : e.kind) + e.id; const c = clips.get(key); if (c) playClip(key, c, e.loop);
+    } else if (e.t === "stop" || e.t === "pause" || e.t === "free") {
+      const kinds = e.kind === "any" ? ["music", "sound"] : [e.kind]; for (const k of kinds) { stopClip(k + e.id); if (e.t === "free") clips.delete(k + e.id); }
+    } else if (e.t === "vibrate") { try { if (window.AndroidHaptics) window.AndroidHaptics.vibrate(Math.min(100, e.ms || 30), 200); else navigator.vibrate && navigator.vibrate(Math.min(100, e.ms || 30)); } catch (x) {} }
+  }
+}
+
+// ---------------- 시작 ----------------
+try {
+  msg.textContent = "게임 파일을 불러오는 중…";
+  await init();
+  const [lib, vfs] = await Promise.all([fetch(CFG.lib).then(r => r.arrayBuffer()), fetch(CFG.vfs).then(r => r.arrayBuffer())]);
+  vfsBytes = new Uint8Array(vfs);
+  const db = await openDb(); const saved = await dbAll(db);
+  msg.textContent = "시작하는 중…";
+  const game = new AndroidGame(new Uint8Array(lib), vfsBytes, LCD_W, LCD_H, CFG.aot !== false);
+  for (const [path, data] of Object.entries(saved)) game.load_file(path, data);
+  await game.ready(); window.__game = game;
+  msg.style.display = "none";
+
+  // 입력: 터치/마우스 -> 가상 화면 좌표
+  const toLcd = (ev) => { const r = canvas.getBoundingClientRect(); return [Math.max(0, Math.min(LCD_W - 1, Math.floor((ev.clientX - r.left) / r.width * LCD_W))), Math.max(0, Math.min(LCD_H - 1, Math.floor((ev.clientY - r.top) / r.height * LCD_H)))]; };
+  const down = new Set();
+  canvas.addEventListener("pointerdown", (ev) => { ensureAudio(); canvas.setPointerCapture(ev.pointerId); down.add(ev.pointerId); const [x, y] = toLcd(ev); game.touch(19, x, y, down.size - 1 < 0 ? 0 : [...down].indexOf(ev.pointerId)); ev.preventDefault(); });
+  canvas.addEventListener("pointermove", (ev) => { if (!down.has(ev.pointerId)) return; const [x, y] = toLcd(ev); game.touch(21, x, y, [...down].indexOf(ev.pointerId)); ev.preventDefault(); });
+  const up = (ev) => { if (!down.has(ev.pointerId)) return; const [x, y] = toLcd(ev); game.touch(20, x, y, [...down].indexOf(ev.pointerId)); down.delete(ev.pointerId); ev.preventDefault(); };
+  canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { game.pause(); for (const k of [...playing.keys()]) stopClip(k); } else game.resume(); });
+
+  // 저장 파일 변경분을 IndexedDB 에 반영
+  const flush = async () => { for (const path of game.take_dirty_files()) { if (game.exists_file(path)) await dbPut(db, path, game.read_file(path)); else await dbPut(db, path, null); } };
+
+  // 게임 루프(약 30fps)
+  const img = ctx.createImageData(LCD_W, LCD_H);
+  let last = 0, frames = 0, fpsT = performance.now(), flushT = 0;
+  const loop = async () => {
+    const now = performance.now();
+    if (now - last >= 30) {
+      last = now;
+      try {
+        let extra = game.wants_fast_forward(Date.now()) ? 6 : 0;   // 서버 접속 대기는 빠르게 넘긴다
+        for (let i = 0; i < extra; i++) await game.frame(Date.now());
+        await game.frame(Date.now());
+        const rgba = game.frame_rgba();
+        if (rgba.length === img.data.length) { img.data.set(rgba); ctx.putImageData(img, 0, 0); }
+        handleEvents(JSON.parse(game.take_events()));
+        frames++;
+        if (now - flushT > 1500) { flushT = now; flush(); }
+      } catch (e) { msg.style.display = "block"; msg.textContent = "오류: " + e; console.error(e); return; }
+      if (now - fpsT > 1000) { fpsEl.textContent = frames + " fps"; frames = 0; fpsT = now; }
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+} catch (e) {
+  msg.style.display = "block"; msg.textContent = "시작하지 못했습니다\n" + e; console.error(e);
+}
+</script>
+</body>
+</html>

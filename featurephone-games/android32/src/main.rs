@@ -1,10 +1,6 @@
 //! 32비트 ARM(armeabi) 안드로이드 네이티브 게임 라이브러리(.so)를 WIE 의 ARM 실행기 위에서 돌려 보는 실험 프로그램.
 //! 1단계: ELF 를 올리고 → 재배치(시스템 함수는 호스트 구현으로 연결) → JNI 진입 함수를 호출한다.
 
-mod gl;
-mod hle;
-mod java;
-mod loader;
 
 use std::{env, fs, sync::Arc};
 
@@ -13,7 +9,7 @@ use wie_backend::Options;
 use wie_core_arm::{Allocator, ArmCore};
 use wie_util::Result;
 
-use crate::hle::State;
+use wie_android::{hle, hle::State, loader};
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).with_writer(std::io::stderr).init();

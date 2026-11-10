@@ -6,9 +6,16 @@ license.workspace = true
 description = "Runs 32-bit ARM Android native game libraries (armeabi) on the WIE ARM core"
 publish = false
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "wie-android"
+path = "src/main.rs"
+
 [dependencies]
 anyhow = { workspace = true }
-futures = { workspace = true, features = ["executor"] }
+futures = { workspace = true, features = ["executor", "std"] }
 spin = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { version = "^0.3", features = ["env-filter"] }
@@ -17,3 +24,19 @@ elf = { version = "^0.8" }
 wie-backend = { workspace = true }
 wie-core-arm = { workspace = true }
 wie-util = { workspace = true }
+
+wie-core-arm-aot = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+hashbrown = { version = "^0.17" }
+wie-core-arm-wasm = { workspace = true }
+js-sys = { version = "^0.3" }
+wasm-bindgen = { version = "^0.2" }
+wasm-bindgen-futures = { version = "^0.4" }
+console_error_panic_hook = { version = "^0.1", optional = true }
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.release.wasm-bindgen]
+dwarf-debug-info = false

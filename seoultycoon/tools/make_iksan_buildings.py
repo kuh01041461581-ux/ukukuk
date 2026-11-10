@@ -29,8 +29,18 @@ class Sc:
         if noise: col = col + self.nrs.normal(0, noise, col.shape[:2])[..., None]
         arr = np.zeros((y1 - y0, x1 - x0, 4), np.uint8); arr[..., :3] = np.clip(col, 0, 255).astype(np.uint8); arr[..., 3] = np.asarray(m.crop(bb))
         self.im.alpha_composite(Image.fromarray(arr, 'RGBA'), (x0, y0))
-    def flat(self, pts, c): ImageDraw.Draw(self.im).polygon(pts, fill=c)
-    def line(self, pts, c, w): ImageDraw.Draw(self.im).line(pts, fill=c, width=w)
+    def _blend(self, fn, pts, c, w=0):
+        """반투명 색은 덮어쓰지 않고 섞는다(덮어쓰면 반투명 구멍이 생긴다)."""
+        xs = [p[0] for p in pts]; ys = [p[1] for p in pts]; m = w + 2
+        x0, y0 = max(0, int(min(xs)) - m), max(0, int(min(ys)) - m); x1, y1 = min(self.im.width, int(max(xs)) + m + 1), min(self.im.height, int(max(ys)) + m + 1)
+        if x1 <= x0 or y1 <= y0: return
+        tmp = Image.new('RGBA', (x1 - x0, y1 - y0), (0, 0, 0, 0)); fn(ImageDraw.Draw(tmp), [(x - x0, y - y0) for x, y in pts], c, w); self.im.alpha_composite(tmp, (x0, y0))
+    def flat(self, pts, c):
+        if len(c) > 3 and c[3] < 255: self._blend(lambda d, p, cc, w: d.polygon(p, fill=cc), pts, c)
+        else: ImageDraw.Draw(self.im).polygon(pts, fill=c)
+    def line(self, pts, c, w):
+        if len(c) > 3 and c[3] < 255: self._blend(lambda d, p, cc, ww: d.line(p, fill=cc, width=ww), pts, c, w)
+        else: ImageDraw.Draw(self.im).line(pts, fill=c, width=w)
     def shadow(self, pts, a=110, blur=9):
         sh = Image.new('L', self.im.size, 0); ImageDraw.Draw(sh).polygon(pts, fill=a); sh = sh.filter(ImageFilter.GaussianBlur(blur))
         clip = Image.new('L', self.im.size, 0); ImageDraw.Draw(clip).polygon(self.ground_poly(), fill=255); sh = Image.fromarray(np.minimum(np.asarray(sh), np.asarray(clip)))
@@ -101,29 +111,41 @@ class Sc:
         im = Image.fromarray(res, 'RGBA'); sh = im.convert('RGB').filter(ImageFilter.UnsharpMask(radius=0.7, percent=45, threshold=2))
         return Image.fromarray(np.dstack([np.asarray(sh), res[..., 3]]), 'RGBA')
 
-# ============================ b19 영화관 CGV ============================
+# ============================ b19 영화관 롯데시네마 (익산: 흰 곡면 건물 + 청회색 마름모 지붕 + 구리색 띠 + 빨간 LOTTE CINEMA) ============================
 def cinema():
-    s = Sc(57, 2); G = s.G; s.ground()
-    s.shadow([G(0.15, 0.62), G(0.9, 0.62), G(1.0, 0.7), G(0.25, 0.72)], 100, 10)
-    # 뒤쪽 큰 상영관 타워(빨강, CGV 대형 간판)
-    s.box(0.46, 0.88, 0.12, 0.40, 23, (hx('f04838'), hx('b3180e')), (hx('c42418'), hx('7a0e08')), (hx('ff6a58'), hx('e03a2c')))
-    for j in range(4): s.line([G(0.46, 0.40, 3 + j * 5.0), G(0.88, 0.40, 3 + j * 5.0)], hx('ff9a8a', 70), 3)
-        # 글자: 면 길이에 맞춰 배율 결정
-    face_w = (G(0.86, 0.40)[0] - G(0.50, 0.40)[0]); k = face_w / 140.0
-    s.text_face('CGV', (G(0.50, 0.40)[0] + 4, G(0.50, 0.40, 19.5)[1] + 0.5 * 2), 0, 0, k, hx('ffffff'), size=60, bold_outline=hx('7a0e08'), shear=0.5)
-    # 앞쪽 유리 로비(파랑 반사)
-    s.box(0.12, 0.84, 0.40, 0.66, 11, (hx('4a80e0'), hx('1e3c9a')), (hx('2c56b8'), hx('14286e')), (hx('d6e0f4'), hx('aabbe0')))
-    s.win_grid_L(0.12, 0.84, 0.66, 1.0, 10, 9, 2, hx('9cd0ff'), hx('2a54a8'))
-    s.win_grid_R(0.40, 0.66, 0.84, 1.0, 10, 4, 2, hx('78a8ec'), hx('1c3a88'))
-    # 캐노피 + 포스터
-    s.grad([G(0.20, 0.66, 7), G(0.56, 0.66, 7), G(0.56, 0.76, 7), G(0.20, 0.76, 7)], hx('fafafa'), hx('d8d8ec'), (1, 0.4))
-    s.grad([G(0.20, 0.76, 7), G(0.56, 0.76, 7), G(0.56, 0.76, 6.0), G(0.20, 0.76, 6.0)], hx('e8e8f8'), hx('a0a0c0'), (0, 1))
-    for i in range(10): x, y = G(0.20 + 0.036 * i, 0.76, 6.2); ImageDraw.Draw(s.im).ellipse([x - 3, y - 2, x + 3, y + 4], fill=hx('fff0a0'))
-    for k_, c in enumerate([hx('e84b6a'), hx('f4b430'), hx('3ab0e8'), hx('6ac84a')]):                  # 영화 포스터
-        a0 = 0.16 + k_ * 0.16; s.grad([G(a0, 0.66, 2.5), G(a0 + 0.10, 0.66, 2.5), G(a0 + 0.10, 0.66, 8), G(a0, 0.66, 8)], lerp(c, (255, 255, 255), 0.35), c, (0.2, 1))
-    # 입구 어두운 문
-    s.grad([G(0.30, 0.76, 0), G(0.46, 0.76, 0), G(0.46, 0.76, 5.5), G(0.30, 0.76, 5.5)], hx('1c2440'), hx('3c4c80'), (0, 1))
-    s.tree(0.05, 0.84, 0.8); s.tree(0.93, 0.30, 0.8)
+    s = Sc(57, 2); G = s.G; s.ground(); rs = random.Random(8)
+    A0, A1, B0, B1, HH = 0.10, 0.90, 0.20, 0.66, 14.0
+    s.shadow([G(0.14, B1), G(A1, B1), G(1.0, 0.76), G(0.26, 0.78)], 100, 10)
+    s.box(A0, A1, B0, B1, HH, (hx('f8f6ee'), hx('d6d2c4')), (hx('d8d4c6'), hx('a8a498')), (hx('c0c2dc'), hx('9a9cc0')))
+    for k in range(1, 12): s.line([G(A0 + (A1 - A0) * k / 12, B1, 4.5), G(A0 + (A1 - A0) * k / 12, B1, HH)], hx('c4c0b0', 90), 2)
+    # 층별 띠창(청록 유리) — 위층일수록 짧게(곡면 느낌)
+    for fl, (z0, z1, a_end) in enumerate([(4.6, 6.4, 0.88), (7.2, 9.0, 0.82), (9.8, 11.6, 0.74)]):
+        s.grad([G(A0 + 0.04, B1, z0), G(a_end, B1, z0), G(a_end, B1, z1), G(A0 + 0.04, B1, z1)], hx('a6d0d8'), hx('3a6a82'), (0.2, 1))
+        for k in range(1, 10): s.line([G(A0 + 0.04 + (a_end - A0 - 0.04) * k / 10, B1, z0), G(A0 + 0.04 + (a_end - A0 - 0.04) * k / 10, B1, z1)], hx('f0f0e8'), 3)
+    # 1층 상가 유리 + 흰 기둥
+    s.grad([G(A0, B1, 0), G(A1, B1, 0), G(A1, B1, 4.0), G(A0, B1, 4.0)], hx('4a5a78'), hx('1e2842'), (0.2, 1))
+    for k in range(0, 9): s.line([G(A0 + (A1 - A0) * k / 8, B1, 0), G(A0 + (A1 - A0) * k / 8, B1, 4.3)], hx('f2f0ea'), 6)
+    s.grad([G(A1, B0, 0), G(A1, B1, 0), G(A1, B1, 3.8), G(A1, B0, 3.8)], hx('5a6a88'), hx('2a3450'), (0.2, 1))
+    # 구리색 메시 곡선 띠(대각선으로 흐르는 장식)
+    for t in np.linspace(0, 1, 60):
+        a = A0 + 0.02 + (A1 - A0 - 0.04) * t; z = 2.4 + 7.4 * (t ** 1.1); w = 1.2 + 0.9 * math.sin(t * math.pi)
+        s.flat([G(a, B1 + 0.004, z), G(a + 0.016, B1 + 0.004, z), G(a + 0.016, B1 + 0.004, z + w), G(a, B1 + 0.004, z + w)], hx('c88a6a') if int(t * 60) % 2 else hx('a86a50'))
+    # 지붕 외장: 청회색 마름모 무늬 판(앞 띠 + 윗면) + 빨간 LOTTE CINEMA
+    RZ = 3.6
+    s.grad([G(A0 - 0.02, B1 + 0.02, HH), G(A1 + 0.02, B1 + 0.02, HH), G(A1 + 0.02, B1 + 0.02, HH + RZ), G(A0 - 0.02, B1 + 0.02, HH + RZ)], hx('b4b6dc'), hx('7a7cae'), (0.2, 1))
+    s.grad([G(A1 + 0.02, B0, HH), G(A1 + 0.02, B1 + 0.02, HH), G(A1 + 0.02, B1 + 0.02, HH + RZ), G(A1 + 0.02, B0, HH + RZ)], hx('8a8cb8'), hx('5a5c88'), (0.2, 1))
+    s.grad([G(A0 - 0.02, B0, HH + RZ), G(A1 + 0.02, B0, HH + RZ), G(A1 + 0.02, B1 + 0.02, HH + RZ), G(A0 - 0.02, B1 + 0.02, HH + RZ)], hx('d2d4ec'), hx('a8aad0'), (1, 0.4))
+    for i in range(0, 26):
+        for j in range(0, 3):
+            a = A0 - 0.01 + 0.032 * i + (0.016 if j % 2 else 0); z = HH + 0.5 + j * 1.3
+            if a < A1: s.flat([G(a, B1 + 0.02, z + 0.45), G(a + 0.016, B1 + 0.02, z), G(a + 0.032, B1 + 0.02, z + 0.45), G(a + 0.016, B1 + 0.02, z + 0.9)], hx('5a5c92', 200))
+    fw = G(0.86, B1)[0] - G(0.12, B1)[0]
+    s.text_face('LOTTE CINEMA', (G(0.14, B1)[0], G(0.14, B1, HH + 3.2)[1] + 1), 0, 0, fw * 0.74 / 560.0, hx('d6203a'), size=60, bold_outline=hx('a0121e'), shear=0.5)
+    # 앞 도로 쪽 자동차 + 가로수
+    for (a, cc) in ((0.22, '#e8e8f0'), (0.50, '#2a2a34'), (0.74, '#8a98b0')):
+        c = hx(cc[1:]); b = 0.86
+        s.grad([G(a, b, 0.3), G(a + 0.06, b, 0.3), G(a + 0.06, b, 2.8), G(a, b, 2.8)], lerp(c, (255, 255, 255), 0.25), c, (0.3, 1)); s.grad([G(a, b - 0.05, 2.8), G(a + 0.06, b - 0.05, 2.8), G(a + 0.06, b, 2.8), G(a, b, 2.8)], lerp(c, (255, 255, 255), 0.4), c, (1, 0.4))
+    s.tree(0.94, 0.30, 0.8); s.tree(0.04, 0.80, 0.8)
     return s.finish()
 
 # ============================ b3 대형마트 코스트코 ============================
@@ -172,27 +194,30 @@ def costco():
     # 주유소 캐노피(왼쪽 앞)
     return s.finish()
 
-# ============================ b4 호텔 베스트웨스턴 ============================
+# ============================ b4 호텔 웨스턴라이프 (익산 동서로) ============================
 def hotel():
     s = Sc(63, 4); G = s.G; s.ground()
-    s.shadow([G(0.18, 0.54), G(0.72, 0.54), G(0.84, 0.64), G(0.30, 0.66)], 100, 10)
-    s.box(0.18, 0.72, 0.12, 0.50, 25, (hx('f2e6cc'), hx('cdbb98')), (hx('d4c4a0'), hx('a8966e')), (hx('c8c8d0'), hx('a4a4b4')))
-    s.win_grid_L(0.18, 0.72, 0.50, 4, 24, 9, 5, hx('b8d4ec'), hx('5c7aa6'), pad=0.22)
-    s.win_grid_R(0.12, 0.50, 0.72, 4, 24, 6, 5, hx('a0c0e0'), hx('4a668c'), pad=0.22)
-    for j in range(1, 5): s.line([G(0.18, 0.50, 4 + j * 4.0), G(0.72, 0.50, 4 + j * 4.0)], hx('a8966e', 130), 2)                 # 발코니 줄
-    # 저층 로비 날개 + 처마
-    s.box(0.18, 0.60, 0.50, 0.70, 7, (hx('e8d8b4'), hx('c0ac80')), (hx('c8b48a'), hx('9c8860')), (hx('7a8aa8'), hx('5c6c8c')))
-    s.win_grid_L(0.18, 0.60, 0.70, 0.8, 5.6, 6, 1, hx('c0dcf4'), hx('5c7aa6'))
-    s.grad([G(0.14, 0.70, 6.8), G(0.64, 0.70, 6.8), G(0.64, 0.80, 6.8), G(0.14, 0.80, 6.8)], hx('1e4aa0'), hx('0a2a6a'), (1, 0.3))
-    s.grad([G(0.14, 0.80, 6.8), G(0.64, 0.80, 6.8), G(0.64, 0.80, 5.6), G(0.14, 0.80, 5.6)], hx('2c5cbc'), hx('0a2a6a'), (0, 1))
-    for i in range(4): s.line([G(0.18 + 0.12 * i, 0.80, 5.6), G(0.18 + 0.12 * i, 0.80, 0)], hx('e8e8f0'), 4)               # 기둥
-    # 옥상 파란 간판판(BW) + 금빛 왕관 장식
-    s.grad([G(0.28, 0.50, 25), G(0.62, 0.50, 25), G(0.62, 0.50, 31), G(0.28, 0.50, 31)], hx('2a5cc0'), hx('0a2a6e'), (0.2, 1))
-    s.line([G(0.28, 0.50, 31), G(0.62, 0.50, 31)], hx('f4d060'), 5); s.line([G(0.28, 0.50, 25), G(0.62, 0.50, 25)], hx('f4d060'), 4)
-    fw = G(0.60, 0.50)[0] - G(0.30, 0.50)[0]
-    s.text_face('BW', (G(0.30, 0.50)[0] + 6, G(0.30, 0.50, 30.4)[1] + 1), 0, 0, fw * 0.62 / 120.0, hx('ffe27a'), size=70, shear=0.5)
-    s.text_face('BEST WESTERN', (G(0.30, 0.50)[0] + 6, G(0.30, 0.50, 27.0)[1] + 1), 0, 0, fw * 0.92 / 330.0, hx('ffffff'), size=34, shear=0.5)
-    s.tree(0.80, 0.80, 0.8); s.tree(0.06, 0.70, 0.7)
+    s.shadow([G(0.18, 0.54), G(0.74, 0.54), G(0.86, 0.64), G(0.30, 0.66)], 100, 10)
+    # 본관: 크림색 석재 + 짙은 청동색 유리 세로 띠 (10층 느낌)
+    s.box(0.18, 0.74, 0.12, 0.50, 25, (hx('efe6d0'), hx('c4b598')), (hx('c8bba0'), hx('968a70')), (hx('d4d0c8'), hx('aeaaa0')))
+    for i in range(7):
+        a0 = 0.20 + 0.075 * i; s.grad([G(a0, 0.50, 5), G(a0 + 0.045, 0.50, 5), G(a0 + 0.045, 0.50, 24), G(a0, 0.50, 24)], hx('9a8a72'), hx('3a3226'), (0.2, 1))
+        for j in range(1, 9): s.line([G(a0, 0.50, 5 + j * 2.1), G(a0 + 0.045, 0.50, 5 + j * 2.1)], hx('d8c8a8', 160), 2)
+    for i in range(5):
+        b0 = 0.14 + 0.07 * i; s.grad([G(0.74, b0, 5), G(0.74, b0 + 0.04, 5), G(0.74, b0 + 0.04, 24), G(0.74, b0, 24)], hx('8a7a62'), hx('2e271c'), (0.2, 1))
+    for j in range(1, 8): s.line([G(0.18, 0.50, 5 + j * 2.6), G(0.74, 0.50, 5 + j * 2.6)], hx('b8a888', 120), 2)
+    # 저층 로비 + 유리 캐노피
+    s.box(0.18, 0.62, 0.50, 0.70, 6.5, (hx('e8d8b4'), hx('c0ac80')), (hx('c8b48a'), hx('9c8860')), (hx('8a7a60'), hx('6c5e48')))
+    s.grad([G(0.20, 0.70, 0.8), G(0.60, 0.70, 0.8), G(0.60, 0.70, 5.4), G(0.20, 0.70, 5.4)], hx('88a4c0'), hx('24344c'), (0.2, 1))
+    s.grad([G(0.14, 0.70, 7.2), G(0.66, 0.70, 7.2), G(0.66, 0.82, 7.2), G(0.14, 0.82, 7.2)], hx('c8a458'), hx('8a6c2c'), (1, 0.3))
+    s.grad([G(0.14, 0.82, 7.2), G(0.66, 0.82, 7.2), G(0.66, 0.82, 6.0), G(0.14, 0.82, 6.0)], hx('e8c878'), hx('9a7a34'), (0, 1))
+    for i in range(4): s.line([G(0.18 + 0.14 * i, 0.82, 6.0), G(0.18 + 0.14 * i, 0.82, 0)], hx('f4eedc'), 4)
+    # 옥상 금색 간판판(WESTERN LIFE)
+    s.grad([G(0.24, 0.50, 25), G(0.68, 0.50, 25), G(0.68, 0.50, 30), G(0.24, 0.50, 30)], hx('2a2218'), hx('120e08'), (0.2, 1))
+    s.line([G(0.24, 0.50, 30), G(0.68, 0.50, 30)], hx('e6c468'), 4); s.line([G(0.24, 0.50, 25), G(0.68, 0.50, 25)], hx('e6c468'), 3)
+    fw = G(0.66, 0.50)[0] - G(0.26, 0.50)[0]
+    s.text_face('WESTERN LIFE', (G(0.26, 0.50)[0] + 4, G(0.26, 0.50, 29.0)[1] + 1), 0, 0, fw * 0.92 / 590.0, hx('f4d478'), size=56, shear=0.5)
+    s.tree(0.82, 0.80, 0.8); s.tree(0.06, 0.72, 0.7)
     return s.finish()
 
 # ============================ b15 본사 테슬라 ============================
@@ -221,42 +246,83 @@ def tesla():
     s.tree(0.92, 0.62, 0.7)
     return s.finish()
 
-# ============================ b21 익산역 (KTX) ============================
+# ============================ b21 익산역 (KTX): 남색 유리 박스 + 흰 "익산역" + 파란 캐노피 + 마룡이 동상 ============================
 def station():
-    s = Sc(48, 6); G = s.G; s.ground()
-    # 플랫폼 + KTX 열차(뒤쪽, a축 방향)
-    s.grad([G(0.02, 0.02), G(0.98, 0.02), G(0.98, 0.16), G(0.02, 0.16)], hx('b8b8cc'), hx('9c9cb4'), (0, 1))
-    s.shadow([G(0.04, 0.16), G(0.96, 0.16), G(1.0, 0.22), G(0.08, 0.22)], 90, 7)
-    s.box(0.06, 0.94, 0.04, 0.14, 7, (hx('fafcff'), hx('c8d4e8')), (hx('dfe6f2'), hx('a6b4cc')), (hx('eef2f8'), hx('c0cadc')))
-    s.line([G(0.06, 0.14, 3.2), G(0.94, 0.14, 3.2)], hx('2a52b8'), 6); s.line([G(0.06, 0.14, 2.2), G(0.94, 0.14, 2.2)], hx('e8242c'), 3)
-    for i in range(14): s.grad([G(0.09 + 0.06 * i, 0.14, 4), G(0.12 + 0.06 * i, 0.14, 4), G(0.12 + 0.06 * i, 0.14, 6.2), G(0.09 + 0.06 * i, 0.14, 6.2)], hx('88b0e4'), hx('2a4478'), (0.2, 1))
-    # 역사: 흰/유리 모던 건물 + 큰 곡선 처마 + 파란 간판
-    s.shadow([G(0.10, 0.54), G(0.90, 0.54), G(1.0, 0.62), G(0.20, 0.62)], 100, 9)
-    s.box(0.10, 0.90, 0.26, 0.54, 12, (hx('f6f4ee'), hx('cfc9bc')), (hx('d6d1c4'), hx('aca597')), (hx('d0d8e8'), hx('aab6cc')))
-    s.win_grid_L(0.10, 0.90, 0.54, 1.0, 10.5, 10, 2, hx('b4d6f0'), hx('3e6290'), pad=0.12)
-    s.win_grid_R(0.26, 0.54, 0.90, 1.0, 10.5, 4, 2, hx('9cc0e0'), hx('34527c'), pad=0.12)
-    # 가운데 맞배 유리 지붕(삼각 박공 느낌) + 처마
-    s.grad([G(0.30, 0.54, 12), G(0.70, 0.54, 12), G(0.70, 0.40, 17), G(0.30, 0.40, 17)], hx('cfe4f8'), hx('6a98c8'), (0.2, 1))
-    s.line([G(0.30, 0.54, 12), G(0.30, 0.40, 17), G(0.70, 0.40, 17), G(0.70, 0.54, 12)], hx('ffffff'), 4)
-    for i in range(1, 8): s.line([G(0.30 + 0.05 * i, 0.54, 12), G(0.30 + 0.05 * i, 0.40, 17)], hx('8ab4dc', 140), 2)
-    s.grad([G(0.08, 0.54, 12.5), G(0.92, 0.54, 12.5), G(0.92, 0.62, 12.5), G(0.08, 0.62, 12.5)], hx('fafafa'), hx('d0d0e0'), (1, 0.3))
-    s.grad([G(0.08, 0.62, 12.5), G(0.92, 0.62, 12.5), G(0.92, 0.62, 11.2), G(0.08, 0.62, 11.2)], hx('e4e4f4'), hx('9a9ab8'), (0, 1))
-    s.grad([G(0.34, 0.62, 9.6), G(0.66, 0.62, 9.6), G(0.66, 0.62, 11.2), G(0.34, 0.62, 11.2)], hx('2a5cc0'), hx('0a2a78'), (0.2, 1))
-    fw = G(0.66, 0.62)[0] - G(0.34, 0.62)[0]
-    s.text_face('익산역', (G(0.36, 0.62)[0], G(0.36, 0.62, 10.9)[1] + 1), 0, 0, fw * 0.42 / 100.0, hx('ffffff'), font=FONT_K, size=40, shear=0.5)
-    s.text_face('KTX', (G(0.56, 0.62)[0], G(0.56, 0.62, 10.8)[1] + 1), 0, 0, fw * 0.30 / 110.0, hx('ff5a5a'), size=42, shear=0.5)
-    # 지붕 위 큰 KTX 간판(흰 판 + 파랑 글자 + 빨간 줄)
-    s.grad([G(0.30, 0.54, 17), G(0.70, 0.54, 17), G(0.70, 0.54, 22.5), G(0.30, 0.54, 22.5)], hx('f8f8fc'), hx('c8cce0'), (0.2, 1))
-    s.line([G(0.30, 0.54, 17), G(0.70, 0.54, 17)], hx('e8242c'), 6)
-    bw = G(0.70, 0.54)[0] - G(0.30, 0.54)[0]
-    s.text_face('KTX', (G(0.32, 0.54)[0], G(0.32, 0.54, 21.6)[1] + 1), 0, 0, bw * 0.78 / 140.0, hx('0a3a9a'), size=64, bold_outline=hx('0a3a9a'), shear=0.5)
-    for i in range(4): s.line([G(0.14 + 0.2 * i, 0.62, 11.2), G(0.14 + 0.2 * i, 0.62, 0)], hx('e8e8f0'), 4) if i != 2 else None
-    s.tree(0.04, 0.84, 0.7); s.tree(0.96, 0.72, 0.7)
+    s = Sc(48, 6); G = s.G; rs = random.Random(9)
+    s.ground()
+    # 회색 벽돌 광장 줄눈 + 잔디 화단(마룡이 동상 자리)
+    for i in range(1, 16): s.line([G(i / 16, 0.50), G(i / 16, 1)], hx('b4b4d4', 120), 2)
+    s.grad([G(0.04, 0.66), G(0.50, 0.66), G(0.50, 0.96), G(0.04, 0.96)], hx('8cc04a'), hx('5a9a30'), (0.4, 1), 4)
+    s.shadow([G(0.08, 0.56), G(0.94, 0.56), G(1.0, 0.64), G(0.14, 0.64)], 100, 9)
+    # 왼쪽 흰 날개(패널) / 오른쪽 파란 날개(KORAIL 띠)
+    s.box(0.04, 0.30, 0.28, 0.52, 11, (hx('f6f6fa'), hx('d2d4e0')), (hx('d4d6e4'), hx('a8abc0')), (hx('eceef8'), hx('c8cade')))
+    for k in range(1, 9): s.line([G(0.04 + 0.26 * k / 9, 0.52, 0), G(0.04 + 0.26 * k / 9, 0.52, 11)], hx('b8bacc', 100), 2)
+    s.box(0.68, 0.96, 0.30, 0.54, 8, (hx('4a78d4'), hx('2a4ea4')), (hx('2e56b0'), hx('1a3a84')), (hx('7a9ae0'), hx('4a6cc4')))
+    s.grad([G(0.72, 0.54, 1.2), G(0.94, 0.54, 1.2), G(0.94, 0.54, 3.6), G(0.72, 0.54, 3.6)], hx('a0d8c8'), hx('3a7a78'), (0.2, 1))
+    s.line([G(0.70, 0.54, 6.6), G(0.96, 0.54, 6.6)], hx('f4f4fc'), 5)
+    s.text_face('KORAIL', (G(0.74, 0.54)[0], G(0.74, 0.54, 6.4)[1] + 2), 0, 0, 0.12, hx('0a3a9a'), size=40, shear=0.5)
+    # 중앙 남색 유리 박스 + 흰 큰 글자 "익산역" + Iksan Station
+    s.box(0.30, 0.68, 0.22, 0.50, 14, (hx('2c4a82'), hx('0c1a3c')), (hx('1c3262'), hx('08122c')), (hx('3a5a92'), hx('1c3262')))
+    for i in range(8):
+        for j in range(3):
+            a0 = 0.31 + 0.045 * i; s.grad([G(a0, 0.50, 1.0 + j * 4.2), G(a0 + 0.04, 0.50, 1.0 + j * 4.2), G(a0 + 0.04, 0.50, 4.6 + j * 4.2), G(a0, 0.50, 4.6 + j * 4.2)], hx('4a76c4'), hx('142a5a'), (0.2, 1))
+    s.line([G(0.30, 0.50, 5.8), G(0.68, 0.50, 5.8)], hx('f4f4fc'), 3)
+    fw = G(0.66, 0.50)[0] - G(0.32, 0.50)[0]
+    s.text_face('익산역', (G(0.34, 0.50)[0], G(0.34, 0.50, 13.2)[1] + 1), 0, 0, fw * 0.58 / 120.0, hx('ffffff'), font=FONT_K, size=64, bold_outline=hx('ffffff'), shear=0.5)
+    s.text_face('Iksan Station', (G(0.34, 0.50)[0], G(0.34, 0.50, 6.6)[1] + 1), 0, 0, fw * 0.52 / 420.0, hx('f0f4ff'), size=44, shear=0.5)
+    s.grad([G(0.58, 0.50, 11.6), G(0.67, 0.50, 11.6), G(0.67, 0.50, 13.6), G(0.58, 0.50, 13.6)], hx('e8242c'), hx('a0101a'), (0.2, 1))             # KTX 표지
+    s.text_face('KTX', (G(0.585, 0.50)[0], G(0.585, 0.50, 13.3)[1] + 1), 0, 0, fw * 0.16 / 100.0, hx('ffffff'), size=50, shear=0.5)
+    # 파란 철골 캐노피 + 흰 원형 기둥
+    s.grad([G(0.24, 0.50, 6.6), G(0.74, 0.50, 6.6), G(0.74, 0.66, 6.6), G(0.24, 0.66, 6.6)], hx('3c8cec'), hx('1a5cb8'), (1, 0.3))
+    for k in range(1, 7): s.line([G(0.24 + 0.5 * k / 7, 0.50, 6.6), G(0.24 + 0.5 * k / 7, 0.66, 6.6)], hx('e8f0ff', 170), 2)
+    s.grad([G(0.24, 0.66, 6.6), G(0.74, 0.66, 6.6), G(0.74, 0.66, 5.9), G(0.24, 0.66, 5.9)], hx('f4f4fc'), hx('b4b8cc'), (0, 1))
+    for a in (0.27, 0.71): s.line([G(a, 0.64, 0), G(a - 0.03, 0.54, 6.4)], hx('f0f0f8'), 8); s.line([G(a - 0.004, 0.64, 0), G(a - 0.034, 0.54, 6.4)], hx('ffffff'), 3)
+    s.grad([G(0.40, 0.50, 0), G(0.58, 0.50, 0), G(0.58, 0.50, 5.2), G(0.40, 0.50, 5.2)], hx('1a2a48'), hx('3a4a70'), (0, 1))
+    # 마룡이 동상(청록 용 마스코트): 받침 + 몸 + 흰 배 + 하늘색 날개
+    x, y = G(0.22, 0.80); d = ImageDraw.Draw(s.im)
+    d.polygon([(x - 18, y), (x + 18, y), (x + 18, y - 5), (x - 18, y - 5)], fill=hx('6a4a3a'))
+    d.ellipse([x - 12, y - 30, x + 12, y - 5], fill=hx('2aa8b8')); d.ellipse([x - 7, y - 26, x + 5, y - 9], fill=hx('f0f6f8'))
+    d.ellipse([x - 10, y - 40, x + 10, y - 22], fill=hx('2aa8b8')); d.ellipse([x - 7, y - 33, x + 1, y - 26], fill=hx('f0f6f8')); d.ellipse([x - 3, y - 36, x - 1, y - 34], fill=hx('10242c'))
+    d.polygon([(x + 10, y - 26), (x + 26, y - 32), (x + 22, y - 18)], fill=hx('9ad4ee')); d.polygon([(x - 10, y - 14), (x - 26, y - 10), (x - 12, y - 6)], fill=hx('1a7a9a'))
+    d.polygon([(x - 8, y - 40), (x - 12, y - 48), (x - 3, y - 41)], fill=hx('1a8a9a')); d.polygon([(x + 5, y - 40), (x + 10, y - 47), (x + 9, y - 38)], fill=hx('1a8a9a'))
+    s.tree(0.02, 0.60, 0.7); s.tree(0.96, 0.70, 0.7)
+    return s.finish()
+
+# ============================ b44 하림 (익산 푸드폴리스: 식품 공장 + 사일로) ============================
+def harim():
+    s = Sc(61, 7); G = s.G; s.ground()
+    s.shadow([G(0.10, 0.56), G(0.92, 0.56), G(1.02, 0.66), G(0.20, 0.68)], 105, 10)
+    # 긴 흰색 공장동 + 파란 지붕 줄 + 하림 파랑 간판
+    s.box(0.08, 0.84, 0.14, 0.56, 13, (hx('fafbff'), hx('ced4e6')), (hx('d8deee'), hx('a4abc4')), (hx('2a64c0'), hx('1a4290')))
+    for k in range(1, 14): s.line([G(0.08 + 0.76 * k / 14, 0.14, 13), G(0.08 + 0.76 * k / 14, 0.56, 13)], hx('78a0e8', 170), 2)
+    for k in range(1, 12): s.line([G(0.08 + 0.76 * k / 12, 0.56, 0), G(0.08 + 0.76 * k / 12, 0.56, 13)], hx('b8c0d8', 90), 2)
+    s.grad([G(0.08, 0.56, 6.6), G(0.84, 0.56, 6.6), G(0.84, 0.56, 13), G(0.08, 0.56, 13)], hx('1a64c8'), hx('0a3a88'), (0.2, 1))
+    s.line([G(0.08, 0.56, 6.6), G(0.84, 0.56, 6.6)], hx('5ab43a'), 8)                                                                                # 초록 띠(하림 포인트색)
+    fw = G(0.82, 0.56)[0] - G(0.10, 0.56)[0]
+    s.text_face('HARIM', (G(0.13, 0.56)[0], G(0.13, 0.56, 12.2)[1] + 1), 0, 0, fw * 0.62 / 290.0, hx('ffffff'), size=64, bold_outline=hx('0a3a88'), shear=0.5)
+    s.text_face('FOOD POLIS', (G(0.60, 0.56)[0], G(0.60, 0.56, 9.4)[1] + 1), 0, 0, fw * 0.28 / 330.0, hx('d8f0c8'), size=44, shear=0.5)
+    for k in range(5): s.grad([G(0.12 + 0.14 * k, 0.56, 0.6), G(0.20 + 0.14 * k, 0.56, 0.6), G(0.20 + 0.14 * k, 0.56, 5.0), G(0.12 + 0.14 * k, 0.56, 5.0)], hx('a8c8e8'), hx('3a5a88'), (0.2, 1))    # 상차장 문
+    # 사일로 2개(원통): 흰/파랑 + 사다리
+    def silo(a, b, r, hh):
+        x, y = G(a, b); rr = r * 47 * S
+        d = ImageDraw.Draw(s.im); xs0, xs1 = x - rr, x + rr; ytop = y - hh * S
+        for xx in range(int(xs0), int(xs1)):
+            t = max(0.0, (xx - xs0) / (xs1 - xs0)); c = lerp(hx('f6f8ff'), hx('8a92b0'), t ** 1.3); d.line([(xx, y), (xx, ytop)], fill=c, width=1)
+        d.ellipse([xs0, y - rr * 0.5, xs1, y + rr * 0.5], fill=hx('9aa2bc')); d.ellipse([xs0, ytop - rr * 0.5, xs1, ytop + rr * 0.5], fill=hx('e8ecfa')); d.ellipse([xs0 + 6, ytop - rr * 0.3, xs1 - 6, ytop + rr * 0.3], fill=hx('1a64c8'))
+        d.line([(xs1 - 4, y), (xs1 - 4, ytop)], fill=hx('5a6280'), width=3)
+    silo(0.74, 0.74, 0.060, 20); silo(0.88, 0.62, 0.052, 17)
+    # 굴뚝 + 하림 트럭(흰 탑차 + 파랑 줄)
+    x, y = G(0.14, 0.18, 13); d = ImageDraw.Draw(s.im); d.rectangle([x - 5, y - 40, x + 5, y], fill=hx('c8cee0')); d.rectangle([x - 5, y - 40, x - 1, y], fill=hx('f0f2fa')); d.rectangle([x - 6, y - 44, x + 6, y - 40], fill=hx('d8363a'))
+    a, b = 0.22, 0.80
+    s.grad([G(a, b, 0.4), G(a + 0.15, b, 0.4), G(a + 0.15, b, 5.6), G(a, b, 5.6)], hx('fafbff'), hx('c4cadc'), (0.3, 1)); s.line([G(a, b, 3.0), G(a + 0.15, b, 3.0)], hx('1a64c8'), 6)
+    s.grad([G(a + 0.15, b - 0.04, 0.4), G(a + 0.15, b, 0.4), G(a + 0.15, b, 5.6), G(a + 0.15, b - 0.04, 5.6)], hx('a4abc4'), hx('6e7694'), (0.3, 1))
+    s.grad([G(a + 0.17, b, 0.4), G(a + 0.22, b, 0.4), G(a + 0.22, b, 3.4), G(a + 0.17, b, 3.4)], hx('4a7ae0'), hx('1a3a88'), (0.3, 1))
+    s.tree(0.04, 0.84, 0.8); s.tree(0.96, 0.84, 0.7)
     return s.finish()
 
 if __name__ == '__main__':
-    items = {'b19': cinema, 'b3': costco, 'b4': hotel, 'b15': tesla, 'b21': station}
-    sheet = Image.new('RGBA', (5 * 96 * 4 + 40, 80 * 4), (150, 70, 160, 255))
+    items = {'b19': cinema, 'b3': costco, 'b4': hotel, 'b15': tesla, 'b21': station, 'b44': harim}
+    sheet = Image.new('RGBA', (6 * 96 * 4 + 48, 80 * 4), (150, 70, 160, 255))
     for k, (n, fn) in enumerate(items.items()):
         im = fn(); im.save(f'{out}/{n}.png'); bg = Image.new('RGBA', im.size, (150, 70, 160, 255)); bg.alpha_composite(im)
         sheet.paste(bg.resize((im.width * 4, im.height * 4), Image.NEAREST), (k * (96 * 4 + 8), 0))

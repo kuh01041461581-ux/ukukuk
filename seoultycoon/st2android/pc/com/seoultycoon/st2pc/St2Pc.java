@@ -2,6 +2,7 @@ package com.seoultycoon.st2pc;
 
 import com.seoultycoon.st2.Host;
 import com.seoultycoon.st2.Platform;
+import com.seoultycoon.st2.PixelScale;
 import com.seoultycoon.st2.Surf;
 import java.awt.*;
 import java.awt.event.*;
@@ -53,14 +54,14 @@ public class St2Pc {
 
     // ---------------- 화면 ----------------
     static class GamePanel extends JPanel {
-        final BufferedImage lcd = new BufferedImage(240, 296, BufferedImage.TYPE_INT_RGB); volatile Host host; volatile String err;
+        final BufferedImage lcd = new BufferedImage(960, 1184, BufferedImage.TYPE_INT_RGB); volatile boolean hq = true; volatile Host host; volatile String err;
         int ox, oy; double sc = 3;
         GamePanel() { setBackground(new Color(10, 10, 20)); setFocusable(true); setPreferredSize(new Dimension(240 * 3, 296 * 3)); }
         @Override protected void paintComponent(Graphics g0) {
             super.paintComponent(g0); Graphics2D g = (Graphics2D) g0;
-            sc = Math.max(1.0, Math.min(getWidth() / 240.0, getHeight() / 296.0)); sc = Math.floor(sc * 4) / 4;      // 1/4 배율 단위(도트가 덜 번짐)
+            sc = Math.max(1.0, Math.min(getWidth() / 240.0, getHeight() / 296.0)); if (!hq) sc = Math.floor(sc * 4) / 4;      // 1/4 배율 단위(도트가 덜 번짐)
             int w = (int) (240 * sc), h = (int) (296 * sc); ox = (getWidth() - w) / 2; oy = (getHeight() - h) / 2;
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hq ? RenderingHints.VALUE_INTERPOLATION_BICUBIC : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR); g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             synchronized (lcd) { g.drawImage(lcd, ox, oy, w, h, null); }
             if (err != null) { g.setColor(new Color(0, 0, 0, 200)); g.fillRect(0, 0, getWidth(), 120); g.setColor(Color.WHITE); int y = 18; for (String ln : err.split("\n")) { g.drawString(ln.length() > 120 ? ln.substring(0, 120) : ln, 8, y); y += 14; if (y > 110) break; } }
         }
@@ -122,7 +123,7 @@ public class St2Pc {
                 long last = System.nanoTime(); int[] px = new int[240 * 296];
                 while (running) {
                     long t0 = System.nanoTime(); int dt = (int) Math.min(100, (t0 - last) / 1000000); last = t0; h.timeScale = speed;
-                    if (h.tick(Math.max(8, dt))) { Surf s = h.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; synchronized (panel.lcd) { panel.lcd.setRGB(0, 0, 240, 296, px, 0, 240); } panel.repaint(); }
+                    if (h.tick(Math.max(8, dt))) { Surf s = h.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; int[] big = PixelScale.epx4(px, 240, 296); synchronized (panel.lcd) { panel.lcd.setRGB(0, 0, 960, 1184, big, 0, 960); } panel.repaint(); }
                     long el = (System.nanoTime() - t0) / 1000000; if (el < 16) Thread.sleep(16 - el);
                 }
             } catch (Throwable ex) { StringWriter sw = new StringWriter(); ex.printStackTrace(new PrintWriter(sw)); panel.err = sw.toString(); panel.repaint(); try { pf.writeFile("error.txt", sw.toString().getBytes(StandardCharsets.UTF_8)); } catch (Exception e2) { } }
@@ -136,14 +137,14 @@ public class St2Pc {
         String name = null; try { Path np = dir.resolve("name.txt"); if (Files.exists(np)) name = new String(Files.readAllBytes(np), StandardCharsets.UTF_8).trim(); } catch (IOException e) { }
         final String auto = System.getProperty("st2.script");            // 시험용 스크립트
         if (name == null || name.isEmpty()) {
-            String s = auto != null ? "시장" : JOptionPane.showInputDialog(null, "시장님 존함 (게임 시작 시 사용, 5자까지)", "익산타이쿤 2", JOptionPane.QUESTION_MESSAGE);
+            String s = auto != null ? "시장" : JOptionPane.showInputDialog(null, "시장님 존함 (게임 시작 시 사용, 5자까지)", "익산타이쿤", JOptionPane.QUESTION_MESSAGE);
             name = s == null || s.trim().isEmpty() ? "시장" : s.trim(); if (name.length() > 5) name = name.substring(0, 5);
             pf.writeFile("name.txt", name.getBytes(StandardCharsets.UTF_8));
         }
         final String nm = name;
         SwingUtilities.invokeAndWait(() -> {
             panel = new GamePanel();
-            JFrame f = new JFrame("익산타이쿤 2"); f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            JFrame f = new JFrame("익산타이쿤"); f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             JMenuBar mb = new JMenuBar(); JMenu m = new JMenu("설정"); ButtonGroup g = new ButtonGroup();
             String[] sn = {"게임 속도 1배", "게임 속도 1.5배", "게임 속도 2배 (기본)", "게임 속도 3배"};
             for (int i = 0; i < 4; i++) { final int k = i; JRadioButtonMenuItem it = new JRadioButtonMenuItem(sn[i], i == 2); g.add(it); m.add(it); it.addActionListener(e -> speed = SPEEDS[k]); }
@@ -153,6 +154,7 @@ public class St2Pc {
             JPanel ctl = controls(); ctl.setPreferredSize(new Dimension(210, 0)); ctl.setVisible(false);
             f.add(panel, BorderLayout.CENTER); f.add(ctl, BorderLayout.EAST);
             JCheckBoxMenuItem vp = new JCheckBoxMenuItem("가상 키패드 보기 (선택 사항)"); vp.addActionListener(e -> { ctl.setVisible(vp.isSelected()); f.pack(); }); m.add(vp);
+            JCheckBoxMenuItem hqm = new JCheckBoxMenuItem("화질 보정(도트 확대 + 부드럽게)", true); hqm.addActionListener(e -> { panel.hq = hqm.isSelected(); panel.repaint(); }); m.add(hqm);
             JCheckBoxMenuItem inv = new JCheckBoxMenuItem("지도 끌기 방향 반대로"); inv.addActionListener(e -> dragInvert = inv.isSelected()); m.add(inv);
             JMenuItem help = new JMenuItem("조작 안내"); help.addActionListener(e -> JOptionPane.showMessageDialog(f, HELP, "조작 안내", JOptionPane.INFORMATION_MESSAGE)); m.add(help);
             Dimension sd = Toolkit.getDefaultToolkit().getScreenSize(); int s0 = Math.max(2, Math.min(4, (sd.height - 140) / 296)); panel.setPreferredSize(new Dimension(240 * s0, 296 * s0));

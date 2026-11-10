@@ -30,7 +30,7 @@ public class St2View extends View {
     Btn[] btns = new Btn[0];
     final Paint bp = new Paint(Paint.ANTI_ALIAS_FLAG), tp = new Paint(Paint.ANTI_ALIAS_FLAG), sp = new Paint(Paint.ANTI_ALIAS_FLAG), gp = new Paint();
     final RectF game = new RectF(), pad = new RectF(), gear = new RectF();
-    final Rect src = new Rect(0, 0, 240, 296);
+    final Rect src = new Rect(0, 0, 960, 1184);          // 화질 보정으로 4배 확대된 화면
     Bitmap big; Canvas bigC; int bigK; int shownFrame = -1; final Paint sm = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
     public volatile String err; public volatile int frames;
     public Host game_host; public android.graphics.Bitmap lcd;

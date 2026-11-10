@@ -1,4 +1,4 @@
-"""타이틀 로고(0.m, 124x69) 를 'IKSAN TYCOON 2' 로 새로 그린다 → st2android/mod/0.m (게임은 st2mod 를 먼저 읽는다).
+"""타이틀 로고(0.m, 124x69) 를 'IKSAN TYCOON' 로 새로 그린다 → st2android/mod/0.m (게임은 st2mod 를 먼저 읽는다).
 원본과 같은 구성: 흰 이탤릭 글자 + 검은 외곽선 + 빨간 두꺼운 외곽/그림자 + 노란 '2'. 사용: python3 -I tools/make_iksan_logo.py [미리보기.png]"""
 import os, sys
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
@@ -18,9 +18,9 @@ def shrink(m): return m.resize((W, H), Image.LANCZOS).point(lambda v: 255 if v >
 def grow(m, px): return m.filter(ImageFilter.MaxFilter(px * 2 + 1)) if px > 0 else m
 def shift(m, dx, dy): return ImageChops.offset(m, dx, dy)
 
-iksan = shrink(text_mask('IKSAN', (4, 9, 79, 37), -1))
-tycoon = shrink(text_mask('TYCOON', (16, 42, 82, 58), -1))
-two = shrink(text_mask('2', (78, 4, 119, 62)))
+iksan = shrink(text_mask('IKSAN', (6, 8, 118, 40), -1))
+tycoon = shrink(text_mask('TYCOON', (14, 44, 110, 62), -1))
+two = Image.new('L', (W, H), 0)                                  # 2 는 뺀다
 white = ImageChops.lighter(iksan, tycoon)
 allm = ImageChops.lighter(white, two)
 

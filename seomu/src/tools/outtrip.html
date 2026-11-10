@@ -325,7 +325,7 @@ main{max-width:none;padding:0 0 32px;}
     </div>
     <div class="tablewrap">
       <table id="staffTable">
-        <thead><tr><th style="width:26px">#</th><th>성명</th><th>부서</th><th>직급</th><th>은행코드</th><th>은행명</th><th>계좌번호</th><th style="width:50px">삭제</th></tr></thead>
+        <thead><tr><th style="width:26px">#</th><th>성명</th><th>실국</th><th>부서</th><th>직급</th><th>은행코드</th><th>은행명</th><th>계좌번호</th><th style="width:50px">삭제</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -368,6 +368,7 @@ main{max-width:none;padding:0 0 32px;}
     <details class="hint" style="margin-bottom:10px;padding:8px 12px;cursor:pointer;">
       <summary style="cursor:pointer;font-weight:600;color:var(--text-sub);"><svg class="icon" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.6 12.4L20 3M18 5l2 2M15 8l2 2"/></svg> API 키 (코드에 이미 내장되어 있으면 펼칠 필요 없음 — 클릭해서 펼치기)</summary>
       <div class="formrow" style="margin-top:10px;"><label>카카오 API 키</label><input id="distApiKeyInput" type="password" autocomplete="off" placeholder="코드 상단 MAP_API_KEY 상수를 채웠다면 비워두어도 됩니다"></div>
+      <div class="formrow"><label>오피넷 중계 주소</label><input id="distOpinetProxyInput" placeholder="선택 · https://opinet-relay.내계정.workers.dev (가장 안정적, seomu/relay/opinet-worker.js 참고)" onchange="saveOpinetProxyUrl()"></div>
       <div class="formrow"><label>오피넷 API 키</label><input id="distOpinetKeyInput" type="password" autocomplete="off" placeholder="코드 상단 OPINET_API_KEY 상수를 채웠다면 비워두어도 됩니다"></div>
     </details>
     <div class="formrow"><label>출발지</label>
@@ -497,9 +498,10 @@ main{max-width:none;padding:0 0 32px;}
 
   <div class="card">
     <h2>③ 엑셀 서식 다운로드</h2>
-    <div class="sub">차세대 지방재정 시스템에 그대로 업로드할 수 있는 공식 엑셀 양식으로 내보냅니다.</div>
+    <div class="sub">차세대 지방재정 시스템에 그대로 업로드할 수 있는 공식 엑셀 양식으로 내보냅니다. 상세입력폼의 <b>교통편 코드·종별·실국명·거리</b>는 입력한 출장 내용에서 채워지며, 교통편 코드는 아래에서 시청 서식에 맞게 고칠 수 있습니다.</div>
     <div class="toolbar">
       <button class="btn" onclick="exportPaymentForm()"><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> 지급폼 다운로드 (거래처입력 양식 · 계좌번호 포함)</button>
+      <div id="transportCodeBox" style="width:100%;"></div>
       <button class="btn" onclick="exportDetailForm()"><svg class="icon" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg> 여비상세입력폼 다운로드</button>
     </div>
   </div>
@@ -522,9 +524,10 @@ main{max-width:none;padding:0 0 32px;}
     </div>
     <div class="formrow"><label>성명(직접)</label><input id="m_name" placeholder="예: 홍길동"></div>
     <div class="formrow"><label>직급</label><input id="m_position" placeholder="예: 지방행정주사"></div>
+    <div class="formrow"><label>실국</label><input id="m_bureau" placeholder="예: 문화교육국 (결의서·상세폼의 실국명에 들어갑니다)"></div>
     <div class="formrow"><label>부서</label><input id="m_dept" value="익산시 00000과"></div>
-    <div class="formrow"><label>출장 시작</label><input type="datetime-local" id="m_start"></div>
-    <div class="formrow"><label>출장 종료</label><input type="datetime-local" id="m_end"></div>
+    <div class="formrow"><label>출장 시작</label><input type="datetime-local" id="m_start" onchange="autoNights()"></div>
+    <div class="formrow"><label>출장 종료</label><input type="datetime-local" id="m_end" onchange="autoNights()"></div>
     <div class="formrow"><label>출장지</label><input id="m_dest" placeholder="예: 대한민국 국회" onchange="onDestInputChange()"></div>
     <div class="formrow"><label>출장목적/용무</label><input id="m_purpose" placeholder="예: 정책세미나 참석"></div>
     <div class="formrow"><label>여비등급</label><input id="m_grade" placeholder="예: 제2호" value="제2호"></div>
@@ -591,7 +594,8 @@ main{max-width:none;padding:0 0 32px;}
         <div class="hint" style="margin:-4px 0 6px;">※ 오는 편을 관용차·대중교통으로 선택하면 오는 편 교통비는 지급되지 않습니다(무료).</div>
       </div>
     </div>
-    <div class="formrow"><label>숙박 일수</label><input type="number" id="m_nights" value="0" min="0"></div>
+    <div class="formrow"><label>숙박 일수</label><input type="number" id="m_nights" value="0" min="0" oninput="nightsAuto=false"></div>
+    <div class="hint" style="margin:-4px 0 6px;">※ 출장 시작·종료일에 맞춰 박수가 자동으로 들어갑니다(2박3일 → 2). 숙박비는 아래 <b>영수증을 첨부한 경우에만</b> 지급됩니다.</div>
     <div class="formrow"><label>숙박 지역</label>
       <select id="m_lodgeRegion">
         <option value="서울">서울 (1박 최대 100,000원)</option>
@@ -652,7 +656,7 @@ document.querySelectorAll('.tabbtn').forEach(b=>{
     const topbarActionsEl = document.getElementById('topbarActions');
     if(topbarActionsEl) topbarActionsEl.style.display = (b.dataset.tab==='output') ? 'flex' : 'none';
     if(b.dataset.tab==='calc') renderCalcTable();
-    if(b.dataset.tab==='output') renderDocSelectList();
+    if(b.dataset.tab==='output'){ renderDocSelectList(); renderTransportCodeInputs(); }
     if(b.dataset.tab==='distance') renderDistApplyList();
     updateNavStatus();
   });
@@ -694,6 +698,7 @@ function renderStaffTable(){
     tr.innerHTML = `
       <td>${i+1}</td>
       <td><input value="${s.name||''}" onchange="updStaff(${i},'name',this.value)"></td>
+      <td><input value="${s.bureau||''}" placeholder="예: 문화교육국" onchange="updStaff(${i},'bureau',this.value)"></td>
       <td><input value="${s.dept||''}" onchange="updStaff(${i},'dept',this.value)"></td>
       <td><input value="${s.position||''}" onchange="updStaff(${i},'position',this.value)"></td>
       <td><input value="${s.bankCode||''}" style="width:50px" onchange="updStaff(${i},'bankCode',this.value)"></td>
@@ -707,7 +712,7 @@ function renderStaffTable(){
 function updStaff(i,field,val){ staffDB[i][field]=val; saveStaff(); }
 function delStaff(i){ staffDB.splice(i,1); saveStaff(); renderStaffTable(); }
 function addStaffRow(){
-  staffDB.push({name:'',dept:'익산시 00000과',position:'',bankCode:'',bankName:'',account:''});
+  staffDB.push({name:'',bureau:'',dept:'익산시 00000과',position:'',bankCode:'',bankName:'',account:''});
   saveStaff(); renderStaffTable();
 }
 function clearStaff(){
@@ -733,7 +738,7 @@ function handleStaffFile(file){
       const bankCode = bank.includes(':') ? bank.split(':')[0] : '';
       const bankName = bank.includes(':') ? bank.split(':')[1] : bank;
       staffDB.push({
-        name: r[0], position:'', dept:'익산시 00000과',
+        name: r[0], position:'', bureau:'', dept:'익산시 00000과',
         bankCode, bankName, account: r[7]||''
       });
       added++;
@@ -769,6 +774,7 @@ function openTripModal(id){
     document.getElementById('m_name').value=t.name;
     document.getElementById('m_position').value=t.position;
     document.getElementById('m_dept').value=t.dept;
+    document.getElementById('m_bureau').value=t.bureau||'';
     document.getElementById('m_start').value=t.start;
     document.getElementById('m_end').value=t.end;
     document.getElementById('m_dest').value=t.dest;
@@ -792,6 +798,7 @@ function openTripModal(id){
     document.getElementById('m_trainFareReturn').value=t.trainFareReturn||0;
     document.getElementById('m_trainTicketReturn').checked=!!t.trainTicketReturn;
     document.getElementById('m_nights').value=t.nights||0;
+    nightsAuto = (t.nights||0) === Math.max(0, tripDays(t)-1);
     document.getElementById('m_lodgeRegion').value=t.lodgeRegion||guessLodgeRegion(t.dest);
     document.getElementById('m_lodge').value=t.lodge||0;
     document.getElementById('m_lodgeReceipt').checked=!!t.lodgeReceipt;
@@ -800,6 +807,7 @@ function openTripModal(id){
   } else {
     ['m_name','m_position','m_dest','m_purpose','m_notes'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('m_dept').value='익산시 00000과';
+    document.getElementById('m_bureau').value='';
     document.getElementById('m_grade').value='제2호';
     document.getElementById('m_transport').value='공무용차량';
     document.getElementById('m_distance').value=0;
@@ -819,6 +827,7 @@ function openTripModal(id){
     document.getElementById('m_trainFareReturn').value=0;
     document.getElementById('m_trainTicketReturn').checked=false;
     document.getElementById('m_nights').value=0;
+    nightsAuto = true;
     document.getElementById('m_lodgeRegion').value='기타';
     document.getElementById('m_lodge').value=0;
     document.getElementById('m_lodgeReceipt').checked=false;
@@ -839,6 +848,7 @@ function onStaffPick(){
   document.getElementById('m_name').value = s.name;
   document.getElementById('m_position').value = s.position||'';
   document.getElementById('m_dept').value = s.dept||'익산시 00000과';
+  document.getElementById('m_bureau').value = s.bureau||'';
 }
 function toggleTransportFields(){
   const v = document.getElementById('m_transport').value;
@@ -856,12 +866,12 @@ function toggleReturnTransportFields(){
   const v = document.getElementById('m_returnTransport').value;
   document.getElementById('m_returnTrainFields').style.display = (v==='기차') ? 'block' : 'none';
 }
-function guessLodgeRegion(dest){
-  if(!dest) return '기타';
-  if(dest.includes('서울')) return '서울';
-  const metros = ['부산','대구','인천','광주','대전','울산','세종'];
-  if(metros.some(m=>dest.includes(m))) return '광역시';
-  return '기타';
+let nightsAuto = true;
+function autoNights(){
+  if(!nightsAuto) return;
+  const st = document.getElementById('m_start').value, en = document.getElementById('m_end').value;
+  if(!st || !en) return;
+  document.getElementById('m_nights').value = Math.max(0, tripDays({start:st,end:en})-1);
 }
 function onDestInputChange(){
   const dest = document.getElementById('m_dest').value;
@@ -873,6 +883,7 @@ function saveTripModal(){
   const rec = {
     id: editingTripId || uid(),
     name, position: document.getElementById('m_position').value,
+    bureau: document.getElementById('m_bureau').value.trim(),
     dept: document.getElementById('m_dept').value,
     start: document.getElementById('m_start').value,
     end: document.getElementById('m_end').value,
@@ -992,19 +1003,42 @@ function importTripExcel(ev){
   handleTripFile(file);
   ev.target.value='';
 }
+/* "문화교육국 문화예술과" · "문화교육국\n문화예술과" 처럼 붙어 온 소속에서 실국과 부서를 나눈다. */
+function splitBureauDept(str){
+  const toks = String(str==null?'':str).split(/[\s/·,]+/).map(x=>x.trim()).filter(Boolean);
+  const isBureau = x => /(국|실|본부|단|관)$/.test(x) && !/(과|팀|담당관|센터|사업소|계)$/.test(x) && x.length>=3;
+  let bureau='', rest=[];
+  toks.forEach(t=>{ if(!bureau && isBureau(t)) bureau=t; else rest.push(t); });
+  return {bureau, dept: rest.join(' ')};
+}
+/* 지역 이름으로 숙박비 지역 구분 (서울 / 광역시 / 그 밖).  '광주'는 광주광역시와 경기 광주시·전남이 섞이므로 따로 판별한다. */
+function guessLodgeRegion(dest){
+  const d = String(dest||'');
+  if(!d) return '기타';
+  if(/서울|여의도|영등포|용산|국회|광화문|정부서울청사/.test(d)) return '서울';
+  if(/광주/.test(d)){
+    const notMetro = /경기/.test(d) || (/광주시/.test(d) && !/광주광역시/.test(d)) || /전남|전라남도/.test(d);
+    return notMetro ? '기타' : '광역시';
+  }
+  if(/부산|대구|인천|대전|울산|세종/.test(d)) return '광역시';
+  return '기타';
+}
 /* 신규 출장자 레코드를 만드는 공통 헬퍼. staffDB에 등록된 인원이면 직급/부서를 자동으로 채웁니다. */
 function makeTripRecord(f){
   const s = staffDB.find(x=>x.name===f.name) || {};
+  let bureau = f.bureau || s.bureau || '', dept = f.dept || s.dept || '익산시 00000과';
+  if(!bureau){ const sp = splitBureauDept(dept); if(sp.bureau){ bureau = sp.bureau; dept = sp.dept || s.dept || dept; } }
+  const nightsAuto = Math.max(0, tripDays({start:f.start,end:f.end})-1);   // 2일 이상 출장이면 박수 = 일수-1 (영수증 첨부 시에만 지급)
   return {
     id: uid(), name: f.name,
     position: f.position || s.position || '',
-    dept: f.dept || s.dept || '익산시 00000과',
+    bureau, dept,
     start: f.start||'', end: f.end||'', dest: f.dest||'', purpose: f.purpose||'',
     grade: f.grade || '제2호',
     transport: f.transport || '자차',
     carRole: 'driver',
     distance:0, fuelType:'GASOLINE', carType:3, rate:calcRatePerKm('GASOLINE', getBestKnownOilPrice('GASOLINE'), f.start), toll:0, tollReceipt:false,
-    trainFare:0, trainTicket:false, nights:0, lodge:0, lodgeReceipt:false, lodgeRegion:'기타', notes:f.notes||'',
+    trainFare:0, trainTicket:false, nights:nightsAuto, lodge:0, lodgeReceipt:false, lodgeRegion:guessLodgeRegion(f.dest), notes:f.notes||'',
     mealOverride:null, mealFeeOverride:null, dailyOverride:null, transOverride:null, lodgeOverride:null
   };
 }
@@ -1019,7 +1053,8 @@ function makeTripRecord(f){
 const HEADER_FIELD_SYNONYMS = {
   name:     ['성명','이름','출장자','출장자명'],
   deptPos:  ['소속/직급','소속·직급','소속및직급','부서/직급','소속·직위'],
-  dept:     ['소속','부서'],
+  bureau:   ['실국','실국명','국','국명','소속국'],
+  dept:     ['소속','부서','부서명','과','과명'],
   position: ['직급','직위'],
   gubun:    ['구분','근무구분'],
   carUsed:  ['공무용차량','관용차량','차량사용유무'],
@@ -1169,15 +1204,19 @@ function parseGenericTripRows(rows){
     }
 
     // 소속/직급
-    let dept='', position='';
+    let dept='', position='', bureau='';
     if(colMap.deptPos!=null){
       const raw = String(get('deptPos')||'');
       const parts = raw.split(/\r\n|\r|\n|_x000D_/).map(s=>s.trim()).filter(Boolean);
-      dept = parts[0]||''; position = parts[parts.length-1]||'';
+      position = parts.length>1 ? parts[parts.length-1] : '';
+      const head = (parts.length>1 ? parts.slice(0,-1) : parts).join(' ');
+      const sp = splitBureauDept(head);
+      bureau = sp.bureau; dept = sp.dept || (sp.bureau ? '' : head);
     } else {
-      if(colMap.dept!=null) dept = String(get('dept')||'').trim();
+      if(colMap.dept!=null){ const sp = splitBureauDept(String(get('dept')||'')); bureau = sp.bureau; dept = sp.bureau ? sp.dept : String(get('dept')||'').trim(); }
       if(colMap.position!=null) position = String(get('position')||'').trim();
     }
+    if(colMap.bureau!=null){ const b = String(get('bureau')||'').trim(); if(b) bureau = b; }
 
     const purpose = colMap.purpose!=null ? String(get('purpose')||'').trim() : '';
     const grade = (colMap.grade!=null && String(get('grade')||'').trim()) || '제2호';
@@ -1252,7 +1291,7 @@ function parseGenericTripRows(rows){
     // 전부 빈 행은 실제 출장자 데이터가 아니므로 제외
     if(!(start || end || purpose || dest || position || dept)) continue;
 
-    out.push(makeTripRecord({name, dept, position, dest, purpose, grade, start, end, transport, notes}));
+    out.push(makeTripRecord({name, bureau, dept, position, dest, purpose, grade, start, end, transport, notes}));
   }
   return out;
 }
@@ -1603,6 +1642,17 @@ function calcRatePerKm(fuelType, oilPrice, dateStr){
   const eff = getFuelEfficiency(fuelType, dateStr);
   return Math.round((oilPrice||0) / eff);
 }
+/* 내 중계서버 주소(Cloudflare Worker 등): 화면 입력칸 → 브라우저 저장값 → 코드 상수 순. 입력하면 저장된다. */
+function getOpinetProxyUrl(){
+  const el = document.getElementById('distOpinetProxyInput');
+  let v = el ? el.value.trim() : '';
+  if(!v){ try{ v = (localStorage.getItem('opinetProxyUrl')||'').trim(); }catch(e){} }
+  return (v || OPINET_PROXY_URL || '').trim();
+}
+function saveOpinetProxyUrl(){
+  const el = document.getElementById('distOpinetProxyInput'); if(!el) return;
+  try{ localStorage.setItem('opinetProxyUrl', el.value.trim()); }catch(e){}
+}
 function getOpinetApiKey(){
   const el = document.getElementById('distOpinetKeyInput');
   const override = el ? el.value.trim() : '';
@@ -1664,8 +1714,8 @@ function parseOpinetText(text){
    · 전 경로 실패 시 OPINET_BACKOFF_MS 부터 2배씩 늘려가며 최대 OPINET_ROUNDS 회 재시도, 그래도 실패하면 OPINET_COOLDOWN_MS 동안 자동 재요청을 쉽니다.
    · 최근 OPINET_CACHE_TTL_MS 이내에 성공한 값이 있으면 네트워크를 쓰지 않습니다("다시 조회" 버튼은 무시하고 강제 조회).
    값이 여전히 불안정하면 아래 숫자만 키우면 됩니다. */
-const OPINET_STAGGER_MS   = 1500;
-const OPINET_MIN_GAP_MS   = 1200;
+const OPINET_STAGGER_MS   = 700;    // 공개 중계 서버는 0.7초 간격으로 차례 시도(먼저 성공하면 나머지 취소)
+const OPINET_MIN_GAP_MS   = 300;
 const OPINET_TIMEOUT_MS   = 9000;
 const OPINET_ROUNDS       = 3;
 const OPINET_BACKOFF_MS   = 2000;
@@ -1683,13 +1733,14 @@ async function fetchOpinetAvgAllOnce(key){
   const k = encodeURIComponent(key);
   const target = `https://www.opinet.co.kr/api/avgAllPrice.do?out=json&certkey=${k}&code=${k}`;
   const routes = [
-    ...(OPINET_PROXY_URL ? [{name:'내 중계서버', url: OPINET_PROXY_URL.replace(/\/+$/,'')+'?k='+k}] : []),
+    ...(getOpinetProxyUrl() ? [{name:'내 중계서버', url: getOpinetProxyUrl().replace(/\/+$/,'')+'?k='+k, mine:true}] : []),
     {name:'direct',     url: target},
     {name:'corsproxy',  url: 'https://corsproxy.io/?url='+encodeURIComponent(target)},
     {name:'allorigins', url: 'https://api.allorigins.win/raw?url='+encodeURIComponent(target)},
     {name:'codetabs',   url: 'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(target)},
     {name:'allorigins-get', url: 'https://api.allorigins.win/get?url='+encodeURIComponent(target)}
   ];
+  const hasMine = routes.some(r=>r.mine);
   return new Promise((resolve, reject)=>{
     let finished = false, remaining = routes.length;
     const errors = [];
@@ -1708,7 +1759,7 @@ async function fetchOpinetAvgAllOnce(key){
           const list = parseOpinetText(await res.text());
           if(!finished){ finished = true; resolve({list, via:r.name}); } else { remaining--; }
         }catch(e){ fail(r.name+': '+((e && e.message) || String(e))); }
-      }, i*OPINET_STAGGER_MS);
+      }, (r.mine ? 0 : (hasMine ? 2500 : 0) + (hasMine ? i-1 : i)*OPINET_STAGGER_MS));   // 내 중계서버가 있으면 먼저 시도하고, 공개 중계는 그 뒤 예비
     });
   });
 }
@@ -2344,6 +2395,26 @@ function exportPaymentForm(){
   XLSX.utils.book_append_sheet(wb, ws, '거래처입력');
   XLSX.writeFile(wb, '관외출장_지급폼_'+todayStr()+'.xlsx');
 }
+/* 상세입력폼 '교통편' 코드. 서식이 정한 코드가 시청마다 다를 수 있어 화면에서 고쳐 쓸 수 있게 하고(브라우저에 저장),
+   처음 값은 기존 프로그램이 쓰던 값(002:철도, 003:자가용, 001:없음). */
+const TRANSPORT_CODE_DEFAULT = {'자차':'003:자가용','기차':'002:철도','공무용차량':'001:없음','기타':'001:없음'};
+function getTransportCodes(){
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem('tripTransportCodes')||'{}')||{}; }catch(e){}
+  return Object.assign({}, TRANSPORT_CODE_DEFAULT, saved);
+}
+function saveTransportCode(key, val){
+  const cur = getTransportCodes(); cur[key] = String(val||'').trim() || TRANSPORT_CODE_DEFAULT[key];
+  try{ localStorage.setItem('tripTransportCodes', JSON.stringify(cur)); }catch(e){}
+}
+function renderTransportCodeInputs(){
+  const host = document.getElementById('transportCodeBox'); if(!host) return;
+  const c = getTransportCodes();
+  const lab = {'자차':'자가용(자차)','기차':'철도(기차)','공무용차량':'관용차량','기타':'대중교통·기타'};
+  host.innerHTML = Object.keys(TRANSPORT_CODE_DEFAULT).map(k=>`<label class="small" style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 6px 0;">${lab[k]} <input style="width:120px" value="${esc2(c[k])}" onchange="saveTransportCode('${k}',this.value)"></label>`).join('');
+}
+function esc2(v){ return String(v==null?'':v).replace(/"/g,'&quot;'); }
+function transportKindLabel(t){ return t.transport==='자차' ? '자가용' : (t.transport==='공무용차량' ? '관용차량' : (t.transport==='기차' ? '철도' : '대중교통')); }
 function exportDetailForm(){
   if(tripDB.length===0){ alert('출장 내역이 없습니다.'); return; }
   const header = ['출장자명\n(100자리이하)','계좌번호\n(30자리이하)','직급명\n(100자리이하)','출장목적\n(100자리이하)','정산유형\n(선택)','일자\n(8자리)','출발지\n(100자리이하)','경유지\n(100자리이하)','도착지\n(100자리이하)','교통편\n(선택)','종별\n(100자리이하)','등급\n(100자리이하)','거리\n(10자리이하)','요금\n(17자리이하)','출장시작일\n(8자리)','출장종료일\n(8자리)','식비\n(17자리이하)','숙박료\n(17자리이하)','일비\n(17자리이하)','현지교통비\n(사용하지 않는 항목)','기타\n(사용하지 않는 항목)','계\n(17자리이하)','청구 및 수령액\n(17자리이하)','실국명\n(100자리이하)','부서명\n(100자리이하)'];
@@ -2353,9 +2424,11 @@ function exportDetailForm(){
     const total = daily+meal+trans+lodge;
     const startDate = t.start ? t.start.split('T')[0].replace(/-/g,'') : '';
     const endDate = t.end ? t.end.split('T')[0].replace(/-/g,'') : '';
-    const transportCode = t.transport==='기차' ? '002:철도' : (t.transport==='자차' ? '003:자가용' : '001:없음');
+    const transportCode = getTransportCodes()[t.transport] || getTransportCodes()['기타'];
+    const bureau = t.bureau || s.bureau || '';
+    const isCarTrip = t.transport==='자차' || t.transport==='공무용차량';
     return [t.name, s.account||'', t.position||'', t.purpose||'', '002:실비', startDate, '익산', '', t.dest||'',
-      transportCode, '', t.grade||'', t.distance||'', trans, startDate, endDate, meal, lodge, daily, '', '', total, total, '00000국', t.dept||'익산시 00000과'];
+      transportCode, transportKindLabel(t), t.grade||'', isCarTrip ? (t.distance||'') : '', trans, startDate, endDate, meal, lodge, daily, '', '', total, total, bureau, t.dept||'익산시 00000과'];
   });
   const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
   const wb = XLSX.utils.book_new();
@@ -2568,7 +2641,7 @@ function buildReceiptDoc(t){
     `<tr style="height:5.08%">${td('개산급에\n대한정산',3,1)}${td('개산액',3,1)}${td('         년     월     일     ',3,1)}${td('정  산  액',2,1)}${td('    ',3,1)}</tr>`,
     `<tr style="height:5.60%">${td(`금${p.total.toLocaleString()}원(금${numberToKorean(p.total)}원)`,14,1,'hx-amt')}</tr>`,
     `<tr style="height:9.17%">${td('적    요',2,1)}${td(purposeInp('purpose',p.purpose),7,1)}${td('거래은행\n계좌번호',2,1)}${td(inp('bankName',p.bankName,'style="width:34%;display:inline-block;"')+inp('account',p.account,'style="width:64%;display:inline-block;"'),3,1)}</tr>`,
-    `<tr style="height:8.23%">${td('출장자',2,1)}${td(` 부서명   ${dept}\n 직  급   ${pos}\n 성  명   ${nm}      (인)`,12,1,'hx-left')}</tr>`,
+    `<tr style="height:8.23%">${td('출장자',2,1)}${td(` 부서명   ${p.bureau ? escapeXml(p.bureau)+' ' : ''}${dept}\n 직  급   ${pos}\n 성  명   ${nm}      (인)`,12,1,'hx-left')}</tr>`,
     `<tr style="height:8.23%">${td('영수',2,1)}${td(` 위 금액을 영수함.\n${' '.repeat(52)}${p.endY}년   ${p.endM}월   일\n 성  명   ${nm}       (인)`,12,1,'hx-left')}</tr>`,
     `<tr style="height:5.00%">${td('용무',2,1)}${td(purposeInp('purpose',p.purpose),6,1)}${td('출장지',2,1)}${td(inp('dest',p.dest),4,1)}</tr>`,
     `<tr style="height:4.52%">${td('주관과',2,1)}${td('',12,2)}</tr>`,
@@ -3023,7 +3096,7 @@ function fillHwpxBlockV2(blockXml, p, fo){
   set(0,0,12,[`금${p.total.toLocaleString()}원(금${numberToKorean(p.total)}원)`]);
   set(0,2,13,[purposeLines]);                                                  // 적요
   set(0,11,13,[`${p.bankName||''} ${p.account||''}`.trim()],{dropSeg:true});   // 거래은행 + 계좌번호(한 칸)
-  set(0,2,14,[` 부서명   ${p.dept}`,` 직  급   ${p.position}`,` 성  명   ${nm}      (인)`]);
+  set(0,2,14,[` 부서명   ${p.bureau ? p.bureau+' ' : ''}${p.dept}`,` 직  급   ${p.position}`,` 성  명   ${nm}      (인)`]);
   set(0,2,15,[null,`                                                    ${p.endY}년   ${p.endM}월   일`,` 성  명   ${nm}       (인)`]);
   set(0,2,16,[purposeLines]);                                                  // 용무
   set(0,10,16,[p.dest||''],{wrap:true,dropSeg:true});                          // 출장지(도착지) — 줄 배치는 한글이 다시 계산
@@ -3135,7 +3208,7 @@ function buildPersonDataForHwpx(t){
   const s = dateKorParts(t.start), e = dateKorParts(t.end);
   const staffInfo = staffDB.find(x=>x.name===t.name) || {};
   return {
-    name: t.name, position: t.position||'', deptFull: '00000국 '+(t.dept||'익산시 00000과'), dept: (t.dept||'익산시 00000과'),
+    name: t.name, position: t.position||'', bureau: t.bureau||'', deptFull: (t.bureau||'00000국')+' '+(t.dept||'익산시 00000과'), dept: (t.dept||'익산시 00000과'),
     dest: t.dest||'', purpose: t.purpose||'',
     bankName: staffInfo.bankName||'', account: staffInfo.account||'',
     startY: s.y, startM: s.m, startD: s.d, endY: e.y, endM: e.m, endD: e.d,

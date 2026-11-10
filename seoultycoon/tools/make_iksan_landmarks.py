@@ -62,8 +62,8 @@ def weathered(s, a0, a1, b1, z0, h, rnd, n=26):
 def mireuksa():
     global STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T
     save = (STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T)
-    STONE_L = (hx('d2d2c8'), hx('9c9c92')); STONE_R = (hx('9c9c92'), hx('62625c')); STONE_T = (hx('e4e4da'), hx('c0c0b6'))          # 사진의 회백색 화강암(대비를 높임)
-    ROOF_L = (hx('c4c4ba'), hx('84847c')); ROOF_R = (hx('8e8e86'), hx('52524c')); ROOF_T = (hx('dcdcd0'), hx('b4b4a8'))
+    STONE_L = (hx('cfd0c0'), hx('9a9c8a')); STONE_R = (hx('9a9c8a'), hx('62645a')); STONE_T = (hx('e2e4d2'), hx('bfc1ae'))          # 모형 사진의 회녹색 석재
+    ROOF_L = (hx('c0c2b0'), hx('80826f')); ROOF_R = (hx('8c8e7c'), hx('50524a')); ROOF_T = (hx('dadcc8'), hx('b2b49e'))
     s = Sc(68, 11); G = s.G; rnd = random.Random(3); s.ground()
     s.shadow([G(0.2, 0.62), G(0.8, 0.62), G(1.02, 0.80), G(0.4, 0.84)], 105, 11)
     cx = cy = 0.5
@@ -94,10 +94,15 @@ def mireuksa():
     for j in range(3): b = 0.30 + 0.14 * j; s.grad([G(0.76, b, z + 0.9), G(0.76, b + 0.08, z + 0.9), G(0.76, b + 0.08, z + 3.0), G(0.76, b, z + 3.0)], hx('5a5a52'), hx('242420'), (0, 1))
     z += 4.4
     z = layered_roof(s, cx, cy, 0.31, z, rnd, layers=4, thick=0.5, taper=0.014)                                                            # 2층 지붕돌
+    s.box(0.27, 0.73, 0.27, 0.73, 3.4, STONE_L, STONE_R, STONE_T, z)                                                                         # 3층(모형 사진: 아래 3층까지 지붕이 온전)
+    for i3 in range(3):
+        a = 0.31 + 0.13 * i3; s.grad([G(a, 0.73, z + 0.8), G(a + 0.07, 0.73, z + 0.8), G(a + 0.07, 0.73, z + 2.6), G(a, 0.73, z + 2.6)], hx('6a6c5e'), hx('2c2e26'), (0, 1))
+    z += 3.4
+    z = layered_roof(s, cx, cy, 0.275, z, rnd, layers=3, thick=0.5, taper=0.014)
     # 3층 이상: 오른쪽(+a)으로 비스듬히 무너진 돌 더미(복원 블록) — 왼쪽은 곧은 사선, 오른쪽에 지붕돌이 계단식으로 튀어나옴
-    b0, b1 = 0.28, 0.70; zt = z + 17.5
-    def edge_a(zz): return 0.19 + 0.34 * ((zz - z) / (zt - z)) ** 1.0                                   # 왼쪽 가장자리(위로 갈수록 오른쪽으로)
-    def right_a(zz): return 0.74 + 0.016 * (((zz - z) / (zt - z)) * 5)
+    b0, b1 = 0.30, 0.68; zt = z + 15.0
+    def edge_a(zz): return 0.225 + 0.30 * ((zz - z) / (zt - z)) ** 1.0                                   # 왼쪽 가장자리(위로 갈수록 오른쪽으로)
+    def right_a(zz): return 0.70 + 0.022 * (((zz - z) / (zt - z)) * 5)
     zs = np.linspace(z, zt, 40)
     s.grad([G(edge_a(zz), b1, zz) for zz in zs] + [G(right_a(zz), b1, zz) for zz in zs[::-1]], hx('dcdcd2'), hx('a2a29a'), (0.3, 1), 5)
     for k in range(16):                                                                                                                       # 돌 켜 + 어긋난 이음 + 분홍·주황 복원 블록
@@ -109,8 +114,8 @@ def mireuksa():
             if rnd.random() < 0.16: s.flat([G(a, b1, zz + 0.1), G(min(a + 0.03, aR), b1, zz + 0.1), G(min(a + 0.03, aR), b1, zz + 0.85), G(a, b1, zz + 0.85)], rnd.choice([hx('d8a890', 140), hx('e4b898', 130), hx('c8a8a0', 120)]))
     s.grad([G(right_a(zz), b0, zz) for zz in zs] + [G(right_a(zz), b1, zz) for zz in zs[::-1]], hx('b0b0a8'), hx('6c6c66'), (0.3, 1))              # 오른쪽 어두운 옆면
     s.grad([G(edge_a(zt), b0, zt), G(right_a(zt), b0, zt), G(right_a(zt), b1, zt), G(edge_a(zt), b1, zt)], hx('e8e8de'), hx('c4c4ba'), (1, 0.5))   # 꼭대기
-    for k in range(5):                                                                                                                         # 오른쪽으로 튀어나온 지붕돌 5개(위로 갈수록 오른쪽으로 밀림)
-        zz = z + 2.0 + k * 3.0; a0 = right_a(zz) - 0.05; a1 = right_a(zz) + 0.075
+    for k in range(3):                                                                                                                         # 오른쪽에 남은 지붕돌 3개(모형 사진: 위로 갈수록 작아지며 오른쪽으로 밀림)
+        zz = z + 3.0 + k * 4.6; a0 = right_a(zz) - 0.07 + 0.02 * k; a1 = right_a(zz) + 0.085 - 0.012 * k
         s.box(a0, a1, 0.26, 0.72, 0.75, ROOF_L, ROOF_R, ROOF_T, zz)
         s.line([G(a0 + 0.01, 0.72, zz + 0.4), G(a1, 0.72, zz + 0.4)], hx('4e4e48', 130), 2)
     s.tree(0.04, 0.88, 0.9); s.tree(0.95, 0.15, 0.8)

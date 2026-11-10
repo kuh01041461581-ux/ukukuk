@@ -421,6 +421,21 @@ public final class Host {
     /** 실시간 dtMs 만큼 게임 시간을 흘린다. 게임은 Thread.sleep(0)+currentTimeMillis 로 직접 프레임 간격을 맞추므로,
      *  시간은 실제 경과(dtMs)로만 흐르게 하고(바쁜 대기는 currentTimeMillis 에서 감지해 조각을 양보) 2ms 단위로 잘게 스케줄한다.
      *  반환: 이번 호출에서 화면이 다시 그려졌는가 */
+    /** 이번 화면에 그려진 번호 선택지 영역 [숫자,x0,y0,x1,y1] (PC 마우스 클릭 선택용) */
+    public final java.util.ArrayList<int[]> clickRows = new ArrayList<>();   // [숫자,x0,y0,x1,y1,그릴 때의 버퍼 픽셀 해시]
+    final java.util.ArrayList<Surf> clickSurf = new ArrayList<>();
+    public synchronized void addClickRow(Surf sf, int d, int x0, int y0, int x1, int y1) {
+        x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(sf.w - 1, x1); y1 = Math.min(sf.h - 1, y1); if (x1 <= x0 || y1 <= y0) return;
+        for (int i = clickRows.size() - 1; i >= 0; i--) { int[] r = clickRows.get(i); if (r[0] == d && clickSurf.get(i) == sf && Math.abs(r[1] - x0) < 40 && Math.abs(r[2] - y0) < 10) { clickRows.remove(i); clickSurf.remove(i); } }
+        clickRows.add(new int[]{d, x0, y0, x1, y1, regionHash(sf, x0, y0, x1, y1)}); clickSurf.add(sf); while (clickRows.size() > 40) { clickRows.remove(0); clickSurf.remove(0); }
+    }
+    static int regionHash(Surf sf, int x0, int y0, int x1, int y1) { int h = 17; for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++) h = h * 31 + sf.px[y * sf.w + x]; return h; }
+    /** (x,y) 에 지금도 보이는 번호 선택지가 있으면 그 숫자, 없으면 -1 (그린 뒤 같은 버퍼 영역이 바뀌었으면 사라진 것으로 본다) */
+    public synchronized int hitChoice(int x, int y) {
+        for (int i = clickRows.size() - 1; i >= 0; i--) { int[] r = clickRows.get(i);
+            if (x >= r[1] - 3 && x <= r[3] + 3 && y >= r[2] - 2 && y <= r[4] + 2 && regionHash(clickSurf.get(i), r[1], r[2], r[3], r[4]) == r[5]) return r[0]; }
+        return -1;
+    }
     public boolean tick(int dtMs) {
         if (verbose && trace != null) trace.println("TICK " + vnow);
         int[] k; while ((k = pollKey()) != null) { if (currentCard != 0) vcall(currentCard, "(II)Z+keyNotify", k[0], k[1]); }

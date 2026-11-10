@@ -60,6 +60,7 @@ final class GfxLib {
             if ((anchor & 1) != 0) x -= src.w / 2; if ((anchor & 8) != 0) x -= src.w; if ((anchor & 2) != 0) y -= src.h / 2; if ((anchor & 32) != 0) y -= src.h;
             if (H.verbose) H.pf.log("DI src=" + src.w + "x" + src.h + " x=" + x + " y=" + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none") + " anchor=" + anchor + " lr=" + Integer.toHexString(H.vm.r[14] - Host.BASE));
             if (H.verbose && src.w == 77 && src.h == 11 && y == 5 && dst.cx == 6) { StringBuilder sb = new StringBuilder("STK"); for (int i = 0; i < 48; i++) { int w = H.vm.r32(H.vm.r[13] + 4 * i); if ((w & 1) == 1 && w > Host.BASE && w < Host.BASE + 0x83000) sb.append(' ').append(Integer.toHexString(w - Host.BASE)); } H.pf.log(sb.toString()); }
+            if (System.getenv("DILOG") != null && src.w >= 90 && src.w <= 100 && src.h >= 40) H.pf.log("BSPR " + src.w + "x" + src.h + " at " + x + "," + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none") + " px0=" + Integer.toHexString(src.px[src.w * (src.h / 2) + src.w / 2]));
             if (special(H, dst, src, x, y)) return 0;
             // --- 원본과 시트 간격이 달라 생기는 위치 보정(PC 에뮬레이터와 동일)
             boolean restore = false; int scx = dst.cx, scy = dst.cy, scw = dst.cw, sch = dst.ch;
@@ -73,7 +74,17 @@ final class GfxLib {
             if (H.verbose) H.pf.log("DS '" + s + "' x=" + x + " y=" + y + " anchor=" + anchor + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none"));
             int[] dims = new int[2]; byte[] mask = H.pf.renderText(s, dims); if (mask == null) return 0;
             if ((anchor & 1) != 0) x -= dims[0] / 2; if ((anchor & 8) != 0) x -= dims[0]; if ((anchor & 32) != 0) y -= 12;
-            dst.drawMask(mask, dims[0], dims[1], x, y - 2); return 0; });
+            dst.drawMask(mask, dims[0], dims[1], x, y - 2);
+            if (dst.w == 240 && dst.h >= 290) {                                       // 번호 선택지("1.예 2.아니오" 등)의 클릭 영역 기록(그린 직후의 화면 픽셀 해시와 함께)
+                java.util.regex.Matcher mm = java.util.regex.Pattern.compile("(?:^|\\s)([1-9])\\s*\\.").matcher(s); java.util.ArrayList<int[]> st = new java.util.ArrayList<>();
+                while (mm.find()) st.add(new int[]{mm.start(1), mm.group(1).charAt(0) - '0'});
+                for (int i = 0; i < st.size(); i++) {
+                    int a0 = st.get(i)[0], a1 = i + 1 < st.size() ? st.get(i + 1)[0] : s.length(); int[] d0 = new int[2], d1 = new int[2];
+                    byte[] m0 = a0 == 0 ? null : H.pf.renderText(s.substring(0, a0), d0); byte[] m1 = H.pf.renderText(s.substring(0, a1), d1);
+                    H.addClickRow(dst, st.get(i)[1], x + (m0 == null ? 0 : d0[0]), y - 3, x + (m1 == null ? dims[0] : d1[0]), y + 12);
+                }
+            }
+            return 0; });
         // ---- lwc (이름 입력창 등)
         String LC = "org/kwis/msp/lwc/Component", TC = "org/kwis/msp/lwc/TextComponent", TF = "org/kwis/msp/lwc/TextFieldComponent";
         for (String n : new String[]{"()V+<init>", "()V+repaint", "(IIII)V+repaint", "()V+serviceRepaints", "()V+invalidate", "()V+validate", "()V+setFocus", "(I)V+setBackground", "(I)V+setForeground", "(I)V+calcPreferredSize", "(Lorg/kwis/msp/lwc/EventListener;Ljava/lang/Object;)V+setEventListener"})

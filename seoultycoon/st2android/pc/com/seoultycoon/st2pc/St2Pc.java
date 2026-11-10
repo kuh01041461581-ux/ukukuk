@@ -40,7 +40,7 @@ public class St2Pc {
             return n.equals("data1.pak") ? resource(n) : null;           // 건물·지형 그림 묶음은 처음엔 모드(익산) → 원본 순
         }
         public void writeFile(String n, byte[] d) { try { Files.createDirectories(dir); Files.write(dir.resolve(n), d); } catch (IOException e) { } }
-        public boolean fileExists(String n) { if (Files.exists(dir.resolve(n))) return true; return n.equals("data1.pak") && resource(n) != null; }
+        public boolean fileExists(String n) { if (System.getProperty("st2.nopak") != null && n.equals("data1.pak")) return false; if (Files.exists(dir.resolve(n))) return true; return n.equals("data1.pak") && resource(n) != null; }
         public void log(String s) { }
         public synchronized void playClip(int id, byte[] midi, boolean loop) {
             stopClip(id);
@@ -67,18 +67,22 @@ public class St2Pc {
         int gx(int mx) { return (int) ((mx - ox) / sc); } int gy(int my) { return (int) ((my - oy) / sc); }
     }
 
+    static volatile boolean dragInvert = false;
+    static final String HELP = "마우스\n  왼쪽 클릭 = 확인 · 번호 선택지(1.예 2.아니오 …)는 그 글자를 클릭\n  시청 팝업은 항목 클릭 · 오른쪽 클릭 = 취소 · 가운데 클릭 = 지도\n  끌기 = 지도 이동(설정에서 방향 반대로 가능) · 휠 = 위/아래\n\n키보드(엑스박스 패드 배치)\n  방향: 방향키 / WASD · A(확인): Enter / Space / Z · B(취소): Esc / X / Backspace\n  X(정보 *): C · Y(지도 #): V / Tab · 숫자 선택: 0~9 · 전체 화면: F11";
     static Host host; static GamePanel panel; static PcPlatform pf; static volatile boolean running = true; static volatile double speed = 2.0;
     static void key(int code, boolean down) { Host h = host; if (h != null) h.postKey(down ? 1 : 2, code); }
     static void tap(int code) { key(code, true); new javax.swing.Timer(60, e -> key(code, false)) {{ setRepeats(false); start(); }}; }
     static void seq(int[] s) { for (int i = 0; i < s.length; i++) { final int c = s[i]; final int t = 110 * i; Timer a = new Timer(t + 1, e -> key(c, true)); a.setRepeats(false); a.start(); Timer b = new Timer(t + 55, e -> key(c, false)); b.setRepeats(false); b.start(); } }
 
+    /** 엑스박스 패드 배치를 키보드로: 방향 = 방향키/WASD(십자·왼쪽 스틱), A = Enter/Space/Z(확인), B = Esc/X/Backspace(취소), X = C(정보 *), Y = V 또는 Tab(지도 #). 숫자키는 그대로 번호 선택. */
     static int mapKey(KeyEvent e) {
         switch (e.getKeyCode()) {
             case KeyEvent.VK_UP: case KeyEvent.VK_W: return UP; case KeyEvent.VK_DOWN: case KeyEvent.VK_S: return DOWN;
             case KeyEvent.VK_LEFT: case KeyEvent.VK_A: return LEFT; case KeyEvent.VK_RIGHT: case KeyEvent.VK_D: return RIGHT;
-            case KeyEvent.VK_ENTER: case KeyEvent.VK_SPACE: return OK;
-            case KeyEvent.VK_ESCAPE: case KeyEvent.VK_BACK_SPACE: return CLR;
-            case KeyEvent.VK_MULTIPLY: return STAR; case KeyEvent.VK_NUMBER_SIGN: return HASH;
+            case KeyEvent.VK_ENTER: case KeyEvent.VK_SPACE: case KeyEvent.VK_Z: return OK;
+            case KeyEvent.VK_ESCAPE: case KeyEvent.VK_BACK_SPACE: case KeyEvent.VK_X: return CLR;
+            case KeyEvent.VK_C: case KeyEvent.VK_MULTIPLY: return STAR;
+            case KeyEvent.VK_V: case KeyEvent.VK_TAB: case KeyEvent.VK_NUMBER_SIGN: return HASH;
         }
         char c = e.getKeyChar();
         if (c >= '0' && c <= '9') return c; if (c == '*') return STAR; if (c == '#') return HASH;
@@ -107,7 +111,7 @@ public class St2Pc {
         String[] nums = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", ""};
         for (int i = 0; i < 12; i++) { if (nums[i].isEmpty()) continue; c.gridx = i % 3; c.gridy = 4 + i / 3; p.add(pad(nums[i], nums[i].charAt(0), "숫자 " + nums[i]), c); }
         c.gridx = 0; c.gridy = 8; c.gridwidth = 3; c.weighty = 0;
-        JLabel tip = new JLabel("<html><div style='width:170px;color:#444'>왼쪽 클릭=확인 · 오른쪽 클릭=취소<br>휠=위/아래 · 시청 메뉴는 항목 직접 클릭<br>키보드: 방향키/WASD, Enter, Esc, 숫자</div></html>"); tip.setFont(tip.getFont().deriveFont(11f)); p.add(tip, c);
+        JLabel tip = new JLabel("<html><div style='width:170px;color:#444'>왼쪽 클릭=확인 · 오른쪽 클릭=취소<br>휠=위/아래 · 시청 메뉴는 항목 직접 클릭<br>패드식 키: 방향 WASD, A=Enter/Z, B=Esc/X</div></html>"); tip.setFont(tip.getFont().deriveFont(11f)); p.add(tip, c);
         return p;
     }
 
@@ -130,7 +134,7 @@ public class St2Pc {
         Font font = Font.createFont(Font.TRUETYPE_FONT, new ByteArrayInputStream(PcPlatform.res("/galmuri11.ttf"))).deriveFont(11f);
         Path dir = Paths.get(System.getProperty("user.home"), ".iksan-tycoon"); pf = new PcPlatform(dir, font);
         String name = null; try { Path np = dir.resolve("name.txt"); if (Files.exists(np)) name = new String(Files.readAllBytes(np), StandardCharsets.UTF_8).trim(); } catch (IOException e) { }
-        final String auto = System.getProperty("st2.autoshot");            // 시험용: "경로,대기ms,키열(라운드ms:키;...)"
+        final String auto = System.getProperty("st2.script");            // 시험용 스크립트
         if (name == null || name.isEmpty()) {
             String s = auto != null ? "시장" : JOptionPane.showInputDialog(null, "시장님 존함 (게임 시작 시 사용, 5자까지)", "익산타이쿤 2", JOptionPane.QUESTION_MESSAGE);
             name = s == null || s.trim().isEmpty() ? "시장" : s.trim(); if (name.length() > 5) name = name.substring(0, 5);
@@ -146,8 +150,11 @@ public class St2Pc {
             m.addSeparator(); JMenuItem rn = new JMenuItem("시장님 이름 바꾸기 (다음 실행부터)"); rn.addActionListener(e -> { String s = JOptionPane.showInputDialog(f, "새 이름 (5자까지)"); if (s != null && !s.trim().isEmpty()) pf.writeFile("name.txt", (s.trim().length() > 5 ? s.trim().substring(0, 5) : s.trim()).getBytes(StandardCharsets.UTF_8)); }); m.add(rn);
             JMenuItem fs = new JMenuItem("전체 화면 전환 (F11)"); fs.addActionListener(e -> toggleFull(f)); m.add(fs);
             mb.add(m); f.setJMenuBar(mb);
-            JPanel ctl = controls(); ctl.setPreferredSize(new Dimension(210, 0));
+            JPanel ctl = controls(); ctl.setPreferredSize(new Dimension(210, 0)); ctl.setVisible(false);
             f.add(panel, BorderLayout.CENTER); f.add(ctl, BorderLayout.EAST);
+            JCheckBoxMenuItem vp = new JCheckBoxMenuItem("가상 키패드 보기 (선택 사항)"); vp.addActionListener(e -> { ctl.setVisible(vp.isSelected()); f.pack(); }); m.add(vp);
+            JCheckBoxMenuItem inv = new JCheckBoxMenuItem("지도 끌기 방향 반대로"); inv.addActionListener(e -> dragInvert = inv.isSelected()); m.add(inv);
+            JMenuItem help = new JMenuItem("조작 안내"); help.addActionListener(e -> JOptionPane.showMessageDialog(f, HELP, "조작 안내", JOptionPane.INFORMATION_MESSAGE)); m.add(help);
             Dimension sd = Toolkit.getDefaultToolkit().getScreenSize(); int s0 = Math.max(2, Math.min(4, (sd.height - 140) / 296)); panel.setPreferredSize(new Dimension(240 * s0, 296 * s0));
             f.pack(); f.setLocationRelativeTo(null);
             KeyAdapter ka = new KeyAdapter() {
@@ -156,20 +163,35 @@ public class St2Pc {
                 @Override public void keyReleased(KeyEvent e) { int k = mapKey(e); if (k != 0 && down.remove(e.getKeyCode())) key(k, false); }
             };
             f.addKeyListener(ka); panel.addKeyListener(ka);
-            panel.addMouseListener(new MouseAdapter() {
+            MouseAdapter ma = new MouseAdapter() {
+                int px0, py0, ax, ay; boolean down, dragged;
                 @Override public void mousePressed(MouseEvent e) {
                     panel.requestFocusInWindow(); Host h = host; if (h == null) return;
                     if (SwingUtilities.isRightMouseButton(e)) { tap(CLR); return; }
                     if (SwingUtilities.isMiddleMouseButton(e)) { tap(HASH); return; }
-                    int x = panel.gx(e.getX()), y = panel.gy(e.getY()); if (x < 0 || y < 0 || x >= 240 || y >= 296) return;
-                    int[] s = h.tapKeys(x, y); if (s != null) seq(s); else tap(OK);          // 시청 팝업 항목은 바로 선택, 나머지는 확인
+                    down = true; dragged = false; px0 = ax = panel.gx(e.getX()); py0 = ay = panel.gy(e.getY());
                 }
-            });
+                @Override public void mouseDragged(MouseEvent e) {
+                    if (!down) return; int x = panel.gx(e.getX()), y = panel.gy(e.getY()); int dx = x - ax, dy = y - ay, STEP = 20;
+                    while (Math.abs(dx) >= STEP || Math.abs(dy) >= STEP) {                         // 끌기 = 지도 잡아 끌기: 끈 방향으로 화면이 따라오게 반대 방향키
+                        int code; if (Math.abs(dx) >= Math.abs(dy)) { code = dx > 0 ? LEFT : RIGHT; ax += dx > 0 ? STEP : -STEP; } else { code = dy > 0 ? UP : DOWN; ay += dy > 0 ? STEP : -STEP; }
+                        if (dragInvert) code = code == LEFT ? RIGHT : code == RIGHT ? LEFT : code == UP ? DOWN : UP;
+                        tap(code); dragged = true; dx = x - ax; dy = y - ay;
+                    }
+                }
+                @Override public void mouseReleased(MouseEvent e) {
+                    if (!down) return; down = false; Host h = host; if (h == null || dragged) return;
+                    int x = panel.gx(e.getX()), y = panel.gy(e.getY()); if (x < 0 || y < 0 || x >= 240 || y >= 296) return;
+                    int dg = h.hitChoice(x, y); if (dg > 0) { tap('0' + dg); return; }                                                  // 번호 선택지: 그 번호 키
+                    int[] sq = h.tapKeys(x, y); if (sq != null) seq(sq); else tap(OK);                                                        // 시청 팝업 항목 직접 선택, 나머지는 확인
+                }
+            };
+            panel.addMouseListener(ma); panel.addMouseMotionListener(ma);
             panel.addMouseWheelListener(e -> { if (e.getWheelRotation() < 0) tap(UP); else if (e.getWheelRotation() > 0) tap(DOWN); });
             f.setVisible(true); panel.requestFocusInWindow();
         });
         startGame(nm);
-        if (auto != null) autoshot(auto);
+        if (auto != null) script(auto);
     }
 
     static java.awt.Window fullWin;
@@ -179,13 +201,26 @@ public class St2Pc {
         f.revalidate();
     }
 
-    /** 시험용: 지정 시간 뒤 창 내용을 PNG 로 저장하고 종료. 형식 "out.png,대기ms[,t:키;t:키]" */
-    static void autoshot(String spec) throws Exception {
-        String[] p = spec.split(","); long wait = Long.parseLong(p[1]);
-        if (p.length > 2) for (String k : p[2].split(";")) { String[] q = k.split(":"); long at = Long.parseLong(q[0]); int code = Integer.parseInt(q[1]); Thread.sleep(Math.max(0, at - (System.currentTimeMillis() % 1)));
-            tap(code); }
-        Thread.sleep(wait);
-        SwingUtilities.invokeAndWait(() -> { try { Container c = SwingUtilities.getWindowAncestor(panel); BufferedImage im = new BufferedImage(c.getWidth(), c.getHeight(), BufferedImage.TYPE_INT_RGB); c.paint(im.getGraphics()); ImageIO.write(im, "png", new File(p[0])); } catch (Exception e) { e.printStackTrace(); } });
+    /** 시험용 스크립트: "wait:ms;tap:코드;click:gx:gy;drag:x1:y1:x2:y2;rclick;shot:경로;dump" 를 순서대로 실행하고 종료. */
+    static void script(String spec) throws Exception {
+        for (String it : spec.split(";")) {
+            String[] q = it.split(":");
+            switch (q[0]) {
+                case "wait": Thread.sleep(Long.parseLong(q[1])); break;
+                case "tap": tap(Integer.parseInt(q[1])); break;
+                case "click": case "drag": {
+                    final int gx = Integer.parseInt(q[1]), gy = Integer.parseInt(q[2]); final String kind = q[0]; final int gx2 = q.length > 3 ? Integer.parseInt(q[3]) : gx, gy2 = q.length > 4 ? Integer.parseInt(q[4]) : gy;
+                    SwingUtilities.invokeAndWait(() -> {
+                        int sx = panel.ox + (int) (gx * panel.sc), sy = panel.oy + (int) (gy * panel.sc), ex = panel.ox + (int) (gx2 * panel.sc), ey = panel.oy + (int) (gy2 * panel.sc); long t = System.currentTimeMillis();
+                        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED, t, 0, sx, sy, 1, false, MouseEvent.BUTTON1));
+                        if (kind.equals("drag")) for (int i = 1; i <= 10; i++) panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_DRAGGED, t, 0, sx + (ex - sx) * i / 10, sy + (ey - sy) * i / 10, 1, false, MouseEvent.NOBUTTON));
+                        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_RELEASED, t, 0, ex, ey, 1, false, MouseEvent.BUTTON1));
+                    }); break; }
+                case "rclick": SwingUtilities.invokeAndWait(() -> panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0, panel.ox + 10, panel.oy + 10, 1, false, MouseEvent.BUTTON3))); break;
+                case "dump": { Host h = host; StringBuilder sb = new StringBuilder("ROWS"); synchronized (h) { for (int[] r : h.clickRows) sb.append(" [").append(r[0]).append(':').append(r[1]).append(',').append(r[2]).append('-').append(r[3]).append(',').append(r[4]).append(']'); } System.out.println(sb); break; }
+                case "shot": { final String path = q[1]; SwingUtilities.invokeAndWait(() -> { try { Container c = SwingUtilities.getWindowAncestor(panel); BufferedImage im = new BufferedImage(c.getWidth(), c.getHeight(), BufferedImage.TYPE_INT_RGB); c.paint(im.getGraphics()); ImageIO.write(im, "png", new File(path)); } catch (Exception e) { e.printStackTrace(); } }); break; }
+            }
+        }
         System.exit(0);
     }
 }

@@ -148,6 +148,11 @@ internal sealed partial class TarotForm
 		for (int r = 0; r < 10; r++) { int cnt = 0; foreach (Slot s in slots) if (s.Card >= 22 && (s.Card - 22) % 14 == r) cnt++; if (cnt >= 2) { L.Add("● 같은 숫자(" + RankName[r] + ")가 겹쳤어요 → 이번 질문의 핵심 주제: " + RankTheme[r] + "."); break; } }
 		for (int i = 0; i < N; i++) if (slots[i].Card >= 22 && (slots[i].Card - 22) % 14 >= 10) { L.Add("● 궁정 카드 '" + CardName(slots[i].Card) + "'(" + posN[i] + ") → " + CourtTx[(slots[i].Card - 22) % 14 - 10] + "예요."); break; }
 		List<string> rv = new List<string>(); for (int i = 0; i < N; i++) if (slots[i].Rev) rv.Add(CardName(slots[i].Card)); if (rv.Count > 0) L.Add("● 역방향(" + string.Join(", ", rv.ToArray()) + "): 그 에너지가 막혀 있거나 안으로 향해 있어요. 밖의 탓보다 내 안의 준비와 속도를 먼저 점검하세요.");
+		int mj = 0; double ar = 0; int nm = 0; foreach (Slot s in slots) { if (s.Card < 22) mj++; else { ar += (s.Card - 22) % 14; nm++; } }
+		L.Add("● 메이저 " + mj + "장: " + (mj * 2 >= N ? "개인의 노력보다 큰 시기와 운명의 흐름이 이번 질문을 좌우해요. 흐름을 거스르지 말고 올라타세요." : (mj == 0 ? "모두 일상의 카드예요. 내 선택과 노력으로 바꿀 수 있는 영역이라 행동이 곧 답이에요." : "큰 흐름과 일상의 노력이 함께 작용해요. 흐름은 받아들이고 디테일은 내가 정해요.")));
+		if (nm > 0) L.Add("● 시기: " + (ar / nm < 4 ? "숫자가 작은 카드가 많아 이제 막 시작된 일이에요. 며칠~몇 주 안에 신호가 보여요." : (ar / nm < 8 ? "중간 단계의 카드가 많아 몇 주~몇 달에 걸쳐 진행돼요." : "숫자가 큰 카드가 많아 끝이 가까운 일이에요. 마무리 후 다음 국면이 와요.")));
+		for (int k = 0; k < 4 && N >= 3; k++) if (su[k] == 0 && su[0] + su[1] + su[2] + su[3] >= 2) { L.Add("● 빈 기운: " + SuitDom[k].Replace(" 쪽", "") + " 쪽 카드가 없어요. 사주의 빈 오행처럼 이 영역은 의식해서 채워야 균형이 맞아요 → " + SuitLucky[k] + "."); break; }
+		if (N >= 3) L.Add("● 한 줄 줄거리: 뿌리 '" + CardKw(slots[0].Card) + "' → 현재 '" + CardKw(slots[N / 2].Card) + "' → 앞으로 '" + CardKw(slots[N - 1].Card) + "' 순서로 이어져요.");
 		return string.Join("\n", L.ToArray());
 	}
 }

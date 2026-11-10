@@ -693,15 +693,15 @@ class DetailWindow(tk.Toplevel):
 WIDGET_W = 264
 # 팔레트: Linear(절제된 인디고) + Notion(차분한 회색 글자) + 윈도우 11 유리(옅은 반투명 흰색)
 C_BG = "#f5f6f8"
-C_G1 = "#5865c8"          # 강조 그라데이션(아주 살짝만 이동 — 튀지 않게)
-C_G2 = "#6b6fd4"
+C_G1 = "#4a5bd8"          # 포인트 색(인디고) 그라데이션: 진한 쪽
+C_G2 = "#8b9cf5"          # 같은 색 계열의 밝은 쪽
 C_CARD = "#ffffff"
 C_LINE = "#e3e5ea"
 C_HOVER = "#eef0f5"
 C_PRESS = "#e1e4ec"
 C_TEXT = "#1f2329"
 C_SUB = "#7a808c"
-C_ACC = "#5865c8"
+C_ACC = "#4a5bd8"
 C_OK = "#2a9461"
 C_BAD = "#c94848"
 ICON_DIR = os.path.join(registry.app_dir(), "assets", "icons")
@@ -946,21 +946,33 @@ class Chip(_Anim, tk.Canvas):
         self.create_text(c, c, text=self.text, fill=_mix(C_TEXT, C_ACC, t), font=self.fnt or FONT)
 
 
-class Dropdown(_Anim, tk.Canvas):
-    """알약 모양 드롭다운: 누르면 목록이 아래로 펼쳐지고 하나를 고르면 닫힌다"""
+def grad_round(cv, x0, y0, x1, y1, r, c1, c2):
+    """둥근 모서리 안을 c1→c2 로 비스듬히(왼쪽 위→오른쪽 아래) 채우는 그라데이션"""
+    w, h = x1 - x0, y1 - y0
+    for x in range(int(w)):
+        edge = max(0.0, r - min(x, w - 1 - x))
+        inset = r - (r * r - edge * edge) ** 0.5 if edge > 0 else 0
+        col = _mix(c1, c2, x / max(1, w - 1))
+        cv.create_line(x0 + x, y0 + inset, x0 + x, y1 - inset, fill=col)
 
-    def __init__(self, master, labels, icons, on_pick):
-        super().__init__(master, height=38, bg=C_BG, highlightthickness=0, bd=0, cursor="hand2")
-        self.labels, self.icons, self.on_pick, self.key, self.pop = labels, icons, on_pick, None, None
+
+class TabTile(_Anim, tk.Canvas):
+    """분류 타일: 아이콘 + 이름. 늘 보이고 한 번 누르면 바뀌며, 지금 분류는 포인트 그라데이션으로 채워진다"""
+
+    def __init__(self, master, key, label, icon_name, on_pick, tip=None, w=48, h=54):
+        super().__init__(master, width=w, height=h, bg=C_BG, highlightthickness=0, bd=0, cursor="hand2")
+        self.key, self.label, self.icon_name, self.on_pick, self.on = key, label, icon_name, on_pick, False
         self._anim_init()
-        self.bind("<Configure>", lambda e: self.draw())
         self._bind_anim()
+        self.bind("<Configure>", lambda e: self.draw())
+        if tip:
+            Tip(self, tip)
 
     def cmd(self):
-        self.toggle()
+        self.on_pick(self.key)
 
-    def set(self, key):
-        self.key = key
+    def set_on(self, v):
+        self.on = v
         self.draw()
 
     def draw(self):
@@ -968,54 +980,16 @@ class Dropdown(_Anim, tk.Canvas):
         w, h, t = self.winfo_width(), self.winfo_height(), self.t
         if w < 4:
             return
-        pill(self, 1, 1, w - 2, h - 2, fill=_mix(C_CARD, C_HOVER, t if not self.pop else 1), outline=_mix(C_LINE, "#b9bfe6", t))
-        ic = icon(self.icons.get(self.key, "doc"))
-        x = 8
+        if self.on:
+            grad_round(self, 1, 1, w - 1, h - 1, 12, C_G1, C_G2)
+            fg = "white"
+        else:
+            round_rect(self, 1, 1, w - 2, h - 2, 12, fill=_mix(C_BG, C_HOVER, t), outline=_mix(C_BG, C_LINE, t))
+            fg = _mix(C_SUB, C_ACC, t)
+        ic = icon(self.icon_name, white=self.on)
         if ic is not None:
-            self.create_image(x + 12, h // 2, image=ic)
-            x += 32
-        self.create_text(x, h // 2, text=self.labels.get(self.key, ""), anchor="w", fill=C_TEXT, font=(FONT[0], 10, "bold"))
-        cy = h // 2
-        a, b = (cy + 2, cy - 3) if self.pop else (cy - 2, cy + 3)
-        self.create_line(w - 24, a, w - 19, b, w - 14, a, fill=C_SUB, width=2, capstyle="round", joinstyle="round")
-
-    def toggle(self):
-        if self.pop:
-            self.close()
-            return
-        top = self.winfo_toplevel()
-        pop = self.pop = tk.Toplevel(self)
-        pop.wm_overrideredirect(True)
-        pop.attributes("-topmost", True)
-        try:
-            pop.attributes("-alpha", 0.98)
-        except tk.TclError:
-            pass
-        w = self.winfo_width()
-        pop.configure(bg=C_LINE)
-        inner = tk.Frame(pop, bg=C_BG)
-        inner.pack(padx=1, pady=1)
-        for k, label in self.labels.items():
-            Btn(inner, label, lambda kk=k: self._pick(kk), kind="flat", icon_name=self.icons.get(k), h=36, w=w - 12).pack(
-                padx=5, pady=1)
-        pop.geometry("+%d+%d" % (self.winfo_rootx(), self.winfo_rooty() + self.winfo_height() + 2))
-        pop.bind("<Escape>", lambda e: self.close())
-        self._bind_id = top.bind("<Button-1>", lambda e: self.close() if e.widget is not self else None, add="+")
-        pop.focus_force()
-        self.draw()
-
-    def _pick(self, key):
-        self.close()
-        self.on_pick(key)
-
-    def close(self):
-        if self.pop:
-            try:
-                self.pop.destroy()
-            except tk.TclError:
-                pass
-            self.pop = None
-            self.draw()
+            self.create_image(w // 2, 17 + (1 if self.pressed else 0), image=ic)
+        self.create_text(w // 2, h - 12, text=self.label, fill=fg, font=(FONT[0], 9, "bold" if self.on else "normal"))
 
 
 class PillScroll(tk.Canvas):
@@ -1072,7 +1046,7 @@ class Widget(tk.Tk):
                 "nat": "nation", "tools": "table", "sym": "swap", "more": "sliders"}
     TABS = [("보고", "report"), ("주간", "week"), ("예산", "budget"), ("보도", "press"),
             ("국회", "assembly"), ("감사", "audit"), ("국비", "nat"), ("도구", "tools"), ("기호", "sym"),
-            ("더보기", "more")]
+            ("설정", "more")]
     # 양식 묶음(audience) → 탭. 사용자가 추가한 양식은 '보고' 탭에 들어간다
     AUDIENCE_TAB = {"문화교육국 보고": "report", "시장님 보고": "report", "간부회의": "week", "예산 설명자료": "budget", "참고자료(백데이터)": "budget",
                     "보도자료": "press", "국회단계 질의서": "assembly", "국회단계 서면질의서": "assembly",
@@ -1175,9 +1149,11 @@ class Widget(tk.Tk):
         W = WIDGET_W
         self.head = tk.Canvas(self, width=W, height=56, highlightthickness=0, bd=0, bg=C_BG)
         self.head.pack(fill="x")
-        self._hg = vgradient_image(W + 200, 56, "#ffffff", C_BG)          # 위는 밝은 유리, 아래로 갈수록 바탕색
+        self._hg = vgradient_image(W + 200, 56, "#e4e8fd", C_BG)          # 포인트 색을 옅게 깐 유리 느낌, 아래로 갈수록 바탕색
         self.head.create_image(0, 0, image=self._hg, anchor="nw")
-        self.head.create_text(16, 22, text="양식 도우미", anchor="w", fill=C_TEXT, font=(FONT[0], 12, "bold"))
+        self._bar = gradient_image(W + 200, 3, C_G1, C_G2)
+        self.head.create_image(0, 0, image=self._bar, anchor="nw")
+        self.head.create_text(16, 23, text="양식 도우미", anchor="w", fill=C_TEXT, font=(FONT[0], 12, "bold"))
         self.head.create_text(16, 40, text="한글 옆에서 한 번에", anchor="w", fill=C_SUB, font=FONT_S)
         for i, (nm, cmd, tip) in enumerate((("minus", self.toggle, "접기·펴기"), ("dock", self.dock, "한글 옆에 붙이기"),
                                             ("tray", self.to_tray, "트레이로 보내기"))):
@@ -1191,8 +1167,15 @@ class Widget(tk.Tk):
         self.chip = tk.Label(self, text="", bg=C_BG, font=FONT_S, anchor="w", padx=14, pady=5, cursor="hand2")
         self.chip.pack(fill="x")
         self.chip.bind("<Button-1>", lambda e: self.connect() if not self.bridge.connected else None)
-        self.tab_drop = Dropdown(self, self.TAB_LABEL, self.TAB_ICON, self.show_tab)
-        self.tab_drop.pack(fill="x", padx=10, pady=(2, 4))
+        self.tabbar = tk.Frame(self, bg=C_BG)
+        self.tabbar.pack(fill="x", padx=8, pady=(4, 2))
+        self.tiles = {}
+        for c in range(5):
+            self.tabbar.columnconfigure(c, weight=1, uniform="tile")
+        for idx, (name, key) in enumerate(self.TABS):
+            tl = TabTile(self.tabbar, key, name, self.TAB_ICON[key], self.show_tab, tip=self.TAB_LABEL[key])
+            tl.grid(row=idx // 5, column=idx % 5, padx=2, pady=2, sticky="ew")
+            self.tiles[key] = tl
         self.body = tk.Frame(self, bg=C_BG)
         self.body.pack(fill="both", expand=True, padx=10, pady=6)
         self.status = tk.Label(self, text="", bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w", padx=14, pady=7,
@@ -1204,7 +1187,8 @@ class Widget(tk.Tk):
 
     def show_tab(self, key):
         self.tab = key
-        self.tab_drop.set(key)
+        for k, tl in self.tiles.items():
+            tl.set_on(k == key)
         self.unbind_all("<MouseWheel>")
         self.unbind_all("<Button-4>")
         self.unbind_all("<Button-5>")
@@ -1215,7 +1199,7 @@ class Widget(tk.Tk):
         self.ui["tab"] = key
 
     def section(self, parent, text):
-        tk.Label(parent, text=text, bg=C_BG, fg=C_SUB, font=(FONT[0], 9, "bold"), anchor="w").pack(fill="x", pady=(12, 4))
+        tk.Label(parent, text=text, bg=C_BG, fg=C_ACC, font=(FONT[0], 9, "bold"), anchor="w").pack(fill="x", pady=(12, 4))
 
     def rebuild(self):
         self.show_tab(self.tab)
@@ -1253,8 +1237,10 @@ class Widget(tk.Tk):
                 tk.Label(box, text="내 정보(과·담당자)를 한 번 적어 두면\n양식에 자동으로 채워져요", bg="#fbf6e8", fg="#6b5a1e",
                          font=FONT_S, justify="left", padx=10, pady=6).pack(anchor="w")
                 Btn(box, "내 정보 입력", self.open_profile, icon_name="user", h=32).pack(fill="x", padx=8, pady=(0, 8))
+        tk.Label(parent, text="글을 선택하고 양식을 누르면 그 글이 양식으로 바뀌어요", bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w",
+                 wraplength=WIDGET_W - 24, justify="left").pack(fill="x", pady=(2, 0))
         self._convert_var = tk.IntVar(value=1 if self.ui.get("convert") else 0)
-        tk.Checkbutton(parent, text="이미 쓴 글을 이 양식으로 바꾸기", variable=self._convert_var, bg=C_BG, fg=C_TEXT,
+        tk.Checkbutton(parent, text="선택 없으면 문서 전체 변환", variable=self._convert_var, bg=C_BG, fg=C_TEXT,
                        font=FONT_S, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0, anchor="w",
                        command=lambda: self.ui.__setitem__("convert", bool(self._convert_var.get()))).pack(fill="x", pady=(2, 0))
         box = self.scroll_area(parent)
@@ -1551,17 +1537,21 @@ class Widget(tk.Tk):
             plain = f.meta.get("style", {}).get("body_mode") == "plain"      # 보도자료처럼 본문을 직접 쓰는 양식은 틀만
             outline = "" if (plain or not f.meta.get("has_body", True)) else (f.meta.get("starter") or T.DEFAULT_STARTER)
             replace = None
-            if self.ui.get("convert") and outline and self._need_hwp("서식 바꾸기"):
+            if outline and self.bridge.connected:
+                # 글을 선택해 두고 양식을 누르면 그 글이 바로 그 양식으로 바뀐다(서식 무시하고 아무렇게나 쓴 글도 됨).
+                # 선택이 없으면 평소처럼 새로 넣고, '문서 전체' 체크를 켠 때만 전체를 바꾼다.
                 sel = self.bridge.get_selection_text()
-                src = sel if sel.strip() else self.bridge.get_all_text()
+                src = sel if sel.strip() else (self.bridge.get_all_text() if self.ui.get("convert") else "")
                 if src.strip():
-                    what = "선택한 글" if sel.strip() else "문서 전체"
-                    if not messagebox.askyesno("서식 바꾸기", "%s을(를) '%s' 양식으로 바꿔 넣을까요?\n"
-                                               "(글이 □ ◦ ▸ - 단계로 정리돼요. 한글에서 Ctrl+Z 로 되돌릴 수 있어요)" % (
-                                                   what, f.meta["name"].split(" (")[0])):
+                    whole = not sel.strip()
+                    if whole and not messagebox.askyesno(
+                            "서식 바꾸기", "문서 전체를 '%s' 양식으로 바꿔 넣을까요?\n(한글에서 Ctrl+Z 로 되돌릴 수 있어요)" % f.meta["name"].split(" (")[0]):
                         return
-                    outline = T.normalize_outline(src)
-                    replace = "selection" if sel.strip() else "all"
+                    title, body = T.split_title(src) if any(x["key"] == "title" for x in f.fields) else ("", src)
+                    if title:
+                        vals["title"] = title
+                    outline = T.normalize_outline(body)
+                    replace = "all" if whole else "selection"
             pkg = f.render(vals, outline)
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))

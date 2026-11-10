@@ -179,9 +179,9 @@ class GuiTests(unittest.TestCase):
     def test_convert_existing_text(self):
         """이미 쓴 글을 누른 양식으로 바꿔 넣기: 선택한 글이 □ ◦ ▸ 개요로 바뀌어 들어가고 먼저 지운다"""
         import tkinter.messagebox as mb
-        self.widget.ui["convert"] = True
+        self.widget.ui["convert"] = False        # 선택한 글은 체크 없이도 바뀐다
         self.widget.ui["insert_delay"] = 0
-        self.br.selection = "1. 개요\n  ㅇ 일시: 가나다\n    ▸ 라마바"
+        self.br.selection = "시험 사업\n1. 개요\n  ㅇ 일시: 가나다\n    ▸ 라마바"
         old = mb.askyesno
         mb.askyesno = lambda *a, **k: True
         try:
@@ -192,6 +192,7 @@ class GuiTests(unittest.TestCase):
             self.br.selection = ""
         self.assertEqual(self.br.cleared[-1], False)           # 선택한 글만 지움
         self.assertIn("가나다", self.br.last_text)
+        self.assertIn("시험 사업", self.br.last_text)            # 첫 줄은 제목 칸으로
 
     def test_step_by_step(self):
         """차례대로 입력: 여러 조각으로 나뉘어 들어가고, 쪽 설정(secPr)은 빠지며, 빈 문서면 용지·여백 적용"""

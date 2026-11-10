@@ -177,3 +177,16 @@ def normalize_outline(text):
     while out and out[-1] == "":
         out.pop()
     return "\n".join(out)
+
+
+def split_title(text):
+    """글 맨 앞의 기호 없는 짧은 한 줄은 제목으로 떼어 낸다 → (제목, 나머지)"""
+    lines = (text or "").replace("\r", "").split("\n")
+    for i, ln in enumerate(lines):
+        s = ln.strip()
+        if not s:
+            continue
+        if len(s) <= 60 and s[0] not in _H1 + _B1 + _B2 + _B3 + "※|" and not re.match(r"^\d+\.\s", s) and ":" not in s:
+            return s, "\n".join(lines[i + 1:])
+        break
+    return "", text

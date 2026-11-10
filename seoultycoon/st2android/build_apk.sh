@@ -13,7 +13,7 @@ java -cp $OUT/tool:$ASM Delambda $OUT/classes 2>&1 | { grep -v JAVA_TOOL || true
 /usr/lib/android-sdk/build-tools/debian/dx --dex --min-sdk-version=26 --output=$OUT/classes.dex $OUT/classes 2>&1 | { grep -v "JAVA_TOOL" || true; }
 cp ../work/st2/* $OUT/stage/assets/st2/ ; rm -f $OUT/stage/assets/st2/cc2     # 세이브(cc2)는 포함하지 않는다
 python3 -I ../tools/convert_audio_res.py $OUT/stage/assets/st2                  # MMF(s*.d) -> 표준 MIDI
-mkdir -p $OUT/stage/assets/st2mod; python3 -I ../tools/st2_mod_build.py; python3 -I ../tools/make_iksan_cityhall.py; python3 -I ../tools/make_iksan_horse.py; python3 -I ../tools/make_iksan_buildings.py; python3 -I ../tools/make_iksan_landmarks.py; python3 -I ../tools/make_iksan_more.py; python3 -I ../tools/make_iksan_minimap.py; python3 -I ../tools/make_iksan_logo.py; python3 -I ../tools/make_maryong.py; python3 -I ../tools/st2_pak_build.py; cp mod/*.d mod/*.m mod/client.bin1116 mod/data1.pak $OUT/stage/assets/st2mod/ 2>/dev/null || true     # 익산 모드(텍스트 치환 .d)
+mkdir -p $OUT/stage/assets/st2mod; python3 -I ../tools/st2_mod_build.py; python3 -I ../tools/make_iksan_cityhall.py; python3 -I ../tools/make_iksan_horse.py; python3 -I ../tools/make_iksan_buildings.py; python3 -I ../tools/make_iksan_landmarks.py; python3 -I ../tools/make_iksan_more.py; python3 -I ../tools/make_iksan_hq.py; python3 -I ../tools/make_iksan_minimap.py; python3 -I ../tools/make_iksan_logo.py; python3 -I ../tools/make_maryong.py; python3 -I ../tools/st2_pak_build.py; cp mod/*.d mod/*.m mod/client.bin1116 mod/data1.pak $OUT/stage/assets/st2mod/ 2>/dev/null || true     # 익산 모드(텍스트 치환 .d)
 cp ../android/assets/galmuri11.ttf $OUT/stage/assets/
 aapt package -f -M AndroidManifest.xml -S ../android/res -I $AJ -F $OUT/base.apk
 cp $OUT/classes.dex $OUT/stage/

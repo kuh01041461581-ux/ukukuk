@@ -58,70 +58,101 @@ def weathered(s, a0, a1, b1, z0, h, rnd, n=26):
         col = rnd.choice([hx('c89a6c', 120), hx('d8b48a', 110), hx('8e8878', 120), hx('e6c8a0', 100)])
         s.flat([G(a, b1, z), G(a + w, b1, z), G(a + w, b1, z + hh), G(a, b1, z + hh)], col)
 
-# ---------------- 미륵사지 석탑 (b2, 96x68): 사진(정면·대각선) 기준 — 낮은 기단+계단, 1층(기둥+문), 두꺼운 지붕돌 2개 + 2층 창, 위는 오른쪽으로 무너진 돌 더미 ----------------
+def stone_blocks(s, plane, fixed, u0, u1, z0, z1, rnd, ch=0.95, bw=(0.026, 0.05), lit=True, pink=0.10, base=None):
+    """돌 하나하나(블록)를 쌓은 벽: 층마다 어긋난 이음, 블록별 색 편차, 가끔 분홍·주황 복원 블록."""
+    G = s.G
+    P = (lambda u, z: G(u, fixed, z)) if plane == 'F' else (lambda u, z: G(fixed, u, z))
+    base = base or ((hx('d6d6c8'), hx('a6a698')) if lit else (hx('a2a294'), hx('6a6a5e')))
+    z = z0; row = 0
+    while z < z1 - 0.05:
+        zt = min(z + ch, z1); u = u0 - (bw[1] * 0.5 if row % 2 else 0.0)
+        while u < u1:
+            w = rnd.uniform(*bw); ua, ub = max(u, u0), min(u + w, u1)
+            if ub - ua > 0.004:
+                t = (z - z0) / max(1e-6, z1 - z0); c = lerp(base[0], base[1], t * 0.6 + rnd.uniform(-0.12, 0.12))
+                if rnd.random() < pink: c = rnd.choice([hx('d8b498'), hx('e0b890'), hx('c8a89c'), hx('dcc0a0')]) if lit else rnd.choice([hx('a88a78'), hx('9c8478')])
+                s.flat([P(ua, z), P(ub, z), P(ub, zt), P(ua, zt)], c)
+                s.line([P(ua, z), P(ub, z)], hx('4a4a40', 150) if lit else hx('2c2c26', 150), 2); s.line([P(ub, z), P(ub, zt)], hx('5a5a50', 110) if lit else hx('34342e', 110), 2)
+                s.line([P(ua, zt), P(ub, zt)], hx('f4f4e8', 90) if lit else hx('c8c8bc', 50), 1)
+            u += w
+        z += ch; row += 1
+
+def course_box(s, a0, a1, b0, b1, z, h, rnd, ch=0.9, pink=0.12):
+    """한 켜의 돌 상자: 윗면 + 두 정면에 블록 텍스처."""
+    G = s.G
+    s.grad([G(a0, b0, z + h), G(a1, b0, z + h), G(a1, b1, z + h), G(a0, b1, z + h)], hx('e8e8dc'), hx('c8c8bc'), (1, 0.5))
+    stone_blocks(s, 'F', b1, a0, a1, z, z + h, rnd, ch=ch, lit=True, pink=pink)
+    stone_blocks(s, 'R', a1, b0, b1, z, z + h, rnd, ch=ch, lit=False, pink=pink * 0.7)
+    s.line([G(a0, b1, z + h), G(a1, b1, z + h), G(a1, b0, z + h)], hx('fafaf0', 200), 2)
+
+def eave(s, ca, cb, wa, wb, z, rnd, layers=3, thick=0.55, taper=0.012):
+    """지붕돌: 켜켜이 쌓인 얇은 돌(아래로 갈수록 좁아짐)."""
+    z0 = z
+    for k in range(layers):
+        d = taper * (layers - 1 - k)
+        a0, a1, b0, b1 = ca - wa + d, ca + wa - d, cb - wb + d, cb + wb - d
+        s.box(a0, a1, b0, b1, thick, ROOF_L, ROOF_R, ROOF_T, z0)
+        s.line([s.G(a0, b1, z0 + thick * 0.5), s.G(a1, b1, z0 + thick * 0.5)], hx('5a5a4e', 110), 2)
+        z0 += thick
+    return z0
+
+# ---------------- 미륵사지 석탑 (b2, 96x68): 모형·사진 기준. 위로 갈수록 좁아지는 3개 층 + 오른쪽으로 무너져 층층이 좁아지는 돌 더미 ----------------
 def mireuksa():
     global STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T
     save = (STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T)
-    STONE_L = (hx('cfd0c0'), hx('9a9c8a')); STONE_R = (hx('9a9c8a'), hx('62645a')); STONE_T = (hx('e2e4d2'), hx('bfc1ae'))          # 모형 사진의 회녹색 석재
-    ROOF_L = (hx('c0c2b0'), hx('80826f')); ROOF_R = (hx('8c8e7c'), hx('50524a')); ROOF_T = (hx('dadcc8'), hx('b2b49e'))
+    STONE_L = (hx('cfd0c0'), hx('9a9c8a')); STONE_R = (hx('9a9c8a'), hx('62645a')); STONE_T = (hx('e2e4d2'), hx('bfc1ae'))
+    ROOF_L = (hx('c8cab8'), hx('86887a')); ROOF_R = (hx('8e9080'), hx('525448')); ROOF_T = (hx('e0e2d0'), hx('b6b8a4'))
     s = Sc(68, 11); G = s.G; rnd = random.Random(3); s.ground()
-    s.shadow([G(0.2, 0.62), G(0.8, 0.62), G(1.02, 0.80), G(0.4, 0.84)], 105, 11)
+    s.shadow([G(0.22, 0.60), G(0.78, 0.60), G(1.02, 0.80), G(0.42, 0.84)], 110, 11)
     cx = cy = 0.5
-    # 사방이 넓은 모래색 마당 + 낮은 이중 기단 + 정면(b 방향)·측면(a 방향) 계단
-    s.box(0.10, 0.90, 0.10, 0.90, 1.2, (hx('d0cab4'), hx('908874')), (hx('908874'), hx('5e584a')), (hx('e2dcc6'), hx('beb8a2')), 0)
-    s.box(0.16, 0.84, 0.16, 0.84, 1.3, STONE_L, STONE_R, STONE_T, 1.2)
+    # 기단: 낮은 이중 기단 + 모서리 돌 + 앞·옆 계단
+    s.box(0.14, 0.86, 0.14, 0.86, 1.2, (hx('d0cab4'), hx('908874')), (hx('908874'), hx('5e584a')), (hx('e2dcc6'), hx('beb8a2')), 0)
+    stone_blocks(s, 'F', 0.86, 0.14, 0.86, 0.0, 1.2, rnd, ch=0.6, bw=(0.05, 0.09), pink=0.0); stone_blocks(s, 'R', 0.86, 0.14, 0.86, 0.0, 1.2, rnd, ch=0.6, bw=(0.05, 0.09), lit=False, pink=0.0)
+    s.box(0.19, 0.81, 0.19, 0.81, 1.2, STONE_L, STONE_R, STONE_T, 1.2)
+    for (ca, cb) in ((0.13, 0.13), (0.87, 0.13), (0.13, 0.87), (0.87, 0.87)):                                                          # 모서리 둥근 돌
+        x, y = G(ca, cb, 1.6); ImageDraw.Draw(s.im).ellipse([x - 8, y - 6, x + 8, y + 5], fill=hx('b8baa6')); ImageDraw.Draw(s.im).ellipse([x - 5, y - 5, x + 1, y - 1], fill=hx('e0e2cf'))
     for k in range(5):
-        s.box(0.43 - 0.008 * k, 0.57 + 0.008 * k, 0.84, 0.84 + 0.05 * (5 - k) * 0.55, 0.42 * (k + 1), (hx('e0dcc8'), hx('aaa694')), (hx('aaa694'), hx('6e6a5c')), STONE_T, 0)        # 정면 계단
-        s.box(0.84, 0.84 + 0.05 * (5 - k) * 0.55, 0.43 - 0.008 * k, 0.57 + 0.008 * k, 0.42 * (k + 1), (hx('e0dcc8'), hx('aaa694')), (hx('aaa694'), hx('6e6a5c')), STONE_T, 0)        # 측면 계단
-    z = 2.5
-    # 1층: 넓은 몸돌 + 모서리·중간 기둥(두툼한 사각 기둥) + 문 + 기둥 사이 판석
-    s.box(0.20, 0.80, 0.20, 0.80, 8.0, STONE_L, STONE_R, STONE_T, z); courses(s, 0.20, 0.80, 0.20, 0.80, z, 8.0, rnd, 1.4)
-    for i in range(5):                                                                                                                      # 정면 기둥 5개
-        a = 0.20 + 0.60 * i / 4; s.grad([G(a - 0.022, 0.80, z), G(a + 0.022, 0.80, z), G(a + 0.022, 0.80, z + 8.0), G(a - 0.022, 0.80, z + 8.0)], hx('f0f0e8'), hx('b0b0a8'), (0.3, 1))
-        s.line([G(a - 0.022, 0.80, z), G(a - 0.022, 0.80, z + 8.0)], hx('787872'), 3)
-    for j in range(5):                                                                                                                      # 측면 기둥
-        b = 0.20 + 0.60 * j / 4; s.grad([G(0.80, b - 0.022, z), G(0.80, b + 0.022, z), G(0.80, b + 0.022, z + 8.0), G(0.80, b - 0.022, z + 8.0)], hx('b8b8b0'), hx('7c7c76'), (0.3, 1))
-    for (a0, a1) in ((0.26, 0.36), (0.64, 0.74)): s.grad([G(a0, 0.80, z + 0.4), G(a1, 0.80, z + 0.4), G(a1, 0.80, z + 7.0), G(a0, 0.80, z + 7.0)], hx('c8c8c0'), hx('96968e'), (0.3, 1))        # 기둥 사이 판석
-    s.grad([G(0.44, 0.80, z), G(0.56, 0.80, z), G(0.56, 0.80, z + 6.4), G(0.44, 0.80, z + 6.4)], hx('2a2824'), hx('0a0908'), (0, 1))                  # 문
-    s.line([G(0.44, 0.80, z), G(0.44, 0.80, z + 5.6), G(0.56, 0.80, z + 5.6), G(0.56, 0.80, z)], hx('d4d4cc'), 3)
-    weathered(s, 0.20, 0.80, 0.80, z, 8.0, rnd, 8)
-    z += 8.0
-    z = layered_roof(s, cx, cy, 0.38, z, rnd, layers=4, thick=0.5, taper=0.014)                                                            # 1층 지붕돌: 켜켜이 쌓인 두꺼운 처마
-    # 2층: 낮은 몸돌 + 네모 창 4칸(정면), 측면 3칸
-    s.box(0.24, 0.76, 0.24, 0.76, 4.4, STONE_L, STONE_R, STONE_T, z)
-    for i in range(4):
-        a = 0.275 + 0.115 * i; s.grad([G(a, 0.76, z + 0.9), G(a + 0.07, 0.76, z + 0.9), G(a + 0.07, 0.76, z + 3.0), G(a, 0.76, z + 3.0)], hx('78786e'), hx('34342c'), (0, 1))
-    for j in range(3): b = 0.30 + 0.14 * j; s.grad([G(0.76, b, z + 0.9), G(0.76, b + 0.08, z + 0.9), G(0.76, b + 0.08, z + 3.0), G(0.76, b, z + 3.0)], hx('5a5a52'), hx('242420'), (0, 1))
-    z += 4.4
-    z = layered_roof(s, cx, cy, 0.31, z, rnd, layers=4, thick=0.5, taper=0.014)                                                            # 2층 지붕돌
-    s.box(0.27, 0.73, 0.27, 0.73, 3.4, STONE_L, STONE_R, STONE_T, z)                                                                         # 3층(모형 사진: 아래 3층까지 지붕이 온전)
-    for i3 in range(3):
-        a = 0.31 + 0.13 * i3; s.grad([G(a, 0.73, z + 0.8), G(a + 0.07, 0.73, z + 0.8), G(a + 0.07, 0.73, z + 2.6), G(a, 0.73, z + 2.6)], hx('6a6c5e'), hx('2c2e26'), (0, 1))
-    z += 3.4
-    z = layered_roof(s, cx, cy, 0.275, z, rnd, layers=3, thick=0.5, taper=0.014)
-    # 3층 이상: 오른쪽(+a)으로 비스듬히 무너진 돌 더미(복원 블록) — 왼쪽은 곧은 사선, 오른쪽에 지붕돌이 계단식으로 튀어나옴
-    b0, b1 = 0.30, 0.68; zt = z + 15.0
-    def edge_a(zz): return 0.225 + 0.30 * ((zz - z) / (zt - z)) ** 1.0                                   # 왼쪽 가장자리(위로 갈수록 오른쪽으로)
-    def right_a(zz): return 0.70 + 0.022 * (((zz - z) / (zt - z)) * 5)
-    zs = np.linspace(z, zt, 40)
-    s.grad([G(edge_a(zz), b1, zz) for zz in zs] + [G(right_a(zz), b1, zz) for zz in zs[::-1]], hx('dcdcd2'), hx('a2a29a'), (0.3, 1), 5)
-    for k in range(16):                                                                                                                       # 돌 켜 + 어긋난 이음 + 분홍·주황 복원 블록
-        zz = z + 0.6 + k * 0.95; aL = edge_a(zz) + 0.01; aR = right_a(zz)
-        s.line([G(aL, b1, zz), G(aR, b1, zz)], hx('4a4a44', 190), 3)
-        n = max(1, int((aR - aL) * 26))
-        for j in range(n):
-            a = aL + (aR - aL) * (j + (0.5 if k % 2 else 0)) / n; s.line([G(min(a, aR), b1, zz), G(min(a, aR), b1, zz + 0.95)], hx('787872', 100), 2)
-            if rnd.random() < 0.16: s.flat([G(a, b1, zz + 0.1), G(min(a + 0.03, aR), b1, zz + 0.1), G(min(a + 0.03, aR), b1, zz + 0.85), G(a, b1, zz + 0.85)], rnd.choice([hx('d8a890', 140), hx('e4b898', 130), hx('c8a8a0', 120)]))
-    s.grad([G(right_a(zz), b0, zz) for zz in zs] + [G(right_a(zz), b1, zz) for zz in zs[::-1]], hx('b0b0a8'), hx('6c6c66'), (0.3, 1))              # 오른쪽 어두운 옆면
-    s.grad([G(edge_a(zt), b0, zt), G(right_a(zt), b0, zt), G(right_a(zt), b1, zt), G(edge_a(zt), b1, zt)], hx('e8e8de'), hx('c4c4ba'), (1, 0.5))   # 꼭대기
-    for k in range(3):                                                                                                                         # 오른쪽에 남은 지붕돌 3개(모형 사진: 위로 갈수록 작아지며 오른쪽으로 밀림)
-        zz = z + 3.0 + k * 4.6; a0 = right_a(zz) - 0.07 + 0.02 * k; a1 = right_a(zz) + 0.085 - 0.012 * k
-        s.box(a0, a1, 0.26, 0.72, 0.75, ROOF_L, ROOF_R, ROOF_T, zz)
-        s.line([G(a0 + 0.01, 0.72, zz + 0.4), G(a1, 0.72, zz + 0.4)], hx('4e4e48', 130), 2)
+        s.box(0.43 - 0.008 * k, 0.57 + 0.008 * k, 0.86, 0.86 + 0.05 * (5 - k) * 0.55, 0.42 * (k + 1), (hx('e0dcc8'), hx('aaa694')), (hx('aaa694'), hx('6e6a5c')), STONE_T, 0)
+        s.box(0.86, 0.86 + 0.05 * (5 - k) * 0.55, 0.43 - 0.008 * k, 0.57 + 0.008 * k, 0.42 * (k + 1), (hx('e0dcc8'), hx('aaa694')), (hx('aaa694'), hx('6e6a5c')), STONE_T, 0)
+    z = 2.4
+    # 1층: 큼직한 몸돌(블록) + 두툼한 기둥 + 문 + 기둥 사이 판석
+    W1 = 0.27
+    s.box(cx - W1, cx + W1, cy - W1, cy + W1, 8.2, STONE_L, STONE_R, STONE_T, z)
+    stone_blocks(s, 'F', cy + W1, cx - W1, cx + W1, z, z + 8.2, rnd, ch=1.05, bw=(0.04, 0.075), pink=0.08); stone_blocks(s, 'R', cx + W1, cy - W1, cy + W1, z, z + 8.2, rnd, ch=1.05, bw=(0.04, 0.075), lit=False, pink=0.05)
+    for i in range(5):
+        a = cx - W1 + 2 * W1 * i / 4; s.grad([G(a - 0.022, cy + W1, z), G(a + 0.022, cy + W1, z), G(a + 0.022, cy + W1, z + 8.2), G(a - 0.022, cy + W1, z + 8.2)], hx('eeeee0'), hx('aeae9e'), (0.3, 1))
+        s.line([G(a - 0.022, cy + W1, z), G(a - 0.022, cy + W1, z + 8.2)], hx('6a6a5e'), 3)
+    for j in range(5): b = cy - W1 + 2 * W1 * j / 4; s.grad([G(cx + W1, b - 0.022, z), G(cx + W1, b + 0.022, z), G(cx + W1, b + 0.022, z + 8.2), G(cx + W1, b - 0.022, z + 8.2)], hx('b6b6a6'), hx('767668'), (0.3, 1))
+    s.grad([G(0.45, cy + W1, z), G(0.55, cy + W1, z), G(0.55, cy + W1, z + 6.2), G(0.45, cy + W1, z + 6.2)], hx('2a2824'), hx('0a0908'), (0, 1))
+    s.line([G(0.45, cy + W1, z), G(0.45, cy + W1, z + 6.2), G(0.55, cy + W1, z + 6.2), G(0.55, cy + W1, z)], hx('d4d4c4'), 3)
+    z += 8.2
+    s.flat([G(cx - W1, cy + W1, z - 1.6), G(cx + W1, cy + W1, z - 1.6), G(cx + W1, cy + W1, z), G(cx - W1, cy + W1, z)], hx('1a1a14', 120)); s.flat([G(cx + W1, cy - W1, z - 1.6), G(cx + W1, cy + W1, z - 1.6), G(cx + W1, cy + W1, z), G(cx + W1, cy - W1, z)], hx('0a0a08', 140))
+    z = eave(s, cx, cy, 0.37, 0.37, z, rnd, layers=4, thick=0.5, taper=0.016)                                                              # 1층 지붕돌(가장 넓다)
+    # 2층: 한 단 좁아진 몸돌 + 네모 창, 3층: 더 좁게  (위로 갈수록 중앙으로 좁아진다)
+    for (w, h, win, rw) in ((0.215, 5.4, 4, 0.30), (0.17, 4.6, 3, 0.245)):
+        s.box(cx - w, cx + w, cy - w, cy + w, h, STONE_L, STONE_R, STONE_T, z)
+        stone_blocks(s, 'F', cy + w, cx - w, cx + w, z, z + h, rnd, ch=0.95, bw=(0.035, 0.06), pink=0.07); stone_blocks(s, 'R', cx + w, cy - w, cy + w, z, z + h, rnd, ch=0.95, bw=(0.035, 0.06), lit=False, pink=0.05)
+        for i in range(win):
+            a = cx - w + 0.04 + (2 * w - 0.08) * (i + 0.12) / win; ww = (2 * w - 0.08) / win * 0.55
+            s.grad([G(a, cy + w, z + 0.9), G(a + ww, cy + w, z + 0.9), G(a + ww, cy + w, z + h - 0.9), G(a, cy + w, z + h - 0.9)], hx('686a5c'), hx('26261f'), (0, 1))
+        s.flat([G(cx - w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h), G(cx - w, cy + w, z + h)], hx('1a1a14', 120)); s.flat([G(cx + w, cy - w, z + h - 1.4), G(cx + w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h), G(cx + w, cy - w, z + h)], hx('0a0a08', 140))
+        z += h; z = eave(s, cx, cy, rw, rw, z, rnd, layers=3, thick=0.5, taper=0.014)
+    # 윗부분: 오른쪽(+a)으로 비스듬히 무너진 돌 더미 — 한 켜씩 쌓은 상자가 위로 갈수록 좁아지고 오른쪽으로 밀린다(왼쪽은 곧은 사선, 오른쪽에 지붕돌이 남는다)
+    n = 17
+    for k in range(n):
+        t = k / (n - 1)
+        c = 0.50 + 0.13 * t; w = 0.205 - 0.095 * t; d = 0.175 - 0.075 * t
+        course_box(s, c - w, c + w, cy - d, cy + d, z + k * 0.92, 0.92, rnd, ch=0.92, pink=0.13)
+        for e_t in (0.22, 0.50, 0.76):
+            if abs(t - e_t) < 0.034:                                                                                                       # 오른쪽에 남은 지붕돌 3개
+                ew = 0.10 - 0.016 * (e_t > 0.4) - 0.014 * (e_t > 0.7)
+                s.box(c + w - 0.04, c + w + ew, cy - d - 0.025, cy + d + 0.025, 0.7, ROOF_L, ROOF_R, ROOF_T, z + k * 0.92 + 0.2)
+    ztop = z + n * 0.92
+    s.box(0.56, 0.69, cy - 0.06, cy + 0.06, 0.8, ROOF_L, ROOF_R, ROOF_T, ztop)
     s.tree(0.04, 0.88, 0.9); s.tree(0.95, 0.15, 0.8)
-    out = s.finish()
+    out_ = s.finish()
     STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T = save
-    return out
+    return out_
 
 # ---------------- 왕궁리 오층석탑 (b38, 96x84): 키 큰 1층 몸돌, 켜켜이 쌓인 얇은 지붕돌 5개 ----------------
 def wanggungni():

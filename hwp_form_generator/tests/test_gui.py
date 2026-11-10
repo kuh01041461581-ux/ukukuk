@@ -61,6 +61,22 @@ class FakeBridge:
     def get_text(self):
         return self.text
 
+    def get_selection_text(self):
+        return getattr(self, "selection", "")
+
+    def get_all_text(self):
+        return self.text
+
+    def clear_target(self, whole):
+        self.cleared = getattr(self, "cleared", []) + [whole]
+        return True
+
+    def insert_table(self, r, c):
+        self.tables = getattr(self, "tables", []) + [(r, c)]
+
+    def break_page(self):
+        self.pagebreaks = getattr(self, "pagebreaks", 0) + 1
+
 
 @unittest.skipUnless(HAVE_TK, "tk/DISPLAY 없음")
 class GuiTests(unittest.TestCase):
@@ -145,6 +161,37 @@ class GuiTests(unittest.TestCase):
         self.widget.put_symbol('○')
         self.widget.put_symbol('❶')
         self.assertEqual(self.br.texts[-2:], ['○', '❶'])
+
+    def test_tools_tab(self):
+        self.widget.show_tab("tools")
+        self.widget.update()
+        self.widget._tb_rows.set(4)
+        self.widget._tb_cols.set(5)
+        self.widget.put_table()
+        self.assertEqual(self.br.tables[-1], (4, 5))
+        self.widget.put_pagebreak()
+        self.assertEqual(self.br.pagebreaks, 1)
+        self.widget._money.set("304441020")
+        self.widget.refresh_money()
+        self.assertIn("304,441천원", self.widget.money_forms(304441020))
+        self.assertIn("3억 444만 1,020원", self.widget.money_forms(300000000 + 4441020))
+
+    def test_convert_existing_text(self):
+        """이미 쓴 글을 누른 양식으로 바꿔 넣기: 선택한 글이 □ ◦ ▸ 개요로 바뀌어 들어가고 먼저 지운다"""
+        import tkinter.messagebox as mb
+        self.widget.ui["convert"] = True
+        self.widget.ui["insert_delay"] = 0
+        self.br.selection = "1. 개요\n  ㅇ 일시: 가나다\n    ▸ 라마바"
+        old = mb.askyesno
+        mb.askyesno = lambda *a, **k: True
+        try:
+            self.widget.make_report("report_project")
+        finally:
+            mb.askyesno = old
+            self.widget.ui["convert"] = False
+            self.br.selection = ""
+        self.assertEqual(self.br.cleared[-1], False)           # 선택한 글만 지움
+        self.assertIn("가나다", self.br.last_text)
 
     def test_step_by_step(self):
         """차례대로 입력: 여러 조각으로 나뉘어 들어가고, 쪽 설정(secPr)은 빠지며, 빈 문서면 용지·여백 적용"""

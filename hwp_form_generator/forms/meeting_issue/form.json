@@ -1,6 +1,6 @@
 {
   "id": "meeting_issue",
-  "name": "현안업무 보고 (1쪽)",
+  "name": "간부회의 현안업무 보고",
   "audience": "간부회의",
   "kind": "report",
   "note": "현안업무(번호) 제목 상자 + □ 금 후 계 획 + ◦ ▸ - 단계",

@@ -126,6 +126,62 @@ class HwpBridge:
         except Exception:                                  # noqa: BLE001
             return False
 
+    def get_selection_text(self):
+        """지금 선택(블록)한 글자. 선택이 없으면 빈 글"""
+        hwp = self._need()
+        try:
+            t = hwp.GetTextFile("TEXT", "saveblock")
+            return t or ""
+        except Exception:                                  # noqa: BLE001
+            return ""
+
+    def get_all_text(self):
+        """문서 전체 글자(줄바꿈 유지)"""
+        hwp = self._need()
+        try:
+            return hwp.GetTextFile("TEXT", "") or ""
+        except Exception:                                  # noqa: BLE001
+            return self.get_text()
+
+    def clear_target(self, whole):
+        """바꿔 넣기 전에 지우기: whole=True 면 문서 전체, 아니면 지금 선택한 부분"""
+        hwp = self._need()
+        try:
+            if whole:
+                hwp.HAction.Run("SelectAll")
+            hwp.HAction.Run("Delete")
+            return True
+        except Exception:                                  # noqa: BLE001
+            return False
+
+    def insert_table(self, rows, cols):
+        """커서 위치에 rows × cols 표 만들기(한글 표 만들기 명령)"""
+        hwp = self._need()
+        try:
+            ps = hwp.HParameterSet.HTableCreation
+            hwp.HAction.GetDefault("TableCreate", ps.HSet)
+            ps.Rows, ps.Cols = int(rows), int(cols)
+            for name, val in (("WidthType", 0), ("HeightType", 0)):      # 단 너비에 맞춤·내용에 맞는 높이(안 되면 기본값)
+                try:
+                    setattr(ps, name, val)
+                except Exception:                          # noqa: BLE001
+                    pass
+            if not hwp.HAction.Execute("TableCreate", ps.HSet):
+                raise BridgeError("표를 만들지 못했어요")
+            return True
+        except BridgeError:
+            raise
+        except Exception as e:                             # noqa: BLE001
+            raise BridgeError("표를 만들지 못했어요: %s" % e)
+
+    def break_page(self):
+        hwp = self._need()
+        try:
+            hwp.HAction.Run("BreakPage")
+            return True
+        except Exception as e:                             # noqa: BLE001
+            raise BridgeError("쪽 나누기를 하지 못했어요: %s" % e)
+
     def break_para(self):
         """문단 나눔(Enter) — 조각을 이어 넣을 때 앞 조각 끝에 다음 조각이 붙지 않게"""
         hwp = self._need()

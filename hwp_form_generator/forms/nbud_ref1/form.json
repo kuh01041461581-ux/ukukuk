@@ -1,0 +1,17 @@
+{
+  "id": "nbud_ref1",
+  "name": "신규사업 참고1 (연도별 투자계획·행정절차)",
+  "audience": "국가예산 신규사업",
+  "kind": "report",
+  "note": "연도별 투자계획 표 + 예산 요구액 및 반영액 표 + 행정절차 이행 표 + 사업추진 타당성",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

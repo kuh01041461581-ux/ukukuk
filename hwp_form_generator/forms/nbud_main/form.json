@@ -1,0 +1,23 @@
+{
+  "id": "nbud_main",
+  "name": "신규사업 첫장 (사업개요·필요성·추진상황)",
+  "audience": "국가예산 신규사업",
+  "kind": "report",
+  "note": "사업명·부처 상자 + 사업개요(사업내용·위치·기간·총사업비·시행기관) + 필요성 + 추진상황 및 계획 + 건의란 + 담당란",
+  "fields": [
+    {
+      "key": "title",
+      "label": "사업명 (예: 1. ○○○ 건립(신규))",
+      "default": "1. (사업명)(신규)"
+    }
+  ],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

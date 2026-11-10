@@ -701,8 +701,15 @@ class ReportForm:
             return self._par(proto, [(text_cp, "%s%s%s" % (pre, sep, text))])
         return self._par(proto, [(bullet_cp, pre + sep), (text_cp, text)])      # 글머리 모양 + 본문 모양
 
-    def _kv2(self, label, value):
-        return self._item("item2", "%s : %s" % (T.pad_label(label), value))
+    @staticmethod
+    def _vw(s):
+        """글자 폭(한글·한자 2, 그 밖 1) — 항목 이름을 ':' 앞에서 오른쪽 맞춤할 때 쓴다"""
+        return sum(2 if ord(c) >= 0x2E80 else 1 for c in s)
+
+    def _kv2(self, label, value, width=0):
+        lab = T.pad_label(label)
+        lab = " " * max(0, width - self._vw(lab)) + lab          # 이름 앞에 공백을 채워 ':' 가 한 줄로 서게
+        return self._item("item2", "%s : %s" % (lab, value))
 
     def _table(self, rows, idgen):
         _, tables = self._load_protos()
@@ -793,7 +800,17 @@ class ReportForm:
                 if i < len(lines) - 1:
                     out.append(self._par("blank", [(self._first_cp("blank"), "")]))
             return out
-        for b in T.parse_outline(outline):
+        blocks = T.parse_outline(outline)
+        widths, run = {}, []                    # 이어진 ▸ 항목 줄(kv2)마다 가장 긴 이름의 폭
+        for i, b in enumerate(blocks + [("end",)]):
+            if b[0] == "kv2":
+                run.append(i)
+                continue
+            if run:
+                w = max(self._vw(T.pad_label(blocks[j][1])) for j in run)
+                widths.update({j: w for j in run})
+                run = []
+        for i, b in enumerate(blocks):
             k = b[0]
             if k == "h1":
                 out.append(self._heading(b[1]))
@@ -802,7 +819,7 @@ class ReportForm:
             elif k in ("item1", "item2", "item3"):
                 out.append(self._item(k, b[1]))
             elif k == "kv2":
-                out.append(self._kv2(b[1], b[2]))
+                out.append(self._kv2(b[1], b[2], widths.get(i, 0)))
             elif k == "blank":
                 out.append(self._par("blank", [(self._first_cp("blank"), "")]))
             elif k == "pagebreak":

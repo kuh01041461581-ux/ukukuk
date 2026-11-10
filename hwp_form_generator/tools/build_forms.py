@@ -144,7 +144,7 @@ def build_extra(paths):
         no_t = next(t for t in hdr if _re.fullmatch(r"현안업무\(\d+\)", t.strip()))
         k = hdr.index(no_t)
         out["meeting_issue"] = report.register_report(
-            paths["meeting"], os.path.join(F, "meeting_issue"), "meeting_issue", "현안업무 보고 (1쪽)", "간부회의", [
+            paths["meeting"], os.path.join(F, "meeting_issue"), "meeting_issue", "간부회의 현안업무 보고", "간부회의", [
                 {"key": "no", "label": "현안업무 번호", "sample": no_t, "repl": "현안업무({{no}})",
                  "default": _re.search(r"\d+", no_t).group(0)},
                 {"key": "title", "label": "현안 제목", "sample": hdr[k + 1], "default": hdr[k + 1]},
@@ -169,7 +169,7 @@ def build_extra(paths):
         team0, lead0 = info0.split(None, 1)
         staff0 = ts0[ts0.index(info0) + 1].replace("담당자", "", 1).strip()
         out["meeting_card"] = report.register_report(
-            pr, os.path.join(F, "meeting_card"), "meeting_card", "참고자료 사업 카드", "간부회의", [
+            pr, os.path.join(F, "meeting_card"), "meeting_card", "간부회의 참고자료 (사업 카드)", "간부회의", [
                 {"key": "org", "label": "국 이름", "sample": ts0[0], "profile": "org"},
                 {"key": "no", "label": "현안업무 번호", "sample": no_t0, "repl": "현안업무({{no}})",
                  "default": _re.search(r"\d+", no_t0).group(0)},
@@ -187,7 +187,7 @@ def build_extra(paths):
         ai = paths["audit_item"]
         a0 = _flat_texts_para(ai, 0, 6)
         out["audit_item"] = report.register_report(
-            ai, os.path.join(F, "audit_item"), "audit_item", "과 개별 사업 쪽 (감사자료 항목 1건)", "행정사무감사", [
+            ai, os.path.join(F, "audit_item"), "audit_item", "행정사무감사 과 개별 서식", "행정사무감사", [
                 {"key": "item", "label": "항목 (예: 3. 예산편성 후 전액 미집행 내역)", "sample": a0[0], "default": "(번호. 항목명)"},
                 {"key": "biz", "label": "사업 제목 (예: [2026] 3-1. 사업명)", "sample": a0[-1], "default": "(사업 제목)"},
             ], note="항목 제목 + 확인자·작성자 상자 + 사업 제목 상자 + □ 사업개요 · □ 추진현황 · □ 금후계획",
@@ -204,7 +204,7 @@ def build_extra(paths):
         s1 = _flat_texts_para(paths["audit"], 37, 48, 1)
         dept = next(t for t in s1 if t.strip().endswith("과") and len(t.strip()) <= 8)
         out["audit_common"] = report.register_report(
-            paths["audit"], os.path.join(F, "audit_common"), "audit_common", "과 공통사항 목록", "행정사무감사", [
+            paths["audit"], os.path.join(F, "audit_common"), "audit_common", "행정사무감사 과 공통사항", "행정사무감사", [
                 {"key": "dept", "label": "과 이름", "sample": dept, "profile": "dept"},
             ], note="과 이름표 + 감사자료 과 공통사항 목록(1~)", allow_no_body=True, frame_only=True, section_index=1, slice_=(37, 48), fix=_audit_common_fix)
     if "press" in paths:
@@ -511,6 +511,144 @@ def _flat_texts_para(path, a, b, section_index=0):
     return [t.text for p in ps for t in p.iter(HP + "t") if t.text and t.text.strip()]
 
 
+# ------------------------------------------------------------------ 이월 조서 · 국가예산 신규사업 조서
+def _set_ts(p, texts):
+    """문단 안 글자 조각들을 순서대로 texts 로 바꾸고 남는 조각은 비운다"""
+    ts = [t for r in p.findall(HP + "run") for t in r.findall(HP + "t")]       # 문단 바로 아래 글자(안내 상자 속 글자는 제외)
+    for i, t in enumerate(ts):
+        t.text = texts[i] if i < len(texts) else ""
+
+
+def _carry_fix(section):
+    """명시이월 사업현황 한 건: 틀과 항목 이름만 남기고 값은 비운다"""
+    import re
+    from hwpgen.package import ptext
+    for p in section.findall(HP + "p"):
+        tbls = list(p.iter(HP + "tbl"))
+        ts = list(p.iter(HP + "t"))
+        txt = "".join(t.text or "" for t in ts)
+        if tbls:
+            tbl = tbls[0]
+            if "담당부서" in txt:                                     # 담당부서·전화·담당자·이월액 상자
+                labs = ("담당부서", "행정전화", "담당자", "이월액")
+                for t in tbl.iter(HP + "t"):
+                    if (t.text or "").strip() not in labs:
+                        t.text = ""
+                    elif (t.text or "").strip() == "담당부서":
+                        pass
+            elif "사업명" in txt:                                     # 1 사업명 : ...
+                tt = list(tbl.iter(HP + "t"))
+                for i, t in enumerate(tt):
+                    t.text = {0: "1", 1: " 사업명 : {{title}}"}.get(i, "")
+            elif "구  분" in txt or "총사업비" in txt:               # 금액 표: 머리 글자만
+                hdr = {"구  분", "총사업비", "예  산", "확보액", "지출", "원인행위액", "지출액", "잔  액", "이  월  액", "계",
+                       "국비", "도비", "시비", "보조", "자체"}
+                for t in tbl.iter(HP + "t"):
+                    if (t.text or "").strip() not in hdr:
+                        t.text = ""
+            continue
+        s = txt.strip()
+        if re.match(r"^◦\s*(사 업 량|사업기간|사업내용)", s):
+            lab = re.match(r"^◦\s*(사 업 량|사업기간|사업내용)", s).group(1)
+            _set_ts(p, [" ◦ %s : " % lab])
+        elif s.startswith("□ 이 월 액"):
+            _set_ts(p, ["□ 이 월 액 :", " "])
+        elif s.startswith("□ 예산편성시점"):
+            _set_ts(p, ["□ 예산편성시점 : "])
+        elif s.startswith("※"):
+            pass                                                         # 안내 문구(※ 예산확보액 : …)는 양식 글자라 그대로
+        elif s.startswith("◦"):
+            _set_ts(p, ["  ◦"])
+        elif s.startswith("-") or s.startswith("‣") or s.startswith("▸"):
+            _set_ts(p, [])
+
+
+def _nbud_clean(section):
+    """국가예산 신규사업 조서 틀: 안내(빨간 글씨 지침)와 샘플 내용은 지우고 제목·항목 이름·표 머리만 남긴다"""
+    import re
+    HEAD = [("사업개요", "□ <사업개요>"), ("필요성", "□ <필요성>"), ("추진상황", "□ <추진상황 및 계획>"),
+            ("연도별 투자계획", "□ 연도별 투자계획"), ("예산 요구액", "□ 예산 요구액 및 반영액(국비)"),
+            ("행정절차", "□ 주요 행정절차 이행 상황"), ("사업추진 타당성", "□ 사업추진 타당성"),
+            ("건립 필요성", "□ 익산시 건립 필요성"), ("사업 세부내역", "□ 사업 세부내역"), ("위치도", "□ 위치도"),
+            ("기본구상", "□ 기본구상(안)")]
+    labels = {"사업개요", "요구", "(억원)", "부처안", "담당부처", "담당", "기획처", "전북도", "익산시", "구분", "총사업비",
+              "기투자액", "연도별 투자계획", "비고", "계", "국비", "도비", "시비", "투자 계획", "(단위: 억원)", "기확보액",
+              "건의액", "반 영 내 역", "기 획 처", "정부안", "국회", "1차", "2차", "3차", "이후", "예비", "타당성조사", "사전",
+              "보조사업", "적격성", "국립시설", "사전타당성", "국가과학기술심의", "지방재정", "투자", "국가기본", "계획",
+              "부지확보", "실 명", "이용계획", "1층", "2층", "지하", "참고 1", "참고 2", "사업 세부 내용", "위치도 및 기본구상안"}
+    for ctrl in list(section.iter(HP + "ctrl")):                 # 누름틀(빨간 안내 글자가 든 필드)은 안내째 뺀다
+        if any(c.tag in (HP + "fieldBegin", HP + "fieldEnd") for c in ctrl) or any(True for _ in ctrl.iter(HP + "subList")):
+            if not any(True for _ in ctrl.iter(HP + "tbl")):
+                ctrl.getparent().remove(ctrl)
+    for p in list(section.findall(HP + "p")):
+        ts = [t for r in p.findall(HP + "run") for t in r.findall(HP + "t")]
+        txt = "".join(t.text or "" for t in ts)
+        s = txt.strip()
+        tbls = list(p.iter(HP + "tbl"))
+        if tbls:
+            s = "".join(t.text or "" for t in p.iter(HP + "t")).strip()          # 표 문단은 표 안 글자까지 본다
+            for pic in list(p.iter(HP + "pic")):
+                pic.getparent().remove(pic)
+            tb = tbls[0]
+            if "사업개요" in s and "요구" in s:                        # 요구(억원)/부처안/담당부처 칸
+                keep = {"요구", "(억원)", "부처안", "담당부처", "사업개요"}
+            elif "<건의란>" in s or "건의드림" in s:
+                keep = {"건의드림"}
+            else:
+                keep = labels
+            for tb_ in tbls:
+                for t in tb_.iter(HP + "t"):
+                    x = (t.text or "").strip()
+                    if x not in keep and not re.match(r"^’\d\d$|^~’\d\d$|^\d+%$", x):
+                        t.text = ""
+            if re.match(r"^\d\.\s", s):                                 # 맨 위 제목 상자: 1. 사업명(신규)  <부처명, 세부사업명>
+                tt = list(tb.iter(HP + "t"))
+                for i, t in enumerate(tt):
+                    t.text = {0: " {{title}}", 2: "  <부처명, 세부사업명>"}.get(i, "")
+            continue
+        if s.startswith("□"):
+            real = [(t.text or "") for t in ts]
+            _set_ts(p, [real[0], (real[1] if len(real) > 1 else "")])          # '□ ' + 제목(필 요 성 …)만, 뒤 요약 글은 비움
+        elif s.startswith("ㅇ") or s.startswith("O"):
+            m = re.search(r"\((사업내용|사업위치|사업기간|총사업비|시행기관)\)", s)
+            if m:
+                _set_ts(p, [" ㅇ ", "(%s) " % m.group(1)])
+            else:
+                lab = {"정부 정책과의 부합성": 1, "익산시 필요성": 1}
+                keep_lab = next((k for k in lab if k in s), None)
+                _set_ts(p, [" ㅇ ", keep_lab or ""])
+        elif s.startswith("▸"):
+            _set_ts(p, ["  ▸"])
+        elif s.startswith("※") or s.startswith("<") or (len(s) > 30 and not s.startswith("□")):
+            _set_ts(p, [])
+
+
+def build_more(paths):
+    out = {}
+    F = FORMS
+    if "carry" in paths:
+        out["carry_item"] = report.register_report(
+            paths["carry"], os.path.join(F, "carry_item"), "carry_item", "명시이월 사업현황", "이월 조서", [
+                {"key": "title", "label": "사업명", "sample": "{{title}}", "default": "(사업명)"},
+            ], note="명시이월 사업현황 한 건: 담당부서 상자 + 사업명 + □ 사업개요 + □ 이 월 액(표) + □ 예산편성시점 + □ 그간 추진경과 + □ 이월사유",
+            allow_no_body=True, frame_only=True, slice_=(0, 22), fix=_carry_fix)
+    if "nbud" in paths:
+        pth = paths["nbud"]
+        out["nbud_main"] = report.register_report(
+            pth, os.path.join(F, "nbud_main"), "nbud_main", "신규사업 첫장 (사업개요·필요성·추진상황)", "국가예산 신규사업", [
+                {"key": "title", "label": "사업명 (예: 1. ○○○ 건립(신규))", "sample": "{{title}}", "default": "1. (사업명)(신규)"},
+            ], note="사업명·부처 상자 + 사업개요(사업내용·위치·기간·총사업비·시행기관) + 필요성 + 추진상황 및 계획 + 건의란 + 담당란",
+            allow_no_body=True, frame_only=True, slice_=(22, 58), drop=[23, 25, 27, 29, 31, 33, 35, 37, 40, 42, 44, 46, 48, 50, 52, 54, 56],
+            fix=_nbud_clean)
+        out["nbud_ref1"] = report.register_report(
+            pth, os.path.join(F, "nbud_ref1"), "nbud_ref1", "신규사업 참고1 (연도별 투자계획·행정절차)", "국가예산 신규사업", [], note="연도별 투자계획 표 + 예산 요구액 및 반영액 표 + 행정절차 이행 표 + 사업추진 타당성",
+            allow_no_body=True, frame_only=True, slice_=(58, 85), fix=_nbud_clean)
+        out["nbud_ref2"] = report.register_report(
+            pth, os.path.join(F, "nbud_ref2"), "nbud_ref2", "신규사업 참고2 (위치도·기본구상)", "국가예산 신규사업", [], note="위치도 칸 + 기본구상(안) 표",
+            allow_no_body=True, frame_only=True, slice_=(86, 94), fix=_nbud_clean)
+    return out
+
+
 if __name__ == "__main__":
     pos = [a for a in sys.argv[1:] if "=" not in a]
     extra = dict(a.split("=", 1) for a in sys.argv[1:] if "=" in a)
@@ -519,7 +657,8 @@ if __name__ == "__main__":
         sys.exit(1)
     res = build(*pos) if pos else {}
     if extra:
-        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy")}))
+        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "nbud")}))
+        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "nbud")}))
         res.update(build_queries({k: v for k, v in extra.items() if k in ("written", "policy")}))
     for k, v in res.items():
         print(k, "→", {a: b for a, b in v.items() if a != "style"})

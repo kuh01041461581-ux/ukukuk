@@ -5,9 +5,9 @@ import os
 from PIL import Image, ImageDraw
 
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "icons")
-S = 20          # 최종 크기
+S = 24          # 최종 크기
 K = 12          # 확대 배율(부드럽게)
-W = 2.0         # 선 굵기(최종 px 기준)
+W = 2.7         # 선 굵기(그릴 때 px 기준 — 배지 안으로 줄여 넣으므로 굵게)
 
 
 def canvas():
@@ -142,13 +142,84 @@ def _(d, c):
     line(d, [(3.6, 12.8), (3.6, 16.4), (16.4, 16.4), (16.4, 12.8)], c)
 
 
+@icon("table")        # 표
+def _(d, c):
+    rrect(d, (3, 3.5, 17, 16.5), 2, c)
+    line(d, [(3.2, 8.4), (16.8, 8.4)], c); line(d, [(3.2, 12.6), (16.8, 12.6)], c); line(d, [(8.6, 3.7), (8.6, 16.3)], c)
+
+
+@icon("date")         # 오늘 날짜(달력+점)
+def _(d, c):
+    rrect(d, (3, 4.2, 17, 17.2), 2.6, c)
+    line(d, [(7, 2.6), (7, 5.6)], c); line(d, [(13, 2.6), (13, 5.6)], c)
+    circle(d, (10, 11.6), 1.6, c, fill=True)
+
+
+@icon("pagebreak")    # 쪽 나누기
+def _(d, c):
+    rrect(d, (5, 2.6, 15, 7.6), 1.6, c)
+    rrect(d, (5, 12.4, 15, 17.4), 1.6, c)
+    line(d, [(2.6, 10), (4.6, 10)], c); line(d, [(8.2, 10), (11.8, 10)], c); line(d, [(15.4, 10), (17.4, 10)], c)
+
+
+@icon("text")         # 자주 쓰는 문구(말풍선)
+def _(d, c):
+    rrect(d, (3, 3.6, 17, 13.6), 3, c)
+    line(d, [(7, 13.8), (6.4, 17), (10.4, 13.8)], c)
+    line(d, [(7, 7.4), (13, 7.4)], c); line(d, [(7, 10.2), (11, 10.2)], c)
+
+
+@icon("calc")         # 계산기
+def _(d, c):
+    rrect(d, (4, 2.6, 16, 17.4), 2.4, c)
+    line(d, [(6.8, 6.4), (13.2, 6.4)], c)
+    for x, y in ((7.4, 10.6), (10, 10.6), (12.6, 10.6), (7.4, 14), (10, 14), (12.6, 14)):
+        line(d, [(x, y), (x + 0.1, y)], c)
+
+
+@icon("swap")         # 서식 바꾸기
+def _(d, c):
+    line(d, [(3.6, 7), (15.6, 7)], c); line(d, [(12.6, 4), (15.8, 7), (12.6, 10)], c)
+    line(d, [(16.4, 13), (4.4, 13)], c); line(d, [(7.4, 10), (4.2, 13), (7.4, 16)], c)
+
+
+@icon("nation")       # 국가예산(별)
+def _(d, c):
+    import math
+    pts = []
+    for i in range(10):
+        r = 7.6 if i % 2 == 0 else 3.6
+        a = -math.pi / 2 + i * math.pi / 5
+        pts.append((10 + r * math.cos(a), 10.4 + r * math.sin(a)))
+    line(d, pts + [pts[0]], c)
+
+
+# 아이콘마다 파스텔 색(배지) — 동글동글 귀엽게
+BADGE = {"doc": "#7c8cf5", "event": "#ff8a7a", "project": "#ffb04a", "mayor": "#6c9cf0", "cover": "#b68cf0", "plan": "#4cc2a0",
+         "schedule": "#f27fb0", "user": "#7c8cf5", "plus": "#4cc2a0", "link": "#7c8cf5", "sliders": "#9aa3c0", "clip": "#ffb04a",
+         "minus": "#9aa3c0", "dock": "#7c8cf5", "tray": "#9aa3c0", "table": "#4cb7e8", "date": "#f27fb0", "pagebreak": "#b68cf0",
+         "text": "#ff8a7a", "calc": "#4cc2a0", "swap": "#ffb04a", "nation": "#ffb04a"}
+
+
+def badge(fn, name, white):
+    from PIL import ImageFilter           # noqa: F401
+    big = S * K
+    im = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    col = BADGE.get(name, "#7c8cf5")
+    d.ellipse((0.5 * K, 0.5 * K, big - 0.5 * K, big - 0.5 * K), fill="#ffffff" if white else col)
+    g, gd = canvas()
+    fn(gd, col if white else "#ffffff")
+    g = g.resize((int(big * 0.66), int(big * 0.66)), Image.LANCZOS)
+    im.alpha_composite(g, ((big - g.width) // 2, (big - g.height) // 2 + int(0.2 * K)))
+    return im.resize((S, S), Image.LANCZOS)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     for name, fn in ICONS.items():
-        for tag, col in (("b", "#5e6ad2"), ("w", "#ffffff")):
-            im, d = canvas()
-            fn(d, col)
-            im.resize((S, S), Image.LANCZOS).save(os.path.join(OUT, "%s_%s.png" % (name, tag)))
+        for tag in ("b", "w"):
+            badge(fn, name, tag == "w").save(os.path.join(OUT, "%s_%s.png" % (name, tag)))
     print(len(ICONS) * 2, "개 →", OUT)
 
 

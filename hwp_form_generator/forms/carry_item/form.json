@@ -1,0 +1,23 @@
+{
+  "id": "carry_item",
+  "name": "명시이월 사업현황",
+  "audience": "이월 조서",
+  "kind": "report",
+  "note": "명시이월 사업현황 한 건: 담당부서 상자 + 사업명 + □ 사업개요 + □ 이 월 액(표) + □ 예산편성시점 + □ 그간 추진경과 + □ 이월사유",
+  "fields": [
+    {
+      "key": "title",
+      "label": "사업명",
+      "default": "(사업명)"
+    }
+  ],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

@@ -134,3 +134,46 @@ def parse_outline(text):
 # 보고서 본문 기본 틀: 사업개요(사업비·사업내용 …) → 지난 실적 → 향후 계획 → 참고자료
 DEFAULT_STARTER = ("□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n"
                    "□ 지난 실적\n◦ \n\n□ 향후 계획\n◦ \n\n□ 참고자료\n◦ ")
+
+
+# ---------------------------------------------------------------- 다른 서식으로 쓴 글 → 개요 글
+_H1 = "□■ㅁ▣"
+_B1 = "○◦ㅇ❍●∘o"
+_B2 = "▸‣▪·ㆍ▷►▶◆"
+_B3 = "-–—"
+
+
+def normalize_outline(text):
+    """이미 다른 서식으로 쓴 글(한글에서 읽어 온 글자)을 □ ◦ ▸ - 개요 글로 바꾼다.
+    기호가 있으면 그 단계로, 없으면 들여쓴 줄은 ▸ 아니면 ◦. '1. 제목' 은 □. 탭으로 나뉜 줄은 표 줄(| a | b |)."""
+    out = []
+    for raw in (text or "").replace("\r", "").split("\n"):
+        line = raw.rstrip()
+        s = line.strip()
+        if not s:
+            if out and out[-1] != "":
+                out.append("")
+            continue
+        if "\t" in s and len([c for c in s.split("\t") if c.strip()]) >= 2:
+            out.append("| " + " | ".join(c.strip() for c in s.split("\t")) + " |")
+            continue
+        indent = len(line) - len(line.lstrip(" \u3000"))
+        c = s[0]
+        rest = s[1:].strip()
+        if c in _H1:
+            out.append("□ " + rest)
+        elif c in _B2 and c != "o":
+            out.append("▸ " + rest)
+        elif c in _B1 and not (c == "o" and rest[:1].isalpha() and not s[1:2].isspace()):
+            out.append("◦ " + rest)
+        elif c in _B3 and s[1:2] in (" ", "") or (c in _B3 and len(s) > 1):
+            out.append("- " + rest)
+        elif c == "※":
+            out.append("▸ " + s)
+        elif re.match(r"^\d+\.\s", s) and indent == 0:
+            out.append("□ " + re.sub(r"^\d+\.\s*", "", s))
+        else:
+            out.append(("▸ " if indent >= 4 else "◦ ") + s)
+    while out and out[-1] == "":
+        out.pop()
+    return "\n".join(out)

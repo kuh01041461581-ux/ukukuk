@@ -264,7 +264,7 @@ class NewFormsTests(unittest.TestCase):
             "report_event": ("행사개요", "일    시 :", "장    소 :", "사업내용 :", "식순 및 시간표", "등록 및 개회", "개 회 사", "국장님 하실 일"),
             "report_project": ("사업개요", "사업기간 :", "사업장소 :", "사 업 비 :", "사업내용 :", "지난 실적", "향후 계획", "참고자료", "▸"),
             "report_mayor": ("◦ 일    자", "◦ 장    소", "◦ 참 석 자", "◦ 주요내용"),
-            "meeting_issue": ("▸일시/장소 :", "▸참 석 자 :", "-", "▸주요내용 :"),
+            "meeting_issue": ("▸일시/장소 :", "참 석 자 :", "-", "주요내용 :"),
             "written_item": ("ㅇ (사업내용)", "ㅇ (총사업비)", "-", "□ 요구사항 :"),
         }
         for fid, needles in want.items():
@@ -284,7 +284,7 @@ class NewFormsTests(unittest.TestCase):
         m = registry.load_form("meeting_issue", ROOTS)
         self.assertEqual(m.meta["fields"][1].get("default"), "고도 익산 역사·문화자원 브랜드화 및 지역 명소화")   # 현안 제목 기본값
         txt = ptext(m.render({"no": "5", "title": "제목", "dept": "문화유산과"}, m.meta["starter"]).section(0))
-        for s in ("지난주 실적", "금 후 계 획", "▸참 석 자", "▸일시/장소"):
+        for s in ("지난주 실적", "금 후 계 획", "참 석 자", "▸일시/장소"):
             self.assertIn(s, txt)
 
     def test_query_items(self):
@@ -317,10 +317,10 @@ class NewFormsTests(unittest.TestCase):
     def test_privacy_new_forms(self):
         import zipfile
         bad = ("010-", "전주영", "김형남", "조상미", "조선영", "진소현", "박수진", "조승재", "윤보훈", "전북권", "숭림사", "고선희", "조진선", "이선아", "859-7410", "아동학대", "김태곤", "박환조", "고광민", "남철기", "설재진", "양선화",
-               "이용범", "박미자", "홀로그램", "전주영", "김형남", "정서윤", "함열", "아이행복")
+               "이용범", "박미자", "홀로그램", "안지훈", "김건우", "강태환", "이시온", "859-5", "류재현", "최나은", "박갑수", "정경석", "농림축산식품부", "식품박물관", "나바위", "왕궁리", "미륵사", "솜리", "전주영", "김형남", "정서윤", "함열", "아이행복")
         for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_common", "audit_item",
                                     "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
-                    "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref"):
+                    "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref", "carry_item", "nbud_main", "nbud_ref1", "nbud_ref2"):
             d = os.path.join(FORMS, fid)
             blob = zipfile.ZipFile(os.path.join(d, "template.hwpx")).read("Contents/section0.xml").decode("utf-8")
             blob += open(os.path.join(d, "protos.xml"), encoding="utf-8").read() + open(os.path.join(d, "form.json"), encoding="utf-8").read()

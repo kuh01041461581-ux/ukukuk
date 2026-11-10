@@ -40,7 +40,7 @@ class Output:
     def __init__(self, app):
         self.app = app
 
-    def insert(self, pkg, prefix):
+    def insert(self, pkg, prefix, replace=None):
         """열려 있는 한글 문서의 커서 위치에 서식째 넣는다(새 문서는 만들지 않음).
         - 샘플의 쪽 설정(secPr)은 빼서 문서 중간에서 쪽·여백이 바뀌지 않게 한다. 빈 문서일 때만 샘플 용지·여백을 적용.
         - 기본은 문단 단위로 차례대로 넣어 '입력되는' 느낌을 준다(더보기에서 '한 번에'로 바꿀 수 있음)."""
@@ -56,6 +56,8 @@ class Output:
                                    "한글을 열고 문서를 띄운 뒤 다시 눌러 주세요.")
             return
         from .package import page_setup_of, strip_section_props, split_chunks, with_lead_blank, with_tail_blank
+        if replace:                                  # 이미 쓴 글을 이 양식으로 바꿔 넣기: 먼저 그 글(선택 또는 전체)을 지운다
+            br.clear_target(replace == "all")
         page = page_setup_of(pkg)
         empty = br.is_empty_doc()
         keep_section = bool(empty and page)          # 빈 문서에 첫 양식을 넣을 때만 샘플의 쪽 설정(용지·여백)을 가져온다
@@ -942,21 +944,24 @@ class Chip(_Anim, tk.Canvas):
 class Widget(tk.Tk):
     """한글 옆에 떠 있는 양식 단추 모음. 단추를 누르면 열려 있는 한글 문서에 바로 만들어 넣는다."""
 
-    TABS = [("보고", "report"), ("주간", "week"), ("예산설명", "budget"), ("보도자료", "press"),
-            ("국회질의", "assembly"), ("행정감사", "audit"), ("기호", "sym"), ("더보기", "more")]
+    TABS = [("보고", "report"), ("주간", "week"), ("예산", "budget"), ("보도", "press"),
+            ("국회", "assembly"), ("감사", "audit"), ("국비", "nat"), ("도구", "tools"), ("기호", "sym"),
+            ("더보기", "more")]
     # 양식 묶음(audience) → 탭. 사용자가 추가한 양식은 '보고' 탭에 들어간다
     AUDIENCE_TAB = {"문화교육국 보고": "report", "시장님 보고": "report", "간부회의": "week", "예산 설명자료": "budget", "참고자료(백데이터)": "budget",
                     "보도자료": "press", "국회단계 질의서": "assembly", "국회단계 서면질의서": "assembly",
-                    "국회단계 정책질의서": "assembly", "행정사무감사": "audit"}
+                    "국회단계 정책질의서": "assembly", "행정사무감사": "audit", "이월 조서": "budget",
+                    "국가예산 신규사업": "nat"}
     GROUP_ORDER = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "참고자료(백데이터)", "보도자료", "국회단계 서면질의서",
-                   "국회단계 정책질의서", "국회단계 질의서", "행정사무감사"]
+                   "국회단계 정책질의서", "국회단계 질의서", "행정사무감사", "이월 조서", "국가예산 신규사업"]
     FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card",
                   "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
                   "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item",
-                  "policy_ref", "audit_cover", "audit_common", "audit_item"]
+                  "policy_ref", "audit_cover", "audit_common", "audit_item", "carry_item", "nbud_main", "nbud_ref1", "nbud_ref2"]
     FORM_ICONS = {"report_event": "event", "report_project": "project", "report_mayor": "mayor",
                   "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project",
-                  "audit_cover": "cover", "audit_common": "plan", "audit_item": "project",
+                  "audit_cover": "cover", "audit_common": "plan", "audit_item": "project", "carry_item": "project",
+                  "nbud_main": "nation", "nbud_ref1": "table", "nbud_ref2": "doc",
                   "budget_cover": "cover", "budget_project": "project", "budget_ref_cover": "cover",
                   "budget_ref_detail": "project", "budget_ref_return": "plan"}
 
@@ -1063,7 +1068,7 @@ class Widget(tk.Tk):
         self.tabbar = tk.Frame(self, bg=C_BG)
         self.tabbar.pack(fill="x", padx=8)
         self.tab_lbl, self.tab_bar = {}, {}
-        per_row = 4
+        per_row = 5
         for c in range(per_row):
             self.tabbar.columnconfigure(c, weight=1, uniform="tab")
         for idx, (name, key) in enumerate(self.TABS):
@@ -1098,7 +1103,7 @@ class Widget(tk.Tk):
         self.unbind_all("<Button-5>")
         for w in self.body.winfo_children():
             w.destroy()
-        {"week": self.build_week, "sym": self.build_symbols, "more": self.build_more}.get(
+        {"week": self.build_week, "sym": self.build_symbols, "more": self.build_more, "tools": self.build_tools}.get(
             key, lambda parent, k=key: self.build_forms_tab(parent, k))(self.body)
         self.ui["tab"] = key
 
@@ -1141,6 +1146,10 @@ class Widget(tk.Tk):
                 tk.Label(box, text="내 정보(과·담당자)를 한 번 적어 두면\n양식에 자동으로 채워져요", bg="#fff7e0", fg="#6b5600",
                          font=FONT_S, justify="left", padx=10, pady=6).pack(anchor="w")
                 Btn(box, "내 정보 입력", self.open_profile, icon_name="user", h=32).pack(fill="x", padx=8, pady=(0, 8))
+        self._convert_var = tk.IntVar(value=1 if self.ui.get("convert") else 0)
+        tk.Checkbutton(parent, text="이미 쓴 글을 이 양식으로 바꾸기", variable=self._convert_var, bg=C_BG, fg=C_TEXT,
+                       font=FONT_S, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0, anchor="w",
+                       command=lambda: self.ui.__setitem__("convert", bool(self._convert_var.get()))).pack(fill="x", pady=(2, 0))
         box = self.scroll_area(parent)
         self.forms_box = box
         groups = self.tab_forms(tab)
@@ -1155,7 +1164,11 @@ class Widget(tk.Tk):
                     tip="보고 1장 뒤에 새 쪽과 '참고자료' 제목을 붙여요").pack(fill="x", pady=2)
 
     def _form_btn(self, meta, fid, parent=None):
-        Btn(parent or self.forms_box, meta["name"].split(" (")[0], lambda f=fid: self.make_report(f),
+        label = meta["name"].split(" (")[0]
+        for pre in ("행정사무감사 ", "간부회의 "):          # 묶음 이름과 겹치는 앞말은 뺀다(좁은 창에서 안 잘리게)
+            if label.startswith(pre) and len(label) > len(pre):
+                label = label[len(pre):]
+        Btn(parent or self.forms_box, label, lambda f=fid: self.make_report(f),
             tip=meta.get("note", ""), icon_name=self.FORM_ICONS.get(fid, "doc")).pack(fill="x", pady=4)
 
     # ---------------------------------------------------------------- 주간 탭
@@ -1249,6 +1262,114 @@ class Widget(tk.Tk):
             Chip(grid, ch, lambda c=ch, t=tip: self.put_symbol(c, t), tip=tip or None, size=34,
                  font=(FONT[0], 12), badge=badge).grid(row=i // 6, column=i % 6, padx=2, pady=2)
 
+    # ---------------------------------------------------------------- 도구 탭 (행정에서 자주 쓰는 것)
+    def build_tools(self, parent):
+        parent = self.scroll_area(parent)
+        self.section(parent, "표 만들기")
+        row = tk.Frame(parent, bg=C_BG)
+        row.pack(fill="x")
+        self._tb_rows = tk.IntVar(value=int(self.ui.get("tb_rows", 3)))
+        self._tb_cols = tk.IntVar(value=int(self.ui.get("tb_cols", 3)))
+        for lab, var in (("줄", self._tb_rows), ("칸", self._tb_cols)):
+            tk.Label(row, text=lab, bg=C_BG, fg=C_SUB, font=FONT_S).pack(side="left", padx=(0, 3))
+            tk.Spinbox(row, from_=1, to=30, width=3, textvariable=var, font=FONT, justify="center", relief="flat",
+                       highlightthickness=1, highlightbackground=C_LINE).pack(side="left", padx=(0, 10))
+        Btn(parent, "표 넣기", self.put_table, icon_name="table", tip="커서 위치에 줄×칸 표를 만들어요").pack(fill="x", pady=4)
+        self.section(parent, "오늘 날짜")
+        today = datetime.date.today()
+        wd = "월화수목금토일"[today.weekday()]
+        for txt in ("%d. %d. %d." % (today.year, today.month, today.day),
+                    "%d. %d. %d.(%s)" % (today.year, today.month, today.day, wd),
+                    "%d년 %d월 %d일" % (today.year, today.month, today.day),
+                    "’%02d. %d. %d." % (today.year % 100, today.month, today.day)):
+            Btn(parent, txt, lambda t=txt: self.put_text(t), kind="flat", icon_name="date", h=34).pack(fill="x", pady=2)
+        self.section(parent, "쪽")
+        Btn(parent, "쪽 나누기", self.put_pagebreak, icon_name="pagebreak", tip="커서 위치에서 다음 쪽으로").pack(fill="x", pady=4)
+        self.section(parent, "자주 쓰는 문구")
+        grid = tk.Frame(parent, bg=C_BG)
+        grid.pack(fill="x")
+        phrases = ["붙임 ", "끝.", "※ ", "(단위 : 천원)", "(단위 : 원)", "<참고>", "(참고)", "해당없음", "- 이하 여백 -", "추진실적", "향후계획", "기대효과"]
+        for i, ph in enumerate(phrases):
+            Btn(grid, ph.strip() or ph, lambda p=ph: self.put_text(p), kind="flat", h=32, icon_name="text").grid(
+                row=i // 2, column=i % 2, sticky="ew", padx=2, pady=2)
+        grid.columnconfigure(0, weight=1)
+        grid.columnconfigure(1, weight=1)
+        self.section(parent, "금액 바꿔 쓰기")
+        self._money = tk.StringVar()
+        ent = tk.Entry(parent, textvariable=self._money, font=FONT, relief="flat", highlightthickness=1,
+                       highlightbackground=C_LINE, highlightcolor=C_ACC)
+        ent.pack(fill="x", ipady=5)
+        ent.bind("<KeyRelease>", lambda e: self.refresh_money())
+        tk.Label(parent, text="숫자(원 단위)를 쓰면 쓰는 방식별로 바꿔줘요. 누르면 한글에 넣어요", bg=C_BG, fg=C_SUB, font=FONT_S,
+                 anchor="w", wraplength=WIDGET_W - 40, justify="left").pack(fill="x")
+        self._money_box = tk.Frame(parent, bg=C_BG)
+        self._money_box.pack(fill="x")
+
+    @staticmethod
+    def money_forms(won):
+        """원 단위 정수 → 여러 표기"""
+        out = ["{:,}원".format(won)]
+        if won >= 1000:
+            out.append("{:,}천원".format(round(won / 1000)))
+        if won >= 1000000:
+            out.append("{:,}백만원".format(round(won / 1000000)))
+        if won >= 10000:
+            eok, rest = divmod(won, 100000000)
+            man, wn = divmod(rest, 10000)
+            parts = []
+            if eok:
+                parts.append("{:,}억".format(eok))
+            if man:
+                parts.append("{:,}만".format(man))
+            if wn:
+                parts.append("{:,}".format(wn))
+            out.append(" ".join(parts) + "원")
+        if won >= 100000000:
+            out.append("{:.2f}억원".format(won / 100000000))
+        return out
+
+    def refresh_money(self):
+        for w in self._money_box.winfo_children():
+            w.destroy()
+        raw = "".join(ch for ch in self._money.get() if ch.isdigit())
+        if not raw:
+            return
+        for txt in self.money_forms(int(raw)):
+            Btn(self._money_box, txt, lambda t=txt: self.put_text(t), kind="flat", h=32, icon_name="calc").pack(fill="x", pady=2)
+
+    def put_text(self, text):
+        if not self._need_hwp("문구"):
+            return
+        try:
+            self.bridge.insert_text(text)
+            self.say("넣었어요: %s" % text.strip())
+        except B.BridgeError as e:
+            self.say(str(e), ok=False)
+
+    def put_table(self):
+        if not self._need_hwp("표"):
+            return
+        try:
+            r, c = int(self._tb_rows.get()), int(self._tb_cols.get())
+        except (ValueError, tk.TclError):
+            self.say("줄·칸은 숫자로 넣어 주세요", ok=False)
+            return
+        self.ui["tb_rows"], self.ui["tb_cols"] = r, c
+        try:
+            self.bridge.insert_table(r, c)
+            self.say("%d줄 × %d칸 표를 넣었어요" % (r, c))
+        except B.BridgeError as e:
+            self.say(str(e), ok=False)
+
+    def put_pagebreak(self):
+        if not self._need_hwp("쪽 나누기"):
+            return
+        try:
+            self.bridge.break_page()
+            self.say("쪽을 나눴어요")
+        except B.BridgeError as e:
+            self.say(str(e), ok=False)
+
     # ---------------------------------------------------------------- 겹치기 탭
     def build_compose(self, parent):
         self.section(parent, "글자 겹치기 모양")
@@ -1322,12 +1443,24 @@ class Widget(tk.Tk):
                 vals[fl["key"]] = v
             plain = f.meta.get("style", {}).get("body_mode") == "plain"      # 보도자료처럼 본문을 직접 쓰는 양식은 틀만
             outline = "" if (plain or not f.meta.get("has_body", True)) else (f.meta.get("starter") or T.DEFAULT_STARTER)
+            replace = None
+            if self.ui.get("convert") and outline and self._need_hwp("서식 바꾸기"):
+                sel = self.bridge.get_selection_text()
+                src = sel if sel.strip() else self.bridge.get_all_text()
+                if src.strip():
+                    what = "선택한 글" if sel.strip() else "문서 전체"
+                    if not messagebox.askyesno("서식 바꾸기", "%s을(를) '%s' 양식으로 바꿔 넣을까요?\n"
+                                               "(글이 □ ◦ ▸ - 단계로 정리돼요. 한글에서 Ctrl+Z 로 되돌릴 수 있어요)" % (
+                                                   what, f.meta["name"].split(" (")[0])):
+                        return
+                    outline = T.normalize_outline(src)
+                    replace = "selection" if sel.strip() else "all"
             pkg = f.render(vals, outline)
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
         PR.push_recent(self.ui, "recent_forms", fid, 5)
-        self.busy(lambda: self.out.insert(pkg, f.id))
+        self.busy(lambda: self.out.insert(pkg, f.id, replace))
 
     def make_reference(self):
         """시장님 보고(1장) 뒤에 새 쪽 + 참고자료 제목을 붙인다"""

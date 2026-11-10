@@ -1,0 +1,17 @@
+{
+  "id": "nbud_ref2",
+  "name": "신규사업 참고2 (위치도·기본구상)",
+  "audience": "국가예산 신규사업",
+  "kind": "report",
+  "note": "위치도 칸 + 기본구상(안) 표",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

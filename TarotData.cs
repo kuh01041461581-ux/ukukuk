@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 // ── 타로 풀이 자료: 주제별 해석 · 오라클 메시지 · 자리별 설명 · 예/아니오 ─────────────────────
@@ -96,4 +96,58 @@ internal sealed partial class TarotForm
 	}
 	private static string Verdict(int y) { return y >= 2 ? "예! 확실히 긍정이에요" : (y == 1 ? "아마도 예예요" : (y == 0 ? "보류 · 조건부예요" : (y == -1 ? "아마도 아니오예요" : "아니오, 지금은 아니에요"))); }
 	private static string VerdictText(int y) { return y >= 2 ? "흐름이 강하게 받쳐 줘요. 자신 있게 진행하세요." : (y == 1 ? "조건이 맞으면 잘 풀려요. 세부만 점검하세요." : (y == 0 ? "아직 답이 정해지지 않았어요. 정보를 더 모으고 시기를 보세요." : (y == -1 ? "걸림돌이 있어요. 계획을 보완하면 달라질 수 있어요." : "지금은 흐름이 막혀 있어요. 시기를 늦추거나 방향을 바꿔 보세요."))); }
+
+	// ───────── 카드 조합 풀이: 뽑힌 카드끼리의 관계로 내 상황을 구체적으로 풀어요 ─────────
+	private static readonly int[][] PairMaj = { new[] { 16, 17 }, new[] { 6, 15 }, new[] { 13, 19 }, new[] { 1, 2 }, new[] { 0, 21 }, new[] { 7, 8 }, new[] { 9, 18 }, new[] { 10, 11 }, new[] { 4, 5 }, new[] { 3, 19 }, new[] { 12, 9 }, new[] { 16, 18 }, new[] { 15, 16 }, new[] { 17, 19 }, new[] { 14, 13 }, new[] { 20, 21 }, new[] { 2, 18 } };
+	private static readonly string[] PairTx = {
+		"탑과 별이 함께 나왔어요. 무너지는 일이 있어도 그 뒤에 곧 회복과 희망이 와요. 충격은 정리의 과정이니 너무 오래 붙잡지 마세요.",
+		"연인과 악마가 함께 나왔어요. 끌림이 집착이나 의존으로 변하기 쉬워요. 좋아하는 마음과 놓지 못하는 마음을 구분해서 보세요.",
+		"죽음과 태양이 함께 나왔어요. 끝나는 자리에서 밝은 새 시작이 열려요. 미련만 내려놓으면 훨씬 가벼워져요.",
+		"마법사와 여사제가 함께 나왔어요. 재능과 직관이 같은 방향이에요. 준비를 마쳤다면 때를 기다렸다가 한 번에 움직이세요.",
+		"바보와 세계가 함께 나왔어요. 새 도전이 한 사이클의 마무리와 이어져 있어요. 끝을 정리한 사람에게 다음 길이 열려요.",
+		"전차와 힘이 함께 나왔어요. 의지와 자제력이 같이 움직여요. 밀어붙이되 거칠지 않고 부드럽게 가면 이겨요.",
+		"은둔자와 달이 함께 나왔어요. 혼자 고민이 깊어지고 불안이 커지는 구간이에요. 믿을 수 있는 한 사람에게 털어놓으면 안개가 걷혀요.",
+		"운명의 수레바퀴와 정의가 함께 나왔어요. 흐름이 바뀌지만 결과는 내가 해 온 선택의 정당한 값이에요. 억울해하기보다 기준을 점검하세요.",
+		"황제와 교황이 함께 나왔어요. 규칙과 제도, 윗사람의 인정 안에서 길이 열려요. 절차를 지키는 쪽이 이득이에요.",
+		"여황제와 태양이 함께 나왔어요. 풍요와 기쁨이 겹친 좋은 조합이에요. 애써 온 일의 결실을 누릴 때예요.",
+		"매달린 사람과 은둔자가 함께 나왔어요. 멈춰 있는 시간 속에서 통찰이 생겨요. 지금은 움직이기보다 관점을 바꿔 보는 때예요.",
+		"탑과 달이 함께 나왔어요. 갑작스러운 변화와 불안이 겹쳐요. 큰 결정은 마음이 가라앉은 뒤로 미루세요.",
+		"악마와 탑이 함께 나왔어요. 나를 묶고 있던 것이 깨져요. 아프지만 결국 해방이에요. 무너진 것을 다시 쌓지 마세요.",
+		"별과 태양이 함께 나왔어요. 전망이 밝아요. 믿고 꾸준히 가면 눈에 보이는 성과로 이어져요.",
+		"절제와 죽음이 함께 나왔어요. 변화가 한 번에 오지 않고 단계적으로 와요. 속도를 조절하면 상처 없이 넘어가요.",
+		"심판과 세계가 함께 나왔어요. 과거를 정리하고 나면 완성이 와요. 미뤄 둔 매듭을 지금 풀어 보세요.",
+		"여사제와 달이 함께 나왔어요. 직감이 아주 강하지만 환상과 불안이 섞일 수 있어요. 느낌은 사실 확인과 함께 믿으세요." };
+	private static readonly string[] ElPair = {
+		"불(완드)과 흙(펜타클)이 만났어요. 열정이 현실의 성과로 굳어요. 계획한 만큼 결과가 나오는 조합이에요.",
+		"불(완드)과 물(컵)이 만났어요. 열정과 감정이 엇갈릴 수 있어요. 마음이 앞서 말이 거칠어지지 않게 한 박자 쉬세요.",
+		"불(완드)과 공기(검)가 만났어요. 생각이 행동으로 빠르게 번져요. 추진력은 좋지만 서두르다 말실수를 하기 쉬워요.",
+		"물(컵)과 흙(펜타클)이 만났어요. 감정과 현실이 맞물려 안정적으로 쌓여요. 관계와 생활이 함께 단단해져요.",
+		"물(컵)과 공기(검)가 만났어요. 마음과 이성이 줄다리기해요. 감정을 억누르기보다 말로 풀어내면 정리돼요.",
+		"공기(검)와 흙(펜타클)이 만났어요. 생각과 현실이 어긋나기 쉬워요. 계획은 좋은데 실행이 막힐 수 있으니 작게 먼저 해 보세요." };
+	private static readonly string[] RankTheme = { "새 출발의 씨앗", "선택과 균형", "협력과 확장", "안정과 쉼", "갈등과 변화", "회복과 조화", "시험과 인내", "속도와 움직임", "완성 직전의 버티기", "마무리와 짐 내려놓기" };
+	private static readonly string[] CourtTx = { "새 소식이나 배움을 가져오는 사람, 또는 초심자의 태도", "행동이 빠르고 직진하는 사람, 또는 밀고 나가는 태도", "돌봄과 공감으로 곁을 지키는 사람, 또는 포용하는 태도", "결단과 책임으로 이끄는 사람, 또는 권위 있는 태도" };
+	private static readonly string[] TopicLine = {
+		"힘이 되는 카드 '{B}'({bk})를 믿고, 흔들 수 있는 카드 '{W}'({wk})의 신호만 점검하세요.",
+		"연애: 온기를 더하는 카드 '{B}'({bk}), 엇갈림을 만들 수 있는 카드 '{W}'({wk}). 마음은 짐작 말고 말로 확인하세요.",
+		"일·학업: 무기가 되는 카드 '{B}'({bk}), 걸림돌 카드 '{W}'({wk}). 걸리는 부분은 일정표와 체크리스트로 미리 막으세요.",
+		"재물: 기회 카드 '{B}'({bk}), 새는 곳을 알리는 카드 '{W}'({wk}). 큰 결정은 하루 두고 숫자로 다시 확인하세요.",
+		"건강: 회복을 돕는 카드 '{B}'({bk}), 경고 카드 '{W}'({wk}). 피로·긴장 신호를 무시하지 말고 잠과 식사부터 챙기세요." };
+	private string Synth()
+	{
+		int N = slots.Length; if (N < 2 || mode == 4 || mode == 5 || mode == 7 || mode == 8) return null;
+		int[] sc = new int[N]; int best = 0, worst = 0; for (int i = 0; i < N; i++) { sc[i] = YesScore(slots[i].Card, slots[i].Rev); if (sc[i] > sc[best]) best = i; if (sc[i] < sc[worst]) worst = i; }
+		List<string> L = new List<string>(); int h = Math.Max(1, N / 2); double a0 = 0, a1 = 0; for (int i = 0; i < h; i++) a0 += sc[i]; for (int i = N - h; i < N; i++) a1 += sc[i]; a0 /= h; a1 /= h;
+		string fn = CardName(slots[0].Card), ln = CardName(slots[N - 1].Card);
+		L.Add("● 흐름: 처음 '" + fn + "' → 마지막 '" + ln + "'. " + (a1 - a0 >= 1 ? "뒤로 갈수록 기운이 올라가요. 지금의 답답함은 지나가는 구간이에요." : (a0 - a1 >= 1 ? "뒤로 갈수록 힘이 빠져요. 초반의 좋은 기운이 있을 때 중요한 일을 먼저 끝내 두세요." : "큰 오르내림 없이 비슷한 흐름이에요. 꾸준함이 열쇠예요.")));
+		if (sc[best] > sc[worst]) L.Add("● " + TopicLine[topic].Replace("{B}", CardName(slots[best].Card)).Replace("{bk}", CardKw(slots[best].Card)).Replace("{W}", CardName(slots[worst].Card)).Replace("{wk}", CardKw(slots[worst].Card)) + " (" + posN[best] + " ↔ " + posN[worst] + ")");
+		int shown = 0; for (int p = 0; p < PairMaj.Length && shown < 2; p++) { int ia = -1, ib = -1; for (int i = 0; i < N; i++) { if (slots[i].Card == PairMaj[p][0]) ia = i; if (slots[i].Card == PairMaj[p][1]) ib = i; } if (ia >= 0 && ib >= 0) { L.Add("● " + PairTx[p]); shown++; } }
+		int[] su = new int[4]; foreach (Slot s in slots) if (s.Card >= 22) su[(s.Card - 22) / 14]++;
+		string[] pr = new string[6]; int[][] pc = { new[] { 0, 3 }, new[] { 0, 1 }, new[] { 0, 2 }, new[] { 1, 3 }, new[] { 1, 2 }, new[] { 2, 3 } }; int bp = -1, bv = 0;
+		for (int k = 0; k < 6; k++) { int v = Math.Min(su[pc[k][0]], su[pc[k][1]]); if (v > bv) { bv = v; bp = k; } }
+		if (bp >= 0) L.Add("● " + ElPair[bp]); else { int bs = 0; for (int i = 1; i < 4; i++) if (su[i] > su[bs]) bs = i; if (su[bs] >= 3) L.Add("● " + SuitDom[bs].Replace(" 쪽", "") + " 기운이 한쪽으로 크게 쏠려 있어요. 다른 영역(관계·일·돈·생각)도 한 번씩 돌아보세요."); }
+		for (int r = 0; r < 10; r++) { int cnt = 0; foreach (Slot s in slots) if (s.Card >= 22 && (s.Card - 22) % 14 == r) cnt++; if (cnt >= 2) { L.Add("● 같은 숫자(" + RankName[r] + ")가 겹쳤어요 → 이번 질문의 핵심 주제: " + RankTheme[r] + "."); break; } }
+		for (int i = 0; i < N; i++) if (slots[i].Card >= 22 && (slots[i].Card - 22) % 14 >= 10) { L.Add("● 궁정 카드 '" + CardName(slots[i].Card) + "'(" + posN[i] + ") → " + CourtTx[(slots[i].Card - 22) % 14 - 10] + "예요."); break; }
+		List<string> rv = new List<string>(); for (int i = 0; i < N; i++) if (slots[i].Rev) rv.Add(CardName(slots[i].Card)); if (rv.Count > 0) L.Add("● 역방향(" + string.Join(", ", rv.ToArray()) + "): 그 에너지가 막혀 있거나 안으로 향해 있어요. 밖의 탓보다 내 안의 준비와 속도를 먼저 점검하세요.");
+		return string.Join("\n", L.ToArray());
+	}
 }

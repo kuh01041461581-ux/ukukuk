@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -191,6 +191,7 @@ internal partial class FortuneForm
 		y = SecHead(g, y + 4, "직업과 재물", null);
 		y = Para(g, y, "어울리는 일", TGJob[tgi] + "\n" + TG10[tgi], false, null);
 		y = Para(g, y, "인생 활용법", "원국에서 가장 많은 기운은 " + Saju.EN[mx] + ", 가장 약한 기운은 " + Saju.EN[mn] + "이에요. 강점은 살리고 약점은 생활 습관으로 채워 주면 균형이 잡혀요. 더 자세한 시기별 흐름은 '평생' 탭의 대운 풀이와 '연도' 탭의 해마다 풀이에서 볼 수 있어요.", false, null);
+		y = SajuExtraDraw(g, y + 4, me);
 		return y + 8f;
 	}
 

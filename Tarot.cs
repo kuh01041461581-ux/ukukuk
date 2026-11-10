@@ -385,6 +385,7 @@ internal sealed partial class TarotForm : Form
 			Ent e = new Ent { Title = title, Frame = frame, Body = body, Red = s.Rev, Hi = (mode == 6 && i == 9) || (mode == 3 && i == 4) || (mode == 10 && i == 6) };
 			e.FH = MH(frame, 8.5f * tm, (LW - 64f)); e.H = 26f * tm + e.FH + MH(body, 9f * tm, (LW - 64f)) + 10f; L.Add(e);
 		}
+		string syn = Synth(); if (syn != null) L.Add(new Ent { Title = "카드 조합 풀이", Body = syn, H = 26f * tm + MH(syn, 9f * tm, (LW - 64f)) + 10f });
 		string sum = Summary();
 		L.Add(new Ent { Title = "한 줄 요약", Body = sum, Hi = true, H = 26f * tm + MH(sum, 9f * tm, (LW - 64f)) + 10f });
 		return L;

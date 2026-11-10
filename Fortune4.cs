@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 
@@ -59,4 +60,99 @@ internal partial class FortuneForm
 	}
 	// 오늘의 행운템 (물건) 고르기
 	private static int LuckItem(int el, string seed) { int[] p = LuckPool[el % 5]; return p[Saju.Hash(seed + "i") % p.Length]; }
+
+	// ───────── 사주 심화 풀이: 일간의 힘 · 십성 구조 · 용신 · 지지 합충 · MBTI 연결 ─────────
+	private static readonly string[] StrTx = {
+		"일간이 매우 약한 사주예요. 환경과 사람의 영향을 크게 받아서, 혼자 밀어붙이기보다 받쳐 주는 선배·가족·팀 안에서 실력이 나와요. 무리한 도전은 체력과 휴식부터 챙긴 뒤에 하세요.",
+		"일간이 약한 편이에요. 책임이 한꺼번에 몰리면 지치기 쉬워서 일을 나누고 쉬는 시간을 먼저 정해 두면 좋아요. 배움·자격·좋은 멘토(인성)가 큰 힘이 돼요.",
+		"힘의 균형이 잘 잡힌 사주예요. 상황에 맞춰 밀고 당기는 유연함이 강점이고 어느 길을 가도 무난히 적응해요. 대신 한 방향을 정해 집중해야 성과가 눈에 띄어요.",
+		"일간이 강한 편이에요. 추진력과 주관이 뚜렷해서 일을 주도할 때 빛나요. 내 방식만 고집하면 부딪히기 쉬우니, 힘을 쏟을 곳(재능·재물·책임)이 있을수록 운이 좋아져요.",
+		"일간이 매우 강한 사주예요. 에너지가 넘쳐 한 가지에 꽂히면 끝까지 가요. 힘을 빼는 통로(운동·창작·사업·책임 있는 역할)가 없으면 답답함이 대인관계 충돌로 번지니 의식적으로 써 주세요." };
+	private static readonly string[] StrName = { "극신약", "신약", "중화", "신강", "극신강" };
+	private static readonly string[] GrName = { "비겁", "식상", "재성", "관성", "인성" };
+	private static readonly string[] GrMany = {
+		"비겁이 많아 독립심과 승부욕이 강해요. 동료·친구와 경쟁하거나 돈이 새기 쉬우니 동업·보증은 계약서로 선을 그으세요.",
+		"식상이 많아 표현력·재능·말솜씨가 풍부해요. 말이 앞서 구설이 생기거나 윗사람과 마찰이 날 수 있으니 결과물로 증명하세요.",
+		"재성이 많아 현실 감각과 돈·기회를 보는 눈이 밝아요. 욕심이 앞서면 몸이 지치기 쉬우니 체력과 시간을 같이 관리하세요.",
+		"관성이 많아 책임감·체면·규칙 의식이 강해요. 남의 시선과 압박을 크게 느끼니 '해야 해'를 '하고 싶어'로 바꿀 영역을 따로 만드세요.",
+		"인성이 많아 생각이 깊고 배움을 좋아하지만 실행이 느려질 수 있어요. 완벽히 준비하려 하지 말고 70%에서 시작해 보세요." };
+	private static readonly string[] GrNone = {
+		"비겁이 없어서 내 편이 되어 줄 동료의 힘이 약하다고 느끼기 쉬워요. 대신 먼저 협력을 청하는 습관이 큰 복이 돼요.",
+		"식상이 없어서 마음속 이야기를 꺼내는 데 시간이 걸려요. 글쓰기·취미·운동처럼 표현하는 연습을 하면 숨은 재능이 열려요.",
+		"재성이 없어서 돈과 성과에 대한 집착이 적은 편이에요. 돈 관리는 자동이체·예산표 같은 시스템으로 하면 새는 곳이 막혀요.",
+		"관성이 없어서 얽매이는 것을 싫어하고 자유로워요. 조직의 틀 안에서는 답답할 수 있으니 재량이 큰 일이 잘 맞아요.",
+		"인성이 없어서 의지할 곳이 적다고 느끼기 쉬워요. 스스로 배우고 자격·학습으로 나만의 뒷받침을 만들면 든든해져요." };
+	private static readonly string[] BrRel = {   // [기둥: 0 연지 · 1 월지 · 2 시지][관계: 0 합 · 1 충 · 2 해]
+		"어린 시절부터 자연스럽게 어울린 사람이 많고, 집안과 인연이 부드럽게 이어져요.", "집안·고향과 떨어져 일찍 독립하거나 환경이 크게 바뀌는 흐름이 있어요.", "가까운 사람과 사소한 오해가 쌓이기 쉬워요. 말은 한 번 더 확인하세요.",
+		"사회·직장에서 사람과 잘 맞물려요. 협업과 소개로 기회가 와요.", "직장과 사생활 사이 충돌이나 이직·부서 이동 같은 변화가 한 번은 와요. 준비해 두면 기회가 돼요.", "직장에서 오해가 쌓이기 쉬워요. 보고와 기록을 남기세요.",
+		"자녀·후배와 인연이 좋고 말년이 따뜻해요.", "말년에 환경이 바뀌거나 자녀·후배와 생각 차이가 생길 수 있어요. 대화를 일찍 열어 두세요.", "가까운 사람에게 서운함을 숨기기 쉬워요. 작게 자주 표현하세요." };
+	private static readonly string[] MbEI = {
+		"E(외향)와 신강이 겹쳐 에너지를 밖으로 크게 쓰는 타입이에요. 앞에 서는 자리에서 빛나지만 남의 속도를 기다리는 연습이 필요해요.",
+		"E(외향)지만 사주 힘은 부드러운 편이라 사람 속에서 힘을 얻되 맞추다 지치기 쉬워요. 만남 뒤 혼자 쉬는 시간을 꼭 넣으세요.",
+		"I(내향)인데 사주는 신강이라 겉은 조용해도 속에 단단한 고집과 추진력이 있어요. 필요할 때 단호한 모습에 주변이 놀라곤 해요.",
+		"I(내향)에 신약 쪽이라 혼자 충전하는 시간이 곧 생산성이에요. 사람 많은 일정 뒤에는 회복 시간을 먼저 일정표에 넣으세요." };
+	private static readonly string[] MbNS = {
+		"N(직관)에 인성·식상이 어우러져 상상력과 기획력이 뛰어나요. 아이디어를 '오늘 할 한 가지'로 쪼개야 현실이 돼요.",
+		"N(직관)이지만 사주는 현실(재성·관성) 쪽이 강해서 큰 그림을 보면서 숫자와 일정까지 챙기는 균형형이에요.",
+		"S(감각)에 재성·관성이 겹쳐 현실 감각과 성실함이 돋보여요. 믿고 맡기는 실무형이라 돈·일정 관리에 강해요.",
+		"S(감각)인데 사주는 인성·식상이 강해서 꼼꼼한 실행력에 생각과 표현력이 더해져요. 경험을 글이나 말로 정리하면 강점이 커져요." };
+	private static readonly string[] MbTF = {
+		"T(사고)에 금·수 기운이 겹쳐 판단이 냉정하고 정확해요. 맞는 말에 온도를 한 스푼 더하면 설득력이 두 배가 돼요.",
+		"T(사고)인데 일간은 따뜻한 기운이라 논리적이지만 속은 정이 많아요. 차갑게 보일 땐 이유와 함께 마음도 말해 주세요.",
+		"F(감정)에 따뜻한 일간이 겹쳐 공감 능력이 아주 커요. 남의 감정을 떠안지 않도록 '내 몫과 네 몫'의 선을 그어 두세요.",
+		"F(감정)이지만 일간이 단단한 기운이라 속은 여려도 겉은 단정하고 의리 있어요. 서운함을 참다 폭발하지 않게 작게 자주 표현하세요." };
+	private static readonly string[] MbJP = {
+		"J(계획)에 관성·인성이 겹쳐 규칙과 계획을 지키는 힘이 강해요. 예상 밖 변수에 스트레스를 받으니 일정에 여유 20%를 남겨 두세요.",
+		"J(계획)이지만 사주에 자유로운 기운이 있어 계획 안에서도 즉흥을 즐겨요. 일정표에 '비워 둔 칸'을 넣으면 균형이 잡혀요.",
+		"P(탐색)에 식상·비겁이 겹쳐 자유롭고 도전적이에요. 시작은 빠르니 마감을 남이 정해 주는 구조(스터디·약속)를 쓰면 완성률이 올라가요.",
+		"P(탐색)이지만 사주에 책임감 기운이 있어 막판 집중력이 대단해요. 몰아치기는 건강을 해치니 중간 점검일 하나만 두세요." };
+	private string sxKey; private List<string[]> sxList;
+	private List<string[]> SajuExtra(int me)
+	{
+		string key = pil.Y + "," + pil.M + "," + pil.D + "," + pil.H + "," + mbti; if (sxList != null && key == sxKey) return sxList;
+		List<string[]> L = new List<string[]>(); int dm = pil.D % 10, de = Saju.SE(dm); double st = Saju.Strength(pil);
+		int[] gc = new int[5]; int sg = 0, jg = 0; int[] stems = { pil.Y % 10, pil.M % 10, pil.H >= 0 ? pil.H % 10 : -1 };
+		foreach (int sm in stems) if (sm >= 0) { int r = Saju.Rel(de, Saju.SE(sm)); gc[r]++; bool diff = sm % 2 != dm % 2; if (r == 1 && diff) sg++; if (r == 3 && diff) jg++; }
+		int[] brs = { pil.Y % 12, pil.M % 12, pil.D % 12, pil.H >= 0 ? pil.H % 12 : -1 };
+		foreach (int b in brs) if (b >= 0) { int sm = Saju.BMain[b]; int r = Saju.Rel(de, Saju.SE(sm)); gc[r]++; bool diff = sm % 2 != dm % 2; if (r == 1 && diff) sg++; if (r == 3 && diff) jg++; }
+		int grade = st < 0.3 ? 0 : (st < 0.42 ? 1 : (st < 0.58 ? 2 : (st < 0.72 ? 3 : 4)));
+		L.Add(new[] { "#", "일간의 힘과 십성 구조" });
+		L.Add(new[] { "일간의 힘 · " + StrName[grade], StrTx[grade] + "\n▶ 십성 분포: 비겁 " + gc[0] + " · 식상 " + gc[1] + " · 재성 " + gc[2] + " · 관성 " + gc[3] + " · 인성 " + gc[4] });
+		string gt = ""; int mxg = 0; for (int i = 1; i < 5; i++) if (gc[i] > gc[mxg]) mxg = i; if (gc[mxg] >= 3) gt += GrMany[mxg]; int mng = -1; for (int i = 0; i < 5; i++) if (gc[i] == 0) { mng = i; break; } if (mng >= 0) gt += (gt.Length > 0 ? "\n" : "") + GrNone[mng];
+		if (gt.Length > 0) L.Add(new[] { "기운이 몰리고 빈 곳", gt });
+		string cb = "";
+		if (gc[1] >= 1 && gc[2] >= 1) cb += "● 식상생재: 재능과 결과물이 수입으로 이어지는 구조예요. 기술·콘텐츠·서비스처럼 내 결과물이 돈이 되는 일이 잘 맞아요.\n";
+		if (gc[3] >= 1 && gc[4] >= 1) cb += "● 관인상생: 조직·자격·학위가 명예로 이어지는 구조예요. 공직·교육·전문직처럼 체계 안에서 인정받아요.\n";
+		if (sg >= 1 && jg >= 1) cb += "● 상관견관: 말과 행동이 규칙과 부딪히기 쉬운 구조예요. 윗사람에게는 의견을 '제안과 근거'로 전하면 오히려 신뢰를 얻어요.\n";
+		if (gc[2] >= 3 && st < 0.42) cb += "● 재다신약: 기회와 돈은 많이 보이는데 내 힘이 부족한 구조예요. 욕심을 줄이고 체력·시간 안에서 한두 가지만 단단히 하세요.\n";
+		if (gc[0] >= 3 && gc[2] >= 1) cb += "● 비겁쟁재: 사람과 돈이 엮이면 손해가 나기 쉬워요. 돈 거래는 기록하고 보증은 피하세요.\n";
+		if (cb.Length > 0) L.Add(new[] { "사주의 구조 읽기", cb.TrimEnd('\n') });
+		// 용신(도움이 되는 기운): 신강이면 힘을 빼 주는 쪽, 신약이면 받쳐 주는 쪽, 중화면 가장 약한 오행
+		int[] ec = Saju.Count(pil); int ys, bad; string how;
+		if (grade >= 3) { ys = 1; for (int r = 2; r <= 3; r++) if (gc[r] < gc[ys]) ys = r; bad = 4; how = "넘치는 힘을 쓸 곳(" + GrName[ys] + ")을 늘리는 것이 좋아요."; }
+		else if (grade <= 1) { ys = gc[4] <= gc[0] ? 4 : 0; bad = 3; how = "나를 받쳐 주는 곳(" + GrName[ys] + ")을 채우는 것이 좋아요."; }
+		else { int mn = 0; for (int i = 1; i < 5; i++) if (ec[i] < ec[mn]) mn = i; ys = ((mn - de) % 5 + 5) % 5; bad = (ys + 2) % 5; how = "가장 약한 기운을 채워 균형을 맞추는 것이 좋아요."; }
+		int ye = (de + ys) % 5, be = (de + bad) % 5;
+		L.Add(new[] { "도움이 되는 기운 · " + Saju.EN[ye], how + "\n▶ 행운색 " + ELuckColor[ye] + " · 방향 " + EDir2[ye] + " · 음식 " + EFood[ye] + "\n▶ 과해지면 부담이 되는 기운: " + Saju.EN[be] + " (" + ELuckColor[be] + " 계열을 많이 쓰는 날은 쉬어 가세요)\n※ 간단한 억부 기준이라 실제 상담과 다를 수 있어요." });
+		// 지지 합충
+		string rel = ""; int[] pj = { 0, 1, 3 }; string[] pnm = { "연지", "월지", "시지" }; int db = pil.D % 12;
+		for (int k = 0; k < 3; k++) { int b = brs[pj[k]]; if (b < 0) continue; int br = Saju.BRel(db, b); int ri = br == 1 || br == 4 ? 0 : (br == 2 ? 1 : (br == 3 ? 2 : -1)); if (ri >= 0) rel += "● 일지 " + Saju.BK[db] + " ↔ " + pnm[k] + " " + Saju.BK[b] + " (" + (br == 1 ? "육합" : (br == 4 ? "삼합 기운" : (br == 2 ? "충" : "해"))) + "): " + BrRel[k * 3 + ri] + "\n"; }
+		L.Add(new[] { "지지의 합과 충", rel.Length > 0 ? rel.TrimEnd('\n') : "일지와 다른 기둥 사이에 큰 합·충이 없어요. 환경 변화가 완만하고, 변화는 스스로 정하는 시점에 오는 편이에요." });
+		L.Add(new[] { "#", "MBTI와 사주 연결" });
+		if (mbti == "" || mbti.Length != 4) L.Add(new[] { "MBTI를 고르면 더 구체적으로 풀어 드려요", "위쪽 MBTI 칸에서 유형을 고르면 일간의 힘, 십성 구조와 겹쳐서 성향·일하는 방식·관계 습관을 함께 풀어 드려요." });
+		else
+		{
+			bool e = mbti[0] == 'E', n = mbti[1] == 'N', t = mbti[2] == 'T', j = mbti[3] == 'J', strong = grade >= 3; bool cool = de == 3 || de == 4;
+			bool inf = gc[4] + gc[1] >= gc[2] + gc[3], act = gc[1] + gc[0] >= gc[3] + gc[4];
+			L.Add(new[] { mbti + " × " + Saju.SK[dm] + " 일간 · 에너지와 인식", MbEI[(e ? 0 : 2) + (strong ? 0 : 1)] + "\n" + MbNS[(n ? 0 : 2) + ((n ? inf : !inf) ? 0 : 1)] });
+			L.Add(new[] { "판단과 생활 방식", MbTF[(t ? 0 : 2) + ((t ? cool : !cool) ? 0 : 1)] + "\n" + MbJP[(j ? 0 : 2) + ((j ? !act : act) ? 0 : 1)] });
+			L.Add(new[] { "한 줄 정리", mbti + "(" + MBT[Array.IndexOf(MB, mbti)] + ")의 " + (e ? "바깥으로 향하는" : "안으로 깊어지는") + " 힘과 " + Saju.EN[me] + " 일간(" + StrName[grade] + ")이 만나 " + ELine[me] + "이 돋보여요. 부족한 부분은 " + Saju.EN[ye] + " 기운(" + ELuckColor[ye] + "·" + EDir2[ye] + ")을 생활에 더해 채워 보세요.", "hi" });
+		}
+		sxKey = key; sxList = L; return L;
+	}
+	private float SajuExtraDraw(Graphics g, float y, int me)
+	{
+		foreach (string[] it in SajuExtra(me)) { if (it[0] == "#") y = SecHead(g, y + 4, it[1], null); else y = Para(g, y, it[0], it[1], it.Length > 2, null); }
+		return y;
+	}
 }

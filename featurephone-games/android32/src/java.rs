@@ -43,6 +43,7 @@ fn int(v: &JValue) -> i32 {
 
 pub fn call(_core: &mut ArmCore, state: &Shared, name: &str, sig: &str, args: &[JValue]) -> Result<JValue> {
     *state.lock().java_calls.entry(name.to_string()).or_insert(0) += 1;
+    if std::env::var("TRACE_JAVA").is_ok() && cfg!(not(target_arch = "wasm32")) { eprintln!("[javacall] {name}{sig} {:?}", args); }
     let s = |text: &str| JValue::Obj(new_object(state, JObj::Str(text.to_string())));
     let result = match name {
         // ---- 기기 정보 ----

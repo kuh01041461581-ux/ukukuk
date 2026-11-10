@@ -7,7 +7,7 @@ use std::{env, fs, sync::Arc};
 use spin::Mutex;
 use wie_backend::Options;
 use wie_core_arm::{Allocator, ArmCore};
-use wie_util::Result;
+use wie_util::{ByteWrite, Result};
 
 use wie_android::{hle, hle::State, loader};
 
@@ -43,6 +43,12 @@ async fn run(so: Vec<u8>, state: Arc<Mutex<State>>) -> Result<()> {
     eprintln!("올림: 기준주소 {:#x}, 내보낸 함수 {}개", lib.base, lib.exports.len());
 
     let env_ptr = hle::make_jni_env(&mut core, &state)?;
+    if let Ok(list) = env::var("PATCH_RET") {
+        for a in list.split(',') {
+            let a = u32::from_str_radix(a.trim_start_matches("0x"), 16).unwrap();
+            core.write_bytes(loader::BASE + a, &0xe12fff1eu32.to_le_bytes())?;
+        }
+    }
     if let Ok(prefix) = env::var("BNV") {
         return run_bnv(core, state, lib, env_ptr, &prefix).await;
     }
@@ -99,6 +105,11 @@ async fn run(so: Vec<u8>, state: Arc<Mutex<State>>) -> Result<()> {
         let dump_dir = std::env::var("DUMP").ok();
         for frame in 0..frames {
             st2.lock().now_ms += 33; // 약 30fps
+            if let Ok(w) = std::env::var("WATCH") {
+                let a = u32::from_str_radix(w.trim_start_matches("0x"), 16).unwrap();
+                let v: u32 = wie_util::read_generic(&mut core2, a)?;
+                if frame == 0 || frame % 3 == 0 { eprintln!("[watch] 프레임 {frame}: [{a:#x}] = {v:#x}"); }
+            }
             if let Err(e) = core2.run_function::<u32>(native_loop, &[env_ptr, 0]).await {
                 eprintln!("프레임 {frame} 오류: {e:?}\n{}", core2.dump_reg_stack(0x1000_0000));
                 for line in st2.lock().trace.iter() { eprintln!("  {line}"); }

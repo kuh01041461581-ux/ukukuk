@@ -139,13 +139,14 @@ fn guest_malloc(core: &mut ArmCore, size: u32) -> Result<u32> {
     // 할당 정보를 포인터 앞에 저장해 free 때 크기를 알 수 있게 한다
     let base = Allocator::alloc(core, size + 12)?;
     let ptr = (base + 12) & !7;
+    if std::env::var("ZEROMEM").is_ok() { core.write_bytes(ptr, &vec![0u8; size as usize])?; }
     write_generic(core, ptr - 8, base)?;
     write_generic(core, ptr - 4, size)?;
     Ok(ptr)
 }
 
 fn guest_free(core: &mut ArmCore, ptr: u32) -> Result<()> {
-    if ptr != 0 {
+    if ptr != 0 && std::env::var("NOFREE").is_err() {
         let base: u32 = read_generic(core, ptr - 8)?;
         let size: u32 = read_generic(core, ptr - 4)?;
         Allocator::free(core, base, size + 12)?;
@@ -486,6 +487,7 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
                     1 => pos as i64 + a1 as i32 as i64,
                     _ => len as i64 + a1 as i32 as i64,
                 };
+                if (target < 0 || target as usize > len) && std::env::var("TRACE_FS").is_ok() { eprintln!("[fseek 범위밖] target={target} len={len} lr={lr:#x}"); }
                 st.fds.get_mut(&fd).unwrap().1 = target.max(0) as usize;
                 Ret::U(0)
             } else {
@@ -496,6 +498,7 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
                 let total = (a1 as usize) * (a2 as usize);
                 let len = if path == VFS_PATH { st.vfs.len() } else { st.fs.get(&path).map_or(0, |f| f.len()) };
                 let n = total.min(len.saturating_sub(pos));
+                if n < total && std::env::var("TRACE_FS").is_ok() { eprintln!("[fread 짧음] 요청 {total} 가능 {n} pos={pos} len={len} lr={lr:#x}"); }
                 let whole = if a1 == 0 { 0 } else { n / a1 as usize };
                 let n = whole * a1 as usize;
                 let data = if path == VFS_PATH { st.vfs[pos..pos + n].to_vec() } else { st.fs[&path][pos..pos + n].to_vec() };

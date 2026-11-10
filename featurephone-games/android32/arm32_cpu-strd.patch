@@ -1,4 +1,5 @@
-arm32_cpu 0.1.2 (src/arm.rs): ARMv7 의 LDRD/STRD 는 4바이트 정렬만 요구한다. 원본은 8바이트 정렬이 아니면 "정의되지 않은 명령"으로 처리해 검은방4 가 멈춘다.
--                        || addr & 7 != 0
-+                        || addr & 3 != 0
-(워크스페이스 Cargo.toml 에 [patch.crates-io] arm32_cpu = { path = "vendor/arm32_cpu" } 로 연결)
+arm32_cpu 0.1.2 (src/arm.rs) 수정 사항 — 전체 파일: vendor/arm32_cpu_arm.rs
+1) LDRD/STRD: ARMv7 은 4바이트 정렬만 요구한다. (addr & 7 != 0 → addr & 3 != 0)
+2) ARMv5E DSP 명령 구현: SMLAxy / SMLAWy / SMULWy / SMLALxy / SMULxy / QADD / QSUB / QDADD / QDSUB
+   (원본은 이 명령들을 CMN 등 다른 명령으로 잘못 해석해 검은방2·3·4 에서 잘못된 포인터가 생겼다)
+워크스페이스 Cargo.toml 에 [patch.crates-io] arm32_cpu = { path = "vendor/arm32_cpu" } 로 연결.

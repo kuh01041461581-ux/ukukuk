@@ -198,9 +198,24 @@ class HwpBridge:
             return False
 
     def at_doc_end(self):
-        """커서가 문서 맨 끝에 있는지 (그렇다면 조각을 차례로 이어 붙여도 순서가 뒤집힐 수 없다)"""
+        """커서 뒤에 글자가 하나도 없는지(= 사실상 문서 끝). 한글은 끼워 넣은 뒤 커서 바로 뒤에 빈 문단이 남아 있어서
+        '커서 위치 == 문서 맨 끝 위치' 로 비교하면 두 번째 양식부터 늘 아니라고 나온다 → 커서부터 끝까지 선택해 글자를 본다."""
         hwp = self._need()
         try:
+            p0 = hwp.GetPos()
+            try:
+                hwp.HAction.Run("MoveSelDocEnd")
+                rest = hwp.GetTextFile("TEXT", "saveblock") or ""
+            finally:
+                try:
+                    hwp.HAction.Run("Cancel")
+                except Exception:                          # noqa: BLE001
+                    pass
+                hwp.SetPos(*p0)
+            return not rest.strip()
+        except Exception:                                  # noqa: BLE001
+            pass
+        try:                                               # 위가 안 되면 예전 방식(위치 비교)
             p0 = hwp.GetPos()
             hwp.HAction.Run("MoveDocEnd")
             p1 = hwp.GetPos()

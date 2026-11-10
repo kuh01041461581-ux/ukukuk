@@ -40,12 +40,20 @@ internal sealed partial class TarotForm : Form
 	private static string CardName(int id) { if (id < 22) return KR[id]; int m = id - 22, s = m / 14, r = m % 14; return r >= 10 ? Suit[s] + " " + RankName[r] : Suit[s] + " " + RankName[r]; }
 	private static string CardKw(int id) { return id < 22 ? KW[id] : RankKw[(id - 22) % 14]; }
 	private static string Meaning(int id, bool rev) { if (id < 22) return rev ? RV[id] : UP[id]; return MinorUp[id - 22]; }
+	private static readonly string[] MajAct = {
+		"계획을 완벽히 짜기 전에 작은 첫걸음부터 떼 보세요.", "가진 재료를 적고 오늘 하나를 실제로 시작하세요.", "결정 전에 하루 비우고 직감을 메모해 두세요.", "몸과 마음을 먼저 돌보고 가까운 사람에게 애정을 표현하세요.",
+		"일정과 규칙을 정해 우선순위 세 가지만 지키세요.", "믿을 만한 조언자나 검증된 방법에 물어보세요.", "선택 앞에서 내 가치관 기준을 먼저 적어 보세요.", "목표 하나를 정해 방해 요소를 줄이고 밀고 나가세요.",
+		"화내지 말고 한 템포 쉬며 부드럽게 대화하세요.", "혼자만의 시간을 두 시간 확보해 방향을 점검하세요.", "변화를 거부하지 말고 올라탈 준비를 하세요.", "사실과 근거를 정리하고 약속·계약 내용을 꼼꼼히 확인하세요.",
+		"서두르지 말고 관점을 바꿔 다른 방법을 찾아보세요.", "끝낼 것 하나를 정해 정리하고 새 자리를 비우세요.", "일·휴식·돈의 비율을 조금씩 조정해 균형을 맞추세요.", "나를 붙잡는 습관이나 관계 하나를 인정하고 거리를 두세요.",
+		"무너진 곳을 붙잡지 말고 안전과 기초부터 다시 점검하세요.", "작은 희망 목표를 세우고 회복 루틴을 꾸준히 이어 가세요.", "불안할 때는 결정을 미루고 사실만 확인하세요.", "기쁜 소식을 나누고 자신 있게 앞에 나서 보세요.",
+		"과거를 정리하고 다시 도전할 일을 용기 내어 시작하세요.", "마무리를 짓고 성과를 축하한 뒤 다음 목표를 그려 보세요." };
+	private static string Act(int id) { return "\n▶ 오늘의 실천 · " + (id < 22 ? MajAct[id] : OracleAct[(id - 22) % 14]); }
 	private static string Body(int id, bool rev, int topic)
 	{
-		if (topic == 0) return Meaning(id, rev);
-		if (id < 22) return Meaning(id, rev) + " ▶ " + MajTopic[id][topic - 1] + (rev ? " 다만 역방향이라 서두르지 말고 점검하며 가세요." : "");
+		if (topic == 0) return Meaning(id, rev) + Act(id);
+		if (id < 22) return Meaning(id, rev) + " ▶ " + MajTopic[id][topic - 1] + Act(id) + (rev ? " 다만 역방향이라 서두르지 말고 점검하며 가세요." : "");
 		int m = id - 22, sidx = m / 14; bool rel = Array.IndexOf(TopicSuits[topic], sidx) >= 0;
-		return (rel ? "● 이 주제와 직접 맞닿은 카드예요. " : "") + MinorUp[m] + " ▶ " + SuitTopic[sidx][topic - 1];
+		return (rel ? "● 이 주제와 직접 맞닿은 카드예요. " : "") + MinorUp[m] + " ▶ " + SuitTopic[sidx][topic - 1] + Act(id);
 	}
 
 	// ───────── 색 · 상태 ─────────

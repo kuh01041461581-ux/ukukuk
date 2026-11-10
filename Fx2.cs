@@ -73,7 +73,7 @@ internal static class ImgCache
 	public static System.Drawing.Image Get(System.Drawing.Image src, float pwF, float phF)
 	{
 		if (src == null) return null; if (Spr.LogOn) Spr.NoteSz(src, Math.Max(pwF, phF * src.Width / Math.Max(1f, src.Height)));
-		int stp = pwF < 96f ? 4 : 8; int pw = ((int)Math.Ceiling(pwF) + stp - 1) / stp * stp, ph = Math.Max(1, (int)Math.Ceiling(phF * pw / Math.Max(1f, pwF)));
+		int pw = 8; while (pw < pwF) pw = pw < 64 ? pw + 8 : (int)(pw * 1.2f) / 8 * 8; int ph = Math.Max(1, (int)Math.Ceiling(phF * pw / Math.Max(1f, pwF)));
 		if (pw < 8 || src.Width <= pw * 1.2f) return src;
 		Dictionary<int, Bitmap> d; if (!cache.TryGetValue(src, out d)) { d = new Dictionary<int, Bitmap>(); cache[src] = d; }
 		Bitmap b; if (d.TryGetValue(pw, out b)) return b;

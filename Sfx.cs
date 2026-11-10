@@ -88,7 +88,7 @@ internal static class Sfx
 		{ "golf:swing", "club" }, { "golf:glass", "splash" }, { "golf:thud2", "bounce" },
 		{ "volley:thud_soft", "bounce" }, { "hoop:bong", "clang" }, { "bowl:glass", "pins" },
 		{ "sling:thud_soft", "thwack" }, { "archery:swing", "bow" }, { "archery:thud2", "thwack" }, { "mole:thud2", "thwack" },
-		{ "hall:thud", "explode" }, { "hall:bad_big", "boom" }, { "kart:glass", "splash" } };
+		{ "hall:thud", "explode" }, { "hall:bad_big", "boom" }, { "kart:glass", "splash" }, { "kart:ok", "coin" }, { "kart:thud", "slam" }, { "kart:thud_soft", "bounce" }, { "kart:swing", "bounce" }, { "kart:bad2", "clang" } };
 	public static void Play(string n)
 	{
 		if (!GameOn || !Program.SoundOn) return;

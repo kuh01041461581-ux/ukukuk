@@ -326,7 +326,7 @@ internal sealed class KartGame : MiniGame
 		if (mouseSteer && steer == 0f) { float want = Clamp((inp.Mx - 200f) / 140f, -1f, 1f); steer = Math.Abs(want) < 0.08f ? 0f : want; }
 		bool dHeld = inp.Down != null && (inp.Down.Contains(Keys.Space) || inp.Down.Contains(Keys.ShiftKey) || inp.Down.Contains(Keys.LShiftKey)) || (inp.Hold && mouseSteer && inp.Down != null && !inp.Down.Contains(Keys.Up));
 		// 드리프트: 누른 채로 꺾으면 시작 → 게이지가 차요 → 놓으면 부스터
-		if (dHeld && sp > 0.3f && (steer != 0f || driftDir != 0) && spinT <= 0f && airH <= 0f) { if (driftDir == 0) { driftDir = steer < 0 ? -1 : 1; dHop = 0.22f; Sfx.Play("screech"); } float into0 = steer * driftDir; bool pushing = into0 > 0.25f; if (pushing) charge = Math.Min(2.2f, charge + dt * (0.6f + Math.Abs(steer) * 0.7f) * sp); drift = Math.Min(1f, drift + dt * 4f);
+		if (dHeld && sp > 0.3f && (steer != 0f || driftDir != 0) && spinT <= 0f && airH <= 0f) { if (driftDir == 0) { driftDir = steer < 0 ? -1 : 1; dHop = 0.22f; Sfx.Play("screech"); latV += driftDir * 2.4f * sp; v *= 0.93f; Shake = Math.Max(Shake, 0.12f); } float into0 = steer * driftDir; bool pushing = into0 > 0.25f; if (pushing) charge = Math.Min(2.2f, charge + dt * (0.6f + Math.Abs(steer) * 0.7f) * sp); drift = Math.Min(1f, drift + dt * 4f);
 			// 드리프트하는 동안 부스터 게이지가 차요 → 가득 차면 부스터 아이템 1개 (최대 2개)
 			if (bst < 2 && pushing) { gauge += dt * 0.42f * sp * (0.7f + 0.5f * Math.Abs(steer)); if (gauge >= 1f) { gauge = 0f; bst++; msg = "부스터 충전! (X 키)"; msgT = 1.1f; Sfx.Play("ok2"); } } }
 		else if (driftDir != 0 && airH > 0f) { }
@@ -343,10 +343,10 @@ internal sealed class KartGame : MiniGame
 		steerVis += (st - steerVis) * Math.Min(1f, dt * 10f);
 		int ps = scOn ? scQ[0] : SegOf(PlayerZ); float cv = scOn ? PathCurve((int)((scCam + PZ) / SEG)) : curve[ps];
 		// 빙판은 핸들이 늦게 먹고(미끄러져요) 커브 바깥으로 더 밀려요 · 공중에서는 핸들이 반만 먹어요
-		float latT = st * 2.6f * Math.Max(0.25f, sp) * (driftDir != 0 ? 1.15f : 1f) * (airH > 0f ? 0.5f : 1f);
+		float latT = st * 2.6f * Math.Max(0.25f, sp) * (driftDir != 0 ? 1.5f : 1f) * (airH > 0f ? 0.5f : 1f);
 		latV += (latT - latV) * Math.Min(1f, dt * 14f * T0.Grip); float rwP = scOn ? 1f : rw[ps]; px += latV * dt / rwP;
 		// 커브 바깥으로 밀리는 힘: 핸들을 안 꺾으면 커브 바깥으로 밀려 나가요 (급커브는 드리프트가 필요해요)
-		float cfg = sp * sp * cv * (driftDir != 0 ? 0.42f : 1.0f) * (T0.Grip < 1f ? 1.25f : 1f); cfg = Clamp(cfg, -4.6f, 4.6f); px -= dt * cfg / rwP;
+		float cfg = sp * sp * cv * (driftDir != 0 ? 0.15f : 1.0f) * (T0.Grip < 1f ? 1.25f : 1f); cfg = Clamp(cfg, -4.6f, 4.6f); px -= dt * cfg / rwP;
 		// 발판: 부스트 · 점프 · 감속 구역
 		if (padCd > 0f) padCd -= dt; byte pk = scOn ? (byte)0 : padK[ps]; bool onPad = pk != 0 && Math.Abs(padX[ps] - px) < padW[ps]; bool slowZone = false;
 		if (airH <= 0f && onPad)
@@ -372,7 +372,7 @@ internal sealed class KartGame : MiniGame
 		else if (brake) v -= MAXV * 1.2f * dt;
 		else if (v < top) v += (boostT > 0f ? MAXV * 1.4f : MAXV / 3.6f * (1f - v / (top * 1.05f) * 0.6f)) * dt;
 		else v -= (offRoad ? MAXV * 1.1f : MAXV * 0.5f) * dt;
-		if (driftDir != 0) v -= MAXV * 0.05f * dt;
+		if (driftDir != 0) v -= MAXV * 0.035f * dt;
 		v = Clamp(v, 0f, MAXV * 1.4f); if (boostT > 0f) boostT -= dt;
 		{
 			if (!scOn && wet[ps] && Math.Abs(px) > 1.08f && airH <= 0f && inv <= 0f) Fall();

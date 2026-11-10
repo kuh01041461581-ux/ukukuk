@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "icons")
 S = 24          # 최종 크기
 K = 12          # 확대 배율(부드럽게)
-W = 2.7         # 선 굵기(그릴 때 px 기준 — 배지 안으로 줄여 넣으므로 굵게)
+W = 2.3         # 선 굵기(그릴 때 px 기준 — 배지 안으로 줄여 넣으므로 굵게)
 
 
 def canvas():
@@ -195,23 +195,29 @@ def _(d, c):
 
 
 # 아이콘마다 파스텔 색(배지) — 동글동글 귀엽게
-BADGE = {"doc": "#7c8cf5", "event": "#ff8a7a", "project": "#ffb04a", "mayor": "#6c9cf0", "cover": "#b68cf0", "plan": "#4cc2a0",
-         "schedule": "#f27fb0", "user": "#7c8cf5", "plus": "#4cc2a0", "link": "#7c8cf5", "sliders": "#9aa3c0", "clip": "#ffb04a",
-         "minus": "#9aa3c0", "dock": "#7c8cf5", "tray": "#9aa3c0", "table": "#4cb7e8", "date": "#f27fb0", "pagebreak": "#b68cf0",
-         "text": "#ff8a7a", "calc": "#4cc2a0", "swap": "#ffb04a", "nation": "#ffb04a"}
+IND, TEAL, AMB, ROSE, SKY, VIO, SLATE, CORAL = "#5865c8", "#2f9e8f", "#c98a2b", "#c9627f", "#3a8fc4", "#8664c9", "#6f7685", "#d0705f"
+BADGE = {"doc": IND, "event": CORAL, "project": AMB, "mayor": SKY, "cover": VIO, "plan": TEAL, "schedule": ROSE, "user": IND,
+         "plus": TEAL, "link": IND, "sliders": SLATE, "clip": AMB, "minus": SLATE, "dock": SLATE, "tray": SLATE, "table": SKY,
+         "date": ROSE, "pagebreak": VIO, "text": CORAL, "calc": TEAL, "swap": AMB, "nation": AMB}
+
+
+def _tint(col, t):
+    c = [int(col[i:i + 2], 16) for i in (1, 3, 5)]
+    return tuple(round(x + (255 - x) * t) for x in c) + (255,)
 
 
 def badge(fn, name, white):
-    from PIL import ImageFilter           # noqa: F401
+    """윈도우 11 느낌: 연한 색 바탕의 둥근 네모 + 그 색의 선 그림. (흰색 판은 강조 단추 위용: 반투명 흰 바탕 + 흰 선)"""
     big = S * K
     im = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    col = BADGE.get(name, "#7c8cf5")
-    d.ellipse((0.5 * K, 0.5 * K, big - 0.5 * K, big - 0.5 * K), fill="#ffffff" if white else col)
+    col = BADGE.get(name, IND)
+    fill = (255, 255, 255, 60) if white else _tint(col, 0.86)
+    d.rounded_rectangle((0.5 * K, 0.5 * K, big - 0.5 * K, big - 0.5 * K), radius=7 * K, fill=fill)
     g, gd = canvas()
-    fn(gd, col if white else "#ffffff")
-    g = g.resize((int(big * 0.66), int(big * 0.66)), Image.LANCZOS)
-    im.alpha_composite(g, ((big - g.width) // 2, (big - g.height) // 2 + int(0.2 * K)))
+    fn(gd, "#ffffff" if white else col)
+    g = g.resize((int(big * 0.64), int(big * 0.64)), Image.LANCZOS)
+    im.alpha_composite(g, ((big - g.width) // 2, (big - g.height) // 2))
     return im.resize((S, S), Image.LANCZOS)
 
 

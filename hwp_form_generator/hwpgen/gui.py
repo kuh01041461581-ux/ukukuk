@@ -691,19 +691,19 @@ class DetailWindow(tk.Toplevel):
 
 # ===================================================================== 옆에 뜨는 위젯
 WIDGET_W = 264
-# 팔레트: Linear(인디고) + Notion(차분한 회색 글자) + 윈도우 11 유리(옅은 반투명 흰색)
-C_BG = "#f3f4fb"
-C_G1 = "#5e6ad2"          # 그라데이션 시작(인디고)
-C_G2 = "#9a6bd6"          # 그라데이션 끝(보라)
+# 팔레트: Linear(절제된 인디고) + Notion(차분한 회색 글자) + 윈도우 11 유리(옅은 반투명 흰색)
+C_BG = "#f5f6f8"
+C_G1 = "#5865c8"          # 강조 그라데이션(아주 살짝만 이동 — 튀지 않게)
+C_G2 = "#6b6fd4"
 C_CARD = "#ffffff"
-C_LINE = "#e3e5f0"
-C_HOVER = "#eceefe"
-C_PRESS = "#dadefb"
-C_TEXT = "#23283b"
-C_SUB = "#7b8199"
-C_ACC = "#5e6ad2"
-C_OK = "#1f9d62"
-C_BAD = "#d64545"
+C_LINE = "#e3e5ea"
+C_HOVER = "#eef0f5"
+C_PRESS = "#e1e4ec"
+C_TEXT = "#1f2329"
+C_SUB = "#7a808c"
+C_ACC = "#5865c8"
+C_OK = "#2a9461"
+C_BAD = "#c94848"
 ICON_DIR = os.path.join(registry.app_dir(), "assets", "icons")
 FONT_FILES = ("NotoSansKR-Regular.otf", "NotoSansKR-Bold.otf")
 
@@ -755,6 +755,13 @@ def _mix(c1, c2, t):
     a = [int(c1[i:i + 2], 16) for i in (1, 3, 5)]
     b = [int(c2[i:i + 2], 16) for i in (1, 3, 5)]
     return "#%02x%02x%02x" % tuple(round(x + (y - x) * t) for x, y in zip(a, b))
+
+
+def vgradient_image(w, h, c1, c2):
+    img = tk.PhotoImage(width=w, height=h)
+    for y in range(h):
+        img.put(_mix(c1, c2, y / max(1, h - 1)), to=(0, y, w, y + 1))
+    return img
 
 
 def gradient_image(w, h, c1, c2):
@@ -883,17 +890,15 @@ class Btn(_Anim, tk.Canvas):
             fill = _mix(idle, C_HOVER, t)
             if self.pressed:
                 fill = C_PRESS
-            line = _mix(C_LINE if self.kind == "card" else C_BG, "#aeb6f2", t)
+            line = _mix(C_LINE if self.kind == "card" else C_BG, "#b9bfe6", t)
             pill(self, 1, 1 + dy * 0, w - 2, h - 2, fill=fill, outline=line)
-            fg = _mix(C_TEXT, "#2b3470", t)
-        ic = icon(self.icon_name, white=acc or t > 0.5) if self.icon_name else None
+            fg = _mix(C_TEXT, "#2c3366", t)
+        ic = icon(self.icon_name, white=acc) if self.icon_name else None
         x = 10
         if self.anchor == "w":
             if ic is not None:
                 d = h - 14
                 cy = h // 2 + dy
-                if not acc:               # 아이콘 둥근 바탕: 평소 옅은 보라 → 올리면 진한 인디고
-                    self.create_oval(x, cy - d // 2, x + d, cy + d // 2, fill=_mix("#eef0fd", C_ACC, t), outline="")
                 self.create_image(x + d // 2, cy, image=ic)
                 x += d + 10
             else:
@@ -941,9 +946,130 @@ class Chip(_Anim, tk.Canvas):
         self.create_text(c, c, text=self.text, fill=_mix(C_TEXT, C_ACC, t), font=self.fnt or FONT)
 
 
+class Dropdown(_Anim, tk.Canvas):
+    """알약 모양 드롭다운: 누르면 목록이 아래로 펼쳐지고 하나를 고르면 닫힌다"""
+
+    def __init__(self, master, labels, icons, on_pick):
+        super().__init__(master, height=38, bg=C_BG, highlightthickness=0, bd=0, cursor="hand2")
+        self.labels, self.icons, self.on_pick, self.key, self.pop = labels, icons, on_pick, None, None
+        self._anim_init()
+        self.bind("<Configure>", lambda e: self.draw())
+        self._bind_anim()
+
+    def cmd(self):
+        self.toggle()
+
+    def set(self, key):
+        self.key = key
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        w, h, t = self.winfo_width(), self.winfo_height(), self.t
+        if w < 4:
+            return
+        pill(self, 1, 1, w - 2, h - 2, fill=_mix(C_CARD, C_HOVER, t if not self.pop else 1), outline=_mix(C_LINE, "#b9bfe6", t))
+        ic = icon(self.icons.get(self.key, "doc"))
+        x = 8
+        if ic is not None:
+            self.create_image(x + 12, h // 2, image=ic)
+            x += 32
+        self.create_text(x, h // 2, text=self.labels.get(self.key, ""), anchor="w", fill=C_TEXT, font=(FONT[0], 10, "bold"))
+        cy = h // 2
+        a, b = (cy + 2, cy - 3) if self.pop else (cy - 2, cy + 3)
+        self.create_line(w - 24, a, w - 19, b, w - 14, a, fill=C_SUB, width=2, capstyle="round", joinstyle="round")
+
+    def toggle(self):
+        if self.pop:
+            self.close()
+            return
+        top = self.winfo_toplevel()
+        pop = self.pop = tk.Toplevel(self)
+        pop.wm_overrideredirect(True)
+        pop.attributes("-topmost", True)
+        try:
+            pop.attributes("-alpha", 0.98)
+        except tk.TclError:
+            pass
+        w = self.winfo_width()
+        pop.configure(bg=C_LINE)
+        inner = tk.Frame(pop, bg=C_BG)
+        inner.pack(padx=1, pady=1)
+        for k, label in self.labels.items():
+            Btn(inner, label, lambda kk=k: self._pick(kk), kind="flat", icon_name=self.icons.get(k), h=36, w=w - 12).pack(
+                padx=5, pady=1)
+        pop.geometry("+%d+%d" % (self.winfo_rootx(), self.winfo_rooty() + self.winfo_height() + 2))
+        pop.bind("<Escape>", lambda e: self.close())
+        self._bind_id = top.bind("<Button-1>", lambda e: self.close() if e.widget is not self else None, add="+")
+        pop.focus_force()
+        self.draw()
+
+    def _pick(self, key):
+        self.close()
+        self.on_pick(key)
+
+    def close(self):
+        if self.pop:
+            try:
+                self.pop.destroy()
+            except tk.TclError:
+                pass
+            self.pop = None
+            self.draw()
+
+
+class PillScroll(tk.Canvas):
+    """가는 알약 모양 스크롤바 (평소엔 옅게, 마우스를 올리면 진하게)"""
+
+    def __init__(self, master, command):
+        super().__init__(master, width=10, bg=C_BG, highlightthickness=0, bd=0)
+        self.command, self.first, self.last, self.hot, self.drag = command, 0.0, 1.0, False, None
+        self.bind("<Configure>", lambda e: self.draw())
+        self.bind("<Enter>", lambda e: self._hot(True))
+        self.bind("<Leave>", lambda e: self._hot(False))
+        self.bind("<ButtonPress-1>", self._down)
+        self.bind("<B1-Motion>", self._move)
+
+    def _hot(self, v):
+        self.hot = v
+        self.draw()
+
+    def set(self, first, last):
+        self.first, self.last = float(first), float(last)
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        h = self.winfo_height()
+        if self.last - self.first >= 0.999 or h < 20:
+            return
+        y0, y1 = 2 + self.first * (h - 4), 2 + self.last * (h - 4)
+        y1 = max(y1, y0 + 24)
+        round_rect(self, 2, y0, 8, y1, 3, fill="#b4b9c4" if self.hot else "#d3d6de", outline="")
+
+    def _down(self, e):
+        h = self.winfo_height()
+        top, bot = self.first * h, self.last * h
+        if top <= e.y <= bot:
+            self.drag = e.y - top
+        else:
+            self.drag = (bot - top) / 2
+            self._move(e)
+
+    def _move(self, e):
+        h = max(1, self.winfo_height())
+        if self.drag is not None:
+            self.command("moveto", max(0.0, min(1.0, (e.y - self.drag) / h)))
+
+
 class Widget(tk.Tk):
     """한글 옆에 떠 있는 양식 단추 모음. 단추를 누르면 열려 있는 한글 문서에 바로 만들어 넣는다."""
 
+    TAB_LABEL = {"report": "보고", "week": "주간업무 · 간부회의", "budget": "예산 · 이월 조서", "press": "보도자료",
+                 "assembly": "국회단계 질의서", "audit": "행정사무감사", "nat": "국가예산 신규사업", "tools": "도구 (표·날짜·문구)",
+                 "sym": "기호 · 글자 겹치기", "more": "설정 · 더보기"}
+    TAB_ICON = {"report": "doc", "week": "schedule", "budget": "calc", "press": "text", "assembly": "mayor", "audit": "plan",
+                "nat": "nation", "tools": "table", "sym": "swap", "more": "sliders"}
     TABS = [("보고", "report"), ("주간", "week"), ("예산", "budget"), ("보도", "press"),
             ("국회", "assembly"), ("감사", "audit"), ("국비", "nat"), ("도구", "tools"), ("기호", "sym"),
             ("더보기", "more")]
@@ -1039,50 +1165,34 @@ class Widget(tk.Tk):
             hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
             dwm = ctypes.windll.dwmapi.DwmSetWindowAttribute
             dwm(hwnd, 33, ctypes.byref(ctypes.c_int(2)), 4)         # DWMWA_WINDOW_CORNER_PREFERENCE = ROUND
-            dwm(hwnd, 35, ctypes.byref(ctypes.c_int(0x00d26a5e)), 4)  # 제목줄 색(BGR) = 인디고
-            dwm(hwnd, 36, ctypes.byref(ctypes.c_int(0x00ffffff)), 4)  # 제목줄 글자 흰색
+            dwm(hwnd, 35, ctypes.byref(ctypes.c_int(0x00f8f6f5)), 4)  # 제목줄 색(BGR) = 바탕과 같은 옅은 회색
+            dwm(hwnd, 36, ctypes.byref(ctypes.c_int(0x0029231f)), 4)  # 제목줄 글자 진한 회색
         except Exception:                                # noqa: BLE001
             pass
 
     # ---------------------------------------------------------------- 뼈대
     def _build_frame(self):
         W = WIDGET_W
-        self.head = tk.Canvas(self, width=W, height=54, highlightthickness=0, bd=0)
+        self.head = tk.Canvas(self, width=W, height=56, highlightthickness=0, bd=0, bg=C_BG)
         self.head.pack(fill="x")
-        self._hg = gradient_image(W + 200, 54, C_G1, C_G2)
+        self._hg = vgradient_image(W + 200, 56, "#ffffff", C_BG)          # 위는 밝은 유리, 아래로 갈수록 바탕색
         self.head.create_image(0, 0, image=self._hg, anchor="nw")
-        self.head.create_text(14, 20, text="양식 도우미", anchor="w", fill="white", font=(FONT[0], 12, "bold"))
-        self.head.create_text(14, 39, text="한글 옆에서 한 번에", anchor="w", fill="#dfe3ff", font=FONT_S)
+        self.head.create_text(16, 22, text="양식 도우미", anchor="w", fill=C_TEXT, font=(FONT[0], 12, "bold"))
+        self.head.create_text(16, 40, text="한글 옆에서 한 번에", anchor="w", fill=C_SUB, font=FONT_S)
         for i, (nm, cmd, tip) in enumerate((("minus", self.toggle, "접기·펴기"), ("dock", self.dock, "한글 옆에 붙이기"),
                                             ("tray", self.to_tray, "트레이로 보내기"))):
-            ic = icon(nm, white=True)
+            ic = icon(nm)
             x = W - 22 - i * 30
-            self.head.create_oval(x - 13, 27 - 13, x + 13, 27 + 13, fill="", outline="", tags=("hb%d" % i,))
-            self.head.create_image(x, 27, image=ic, tags=("hb%d" % i,))
+            self.head.create_image(x, 28, image=ic, tags=("hb%d" % i,))
             self.head.tag_bind("hb%d" % i, "<Button-1>", lambda e, c=cmd: c())
             self.head.tag_bind("hb%d" % i, "<Enter>", lambda e: self.head.config(cursor="hand2"))
             self.head.tag_bind("hb%d" % i, "<Leave>", lambda e: self.head.config(cursor=""))
+        tk.Frame(self, bg=C_LINE, height=1).pack(fill="x")
         self.chip = tk.Label(self, text="", bg=C_BG, font=FONT_S, anchor="w", padx=14, pady=5, cursor="hand2")
         self.chip.pack(fill="x")
         self.chip.bind("<Button-1>", lambda e: self.connect() if not self.bridge.connected else None)
-        self.tabbar = tk.Frame(self, bg=C_BG)
-        self.tabbar.pack(fill="x", padx=8)
-        self.tab_lbl, self.tab_bar = {}, {}
-        per_row = 5
-        for c in range(per_row):
-            self.tabbar.columnconfigure(c, weight=1, uniform="tab")
-        for idx, (name, key) in enumerate(self.TABS):
-            col = tk.Frame(self.tabbar, bg=C_BG)
-            col.grid(row=idx // per_row, column=idx % per_row, sticky="ew", padx=1)
-            l = tk.Label(col, text=name, bg=C_BG, fg=C_SUB, font=FONT, padx=4, pady=4, cursor="hand2")
-            l.pack()
-            bar = tk.Frame(col, bg=C_BG, height=2)
-            bar.pack(fill="x", padx=6)
-            l.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
-            l.bind("<Enter>", lambda e, w=l, k=key: (w.config(fg=C_ACC), self.tab_bar[k].config(bg="#c9cdf6")) if k != self.tab else None)
-            l.bind("<Leave>", lambda e, w=l, k=key: (w.config(fg=C_SUB), self.tab_bar[k].config(bg=C_BG)) if k != self.tab else None)
-            self.tab_lbl[key], self.tab_bar[key] = l, bar
-        tk.Frame(self, bg=C_LINE, height=1).pack(fill="x", padx=8)
+        self.tab_drop = Dropdown(self, self.TAB_LABEL, self.TAB_ICON, self.show_tab)
+        self.tab_drop.pack(fill="x", padx=10, pady=(2, 4))
         self.body = tk.Frame(self, bg=C_BG)
         self.body.pack(fill="both", expand=True, padx=10, pady=6)
         self.status = tk.Label(self, text="", bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w", padx=14, pady=7,
@@ -1094,10 +1204,7 @@ class Widget(tk.Tk):
 
     def show_tab(self, key):
         self.tab = key
-        for k, l in self.tab_lbl.items():
-            on = k == key
-            l.config(fg=C_ACC if on else C_SUB, font=FONT_B if on else FONT)
-            self.tab_bar[k].config(bg=C_ACC if on else C_BG)
+        self.tab_drop.set(key)
         self.unbind_all("<MouseWheel>")
         self.unbind_all("<Button-4>")
         self.unbind_all("<Button-5>")
@@ -1141,9 +1248,9 @@ class Widget(tk.Tk):
         if tab == "report":
             prof = PR.load_profile()
             if not (prof.get("dept") or prof.get("staff_name")):
-                box = tk.Frame(parent, bg="#fff7e0", highlightthickness=1, highlightbackground="#f1dfa2")
+                box = tk.Frame(parent, bg="#fbf6e8", highlightthickness=1, highlightbackground="#eadfb8")
                 box.pack(fill="x", pady=(0, 4))
-                tk.Label(box, text="내 정보(과·담당자)를 한 번 적어 두면\n양식에 자동으로 채워져요", bg="#fff7e0", fg="#6b5600",
+                tk.Label(box, text="내 정보(과·담당자)를 한 번 적어 두면\n양식에 자동으로 채워져요", bg="#fbf6e8", fg="#6b5a1e",
                          font=FONT_S, justify="left", padx=10, pady=6).pack(anchor="w")
                 Btn(box, "내 정보 입력", self.open_profile, icon_name="user", h=32).pack(fill="x", padx=8, pady=(0, 8))
         self._convert_var = tk.IntVar(value=1 if self.ui.get("convert") else 0)
@@ -1222,13 +1329,13 @@ class Widget(tk.Tk):
     def scroll_area(self, parent):
         """길어지는 탭용 스크롤 영역 (마우스 휠 지원) → 안쪽 프레임"""
         cv = tk.Canvas(parent, bg=C_BG, highlightthickness=0)
-        sb = ttk.Scrollbar(parent, orient="vertical", command=cv.yview)
+        sb = PillScroll(parent, cv.yview)
         inner = tk.Frame(cv, bg=C_BG)
         win = cv.create_window((0, 0), window=inner, anchor="nw")
         inner.bind("<Configure>", lambda e: cv.configure(scrollregion=cv.bbox("all")))
         cv.bind("<Configure>", lambda e: cv.itemconfigure(win, width=e.width))
         cv.configure(yscrollcommand=sb.set)
-        sb.pack(side="right", fill="y")
+        sb.pack(side="right", fill="y", padx=(2, 0))
         cv.pack(side="left", fill="both", expand=True)
 
         def wheel(e):

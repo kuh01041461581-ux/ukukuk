@@ -1,0 +1,54 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>출석 체크</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#777;--pri:#2f5d50;--a:#c62828}
+@media(prefers-color-scheme:dark){:root{--bg:#171a19;--card:#222726;--ink:#eee;--mut:#9a9;--pri:#6fb59f}}
+*{box-sizing:border-box}body{margin:0;font:17px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+main{max-width:480px;margin:0 auto;padding:16px}.card{background:var(--card);border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 1px 3px #0002}
+input,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #8886;background:var(--card);color:var(--ink);width:100%;margin:4px 0}
+button.pri{background:var(--pri);color:#fff;border:0;font-weight:700}
+.names{display:grid;grid-template-columns:1fr 1fr;gap:6px}.names button{margin:0}
+.names .sel{background:var(--pri);color:#fff}.names .done{opacity:.4}
+.err{color:var(--a);font-weight:600}.mut{color:var(--mut);font-size:14px}.big{font-size:22px;text-align:center}
+h4{margin:12px 0 4px}
+</style></head><body><main>
+<h2 id="title">출석 체크</h2><div id="sub" class="mut"></div>
+<div id="body"></div>
+<script>
+const $=id=>document.getElementById(id);
+const token=location.pathname.split('/').pop();
+let dev=localStorage.getItem('dev');if(!dev){dev=crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now();localStorage.setItem('dev',dev)}
+let sel=null,S=null;
+async function load(){
+  const r=await fetch('/api/s/'+token);S=await r.json();
+  if(!r.ok){$('body').innerHTML=`<div class="card err">${S.error}</div>`;return}
+  $('title').textContent=S.lecture.name;$('sub').textContent=`${S.date} · ${S.lecture.start}~${S.lecture.end}`;
+  if(!S.open){$('body').innerHTML='<div class="card err">출석이 마감되었습니다.</div>';return}
+  draw();
+}
+function draw(msg){
+  $('body').innerHTML=`<div class="card">${S.groups.map(g=>`<h4>${g.name}</h4><div class="names">${g.members.map(m=>
+    `<button data-id="${m.id}" class="${sel===m.id?'sel':''} ${m.done?'done':''}">${m.name}${m.done?' ✔':''}</button>`).join('')}</div>`).join('')}</div>
+  <div class="card"><label>현장 코드 (교육장에서 안내)<input id="code" inputmode="numeric" maxlength="4" placeholder="4자리"></label>
+  ${S.venue?`<div class="mut">📍 교육장(${S.venue.name||'지정 장소'}) 안에서만 출석됩니다. 누르면 위치 권한을 허용해 주세요.</div>`:''}
+  <button class="pri" id="go">출석하기</button><div id="msg" class="${msg?.err?'err':''}">${msg?.t||''}</div></div>`;
+  document.querySelectorAll('.names button').forEach(b=>b.onclick=()=>{sel=b.dataset.id;const c=$('code')?.value;draw();$('code').value=c||''});
+  $('go').onclick=go;
+}
+function pos(){return new Promise((ok,no)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(ok,no,{enableHighAccuracy:true,timeout:15000,maximumAge:0}):no({message:'unsupported'}))}
+async function go(){
+  const msg=(t,err)=>{$('msg').className=err?'err':'';$('msg').textContent=t};
+  if(!sel)return msg('본인 이름을 눌러 주세요',1);
+  let p={};
+  if(S.venue){msg('위치 확인 중…');
+    try{const x=await pos();p={lat:x.coords.latitude,lng:x.coords.longitude,accuracy:x.coords.accuracy}}
+    catch(e){return msg('위치를 확인할 수 없습니다. 휴대폰·브라우저의 위치 권한을 허용한 뒤 다시 눌러 주세요',1)}}
+  const r=await fetch(`/api/s/${token}/checkin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({memberId:sel,code:$('code').value,deviceId:dev,...p})});
+  const j=await r.json();
+  if(!r.ok)return msg(j.error,1);
+  const name=S.groups.flatMap(g=>g.members).find(m=>m.id===sel).name;
+  $('body').innerHTML=`<div class="card big">✅<br>${name}님<br>${j.status==='L'?'지각 처리되었습니다':'출석되었습니다'}${j.already?'<div class="mut">(이미 출석됨)</div>':''}</div>`;
+}
+load();
+</script></main></body></html>

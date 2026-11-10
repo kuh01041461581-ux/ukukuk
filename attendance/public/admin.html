@@ -1,0 +1,99 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>출석 관리자</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#777;--pri:#2f5d50;--p:#2e7d32;--l:#ef8f00;--a:#c62828}
+@media(prefers-color-scheme:dark){:root{--bg:#171a19;--card:#222726;--ink:#eee;--mut:#9a9;--pri:#6fb59f}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+main{max-width:1100px;margin:0 auto;padding:16px}h1{font-size:20px}
+.card{background:var(--card);border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 1px 3px #0002;overflow-x:auto}
+input,select,button,textarea{font:inherit;padding:8px;border-radius:8px;border:1px solid #8886;background:var(--card);color:var(--ink)}
+button.pri{background:var(--pri);color:#fff;border:0;font-weight:600}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid #8884;padding:6px 8px;text-align:center;vertical-align:top}
+th{background:#8881}td.l{text-align:left;white-space:nowrap}
+.ok{color:var(--p)}.late{color:var(--l)}.ab{color:var(--a)}.un{color:var(--mut)}
+.tabs button{margin-right:4px}.tabs .on{background:var(--pri);color:#fff}
+small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
+.g{display:grid;grid-template-columns:1fr 120px;gap:6px}
+</style></head><body><main>
+<h1>🛠 출석 관리자</h1>
+<div id="login" class="card">비밀번호 <input id="pw" type="password"> <button class="pri" id="go">로그인</button> <span id="msg" class="ab"></span></div>
+<div id="app" hidden>
+<div class="tabs"><button id="t1" class="on">날짜별 현황</button><button id="t2">단체·강의 설정</button><button id="t3">내보내기</button></div>
+<section id="v1" class="card">
+  <button id="prev">◀</button> <input type="date" id="date"> <button id="next">▶</button> <button id="reload">새로고침</button>
+  <div id="ov" style="margin-top:12px"></div>
+</section>
+<section id="v2" class="card" hidden>
+  <h3>교육 장소 (위치 인증)</h3>
+  <div id="venue">장소명 <input id="vn" size="14"> 위도 <input id="vlat" size="10"> 경도 <input id="vlng" size="10"> 반경(m) <input id="vr" size="4" type="number">
+    <button id="here">현재 위치로 지정</button><small>위도·경도를 비우면 위치 확인 없이 현장 코드만 사용합니다. 실내는 오차가 크므로 반경 100~200m 권장.</small></div>
+  <h3>단체 (PIN은 단체 대표자가 출석 입력 시 사용)</h3><div id="gs"></div>
+  <button id="addg">+ 단체 추가</button>
+  <h3>강의 (요일·시간 반복)</h3><div id="ls"></div>
+  <button id="addl">+ 강의 추가</button>
+  <p><button class="pri" id="saveCfg">설정 저장</button></p>
+</section>
+<section id="v3" class="card" hidden>기간 <input type="date" id="from"> ~ <input type="date" id="to"> <button class="pri" id="csv">엑셀(CSV) 다운로드</button></section>
+</div>
+<script>
+const $=id=>document.getElementById(id);const DAY='일월화수목금토';
+let pw=sessionStorage.getItem('pw')||'';
+const H=()=>({'x-admin':pw,'content-type':'application/json'});
+async function api(u,o={}){const r=await fetch(u,{...o,headers:H()});const j=await r.json();if(!r.ok)throw new Error(j.error);return j}
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const shift=n=>{const d=new Date($('date').value+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);$('date').value=d.toISOString().slice(0,10);ov()};
+$('go').onclick=async()=>{pw=$('pw').value;try{await api('/api/admin/config');sessionStorage.setItem('pw',pw);start()}catch(e){$('msg').textContent=e.message}};
+function start(){$('login').hidden=true;$('app').hidden=false;$('date').value=$('date').value||today();$('from').value=$('to').value=today();ov();cfg()}
+['1','2','3'].forEach(n=>$('t'+n).onclick=()=>{['1','2','3'].forEach(m=>{$('v'+m).hidden=m!==n;$('t'+m).classList.toggle('on',m===n)})});
+$('date').onchange=ov;$('reload').onclick=ov;$('prev').onclick=()=>shift(-1);$('next').onclick=()=>shift(1);
+function sessBtn(l){const s=l.session;
+  if(!s)return `<button data-mk="${l.id}">출석 링크 만들기</button>`;
+  const url=location.origin+'/c/'+s.token;
+  return `<small>현장코드 <b>${s.code}</b> · ${s.open?'진행중':'마감'}</small>
+  <button data-cp="${url}">링크 복사</button> <button data-tg="${l.id}" data-open="${!s.open}">${s.open?'마감':'다시 열기'}</button> <button data-nc="${l.id}">코드 재발급</button>`}
+document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)return;
+  const post=b=>api('/api/admin/session',{method:'POST',body:JSON.stringify({date:$('date').value,...b})});
+  try{
+  if(d.mk){await post({lectureId:d.mk});ov()}
+  if(d.tg){await post({lectureId:d.tg,open:d.open==='true'});ov()}
+  if(d.nc){await post({lectureId:d.nc,newCode:true});ov()}
+  if(d.cp){try{await navigator.clipboard.writeText(d.cp);alert('링크를 복사했습니다. 카톡에 붙여넣어 보내세요.\n'+d.cp)}catch{prompt('링크를 복사하세요',d.cp)}}
+  }catch(er){alert(er.message)}});
+async function ov(){
+  const d=await api('/api/admin/overview?date='+$('date').value);
+  const wd=DAY[new Date(d.date+'T00:00:00Z').getUTCDay()];
+  if(!d.lectures.length){$('ov').innerHTML=`<p>${d.date} (${wd}) 강의가 없습니다.</p>`;return}
+  const groups=d.lectures[0].groups;
+  let tot={P:0,L:0,A:0,U:0};
+  const rows=d.lectures.map(l=>`<tr><td class="l"><b>${l.name}</b><small>${l.start}~${l.end}</small>${sessBtn(l)}</td>${l.groups.map(g=>{
+    for(const k in tot)tot[k]+=g[k];
+    if(!g.checked)return `<td class="un">미입력<small>${g.total}명</small></td>`;
+    return `<td><span class="ok">출 ${g.P}</span> <span class="late">지 ${g.L}</span> <span class="ab">결 ${g.A}</span>${g.U?` <span class="un">미 ${g.U}</span>`:''}
+      ${g.issues.map(i=>`<small class="${i.status==='A'?'ab':'late'}">${i.name} (${i.status==='A'?'결석':'지각'})</small>`).join('')}</td>`}).join('')}</tr>`).join('');
+  $('ov').innerHTML=`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p>
+  <table><tr><th>강의</th>${groups.map(g=>`<th>${g.name}</th>`).join('')}</tr>${rows}</table>`;
+}
+let C={groups:[],lectures:[]};
+async function cfg(){C=await api('/api/admin/config');const v=C.venue||{};$('vn').value=v.name||'';$('vlat').value=v.lat??'';$('vlng').value=v.lng??'';$('vr').value=v.radius||150;draw()}
+$('here').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('vlat').value=p.coords.latitude.toFixed(6);$('vlng').value=p.coords.longitude.toFixed(6)},()=>alert('위치 권한을 허용해 주세요'),{enableHighAccuracy:true});
+function draw(){
+  $('gs').innerHTML=C.groups.map((g,i)=>`<div style="margin-bottom:10px"><div class="g"><input data-i="${i}" data-k="name" value="${g.name}" placeholder="단체명"><input data-i="${i}" data-k="pin" value="${g.pin}" placeholder="PIN"></div>
+    <textarea data-i="${i}" data-k="members" placeholder="구성원 이름 (한 줄에 한 명)">${g.members.join('\n')}</textarea><button data-del="g${i}">단체 삭제</button></div>`).join('');
+  $('ls').innerHTML=`<table>${C.lectures.map((l,i)=>`<tr><td><input data-li="${i}" data-k="name" value="${l.name}"></td>
+    <td><select data-li="${i}" data-k="weekday">${[...DAY].map((d,n)=>`<option value="${n}" ${l.weekday==n?'selected':''}>${d}</option>`).join('')}</select></td>
+    <td><input type="time" data-li="${i}" data-k="start" value="${l.start}"></td><td><input type="time" data-li="${i}" data-k="end" value="${l.end}"></td>
+    <td><button data-del="l${i}">삭제</button></td></tr>`).join('')}</table>`;
+}
+document.addEventListener('input',e=>{const t=e.target;
+  if(t.dataset.i!==undefined){const g=C.groups[t.dataset.i];g[t.dataset.k]=t.dataset.k==='members'?t.value.split('\n'):t.value}
+  if(t.dataset.li!==undefined)C.lectures[t.dataset.li][t.dataset.k]=t.value});
+document.addEventListener('click',e=>{const d=e.target.dataset?.del;if(!d)return;
+  if(!confirm('삭제할까요?'))return;(d[0]==='g'?C.groups:C.lectures).splice(+d.slice(1),1);draw()});
+$('addg').onclick=()=>{C.groups.push({name:'',pin:'',members:[]});draw()};
+$('addl').onclick=()=>{C.lectures.push({name:'',weekday:1,start:'09:00',end:'10:00'});draw()};
+$('saveCfg').onclick=async()=>{try{await api('/api/admin/config',{method:'PUT',body:JSON.stringify({...C,venue:{name:$('vn').value,lat:$('vlat').value,lng:$('vlng').value,radius:$('vr').value}})});await cfg();ov();alert('저장했습니다')}catch(e){alert(e.message)}};
+$('csv').onclick=async()=>{const r=await fetch(`/api/admin/export?from=${$('from').value}&to=${$('to').value}`,{headers:H()});
+  const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`attendance_${$('from').value}_${$('to').value}.csv`;a.click()};
+if(pw)api('/api/admin/config').then(start).catch(()=>{});
+</script></main></body></html>

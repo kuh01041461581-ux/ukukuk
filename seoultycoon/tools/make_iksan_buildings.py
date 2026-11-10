@@ -247,8 +247,8 @@ def tesla():
     return s.finish()
 
 # ============================ b21 익산역 (KTX): 남색 유리 박스 + 흰 "익산역" + 파란 캐노피 + 마룡이 동상 ============================
-def station():
-    s = Sc(48, 6); G = s.G; rs = random.Random(9)
+def station(H=48):
+    s = Sc(H, 6); G = s.G; rs = random.Random(9)
     s.ground()
     # 회색 벽돌 광장 줄눈 + 잔디 화단(마룡이 동상 자리)
     for i in range(1, 16): s.line([G(i / 16, 0.50), G(i / 16, 1)], hx('b4b4d4', 120), 2)
@@ -288,6 +288,46 @@ def station():
     s.tree(0.02, 0.60, 0.7); s.tree(0.96, 0.70, 0.7)
     return s.finish()
 
+# ============================ b21 춘포역 (옛 역사: 낮은 목조 건물 + 회색 기와 지붕) ============================
+def chunpo():
+    s = Sc(48, 13); G = s.G; s.ground(); rs = random.Random(10)
+    # 선로 2줄 + 침목 + 승강장
+    s.grad([G(0.02, 0.02), G(0.98, 0.02), G(0.98, 0.14), G(0.02, 0.14)], hx('7a7468'), hx('5a5448'), (0, 1))
+    for k in range(0, 40): s.line([G(0.04 + 0.024 * k, 0.03), G(0.04 + 0.024 * k, 0.13)], hx('4a3a2a'), 3)
+    for b in (0.05, 0.11): s.line([G(0.02, b), G(0.98, b)], hx('c8ccd6'), 3)
+    s.grad([G(0.02, 0.14), G(0.98, 0.14), G(0.98, 0.24), G(0.02, 0.24)], hx('d8d2c0'), hx('b8b2a0'), (0, 1))
+    s.shadow([G(0.14, 0.58), G(0.86, 0.58), G(0.94, 0.66), G(0.22, 0.68)], 95, 8)
+    A0, A1, B0, B1, HW = 0.14, 0.86, 0.28, 0.58, 6.2
+    # 벽: 흰 널판 + 짙은 갈색 문틀/기둥
+    s.box(A0, A1, B0, B1, HW, (hx('f6f1e0'), hx('d4ceb8')), (hx('d4ceb8'), hx('a8a28c')), (hx('9a948a'), hx('7a746a')))
+    for k in range(1, 20): s.line([G(A0 + (A1 - A0) * k / 20, B1, 0), G(A0 + (A1 - A0) * k / 20, B1, HW)], hx('b8b29c', 110), 2)
+    for k in range(0, 8): s.line([G(A0 + (A1 - A0) * k / 7, B1, 0), G(A0 + (A1 - A0) * k / 7, B1, HW)], hx('6a4a32'), 5)
+    for k in range(0, 3): s.line([G(A0, B1, 0.2 + k * 2.9), G(A1, B1, 0.2 + k * 2.9)], hx('6a4a32'), 3)
+    for i in range(5):                                                                                       # 창 + 출입문
+        a = A0 + 0.06 + 0.13 * i
+        if i == 2: s.grad([G(a, B1, 0), G(a + 0.07, B1, 0), G(a + 0.07, B1, 4.6), G(a, B1, 4.6)], hx('3a281a'), hx('1a1008'), (0, 1))
+        else: s.grad([G(a, B1, 1.6), G(a + 0.07, B1, 1.6), G(a + 0.07, B1, 4.4), G(a, B1, 4.4)], hx('a8c4d8'), hx('4a6078'), (0.2, 1))
+    # 회색 기와 팔작지붕(앞 경사 + 옆 경사) + 용마루 + 처마 끝 기와 줄
+    RZ = 5.2; ov = 0.04
+    s.grad([G(A0 - ov, B1 + ov, HW), G(A1 + ov, B1 + ov, HW), G(A1 - 0.06, (B0 + B1) / 2, HW + RZ), G(A0 + 0.06, (B0 + B1) / 2, HW + RZ)], hx('8a8c98'), hx('4e505e'), (0.2, 1), 4)
+    s.grad([G(A1 + ov, B0 - ov, HW), G(A1 + ov, B1 + ov, HW), G(A1 - 0.06, (B0 + B1) / 2, HW + RZ)], hx('6a6c7a'), hx('3a3c48'), (0.2, 1), 4)
+    for k in range(1, 7):
+        t = k / 7; bb = (B1 + ov) + ((B0 + B1) / 2 - (B1 + ov)) * t; z = HW + RZ * t; aL = A0 - ov + (0.10 + ov) * t; aR = A1 + ov - (0.10 + ov) * t
+        s.line([G(aL, bb, z), G(aR, bb, z)], hx('2e303c', 170), 3)
+    s.line([G(A0 + 0.06, (B0 + B1) / 2, HW + RZ), G(A1 - 0.06, (B0 + B1) / 2, HW + RZ)], hx('b0b2c0'), 5)
+    s.line([G(A0 - ov, B1 + ov, HW), G(A1 + ov, B1 + ov, HW)], hx('c8cad6'), 4)
+    # 가운데 박공 현관(작은 맞배지붕) + 간판
+    s.box(0.40, 0.60, 0.58, 0.66, 5.0, (hx('f6f1e0'), hx('d4ceb8')), (hx('d4ceb8'), hx('a8a28c')), (hx('8a8c98'), hx('5a5c6a')))
+    s.grad([G(0.38, 0.66, 5.0), G(0.62, 0.66, 5.0), G(0.50, 0.62, 8.2)], hx('8a8c98'), hx('4e505e'), (0, 1))
+    s.grad([G(0.44, 0.66, 0.0), G(0.56, 0.66, 0.0), G(0.56, 0.66, 3.8), G(0.44, 0.66, 3.8)], hx('3a281a'), hx('1a1008'), (0, 1))
+    s.grad([G(0.42, 0.66, 3.9), G(0.58, 0.66, 3.9), G(0.58, 0.66, 5.0), G(0.42, 0.66, 5.0)], hx('1e3a68'), hx('0e2244'), (0, 1))
+    s.text_face('춘포역', (G(0.425, 0.66)[0], G(0.425, 0.66, 4.9)[1] + 1), 0, 0, 0.09, hx('ffffff'), font=FONT_K, size=36, shear=0.5)
+    # 벤치와 가로등 + 느티나무
+    for a in (0.24, 0.62): s.line([G(a, 0.22, 1.6), G(a + 0.10, 0.22, 1.6)], hx('6a4a32'), 5)
+    s.tree(0.06, 0.78, 0.9); s.tree(0.94, 0.74, 0.8)
+    return s.finish()
+
+
 # ============================ b44 하림 (익산 푸드폴리스: 식품 공장 + 사일로) ============================
 def harim():
     s = Sc(61, 7); G = s.G; s.ground()
@@ -321,8 +361,8 @@ def harim():
     return s.finish()
 
 if __name__ == '__main__':
-    items = {'b19': cinema, 'b3': costco, 'b4': hotel, 'b15': tesla, 'b21': station, 'b44': harim}
-    sheet = Image.new('RGBA', (6 * 96 * 4 + 48, 80 * 4), (150, 70, 160, 255))
+    items = {'b19': cinema, 'b3': costco, 'b4': hotel, 'b15': tesla, 'b21': chunpo, 'b22': lambda: station(67), 'b44': harim}
+    sheet = Image.new('RGBA', (7 * 96 * 4 + 56, 80 * 4), (150, 70, 160, 255))
     for k, (n, fn) in enumerate(items.items()):
         im = fn(); im.save(f'{out}/{n}.png'); bg = Image.new('RGBA', im.size, (150, 70, 160, 255)); bg.alpha_composite(im)
         sheet.paste(bg.resize((im.width * 4, im.height * 4), Image.NEAREST), (k * (96 * 4 + 8), 0))

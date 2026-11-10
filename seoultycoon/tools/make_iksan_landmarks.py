@@ -58,48 +58,65 @@ def weathered(s, a0, a1, b1, z0, h, rnd, n=26):
         col = rnd.choice([hx('c89a6c', 120), hx('d8b48a', 110), hx('8e8878', 120), hx('e6c8a0', 100)])
         s.flat([G(a, b1, z), G(a + w, b1, z), G(a + w, b1, z + hh), G(a, b1, z + hh)], col)
 
-# ---------------- 미륵사지 석탑 (b2, 96x68): 아래 두 층은 온전, 윗부분은 오른쪽으로 비스듬히 무너진 모양 ----------------
+# ---------------- 미륵사지 석탑 (b2, 96x68): 사진(정면·대각선) 기준 — 낮은 기단+계단, 1층(기둥+문), 두꺼운 지붕돌 2개 + 2층 창, 위는 오른쪽으로 무너진 돌 더미 ----------------
 def mireuksa():
+    global STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T
+    save = (STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T)
+    STONE_L = (hx('d2d2c8'), hx('9c9c92')); STONE_R = (hx('9c9c92'), hx('62625c')); STONE_T = (hx('e4e4da'), hx('c0c0b6'))          # 사진의 회백색 화강암(대비를 높임)
+    ROOF_L = (hx('c4c4ba'), hx('84847c')); ROOF_R = (hx('8e8e86'), hx('52524c')); ROOF_T = (hx('dcdcd0'), hx('b4b4a8'))
     s = Sc(68, 11); G = s.G; rnd = random.Random(3); s.ground()
-    s.shadow([G(0.2, 0.6), G(0.8, 0.6), G(1.02, 0.78), G(0.4, 0.82)], 105, 11)
+    s.shadow([G(0.2, 0.62), G(0.8, 0.62), G(1.02, 0.80), G(0.4, 0.84)], 105, 11)
     cx = cy = 0.5
-    s.box(0.12, 0.88, 0.12, 0.88, 1.3, (hx('cbc4ae'), hx('8a8270')), (hx('8a8270'), hx('5a5444')), (hx('dcd5c0'), hx('b8b19c')), 0)          # 낮고 넓은 기단
-    s.box(0.18, 0.82, 0.18, 0.82, 1.4, STONE_L, STONE_R, STONE_T, 1.3)
-    for k in range(5):                                                                                                                     # 정면 계단
-        s.box(0.42 - 0.01 * k, 0.58 + 0.01 * k, 0.82, 0.82 + 0.05 * (5 - k) * 0.5, 0.45 * (k + 1), (hx('dcd5c1'), hx('aaa28e')), (hx('aaa28e'), hx('6f6858')), STONE_T, 0)
-    z = 2.7
-    # 1층: 넓은 몸돌 + 네 기둥 + 가운데 어두운 문
-    s.box(0.20, 0.80, 0.20, 0.80, 7.8, STONE_L, STONE_R, STONE_T, z); courses(s, 0.20, 0.80, 0.20, 0.80, z, 7.8, rnd, 1.3)
-    for i in range(6):
-        a = 0.20 + 0.60 * i / 5; s.line([G(a, 0.80, z), G(a, 0.80, z + 7.8)], hx('7a7260'), 7); s.line([G(a - 0.006, 0.80, z), G(a - 0.006, 0.80, z + 7.8)], hx('eee8d4'), 3)
-    s.grad([G(0.45, 0.80, z), G(0.55, 0.80, z), G(0.55, 0.80, z + 6.0), G(0.45, 0.80, z + 6.0)], hx('2a2622'), hx('0c0a08'), (0, 1))
-    s.line([G(0.45, 0.80, z), G(0.45, 0.80, z + 6.0), G(0.55, 0.80, z + 6.0), G(0.55, 0.80, z)], hx('c4bca6'), 3)
-    weathered(s, 0.2, 0.8, 0.80, z, 7.8, rnd, 10)
-    z += 7.8
-    z = layered_roof(s, cx, cy, 0.40, z, rnd, layers=4, thick=0.75, taper=0.02)                                                              # 1층 지붕돌(넓고 두껍다)
-    # 2층: 낮은 몸돌 + 창 4칸
-    s.box(0.25, 0.75, 0.25, 0.75, 4.6, STONE_L, STONE_R, STONE_T, z); courses(s, 0.25, 0.75, 0.25, 0.75, z, 4.6, rnd, 1.2)
+    # 사방이 넓은 모래색 마당 + 낮은 이중 기단 + 정면(b 방향)·측면(a 방향) 계단
+    s.box(0.10, 0.90, 0.10, 0.90, 1.2, (hx('d0cab4'), hx('908874')), (hx('908874'), hx('5e584a')), (hx('e2dcc6'), hx('beb8a2')), 0)
+    s.box(0.16, 0.84, 0.16, 0.84, 1.3, STONE_L, STONE_R, STONE_T, 1.2)
+    for k in range(5):
+        s.box(0.43 - 0.008 * k, 0.57 + 0.008 * k, 0.84, 0.84 + 0.05 * (5 - k) * 0.55, 0.42 * (k + 1), (hx('e0dcc8'), hx('aaa694')), (hx('aaa694'), hx('6e6a5c')), STONE_T, 0)        # 정면 계단
+        s.box(0.84, 0.84 + 0.05 * (5 - k) * 0.55, 0.43 - 0.008 * k, 0.57 + 0.008 * k, 0.42 * (k + 1), (hx('e0dcc8'), hx('aaa694')), (hx('aaa694'), hx('6e6a5c')), STONE_T, 0)        # 측면 계단
+    z = 2.5
+    # 1층: 넓은 몸돌 + 모서리·중간 기둥(두툼한 사각 기둥) + 문 + 기둥 사이 판석
+    s.box(0.20, 0.80, 0.20, 0.80, 8.0, STONE_L, STONE_R, STONE_T, z); courses(s, 0.20, 0.80, 0.20, 0.80, z, 8.0, rnd, 1.4)
+    for i in range(5):                                                                                                                      # 정면 기둥 5개
+        a = 0.20 + 0.60 * i / 4; s.grad([G(a - 0.022, 0.80, z), G(a + 0.022, 0.80, z), G(a + 0.022, 0.80, z + 8.0), G(a - 0.022, 0.80, z + 8.0)], hx('f0f0e8'), hx('b0b0a8'), (0.3, 1))
+        s.line([G(a - 0.022, 0.80, z), G(a - 0.022, 0.80, z + 8.0)], hx('787872'), 3)
+    for j in range(5):                                                                                                                      # 측면 기둥
+        b = 0.20 + 0.60 * j / 4; s.grad([G(0.80, b - 0.022, z), G(0.80, b + 0.022, z), G(0.80, b + 0.022, z + 8.0), G(0.80, b - 0.022, z + 8.0)], hx('b8b8b0'), hx('7c7c76'), (0.3, 1))
+    for (a0, a1) in ((0.26, 0.36), (0.64, 0.74)): s.grad([G(a0, 0.80, z + 0.4), G(a1, 0.80, z + 0.4), G(a1, 0.80, z + 7.0), G(a0, 0.80, z + 7.0)], hx('c8c8c0'), hx('96968e'), (0.3, 1))        # 기둥 사이 판석
+    s.grad([G(0.44, 0.80, z), G(0.56, 0.80, z), G(0.56, 0.80, z + 6.4), G(0.44, 0.80, z + 6.4)], hx('2a2824'), hx('0a0908'), (0, 1))                  # 문
+    s.line([G(0.44, 0.80, z), G(0.44, 0.80, z + 5.6), G(0.56, 0.80, z + 5.6), G(0.56, 0.80, z)], hx('d4d4cc'), 3)
+    weathered(s, 0.20, 0.80, 0.80, z, 8.0, rnd, 8)
+    z += 8.0
+    z = layered_roof(s, cx, cy, 0.38, z, rnd, layers=4, thick=0.5, taper=0.014)                                                            # 1층 지붕돌: 켜켜이 쌓인 두꺼운 처마
+    # 2층: 낮은 몸돌 + 네모 창 4칸(정면), 측면 3칸
+    s.box(0.24, 0.76, 0.24, 0.76, 4.4, STONE_L, STONE_R, STONE_T, z)
     for i in range(4):
-        a = 0.28 + 0.12 * i; s.grad([G(a, 0.75, z + 1.2), G(a + 0.07, 0.75, z + 1.2), G(a + 0.07, 0.75, z + 3.6), G(a, 0.75, z + 3.6)], hx('7a7466'), hx('46423a'), (0, 1))
-    z += 4.6
-    z = layered_roof(s, cx, cy, 0.33, z, rnd, layers=3, thick=0.7, taper=0.02)                                                              # 2층 지붕돌
-    # 3층 이상: 오른쪽(a 방향)으로 비스듬히 무너진 돌더미(왼쪽 가장자리는 곧은 사선, 오른쪽에는 지붕돌이 계단식으로 튀어나옴)
-    b0, b1 = 0.37, 0.63; zt = z + 13.0
-    front = [G(0.31, b1, z), G(0.69, b1, z), G(0.70, b1, z + 5), G(0.72, b1, z + 9), G(0.69, b1, zt), G(0.52, b1, zt), G(0.45, b1, zt - 2)]
-    s.grad([G(0.31, b1, z), G(0.69, b1, z), G(0.69, b1, zt), G(0.52, b1, zt)], hx('e0d8c4'), hx('b4ac96'), (0.3, 1), 5)
-    for k in range(13):                                                                                                                    # 돌 켜(가로줄)와 어긋난 세로 이음
-        zz = z + 0.5 + k * 1.0; aL = 0.31 + (0.21 * (k / 13.0)); s.line([G(aL, b1, zz), G(0.70, b1, zz)], hx('6a6250', 120), 2)
-        for j in range(int((0.70 - aL) * 28)): a = aL + 0.035 * (j + (0.5 if k % 2 else 0)); s.line([G(min(a, 0.69), b1, zz), G(min(a, 0.69), b1, zz + 1.0)], hx('6a6250', 90), 2)
-    weathered(s, 0.34, 0.69, b1, z, 12, rnd, 34)
-    s.grad([G(0.69, b0, z), G(0.69, b1, z), G(0.69, b1, zt), G(0.69, b0, zt)], hx('a89f8a'), hx('6a634f'), (0.3, 1))                        # 오른쪽 어두운 면
-    s.grad([G(0.52, b0, zt), G(0.69, b0, zt), G(0.69, b1, zt), G(0.52, b1, zt)], hx('f0eadb'), hx('d6cfba'), (1, 0.5))
-    for k in range(5):                                                                                                                     # 오른쪽으로 튀어나온 지붕돌 5개(계단식)
-        zz = z + 1.0 + k * 2.6; a1 = 0.70 + 0.012 * k
-        s.box(0.60 + 0.012 * k, a1 + 0.10 - 0.012 * k, 0.33, 0.67, 0.8, ROOF_L, ROOF_R, ROOF_T, zz)
-        s.line([G(0.62 + 0.012 * k, 0.67, zz + 0.4), G(a1 + 0.10 - 0.012 * k, 0.67, zz + 0.4)], hx('5a5444', 120), 2)
-    s.box(0.58, 0.70, 0.40, 0.60, 0.9, ROOF_L, ROOF_R, ROOF_T, zt)
-    s.tree(0.04, 0.86, 0.9); s.tree(0.94, 0.18, 0.8)
-    return s.finish()
+        a = 0.275 + 0.115 * i; s.grad([G(a, 0.76, z + 0.9), G(a + 0.07, 0.76, z + 0.9), G(a + 0.07, 0.76, z + 3.0), G(a, 0.76, z + 3.0)], hx('78786e'), hx('34342c'), (0, 1))
+    for j in range(3): b = 0.30 + 0.14 * j; s.grad([G(0.76, b, z + 0.9), G(0.76, b + 0.08, z + 0.9), G(0.76, b + 0.08, z + 3.0), G(0.76, b, z + 3.0)], hx('5a5a52'), hx('242420'), (0, 1))
+    z += 4.4
+    z = layered_roof(s, cx, cy, 0.31, z, rnd, layers=4, thick=0.5, taper=0.014)                                                            # 2층 지붕돌
+    # 3층 이상: 오른쪽(+a)으로 비스듬히 무너진 돌 더미(복원 블록) — 왼쪽은 곧은 사선, 오른쪽에 지붕돌이 계단식으로 튀어나옴
+    b0, b1 = 0.28, 0.70; zt = z + 17.5
+    def edge_a(zz): return 0.19 + 0.34 * ((zz - z) / (zt - z)) ** 1.0                                   # 왼쪽 가장자리(위로 갈수록 오른쪽으로)
+    def right_a(zz): return 0.74 + 0.016 * (((zz - z) / (zt - z)) * 5)
+    zs = np.linspace(z, zt, 40)
+    s.grad([G(edge_a(zz), b1, zz) for zz in zs] + [G(right_a(zz), b1, zz) for zz in zs[::-1]], hx('dcdcd2'), hx('a2a29a'), (0.3, 1), 5)
+    for k in range(16):                                                                                                                       # 돌 켜 + 어긋난 이음 + 분홍·주황 복원 블록
+        zz = z + 0.6 + k * 0.95; aL = edge_a(zz) + 0.01; aR = right_a(zz)
+        s.line([G(aL, b1, zz), G(aR, b1, zz)], hx('4a4a44', 190), 3)
+        n = max(1, int((aR - aL) * 26))
+        for j in range(n):
+            a = aL + (aR - aL) * (j + (0.5 if k % 2 else 0)) / n; s.line([G(min(a, aR), b1, zz), G(min(a, aR), b1, zz + 0.95)], hx('787872', 100), 2)
+            if rnd.random() < 0.16: s.flat([G(a, b1, zz + 0.1), G(min(a + 0.03, aR), b1, zz + 0.1), G(min(a + 0.03, aR), b1, zz + 0.85), G(a, b1, zz + 0.85)], rnd.choice([hx('d8a890', 140), hx('e4b898', 130), hx('c8a8a0', 120)]))
+    s.grad([G(right_a(zz), b0, zz) for zz in zs] + [G(right_a(zz), b1, zz) for zz in zs[::-1]], hx('b0b0a8'), hx('6c6c66'), (0.3, 1))              # 오른쪽 어두운 옆면
+    s.grad([G(edge_a(zt), b0, zt), G(right_a(zt), b0, zt), G(right_a(zt), b1, zt), G(edge_a(zt), b1, zt)], hx('e8e8de'), hx('c4c4ba'), (1, 0.5))   # 꼭대기
+    for k in range(5):                                                                                                                         # 오른쪽으로 튀어나온 지붕돌 5개(위로 갈수록 오른쪽으로 밀림)
+        zz = z + 2.0 + k * 3.0; a0 = right_a(zz) - 0.05; a1 = right_a(zz) + 0.075
+        s.box(a0, a1, 0.26, 0.72, 0.75, ROOF_L, ROOF_R, ROOF_T, zz)
+        s.line([G(a0 + 0.01, 0.72, zz + 0.4), G(a1, 0.72, zz + 0.4)], hx('4e4e48', 130), 2)
+    s.tree(0.04, 0.88, 0.9); s.tree(0.95, 0.15, 0.8)
+    out = s.finish()
+    STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T = save
+    return out
 
 # ---------------- 왕궁리 오층석탑 (b38, 96x84): 키 큰 1층 몸돌, 켜켜이 쌓인 얇은 지붕돌 5개 ----------------
 def wanggungni():

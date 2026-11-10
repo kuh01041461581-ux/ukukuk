@@ -152,11 +152,14 @@ internal sealed class CityHallGame : MiniGame
 			g.SmoothingMode = SmoothingMode.AntiAlias;
 			using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 255, 255, 255))) { g.FillEllipse(b, 40, 80, 90, 24); g.FillEllipse(b, 70, 70, 60, 26); g.FillEllipse(b, 270, 110, 100, 24); g.FillEllipse(b, 300, 100, 56, 24); }
 			using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 130, 168, 150))) g.FillPolygon(b, new[] { new PointF(0, 250), new PointF(60, 218), new PointF(110, 190), new PointF(150, 176), new PointF(196, 196), new PointF(250, 220), new PointF(320, 200), new PointF(400, 236), new PointF(400, 280), new PointF(0, 280) });   // 미륵산 느낌의 먼 산
+			using (SolidBrush b = new SolidBrush(Color.White)) { for (int k = 4; k >= 0; k--) { b.Color = Color.FromArgb(k == 0 ? 235 : 26, 255, 244, 190); float rr = k == 0 ? 17f : 17f + k * 12f; g.FillEllipse(b, 330 - rr, 62 - rr, rr * 2, rr * 2); } b.Color = Color.FromArgb(120, 150, 170, 196); int[] sh = { 8, 22, 14, 30, 18, 12, 26, 16, 10, 24 }; for (int k = 0; k < 10; k++) g.FillRectangle(b, 6 + k * 41, 280 - sh[k], 20 + (k % 3) * 6, sh[k] + 2); }
 			g.SmoothingMode = SmoothingMode.None;
 			PointF[] outer = { Pr(-8, 0, -8), Pr(N + 8, 0, -8), Pr(N + 8, 0, N + 8), Pr(-8, 0, N + 8) }; using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 196, 120))) g.FillPolygon(b, outer);
 			PointF[] inner = { Pr(0, 0, 0), Pr(N, 0, 0), Pr(N, 0, N), Pr(0, 0, N) }; using (SolidBrush b = new SolidBrush(Color.FromArgb(172, 208, 132))) g.FillPolygon(b, inner);
 			FillRect(g, 3, 12, 24, 24, Color.FromArgb(222, 214, 196)); FillRect(g, 0, 24, N, N, Color.FromArgb(120, 124, 132)); FillRect(g, 5.5f, 1f, 21.5f, 11.5f, Color.FromArgb(176, 170, 158)); FillRect(g, 6.5f, 1.8f, 20.5f, 10.8f, Color.FromArgb(198, 194, 184));
+			{ Random gr = new Random(7); using (SolidBrush b = new SolidBrush(Color.FromArgb(90, 116, 170, 96))) for (int k = 0; k < 90; k++) { float gx = (float)gr.NextDouble() * (N + 12) - 6, gz = (float)gr.NextDouble() * (N + 12) - 6; if (gx > 1 && gx < N - 1 && gz > 1 && gz < N - 1) continue; PointF gp = Pr(gx, 0, gz); g.FillRectangle(b, gp.X, gp.Y, 3, 2); g.FillRectangle(b, gp.X + 4, gp.Y - 2, 2, 3); } }
 			for (int i = 0; i < 9; i++) FillRect(g, 1 + i * 3f, 25.9f, 2.2f + i * 3f, 26.1f, Color.FromArgb(240, 240, 232));
+			using (Pen eo = new Pen(Color.FromArgb(30, 24, 24, 52), 1f)) using (Pen eh = new Pen(Color.FromArgb(34, 255, 255, 255), 1f))
 			for (int i = 0; i < vis.Count; i++)
 			{
 				Blk b = vis[i]; op[4] = Empty(b.X, b.Y + 1, b.Z); for (int s = 0; s < 4; s++) op[s] = Empty(b.X + Nx[s], b.Y, b.Z + Nz[s]);
@@ -164,6 +167,7 @@ internal sealed class CityHallGame : MiniGame
 				for (int f = 0; f < n; f++)
 				{
 					using (SolidBrush br = new SolidBrush(Mul(b.C, fs[f] * dm))) g.FillPolygon(br, fp[f]);
+					g.DrawPolygon(fk[f] == 4 ? eh : eo, fp[f]);
 					if (b.Win && fk[f] < 4) { PointF[] q = fp[f]; PointF a0 = Lerp(q[0], q[1], 0.2f), a1 = Lerp(q[0], q[1], 0.8f), b0 = Lerp(q[3], q[2], 0.2f), b1 = Lerp(q[3], q[2], 0.8f); PointF[] w = { Lerp(a0, b0, 0.25f), Lerp(a1, b1, 0.25f), Lerp(a1, b1, 0.75f), Lerp(a0, b0, 0.75f) }; using (SolidBrush wb = new SolidBrush(Mul(Color.FromArgb(96, 130, 176), fs[f]))) g.FillPolygon(wb, w); }
 				}
 			}
@@ -336,6 +340,11 @@ internal sealed class CityHallGame : MiniGame
 		}
 		foreach (Ball sw in balls) if (sw.R >= 2.2f) { float su = sw.Age / 0.55f; PointF sa = Pr(sw.X, 0f, sw.Z); float sr = sw.R * S * (0.6f + 2.2f * su); using (Pen sp = new Pen(Color.FromArgb((int)(150 * (1f - su)), 255, 235, 190), 2.5f)) g.DrawEllipse(sp, sa.X - sr, sa.Y - sr * sinE, sr * 2, sr * 2 * sinE); }
 		foreach (Ball bl in balls) { float u = bl.Age / 0.55f; PointF a = Pr(bl.X, bl.Y, bl.Z); float r = bl.R * S * (0.5f + 0.9f * (float)Math.Sqrt(u)); int al = (int)(235 * (1f - u)); using (SolidBrush b = new SolidBrush(Color.FromArgb(al, 255, 120, 30))) g.FillEllipse(b, a.X - r, a.Y - r, r * 2, r * 2); r *= 0.62f; using (SolidBrush b = new SolidBrush(Color.FromArgb(al, 255, 214, 90))) g.FillEllipse(b, a.X - r, a.Y - r, r * 2, r * 2); r *= 0.5f; using (SolidBrush b = new SolidBrush(Color.FromArgb(al, 255, 252, 220))) g.FillEllipse(b, a.X - r, a.Y - r, r * 2, r * 2); using (Pen p = new Pen(Color.FromArgb((int)(al * 0.6f), 255, 255, 255), 2f)) { float rr = bl.R * S * 1.6f * u; g.DrawEllipse(p, a.X - rr, a.Y - rr * sinE, rr * 2, rr * 2 * sinE); } }
+		using (Pen spk = new Pen(Color.White, 2f)) foreach (Ball sb in balls) if (sb.R >= 1.5f)
+		{
+			float su = sb.Age / 0.55f; PointF sa = Pr(sb.X, sb.Y, sb.Z); float sr = sb.R * S; spk.Color = Color.FromArgb((int)(230 * (1f - su)), 255, 226, 120); spk.Width = 2.4f * (1f - su) + 0.6f;
+			for (int k = 0; k < 12; k++) { float an = k * 0.5236f + sb.X * 1.7f, r0 = sr * (0.55f + 0.5f * su), r1 = sr * (0.95f + 1.4f * su + (k % 3) * 0.18f); g.DrawLine(spk, sa.X + (float)Math.Cos(an) * r0, sa.Y + (float)Math.Sin(an) * r0 * 0.8f, sa.X + (float)Math.Cos(an) * r1, sa.Y + (float)Math.Sin(an) * r1 * 0.8f); }
+		}
 		foreach (Shot s in shots) { if (s.T < 0f) continue; DrawShot(g, s); }
 		foreach (Plane p in planes) DrawPlane(g, p);
 		foreach (Storm w in storms) DrawStorm(g, w, t);

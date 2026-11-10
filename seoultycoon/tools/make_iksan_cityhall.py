@@ -40,8 +40,8 @@ for x, y in erase:
 
 # ---- 2) 새 건물 (기준: 앞 모서리 바닥 F) ----
 d = ImageDraw.Draw(base)
-F = (58, 90)             # 앞 모서리 바닥점
-P_LEN, Q_LEN, H = 34, 40, 48      # 오른면 길이(p), 왼면 길이(q), 높이
+F = (50, 92)             # 앞 모서리 바닥점
+P_LEN, Q_LEN, H = 30, 34, 48      # 오른면 길이(p), 왼면 길이(q), 높이
 def pt(p, q, z): return (F[0] + p - q, F[1] - (p + q) // 2 - z)
 def poly(pts, col): d.polygon(pts, fill=col)
 
@@ -59,6 +59,42 @@ shadow = Image.new('RGBA', (128, 128), (0, 0, 0, 0)); ImageDraw.Draw(shadow).pol
     [pt(0, 0, 0), pt(P_LEN, 0, 0), pt(P_LEN + 12, -8, 0), pt(14, -8, 0)], fill=(40, 45, 30, 110))
 base.alpha_composite(shadow); d = ImageDraw.Draw(base); px = base.load()
 
+
+# ---- 익산시의회(시청 오른쪽, 낮은 5층 건물): 타워보다 뒤쪽이므로 먼저 그린다 ----
+C0, C1, CQ, CZ = P_LEN + 4, P_LEN + 26, 20, 20
+cs = Image.new('RGBA', (128, 128), (0, 0, 0, 0)); ImageDraw.Draw(cs).polygon(
+    [pt(C0, 0, 0), pt(C1, 0, 0), (pt(C1, 0, 0)[0] + 6, pt(C1, 0, 0)[1] + 4), (pt(C0, 0, 0)[0] + 6, pt(C0, 0, 0)[1] + 4)], fill=(40, 45, 30, 110))
+base.alpha_composite(cs); d = ImageDraw.Draw(base); px = base.load()
+CL, CR, CT = hexc('d9dce2'), hexc('a9afb9'), hexc('eceef2')
+poly([pt(C0, 0, 0), pt(C0, CQ, 0), pt(C0, CQ, CZ), pt(C0, 0, CZ)], CL)         # 왼면
+poly([pt(C0, 0, 0), pt(C1, 0, 0), pt(C1, 0, CZ), pt(C0, 0, CZ)], CR)           # 오른면(정면)
+poly([pt(C0, 0, CZ), pt(C1, 0, CZ), pt(C1, CQ, CZ), pt(C0, CQ, CZ)], CT)       # 지붕
+d.line([pt(C0, 0, 0), pt(C0, 0, CZ)], fill=hexc('6d7480')); d.line([pt(C1, 0, 0), pt(C1, 0, CZ)], fill=hexc('7e8590'))
+d.line([pt(C0, 0, CZ), pt(C1, 0, CZ), pt(C1, CQ, CZ)], fill=hexc('9097a3'))
+def cput(p, q, z, col):
+    x, y = pt(p, q, z)
+    if 0 <= x < 128 and 0 <= y < 128: px[x, y] = col
+for z0 in (3, 8, 13):                                    # 띠창(5개 층 중 3줄)
+    for p in range(C0 + 1, C1):
+        if (p - C0) % 6 != 0:
+            for dz in range(3): cput(p, 0, z0 + dz, hexc('4f6d92') if dz else hexc('7f9fc4'))
+    for q in range(1, CQ):
+        if q % 6 != 0:
+            for dz in range(3): cput(C0, q, z0 + dz, hexc('6f8fb4') if dz else hexc('94b2d2'))
+for p in range(C0, C1): cput(p, 0, CZ - 1, hexc('c9a24a'))  # 처마 금색 띠
+for q in range(0, CQ): cput(C0, q, CZ - 1, hexc('d9b559'))
+# 정면 금빛 루버 간판(익산시의회) + 흰 상징 원
+GD, GL = hexc('8a6a2c'), hexc('c9a24a')
+sx0, sx1, sz0, sz1 = C0 + 6, C0 + 20, CZ + 1, CZ + 9
+poly([pt(sx0, 0, sz0), pt(sx1, 0, sz0), pt(sx1, 0, sz1), pt(sx0, 0, sz1)], GL)
+for z in range(sz0, sz1 + 1, 2):
+    for p in range(sx0, sx1 + 1): cput(p, 0, z, GD)
+for dp in range(-1, 2):
+    for dz in range(-1, 2):
+        if abs(dp) + abs(dz) < 3: cput((sx0 + sx1) // 2 + dp, 0, (sz0 + sz1) // 2 + dz, hexc('fff4d0'))
+d.line([pt(sx0, 0, sz0), pt(sx0, 0, sz1), pt(sx1, 0, sz1), pt(sx1, 0, sz0)], fill=GD)
+poly([pt(sx0, 0, sz0 - 1), pt(sx1, 0, sz0 - 1), pt(sx1, 2, sz0 - 1), pt(sx0, 2, sz0 - 1)], hexc('b3bac4'))  # 간판 받침
+
 # 왼면(q 방향 면: p=0): 꼭짓점 (0,0)->(0,Q_LEN)
 poly([pt(0, 0, 0), pt(0, Q_LEN, 0), pt(0, Q_LEN, H), pt(0, 0, H)], L_BASE)
 # 오른면(p 방향 면: q=0)
@@ -75,37 +111,34 @@ def put(p, q, z, col):
     x, y = pt(p, q, z)
     if 0 <= x < 128 and 0 <= y < 128: px[x, y] = col
 
-# 창 격자: 층당 4px, 가로 4px 간격(창 2px)
-FL = 4
-for q in range(1, Q_LEN - 1):                      # 왼면
-    for z in range(FL, H - 1):
-        if (q % 4) in (1, 2) and (z % FL) in (1, 2, 3): put(0, q, z, WIN_L if (z // FL) % 2 else hexc('7c9bbd'))
-for p in range(1, P_LEN - 1):                      # 오른면
-    for z in range(FL, H - 1):
-        if (p % 4) in (1, 2) and (z % FL) in (1, 2, 3): put(p, 0, z, WIN_R)
-# 층 구분선(콘크리트 띠)
-for z in range(FL * 2, H, FL * 3):
-    for q in range(0, Q_LEN): put(0, q, z, L_SHADE)
-    for p in range(0, P_LEN): put(p, 0, z, R_SHADE)
+# 창: 사진처럼 세로로 긴 창(층 2개 높이)과 얇은 세로 핀. 3px 주기(창 2px + 핀 1px), 8px 주기(창 6px + 스팬드럴 2px)
+FIN_L, FIN_R, SPAN_L, SPAN_R = hexc('dde1e6'), hexc('b2b8c2'), hexc('b6bec9'), hexc('939aa6')
+def facade(put_fn, length, wa, wb, wh, fin, span):
+    for u in range(1, length - 1):
+        for z in range(1, H - 1):
+            c, r = u % 3, z % 8
+            if z < 4: continue
+            if c == 2: put_fn(u, z, fin)                         # 세로 핀
+            elif r < 2: put_fn(u, z, span)                       # 스팬드럴(층 띠)
+            else: put_fn(u, z, (wa if (u // 3) % 2 == 0 else wb) if r != 7 else wh)   # 창(맨 윗줄 하이라이트)
+facade(lambda u, z, c: put(0, u, z, c), Q_LEN, hexc('6c8cb2'), hexc('5f80a8'), hexc('9bb7d6'), FIN_L, SPAN_L)
+facade(lambda u, z, c: put(u, 0, z, c), P_LEN, hexc('4d6585'), hexc('435b7b'), hexc('6e87a8'), FIN_R, SPAN_R)
 
-# 계단식 유리 보이드(오른면 가운데): p 12~30, z 8~36 — 왼쪽 가장자리가 계단
+# 계단식 유리 보이드(오른면 가운데): 왼쪽 가장자리가 계단, 오른쪽 가장자리는 어두운 루버
 VOID_G, VOID_D, LOUV = hexc('34506f'), hexc('263d57'), hexc('b8bfc8')
-steps = [(8, 14), (14, 12), (20, 10), (26, 8)]        # (z 시작, p 시작): 위로 갈수록 오른쪽으로
+V0, V1 = 10, P_LEN - 3
 for z in range(8, 37):
-    p0 = 12
-    for zs, ps in steps[::-1]:
-        pass
-    p0 = 12 + max(0, (z - 8) // 7) * 2 if z < 22 else 12 + (36 - z) // 7 * 2
-    for p in range(p0, 31):
+    p0 = V0 + (max(0, (z - 8) // 7) * 2 if z < 22 else (36 - z) // 7 * 2)
+    for p in range(p0, V1 + 1):
         put(p, 0, z, VOID_G if (z % 3) else VOID_D)
 for z in range(8, 37, 4):                             # 층 유리 난간선
-    for p in range(12 + (z - 8) // 7 * 2 if z < 22 else 12, 31): put(p, 0, z, hexc('6d8fb3'))
-for p in range(30, 33):                                # 보이드 오른쪽 루버(대각 선)
+    for p in range(V0 + ((z - 8) // 7 * 2 if z < 22 else 0), V1 + 1): put(p, 0, z, hexc('6d8fb3'))
+for p in range(V1 + 1, V1 + 3):                        # 보이드 오른쪽 루버
     for z in range(8, 37, 2): put(p, 0, z, LOUV)
 
 # 저층부(베이지 2층 부속동): 앞-왼쪽으로 튀어나옴 p∈[-14,12], q∈[10,34], z∈[0,11]
 BEI_L, BEI_R, BEI_T, BEI_W = hexc('e8d9a6'), hexc('cdbd86'), hexc('f1e6bd'), hexc('7f98b3')
-pp0, pp1, qq0, qq1, ZH = -18, 0, 6, 36, 12      # pp1=0: 타워 왼쪽 면(p=0)에 딱 붙임
+pp0, pp1, qq0, qq1, ZH = -14, 0, 6, 30, 12      # pp1=0: 타워 왼쪽 면(p=0)에 딱 붙임
 # 접지 그림자: 저층부 바닥 둘레(오른쪽·아래)에 어두운 띠를 먼저 깐다
 gs = Image.new('RGBA', (128, 128), (0, 0, 0, 0)); gd = ImageDraw.Draw(gs)
 def ptg(p, q, z): return pt(p, q, z)
@@ -123,7 +156,7 @@ for p in range(pp0 + 2, pp1 - 1):
     for z in (2, 3, 4, 7, 8, 9):
         if p % 3 != 0: put(p, qq0, z, hexc('6f87a3'))
 d.line([pt(pp0, qq0, 6), pt(pp1, qq0, 6)], fill=hexc('b3a46e'))
-for p in range(-11, -6):                              # 정문(어두운 유리문)
+for p in range(-9, -4):                              # 정문(어두운 유리문)
     for z in range(0, 5): put(p, qq0, z, hexc('3b4f66') if z else hexc('242f3f'))
 d.line([pt(pp0, qq0, ZH), pt(pp1, qq0, ZH)], fill=hexc('fff6d6'))                # 지붕 앞 가장자리 밝은 선
 d.line([pt(pp0, qq0, 0), pt(pp1, qq0, 0)], fill=hexc('8d7e52'))                  # 바닥 접지선

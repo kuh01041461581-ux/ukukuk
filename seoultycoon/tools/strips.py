@@ -1,11 +1,9 @@
-"""게임의 건물 조각 규칙(yx.d)에 맞춰 시트를 만드는 공용 도구.
+"""게임의 건물 조각 규칙(yx.d)에 맞춰 시트를 만들고, 게임이 조립하는 그대로 다시 맞춰 보는 공용 도구. (규칙: docs/SPRITE_RULES.md, 표 해석: yx_table.py)
 
-게임이 건물을 그리는 법(건설 목록 미리보기·메뉴 화면의 실제 그리기 기록으로 확인):
-  시트 = [위쪽 띠 조각들(줄 0..my)] + [메인 (0,my,96,mh)] + [맨 아래 8줄 = 바닥 끝 조각]
-  · 메인은 제자리.  · 메인에 바로 얹힌 띠 조각(아랫변이 my 에 닿는 것, 그 위로 이어 쌓인 것)은 '세로는 제자리, 가로만 조각마다 정해진 만큼 이동'.
-  · 그 밖의 조각(옆에 따로 놓인 탑 꼭대기·차·깃발 등)은 따로 정해진 자리에 그려진다 → 새로 그린 건물에서는 yx.d 에서 1x1 로 줄여 끈다.
-  · 맨 아래 8줄: 왼쪽 64칸은 (16, my+mh) 에, 오른쪽 32칸은 (32, my+mh+8) 에 그려져 마름모 바닥의 아래 끝을 만든다.
-완성 그림 F(폭 96, 높이 H+8; 바닥 마름모는 2:1, 가장 넓은 줄 yc)를 받아 시트로 잘라 넣는다."""
+조립 그림 좌표: 폭 96, 위가 0. 메인 조각은 (0, MY), 높이 mh. 바닥 마름모는 2:1 이고 가장 넓은 줄 = MY + mh - 8, 아래 끝 = MY + mh + 16.
+  compose(k, 시트)      : 게임이 그리는 대로 조립 (원본·새 도트 모두)
+  canvas(k)            : 새 도트를 그릴 캔버스 (높이 Hc, 마름모 줄 yc) → Sc.OVR 에 넣는다
+  to_sheet(k, F)       : 완성 그림 F 를 조각 칸에 나눠 담은 시트 + 새 조각 사각형 목록(오른쪽으로 넓힘, 겹치거나 두 번 쓰이는 조각은 끔)"""
 import os, sys
 import numpy as np
 from PIL import Image
@@ -17,91 +15,62 @@ def ensure_pk():
     if not os.path.exists(PK + '/b0.d'):
         import subprocess; subprocess.run([sys.executable, '-I', root + '/tools/extract_pak.py', root + '/work/st2/data1.pak', PK], capture_output=True)
 ensure_pk()
-GROUPS, YX_RAW = yx_table.load()
-# 표 해석 보정(메인이 없는 건물 때문에 밀린 묶음)
-_g33 = GROUPS[33][1]
-GROUPS[35] = (GROUPS[33][0] + 8, _g33[8:13]); GROUPS[36] = (GROUPS[33][0] + 13, _g33[13:17]); GROUPS[33] = (GROUPS[33][0], _g33[:3])
-GROUPS[37] = GROUPS[34]; del GROUPS[34]
-# 게임 기록으로 확인한 띠 조각의 화면 왼쪽 x (건물: {조각: x})
-KNOWN_L = {11: {(0, 0, 70, 24): 12}, 10: {(0, 19, 62, 9): 10, (0, 0, 51, 19): 9}, 19: {(13, 0, 50, 26): 18}, 9: {(27, 0, 59, 26): 27}, 47: {(14, 0, 63, 20): 14},
-           40: {(28, 0, 57, 21): 28}, 0: {(0, 17, 19, 6): 22, (19, 0, 27, 23): 41}, 52: {(0, 0, 78, 17): 8}, 49: {(44, 0, 53, 14): 23}, 35: {(20, 0, 51, 20): 20}}
+TABLE, YX_RAW = yx_table.load()
 def orig(k): return Image.open(f'{PK}/b{k}.d').convert('RGBA')
-def bands(k):
-    """메인 위에 제자리로 쌓이는 띠 조각 [(rect, below_rect)] (아래에서 위로). 층마다 가장 큰 조각 하나만 띠로 쓴다(나머지는 따로 그려지는 덧조각)."""
-    g = GROUPS[k][1]; main = g[0]; out = []; base = main
-    while True:
-        cands = [p for p in g[1:] if p[2] >= 12 and p[3] >= 3 and p[1] + p[3] == base[1] and (base is main or (p[0] < base[0] + base[2] and base[0] < p[0] + p[2]))]
-        if not cands: break
-        p = max(cands, key=lambda r: r[2] * r[3]); out.append((p, base)); base = p
+def info(k):
+    r = TABLE[k]; main = r['rects'][0]; fr = r['frames'][-1]; MY = [e for e in fr if e[0] == 0][0][2]
+    return r, main, MY
+def canvas(k):
+    r, main, MY = info(k); return (MY + main[3] + 16, MY + main[3] - 8)
+def entries(k):
+    """모든 프레임에 나오는 (조각번호, x, y) 를 그리는 순서대로(중복 제거)."""
+    r = TABLE[k]; out = []
+    for f in r['frames']:
+        for e in f:
+            if e not in out: out.append(e)
     return out
-def solve_L(k, p, base, baseL):
-    """원본 그림의 이어짐으로 띠 조각 p 의 화면 왼쪽 x 를 추정(아래 조각 base 의 화면 왼쪽 baseL)."""
-    S = np.asarray(orig(k)).astype(float); pc = S[p[1]:p[1] + p[3], p[0]:p[0] + p[2]]; bc = S[base[1]:base[1] + base[3], base[0]:base[0] + base[2]]
-    best = None
-    for L in range(-10, 60):
-        sc = 0; bad = 0
-        for r in range(min(2, pc.shape[0], bc.shape[0])):
-            for i in range(pc.shape[1]):
-                c = pc[pc.shape[0] - 1 - r, i]
-                if c[3] == 0: continue
-                xb = L + i - baseL
-                if xb < 0 or xb >= bc.shape[1] or bc[r, xb, 3] == 0: bad += 1; continue
-                sc += 1 / (1 + np.abs(c[:3] - bc[r, xb, :3]).sum() / 40)
-        s = sc - 2 * bad - abs(L - p[0]) * 0.05                        # 비기면 제자리(원래 x)를 우선
-        if best is None or s > best[0]: best = (s, L)
-    return best[1]
-def layout(k):
-    """[(rect, L, Cy_top)]: 메인 포함. C 좌표 = 시트 좌표와 같은 줄, x 는 L 부터."""
-    g = GROUPS[k][1]; main = g[0]; res = [(main, 0, main[1])]; Ls = {main: 0}
-    for p, base in bands(k):
-        L = KNOWN_L.get(k, {}).get(p)
-        if L is None: L = solve_L(k, p, base, Ls[base])
-        Ls[p] = L; res.append((p, L, p[1]))
-    return res
-def yc_of(k):
-    """바닥 마름모의 가장 넓은 줄(시트 줄 번호)."""
-    a = np.asarray(orig(k))[..., 3] > 0; main = GROUPS[k][1][0]
-    w = [(a[y].sum(), -abs(y - (main[1] + main[3] - 8)), y) for y in range(main[1], main[1] + main[3])]
-    return max(w)[2]
-def to_sheet(k, F, widen=True):
-    """완성 그림 F(96 x (H+8))를 k 번 건물 시트로. 반환 (시트, yx 조각 새 목록)."""
-    H = orig(k).size[1]; W = orig(k).size[0]; g = GROUPS[k][1]; main = g[0]; my, mh = main[1], main[3]
-    S = Image.new('RGBA', (W, H), (0, 0, 0, 0)); new_rects = {main: main}
-    S.alpha_composite(F.crop((0, my, 96, my + mh)), (0, my))
-    lay = layout(k)
-    for (p, L, cy) in lay[1:]:
-        sx, sy, w, h = p
-        if widen:                                                         # 오른쪽 끝까지 넓힌다(시트 안에서 겹치지 않는 범위)
-            w2 = min(96 - L, 95 - sx)
-            for (q, _, _) in lay[1:]:
-                if q is not p and q[1] < sy + h and sy < q[1] + q[3] and q[0] > sx: w2 = min(w2, q[0] - sx)
-            w = max(w, w2) if w2 > 0 else w
-        S.alpha_composite(F.crop((L, cy, L + w, cy + h)), (sx, sy)); new_rects[p] = (sx, sy, w, h)
-    for r in range(8):                                                    # 바닥 끝 두 조각
-        row1 = F.crop((16, my + mh + r, 80, my + mh + r + 1)); S.paste(row1, (0, H - 8 + r))
-        row2 = F.crop((32, my + mh + 8 + r, 64, my + mh + 8 + r + 1)); S.paste(row2, (64, H - 8 + r))
-    px = S.load(); px[95, 0] = (0, 0, 0, 0)
-    rects = [new_rects.get(p, (95, 0, 1, 1)) for p in g]                # 띠가 아닌 조각은 끈다
-    return S, rects
-def compose(k, S, rects=None):
-    """게임이 그리는 대로 시트를 조립한 모습(검증·전시용). 반환 96 x (H+8)."""
-    H = S.size[1]; g = GROUPS[k][1]; main = g[0]; my, mh = main[1], main[3]
-    C = Image.new('RGBA', (96, H + 8), (0, 0, 0, 0))
-    for r in range(8):
-        C.alpha_composite(S.crop((64, H - 8 + r, 96, H - 7 + r)), (32, my + mh + 8 + r)); C.alpha_composite(S.crop((0, H - 8 + r, 64, H - 7 + r)), (16, my + mh + r))
-    C.alpha_composite(S.crop((0, my, 96, my + mh)), (0, my))
-    for i, (p, L, cy) in enumerate(layout(k)[1:]):
-        q = p
-        if rects is not None:
-            q = rects[g.index(p)]
-        C.alpha_composite(S.crop((q[0], q[1], q[0] + q[2], q[1] + q[3])), (L, cy))
+def compose(k, S, rects=None, frame=-1):
+    r, main, MY = info(k); rs = rects or r['rects']; H = S.size[1]; Hc = MY + main[3] + 16
+    C = Image.new('RGBA', (max(96, S.size[0]) + 8, Hc), (0, 0, 0, 0))
+    C.alpha_composite(S.crop((64, H - 8, 96, H)), (32, MY + main[3] + 8)); C.alpha_composite(S.crop((0, H - 8, 64, H)), (16, MY + main[3]))
+    for (i, x, y) in r['frames'][frame]:
+        q = rs[i]
+        if q[2] <= 1: continue
+        C.alpha_composite(S.crop((q[0], q[1], q[0] + q[2], q[1] + q[3])), (x, y))
     return C
+def to_sheet(k, F):
+    r, main, MY = info(k); rs = r['rects']; H = orig(k).size[1]; W = orig(k).size[0]; mh = main[3]
+    S = Image.new('RGBA', (W, H), (0, 0, 0, 0)); new = [(95, 0, 1, 1)] * len(rs)
+    ents = entries(k); cnt = {}
+    for e in ents: cnt[e[0]] = cnt.get(e[0], 0) + 1
+    pos = {}
+    for e in ents: pos.setdefault(e[0], (e[1], e[2]))
+    order = sorted(pos, key=lambda i: -(rs[i][2] * rs[i][3])); taken = []
+    def overlap(a, b): return a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
+    for i in order:
+        q = rs[i]
+        if q[2] < 2 or q[3] < 2: continue
+        if cnt[i] > 1 and i != 0: continue                       # 같은 조각이 여러 자리에 찍히는 것(깃발 등)은 끈다
+        if any(overlap(q, t) for t in taken): continue           # 시트에서 다른 조각과 겹치는 덧조각은 끈다
+        taken.append(q); new[i] = q
+    # 오른쪽으로 넓히기: 같은 줄대의 다른 조각·시트 끝·조립 그림 끝(96)까지
+    for i in order:
+        q = new[i]
+        if q[2] <= 1 or i == 0: continue
+        x, y = pos[i]; lim = min(W - 1 - q[0], 96 - x)
+        for t in taken:
+            if t is not rs[i] and t[1] < q[1] + q[3] and q[1] < t[1] + t[3] and t[0] >= q[0] + q[2]: lim = min(lim, t[0] - q[0])
+        if lim > q[2]:
+            nq = (q[0], q[1], lim, q[3]); taken[taken.index(rs[i])] = nq; new[i] = nq
+    for i in order:
+        q = new[i]
+        if q[2] <= 1: continue
+        x, y = pos[i]; S.paste(F.crop((x, y, x + q[2], y + q[3])), (q[0], q[1]))
+    for rr in range(8):
+        S.paste(F.crop((16, MY + mh + rr, 80, MY + mh + rr + 1)), (0, H - 8 + rr)); S.paste(F.crop((32, MY + mh + 8 + rr, 64, MY + mh + 9 + rr)), (64, H - 8 + rr))
+    px = S.load()
+    if not any(t[0] <= 95 < t[0] + t[2] and t[1] <= 0 < t[1] + t[3] for t in new if t[2] > 1) and W > 95: px[95, 0] = (0, 0, 0, 0)
+    return S, new
 def patch_yx(d, k, rects):
-    start = GROUPS[k][0]; g = GROUPS[k][1]
+    start = TABLE[k]['start']
     for i, r in enumerate(rects): d[132 + 4 * (start + i): 136 + 4 * (start + i)] = bytes(r)
-if __name__ == '__main__':
-    for k in (11, 10, 19, 9, 47, 40, 0, 52, 49, 12, 3, 4, 13, 15, 20, 33):
-        g = GROUPS[k][1]; main = g[0]; Ls = {main: 0}; out = []
-        for p, base in bands(k):
-            s = solve_L(k, p, base, Ls[base]); kn = KNOWN_L.get(k, {}).get(p); Ls[p] = kn if kn is not None else s; out.append((p, 'solve', s, 'known', kn))
-        print(k, 'H', orig(k).size[1], 'yc', yc_of(k), out)

@@ -4,7 +4,7 @@ import os, sys
 from PIL import Image
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import retouch_lib as R
+import strips as R
 out = root + '/work/pak_mod'
 G3 = {  # 3x5 화소 글꼴
  'A': '010101111101101', 'C': '011100100100011', 'E': '111100110100111', 'H': '101101111101101', 'I': '111010010010111',

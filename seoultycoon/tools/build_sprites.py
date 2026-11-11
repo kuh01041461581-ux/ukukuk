@@ -12,25 +12,22 @@ for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_pal
 # 2) 건물: 조각 규칙 변환
 import strips as ST
 from make_iksan_buildings import Sc
-import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, make_iksan_civic as CV
+import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, make_iksan_civic as CV, make_iksan_landmarks as LM
 ITEMS = {4: HQ.hotel, 19: HQ.cinema, 15: HQ.tesla, 22: HQ.station, 42: HQ.arts, 44: HQ.harim, 3: HQ.costco, 33: HQ.baseball, 27: HQ.hospital, 37: HQ.apartments, 35: HQ.school, 43: HQ.library,
          11: HQ.firestation, 41: HQ.terminal, 40: HQ.busstop, 47: HQ.kindergarten, 48: HQ.topschool, 26: HQ.museum, 52: HQ.playground, 53: HQ.sportspark,
-         21: MB.chunpo, 38: MO.baekje, 10: CV.police, 13: CV.church, 12: CV.bank_design}
+         21: MB.chunpo, 38: MO.baekje, 10: CV.police, 13: CV.church, 12: CV.bank_design, 20: CV.library, 2: LM.mireuksa}
 yx = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); show = []
 for k, fn in sorted(ITEMS.items()):
-    H = ST.orig(k).size[1]
-    Sc.OVR = (H + 8, H - 16)
+    Hc, yc = ST.canvas(k)
+    Sc.OVR = (Hc, yc)
     try: F = fn()
     finally: Sc.OVR = None
-    if F.size != (96, H + 8): F2 = Image.new('RGBA', (96, H + 8), (0, 0, 0, 0)); F2.alpha_composite(F.crop((0, 0, 96, min(F.height, H + 8)))); F = F2
+    if F.size != (96, Hc): F2 = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); F2.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = F2
     S, rects = ST.to_sheet(k, F); S.save(f'{out}/b{k}.png'); ST.patch_yx(yx, k, rects); show.append((k, F, ST.compose(k, S, rects)))
 open(root + '/st2android/mod/yx.d', 'wb').write(yx)
-# 3) 미륵석탑(b2): 메뉴·도시에서 확인한 조각 자리로(자체 yx 패치)
-import make_iksan_strips as MS
-F, sheet = MS.b2(); sheet.save(f'{out}/b2.png'); MS.patch_yx_bytes(yx); open(root + '/st2android/mod/yx.d', 'wb').write(yx)
-print('건물', len(ITEMS) + 1, '종 변환 완료')
+print('건물', len(ITEMS), '종 변환 완료')
 if len(sys.argv) > 1:
-    cols = 6; cw, ch = 100, 100; rows = (len(show) + cols - 1) // cols
+    cols = 7; cw, ch = 100, 110; rows = (len(show) + cols - 1) // cols
     w = Image.new('RGBA', (cols * cw, rows * ch), (150, 70, 160, 255))
     for i, (k, F, C) in enumerate(show): w.alpha_composite(C.crop((0, max(0, C.height - ch), 96, C.height)), ((i % cols) * cw + 2, (i // cols) * ch))
     w.resize((w.width * 3, w.height * 3), Image.NEAREST).save(sys.argv[1])

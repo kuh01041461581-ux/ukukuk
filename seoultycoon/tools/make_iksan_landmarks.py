@@ -138,17 +138,17 @@ def mireuksa():
         s.flat([G(cx - w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h), G(cx - w, cy + w, z + h)], hx('1a1a14', 120)); s.flat([G(cx + w, cy - w, z + h - 1.4), G(cx + w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h), G(cx + w, cy - w, z + h)], hx('0a0a08', 140))
         z += h; z = eave(s, cx, cy, rw, rw, z, rnd, layers=3, thick=0.5, taper=0.014)
     # 윗부분: 오른쪽(+a)으로 비스듬히 무너진 돌 더미 — 한 켜씩 쌓은 상자가 위로 갈수록 좁아지고 오른쪽으로 밀린다(왼쪽은 곧은 사선, 오른쪽에 지붕돌이 남는다)
-    n = 17
+    n = 19
     for k in range(n):
         t = k / (n - 1)
-        c = 0.50 + 0.13 * t; w = 0.205 - 0.095 * t; d = 0.175 - 0.075 * t
+        c = 0.50 + 0.17 * t; w = 0.220 - 0.165 * t ** 0.9; d = 0.190 - 0.140 * t ** 0.9
         course_box(s, c - w, c + w, cy - d, cy + d, z + k * 0.92, 0.92, rnd, ch=0.92, pink=0.13)
         for e_t in (0.22, 0.50, 0.76):
             if abs(t - e_t) < 0.034:                                                                                                       # 오른쪽에 남은 지붕돌 3개
-                ew = 0.10 - 0.016 * (e_t > 0.4) - 0.014 * (e_t > 0.7)
+                ew = 0.105 - 0.030 * (e_t > 0.4) - 0.026 * (e_t > 0.7)
                 s.box(c + w - 0.04, c + w + ew, cy - d - 0.025, cy + d + 0.025, 0.7, ROOF_L, ROOF_R, ROOF_T, z + k * 0.92 + 0.2)
     ztop = z + n * 0.92
-    s.box(0.56, 0.69, cy - 0.06, cy + 0.06, 0.8, ROOF_L, ROOF_R, ROOF_T, ztop)
+    s.box(0.62, 0.72, cy - 0.04, cy + 0.04, 0.8, ROOF_L, ROOF_R, ROOF_T, ztop)
     s.tree(0.04, 0.88, 0.9); s.tree(0.95, 0.15, 0.8)
     out_ = s.finish()
     STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T = save

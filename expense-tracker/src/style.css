@@ -186,3 +186,128 @@ details.fold>summary{cursor:pointer;font-weight:600;color:var(--text-2);padding:
 #dropov[hidden]{display:none}
 #dropov div{background:var(--surface);border:3px dashed var(--accent);border-radius:20px;padding:36px 64px;text-align:center;font-size:20px;display:flex;flex-direction:column;gap:6px;box-shadow:0 10px 40px rgba(0,0,0,.2)}
 #dropov span{font-size:13px;color:var(--text-2)}
+
+/* ================= 리퀴드 글래스 ================= */
+:root{
+  --glass:rgba(255,255,255,.52); --glass-hi:rgba(255,255,255,.74); --glass-lo:rgba(255,255,255,.30);
+  --glass-edge:rgba(255,255,255,.75); --glass-edge-2:rgba(255,255,255,.18);
+  --glass-shadow:0 10px 34px rgba(36,52,104,.14),0 1px 2px rgba(36,52,104,.08);
+  --glass-inset:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -1px 0 rgba(255,255,255,.25),inset 0 0 18px rgba(255,255,255,.28);
+  --blur:blur(22px) saturate(185%);
+  --bg-a:#dbe7fb; --bg-b:#efe3fb; --bg-c:#d9f1ef;
+  --blob1:rgba(70,130,235,.55); --blob2:rgba(190,110,235,.40); --blob3:rgba(40,190,170,.38); --blob4:rgba(255,185,80,.34);
+}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+  --glass:rgba(34,38,52,.50); --glass-hi:rgba(44,49,66,.70); --glass-lo:rgba(34,38,52,.30);
+  --glass-edge:rgba(255,255,255,.20); --glass-edge-2:rgba(255,255,255,.05);
+  --glass-shadow:0 12px 36px rgba(0,0,0,.45),0 1px 2px rgba(0,0,0,.4);
+  --glass-inset:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -1px 0 rgba(255,255,255,.04),inset 0 0 20px rgba(255,255,255,.04);
+  --bg-a:#0d1220; --bg-b:#150f24; --bg-c:#0b1a1c;
+  --blob1:rgba(57,135,229,.42); --blob2:rgba(160,90,230,.30); --blob3:rgba(25,158,112,.28); --blob4:rgba(201,133,0,.20);
+}}
+:root[data-theme="dark"]{
+  --glass:rgba(34,38,52,.50); --glass-hi:rgba(44,49,66,.70); --glass-lo:rgba(34,38,52,.30);
+  --glass-edge:rgba(255,255,255,.20); --glass-edge-2:rgba(255,255,255,.05);
+  --glass-shadow:0 12px 36px rgba(0,0,0,.45),0 1px 2px rgba(0,0,0,.4);
+  --glass-inset:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -1px 0 rgba(255,255,255,.04),inset 0 0 20px rgba(255,255,255,.04);
+  --bg-a:#0d1220; --bg-b:#150f24; --bg-c:#0b1a1c;
+  --blob1:rgba(57,135,229,.42); --blob2:rgba(160,90,230,.30); --blob3:rgba(25,158,112,.28); --blob4:rgba(201,133,0,.20);
+}
+
+html{min-height:100%}
+body{background:linear-gradient(135deg,var(--bg-a),var(--bg-b) 55%,var(--bg-c)) fixed;position:relative;min-height:100vh}
+body::before{content:"";position:fixed;inset:-10%;z-index:-1;pointer-events:none;
+  background:
+   radial-gradient(38% 42% at 12% 14%,var(--blob1),transparent 70%),
+   radial-gradient(34% 40% at 88% 10%,var(--blob2),transparent 70%),
+   radial-gradient(40% 44% at 78% 92%,var(--blob3),transparent 70%),
+   radial-gradient(30% 36% at 10% 88%,var(--blob4),transparent 70%);
+  filter:blur(30px)}
+
+/* 유리 패널 공통 */
+header.top,.card,.kpi,.cat-card,dialog,.drop{
+  background:linear-gradient(160deg,var(--glass-hi),var(--glass) 38%,var(--glass-lo));
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--glass-edge);box-shadow:var(--glass-shadow),var(--glass-inset);
+}
+.card,.kpi,.cat-card{border-radius:22px}
+.cat-card{border-top:1px solid var(--glass-edge);position:relative;overflow:hidden}
+.cat-card::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--c);opacity:.9}
+.card{padding:18px 20px}
+.kpi{padding:14px 18px}
+.kpi .v{background:linear-gradient(180deg,var(--text),color-mix(in srgb,var(--text) 70%,var(--accent)));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* 상단 바 */
+header.top{border-width:0 0 1px 0;border-radius:0 0 22px 22px;margin:0 12px;box-shadow:var(--glass-shadow),var(--glass-inset);position:sticky}
+.top-in{padding-top:12px}
+.top h1{font-weight:800}
+.top .asof input{background:var(--glass-hi);border:1px solid var(--glass-edge);border-radius:10px}
+nav.tabs{padding-bottom:8px;gap:6px}
+nav.tabs button{border:1px solid transparent;border-radius:999px;padding:7px 16px;border-bottom:1px solid transparent;transition:background .2s,box-shadow .2s,color .2s}
+nav.tabs button:hover{background:var(--glass-lo)}
+nav.tabs button[aria-selected=true]{color:#fff;border-color:rgba(255,255,255,.35);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 82%,#fff),var(--accent));
+  box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.55)}
+
+/* 버튼·알약·칩 */
+.btn,.pill,.chip,.st-btn{background:linear-gradient(180deg,var(--glass-hi),var(--glass));border:1px solid var(--glass-edge);
+  -webkit-backdrop-filter:blur(12px) saturate(160%);backdrop-filter:blur(12px) saturate(160%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 2px 6px rgba(36,52,104,.08);transition:transform .12s,box-shadow .2s,background .2s}
+.btn:hover,.pill:hover{background:linear-gradient(180deg,var(--glass-hi),var(--glass-hi));transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 6px 14px rgba(36,52,104,.14)}
+.btn:active,.pill:active{transform:translateY(0)}
+.btn{border-radius:12px}
+.btn.primary,.pill[aria-pressed=true]{color:#fff;border-color:rgba(255,255,255,.4);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 78%,#fff),var(--accent));
+  box-shadow:0 5px 16px color-mix(in srgb,var(--accent) 42%,transparent),inset 0 1px 0 rgba(255,255,255,.55)}
+.btn.primary:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn.danger{color:var(--bad)}
+.chip.warn{background:var(--warn-soft)}
+.st-btn.s0{background:linear-gradient(180deg,color-mix(in srgb,var(--warn-soft) 100%,#fff),var(--warn-soft))}
+.st-btn.s1{background:linear-gradient(180deg,color-mix(in srgb,var(--good-soft) 100%,#fff),var(--good-soft))}
+.st-btn.s2{background:var(--glass-lo)}
+
+/* 표 */
+.tbl-wrap{background:var(--glass-lo);border:1px solid var(--glass-edge);border-radius:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+table.t thead th{background:var(--glass-hi);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-edge)}
+table.t th,table.t td{border-bottom:1px solid color-mix(in srgb,var(--glass-edge) 55%,transparent)}
+table.t tr.grp td{background:color-mix(in srgb,var(--glass-hi) 80%,transparent)}
+table.t tr.tot td{background:color-mix(in srgb,var(--accent) 16%,var(--glass-hi))}
+table.t tbody tr:hover td{background:color-mix(in srgb,var(--accent) 9%,var(--glass-hi))}
+.sticky-l{background:var(--glass-hi)}
+table.t thead th.sticky-l{background:var(--glass-hi)}
+.cellin:hover{border-color:var(--glass-edge);background:var(--glass-lo)}
+.cellin:focus{background:var(--glass-hi);border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+textarea.cellin[data-f=gmemo],input[type=search]{background:var(--glass-lo)!important;border-color:var(--glass-edge)!important;border-radius:12px!important}
+.fld input,.fld textarea,.fld select,.sch-row input{background:var(--glass-lo);border:1px solid var(--glass-edge);border-radius:10px}
+
+/* 막대 — 유리 트랙 + 광택 */
+.bar{background:color-mix(in srgb,var(--track) 70%,transparent);box-shadow:inset 0 1px 2px rgba(36,52,104,.18);border-radius:999px}
+.bar .seg{position:relative}
+.bar .paid{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 70%,#fff),var(--accent) 55%);border-radius:999px 0 0 999px;border-right:2px solid transparent;box-shadow:0 0 10px color-mix(in srgb,var(--accent) 45%,transparent)}
+.bar .paid.over{background:linear-gradient(180deg,color-mix(in srgb,var(--bad) 70%,#fff),var(--bad) 55%);box-shadow:0 0 10px color-mix(in srgb,var(--bad) 45%,transparent)}
+.bar .paid::after{content:"";position:absolute;left:6%;right:6%;top:12%;height:34%;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.65),rgba(255,255,255,0))}
+.bar .sch{border-right:2px solid transparent}
+.bar .paid:last-of-type,.bar .sch:last-of-type{border-radius:999px}
+.lg-paid,.lg-sch,.lg-rem{border-radius:999px}
+
+/* 대화상자·말풍선·토스트 */
+dialog{border-radius:26px;padding:22px 24px;-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%)}
+dialog::backdrop{background:rgba(20,28,60,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+#tip,.toast{background:rgba(24,28,44,.78);-webkit-backdrop-filter:blur(14px) saturate(160%);backdrop-filter:blur(14px) saturate(160%);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:12px}
+.drop{border:2px dashed color-mix(in srgb,var(--accent) 55%,var(--glass-edge));border-radius:22px}
+.drop.on{background:color-mix(in srgb,var(--accent) 16%,var(--glass-hi))}
+#dropov div{background:var(--glass-hi);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border-radius:28px}
+.note-box,.badge{backdrop-filter:blur(6px)}
+.badge{border:1px solid rgba(255,255,255,.35)}
+
+/* 스크롤바 */
+*{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--text-3) 55%,transparent) transparent}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--text-3) 50%,transparent);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+
+/* 움직임 줄이기 / 인쇄는 단색으로 */
+@media (prefers-reduced-motion:reduce){.btn,.pill{transition:none}}
+@media print{
+  body{background:#fff!important}body::before{display:none}
+  header.top,.card,.kpi,.cat-card,dialog,.tbl-wrap,.btn,.pill{background:#fff!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important}
+  .kpi .v{-webkit-text-fill-color:currentColor;background:none}
+}

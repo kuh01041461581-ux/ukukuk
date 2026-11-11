@@ -33,6 +33,12 @@ small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
   <h3>교육 장소 (위치 인증)</h3>
   <div id="venue">장소명 <input id="vn" size="14"> 위도 <input id="vlat" size="10"> 경도 <input id="vlng" size="10"> 반경(m) <input id="vr" size="4" type="number">
     <button id="here">현재 위치로 지정</button><small>위도·경도를 비우면 위치 확인 없이 현장 코드만 사용합니다. 실내는 오차가 크므로 반경 100~200m 권장.</small></div>
+  <h3>명부 엑셀 가져오기</h3>
+  <div id="imp">
+    <input type="file" id="xf" accept=".xlsx,.xls,.csv"> <button id="xtpl">양식 내려받기</button> <button id="xexp">현재 명부 내려받기</button>
+    <small>엑셀 첫 줄에 <b>단체 · 이름 · 전화번호</b> 제목을 두고 한 줄에 한 명씩 입력하세요. 전화번호는 전체(010-1234-5678)든 뒤 4자리든 됩니다(뒤 4자리만 저장). 같은 단체에 같은 이름이 둘이면 &quot;김영자(A)&quot;처럼 구분해 주세요.</small>
+    <div id="xprev"></div>
+  </div>
   <h3>단체 (PIN은 단체 대표자가 출석 입력 시 사용)</h3><div id="gs"></div>
   <button id="addg">+ 단체 추가</button>
   <h3>강의 (요일·시간 반복)</h3><div id="ls"></div>
@@ -111,6 +117,64 @@ $('saveCfg').onclick=async()=>{try{await api('/api/admin/config',{method:'PUT',b
 $('csv').onclick=async()=>{const r=await fetch(`/api/admin/export?from=${$('from').value}&to=${$('to').value}`,{headers:H()});
   const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`attendance_${$('from').value}_${$('to').value}.csv`;a.click()};
 $('sgo').onclick=stats;
+// ---- 엑셀 명부 ----
+let IMP=null;
+const last4=v=>{const d=String(v??'').replace(/\D/g,'');return d?d.slice(-4).padStart(4,'0'):''};
+function parseRoster(rows){
+  const H={g:/단체|소속|보존회|기관/,n:/이름|성명|성함/,p:/전화|휴대|연락|번호|폰/};
+  let gi=0,ni=1,pi=2,start=0;
+  const hdr=(rows[0]||[]).map(x=>String(x??'').replace(/\s/g,''));
+  const g=hdr.findIndex(x=>H.g.test(x)),n=hdr.findIndex(x=>H.n.test(x));
+  if(g>=0&&n>=0){gi=g;ni=n;pi=hdr.findIndex(x=>H.p.test(x));start=1}
+  const out=[],errs=[],seen=new Set();
+  rows.slice(start).forEach((r,i)=>{
+    const line=i+start+1,grp=String(r[gi]??'').trim(),name=String(r[ni]??'').trim();
+    if(!grp&&!name&&!String(r[pi]??'').trim())return;
+    if(!grp||!name){errs.push(`${line}행: 단체 또는 이름이 비어 있습니다`);return}
+    const key=grp+'\u0000'+name;if(seen.has(key)){errs.push(`${line}행: ${grp} '${name}' 중복 (건너뜀)`);return}
+    seen.add(key);const raw=pi>=0?r[pi]:'';
+    out.push({grp,name,phone:last4(raw),rawBad:String(raw??'').trim()&&String(raw).replace(/\D/g,'').length<4});
+  });
+  out.filter(o=>o.rawBad).forEach(o=>errs.push(`${o.grp} ${o.name}: 전화번호 자릿수가 부족해 앞을 0으로 채웠습니다 (${o.phone}) — 확인하세요`));
+  return {rows:out,errs};
+}
+$('xf').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  try{const buf=await f.arrayBuffer();let wb;
+    if(/\.(csv|txt)$/i.test(f.name)){ // 한국어 엑셀 CSV는 UTF-8(BOM 유/무) 또는 CP949(EUC-KR) → 자동 판별
+      let t;try{t=new TextDecoder('utf-8',{fatal:true}).decode(buf)}catch{t=new TextDecoder('euc-kr').decode(buf)}
+      wb=XLSX.read(t,{type:'string'})}
+    else wb=XLSX.read(buf,{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''});
+    IMP=parseRoster(rows);impPrev()}catch(er){$('xprev').innerHTML=`<span class="ab">파일을 읽지 못했습니다: ${er.message}</span>`}};
+function impPrev(){
+  const gs={};IMP.rows.forEach(r=>(gs[r.grp]||=[]).push(r));
+  const have=Object.fromEntries(C.groups.map(g=>[g.name,g]));
+  $('xprev').innerHTML=`<p><b>${IMP.rows.length}명</b> / 단체 ${Object.keys(gs).length}개 인식</p>
+  ${IMP.errs.length?`<div class="ab">${IMP.errs.map(x=>'⚠ '+x).join('<br>')}</div>`:''}
+  <table><tr><th>단체</th><th>인원</th><th>구분</th><th>예시</th></tr>${Object.entries(gs).map(([n,r])=>`<tr><td class="l">${n}</td><td>${r.length}</td><td>${have[n]?'기존 단체':'<b class="ok">새 단체</b>'}</td><td class="l">${r.slice(0,3).map(x=>x.name).join(', ')}${r.length>3?' …':''}</td></tr>`).join('')}</table>
+  <p><label><input type="radio" name="xm" value="merge" checked> 추가·갱신 (기존 명단 유지, 전화번호 갱신)</label><br>
+  <label><input type="radio" name="xm" value="replace"> 전체 교체 (파일에 없는 구성원·단체는 삭제 — 출석 기록도 사라질 수 있음)</label></p>
+  <button class="pri" id="xapply">명부에 반영</button> <small style="display:inline">반영 후 아래 <b>[설정 저장]</b>을 눌러야 저장됩니다.</small>`;
+  $('xapply').onclick=impApply}
+function impApply(){
+  const mode=document.querySelector('input[name=xm]:checked').value;
+  if(mode==='replace'&&!confirm('파일에 없는 구성원과 단체가 삭제됩니다. 계속할까요?'))return;
+  const gs={};IMP.rows.forEach(r=>(gs[r.grp]||=[]).push(r));
+  const pin=()=>String(Math.floor(1000+Math.random()*9000));
+  let groups=mode==='replace'?[]:C.groups;
+  for(const [name,rs] of Object.entries(gs)){
+    let g=C.groups.find(x=>x.name===name);
+    if(mode==='replace'){g=g?{...g,members:[]}:{name,pin:pin(),members:[]};groups.push(g)}
+    else if(!g){g={name,pin:pin(),members:[]};groups.push(g)}
+    const cur=g.members.map(l=>{const m=l.trim().match(/^(.*\S)\s+(\d{4})$/);return {name:m?m[1]:l.trim(),phone:m?m[2]:''}});
+    for(const r of rs){const e=cur.find(x=>x.name===r.name);if(e){if(r.phone)e.phone=r.phone}else cur.push({name:r.name,phone:r.phone})}
+    g.members=cur.filter(x=>x.name).map(x=>x.phone?`${x.name} ${x.phone}`:x.name);
+  }
+  C.groups=groups;draw();$('xprev').innerHTML='<p class="ok"><b>명부에 반영했습니다.</b> 아래 단체 목록을 확인하고 <b>[설정 저장]</b>을 눌러 주세요. (새 단체의 PIN은 임의로 만들었으니 필요하면 바꾸세요)</p>';$('xf').value=''}
+$('xtpl').onclick=()=>{const ws=XLSX.utils.aoa_to_sheet([['단체','이름','전화번호'],['판소리보존회','홍길동','010-1234-5678'],['판소리보존회','김영자','1234'],['전통목공회','이순희','010-2222-3333']]);
+  ws['!cols']=[{wch:20},{wch:14},{wch:18}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'명부');XLSX.writeFile(wb,'출석명부_양식.xlsx')};
+$('xexp').onclick=()=>{const rows=[['단체','이름','전화번호(뒤4자리)']];C.groups.forEach(g=>g.members.forEach(l=>{const m=l.trim().match(/^(.*\S)\s+(\d{4})$/);rows.push([g.name,m?m[1]:l.trim(),m?m[2]:''])}));
+  const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:20},{wch:14},{wch:18}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'명부');XLSX.writeFile(wb,'출석명부.xlsx')};
 const DAYN=[...DAY];let M=null,mm={},mn={};
 async function mInit(){if(!$('md').value)$('md').value=today();await mLec()}
 async function mLec(){const c=await api('/api/admin/config');const wd=new Date($('md').value+'T00:00:00Z').getUTCDay();
@@ -143,4 +207,4 @@ async function stats(){
   <h3>구성원별 (출석률 낮은 순)</h3><table><tr><th>이름</th><th>단체</th><th>출석</th><th>지각</th><th>결석</th><th style="min-width:160px">출석률</th></tr>${d.members.slice().sort((a,b)=>(a.rate??101)-(b.rate??101)).map(m=>`<tr><td class="l">${m.name}</td><td>${gm[m.groupId]||''}</td><td class="ok">${m.P}</td><td class="late">${m.L}</td><td class="ab">${m.A}</td><td>${bar(m.rate)}</td></tr>`).join('')}</table>`;
 }
 if(pw)api('/api/admin/config').then(start).catch(()=>{});
-</script></main></body></html>
+</script><script src="/vendor/xlsx.full.min.js"></script></main></body></html>

@@ -56,65 +56,88 @@ def police():
     s.tree(0.03, 0.88, 0.6); s.tree(0.50, 0.92, 0.6); s.tree(0.95, 0.40, 0.6)
     return s.finish()
 
-# ---------------- b12 은행 (NH농협은행 익산: 흰 석재 + 기둥 + 녹색 간판) ----------------
+# ---------------- b12 은행: 원본 도트 그대로 + NH농협 마크(파랑·초록 'NH')만 얹는다 ----------------
+def pak_entry(name):
+    import struct, io
+    d = open(root_pak, 'rb').read(); total, n = struct.unpack('>II', d[:8]); base = 8 + n * 16
+    for i in range(n):
+        e = d[8 + i * 16: 8 + (i + 1) * 16]
+        if e[:8].split(b'\0')[0].decode() == name:
+            off, sz = struct.unpack('>II', e[8:16]); return Image.open(io.BytesIO(d[base + off: base + off + sz])).convert('RGBA')
+root_pak = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'work/st2/data1.pak')
+def nh_badge(im, x, y):
+    """10x7 흰 판에 파란 N + 초록 H"""
+    B, Gc, Wt = (26, 86, 168, 255), (0, 150, 60, 255), (255, 255, 255, 255)
+    px = im.load()
+    for yy in range(7):
+        for xx in range(10): px[x + xx, y + yy] = Wt
+    N = ['1001', '1101', '1011', '1001', '1001']; Hh = ['101', '101', '111', '101', '101']
+    for r in range(5):
+        for c in range(4):
+            if N[r][c] == '1': px[x + 1 + c, y + 1 + r] = B
+        for c in range(3):
+            if Hh[r][c] == '1': px[x + 6 + c, y + 1 + r] = Gc
 def bank():
-    s = Sc(55, 12); G = s.G; s.ground(); d = ImageDraw.Draw(s.im)
-    A0, A1, B0, B1, HH = 0.12, 0.86, 0.22, 0.62, 15.0
-    s.shadow([G(0.16, B1), G(A1, B1), G(1.0, 0.72), G(0.28, 0.74)], 100, 10)
-    s.box(A0, A1, B0, B1, HH, (hx('f6f2e6'), hx('d4ccb4')), (hx('d4ccb8'), hx('a49c86')), (hx('e6e0cc'), hx('c4bca4')))
-    s.win_grid_L(A0 + 0.04, A1 - 0.04, B1, 4.4, 11.0, 7, 2, hx('9cc8d8'), hx('2c5a74'), pad=0.22)
-    s.win_grid_R(B0 + 0.03, B1 - 0.03, A1, 4.4, 11.0, 3, 2, hx('78a8c0'), hx('204860'), pad=0.22)
-    # 앞 기둥 열주(고전식) + 처마
-    for k in range(6): s.line([G(0.20 + 0.52 * k / 5, B1 + 0.05, 0), G(0.20 + 0.52 * k / 5, B1 + 0.05, 11.4)], hx('fffaf0'), 6); s.line([G(0.20 + 0.52 * k / 5 + 0.012, B1 + 0.05, 0), G(0.20 + 0.52 * k / 5 + 0.012, B1 + 0.05, 11.4)], hx('b8b098', 160), 2)
-    s.grad([G(0.16, B1 + 0.06, 11.4), G(0.76, B1 + 0.06, 11.4), G(0.76, B1 + 0.06, 12.6), G(0.16, B1 + 0.06, 12.6)], hx('f2eee0'), hx('c0b8a0'), (0, 1))
-    s.grad([G(0.16, B1 + 0.06, 12.6), G(0.76, B1 + 0.06, 12.6), G(0.76, B1 - 0.02, 14.0), G(0.16, B1 - 0.02, 14.0)], hx('e8e2d0'), hx('b4ac94'), (0, 1))
-    s.grad([G(0.20, B1 + 0.05, 0), G(0.72, B1 + 0.05, 0), G(0.72, B1 + 0.05, 3.4), G(0.20, B1 + 0.05, 3.4)], hx('3a4a58'), hx('5a6c7c'), (0, 1))
-    # 간판: NH농협은행 (녹색 바탕)
-    sign(s, 0.18, 0.78, B1 + 0.06, 12.9, 15.6, 'NH농협은행', (hx('00963c'), hx('006a2a')), hx('ffffff'), 0.62)
-    x, y = G(0.82, B1, 11.0); d.ellipse([x - 9, y - 9, x + 9, y + 9], fill=hx('00963c')); d.arc([x - 6, y - 6, x + 6, y + 6], 200, 340, fill=hx('f0c800'), width=3)
-    # 옆 ATM 부스 + 국기 게양대
-    s.box(0.88, 0.97, 0.30, 0.44, 5.0, (hx('c8e0ec'), hx('5c8aa4')), (hx('9cc0d4'), hx('3c6a88')), (hx('f0f4f8'), hx('c8d0d8')))
-    x, y = G(0.10, 0.86); d.line([(x, y), (x, y - 62)], fill=hx('d8dce4'), width=4); d.polygon([(x + 2, y - 62), (x + 30, y - 56), (x + 2, y - 46)], fill=hx('f6f6f6'))
-    d.ellipse([x + 10, y - 58, x + 20, y - 50], fill=hx('d83030'))
-    s.tree(0.04, 0.72, 0.7); s.tree(0.94, 0.22, 0.7)
-    return s.finish()
+    im = pak_entry('b12.d')
+    nh_badge(im, 17, 9)                                                       # 높은 파란 간판 기둥 위
+    return im
 
-# ---------------- b13 나바위성당 (사진: 붉은 벽돌 + 회색 석재 모서리, 검은 기와 겹지붕 장방 본당, 오른쪽 앞 높은 종탑) ----------------
+# ---------------- b13 나바위성당: 앞(출입·첨탑)은 서양식 붉은 벽돌 고딕, 뒤 예배당은 한옥식(검은 기와 팔작지붕) ----------------
 def church():
     s = Sc(69, 13); G = s.G; s.ground(); d = ImageDraw.Draw(s.im)
-    A0, A1, B0, B1 = 0.08, 0.76, 0.30, 0.56
-    BR = (hx('c05a46'), hx('84382c')); BR2 = (hx('9c4636'), hx('642a22')); ST = (hx('b8b4a8'), hx('807c70'))
-    s.shadow([G(0.12, B1 + 0.14), G(A1 + 0.12, B1 + 0.14), G(1.0, 0.72), G(0.22, 0.74)], 100, 10)
-    # 본당 벽: 낮은 붉은 벽돌 + 처마 아래 가는 창 띠(잔 창 열) → 위로 붉은 벽
-    s.box(A0, A1, B0, B1, 8.6, BR, BR2, (hx('7a3a2e'), hx('5a2a22')))
-    for z in range(1, 9): s.line([G(A0, B1, z), G(A1, B1, z)], hx('6a2e24', 70), 2)
-    for k in range(0, 17):
-        a = A0 + 0.04 + (A1 - A0 - 0.08) * k / 16
-        s.grad([G(a - 0.008, B1, 5.4), G(a + 0.008, B1, 5.4), G(a + 0.008, B1, 7.4), G(a - 0.008, B1, 7.4)], hx('e8e4d4'), hx('607890'), (0, 1))
-    # 앞 낮은 회랑(붉은 기둥 + 큰 창) + 그 위 한식 아래 지붕
-    for k in range(0, 9):
-        a = A0 + 0.02 + (A1 - A0 - 0.04) * k / 8
-        s.line([G(a, B1 + 0.06, 0), G(a, B1 + 0.06, 4.2)], hx('8a3e30'), 4)
+    BR = (hx('c45e48'), hx('883a2e')); BR2 = (hx('a04838'), hx('662c24')); ST = (hx('c4c0b4'), hx('86827a'))
+    s.shadow([G(0.14, 0.86), G(0.84, 0.86), G(1.0, 0.76), G(0.30, 0.90)], 100, 10)
+    # ---- 뒤쪽 한옥 예배당(앞뒤로 긴 건물): 붉은 벽 + 격자 창, 아래 처마 + 큰 팔작지붕 ----
+    a0, a1, b0, b1, zw = 0.34, 0.74, 0.08, 0.66, 5.8
+    s.box(a0, a1, b0, b1, zw, (hx('b86a52'), hx('8a4a3a')), (hx('b0604a'), hx('7e3e30')), (hx('5a2a22'), hx('3e1c18')))
+    for k in range(0, 9):                                                     # 오른쪽 벽 기둥 + 창(한옥식 살창)
+        b = b0 + 0.05 + (b1 - b0 - 0.10) * k / 8
+        s.line([G(a1, b, 0), G(a1, b, zw)], hx('5a2c22'), 4)
     for k in range(0, 8):
-        a0 = A0 + 0.02 + (A1 - A0 - 0.04) * (k + 0.2) / 8; a1 = A0 + 0.02 + (A1 - A0 - 0.04) * (k + 0.8) / 8
-        s.grad([G(a0, B1 + 0.06, 0.5), G(a1, B1 + 0.06, 0.5), G(a1, B1 + 0.06, 3.8), G(a0, B1 + 0.06, 3.8)], hx('7a8aa0'), hx('2a3448'), (0, 1))
-    s.grad([G(A0 - 0.02, B1 + 0.12, 4.0), G(A1 + 0.04, B1 + 0.12, 4.0), G(A1 + 0.04, B1 - 0.01, 8.8), G(A0 - 0.02, B1 - 0.01, 8.8)], hx('4c4e5a'), hx('22242e'), (0, -1), 3)
-    s.line([G(A0 - 0.02, B1 + 0.12, 4.0), G(A1 + 0.04, B1 + 0.12, 4.0)], hx('b8b4c8'), 4)
-    # 본당 큰 지붕: 앞면(밝은 회색 기와) · 뒷면 · 박공 측면 + 기와 줄무늬 + 용마루
-    zr = 8.8; RZ = 7.0; bm = (B0 + B1) / 2
-    s.grad([G(A0 - 0.03, B0 - 0.02, zr), G(A1 + 0.03, B0 - 0.02, zr), G(A1, bm, zr + RZ), G(A0, bm, zr + RZ)], hx('3c3e48'), hx('20222a'), (0, 1))
-    s.grad([G(A0 - 0.03, B1 + 0.02, zr), G(A1 + 0.03, B1 + 0.02, zr), G(A1, bm, zr + RZ), G(A0, bm, zr + RZ)], hx('767888'), hx('3a3c4a'), (0, -1), 3)
-    s.grad([G(A0 - 0.03, B0 - 0.02, zr), G(A0 - 0.03, B1 + 0.02, zr), G(A0, bm, zr + RZ)], hx('4a4c58'), hx('2a2c36'), (0.3, 1))
-    for k in range(1, 30):
-        t = k / 30; s.line([G(A0 - 0.03 + (A1 - A0 + 0.06) * t, B1 + 0.02, zr), G(A0 + (A1 - A0) * t, bm, zr + RZ)], hx('24262e', 130), 2)
-    s.line([G(A0 - 0.03, B1 + 0.02, zr), G(A1 + 0.03, B1 + 0.02, zr)], hx('d8d4e4'), 4); s.line([G(A0, bm, zr + RZ), G(A1, bm, zr + RZ)], hx('c4c0d4'), 5)
-    # 박공 끝 작은 십자가
-    x, y = G(A0, bm, zr + RZ); d.line([(x, y), (x, y - 20)], fill=hx('e8e4dc'), width=4); d.line([(x - 6, y - 14), (x + 6, y - 14)], fill=hx('e8e4dc'), width=4)
-    # 오른쪽 앞 종탑(높은 사각탑): 붉은 벽돌 + 회색 돌띠 + 둥근 창 + 맨 위 루버 아치창 + 붉은 뾰족 지붕 + 십자가
-    TA0, TA1, TB0, TB1, TH = 0.66, 0.90, 0.54, 0.78, 21.0
+        bb0 = b0 + 0.05 + (b1 - b0 - 0.10) * (k + 0.2) / 8; bb1 = b0 + 0.05 + (b1 - b0 - 0.10) * (k + 0.8) / 8
+        s.grad([G(a1, bb0, 1.0), G(a1, bb1, 1.0), G(a1, bb1, 4.6), G(a1, bb0, 4.6)], hx('e8dcc0'), hx('8a8470'), (0, 1))
+        s.line([G(a1, (bb0 + bb1) / 2, 1.0), G(a1, (bb0 + bb1) / 2, 4.6)], hx('6a4a32'), 2)
+        s.line([G(a1, bb0, 2.8), G(a1, bb1, 2.8)], hx('6a4a32'), 2)
+    # 아래 처마 지붕(오른쪽으로 길게 내민 검은 기와) + 끝 들림
+    ov = 0.11; zr = zw + 0.2
+    s.grad([G(a1 + ov, b0 - 0.04, zr - 1.6), G(a1 + ov, b1 + 0.04, zr - 1.6), G(a1 - 0.01, b1 + 0.04, zr + 1.4), G(a1 - 0.01, b0 - 0.04, zr + 1.4)], hx('62646e'), hx('2c2e38'), (1, 0.3))
+    for k in range(1, 26):
+        b = b0 - 0.04 + (b1 - b0 + 0.08) * k / 26; s.line([G(a1 + ov, b, zr - 1.6), G(a1 - 0.01, b, zr + 1.4)], hx('22242c', 140), 2)
+    s.line([G(a1 + ov, b0 - 0.04, zr - 1.6), G(a1 + ov, b1 + 0.04, zr - 1.6)], hx('d4d0e0'), 4)
+    # 큰 지붕: 오른쪽 경사면(밝은 기와) + 왼쪽 경사면 + 용마루 (용마루는 앞뒤 방향)
+    RZ = 7.4; am = (a0 + a1) / 2; zt = zr + 1.4
+    s.grad([G(a0 - 0.02, b0 - 0.04, zt), G(a0 - 0.02, b1 + 0.04, zt), G(am, b1 - 0.02, zt + RZ), G(am, b0 + 0.02, zt + RZ)], hx('3a3c46'), hx('1e2028'), (1, 0.2))
+    s.grad([G(a1 + 0.02, b0 - 0.04, zt), G(a1 + 0.02, b1 + 0.04, zt), G(am, b1 - 0.02, zt + RZ), G(am, b0 + 0.02, zt + RZ)], hx('7e8090'), hx('3e404e'), (-1, 0.3), 3)
+    for k in range(1, 28):
+        b = b0 - 0.04 + (b1 - b0 + 0.08) * k / 28; bb = b0 + 0.02 + (b1 - b0 - 0.04) * k / 28
+        s.line([G(a1 + 0.02, b, zt), G(am, bb, zt + RZ)], hx('26283a', 130), 2)
+    s.line([G(am, b0 + 0.02, zt + RZ), G(am, b1 - 0.02, zt + RZ)], hx('c4c0d4'), 5)
+    s.line([G(a1 + 0.02, b0 - 0.04, zt), G(a1 + 0.02, b1 + 0.04, zt)], hx('dcd8e8'), 4)
+    # ---- 앞쪽 서양식 고딕 파사드: 붉은 벽돌 + 회색 석재 + 뾰족 아치 출입구 + 박공 + 십자가 ----
+    fa0, fa1, fb0, fb1, fh = 0.08, 0.48, 0.64, 0.78, 10.5
+    s.shadow([G(fa0, fb1), G(fa1, fb1), G(fa1 + 0.10, fb1 + 0.10), G(fa0 + 0.08, fb1 + 0.10)], 80, 6)
+    s.box(fa0, fa1, fb0, fb1, fh, BR, BR2, (hx('7a3a2e'), hx('5a2a22')))
+    for z in range(1, 11): s.line([G(fa0, fb1, z), G(fa1, fb1, z)], hx('6a2e24', 60), 2)
+    # 박공(삼각) 앞면 + 석재 테두리 + 십자가
+    apx = G((fa0 + fa1) / 2, fb1, fh + 6.4)
+    s.grad([G(fa0, fb1, fh), G(fa1, fb1, fh), apx], BR[0], BR[1], (0.2, 1))
+    s.line([G(fa0, fb1, fh), apx, G(fa1, fb1, fh)], hx('cfcbbd'), 5)
+    s.line([G(fa0, fb1, fh), G(fa1, fb1, fh)], hx('cfcbbd'), 5)
+    s.grad([G(fa1, fb0, fh), G(fa1, fb1, fh), apx], hx('9c4434'), hx('6a2a22'), (0.3, 1))
+    d.line([apx, (apx[0], apx[1] - 18)], fill=hx('f0ece2'), width=5); d.line([(apx[0] - 6, apx[1] - 12), (apx[0] + 6, apx[1] - 12)], fill=hx('f0ece2'), width=5)
+    # 석재 모서리 + 뾰족 아치 문 3개 + 위 장미창
+    for a in (fa0, fa1 - 0.012): s.grad([G(a, fb1, 0), G(a + 0.012, fb1, 0), G(a + 0.012, fb1, fh), G(a, fb1, fh)], ST[0], ST[1], (0.2, 1))
+    for k in range(3):
+        a = fa0 + 0.05 + k * 0.11
+        s.grad([G(a - 0.04, fb1, 0), G(a + 0.04, fb1, 0), G(a + 0.04, fb1, 4.2), G(a, fb1, 6.0), G(a - 0.04, fb1, 4.2)], ST[0], ST[1], (0.2, 1))
+        s.grad([G(a - 0.028, fb1, 0), G(a + 0.028, fb1, 0), G(a + 0.028, fb1, 3.8), G(a, fb1, 5.2), G(a - 0.028, fb1, 3.8)], hx('2c1c18'), hx('140c0a'), (0, 1))
+    xx, yy = G((fa0 + fa1) / 2, fb1, 8.2); d.ellipse([xx - 11, yy - 11, xx + 11, yy + 11], fill=hx('e0e4dc')); d.ellipse([xx - 7, yy - 7, xx + 7, yy + 7], outline=hx('8a8a80'), width=2); d.line([(xx - 7, yy), (xx + 7, yy)], fill=hx('8a8a80'), width=2); d.line([(xx, yy - 7), (xx, yy + 7)], fill=hx('8a8a80'), width=2)
+    # ---- 오른쪽 앞 첨탑(사각 종탑): 붉은 벽돌 + 회색 돌띠 + 둥근 창 + 루버 아치창 + 뾰족 지붕 + 십자가 ----
+    TA0, TA1, TB0, TB1, TH = 0.48, 0.72, 0.62, 0.84, 21.0
     s.shadow([G(TA0, TB1), G(TA1, TB1), G(TA1 + 0.10, TB1 + 0.10), G(TA0 + 0.08, TB1 + 0.10)], 90, 6)
     s.box(TA0, TA1, TB0, TB1, TH, BR, BR2, (hx('9a4436'), hx('6a2c24')))
-    for z in (5.0, 10.0, 15.0): s.grad([G(TA0, TB1, z), G(TA1, TB1, z), G(TA1, TB1, z + 0.9), G(TA0, TB1, z + 0.9)], ST[0], ST[1], (0, 1)); s.grad([G(TA1, TB0, z), G(TA1, TB1, z), G(TA1, TB1, z + 0.9), G(TA1, TB0, z + 0.9)], hx('9c988c'), hx('686458'), (0, 1))
+    for z in (5.0, 10.0, 15.0):
+        s.grad([G(TA0, TB1, z), G(TA1, TB1, z), G(TA1, TB1, z + 0.9), G(TA0, TB1, z + 0.9)], ST[0], ST[1], (0, 1)); s.grad([G(TA1, TB0, z), G(TA1, TB1, z), G(TA1, TB1, z + 0.9), G(TA1, TB0, z + 0.9)], hx('9c988c'), hx('686458'), (0, 1))
     for a in (TA0, TA1 - 0.012): s.grad([G(a, TB1, 0), G(a + 0.012, TB1, 0), G(a + 0.012, TB1, TH), G(a, TB1, TH)], ST[0], ST[1], (0.2, 1))
     s.grad([G(TA0 + 0.05, TB1, 0), G(TA0 + 0.17, TB1, 0), G(TA0 + 0.17, TB1, 4.0), G(TA0 + 0.11, TB1, 5.4), G(TA0 + 0.05, TB1, 4.0)], hx('2a2220'), hx('141010'), (0, 1))
     xx, yy = G(TA0 + 0.12, TB1, 11.6); d.ellipse([xx - 12, yy - 12, xx + 12, yy + 12], fill=hx('e0e4dc')); d.ellipse([xx - 8, yy - 8, xx + 8, yy + 8], outline=hx('9a9a90'), width=2)
@@ -122,14 +145,11 @@ def church():
         a = TA0 + 0.06 + k * 0.09
         s.grad([G(a, TB1, 16.6), G(a + 0.05, TB1, 16.6), G(a + 0.05, TB1, 19.4), G(a + 0.025, TB1, 20.4), G(a, TB1, 19.4)], hx('dcd8c8'), hx('6a6a60'), (0, 1))
         for z in (17.2, 17.9, 18.6): s.line([G(a, TB1, z), G(a + 0.05, TB1, z)], hx('5a5a52'), 2)
-    px, py = G((TA0 + TA1) / 2, (TB0 + TB1) / 2, TH + 0.2)
-    s.grad([G(TA0 - 0.01, TB1 + 0.01, TH), G(TA1 + 0.01, TB1 + 0.01, TH), (px * 1.0, py - 7.0 * S * 1.0 / 1)], hx('c8604a'), hx('8c3828'), (0, 1)) if False else None
-    apex = (px, py - 64)
+    px, py = G((TA0 + TA1) / 2, (TB0 + TB1) / 2, TH + 0.2); apex = (px, py - 64)
     s.grad([G(TA0 - 0.01, TB1 + 0.01, TH), G(TA1 + 0.01, TB1 + 0.01, TH), apex], hx('d0684c'), hx('8a382a'), (0, 1))
     s.grad([G(TA1 + 0.01, TB0 - 0.01, TH), G(TA1 + 0.01, TB1 + 0.01, TH), apex], hx('a84a38'), hx('6a281e'), (0.3, 1))
     d.line([apex, (apex[0], apex[1] - 22)], fill=hx('f0ece4'), width=5); d.line([(apex[0] - 8, apex[1] - 14), (apex[0] + 8, apex[1] - 14)], fill=hx('f0ece4'), width=5)
-    # 출입 아치(종탑 아래 회색 돌 아치) + 마당 가을 나무
-    s.tree(0.04, 0.86, 0.7); s.tree(0.50, 0.94, 0.6); s.tree(0.96, 0.22, 0.7)
+    s.tree(0.04, 0.88, 0.7); s.tree(0.94, 0.30, 0.7); s.tree(0.10, 0.36, 0.6)
     return s.finish()
 
 # ---------------- b20 도서관 (사진: 흰 모더니즘 3단 매스 · 층마다 내민 흰 슬래브 + 세로 핀 열주 + 초승달 조형물) ----------------

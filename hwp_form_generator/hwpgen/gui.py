@@ -692,7 +692,7 @@ class DetailWindow(tk.Toplevel):
 # ===================================================================== 옆에 뜨는 위젯
 WIDGET_W = 264
 # 팔레트: Linear(절제된 인디고) + Notion(차분한 회색 글자) + 윈도우 11 유리(옅은 반투명 흰색)
-C_BG = "#f5f6f8"
+C_BG = "#f2f3fb"
 C_G1 = "#4a5bd8"          # 포인트 색(인디고) 그라데이션: 진한 쪽
 C_G2 = "#8b9cf5"          # 같은 색 계열의 밝은 쪽
 C_CARD = "#ffffff"
@@ -819,6 +819,93 @@ def aa_shape(w, h, r, fill, outline=None, bg=None, grad=None, vfill=None):
     return img
 
 
+def liquid_img(w, h, r, base=(235, 160), tint=None, t=0.0, pressed=False, pad=5, hover_rim=True):
+    """리퀴드 글래스 알약(투명 PNG): 위가 밝은 반투명 몸체 + 모서리를 따라 도는 빛 테두리(왼쪽 위는 밝고 오른쪽 아래는 옅게) +
+    가장자리 안쪽 번짐 + 윗면 반사광 + 아래쪽 두께감 + 색 번진 그림자. t=올림 정도, pressed=눌림, tint=(색1,색2) 면 색 입힌 유리."""
+    key = ("liq", w, h, r, base, tint, _q(t), pressed, pad, hover_rim)
+    if key in _AA:
+        return _AA[key]
+    im = None
+    try:
+        from PIL import Image, ImageChops, ImageDraw, ImageFilter
+        k = 3
+        W3, H3 = (w + 2 * pad) * k, (h + 2 * pad) * k
+        x0, y0, x1, y1 = pad * k, pad * k, (pad + w) * k - 1, (pad + h) * k - 1
+        rad = min(r * k, (y1 - y0) // 2)
+        t = _q(t)
+        lift = 0 if pressed else int(2 * t * k)
+        sy = (3 if not pressed else 1) * k                            # 그림자 아래로 처지는 정도(누르면 납작)
+        # 그림자(색 번진)
+        sh = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
+        sa = 14 if pressed else int(40 + 46 * t)
+        scol = (70, 84, 190) if not tint else (60, 70, 210)
+        ImageDraw.Draw(sh).rounded_rectangle((x0 + 2 * k, y0 + sy - lift, x1 - 2 * k, y1 + sy - lift), radius=rad, fill=scol + (sa,))
+        sh = sh.filter(ImageFilter.GaussianBlur(3.2 * k))
+        # 몸체 마스크
+        M = Image.new("L", (W3, H3), 0)
+        ImageDraw.Draw(M).rounded_rectangle((x0, y0 - lift, x1, y1 - lift), radius=rad, fill=255)
+        top, bot = base
+        if pressed:
+            top, bot = min(255, top), min(255, bot + 30)
+        top = min(255, int(top + 18 * t))
+        bot = min(255, int(bot + 40 * t))
+        body = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
+        bd = ImageDraw.Draw(body)
+        c1 = tuple(int(tint[0][i:i + 2], 16) for i in (1, 3, 5)) if tint else (255, 255, 255)
+        c2 = tuple(int(tint[1][i:i + 2], 16) for i in (1, 3, 5)) if tint else (246, 248, 255)
+        span = max(1, y1 - y0)
+        for yy in range(y0 - lift, y1 - lift + 1):
+            f = (yy - (y0 - lift)) / float(span)
+            col = tuple(round(c1[i] + (c2[i] - c1[i]) * f) for i in range(3)) + (round(top + (bot - top) * f),)
+            bd.line((x0, yy, x1, yy), fill=col)
+        if pressed and not tint:
+            body.alpha_composite(Image.new("RGBA", (W3, H3), (196, 204, 246, 70)))
+        body.putalpha(ImageChops.multiply(body.getchannel("A"), M))
+        # 가장자리 안쪽 번짐(유리 두께에서 빛이 모이는 느낌)
+        blur = M.filter(ImageFilter.GaussianBlur(2.6 * k))
+        inner = ImageChops.subtract(M, blur).point(lambda v: min(255, v * 2))
+        glow = Image.new("RGBA", (W3, H3), (255, 255, 255, 0))
+        glow.putalpha(inner.point(lambda v: int(v * (0.55 if not tint else 0.42))))
+        # 아래쪽 안쪽 어두운 띠(두께감)
+        up = ImageChops.offset(M, 0, -2 * k)
+        band = ImageChops.subtract(M, up).filter(ImageFilter.GaussianBlur(0.8 * k))
+        dark = Image.new("RGBA", (W3, H3), (60, 70, 160, 0))
+        dark.putalpha(band.point(lambda v: int(v * (0.22 if not tint else 0.30))))
+        # 윗면 반사광
+        sp = Image.new("L", (W3, H3), 0)
+        ImageDraw.Draw(sp).rounded_rectangle((x0 + (x1 - x0) * 0.10, y0 - lift + 2 * k, x1 - (x1 - x0) * 0.10, y0 - lift + (y1 - y0) * 0.46),
+                                             radius=max(2, rad // 2), fill=int((78 if not tint else 92) * (0.5 if pressed else 1)))
+        sp = ImageChops.multiply(sp.filter(ImageFilter.GaussianBlur(1.6 * k)), M)
+        spec = Image.new("RGBA", (W3, H3), (255, 255, 255, 0))
+        spec.putalpha(sp)
+        # 빛 테두리: 왼쪽 위는 밝고 오른쪽 아래는 옅은 그라데이션 (+ 올리면 인디고 기운)
+        ring = ImageChops.subtract(M, M.filter(ImageFilter.MinFilter(2 * k + 1)))
+        rg = Image.new("RGBA", (W3, H3), (255, 255, 255, 0))
+        rgd = ImageDraw.Draw(rg)
+        for i in range(W3 + H3):
+            f = i / float(W3 + H3)
+            a = int(250 - 190 * f) if not pressed else int(150 - 80 * f)
+            rgd.line((i, 0, 0, i), fill=(255, 255, 255, max(0, a)))
+        rg.putalpha(ImageChops.multiply(rg.getchannel("A"), ring))
+        out = Image.alpha_composite(sh, body)
+        out = Image.alpha_composite(out, glow)
+        out = Image.alpha_composite(out, dark)
+        out = Image.alpha_composite(out, spec)
+        out = Image.alpha_composite(out, rg)
+        if hover_rim and t and not tint:                              # 올리면 테두리에 인디고 기운이 은은히
+            tr = Image.new("RGBA", (W3, H3), (100, 114, 235, 0))
+            tr.putalpha(ring.point(lambda v: int(v * 0.42 * t)))
+            out = Image.alpha_composite(out, tr)
+        out = out.resize((w + 2 * pad, h + 2 * pad), Image.LANCZOS)
+        im = _pil_photo(out)
+    except Exception:                                    # noqa: BLE001
+        im = None
+    if len(_AA) > 600:
+        _AA.clear()
+    _AA[key] = im
+    return im
+
+
 def _q(t):
     """애니메이션 값을 7단계로 끊어 이미지 캐시가 늘어나지 않게"""
     return round(t * 6) / 6.0
@@ -941,28 +1028,21 @@ class Btn(_Anim, tk.Canvas):
         if w < 4:
             return
         t, acc = _q(self.t), self.kind == "accent"
-        dy = 1 if self.pressed else 0
-        r = min(14, (h - 2) // 2)
+        dy = 2 if self.pressed else -int(round(1.5 * t))      # 올리면 살짝 떠오르고 누르면 눌림 — 아이콘·글자가 함께
+        pad = 5
+        r = (h - 2 * pad) // 2
         if acc:
-            lift = 0.10 * t - (0.12 if self.pressed else 0)
-            c1, c2 = _mix(C_G1, "#ffffff" if lift >= 0 else "#000000", abs(lift)), _mix(C_G2, "#ffffff" if lift >= 0 else "#000000", abs(lift))
-            im = aa_shape(w - 2, h - 2, r, None, grad=(c1, c2))
+            im = liquid_img(w - 2 * pad, h - 2 * pad, r, base=(238, 214), tint=(C_G1, C_G2), t=t, pressed=self.pressed, pad=pad)
             fg = "white"
+        elif self.kind == "flat" and t == 0 and not self.pressed:
+            im = None
+            fg = C_TEXT
         else:
-            idle = C_CARD if self.kind == "card" else C_BG
-            fill = C_PRESS if self.pressed else _mix(idle, C_HOVER, t)
-            line = _mix(C_LINE if self.kind == "card" else C_BG, "#b9bfe6", t)
-            if self.kind == "card" and not self.pressed:
-                im = aa_shape(w - 2, h - 2, r, None, outline=line, vfill=(_mix("#ffffff", "#f2f4ff", t), _mix("#f6f7fb", "#e9ecff", t)))
-            else:
-                im = aa_shape(w - 2, h - 2, r, fill, outline=line)
+            im = liquid_img(w - 2 * pad, h - 2 * pad, r, base=(238 if self.kind == "card" else 120, 168 if self.kind == "card" else 40),
+                            t=t, pressed=self.pressed, pad=pad)
             fg = _mix(C_TEXT, "#2c3366", t)
         if im is not None:
-            self.create_image(1, 1, image=im, anchor="nw")
-        elif acc:
-            pill(self, 1, 1, w - 2, h - 2, fill=C_G1, outline="")
-        else:
-            pill(self, 1, 1, w - 2, h - 2, fill=_mix(C_CARD if self.kind == "card" else C_BG, C_HOVER, t), outline=_mix(C_LINE, "#b9bfe6", t))
+            self.create_image(0, 0, image=im, anchor="nw")
         ic = icon(self.icon_name, white=acc) if self.icon_name else None
         x = 10
         if self.anchor == "w":
@@ -1045,8 +1125,8 @@ def make_aurora(w, h):
         d.line((0, y, w, y), fill=tuple(round(top[i] + (bot[i] - top[i]) * t) for i in range(3)))
     blobs = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     bd = ImageDraw.Draw(blobs)
-    for cx, cy, r, col in ((40, 92, 70, (120, 135, 255, 120)), (222, 74, 62, (176, 140, 255, 110)),
-                           (140, 150, 84, (125, 205, 255, 95)), (250, 160, 50, (255, 170, 215, 70))):
+    for cx, cy, r, col in ((40, 92, 74, (112, 128, 255, 150)), (222, 74, 66, (178, 132, 255, 140)),
+                           (140, 152, 88, (110, 205, 255, 125)), (250, 165, 54, (255, 160, 214, 100))):
         bd.ellipse((cx - r, cy - r, cx + r, cy + r), fill=col)
     blobs = blobs.filter(ImageFilter.GaussianBlur(26))
     out = base.convert("RGBA")
@@ -1210,61 +1290,14 @@ class GlassHeader(tk.Canvas):
         self.itemconfigure(s["txt"], fill=col, font=(FONT[0], 9, "bold" if (on or t > 0.5) else "normal"))
 
     def _glass(self, key, t, on, p=False):
-        if self._bgpil is None:
+        """리퀴드 글래스 타일: 평소엔 투명(테두리 없음), 올리면 유리가 떠오르고, 선택된 타일은 색 입힌 유리"""
+        s = self.tiles[key]
+        if not on and t == 0 and not p:
             return None
-        ck = ("glass", key, t, on, p)
-        if ck in _AA:
-            return _AA[ck]
-        im = None
-        try:
-            from PIL import Image, ImageDraw, ImageFilter
-            s = self.tiles[key]
-            pad, k = self.PAD, 3
-            w, h = s["w"], s["h"]
-            box = (s["x"] - pad, s["y"] - pad, s["x"] + w + pad, s["y"] + h + pad)
-            base = self._bgpil.crop(box).convert("RGBA")
-            W3, H3 = (w + 2 * pad) * k, (h + 2 * pad) * k
-            sh = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
-            ImageDraw.Draw(sh).rounded_rectangle((pad * k, pad * k + 4 * k // 2, (pad + w) * k, (pad + h) * k + 4 * k // 2), radius=14 * k,
-                                                 fill=(60, 70, 140, (0 if t == 0 else int(26 + 44 * t)) if not on else 90) if not p else (60, 70, 140, 14))
-            sh = sh.filter(ImageFilter.GaussianBlur(3 * k))
-            ov = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
-            rect = (pad * k, pad * k, (pad + w) * k - 1, (pad + h) * k - 1)
-            if on:
-                c1 = tuple(int(C_G1[i:i + 2], 16) for i in (1, 3, 5))
-                c2 = tuple(int(C_G2[i:i + 2], 16) for i in (1, 3, 5))
-                gi = Image.new("RGBA", (W3, H3))
-                gd = ImageDraw.Draw(gi)
-                for y in range(rect[1], rect[3] + 1):
-                    for x in range(rect[0], rect[2] + 1, 3):
-                        tt = ((x - rect[0]) + (y - rect[1])) / float((rect[2] - rect[0]) + (rect[3] - rect[1]))
-                        gd.line((x, y, x + 2, y), fill=tuple(round(c1[i] + (c2[i] - c1[i]) * tt) for i in range(3)) + (255,))
-                m = Image.new("L", (W3, H3), 0)
-                ImageDraw.Draw(m).rounded_rectangle(rect, radius=14 * k, fill=255)
-                ov.paste(gi, (0, 0), m)
-                shine = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
-                ImageDraw.Draw(shine).rounded_rectangle((rect[0] + 3, rect[1] + 3, rect[2] - 3, rect[1] + (rect[3] - rect[1]) // 2), radius=11 * k,
-                                                        fill=(255, 255, 255, 46))
-                shine.putalpha(Image.composite(shine.getchannel("A"), Image.new("L", (W3, H3), 0), m))
-                ov.alpha_composite(shine)
-                ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, outline=(255, 255, 255, 120), width=k)
-                if p:
-                    ov.alpha_composite(Image.new("RGBA", (W3, H3), (0, 0, 0, 0)))
-                    dark = Image.new("RGBA", (W3, H3), (20, 30, 120, 46))
-                    dark.putalpha(Image.composite(dark.getchannel("A"), Image.new("L", (W3, H3), 0), m))
-                    ov.alpha_composite(dark)
-            else:
-                a = int(0 + 175 * t) if not p else 215          # 평소엔 테두리·바탕 없이 깔끔, 올리면 유리 알약이 떠오르고 누르면 더 진해짐
-                if a:
-                    ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, fill=(255, 255, 255, a) if not p else (232, 236, 255, a),
-                                                         outline=(255, 255, 255, min(255, a + 40)), width=k)
-                    ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, outline=(110, 124, 235, int(95 * t) if not p else 150), width=k)
-            comp = Image.alpha_composite(sh, ov).resize((w + 2 * pad, h + 2 * pad), Image.LANCZOS)
-            im = _pil_photo(comp)                              # 투명 배경 그대로(이웃 타일 그림자·가장자리가 서로 가리지 않게)
-        except Exception:                                  # noqa: BLE001
-            im = None
-        _AA[ck] = im
-        return im
+        if on:
+            return liquid_img(s["w"], s["h"], 14, base=(232, 190), tint=(C_G1, C_G2), t=t, pressed=p, pad=self.PAD)
+        return liquid_img(s["w"], s["h"], 14, base=(int(70 + 165 * t) if not p else 238, int(24 + 150 * t) if not p else 196),
+                          t=t, pressed=p, pad=self.PAD)
 
 
 def _pil_photo(img):

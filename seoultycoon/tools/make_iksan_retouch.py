@@ -27,10 +27,10 @@ def clear(img, box, pred):
     for y in range(y0, y1):
         for x in range(x0, x1):
             if x < img.width and y < img.height and px[x, y][3] > 0 and pred(*px[x, y][:3]): px[x, y] = (0, 0, 0, 0)
-def erase(img, box, pred):
+def erase(img, box, pred, maskf=None):
     """상자 안에서 pred(r,g,b)가 참인 화소(글자)를 주변 배경색으로 메운다."""
     px = img.load(); x0, y0, x1, y1 = box
-    bad = {(x, y) for y in range(y0, y1) for x in range(x0, x1) if x < img.width and y < img.height and px[x, y][3] > 0 and pred(*px[x, y][:3])}
+    bad = {(x, y) for y in range(y0, y1) for x in range(x0, x1) if x < img.width and y < img.height and px[x, y][3] > 0 and pred(*px[x, y][:3]) and (maskf is None or maskf(x, y))}
     for _ in range(8):
         if not bad: break
         new = {}
@@ -86,8 +86,13 @@ def b45():                                                                  # �
     erase(im, (28, 7, 64, 41), lambda r, g, b: r >= 140 and g >= 200 and b >= 200)
     text(im, 30, 36, 'MARYONG', (255, 255, 255), -0.85, gap=1, sx=1, sy=2); return im
 
+def b8():                                                                   # 방송국 Onmedianet 간판 → IKSAN TV
+    im = Image.open('/tmp/pk/b8.d').convert('RGBA')
+    band = lambda x, y: abs((y - (50 - (x - 25) * 0.64))) <= 6 and 24 <= x <= 60                  # (25,50)→(58,29) 사선 띠
+    erase(im, (22, 24, 62, 54), lambda r, g, b: (r, g, b) in ((219, 255, 171), (146, 219, 85), (255, 255, 255), (36, 182, 171)), band); return im
+
 if __name__ == '__main__':
-    R.ensure_pk(); items = {'b32': b32, 'b45': b45}; ims = {}
+    R.ensure_pk(); items = {'b32': b32, 'b45': b45, 'b8': b8}; ims = {}
     for n, fn in items.items(): ims[n] = fn(); ims[n].save(f'{out}/{n}.png')
     if len(sys.argv) > 1:
         W = sum(i.width * 5 + 10 for i in ims.values()); H = max(i.height * 5 for i in ims.values()); w = Image.new('RGBA', (W, H), (60, 60, 70, 255)); x = 0

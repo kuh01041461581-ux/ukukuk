@@ -138,21 +138,31 @@ def mireuksa():
         s.flat([G(cx - w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h), G(cx - w, cy + w, z + h)], hx('1a1a14', 120)); s.flat([G(cx + w, cy - w, z + h - 1.4), G(cx + w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h), G(cx + w, cy - w, z + h)], hx('0a0a08', 140))
         z += h; z = eave(s, cx, cy, rw, rw, z, rnd, layers=3, thick=0.5, taper=0.014)
     # 윗부분: 오른쪽(+a)으로 비스듬히 무너진 돌 더미 — 한 켜씩 쌓은 상자가 위로 갈수록 좁아지고 오른쪽으로 밀린다(왼쪽은 곧은 사선, 오른쪽에 지붕돌이 남는다)
-    n = 14
+    # ---- 3층 위: 앞 코너를 지나는 세로 중심선(x=48)을 경계로 좌우를 나눠 그린다 ----
+    #   오른쪽 절반 = 원래대로 남은 층(몸돌 + 지붕돌),  왼쪽 절반 = 무너진 벽돌 돌 더미.  두 쪽의 윤곽(높이·좁아지는 비율)은 같다.
+    base_im = s.im.copy(); zb = z
+    # (A) 남은 층: 4~6층 — 층마다 몸돌 폭·지붕돌 폭이 같은 비율로 줄어든다
+    zA = zb
+    for ti, (w, h, rw) in enumerate(((0.135, 3.0, 0.190), (0.100, 2.6, 0.145), (0.070, 2.2, 0.105))):
+        ca = cx + 0.022 * (ti + 1)                                              # 꼭대기가 오른쪽으로 살짝 기울어진다(실제 탑처럼 비대칭)
+        s.box(ca - w, ca + w, cy - w, cy + w, h, STONE_L, STONE_R, STONE_T, zA)
+        stone_blocks(s, 'F', cy + w, ca - w, ca + w, zA, zA + h, rnd, ch=0.9, bw=(0.03, 0.055), pink=0.06); stone_blocks(s, 'R', ca + w, cy - w, cy + w, zA, zA + h, rnd, ch=0.9, bw=(0.03, 0.055), lit=False, pink=0.04)
+        s.flat([G(ca - w, cy + w, zA + h - 1.0), G(ca + w, cy + w, zA + h - 1.0), G(ca + w, cy + w, zA + h), G(ca - w, cy + w, zA + h)], hx('1a1a14', 120)); s.flat([G(ca + w, cy - w, zA + h - 1.0), G(ca + w, cy + w, zA + h - 1.0), G(ca + w, cy + w, zA + h), G(ca + w, cy - w, zA + h)], hx('0a0a08', 140))
+        zA += h; zA = eave(s, ca, cy, rw, rw, zA, rnd, layers=2, thick=0.5, taper=0.012)
+    s.box(cx + 0.066 - 0.03, cx + 0.066 + 0.03, cy - 0.03, cy + 0.03, 1.4, STONE_L, STONE_R, STONE_T, zA)
+    imA = s.im; s.im = base_im.copy()
+    # (B) 무너진 벽돌 돌 더미: 같은 윤곽(층 높이 합과 같은 높이, 같은 비율로 좁아짐)
+    ZH = zA - zb + 1.4; n = 14; ch = ZH / n
     for k in range(n):
         t = k / (n - 1)
-        # 앞 코너를 지나는 세로 중심선(a=b 대각선)을 기준으로 좌우 대칭: 중심은 (0.5,0.5)에 두고 a·b 방향 폭이 같게 위로 갈수록 가운데로 좁아진다
-        w = 0.215 - 0.150 * t ** 0.95
-        lean = 0.012 * t                                                  # 무너진 느낌의 아주 작은 기울임(거의 대칭)
-        rj = (rnd.random() - 0.5) * 0.012 * (t > 0.5)                     # 윗부분 돌이 군데군데 빠진 불규칙
-        course_box(s, cx - w + lean, cx + w + lean + rj, cy - w, cy + w + rj, z + k * 0.92, 0.92, rnd, ch=0.92, pink=0.13)
-        for e_t in (0.20, 0.46, 0.72):                                      # 위로 갈수록 작아지는 지붕돌(처마) — 좌우(a·b 양쪽)로 똑같이 튀어나옴
-            if abs(t - e_t) < 0.03:
-                ew = 0.060 - 0.016 * (e_t > 0.4) - 0.014 * (e_t > 0.65)
-                s.box(cx - w - ew + lean, cx + w + ew + lean, cy - w - ew, cy + w + ew, 0.7, ROOF_L, ROOF_R, ROOF_T, z + k * 0.92 + 0.2)
-                s.line([G(cx - w - ew + lean + 0.01, cy + w + ew, z + k * 0.92 + 0.55), G(cx + w + ew + lean, cy + w + ew, z + k * 0.92 + 0.55)], hx('4e4e48', 130), 2)
-    ztop = z + n * 0.92
-    s.box(cx - 0.055 + 0.012, cx + 0.055 + 0.012, cy - 0.055, cy + 0.055, 0.8, ROOF_L, ROOF_R, ROOF_T, ztop)
+        w = 0.200 - 0.150 * t ** 0.95                                         # 오른쪽 남은 층의 윤곽(0.19 → 0.105 → 0.03)과 같은 비율
+        ca = cx + 0.062 * t
+        course_box(s, ca - w, ca + w, cy - w, cy + w, zb + k * ch, ch, rnd, ch=ch, pink=0.14)
+    imB = s.im
+    out_im = imA.copy(); half = int(48 * S)
+    out_im.paste(imB.crop((0, 0, half, imB.height)), (0, 0))
+    s.im = out_im
+    s.line([G(cx + 0.0, cy + 0.0, zb), G(cx + 0.0, cy + 0.0, zA)], hx('00000000'), 1)
     s.tree(0.04, 0.88, 0.9); s.tree(0.95, 0.15, 0.8)
     out_ = s.finish()
     STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T = save

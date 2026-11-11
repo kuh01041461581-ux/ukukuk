@@ -1086,6 +1086,7 @@ class GlassHeader(tk.Canvas):
     타일은 마우스를 올리면 부드럽게 밝아지고, 선택된 타일은 포인트 그라데이션으로 채워진다."""
 
     FULL_H, MIN_H = 184, 56
+    PAD = 8
 
     def __init__(self, master, tabs, icons, labels, on_pick, buttons, on_chip):
         W = WIDGET_W
@@ -1095,6 +1096,7 @@ class GlassHeader(tk.Canvas):
         self._bgpil = None
         try:
             self._bgpil = make_aurora(W, self.FULL_H)
+            self._draw_logo(self._bgpil)
             self._bgimg = _pil_photo(self._bgpil)
             self.create_image(0, 0, image=self._bgimg, anchor="nw")
         except Exception:                                  # noqa: BLE001
@@ -1103,12 +1105,24 @@ class GlassHeader(tk.Canvas):
         self._build_top(buttons, on_chip)
         self._build_tiles()
 
+    @staticmethod
+    def _draw_logo(img):
+        """로고(그라데이션 둥근 네모)를 오로라 배경에 직접 그려 모서리가 배경과 자연스럽게 섞이게"""
+        from PIL import Image, ImageDraw
+        k, s = 4, 30
+        c1 = tuple(int(C_G1[i:i + 2], 16) for i in (1, 3, 5))
+        c2 = tuple(int(C_G2[i:i + 2], 16) for i in (1, 3, 5))
+        g = Image.new("RGB", (s * k, s * k))
+        d = ImageDraw.Draw(g)
+        for i in range(s * k * 2):
+            t = i / float(s * k * 2)
+            d.line((i, 0, 0, i), fill=tuple(round(c1[j] + (c2[j] - c1[j]) * t) for j in range(3)))
+        m = Image.new("L", (s * k, s * k), 0)
+        ImageDraw.Draw(m).rounded_rectangle((0, 0, s * k - 1, s * k - 1), radius=9 * k, fill=255)
+        img.paste(g.resize((s, s), Image.LANCZOS), (14, 12), m.resize((s, s), Image.LANCZOS))
+
     # --- 맨 위: 로고·제목·연결 상태·창 단추
     def _build_top(self, buttons, on_chip):
-        logo = aa_shape(30, 30, 9, None, grad=(C_G1, C_G2), bg=CAP)
-        if logo is not None:
-            self._logo = logo
-            self.create_image(14, 12, image=logo, anchor="nw")
         gl = icon("doc", white=True)
         if gl is not None:
             self.create_image(29, 27, image=gl)
@@ -1135,16 +1149,31 @@ class GlassHeader(tk.Canvas):
             tag = "tile_" + key
             st = {"x": x, "y": y, "w": tw, "h": th, "t": 0.0, "target": 0.0, "tag": tag, "name": name}
             self.tiles[key] = st
-            st["img"] = self.create_image(x - 4, y - 4, anchor="nw", tags=(tag,))
+            st["img"] = self.create_image(x - self.PAD, y - self.PAD, anchor="nw", tags=(tag,))
             st["ico"] = self.create_image(x + tw // 2, y + 20, tags=(tag,))
             st["txt"] = self.create_text(x + tw // 2, y + th - 13, text=name, tags=(tag,), font=(FONT[0], 9))
             self.tag_bind(tag, "<Enter>", lambda e, k=key: self._hover(k, 1.0))
             self.tag_bind(tag, "<Leave>", lambda e, k=key: self._hover(k, 0.0))
-            self.tag_bind(tag, "<Button-1>", lambda e, k=key: self.on_pick(k))
+            self.tag_bind(tag, "<ButtonPress-1>", lambda e, k=key: self._press(k, True))
+            self.tag_bind(tag, "<ButtonRelease-1>", lambda e, k=key: self._release(k, e))
             self._paint(key)
+
+    def _press(self, key, v):
+        self.tiles[key]["p"] = v
+        self._paint(key)
+
+    def _release(self, key, e):
+        s = self.tiles[key]
+        was = s.get("p")
+        s["p"] = False
+        self._paint(key)
+        if was and s["x"] - 4 <= e.x <= s["x"] + s["w"] + 4 and s["y"] - 4 <= e.y <= s["y"] + s["h"] + 4:
+            self.on_pick(key)
 
     def _hover(self, key, v):
         self.tiles[key]["target"] = v
+        if not v:
+            self.tiles[key]["p"] = False
         self.config(cursor="hand2" if v else "")
         if self._job is None:
             self._step()
@@ -1168,35 +1197,37 @@ class GlassHeader(tk.Canvas):
 
     def _paint(self, key):
         s, on = self.tiles[key], key == self.active
-        t = _q(s["t"])
-        im = self._glass(key, t, on)
-        if im is not None:
-            self.itemconfigure(s["img"], image=im)
-        else:
-            self.itemconfigure(s["img"], image="")
+        t, p = _q(s["t"]), bool(s.get("p"))
+        im = self._glass(key, t, on, p)
+        self.itemconfigure(s["img"], image=im if im is not None else "")
+        dy = (2 if p else (-1.5 * t))                      # 올리면 살짝 떠오르고, 누르면 아래로 눌림 — 아이콘과 글자가 함께 움직인다
+        x, y, w, h = s["x"], s["y"], s["w"], s["h"]
+        self.coords(s["ico"], x + w // 2, y + 20 + dy)
+        self.coords(s["txt"], x + w // 2, y + h - 13 + dy)
         ic = icon(self.icons.get(key, "doc"), white=on)
         self.itemconfigure(s["ico"], image=ic if ic is not None else "")
-        self.itemconfigure(s["txt"], fill="white" if on else _mix(C_SUB, C_ACC, t), font=(FONT[0], 9, "bold" if on else "normal"))
+        col = "white" if on else (_mix(C_SUB, C_ACC, t) if not p else C_ACC)
+        self.itemconfigure(s["txt"], fill=col, font=(FONT[0], 9, "bold" if (on or t > 0.5) else "normal"))
 
-    def _glass(self, key, t, on):
+    def _glass(self, key, t, on, p=False):
         if self._bgpil is None:
             return None
-        ck = ("glass", key, t, on)
+        ck = ("glass", key, t, on, p)
         if ck in _AA:
             return _AA[ck]
         im = None
         try:
             from PIL import Image, ImageDraw, ImageFilter
             s = self.tiles[key]
-            pad, k = 4, 3
+            pad, k = self.PAD, 3
             w, h = s["w"], s["h"]
             box = (s["x"] - pad, s["y"] - pad, s["x"] + w + pad, s["y"] + h + pad)
             base = self._bgpil.crop(box).convert("RGBA")
             W3, H3 = (w + 2 * pad) * k, (h + 2 * pad) * k
             sh = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
-            ImageDraw.Draw(sh).rounded_rectangle((pad * k, pad * k + 5, (pad + w) * k, (pad + h) * k + 5), radius=14 * k,
-                                                 fill=(60, 70, 140, int(34 + 40 * t) if not on else 90))
-            sh = sh.filter(ImageFilter.GaussianBlur(5 * k))
+            ImageDraw.Draw(sh).rounded_rectangle((pad * k, pad * k + 4 * k // 2, (pad + w) * k, (pad + h) * k + 4 * k // 2), radius=14 * k,
+                                                 fill=(60, 70, 140, (0 if t == 0 else int(26 + 44 * t)) if not on else 90) if not p else (60, 70, 140, 14))
+            sh = sh.filter(ImageFilter.GaussianBlur(3 * k))
             ov = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
             rect = (pad * k, pad * k, (pad + w) * k - 1, (pad + h) * k - 1)
             if on:
@@ -1217,15 +1248,19 @@ class GlassHeader(tk.Canvas):
                 shine.putalpha(Image.composite(shine.getchannel("A"), Image.new("L", (W3, H3), 0), m))
                 ov.alpha_composite(shine)
                 ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, outline=(255, 255, 255, 120), width=k)
+                if p:
+                    ov.alpha_composite(Image.new("RGBA", (W3, H3), (0, 0, 0, 0)))
+                    dark = Image.new("RGBA", (W3, H3), (20, 30, 120, 46))
+                    dark.putalpha(Image.composite(dark.getchannel("A"), Image.new("L", (W3, H3), 0), m))
+                    ov.alpha_composite(dark)
             else:
-                a = int(78 + 110 * t)                      # 유리: 흰색이 비쳐 보이는 정도 (올리면 더 선명)
-                ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, fill=(255, 255, 255, a),
-                                                     outline=(255, 255, 255, 215), width=k)
-                if t:
-                    ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, outline=(110, 124, 235, int(110 * t)), width=k)
+                a = int(0 + 175 * t) if not p else 215          # 평소엔 테두리·바탕 없이 깔끔, 올리면 유리 알약이 떠오르고 누르면 더 진해짐
+                if a:
+                    ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, fill=(255, 255, 255, a) if not p else (232, 236, 255, a),
+                                                         outline=(255, 255, 255, min(255, a + 40)), width=k)
+                    ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, outline=(110, 124, 235, int(95 * t) if not p else 150), width=k)
             comp = Image.alpha_composite(sh, ov).resize((w + 2 * pad, h + 2 * pad), Image.LANCZOS)
-            base.alpha_composite(comp)
-            im = _pil_photo(base.convert("RGB"))
+            im = _pil_photo(comp)                              # 투명 배경 그대로(이웃 타일 그림자·가장자리가 서로 가리지 않게)
         except Exception:                                  # noqa: BLE001
             im = None
         _AA[ck] = im

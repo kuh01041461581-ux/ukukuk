@@ -863,7 +863,7 @@ def liquid_img(w, h, r, base=(235, 160), tint=None, t=0.0, pressed=False, pad=5,
         sy = (3 if not pressed else 1) * k                            # 그림자 아래로 처지는 정도(누르면 납작)
         # 그림자(색 번진)
         sh = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
-        sa = 14 if pressed else int(40 + 46 * t)
+        sa = 10 if pressed else int(22 + 34 * t)
         scol = (70, 84, 190) if not tint else (60, 70, 210)
         ImageDraw.Draw(sh).rounded_rectangle((x0 + 2 * k, y0 + sy - lift, x1 - 2 * k, y1 + sy - lift), radius=rad, fill=scol + (sa,))
         sh = sh.filter(ImageFilter.GaussianBlur(3.2 * k))
@@ -988,6 +988,9 @@ def round_rect(cv, x0, y0, x1, y1, r, **kw):
     return cv.create_polygon(pts, smooth=True, **kw)
 
 
+SHOW_BTN_ICONS = False        # 단정하게: 목록 단추에는 아이콘을 넣지 않는다(글자만)
+
+
 class _Anim:
     """호버·눌림을 부드럽게 오가게 하는 보간기: t(0=평소 → 1=올림)가 목표값으로 천천히 다가간다."""
 
@@ -1069,7 +1072,7 @@ class Btn(_Anim, tk.Canvas):
             fg = _mix(C_TEXT, "#2c3366", t)
         if im is not None:
             self.create_image(0, 0, image=im, anchor="nw")
-        ic = icon(self.icon_name, white=acc) if self.icon_name else None
+        ic = icon(self.icon_name, white=acc) if (self.icon_name and SHOW_BTN_ICONS) else None
         x = 10
         if self.anchor == "w":
             if ic is not None:
@@ -1151,15 +1154,16 @@ def make_aurora(w, h):
         d.line((0, y, w, y), fill=tuple(round(top[i] + (bot[i] - top[i]) * t) for i in range(3)))
     blobs = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     bd = ImageDraw.Draw(blobs)
-    for cx, cy, r, col in ((40, 92, 74, (112, 128, 255, 150)), (222, 74, 66, (178, 132, 255, 140)),
-                           (140, 152, 88, (110, 205, 255, 125)), (250, 165, 54, (255, 160, 214, 100))):
+    sc = h / 184.0
+    for cx, cy, r, col in ((40, 92 * sc, 74 * sc, (112, 128, 255, 150)), (222, 74 * sc, 66 * sc, (178, 132, 255, 140)),
+                           (140, 152 * sc, 88 * sc, (110, 205, 255, 125)), (250, 165 * sc, 54 * sc, (255, 160, 214, 100))):
         bd.ellipse((cx - r, cy - r, cx + r, cy + r), fill=col)
     blobs = blobs.filter(ImageFilter.GaussianBlur(26))
     out = base.convert("RGBA")
     out.alpha_composite(blobs)
     out = out.convert("RGB")
     d = ImageDraw.Draw(out)
-    fade = 46                                              # 아래쪽은 본문 바탕색으로 서서히
+    fade = min(36, h // 3)                                  # 아래쪽은 본문 바탕색으로 서서히
     for i in range(fade):
         y = h - fade + i
         t = i / float(fade - 1)
@@ -1191,8 +1195,10 @@ class GlassHeader(tk.Canvas):
     """윈도우 11 · 리니어 · 노션 느낌의 머리: 오로라 배경 위에 유리 알약 타일을 얹고, 제목줄과 한 덩어리로 이어진다.
     타일은 마우스를 올리면 부드럽게 밝아지고, 선택된 타일은 포인트 그라데이션으로 채워진다."""
 
-    FULL_H, MIN_H = 184, 56
+    FULL_H, MIN_H = 100, 56
     PAD = 8
+    PRIMARY = ("report", "week", "budget", "assembly", "audit")
+    OVERFLOW = ("press", "nat", "tools", "sym", "more")
 
     def __init__(self, master, tabs, icons, labels, on_pick, buttons, on_chip):
         W = WIDGET_W
@@ -1248,21 +1254,57 @@ class GlassHeader(tk.Canvas):
 
     # --- 유리 타일
     def _build_tiles(self):
-        tw, th, gap, x0, y0 = 46, 56, 5, 7, 60
-        for idx, (name, key) in enumerate(self.tabs):
-            x = x0 + (idx % 5) * (tw + gap)
-            y = y0 + (idx // 5) * (th + gap + 1)
+        """한 줄짜리 글자 알약 탭: 자주 쓰는 5개 + '⋯'(나머지는 작은 메뉴로) — 아이콘 없이 단정하게"""
+        names = {k: n for n, k in self.tabs}
+        items = [(k, names[k]) for k in self.PRIMARY] + [("__more", "⋯")]
+        tw, th, gap = 38, 30, 4
+        x0 = (self.W - (len(items) * tw + (len(items) - 1) * gap)) // 2
+        y0 = 58
+        for idx, (key, name) in enumerate(items):
+            x, y = x0 + idx * (tw + gap), y0
             tag = "tile_" + key
             st = {"x": x, "y": y, "w": tw, "h": th, "t": 0.0, "target": 0.0, "tag": tag, "name": name}
             self.tiles[key] = st
             st["img"] = self.create_image(x - self.PAD, y - self.PAD, anchor="nw", tags=(tag,))
-            st["ico"] = self.create_image(x + tw // 2, y + 20, tags=(tag,))
-            st["txt"] = self.create_text(x + tw // 2, y + th - 13, text=name, tags=(tag,), font=(FONT[0], 9))
+            st["txt"] = self.create_text(x + tw // 2, y + th // 2, text=name, tags=(tag,), font=(FONT[0], 10))
             self.tag_bind(tag, "<Enter>", lambda e, k=key: self._hover(k, 1.0))
             self.tag_bind(tag, "<Leave>", lambda e, k=key: self._hover(k, 0.0))
             self.tag_bind(tag, "<ButtonPress-1>", lambda e, k=key: self._press(k, True))
             self.tag_bind(tag, "<ButtonRelease-1>", lambda e, k=key: self._release(k, e))
             self._paint(key)
+
+    def _open_more(self):
+        """'⋯' 메뉴: 보도자료·국가예산·도구·기호·설정"""
+        if getattr(self, "_menu", None):
+            self._close_more()
+            return
+        s = self.tiles["__more"]
+        m = self._menu = tk.Toplevel(self)
+        m.wm_overrideredirect(True)
+        m.attributes("-topmost", True)
+        m.configure(bg=C_LINE)
+        inner = tk.Frame(m, bg="#ffffff")
+        inner.pack(padx=1, pady=1)
+        for key in self.OVERFLOW:
+            row = tk.Label(inner, text=self.labels[key], bg="#ffffff", fg=C_TEXT, font=FONT, anchor="w", padx=14, pady=7, cursor="hand2", width=18)
+            row.pack(fill="x")
+            row.bind("<Enter>", lambda e, w=row: w.config(bg=C_HOVER, fg=C_ACC))
+            row.bind("<Leave>", lambda e, w=row: w.config(bg="#ffffff", fg=C_TEXT))
+            row.bind("<Button-1>", lambda e, k=key: (self._close_more(), self.on_pick(k)))
+        x = self.winfo_rootx() + s["x"] + s["w"] - 150
+        m.geometry("+%d+%d" % (max(0, x), self.winfo_rooty() + s["y"] + s["h"] + 4))
+        m.bind("<Escape>", lambda e: self._close_more())
+        self._menu_bind = self.winfo_toplevel().bind("<Button-1>", lambda e: self._close_more() if e.widget is not self else None, add="+")
+        m.focus_force()
+
+    def _close_more(self):
+        m = getattr(self, "_menu", None)
+        if m:
+            try:
+                m.destroy()
+            except tk.TclError:
+                pass
+        self._menu = None
 
     def _press(self, key, v):
         self.tiles[key]["p"] = v
@@ -1274,7 +1316,10 @@ class GlassHeader(tk.Canvas):
         s["p"] = False
         self._paint(key)
         if was and s["x"] - 4 <= e.x <= s["x"] + s["w"] + 4 and s["y"] - 4 <= e.y <= s["y"] + s["h"] + 4:
-            self.on_pick(key)
+            if key == "__more":
+                self._open_more()
+            else:
+                self.on_pick(key)
 
     def _hover(self, key, v):
         self.tiles[key]["target"] = v
@@ -1302,18 +1347,15 @@ class GlassHeader(tk.Canvas):
             self._paint(k)
 
     def _paint(self, key):
-        s, on = self.tiles[key], key == self.active
+        s = self.tiles[key]
+        on = (key == self.active) or (key == "__more" and self.active in self.OVERFLOW)
         t, p = _q(s["t"]), bool(s.get("p"))
         im = self._glass(key, t, on, p)
         self.itemconfigure(s["img"], image=im if im is not None else "")
-        dy = (2 if p else (-1.5 * t))                      # 올리면 살짝 떠오르고, 누르면 아래로 눌림 — 아이콘과 글자가 함께 움직인다
-        x, y, w, h = s["x"], s["y"], s["w"], s["h"]
-        self.coords(s["ico"], x + w // 2, y + 20 + dy)
-        self.coords(s["txt"], x + w // 2, y + h - 13 + dy)
-        ic = icon(self.icons.get(key, "doc"), white=on)
-        self.itemconfigure(s["ico"], image=ic if ic is not None else "")
+        dy = (1.5 if p else (-1 * t))
+        self.coords(s["txt"], s["x"] + s["w"] // 2, s["y"] + s["h"] // 2 + dy)
         col = "white" if on else (_mix(C_SUB, C_ACC, t) if not p else C_ACC)
-        self.itemconfigure(s["txt"], fill=col, font=(FONT[0], 9, "bold" if (on or t > 0.5) else "normal"))
+        self.itemconfigure(s["txt"], fill=col, font=(FONT[0], 10, "bold" if on else "normal"))
 
     def _glass(self, key, t, on, p=False):
         """리퀴드 글래스 타일: 평소엔 투명(테두리 없음), 올리면 유리가 떠오르고, 선택된 타일은 색 입힌 유리"""
@@ -1321,8 +1363,8 @@ class GlassHeader(tk.Canvas):
         if not on and t == 0 and not p:
             return None
         if on:
-            return liquid_img(s["w"], s["h"], 14, base=(232, 190), tint=(C_G1, C_G2), t=t, pressed=p, pad=self.PAD)
-        return liquid_img(s["w"], s["h"], 14, base=(int(70 + 165 * t) if not p else 238, int(24 + 150 * t) if not p else 196),
+            return liquid_img(s["w"], s["h"], 15, base=(232, 190), tint=(C_G1, C_G2), t=t, pressed=p, pad=self.PAD)
+        return liquid_img(s["w"], s["h"], 15, base=(int(70 + 165 * t) if not p else 238, int(24 + 150 * t) if not p else 196),
                           t=t, pressed=p, pad=self.PAD)
 
 
@@ -1497,7 +1539,7 @@ class Widget(tk.Tk):
     # ---------------------------------------------------------------- 뼈대
     def _build_frame(self):
         W = WIDGET_W
-        buttons = (("⌄", self.to_tray, "트레이로 보내기"), ("▭", self.dock, "한글 옆에 붙이기"), ("–", self.toggle, "접기·펴기"))
+        buttons = (("⌄", self.to_tray, "트레이로 보내기"), ("–", self.toggle, "접기·펴기"))
         self.head = GlassHeader(self, self.TABS, self.TAB_ICON, self.TAB_LABEL, self.show_tab, buttons,
                                 lambda: self.connect() if not self.bridge.connected else None)
         self.head.pack(fill="x")
@@ -1525,7 +1567,7 @@ class Widget(tk.Tk):
         self.ui["tab"] = key
 
     def section(self, parent, text):
-        tk.Label(parent, text=text, bg=C_BG, fg=C_ACC, font=(FONT[0], 9, "bold"), anchor="w").pack(fill="x", pady=(12, 4))
+        tk.Label(parent, text=text, bg=C_BG, fg=C_SUB, font=(FONT[0], 9), anchor="w").pack(fill="x", pady=(14, 3), padx=4)
 
     def rebuild(self):
         self.show_tab(self.tab)
@@ -1558,17 +1600,7 @@ class Widget(tk.Tk):
         if tab == "report":
             prof = PR.load_profile()
             if not (prof.get("dept") or prof.get("staff_name")):
-                box = tk.Frame(parent, bg="#ffffff", highlightthickness=1, highlightbackground="#e1e5f5")
-                box.pack(fill="x", pady=(0, 4))
-                tk.Label(box, text="내 정보(과·담당자)를 한 번 적어 두면\n양식에 자동으로 채워져요", bg="#ffffff", fg="#5b6384",
-                         font=FONT_S, justify="left", padx=10, pady=6).pack(anchor="w")
-                Btn(box, "내 정보 입력", self.open_profile, icon_name="user", h=32).pack(fill="x", padx=8, pady=(0, 8))
-        tk.Label(parent, text="글을 선택하고 양식을 누르면 그 글이 양식으로 바뀌어요", bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w",
-                 wraplength=WIDGET_W - 24, justify="left").pack(fill="x", pady=(2, 0))
-        self._convert_var = tk.IntVar(value=1 if self.ui.get("convert") else 0)
-        tk.Checkbutton(parent, text="선택 없으면 문서 전체 변환", variable=self._convert_var, bg=C_BG, fg=C_TEXT,
-                       font=FONT_S, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0, anchor="w",
-                       command=lambda: self.ui.__setitem__("convert", bool(self._convert_var.get()))).pack(fill="x", pady=(2, 0))
+                Btn(parent, "내 정보 입력 (자동 채우기)", self.open_profile, kind="flat", h=34, anchor="w").pack(fill="x", pady=(2, 0))
         box = self.scroll_area(parent)
         self.forms_box = box
         groups = self.tab_forms(tab)
@@ -1818,7 +1850,15 @@ class Widget(tk.Tk):
         self.section(parent, "상세 입력")
         Btn(parent, "상세 입력 창", self.open_detail, icon_name="sliders", tip="칸을 직접 채워 만들기·본문 입력").pack(fill="x", pady=4)
         Btn(parent, "새 양식 추가 (한글 파일로)", lambda: self.open_detail("forms"), icon_name="plus").pack(fill="x", pady=4)
+        self.section(parent, "서식 바꾸기")
+        tk.Label(parent, text="글을 선택하고 양식을 누르면 그 글이 양식으로 바뀌어요", bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w",
+                 wraplength=WIDGET_W - 24, justify="left").pack(fill="x", padx=4)
+        self._convert_var = tk.IntVar(value=1 if self.ui.get("convert") else 0)
+        tk.Checkbutton(parent, text="선택 없으면 문서 전체 변환", variable=self._convert_var, bg=C_BG, fg=C_TEXT, font=FONT_S,
+                       activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0, anchor="w",
+                       command=lambda: self.ui.__setitem__("convert", bool(self._convert_var.get()))).pack(fill="x", padx=2, pady=(2, 0))
         self.section(parent, "설정")
+        Btn(parent, "한글 옆에 붙이기", self.dock, kind="flat", icon_name="dock").pack(fill="x", pady=2)
         Btn(parent, "내 정보 (과·담당자)", self.open_profile, icon_name="user").pack(fill="x", pady=4)
         Btn(parent, "한글에 다시 연결", self.connect, kind="flat", icon_name="link").pack(fill="x", pady=4)
         Btn(parent, "오류 기록 폴더 열기", self.open_log_dir, kind="flat", icon_name="doc",

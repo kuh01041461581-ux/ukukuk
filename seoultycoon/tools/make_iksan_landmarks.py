@@ -127,9 +127,9 @@ def mireuksa():
     s.line([G(0.45, cy + W1, z), G(0.45, cy + W1, z + 6.2), G(0.55, cy + W1, z + 6.2), G(0.55, cy + W1, z)], hx('d4d4c4'), 3)
     z += 8.2
     s.flat([G(cx - W1, cy + W1, z - 1.6), G(cx + W1, cy + W1, z - 1.6), G(cx + W1, cy + W1, z), G(cx - W1, cy + W1, z)], hx('1a1a14', 120)); s.flat([G(cx + W1, cy - W1, z - 1.6), G(cx + W1, cy + W1, z - 1.6), G(cx + W1, cy + W1, z), G(cx + W1, cy - W1, z)], hx('0a0a08', 140))
-    z = eave(s, cx, cy, 0.37, 0.37, z, rnd, layers=4, thick=0.5, taper=0.016)                                                              # 1층 지붕돌(가장 넓다)
+    z = eave(s, cx, cy, 0.385, 0.385, z, rnd, layers=4, thick=0.5, taper=0.016)                                                              # 1층 지붕돌(가장 넓다)
     # 2층: 한 단 좁아진 몸돌 + 네모 창, 3층: 더 좁게  (위로 갈수록 중앙으로 좁아진다)
-    for (w, h, win, rw) in ((0.215, 5.4, 4, 0.30), (0.17, 4.6, 3, 0.245)):
+    for (w, h, win, rw) in ((0.215, 5.4, 4, 0.295), (0.165, 4.6, 3, 0.215)):
         s.box(cx - w, cx + w, cy - w, cy + w, h, STONE_L, STONE_R, STONE_T, z)
         stone_blocks(s, 'F', cy + w, cx - w, cx + w, z, z + h, rnd, ch=0.95, bw=(0.035, 0.06), pink=0.07); stone_blocks(s, 'R', cx + w, cy - w, cy + w, z, z + h, rnd, ch=0.95, bw=(0.035, 0.06), lit=False, pink=0.05)
         for i in range(win):
@@ -138,17 +138,17 @@ def mireuksa():
         s.flat([G(cx - w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h), G(cx - w, cy + w, z + h)], hx('1a1a14', 120)); s.flat([G(cx + w, cy - w, z + h - 1.4), G(cx + w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h), G(cx + w, cy - w, z + h)], hx('0a0a08', 140))
         z += h; z = eave(s, cx, cy, rw, rw, z, rnd, layers=3, thick=0.5, taper=0.014)
     # 윗부분: 오른쪽(+a)으로 비스듬히 무너진 돌 더미 — 한 켜씩 쌓은 상자가 위로 갈수록 좁아지고 오른쪽으로 밀린다(왼쪽은 곧은 사선, 오른쪽에 지붕돌이 남는다)
-    n = 19
+    n = 17
     for k in range(n):
         t = k / (n - 1)
-        c = 0.50 + 0.17 * t; w = 0.220 - 0.165 * t ** 0.9; d = 0.190 - 0.140 * t ** 0.9
+        c = 0.50 + 0.13 * t; w = 0.205 - 0.095 * t; d = 0.175 - 0.075 * t
         course_box(s, c - w, c + w, cy - d, cy + d, z + k * 0.92, 0.92, rnd, ch=0.92, pink=0.13)
         for e_t in (0.22, 0.50, 0.76):
             if abs(t - e_t) < 0.034:                                                                                                       # 오른쪽에 남은 지붕돌 3개
-                ew = 0.105 - 0.030 * (e_t > 0.4) - 0.026 * (e_t > 0.7)
-                s.box(c + w - 0.04, c + w + ew, cy - d - 0.025, cy + d + 0.025, 0.7, ROOF_L, ROOF_R, ROOF_T, z + k * 0.92 + 0.2)
+                ew = 0.115 - 0.040 * (e_t > 0.4) - 0.034 * (e_t > 0.7)
+                s.box(c + w - 0.04, c + w + ew, cy - d - 0.03 * (1 - e_t * 0.6), cy + d + 0.03 * (1 - e_t * 0.6), 0.7, ROOF_L, ROOF_R, ROOF_T, z + k * 0.92 + 0.2)
     ztop = z + n * 0.92
-    s.box(0.62, 0.72, cy - 0.04, cy + 0.04, 0.8, ROOF_L, ROOF_R, ROOF_T, ztop)
+    s.box(0.56, 0.69, cy - 0.06, cy + 0.06, 0.8, ROOF_L, ROOF_R, ROOF_T, ztop)
     s.tree(0.04, 0.88, 0.9); s.tree(0.95, 0.15, 0.8)
     out_ = s.finish()
     STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T = save

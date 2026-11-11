@@ -29,6 +29,8 @@ pub struct Config {
     pub lcd_height: u32,
     /// ARM → 웹어셈블리 변환(AOT) 실행기 (웹에서만 제공). None 이면 해석기로 실행
     pub aot: Option<Box<dyn wie_core_arm_aot::CompiledExecutor>>,
+    /// 넥슨(BNV) 계열 게임의 JNI 이름 접두사. 예: "Java_com_Nexon_Cygnus". 비어 있으면 이아모바일(CletEntry) 계열
+    pub bnv: String,
 }
 
 pub type Shared = Arc<Mutex<State>>;
@@ -56,6 +58,9 @@ pub async fn run_game(so: Vec<u8>, state: Shared, mut config: Config, mut rx: Un
         return Ok(());
     }
 
+    if !config.bnv.is_empty() {
+        return run_bnv(core, lib, env_ptr, state, config, rx, ready).await;
+    }
     let find = |name: &str| -> Result<u32> {
         lib.exports
             .get(&format!("Java_co_kr_eamobile_CletEntry_{name}"))
@@ -147,6 +152,71 @@ pub async fn run_game(so: Vec<u8>, state: Shared, mut config: Config, mut rx: Un
                 Cmd::Key { action, code } => {
                     let _ = core2.run_function::<u32>(key, &[env_ptr, 0, action, code, 0]).await;
                 }
+                Cmd::Pause => {
+                    let _ = core2.run_function::<u32>(pause, &[env_ptr, 0]).await;
+                }
+                Cmd::Resume => {
+                    let _ = core2.run_function::<u32>(resume, &[env_ptr, 0]).await;
+                }
+            }
+        }
+        Ok(())
+    })?;
+    thread.await
+}
+
+async fn run_bnv(mut core: ArmCore, lib: loader::Library, env_ptr: u32, state: Shared, config: Config, mut rx: UnboundedReceiver<Cmd>, ready: oneshot::Sender<Result<()>>) -> Result<()> {
+    let find = |name: &str| -> Result<u32> {
+        lib.exports.get(&format!("{}_NativeClass_{name}", config.bnv)).copied().ok_or_else(|| WieError::FatalError(format!("{name} 없음")))
+    };
+    let (vfs_init, path, size, init, frame) = (find("OnVFSInitialize")?, find("OnNativePath")?, find("OnNativeSize")?, find("OnNativeInitialize")?, find("OnNativeFrame")?);
+    let init_first = lib.exports.contains_key(&format!("{}_NativeClass_OnNativeCreateRenderer", config.bnv));
+    let (press, release, moved, pause, resume) = (find("OnNativeTouchPress")?, find("OnNativeTouchRelease")?, find("OnNativeTouchMove")?, find("OnNativePause")?, find("OnNativeResume")?);
+    let fd_obj = hle::new_object(&state, JObj::FileDescriptor(100));
+    let vfs_len = state.lock().vfs.len() as u32;
+    let path_obj = hle::new_object(&state, JObj::Str("/data/data/game/files".into()));
+    let inits = lib.init_functions.clone();
+    let (w, h) = (config.lcd_width, config.lcd_height);
+    let mut core2 = core.clone();
+    let st2 = state.clone();
+    let thread = core.run_in_thread(move || async move {
+        let setup = async {
+            for f in &inits {
+                let _: u32 = core2.run_function(*f, &[]).await?;
+            }
+            let _: u32 = core2.run_function(vfs_init, &[env_ptr, 0, fd_obj, 0, 0, 0, vfs_len, 0]).await?;
+            let _: u32 = core2.run_function(path, &[env_ptr, 0, path_obj]).await?;
+            if init_first {
+                let _: u32 = core2.run_function(init, &[env_ptr, 0]).await?;
+                let _: u32 = core2.run_function(size, &[env_ptr, 0, w, h]).await?;
+            } else {
+                let _: u32 = core2.run_function(size, &[env_ptr, 0, w, h]).await?;
+                let _: u32 = core2.run_function(init, &[env_ptr, 0]).await?;
+            }
+            Result::Ok(())
+        };
+        match setup.await {
+            Ok(()) => {
+                let _ = ready.send(Ok(()));
+            }
+            Err(error) => {
+                let message = format!("{error:?}\n{}", core2.dump_reg_stack(loader::BASE));
+                let _ = ready.send(Err(WieError::FatalError(message)));
+                return Ok(());
+            }
+        }
+        while let Some(cmd) = rx.next().await {
+            match cmd {
+                Cmd::Frame { now_ms, done } => {
+                    st2.lock().now_ms = now_ms;
+                    let result = core2.run_function::<u32>(frame, &[env_ptr, 0]).await.map(|_| ());
+                    let _ = done.send(result);
+                }
+                Cmd::Touch { kind, x, y, id } => {
+                    let f = match kind { 19 => press, 20 => release, _ => moved };
+                    let _ = core2.run_function::<u32>(f, &[env_ptr, 0, 1, id as u32, x as u32, y as u32]).await;
+                }
+                Cmd::Key { .. } => {}
                 Cmd::Pause => {
                     let _ = core2.run_function::<u32>(pause, &[env_ptr, 0]).await;
                 }

@@ -36,13 +36,13 @@ pub struct AndroidGame {
 impl AndroidGame {
     /// so: 게임의 32비트 라이브러리, vfs: data.vfs 묶음 파일, lcd: 가상 화면 크기
     #[wasm_bindgen(constructor)]
-    pub fn new(so: Vec<u8>, vfs: Vec<u8>, lcd_width: u32, lcd_height: u32, use_aot: bool) -> AndroidGame {
+    pub fn new(so: Vec<u8>, vfs: Vec<u8>, lcd_width: u32, lcd_height: u32, use_aot: bool, bnv: String) -> AndroidGame {
         let state = Arc::new(Mutex::new(State::new(vfs)));
         let (tx, rx) = mpsc::unbounded();
         let (ready_tx, ready_rx) = oneshot::channel();
         let st = state.clone();
         wasm_bindgen_futures::spawn_local(async move {
-            if let Err(error) = run_game(so, st, Config { lcd_width, lcd_height, aot: if use_aot { Some(Box::new(crate::aot::WasmExecutor::default())) } else { None } }, rx, ready_tx).await {
+            if let Err(error) = run_game(so, st, Config { lcd_width, lcd_height, bnv, aot: if use_aot { Some(Box::new(crate::aot::WasmExecutor::default())) } else { None } }, rx, ready_tx).await {
                 web_log(&format!("게임 종료: {error:?}"));
             }
         });

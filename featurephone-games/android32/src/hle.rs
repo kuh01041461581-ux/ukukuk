@@ -103,6 +103,7 @@ impl State {
     }
 }
 
+static INFL_N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 pub const VFS_PATH: &str = "<vfs>";
 
 pub fn register(core: &mut ArmCore, state: &Shared) -> Result<()> {
@@ -578,12 +579,12 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
                 let mut st = state.lock();
                 (std::mem::take(&mut st.gl), st.next_texture)
             };
-            gl.call(core, n, &mut next)?;
+            let gl_ret = gl.call(core, n, &mut next)?;
             let mut st = state.lock();
             st.gl = gl;
             st.next_texture = next;
             st.gl_calls += 1;
-            Ret::U(0)
+            Ret::U(gl_ret.unwrap_or(0))
         }
 
         // ---- 스레드(단일 스레드로 흉내) ----
@@ -855,7 +856,7 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
             match name.as_str() {
                 "inflateEnd" => { state.lock().inflaters.remove(&strm); }
                 _ => {
-                    if std::env::var("DUMP_INFLATE").is_ok() { state.lock().next_key += 1; }
+                    if std::env::var("DUMP_INFLATE").is_ok() { INFL_N.fetch_add(1, std::sync::atomic::Ordering::Relaxed); }
                     let window = if name == "inflateInit2_" { p(core, 1)? as i32 } else { 15 };
                     let fmt = if window < 0 { miniz_oxide::DataFormat::Raw } else { miniz_oxide::DataFormat::Zlib };
                     state.lock().inflaters.insert(strm, (miniz_oxide::inflate::stream::InflateState::new_boxed(fmt), fmt));
@@ -893,7 +894,7 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
                     if take == 0 && r.bytes_written == 0 { break; }
                 }
             }
-            if std::env::var("DUMP_INFLATE").is_ok() { use std::io::Write; let _ = std::fs::OpenOptions::new().create(true).append(true).open(format!("/tmp/d4/infl_{}.bin", state.lock().next_key)).map(|mut f| f.write_all(&input[..result.bytes_consumed])); }
+            if std::env::var("DUMP_INFLATE").is_ok() { use std::io::Write; let _ = std::fs::OpenOptions::new().create(true).append(true).open(format!("/tmp/d4/infl_{}.bin", INFL_N.load(std::sync::atomic::Ordering::Relaxed))).map(|mut f| f.write_all(&input[..result.bytes_consumed])); }
             if std::env::var("TRACE_INFLATE").is_ok() { eprintln!("[inflate] in={avail_in} out={avail_out} -> consumed={} written={} {:?}", result.bytes_consumed, result.bytes_written, result.status); }
             core.write_bytes(next_out, &output[..result.bytes_written])?;
             write_generic(core, strm, next_in + result.bytes_consumed as u32)?;
@@ -906,6 +907,7 @@ async fn handle_libc(core: &mut ArmCore, state: &mut Shared, id: SvcId) -> Resul
                 Ok(miniz_oxide::MZStatus::Ok) => 0,
                 Ok(miniz_oxide::MZStatus::StreamEnd) => 1,
                 Ok(miniz_oxide::MZStatus::NeedDict) => 2,
+                Err(miniz_oxide::MZError::Buf) if result.bytes_consumed > 0 || result.bytes_written > 0 => 0,
                 Err(miniz_oxide::MZError::Buf) => -5i32 as u32,
                 Err(miniz_oxide::MZError::Data) => -3i32 as u32,
                 Err(_) => -2i32 as u32,

@@ -138,6 +138,50 @@ pub fn call(_core: &mut ArmCore, state: &Shared, name: &str, sig: &str, args: &[
             JValue::Int(0)
         }
         "loadWebpage" | "phnCallPlace" => JValue::Int(-1),
+        // ---- 넥슨(BNV) 계열: NativeClass 정적 메서드 ----
+        "SoundLoad" => {
+            let name = args.first().map(|a| string_arg(state, a)).unwrap_or_default();
+            let id = args.get(1).map(int).unwrap_or(0);
+            state.lock().events.push(format!(r#"{{"t":"bsload","name":"{}","id":{id}}}"#, name.replace('"', "")));
+            JValue::Void
+        }
+        "SoundPlay" | "SoundStop" | "SoundRelease" => {
+            let id = args.first().map(int).unwrap_or(0);
+            let looped = args.get(1).map(int).unwrap_or(0) != 0;
+            let op = &name[5..].to_lowercase();
+            state.lock().events.push(format!(r#"{{"t":"bs{op}","id":{id},"loop":{looped}}}"#));
+            JValue::Void
+        }
+        "BGMLoad" => {
+            let name = args.first().map(|a| string_arg(state, a)).unwrap_or_default();
+            state.lock().events.push(format!(r#"{{"t":"bgload","name":"{}"}}"#, name.replace('"', "")));
+            JValue::Void
+        }
+        "BGMPlay" => {
+            let looped = args.first().map(int).unwrap_or(0) != 0;
+            state.lock().events.push(format!(r#"{{"t":"bgplay","loop":{looped}}}"#));
+            JValue::Void
+        }
+        "BGMStop" | "BGMRelease" => {
+            let op = if name == "BGMStop" { "bgstop" } else { "bgrelease" };
+            state.lock().events.push(format!(r#"{{"t":"{op}"}}"#));
+            JValue::Void
+        }
+        "OnVibrator" => {
+            let ms = args.first().map(int).unwrap_or(0);
+            state.lock().events.push(format!(r#"{{"t":"vibrate","ms":{ms}}}"#));
+            JValue::Void
+        }
+        "Native_GetDeviceModel" => s("SM-S926N"),
+        "Native_GetPhoneNumber" => s("01000000000"),
+        "Native_GetHeapFreeMemory" | "Native_GetHeapTotalMemory" => JValue::Long(256 << 20),
+        "Native_GetInternalMemorySize" | "Native_GetExternalMemorySize" => JValue::Long(8 << 30),
+        "Native_isOnlineWifi" => JValue::Int(0),
+        "Native_Exit" => {
+            state.lock().events.push(r#"{"t":"exit"}"#.to_string());
+            JValue::Void
+        }
+        "Native_SetFps" | "BGMVolume" | "SoundVolume" | "Native_StartAdBanner" | "Native_StopAdBanner" | "Native_ExitPopup" | "Native_CallOtherProductPage" => JValue::Void,
         other => {
             eprintln!("[java] 구현되지 않은 자바 메서드 {other}{sig}");
             if sig.ends_with('V') { JValue::Void } else if sig.ends_with('J') { JValue::Long(0) } else { JValue::Int(0) }

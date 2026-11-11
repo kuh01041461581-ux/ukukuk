@@ -8,7 +8,7 @@
   :root { color-scheme: dark; }
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
   #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
-  canvas { background: #000; image-rendering: auto; touch-action: none; width: min(100vw, calc(100vh * 0.6)); height: min(100vh, calc(100vw / 0.6)); }
+  canvas { background: #000; image-rendering: auto; touch-action: none; width: min(100vw, calc(100vh * var(--ar, 0.6))); height: min(100vh, calc(100vw / var(--ar, 0.6))); }
   #msg { position: fixed; left: 0; right: 0; top: 42%; text-align: center; color: #ddd; font: 16px/1.5 sans-serif; padding: 0 24px; white-space: pre-wrap; }
   #fps { position: fixed; right: 6px; top: 4px; color: #6f6; font: 11px monospace; opacity: .7; }
 </style>
@@ -27,7 +27,7 @@ const canvas = document.getElementById("screen");
 const ctx = canvas.getContext("2d");
 const fpsEl = document.getElementById("fps");
 const LCD_W = CFG.lcdWidth, LCD_H = CFG.lcdHeight;
-canvas.width = LCD_W; canvas.height = LCD_H;
+canvas.width = LCD_W; canvas.height = LCD_H; document.documentElement.style.setProperty('--ar', LCD_W / LCD_H);
 
 // ---------------- 저장소(IndexedDB) ----------------
 const DB = "wie_android_" + CFG.saveKey;
@@ -52,7 +52,30 @@ async function playClip(key, c, loop) {
   src.connect(gain).connect(actx.destination); src.start(); playing.set(key, src); src.onended = () => { if (playing.get(key) === src) playing.delete(key); };
 }
 function stopClip(key) { const s = playing.get(key); if (s) { try { s.stop(); } catch (e) {} playing.delete(key); } }
+// ---- 넥슨(BNV) 계열 소리: assets/<이름> 을 불러와 재생 ----
+const bsNames = new Map(); const bsPlaying = new Map(); const bufCache = new Map(); let bgName = null, bgSrc = null;
+async function assetBuffer(name) {
+  if (!actx) return null;
+  if (bufCache.has(name)) return bufCache.get(name);
+  const p = fetch("assets/" + name).then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(b => actx.decodeAudioData(b)).catch(() => null);
+  bufCache.set(name, p); return p;
+}
+async function bnvPlay(name, loop, vol, key, store) {
+  const buffer = await assetBuffer(name); if (!buffer) return;
+  const src = actx.createBufferSource(); src.buffer = buffer; src.loop = !!loop;
+  const gain = actx.createGain(); gain.gain.value = vol; src.connect(gain).connect(actx.destination); src.start();
+  store(src); src.onended = () => {};
+}
+function bnvEvent(e) {
+  if (e.t === "bsload") bsNames.set(e.id, e.name);
+  else if (e.t === "bsplay") { const n = bsNames.get(e.id); if (n) { try { const o = bsPlaying.get(e.id); if (o) o.stop(); } catch (x) {} bnvPlay(n, e.loop, 0.9, e.id, (s) => bsPlaying.set(e.id, s)); } }
+  else if (e.t === "bsstop" || e.t === "bsrelease") { try { const o = bsPlaying.get(e.id); if (o) o.stop(); } catch (x) {} bsPlaying.delete(e.id); }
+  else if (e.t === "bgload") bgName = e.name;
+  else if (e.t === "bgplay") { try { if (bgSrc) bgSrc.stop(); } catch (x) {} if (bgName) bnvPlay(bgName, e.loop, 0.6, 0, (s) => { bgSrc = s; }); }
+  else if (e.t === "bgstop" || e.t === "bgrelease") { try { if (bgSrc) bgSrc.stop(); } catch (x) {} bgSrc = null; }
+}
 function handleEvents(list) {
+  for (const e of list) bnvEvent(e);
   for (const e of list) {
     if (e.t === "load") clips.set(e.kind + e.id, { kind: e.kind, offset: e.offset, length: e.length });
     else if (e.t === "play" || e.t === "resume") {
@@ -71,7 +94,7 @@ try {
   vfsBytes = new Uint8Array(vfs);
   const db = await openDb(); const saved = await dbAll(db);
   msg.textContent = "시작하는 중…";
-  const game = new AndroidGame(new Uint8Array(lib), vfsBytes, LCD_W, LCD_H, CFG.aot !== false);
+  const game = new AndroidGame(new Uint8Array(lib), vfsBytes, LCD_W, LCD_H, CFG.aot !== false, CFG.bnv || "");
   for (const [path, data] of Object.entries(saved)) game.load_file(path, data);
   await game.ready(); window.__game = game;
   msg.style.display = "none";

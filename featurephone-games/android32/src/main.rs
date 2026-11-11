@@ -168,6 +168,14 @@ async fn run_bnv(mut core: ArmCore, state: Arc<Mutex<State>>, lib: loader::Libra
         for f in 0..frames {
             st2.lock().now_ms += 33;
             step!(format!("frame {f}"), core2.run_function::<u32>(frame, &[env_ptr, 0]));
+            if let Ok(dir) = std::env::var("DUMP") {
+                let st = st2.lock();
+                if st.gl.width > 0 && (f % 20 == 0 || f + 1 == frames) {
+                    let mut out = format!("P6\n{} {}\n255\n", st.gl.width, st.gl.height).into_bytes();
+                    for px in st.gl.frame.chunks_exact(4) { out.extend_from_slice(&px[..3]); }
+                    let _ = std::fs::write(format!("{dir}/f{f:04}.ppm"), out);
+                }
+            }
         }
         Ok(())
     })?;

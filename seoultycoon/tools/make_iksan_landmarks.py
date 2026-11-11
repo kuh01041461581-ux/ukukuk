@@ -138,17 +138,21 @@ def mireuksa():
         s.flat([G(cx - w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h), G(cx - w, cy + w, z + h)], hx('1a1a14', 120)); s.flat([G(cx + w, cy - w, z + h - 1.4), G(cx + w, cy + w, z + h - 1.4), G(cx + w, cy + w, z + h), G(cx + w, cy - w, z + h)], hx('0a0a08', 140))
         z += h; z = eave(s, cx, cy, rw, rw, z, rnd, layers=3, thick=0.5, taper=0.014)
     # 윗부분: 오른쪽(+a)으로 비스듬히 무너진 돌 더미 — 한 켜씩 쌓은 상자가 위로 갈수록 좁아지고 오른쪽으로 밀린다(왼쪽은 곧은 사선, 오른쪽에 지붕돌이 남는다)
-    n = 17
+    n = 14
     for k in range(n):
         t = k / (n - 1)
-        c = 0.50 + 0.13 * t; w = 0.205 - 0.095 * t; d = 0.175 - 0.075 * t
-        course_box(s, c - w, c + w, cy - d, cy + d, z + k * 0.92, 0.92, rnd, ch=0.92, pink=0.13)
-        for e_t in (0.22, 0.50, 0.76):
-            if abs(t - e_t) < 0.034:                                                                                                       # 오른쪽에 남은 지붕돌 3개
-                ew = 0.115 - 0.040 * (e_t > 0.4) - 0.034 * (e_t > 0.7)
-                s.box(c + w - 0.04, c + w + ew, cy - d - 0.03 * (1 - e_t * 0.6), cy + d + 0.03 * (1 - e_t * 0.6), 0.7, ROOF_L, ROOF_R, ROOF_T, z + k * 0.92 + 0.2)
+        # 앞 코너를 지나는 세로 중심선(a=b 대각선)을 기준으로 좌우 대칭: 중심은 (0.5,0.5)에 두고 a·b 방향 폭이 같게 위로 갈수록 가운데로 좁아진다
+        w = 0.215 - 0.150 * t ** 0.95
+        lean = 0.012 * t                                                  # 무너진 느낌의 아주 작은 기울임(거의 대칭)
+        rj = (rnd.random() - 0.5) * 0.012 * (t > 0.5)                     # 윗부분 돌이 군데군데 빠진 불규칙
+        course_box(s, cx - w + lean, cx + w + lean + rj, cy - w, cy + w + rj, z + k * 0.92, 0.92, rnd, ch=0.92, pink=0.13)
+        for e_t in (0.20, 0.46, 0.72):                                      # 위로 갈수록 작아지는 지붕돌(처마) — 좌우(a·b 양쪽)로 똑같이 튀어나옴
+            if abs(t - e_t) < 0.03:
+                ew = 0.060 - 0.016 * (e_t > 0.4) - 0.014 * (e_t > 0.65)
+                s.box(cx - w - ew + lean, cx + w + ew + lean, cy - w - ew, cy + w + ew, 0.7, ROOF_L, ROOF_R, ROOF_T, z + k * 0.92 + 0.2)
+                s.line([G(cx - w - ew + lean + 0.01, cy + w + ew, z + k * 0.92 + 0.55), G(cx + w + ew + lean, cy + w + ew, z + k * 0.92 + 0.55)], hx('4e4e48', 130), 2)
     ztop = z + n * 0.92
-    s.box(0.56, 0.69, cy - 0.06, cy + 0.06, 0.8, ROOF_L, ROOF_R, ROOF_T, ztop)
+    s.box(cx - 0.055 + 0.012, cx + 0.055 + 0.012, cy - 0.055, cy + 0.055, 0.8, ROOF_L, ROOF_R, ROOF_T, ztop)
     s.tree(0.04, 0.88, 0.9); s.tree(0.95, 0.15, 0.8)
     out_ = s.finish()
     STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T = save

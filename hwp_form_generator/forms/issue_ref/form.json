@@ -1,0 +1,23 @@
+{
+  "id": "issue_ref",
+  "name": "참고 쪽 (쟁점·민원)",
+  "audience": "간부회의",
+  "kind": "report",
+  "note": "'참 고 ○' 제목 상자 — 뒤에 참고 내용을 붙입니다",
+  "fields": [
+    {
+      "key": "no",
+      "label": "참고 번호",
+      "default": "1"
+    }
+  ],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

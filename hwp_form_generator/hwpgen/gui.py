@@ -34,6 +34,21 @@ def tmp_hwpx(prefix):
     return os.path.join(d, "%s_%s.hwpx" % (prefix, datetime.datetime.now().strftime("%H%M%S")))
 
 
+def write_error_log(what, exc):
+    """오류가 나면 자세한 내용을 %APPDATA%\\HwpFormGenerator\\error.log 에 남긴다(어느 양식·몇 번째 조각에서 어떤 오류인지)"""
+    import traceback
+    try:
+        d = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "HwpFormGenerator")
+        os.makedirs(d, exist_ok=True)
+        p = os.path.join(d, "error.log")
+        with open(p, "a", encoding="utf-8") as f:
+            f.write("[%s] %s\n%s\n" % (datetime.datetime.now().isoformat(timespec="seconds"), what,
+                                      "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))))
+        return p
+    except Exception:                                    # noqa: BLE001
+        return ""
+
+
 class Output:
     """만든 문서를 어디로 보낼지: 한글에 끼우기 / 새 문서로 열기 / 파일 저장"""
 
@@ -75,25 +90,36 @@ class Output:
         with_tail_blank(pkg)                         # 끝에 빈 줄: 커서가 새 줄에 놓여 다음 ◦가 붙지 않는다
         chunks = split_chunks(pkg) if step else [pkg]
         n = len(chunks)
+        i = 0
         try:
             for i, ch in enumerate(chunks, 1):
                 if step:
                     br.move_doc_end()                # 매번 문서 끝에 붙인다(앞 조각이 남긴 받침 문단에 합쳐짐)
-                path = ch.save(tmp_hwpx(prefix))
-                try:
-                    br.insert_file(path, keep_section=(keep_section and i == 1))
-                finally:
-                    try:
-                        os.remove(path)
-                    except OSError:
-                        pass
+                self._insert_chunk(ch, prefix, br, keep_section and i == 1)
                 if n > 1:
                     app.say("입력 중… %d/%d" % (i, n))
                     app.update()
                     time.sleep(app.ui.get("insert_delay", min(0.45, max(0.12, 3.0 / n))))
             app.say("열려 있는 문서의 커서 위치에 넣었어요")
-        except B.BridgeError as e:
-            messagebox.showerror("한글에 넣기", str(e))
+        except Exception as e:                       # noqa: BLE001
+            log = write_error_log("insert %s chunk %d/%d step=%s" % (prefix, i, n, step), e)
+            if messagebox.askyesno("한글에 넣기", "%s\n\n(%s)\n\n이 양식을 새 문서로 열어 드릴까요?\n오류 기록: %s" % (
+                    e, prefix, log)):
+                try:
+                    self.open_new(pkg, prefix)
+                except Exception as e2:              # noqa: BLE001
+                    write_error_log("open_new %s" % prefix, e2)
+                    messagebox.showerror("한글에서 열기", str(e2))
+
+    def _insert_chunk(self, ch, prefix, br, keep_section):
+        path = ch.save(tmp_hwpx(prefix))
+        try:
+            br.insert_file(path, keep_section=keep_section)
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
     def open_new(self, pkg, prefix, path=None):
         path = path or pkg.save(tmp_hwpx(prefix))
@@ -1370,12 +1396,12 @@ class Widget(tk.Tk):
                     "국가예산 신규사업": "nat"}
     GROUP_ORDER = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "참고자료(백데이터)", "보도자료", "국회단계 서면질의서",
                    "국회단계 정책질의서", "국회단계 질의서", "행정사무감사", "이월 조서", "국가예산 신규사업"]
-    FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card",
+    FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card", "issue_list", "issue_card", "issue_ref",
                   "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
                   "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item",
                   "policy_ref", "audit_cover", "audit_common", "audit_item", "carry_item", "nbud_main", "nbud_ref1", "nbud_ref2"]
     FORM_ICONS = {"report_event": "event", "report_project": "project", "report_mayor": "mayor",
-                  "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project",
+                  "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project", "issue_list": "plan", "issue_card": "event", "issue_ref": "clip",
                   "audit_cover": "cover", "audit_common": "plan", "audit_item": "project", "carry_item": "project",
                   "nbud_main": "nation", "nbud_ref1": "table", "nbud_ref2": "doc",
                   "budget_cover": "cover", "budget_project": "project", "budget_ref_cover": "cover",
@@ -1795,6 +1821,8 @@ class Widget(tk.Tk):
         self.section(parent, "설정")
         Btn(parent, "내 정보 (과·담당자)", self.open_profile, icon_name="user").pack(fill="x", pady=4)
         Btn(parent, "한글에 다시 연결", self.connect, kind="flat", icon_name="link").pack(fill="x", pady=4)
+        Btn(parent, "오류 기록 폴더 열기", self.open_log_dir, kind="flat", icon_name="doc",
+            tip="양식 넣기가 실패하면 자세한 내용이 error.log 에 남아요").pack(fill="x", pady=4)
         Btn(parent, "프로그램 완전 종료", self.quit_app, kind="flat", icon_name="tray",
             tip="창을 닫으면 트레이로 가요. 아예 끄려면 여기 또는 트레이 아이콘 메뉴의 '종료'").pack(fill="x", pady=4)
         self.section(parent, "넣는 방식")
@@ -2106,6 +2134,14 @@ class Widget(tk.Tk):
         ok = self.bridge.connected
         self.chip.config(text=("●  한글에 연결됨" if ok else "●  한글 연결 안 됨 — 눌러서 연결"),
                          fg=C_OK if ok else C_BAD)
+
+    def open_log_dir(self):
+        d = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "HwpFormGenerator")
+        os.makedirs(d, exist_ok=True)
+        try:
+            os.startfile(d)
+        except Exception:                                # noqa: BLE001
+            self.say("기록 폴더: %s" % d)
 
     def connect(self):
         try:

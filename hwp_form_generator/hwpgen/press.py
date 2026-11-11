@@ -7,7 +7,9 @@ _DATE = re.compile(r"(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*(?:\(([월화수�
 _TIME = re.compile(r"(\d{1,2}):(\d{2})")
 _KEYS = {"일시": "when", "일자": "when", "날짜": "when", "기간": "when", "장소": "place", "위치": "place",
          "주최": "host", "주관": "host", "대상": "target", "참가대상": "target", "참여대상": "target", "대상자": "target",
-         "내용": "content", "주요내용": "content", "문의": "contact", "담당": "contact", "예산": "budget", "사업비": "budget"}
+         "내용": "content", "주요내용": "content", "문의": "contact", "담당": "contact", "예산": "budget", "사업비": "budget",
+         "목적": "purpose", "취지": "purpose", "배경": "purpose", "기대효과": "effect", "효과": "effect",
+         "신청": "apply", "접수": "apply", "신청방법": "apply", "참가신청": "apply", "방법": "apply"}
 _EVENT = ("행사", "축제", "대회", "공연", "회의", "포럼", "설명회", "박람회", "전시", "세미나", "발표회", "기념식", "개막", "페스티벌", "교육", "음악회", "콘서트", "문화제", "투어", "탐방", "워크숍", "강연", "강좌", "체험", "시상식", "개최", "한마당")
 
 
@@ -22,7 +24,8 @@ def _josa(word, a, b):
 
 
 def parse_rough(text):
-    d = {"title": "", "when": "", "place": "", "host": "", "target": "", "contact": "", "budget": "", "content": []}
+    d = {"title": "", "when": "", "place": "", "host": "", "target": "", "contact": "", "budget": "", "purpose": "", "effect": "",
+         "apply": "", "content": []}
     for raw in (text or "").replace("\r", "").split("\n"):
         s = raw.strip()
         if not s:
@@ -56,33 +59,64 @@ def _when(w):
     return out
 
 
+ORD = ("첫째", "둘째", "셋째", "넷째", "다섯째")
+
+
 def draft(text, org="익산시", dept="", tel=""):
-    """→ (제목, 본문 문단 목록). 본문은 보도자료 흐름: 리드문 → 개요 → 세부 내용 → 참여·문의 안내"""
+    """→ (제목, 본문 문단 목록). 보도자료의 흔한 흐름: 리드문 → 일시·장소·주관 → 추진 취지 → 주요 내용(첫째·둘째…) →
+    사업비·참여·신청 → 기대효과 → 관계자 인용(빈칸 안내) → 문의. 적은 사실만 쓰고, 없는 정보는 [대괄호]로 비워 둔다."""
     d = parse_rough(text)
     title = d["title"] or "(제목)"
     event = any(k in title for k in _EVENT)
     kind = "행사" if event else "사업"
+    topic = "이번 %s%s" % (kind, _josa(kind, "은", "는"))
     verb = "개최한다고 밝혔다" if event else "추진한다고 밝혔다"
     when, place = _when(d["when"]), d["place"]
-    where = ("%s%s " % (place, "에서")) if place else ""
     quoted = "‘%s’%s" % (title, _josa(title, "을", "를"))
-    lead = "%s는 %s%s%s %s." % (org, ("%s " % when) if when else "", where, quoted, verb)
-    lead = re.sub(r"\s+", " ", lead).replace(" .", ".")
-    paras = [lead]
-    content = d["content"]
-    if content:
-        if len(content) == 1:
-            c = content[0].rstrip(".")
-            paras.append(c + "." if (len(c) > 18 or c.endswith("다")) else "주요 내용은 %s%s다." % (c, _josa(c, "이", "")))
+    lead = "%s는 %s%s%s %s." % (org, ("%s " % when) if when else "", ("%s에서 " % place) if place else "", quoted, verb)
+    paras = [re.sub(r"\s+", " ", lead).replace(" .", ".")]
+    # 취지
+    if d["purpose"]:
+        pu = d["purpose"].rstrip(".")
+        paras.append("%s %s" % (topic, pu + "." if (pu.endswith("다") or len(pu) > 28) else "%s%s 위해 마련됐다." % (pu, _josa(pu, "을", "를"))))
+    else:
+        paras.append("%s [추진 배경·취지를 한두 문장으로 적어 주세요]." % topic)
+    # 일시·장소·주관
+    where = ("%s " % when if when else "") + ("%s에서" % place if place else "")
+    if where or d["host"]:
+        s1 = "%s %s" % (topic, where.strip() + (" 열리며" if where else "")) if where else topic
+        if d["host"]:
+            s1 += ("%s%s 주관한다." % (", " if where else " ", d["host"] + _josa(d["host"], "이", "가"))) if where else " %s%s 주관한다." % (d["host"], _josa(d["host"], "이", "가"))
         else:
-            paras.append("주요 내용은 %s 등이다." % ", ".join(c.rstrip(".") for c in content))
-    if d["host"]:
-        paras.append("이번 %s%s %s%s 주관·추진한다." % (kind, _josa(kind, "은", "는"), d["host"], _josa(d["host"], "이", "가")))
+            s1 = (s1[:-2] + "린다.") if s1.endswith("열리며") else s1 + "."
+        paras.append(s1)
+    # 주요 내용
+    content = [c.rstrip(".") for c in d["content"]]
+    if len(content) == 1:
+        c = content[0]
+        paras.append(c + "." if (len(c) > 18 or c.endswith("다")) else "주요 내용은 %s%s다." % (c, _josa(c, "이", "")))
+    elif content:
+        parts = ["%s, %s" % (ORD[i], c) for i, c in enumerate(content[:5])]
+        paras.append("%s %s 등으로 구성된다." % (topic, ", ".join(parts)))
+        if len(content) > 5:
+            paras.append("이 밖에 %s 등도 마련된다." % ", ".join(content[5:]))
     if d["budget"]:
         paras.append("사업비는 %s이다." % d["budget"].rstrip("."))
     if d["target"]:
         tg = d["target"].rstrip(".")
-        paras.append(("%s 참여할 수 있다." % tg) if tg.endswith("누구나") else "참여 대상은 %s%s다." % (tg, _josa(tg, "이", "")) )
+        paras.append(("%s 참여할 수 있다." % tg) if tg.endswith("누구나") else "참여 대상은 %s%s다." % (tg, _josa(tg, "이", "")))
+    if d["apply"]:
+        ap = d["apply"].rstrip(".")
+        paras.append("참여 신청은 %s." % (ap + "으로 하면 된다" if not ap.endswith("다") else ap))
+    # 기대효과
+    if d["effect"]:
+        ef = d["effect"].rstrip(".")
+        paras.append("시는 %s" % (ef + "." if ef.endswith("다") else "%s로 이어질 것으로 기대하고 있다." % ef))
+    else:
+        who = "‘%s’%s" % (title, _josa(title, "을", "를")) if len(title) <= 20 else "이번 %s%s" % (kind, _josa(kind, "을", "를"))
+        tg2 = d["target"].rstrip(".") if d["target"] and not d["target"].endswith("누구나") else "시민"
+        paras.append("시는 %s 통해 %s의 참여와 소통을 넓히고 지역에 활력을 더하는 계기가 될 것으로 기대하고 있다." % (who, tg2))
+    paras.append("%s 관계자는 “[관계자 인용문을 적어 주세요]”라고 말했다." % org)
     tail = d["contact"] or ((dept + (" (%s)" % tel if tel else "")) if dept else "")
     paras.append("한편, 자세한 사항은 %s로 문의하면 된다." % (tail or "담당 부서"))
     return title, paras

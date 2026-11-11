@@ -317,10 +317,10 @@ class NewFormsTests(unittest.TestCase):
     def test_privacy_new_forms(self):
         import zipfile
         bad = ("010-", "전주영", "김형남", "조상미", "조선영", "진소현", "박수진", "조승재", "윤보훈", "전북권", "숭림사", "고선희", "조진선", "이선아", "859-7410", "아동학대", "김태곤", "박환조", "고광민", "남철기", "설재진", "양선화",
-               "이용범", "박미자", "홀로그램", "안지훈", "김건우", "강태환", "이시온", "859-5", "류재현", "최나은", "박갑수", "정경석", "농림축산식품부", "식품박물관", "나바위", "왕궁리", "미륵사", "솜리", "전주영", "김형남", "정서윤", "함열", "아이행복")
+               "이용범", "박미자", "홀로그램", "안지훈", "김건우", "강태환", "이시온", "859-5", "류재현", "최나은", "박갑수", "정경석", "농림축산식품부", "식품박물관", "나바위", "왕궁리", "미륵사", "솜리", "휴게소", "로컬푸드", "가축분뇨", "동산동", "어양동", "전주영", "김형남", "정서윤", "함열", "아이행복")
         for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_common", "audit_item",
                                     "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
-                    "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref", "carry_item", "nbud_main", "nbud_ref1", "nbud_ref2"):
+                    "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref", "carry_item", "nbud_main", "nbud_ref1", "nbud_ref2", "issue_list", "issue_card", "issue_ref"):
             d = os.path.join(FORMS, fid)
             blob = zipfile.ZipFile(os.path.join(d, "template.hwpx")).read("Contents/section0.xml").decode("utf-8")
             blob += open(os.path.join(d, "protos.xml"), encoding="utf-8").read() + open(os.path.join(d, "form.json"), encoding="utf-8").read()

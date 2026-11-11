@@ -1,0 +1,23 @@
+{
+  "id": "issue_list",
+  "name": "쟁점·민원 현황 (목록)",
+  "audience": "간부회의",
+  "kind": "report",
+  "note": "당면업무 쟁점·민원 사업 현황 제목 + 추진 목적 상자 + 목록 표(연번·부서명·사업명·내용·비고) + 금 후 계 획",
+  "fields": [
+    {
+      "key": "dept",
+      "label": "부서(과)",
+      "profile": "dept"
+    }
+  ],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

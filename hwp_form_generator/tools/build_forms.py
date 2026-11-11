@@ -645,9 +645,39 @@ def _nbud_clean(section):
             _set_ts(p, [])
 
 
+def _issue_list_fix(section):
+    """쟁점·민원 현황 첫 쪽: 추진 목적 상자의 샘플 글은 비우고, 목록 표의 사업 내용(표 머리 아래)은 모두 비운다"""
+    from hwpgen.package import ptext
+    for p in section.findall(HP + "p"):
+        for tbl in p.iter(HP + "tbl"):
+            if tbl.get("colCnt") == "1":
+                for t in tbl.iter(HP + "t"):
+                    t.text = ""
+
+
 def build_more(paths):
     out = {}
     F = FORMS
+    if "issue" in paths:
+        ip = paths["issue"]
+        out["issue_list"] = report.register_report(
+            ip, os.path.join(F, "issue_list"), "issue_list", "쟁점·민원 현황 (목록)", "간부회의", [
+                {"key": "dept", "label": "부서(과)", "sample": "기획예산과", "profile": "dept"},
+            ], note="당면업무 쟁점·민원 사업 현황 제목 + 추진 목적 상자 + 목록 표(연번·부서명·사업명·내용·비고) + 금 후 계 획",
+            allow_no_body=True, frame_only=True, slice_=(0, 9), blank_tables={"5": 1}, fix=_issue_list_fix)
+        out["issue_card"] = report.register_report(
+            ip, os.path.join(F, "issue_card"), "issue_card", "쟁점·민원 사업 쪽", "간부회의", [
+                {"key": "no", "label": "쟁점·민원 번호", "sample": "쟁점·민원(1)", "repl": "쟁점·민원({{no}})", "default": "1"},
+                {"key": "title", "label": "쟁점·민원명", "sample": " 쟁점·민원명", "repl": " {{title}}", "default": "(쟁점·민원명)"},
+                {"key": "dept", "label": "부서(과)", "sample": "(부서명)", "repl": "({{dept}})", "profile": "dept"},
+            ], note="쟁점·민원(번호) 제목 상자 + □ 개요(위치·사업기간·사업비·규모·시행기관·내용) + □ 그간 추진사항 + □ 쟁점사항 및 대책 + □ 금 후 계 획",
+            starter="□ 개 요\n◦ 위    치 : \n◦ 사업기간 : \n◦ 사 업 비 : \n◦ 사업규모 : \n◦ 시행기관 : \n◦ 사업내용 : \n\n"
+                    "□ 그간 추진사항\n◦ \n▸\n\n□ 쟁점사항 및 대책\n◦ \n▸\n\n□ 금 후 계 획\n◦ \n▸",
+            slice_=(9, 31), body_from_text="□ 개")
+        out["issue_ref"] = report.register_report(
+            ip, os.path.join(F, "issue_ref"), "issue_ref", "참고 쪽 (쟁점·민원)", "간부회의", [
+                {"key": "no", "label": "참고 번호", "sample": " 000", "repl": " {{no}}", "default": "1"},
+            ], note="'참 고 ○' 제목 상자 — 뒤에 참고 내용을 붙입니다", allow_no_body=True, frame_only=True, slice_=(31, 32))
     if "carry" in paths:
         out["carry_item"] = report.register_report(
             paths["carry"], os.path.join(F, "carry_item"), "carry_item", "명시이월 사업현황", "이월 조서", [
@@ -679,8 +709,8 @@ if __name__ == "__main__":
         sys.exit(1)
     res = build(*pos) if pos else {}
     if extra:
-        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "nbud")}))
-        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "nbud")}))
+        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "nbud", "issue")}))
+        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "nbud", "issue")}))
         res.update(build_queries({k: v for k, v in extra.items() if k in ("written", "policy")}))
     for k, v in res.items():
         print(k, "→", {a: b for a, b in v.items() if a != "style"})

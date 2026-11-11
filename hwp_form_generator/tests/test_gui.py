@@ -97,6 +97,7 @@ class GuiTests(unittest.TestCase):
         self.widget.ui["insert_delay"] = 0
         self.br.__dict__.pop("is_empty_doc", None)
         self.br.at_end = True
+        self.widget.ask_rough = lambda *a, **k: ""
 
     @classmethod
     def tearDownClass(cls):
@@ -144,7 +145,9 @@ class GuiTests(unittest.TestCase):
     def test_single_instance(self):
         from hwpgen.single import SingleInstance
         import time
-        a, b = SingleInstance(port=47999), SingleInstance(port=47999)
+        import socket
+        _s = socket.socket(); _s.bind(("127.0.0.1", 0)); port = _s.getsockname()[1]; _s.close()      # 매번 새 포트(방금 쓴 포트의 대기 상태에 안 걸리게)
+        a, b = SingleInstance(port=port), SingleInstance(port=port)
         try:
             self.assertTrue(a.acquire())            # 첫 실행
             self.assertFalse(b.acquire())           # 두 번째 실행은 신호만 보내고 끝
@@ -156,6 +159,19 @@ class GuiTests(unittest.TestCase):
         finally:
             a.close()
             b.close()
+
+    def test_press_draft_and_rough_week(self):
+        self.widget.ask_rough = lambda *a, **k: "익산 음악회\n일시: 2026. 11. 20.(금) 14:00\n장소: 시청\n내용: 공연"
+        self.widget.make_report("press_release")
+        self.assertIn("익산 음악회", self.br.last_text)
+        self.assertIn("개최한다고 밝혔다", self.br.last_text)
+        self.br.selection = "가을 간담회\n일시: 2026. 11. 19.(목) 10:00\n장소: 회의실"
+        try:
+            self.widget.make_week("plan")
+        finally:
+            self.br.selection = ""
+        self.assertEqual(self.br.cleared[-1], False)
+        self.assertIn("가을 간담회", self.br.last_text)
 
     def test_symbols(self):
         self.widget.put_symbol('○')

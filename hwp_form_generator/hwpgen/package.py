@@ -75,6 +75,11 @@ class Package:
     def to_bytes(self):
         for name, root in self._xml.items():
             self.files[name] = dump_xml(root)
+        if "version.xml" in self.files:           # 한글 2020 에서 '상위 버전' 경고가 뜨지 않게 파일 형식 버전을 2020 수준(5.0.5.0)으로 맞춘다
+            v = self.files["version.xml"].decode("utf-8")
+            for k, val in (("major", "5"), ("minor", "0"), ("micro", "5"), ("buildNumber", "0")):
+                v = re.sub(r'(\s%s=")[^"]*(")' % k, r"\g<1>%s\g<2>" % val, v)
+            self.files["version.xml"] = v.encode("utf-8")
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as z:
             order = ["mimetype"] + [n for n in self.files if n != "mimetype"]

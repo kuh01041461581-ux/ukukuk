@@ -514,9 +514,9 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
             t.text = ""
 
     # 5) 쓰지 않는 메모·구역 정리, 줄 배치 캐시 제거
-    for el in list(section.iter(HP + "fieldBegin")):
-        if el.get("type") == "MEMO":
-            ctrl = el.getparent()
+    for el in list(section.iter(HP + "fieldBegin")):      # 시작만 남고 끝이 없는 필드는 '파일 손상'이 되므로 필드는 모두 뺀다(글자는 그대로)
+        ctrl = el.getparent()
+        if ctrl.getparent() is not None:
             ctrl.getparent().remove(ctrl)
     for el in list(section.iter(HP + "fieldEnd")):
         ctrl = el.getparent()

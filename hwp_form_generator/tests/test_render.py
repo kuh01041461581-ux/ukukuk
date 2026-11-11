@@ -328,6 +328,25 @@ class NewFormsTests(unittest.TestCase):
                 self.assertNotIn(w, blob, (fid, w))
 
 
+class PackageSafetyTests(unittest.TestCase):
+    def test_no_unbalanced_fields_and_version(self):
+        """시작만 있고 끝이 없는 필드는 한글에서 '파일 손상'이 된다. 파일 형식 버전은 한글 2020 이 열 수 있는 값이어야 한다."""
+        import zipfile
+        for fid in sorted(os.listdir(FORMS)):
+            path = os.path.join(FORMS, fid, "template.hwpx")
+            if not os.path.exists(path):
+                continue
+            z = zipfile.ZipFile(path)
+            sec = z.read("Contents/section0.xml").decode("utf-8")
+            self.assertEqual(sec.count("<hp:fieldBegin"), sec.count("<hp:fieldEnd"), fid)
+            ver = z.read("version.xml").decode("utf-8")
+            self.assertIn('minor="0"', ver, fid)
+        from hwpgen.package import Package
+        out = registry.load_form("audit_common", ROOTS).render({"dept": "x"}, "").to_bytes()
+        import io
+        self.assertIn(b'micro="5"', zipfile.ZipFile(io.BytesIO(out)).read("version.xml"))
+
+
 class BridgeTests(unittest.TestCase):
     def test_insert_once_even_if_falsy(self):
         from hwpgen.bridge import HwpBridge

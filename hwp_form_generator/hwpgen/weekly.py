@@ -680,3 +680,46 @@ class WeeklyCoverForm:
             if t.text and "{{period}}" in t.text:
                 t.text = t.text.replace("{{period}}", period)
         return pkg
+
+
+# =========================================================== 아무렇게나 쓴 글 → 주간업무계획 항목
+_LABELS = {"일시": "일시", "일자": "일시", "날짜": "일시", "기간": "일시", "시간": "일시", "장소": "장소", "위치": "장소",
+           "주최": "주최", "주관": "주최", "내용": "내용", "주요내용": "내용", "참석": "참석", "참석자": "참석", "대상": "참석"}
+
+
+def parse_rough_plan(text, dept="", staff="", phone=""):
+    """서식 없이 쓴 글 → 항목 목록. 잘 맞는 형식(❶ 제목(부서 담당자) + ◦ 일시 : …)이면 그대로 쓰고,
+    아니면 빈 줄로 나뉜 덩어리마다 첫 줄을 제목, '이름 : 값' 줄은 항목, 나머지 줄은 내용으로 본다."""
+    lines = [ln for ln in (text or "").replace("\r", "").split("\n")]
+    items = parse_plan_lines(lines)
+    if items:
+        return items
+    blocks, cur = [], []
+    for ln in lines:
+        if ln.strip():
+            cur.append(ln.strip())
+        elif cur:
+            blocks.append(cur)
+            cur = []
+    if cur:
+        blocks.append(cur)
+    if len(blocks) == 1 and len(blocks[0]) > 1 and not any(re.match(r"^[^:：]{1,8}[:：]", x) for x in blocks[0][1:]):
+        blocks = [[x] for x in blocks[0]]                         # 한 줄씩 적은 행사 목록
+    for b in blocks:
+        title = re.sub(r"^[\s%s\d.)\-·ㆍ▸○◦ㅇ]+" % _SYM[1:-1], "", b[0]).strip()
+        it = {"title": title, "dept": dept, "staff": staff, "phone": phone, "lines": []}
+        for ln in b[1:]:
+            body = re.sub(r"^[\s○◦ㅇ▸\-·ㆍ]+", "", ln)
+            m = re.match(r"^([^:：]{1,8}?)\s*[:：]\s*(.*)$", body)
+            label = _LABELS.get(re.sub(r"\s", "", m.group(1))) if m else None
+            if label == "일시" and "date" not in it:
+                _fill_when(it, m.group(2).strip())
+            elif label == "장소" and not it.get("place"):
+                it["place"] = m.group(2).strip()
+            elif m and label:
+                it["lines"].append((label, m.group(2).strip()))
+            else:
+                it["lines"].append(("내용", body.strip()))
+        it.pop("place_from_when", None)
+        items.append(it)
+    return items

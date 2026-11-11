@@ -378,6 +378,28 @@ def _audit_common_fix(section):
                 t.text = ""
 
 
+def _trim_rows(section, keep_data=9):
+    """긴 표를 한 쪽에 들어가게: 머리 줄 + 본문 keep_data 줄 + 맨 끝 안내 줄만 남기고 본문 줄 높이를 같게 맞춘다"""
+    tbl = next(section.iter(HP + "tbl"))
+    trs = tbl.findall(HP + "tr")
+    head, body, foot = trs[0], trs[1:-1], trs[-1]
+    for tr in body[keep_data:]:
+        tbl.remove(tr)
+    body = body[:keep_data]
+    h0 = int(body[0].find(HP + "tc").find(HP + "cellSz").get("height"))
+    for tr in body:
+        for tc in tr.findall(HP + "tc"):
+            tc.find(HP + "cellSz").set("height", str(h0))
+    kept = [head] + body + [foot]
+    total = 0
+    for i, tr in enumerate(kept):
+        for tc in tr.findall(HP + "tc"):
+            tc.find(HP + "cellAddr").set("rowAddr", str(i))
+        total += int(tr.find(HP + "tc").find(HP + "cellSz").get("height"))
+    tbl.set("rowCnt", str(len(kept)))
+    tbl.find(HP + "sz").set("height", str(total))
+
+
 def _written_fix(section):
     """서면질의서 한 건: 총괄표의 값 칸은 비우고 세부사업명 칸만 {{title}} 자리표시로"""
     from hwpgen.package import ptext
@@ -420,7 +442,7 @@ def build_queries(paths):
         out["written_list"] = report.register_report(
             w, os.path.join(F, "written_list"), "written_list", "서면질의 목록", "국회단계 서면질의서", [],
             note="서면질의 목록(의원명·제출일자 + 회계/기금·세부사업명·예산 표 머리)", slice_=(7, 13), allow_no_body=True, frame_only=True,
-            blank_tables={"12": 1})
+            blank_tables={"12": 1}, fix=_trim_rows)
         out["written_item"] = report.register_report(
             w, os.path.join(F, "written_item"), "written_item", "서면질의서 (사업 1건)", "국회단계 서면질의서", [
                 {"key": "title", "label": "세부사업명 (예: ○○○ 지원(신규))", "sample": title, "default": "(세부사업명)(신규)"},

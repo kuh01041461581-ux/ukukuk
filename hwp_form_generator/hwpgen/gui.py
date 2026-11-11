@@ -757,6 +757,63 @@ def _mix(c1, c2, t):
     return "#%02x%02x%02x" % tuple(round(x + (y - x) * t) for x, y in zip(a, b))
 
 
+_AA = {}
+
+
+def aa_shape(w, h, r, fill, outline=None, bg=None, grad=None):
+    """안티앨리어싱된 둥근 도형 이미지(Pillow 로 3배 크기로 그려 줄임). Pillow 가 없으면 None → 호출한 쪽이 기본 도형으로 그림.
+    grad=(색1, 색2): 왼쪽 위→오른쪽 아래 그라데이션으로 채움."""
+    key = (w, h, r, fill, outline, bg, grad)
+    if key in _AA:
+        return _AA[key]
+    img = None
+    try:
+        import base64
+        import io
+        from PIL import Image, ImageDraw
+        k = 3
+        W, H = max(2, int(w)) * k, max(2, int(h)) * k
+        bgc = bg or C_BG
+        base = Image.new("RGB", (W, H), bgc)
+        mask = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, W - 1, H - 1), radius=r * k, fill=255)
+        if grad:
+            c1 = tuple(int(grad[0][i:i + 2], 16) for i in (1, 3, 5))
+            c2 = tuple(int(grad[1][i:i + 2], 16) for i in (1, 3, 5))
+            gi = Image.new("RGB", (W, H))
+            px = gi.load()
+            den = float(W + H)
+            for y in range(H):
+                for x in range(W):
+                    t = (x + y) / den
+                    px[x, y] = (int(c1[0] + (c2[0] - c1[0]) * t), int(c1[1] + (c2[1] - c1[1]) * t), int(c1[2] + (c2[2] - c1[2]) * t))
+            base.paste(gi, (0, 0), mask)
+        else:
+            base.paste(Image.new("RGB", (W, H), fill), (0, 0), mask)
+            if outline:
+                inner = Image.new("L", (W, H), 0)
+                ImageDraw.Draw(inner).rounded_rectangle((k, k, W - 1 - k, H - 1 - k), radius=max(1, r * k - k), fill=255)
+                ring = Image.new("L", (W, H), 0)
+                ring.paste(mask, (0, 0))
+                ring.paste(0, (0, 0), inner)
+                base.paste(Image.new("RGB", (W, H), outline), (0, 0), ring)
+        base = base.resize((int(w), int(h)), Image.LANCZOS)
+        bio = io.BytesIO()
+        base.save(bio, "PNG")
+        img = tk.PhotoImage(data=base64.b64encode(bio.getvalue()))
+    except Exception:                                    # noqa: BLE001
+        img = None
+    if len(_AA) > 400:
+        _AA.clear()
+    _AA[key] = img
+    return img
+
+
+def _q(t):
+    """애니메이션 값을 7단계로 끊어 이미지 캐시가 늘어나지 않게"""
+    return round(t * 6) / 6.0
+
+
 def vgradient_image(w, h, c1, c2):
     img = tk.PhotoImage(width=w, height=h)
     for y in range(h):
@@ -873,26 +930,26 @@ class Btn(_Anim, tk.Canvas):
         w, h = self.winfo_width(), self.winfo_height()
         if w < 4:
             return
-        t, acc = self.t, self.kind == "accent"
+        t, acc = _q(self.t), self.kind == "accent"
         dy = 1 if self.pressed else 0
+        r = min(14, (h - 2) // 2)
         if acc:
             lift = 0.10 * t - (0.12 if self.pressed else 0)
-            r = (h - 2) / 2
-            for x in range(1, w - 1):
-                edge = max(0.0, r - min(x - 1, w - 2 - x))
-                inset = r - (r * r - edge * edge) ** 0.5 if edge > 0 else 0
-                col = _mix(C_G1, C_G2, x / max(1, w - 1))
-                col = _mix(col, "#ffffff" if lift >= 0 else "#000000", abs(lift))
-                self.create_line(x, 1 + inset, x, h - 1 - inset, fill=col)
+            c1, c2 = _mix(C_G1, "#ffffff" if lift >= 0 else "#000000", abs(lift)), _mix(C_G2, "#ffffff" if lift >= 0 else "#000000", abs(lift))
+            im = aa_shape(w - 2, h - 2, r, None, grad=(c1, c2))
             fg = "white"
         else:
             idle = C_CARD if self.kind == "card" else C_BG
-            fill = _mix(idle, C_HOVER, t)
-            if self.pressed:
-                fill = C_PRESS
+            fill = C_PRESS if self.pressed else _mix(idle, C_HOVER, t)
             line = _mix(C_LINE if self.kind == "card" else C_BG, "#b9bfe6", t)
-            pill(self, 1, 1 + dy * 0, w - 2, h - 2, fill=fill, outline=line)
+            im = aa_shape(w - 2, h - 2, r, fill, outline=line)
             fg = _mix(C_TEXT, "#2c3366", t)
+        if im is not None:
+            self.create_image(1, 1, image=im, anchor="nw")
+        elif acc:
+            pill(self, 1, 1, w - 2, h - 2, fill=C_G1, outline="")
+        else:
+            pill(self, 1, 1, w - 2, h - 2, fill=_mix(C_CARD if self.kind == "card" else C_BG, C_HOVER, t), outline=_mix(C_LINE, "#b9bfe6", t))
         ic = icon(self.icon_name, white=acc) if self.icon_name else None
         x = 10
         if self.anchor == "w":
@@ -931,9 +988,13 @@ class Chip(_Anim, tk.Canvas):
     def draw(self):
         self.delete("all")
         s, t = self.size, self.t
-        grow = 1.5 * t - (1.5 if self.pressed else 0)
+        t = _q(t)
         fill = C_PRESS if self.pressed else _mix(C_CARD, C_HOVER, t)
-        round_rect(self, 1 - grow, 1 - grow, s - 2 + grow, s - 2 + grow, 10, fill=fill, outline=_mix(C_LINE, C_ACC, t))
+        im = aa_shape(s - 2, s - 2, 10, fill, outline=_mix(C_LINE, C_ACC, t))
+        if im is not None:
+            self.create_image(1, 1, image=im, anchor="nw")
+        else:
+            round_rect(self, 1, 1, s - 2, s - 2, 10, fill=fill, outline=_mix(C_LINE, C_ACC, t))
         c = s // 2
         if self.badge:
             n, solid = self.badge
@@ -980,12 +1041,19 @@ class TabTile(_Anim, tk.Canvas):
         w, h, t = self.winfo_width(), self.winfo_height(), self.t
         if w < 4:
             return
+        t = _q(t)
         if self.on:
-            grad_round(self, 1, 1, w - 1, h - 1, 12, C_G1, C_G2)
+            im = aa_shape(w - 2, h - 2, 12, None, grad=(C_G1, C_G2))
             fg = "white"
         else:
-            round_rect(self, 1, 1, w - 2, h - 2, 12, fill=_mix(C_BG, C_HOVER, t), outline=_mix(C_BG, C_LINE, t))
+            im = aa_shape(w - 2, h - 2, 12, _mix(C_BG, C_HOVER, t), outline=_mix(C_BG, C_LINE, t) if t else None)
             fg = _mix(C_SUB, C_ACC, t)
+        if im is not None:
+            self.create_image(1, 1, image=im, anchor="nw")
+        elif self.on:
+            grad_round(self, 1, 1, w - 1, h - 1, 12, C_G1, C_G2)
+        else:
+            round_rect(self, 1, 1, w - 2, h - 2, 12, fill=_mix(C_BG, C_HOVER, t), outline=_mix(C_BG, C_LINE, t))
         ic = icon(self.icon_name, white=self.on)
         if ic is not None:
             self.create_image(w // 2, 17 + (1 if self.pressed else 0), image=ic)
@@ -1147,26 +1215,34 @@ class Widget(tk.Tk):
     # ---------------------------------------------------------------- 뼈대
     def _build_frame(self):
         W = WIDGET_W
-        self.head = tk.Canvas(self, width=W, height=56, highlightthickness=0, bd=0, bg=C_BG)
+        self.head = tk.Canvas(self, width=W, height=54, highlightthickness=0, bd=0, bg=C_BG)
         self.head.pack(fill="x")
-        self._hg = vgradient_image(W + 200, 56, "#e4e8fd", C_BG)          # 포인트 색을 옅게 깐 유리 느낌, 아래로 갈수록 바탕색
-        self.head.create_image(0, 0, image=self._hg, anchor="nw")
-        self._bar = gradient_image(W + 200, 3, C_G1, C_G2)
-        self.head.create_image(0, 0, image=self._bar, anchor="nw")
-        self.head.create_text(16, 23, text="양식 도우미", anchor="w", fill=C_TEXT, font=(FONT[0], 12, "bold"))
-        self.head.create_text(16, 40, text="한글 옆에서 한 번에", anchor="w", fill=C_SUB, font=FONT_S)
-        for i, (nm, cmd, tip) in enumerate((("minus", self.toggle, "접기·펴기"), ("dock", self.dock, "한글 옆에 붙이기"),
-                                            ("tray", self.to_tray, "트레이로 보내기"))):
-            ic = icon(nm)
-            x = W - 22 - i * 30
-            self.head.create_image(x, 28, image=ic, tags=("hb%d" % i,))
-            self.head.tag_bind("hb%d" % i, "<Button-1>", lambda e, c=cmd: c())
-            self.head.tag_bind("hb%d" % i, "<Enter>", lambda e: self.head.config(cursor="hand2"))
-            self.head.tag_bind("hb%d" % i, "<Leave>", lambda e: self.head.config(cursor=""))
-        tk.Frame(self, bg=C_LINE, height=1).pack(fill="x")
-        self.chip = tk.Label(self, text="", bg=C_BG, font=FONT_S, anchor="w", padx=14, pady=5, cursor="hand2")
-        self.chip.pack(fill="x")
+        logo = aa_shape(30, 30, 9, None, grad=(C_G1, C_G2))
+        if logo is not None:
+            self._logo = logo
+            self.head.create_image(14, 12, image=logo, anchor="nw")
+        else:
+            round_rect(self.head, 14, 12, 44, 42, 9, fill=C_G1, outline="")
+        gl = icon("doc", white=True)
+        if gl is not None:
+            self.head.create_image(29, 27, image=gl)
+        self.head.create_text(54, 19, text="양식 도우미", anchor="w", fill=C_TEXT, font=(FONT[0], 11, "bold"))
+        self.chip = tk.Label(self.head, text="", bg=C_BG, font=(FONT[0], 8), anchor="w", padx=0, pady=0, cursor="hand2")
+        self.head.create_window(54, 38, window=self.chip, anchor="w")
         self.chip.bind("<Button-1>", lambda e: self.connect() if not self.bridge.connected else None)
+        self._hb = {}
+        for i, (nm, cmd, tip) in enumerate((("tray", self.to_tray, "트레이로 보내기"), ("dock", self.dock, "한글 옆에 붙이기"),
+                                            ("minus", self.toggle, "접기·펴기"))):
+            cx = W - 20 - i * 28
+            tag = "hb%d" % i
+            ov = self.head.create_oval(cx - 12, 27 - 12, cx + 12, 27 + 12, fill=C_BG, outline="", tags=(tag,))
+            self.head.create_text(cx, 27, text={"tray": "⌄", "dock": "▭", "minus": "–"}[nm], fill=C_SUB,
+                                  font=(FONT[0], 11 if nm != "dock" else 9, "bold"), tags=(tag, tag + "t"))
+            self._hb[tag] = ov
+            self.head.tag_bind(tag, "<Button-1>", lambda e, c=cmd: c())
+            self.head.tag_bind(tag, "<Enter>", lambda e, o=ov, tg=tag: (self.head.itemconfig(o, fill=C_HOVER), self.head.itemconfig(tg + "t", fill=C_ACC), self.head.config(cursor="hand2")))
+            self.head.tag_bind(tag, "<Leave>", lambda e, o=ov, tg=tag: (self.head.itemconfig(o, fill=C_BG), self.head.itemconfig(tg + "t", fill=C_SUB), self.head.config(cursor="")))
+        tk.Frame(self, bg=C_LINE, height=1).pack(fill="x")
         self.tabbar = tk.Frame(self, bg=C_BG)
         self.tabbar.pack(fill="x", padx=8, pady=(4, 2))
         self.tiles = {}
@@ -1365,8 +1441,9 @@ class Widget(tk.Tk):
         self._tb_cols = tk.IntVar(value=int(self.ui.get("tb_cols", 3)))
         for lab, var in (("줄", self._tb_rows), ("칸", self._tb_cols)):
             tk.Label(row, text=lab, bg=C_BG, fg=C_SUB, font=FONT_S).pack(side="left", padx=(0, 3))
-            tk.Spinbox(row, from_=1, to=30, width=3, textvariable=var, font=FONT, justify="center", relief="flat",
-                       highlightthickness=1, highlightbackground=C_LINE).pack(side="left", padx=(0, 10))
+            Chip(row, "−", lambda v=var: v.set(max(1, int(v.get()) - 1)), size=26, font=(FONT[0], 11, "bold")).pack(side="left")
+            tk.Label(row, textvariable=var, bg=C_BG, fg=C_TEXT, font=FONT_B, width=3).pack(side="left")
+            Chip(row, "+", lambda v=var: v.set(min(30, int(v.get()) + 1)), size=26, font=(FONT[0], 11, "bold")).pack(side="left", padx=(0, 10))
         Btn(parent, "표 넣기", self.put_table, icon_name="table", tip="커서 위치에 줄×칸 표를 만들어요").pack(fill="x", pady=4)
         self.section(parent, "오늘 날짜")
         today = datetime.date.today()
@@ -1537,7 +1614,25 @@ class Widget(tk.Tk):
             plain = f.meta.get("style", {}).get("body_mode") == "plain"      # 보도자료처럼 본문을 직접 쓰는 양식은 틀만
             outline = "" if (plain or not f.meta.get("has_body", True)) else (f.meta.get("starter") or T.DEFAULT_STARTER)
             replace = None
-            if outline and self.bridge.connected:
+            if plain:                                    # 보도자료: 대략 적은 글(선택한 글 또는 입력창)을 흔한 보도자료 구성의 초안으로
+                rough, sel_used = "", False
+                if self.bridge.connected:
+                    sel = self.bridge.get_selection_text()
+                    if sel.strip():
+                        rough, sel_used = sel, True
+                if not rough:
+                    rough = self.ask_rough("보도자료 초안", "제목, 일시·장소·주최·대상·내용을 대략 적으면 보도자료 문단으로 정리해 드려요.\n"
+                                           "(비워 두면 틀만 넣어요)", "예)\n익산 푸드 페스티벌\n일시: 2026. 11. 20.(금) 14:00\n장소: 중앙체육관\n"
+                                           "주최: 익산시\n대상: 시민 누구나\n내용: 먹거리 부스 운영\n내용: 체험 행사") or ""
+                if rough.strip():
+                    from . import press
+                    prof0 = PR.load_profile()
+                    title0, paras = press.draft(rough, dept=prof0.get("dept", ""), tel=prof0.get("staff_ext", ""))
+                    if any(x["key"] == "title" for x in f.fields):
+                        vals["title"] = title0
+                    outline = "\n".join(paras)
+                    replace = "selection" if sel_used else None
+            if outline and not plain and self.bridge.connected:
                 # 글을 선택해 두고 양식을 누르면 그 글이 바로 그 양식으로 바뀐다(서식 무시하고 아무렇게나 쓴 글도 됨).
                 # 선택이 없으면 평소처럼 새로 넣고, '문서 전체' 체크를 켠 때만 전체를 바꾼다.
                 sel = self.bridge.get_selection_text()
@@ -1559,6 +1654,38 @@ class Widget(tk.Tk):
         PR.push_recent(self.ui, "recent_forms", fid, 5)
         self.busy(lambda: self.out.insert(pkg, f.id, replace))
 
+    def ask_rough(self, title, msg, hint=""):
+        """대략 적은 글을 입력받는 작은 창 → 글(비어 있으면 ''), 닫으면 None"""
+        dlg = tk.Toplevel(self)
+        dlg.title(title)
+        dlg.configure(bg=C_BG)
+        dlg.attributes("-topmost", True)
+        dlg.geometry("+%d+%d" % (max(0, self.winfo_x() - 330), self.winfo_y() + 60))
+        tk.Label(dlg, text=msg, bg=C_BG, fg=C_TEXT, font=FONT, justify="left", anchor="w", wraplength=360).pack(fill="x", padx=14, pady=(12, 6))
+        box = tk.Text(dlg, width=46, height=12, font=FONT, relief="flat", highlightthickness=1, highlightbackground=C_LINE,
+                      highlightcolor=C_ACC, wrap="word", padx=8, pady=6)
+        box.pack(padx=14)
+        if hint:
+            box.insert("1.0", hint)
+            box.config(fg=C_SUB)
+            def clear(_e=None):
+                if box.cget("fg") == C_SUB:
+                    box.delete("1.0", "end")
+                    box.config(fg=C_TEXT)
+            box.bind("<FocusIn>", clear)
+        res = {"v": None}
+        row = tk.Frame(dlg, bg=C_BG)
+        row.pack(fill="x", padx=14, pady=10)
+        def ok():
+            res["v"] = "" if box.cget("fg") == C_SUB else box.get("1.0", "end").strip()
+            dlg.destroy()
+        Btn(row, "초안 만들기", ok, kind="accent", h=36, w=130, anchor="c").pack(side="right")
+        Btn(row, "틀만 넣기", lambda: (res.__setitem__("v", ""), dlg.destroy()), kind="flat", h=36, w=100, anchor="c").pack(side="right", padx=6)
+        box.focus_set()
+        dlg.grab_set()
+        self.wait_window(dlg)
+        return res["v"]
+
     def make_reference(self):
         """시장님 보고(1장) 뒤에 새 쪽 + 참고자료 제목을 붙인다"""
         try:
@@ -1577,6 +1704,14 @@ class Widget(tk.Tk):
                 pkg = registry.load_form("weekly_cover").render({"start": monday.isoformat()})
             elif which == "plan":
                 prof = PR.load_profile()
+                sel = self.bridge.get_selection_text() if self.bridge.connected else ""
+                if sel.strip():                          # 아무렇게나 쓴 글을 선택하고 누르면 그 글이 주간업무계획 서식으로
+                    rough_items = weekly.parse_rough_plan(sel, prof.get("dept", ""), prof.get("staff_name", ""), prof.get("staff_ext", ""))
+                    if rough_items:
+                        replace = "selection"
+                        pkg = registry.load_form("weekly_plan").render({"org": org, "items": rough_items})
+                        self.busy(lambda: self.out.insert(pkg, "주간업무계획", replace))
+                        return
                 items = data["items"] or [{"title": "(행사·업무명)", "dept": prof.get("dept", ""), "staff": prof.get("staff_name", ""),
                                            "phone": prof.get("staff_ext", ""),
                                            "lines": [("일시", ""), ("장소", ""), ("주최", ""), ("내용", "")]}]

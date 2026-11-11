@@ -1,14 +1,31 @@
+/* ===== 엑셀 가져오기 (exe 전용) ===== */
+async function importXlsx(kind) {
+  if (!IS_EXE) { toast('엑셀 가져오기는 exe 프로그램에서만 됩니다'); return; }
+  const had = kind === 'daily' ? S.lines.length : Object.values(S.util).some(x => x.items && x.items.length);
+  if (had && !confirm(kind === 'daily' ? '지금 입력된 일상경비 항목·지출액을 엑셀 내용으로 바꿉니다. 계속할까요?' : '지금 입력된 공공요금(번호·월별 금액·수령 체크)을 엑셀 내용으로 바꿉니다. 계속할까요?')) return;
+  try {
+    const r = await api().import_xlsx(kind, S.year);
+    if (r.cancel) return; if (r.error) { alert(r.error); return; }
+    if (kind === 'daily') { S.lines = r.lines; S.memo = r.memo || ''; if (r.asOf) S.asOf = r.asOf; $('#asof').value = S.asOf; }
+    else { S.util = r.util; UI.util.month = null; }
+    save(); showTab(UI.tab); toast(kind === 'daily' ? `일상경비 ${r.lines.length}개 항목을 가져왔습니다` : '공공요금을 가져왔습니다');
+  } catch (e) { alert('엑셀을 읽지 못했습니다: ' + (e.message || e)); }
+}
+
 /* ===== 설정·백업 / 시작 ===== */
 function renderSettings() {
   const P = $('#p-settings'); const lb = S.lastBackup ? new Date(S.lastBackup) : null;
   P.innerHTML = `
   <div class="card"><h2>백업 · 복원</h2>
-    <p class="sub" style="margin:0 0 10px">입력한 내용은 <b>이 브라우저 안</b>에 자동 저장됩니다. 브라우저 방문 기록·사이트 데이터를 지우거나 다른 PC에서 열면 보이지 않으니, <b>가끔 백업 파일을 저장</b>해 두세요. (마지막 백업: ${lb ? lb.toLocaleString('ko-KR') : '없음'})</p>
+    <p class="sub" style="margin:0 0 10px">${IS_EXE ? '입력한 내용은 <b>이 PC의 AppData 폴더</b>에 자동 저장됩니다. PC를 바꾸거나 포맷할 때를 대비해 <b>가끔 백업 파일을 다른 곳에 저장</b>해 두세요.' : '입력한 내용은 <b>이 브라우저 안</b>에 자동 저장됩니다. 브라우저 방문 기록·사이트 데이터를 지우거나 다른 PC에서 열면 보이지 않으니, <b>가끔 백업 파일을 저장</b>해 두세요.'} (마지막 백업: ${lb ? lb.toLocaleString('ko-KR') : '없음'})</p>
     <div class="row"><button class="btn primary" data-act="backup">백업 파일 저장 (.json)</button><button class="btn" data-act="restore">백업 파일 불러오기</button></div></div>
+  ${IS_EXE ? `<div class="card"><h2>엑셀에서 가져오기</h2><p class="sub" style="margin:0 0 10px">기존 엑셀 파일에서 항목·번호·금액을 다시 읽어 옵니다(지금 입력된 내용이 바뀌니 먼저 백업하세요).</p>
+    <div class="row"><button class="btn" data-act="xl-daily">일상경비 엑셀 가져오기</button><button class="btn" data-act="xl-util">공공요금 엑셀 가져오기</button><button class="btn" data-act="datadir">데이터 폴더 열기</button></div>
+    <p class="muted" style="margin:8px 0 0">데이터는 자동으로 <b>내 PC의 일상경비관리 폴더(AppData)</b>에 저장되고, 하루 한 번 자동 백업(30일)됩니다.</p></div>` : ''}
   <div class="card"><h2>기준일 · 연도</h2>
     <div class="row"><label class="fld" style="margin:0">연도<input type="number" id="s-year" value="${S.year}" style="width:100px"></label>
     <button class="btn" data-act="newyear">새 연도 시작 (번호·항목은 유지, 금액만 비우기)</button></div></div>
-  <div class="card"><h2>초기화</h2><p class="sub" style="margin:0 0 10px">처음 받은 상태(엑셀에서 가져온 값)로 되돌립니다. 지금까지 입력한 내용은 사라지니 먼저 백업하세요.</p><button class="btn danger" data-act="reset">처음 상태로 되돌리기</button></div>
+  <div class="card"><h2>초기화</h2><p class="sub" style="margin:0 0 10px">처음 상태(빈 장부)로 되돌립니다. 지금까지 입력한 내용은 사라지니 먼저 백업하세요.</p><button class="btn danger" data-act="reset">처음 상태로 되돌리기</button></div>
   <div class="card help"><h2>사용법 요약</h2><ul style="margin:0;padding-left:18px">
     <li><b>일상경비</b> 탭: 지출액 칸에 실집행액을 넣으면 집행률·잔액·막대가 바로 바뀝니다. <code>1,000,000+250,000</code> 처럼 계산식도 됩니다. 지급 예정 금액은 '지급예정' 칸의 ＋ 버튼으로 적어 두세요.</li>
     <li><b>공공요금</b> 탭: 전기·상하수도·통신별로 '월별 입력'에서 고지서 상태(☐미수령 → ☑수령 → –청구없음)를 누르고 금액을 입력합니다. 합계는 자동 계산됩니다. 계약번호·납부번호를 누르면 복사됩니다.</li>
@@ -17,13 +34,15 @@ function renderSettings() {
 }
 $('#p-settings').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
-  if (a === 'backup') { S.lastBackup = new Date().toISOString(); save(); download(`일상경비_공공요금_백업_${today()}.json`, JSON.stringify(S, null, 1)); renderSettings(); updateBackupChip(); }
+  if (a === 'xl-daily' || a === 'xl-util') importXlsx(a === 'xl-daily' ? 'daily' : 'util');
+  else if (a === 'datadir') api().open_data_dir();
+  else if (a === 'backup') { S.lastBackup = new Date().toISOString(); save(); download(`일상경비_공공요금_백업_${today()}.json`, JSON.stringify(S, null, 1)); renderSettings(); updateBackupChip(); }
   else if (a === 'restore') {
     const p = $('#pick'); p.accept = '.json,application/json'; p.value = '';
     p.onchange = async () => { try { const d = JSON.parse(await p.files[0].text()); if (!d.lines || !d.util) throw 0; if (confirm('현재 내용을 백업 파일로 바꿉니다. 계속할까요?')) { S = d; save(); init(); toast('불러왔습니다'); } } catch (er) { toast('올바른 백업 파일이 아닙니다'); } };
     p.click();
   } else if (a === 'reset') {
-    if (window.__SEED__ && confirm('처음 상태로 되돌릴까요? 입력한 내용이 모두 사라집니다.') && confirm('정말 되돌릴까요? (백업을 먼저 저장했는지 확인하세요)')) { S = deepCopy(window.__SEED__); save(); init(); toast('처음 상태로 되돌렸습니다'); }
+    if (confirm('처음 상태로 되돌릴까요? 입력한 내용이 모두 사라집니다.') && confirm('정말 되돌릴까요? (백업을 먼저 저장했는지 확인하세요)')) { S = window.__SEED__ ? deepCopy(window.__SEED__) : emptyState(); save(); init(); toast('처음 상태로 되돌렸습니다'); }
   } else if (a === 'newyear') {
     const y = +$('#s-year').value; if (!y || !confirm(`${y}년 새 장부를 시작합니다.\n- 지출·지급예정·비고·월별 금액이 비워집니다(예산액은 유지 → 새 예산서를 불러와 갱신하세요)\n- 올해 월별 금액은 '전년' 비교값으로 보관됩니다\n먼저 백업 파일을 저장하셨나요?`)) return;
     S.year = y; S.asOf = y + '-01-01'; S.memo = '';
@@ -63,6 +82,12 @@ try { const th = localStorage.getItem('ilsang-theme'); if (th && th !== 'auto') 
 window.addEventListener('beforeprint', () => { if (!$$('.tab-panel.printing').length) $('#p-' + UI.tab).classList.add('printing'); });
 window.addEventListener('afterprint', () => $$('.tab-panel').forEach(p => p.classList.remove('printing')));
 
-S = loadState();
-if (!S.utilBudget) S.utilBudget = { elec: null, water: null, tel: null };
-init();
+(async () => {
+  try {
+    if (IS_EXE) { await waitApi(); const raw = await api().load_state(); S = raw ? JSON.parse(raw) : emptyState(); }
+    else S = loadState();
+  } catch (e) { S = emptyState(); alert('저장된 데이터를 읽지 못해 빈 장부로 시작합니다: ' + (e.message || e)); }
+  if (!S.utilBudget) S.utilBudget = { elec: null, water: null, tel: null };
+  for (const k of ['elec', 'water', 'tel']) if (!S.util[k]) S.util[k] = emptySec(k);
+  init();
+})();

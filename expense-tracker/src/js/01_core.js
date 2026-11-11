@@ -22,7 +22,13 @@ function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('on');
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 2200);
 }
-function download(name, text, type = 'application/json') {
+const IS_EXE = !!window.__EXE__;
+const api = () => window.pywebview && window.pywebview.api;
+function waitApi() {
+  return new Promise((res, rej) => { let n = 0; const t = setInterval(() => { if (api() && api().load_state) { clearInterval(t); res(); } else if (++n > 200) { clearInterval(t); rej(new Error('프로그램 내부 연결을 찾지 못했습니다')); } }, 50); });
+}
+async function download(name, text, type = 'application/json') {
+  if (IS_EXE) { try { const r = await api().save_text(name, text); if (r && r.ok) toast('저장했습니다: ' + r.path); else if (r && r.error) toast('저장 실패: ' + r.error); } catch (e) { toast('저장 실패'); } return; }
   const blob = new Blob([text], { type: type + ';charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
@@ -42,16 +48,20 @@ let S = null;                       // 전체 데이터
 const UI = { tab: 'daily', util: { cat: 'elec', mode: 'month', month: null, filter: 'all', q: '', showInactive: false }, imp: null };
 
 function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
+function emptyState() { return { version: 1, year: new Date().getFullYear(), asOf: today(), memo: '', lines: [], util: { elec: emptySec('elec'), water: emptySec('water'), tel: emptySec('tel') }, utilBudget: { elec: null, water: null, tel: null } }; }
+function emptySec(k) { const d = { elec: ['전기요금', '계약번호', '납부번호(지로·가상계좌)'], water: ['상하수도요금', '수전번호', '납부번호(지로·가상계좌)'], tel: ['통신요금(U-안전관리시스템)', '고객번호', '납부계좌(농협)'] }[k]; return { key: k, title: d[0], no1Label: d[1], no2Label: d[2], items: [], forwards: [], tips: [], budget: null }; }
 function loadState() {
   try { const raw = localStorage.getItem(KEY); if (raw) { const d = JSON.parse(raw); if (d && d.lines && d.util) return d; } } catch (e) { }
-  return window.__SEED__ ? deepCopy(window.__SEED__) : { version: 1, year: new Date().getFullYear(), asOf: today(), memo: '', lines: [], util: {}, utilBudget: {} };
+  return window.__SEED__ ? deepCopy(window.__SEED__) : emptyState();
 }
 function today() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 let saveTimer = null;
 function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    try { localStorage.setItem(KEY, JSON.stringify(S)); const n = new Date(); $('#sv').textContent = '자동 저장됨 ' + String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0'); }
+    const ok = () => { const n = new Date(); $('#sv').textContent = '자동 저장됨 ' + String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0'); };
+    if (IS_EXE) { api().save_state(JSON.stringify(S)).then(r => { if (r && r.ok) ok(); else $('#sv').textContent = '⚠ 저장 실패: ' + ((r && r.error) || ''); }, () => { $('#sv').textContent = '⚠ 저장 실패'; }); return; }
+    try { localStorage.setItem(KEY, JSON.stringify(S)); ok(); }
     catch (e) { $('#sv').textContent = '⚠ 브라우저에 저장하지 못했습니다 — [설정]에서 백업 파일을 저장하세요'; }
   }, 150);
 }

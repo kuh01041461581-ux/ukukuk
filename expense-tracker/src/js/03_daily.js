@@ -29,8 +29,15 @@ function statusBadges(l) {
   return h;
 }
 
+function welcomeHTML() {
+  return `<div class="card" style="text-align:center;padding:36px 20px"><h2 style="font-size:18px">처음 오셨네요 — 데이터를 가져와 시작하세요</h2>
+    <p class="sub">기존에 쓰던 엑셀에서 일상경비 항목·지출액과 공공요금(전기·상하수도·통신) 번호·금액을 한 번에 가져옵니다.</p>
+    <div class="row" style="justify-content:center;margin:14px 0">${IS_EXE ? `<button class="btn primary" data-act="xl-daily">① 일상경비 엑셀 가져오기</button><button class="btn primary" data-act="xl-util">② 공공요금 엑셀 가져오기</button>` : ''}<button class="btn" data-act="addline">＋ 직접 행 추가</button></div>
+    <p class="muted" style="margin:0">일상경비 엑셀: '사무관리비' 탭 / 공공요금 엑셀: '${esc(S.year)}' 탭이 들어 있는 파일 · 예산은 [PDF 불러오기]에서 합본예산서로 갱신할 수 있습니다.</p></div>`;
+}
 function renderDaily() {
-  const P = $('#p-daily'); const all = S.lines; const T = groupTotals(all); const el = elapsed();
+  const P = $('#p-daily');
+  if (!S.lines.length) { P.innerHTML = welcomeHTML(); return; } const all = S.lines; const T = groupTotals(all); const el = elapsed();
   const byG = g => all.filter(l => l.group === g);
   const kpi = (k, v, s) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s || ''}</div></div>`;
   let h = `
@@ -119,6 +126,7 @@ $('#p-daily').addEventListener('click', e => {
   if (a === 'sch') schDialog(b.dataset.id);
   else if (a === 'editline') lineDialog(b.dataset.id);
   else if (a === 'addline') lineDialog(null);
+  else if (a === 'xl-daily' || a === 'xl-util') importXlsx(a === 'xl-daily' ? 'daily' : 'util');
   else if (a === 'copytsv') copyText(dailyTSV(), '표를 복사했습니다 — 엑셀·한글에 붙여넣으세요');
   else if (a === 'print') { $$('.tab-panel').forEach(p => p.classList.toggle('printing', p.id === 'p-daily')); window.print(); }
 });

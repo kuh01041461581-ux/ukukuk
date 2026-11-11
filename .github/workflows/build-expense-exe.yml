@@ -1,0 +1,46 @@
+name: Build 일상경비관리 exe
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths: ["expense-tracker/**", ".github/workflows/build-expense-exe.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: expense-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -r requirements.txt
+      - name: Test
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python tests/test_api.py
+      - name: Build 화면
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python build.py
+      - name: Build exe (파일 하나짜리)
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name ExpenseManager --add-data "app/ui.html;app" --hidden-import seedlib --collect-all webview app.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ExpenseManager-windows
+          path: expense-tracker/dist/ExpenseManager.exe
+      - name: Publish to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-expense-exe
+          name: 일상경비·공공요금 관리 최신 빌드 (exe)
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          files: expense-tracker/dist/ExpenseManager.exe

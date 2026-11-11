@@ -78,7 +78,14 @@ def nh_badge(im, x, y):
         for c in range(3):
             if Hh[r][c] == '1': px[x + 6 + c, y + 1 + r] = Gc
 def bank():
-    im = pak_entry('b12.d')
+    """원본 시트는 왼쪽 위에 기둥 조각(0..9, 0..21)이 바닥에서 떠 있다 → 떼어서 앞마당 왼쪽 모서리 바닥에 세운다. 그 뒤 큰 기둥에 NH 마크."""
+    im = pak_entry('b12.d'); px = im.load()
+    piece = im.crop((0, 0, 10, 22)); alpha = piece.split()[3]
+    for yy in range(22):
+        for xx in range(10):
+            if px[xx, yy][3]: px[xx, yy] = (0, 0, 0, 0)
+    bx, by = 6, 21                                                             # 기둥 조각 새 자리(바닥 왼쪽 모서리 위)
+    im.alpha_composite(piece, (bx, by))
     nh_badge(im, 17, 9)                                                       # 높은 파란 간판 기둥 위
     return im
 
@@ -87,32 +94,29 @@ def church():
     s = Sc(69, 13); G = s.G; s.ground(); d = ImageDraw.Draw(s.im)
     BR = (hx('c45e48'), hx('883a2e')); BR2 = (hx('a04838'), hx('662c24')); ST = (hx('c4c0b4'), hx('86827a'))
     s.shadow([G(0.14, 0.86), G(0.84, 0.86), G(1.0, 0.76), G(0.30, 0.90)], 100, 10)
-    # ---- 뒤쪽 한옥 예배당(앞뒤로 긴 건물): 붉은 벽 + 격자 창, 아래 처마 + 큰 팔작지붕 ----
-    a0, a1, b0, b1, zw = 0.34, 0.74, 0.08, 0.66, 5.8
-    s.box(a0, a1, b0, b1, zw, (hx('b86a52'), hx('8a4a3a')), (hx('b0604a'), hx('7e3e30')), (hx('5a2a22'), hx('3e1c18')))
-    for k in range(0, 9):                                                     # 오른쪽 벽 기둥 + 창(한옥식 살창)
-        b = b0 + 0.05 + (b1 - b0 - 0.10) * k / 8
-        s.line([G(a1, b, 0), G(a1, b, zw)], hx('5a2c22'), 4)
-    for k in range(0, 8):
-        bb0 = b0 + 0.05 + (b1 - b0 - 0.10) * (k + 0.2) / 8; bb1 = b0 + 0.05 + (b1 - b0 - 0.10) * (k + 0.8) / 8
-        s.grad([G(a1, bb0, 1.0), G(a1, bb1, 1.0), G(a1, bb1, 4.6), G(a1, bb0, 4.6)], hx('e8dcc0'), hx('8a8470'), (0, 1))
-        s.line([G(a1, (bb0 + bb1) / 2, 1.0), G(a1, (bb0 + bb1) / 2, 4.6)], hx('6a4a32'), 2)
-        s.line([G(a1, bb0, 2.8), G(a1, bb1, 2.8)], hx('6a4a32'), 2)
-    # 아래 처마 지붕(오른쪽으로 길게 내민 검은 기와) + 끝 들림
-    ov = 0.11; zr = zw + 0.2
-    s.grad([G(a1 + ov, b0 - 0.04, zr - 1.6), G(a1 + ov, b1 + 0.04, zr - 1.6), G(a1 - 0.01, b1 + 0.04, zr + 1.4), G(a1 - 0.01, b0 - 0.04, zr + 1.4)], hx('62646e'), hx('2c2e38'), (1, 0.3))
-    for k in range(1, 26):
-        b = b0 - 0.04 + (b1 - b0 + 0.08) * k / 26; s.line([G(a1 + ov, b, zr - 1.6), G(a1 - 0.01, b, zr + 1.4)], hx('22242c', 140), 2)
-    s.line([G(a1 + ov, b0 - 0.04, zr - 1.6), G(a1 + ov, b1 + 0.04, zr - 1.6)], hx('d4d0e0'), 4)
-    # 큰 지붕: 오른쪽 경사면(밝은 기와) + 왼쪽 경사면 + 용마루 (용마루는 앞뒤 방향)
-    RZ = 7.4; am = (a0 + a1) / 2; zt = zr + 1.4
-    s.grad([G(a0 - 0.02, b0 - 0.04, zt), G(a0 - 0.02, b1 + 0.04, zt), G(am, b1 - 0.02, zt + RZ), G(am, b0 + 0.02, zt + RZ)], hx('3a3c46'), hx('1e2028'), (1, 0.2))
-    s.grad([G(a1 + 0.02, b0 - 0.04, zt), G(a1 + 0.02, b1 + 0.04, zt), G(am, b1 - 0.02, zt + RZ), G(am, b0 + 0.02, zt + RZ)], hx('7e8090'), hx('3e404e'), (-1, 0.3), 3)
-    for k in range(1, 28):
-        b = b0 - 0.04 + (b1 - b0 + 0.08) * k / 28; bb = b0 + 0.02 + (b1 - b0 - 0.04) * k / 28
-        s.line([G(a1 + 0.02, b, zt), G(am, bb, zt + RZ)], hx('26283a', 130), 2)
-    s.line([G(am, b0 + 0.02, zt + RZ), G(am, b1 - 0.02, zt + RZ)], hx('c4c0d4'), 5)
-    s.line([G(a1 + 0.02, b0 - 0.04, zt), G(a1 + 0.02, b1 + 0.04, zt)], hx('dcd8e8'), 4)
+    # ---- 뒤쪽 한옥 예배당(앞뒤로 긴 건물): 높은 붉은 벽 + 기둥 + 격자 창살이 훤히 보이고, 얕은 처마의 팔작지붕이 위에 얹힌다 ----
+    a0, a1, b0, b1, zw = 0.34, 0.74, 0.06, 0.66, 8.4
+    s.box(a0, a1, b0, b1, zw, (hx('c0705a'), hx('90503e')), (hx('b86650'), hx('84402f')), (hx('5a2a22'), hx('3e1c18')))
+    for z in (0.9, 7.6): s.line([G(a1, b0, z), G(a1, b1, z)], hx('5a2c22'), 5)                   # 도리(가로 보)
+    for k in range(0, 10):                                                    # 오른쪽 벽: 붉은 기둥 + 한옥 살창(격자) + 흰 회벽 판
+        b = b0 + 0.04 + (b1 - b0 - 0.08) * k / 9
+        s.line([G(a1, b, 0), G(a1, b, zw)], hx('6a2e22'), 5)
+    for k in range(0, 9):
+        bb0 = b0 + 0.04 + (b1 - b0 - 0.08) * (k + 0.12) / 9; bb1 = b0 + 0.04 + (b1 - b0 - 0.08) * (k + 0.88) / 9
+        s.grad([G(a1, bb0, 1.2), G(a1, bb1, 1.2), G(a1, bb1, 6.6), G(a1, bb0, 6.6)], hx('f2e8d0'), hx('b4a888'), (0, 1))
+        for q in range(1, 4): s.line([G(a1, bb0 + (bb1 - bb0) * q / 4, 1.2), G(a1, bb0 + (bb1 - bb0) * q / 4, 6.6)], hx('7a4a30'), 2)
+        for z in (2.8, 4.4): s.line([G(a1, bb0, z), G(a1, bb1, z)], hx('7a4a30'), 2)
+    # 얕은 처마 + 큰 팔작지붕(검은 기와, 뒤쪽은 합각): 벽을 가리지 않도록 처마를 짧게 내민다
+    ov = 0.045; zr = zw + 0.1; RZ = 6.6; am = (a0 + a1) / 2
+    s.grad([G(a0 - ov, b0 - ov, zr), G(a0 - ov, b1 + ov, zr), G(am, b1 - 0.03, zr + RZ), G(am, b0 + 0.03, zr + RZ)], hx('3a3c46'), hx('1e2028'), (1, 0.2))
+    s.grad([G(a1 + ov, b0 - ov, zr), G(a1 + ov, b1 + ov, zr), G(am, b1 - 0.03, zr + RZ), G(am, b0 + 0.03, zr + RZ)], hx('7a7c8c'), hx('3a3c4a'), (-1, 0.3), 3)
+    for k in range(1, 30):
+        b = b0 - ov + (b1 - b0 + 2 * ov) * k / 30; bb = b0 + 0.03 + (b1 - b0 - 0.06) * k / 30
+        s.line([G(a1 + ov, b, zr), G(am, bb, zr + RZ)], hx('26283a', 130), 2)
+    s.line([G(a1 + ov, b0 - ov, zr), G(a1 + ov, b1 + ov, zr)], hx('e4e0f0'), 4)             # 처마 끝 선
+    s.line([G(am, b0 + 0.03, zr + RZ), G(am, b1 - 0.03, zr + RZ)], hx('c4c0d4'), 5)
+    for bb in (b0 - ov, b1 + ov):                                             # 추녀마루 끝이 살짝 들린다
+        x, y = G(a1 + ov, bb, zr); d.line([(x, y), (x + 12, y - 6)], fill=hx('e4e0f0'), width=4)
     # ---- 앞쪽 서양식 고딕 파사드: 붉은 벽돌 + 회색 석재 + 뾰족 아치 출입구 + 박공 + 십자가 ----
     fa0, fa1, fb0, fb1, fh = 0.08, 0.48, 0.64, 0.78, 10.5
     s.shadow([G(fa0, fb1), G(fa1, fb1), G(fa1 + 0.10, fb1 + 0.10), G(fa0 + 0.08, fb1 + 0.10)], 80, 6)

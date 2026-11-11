@@ -92,16 +92,50 @@ const CATCOLOR = { elec: 'var(--c-elec)', water: 'var(--c-water)', tel: 'var(--c
 function itemTotal(it) { return sum(it.amt || []); }
 function monthTotal(sec, m, incInactive = true) { return sum(sec.items.filter(i => incInactive || !i.inactive), i => i.amt[m]); }
 function catTotal(sec) { let t = 0; for (let m = 0; m < 12; m++) t += monthTotal(sec, m); return t; }
-function missingCount(sec, m) { return sec.items.filter(i => !i.inactive && (i.rcv[m] || 0) === 0).length; }
+function lastFilled(sec) { let L = -1; sec.items.forEach(i => { for (let m = 0; m < 12; m++) if ((i.rcv[m] === 1) || (i.amt[m] > 0)) L = Math.max(L, m); }); return L; }
+/* 월별 상태: rcv 0 미수령 / 1 수령 / 2 청구없음, paid = 납부 완료 여부 */
+function ensurePaid(sec) {
+  const last = lastFilled(sec);
+  sec.items.forEach(it => {
+    if (!Array.isArray(it.paid) || it.paid.length !== 12) {
+      // 예전 데이터: 가장 최근 달 이전은 납부 완료, 가장 최근 달은 '미납'으로 두어 확인하게 함
+      it.paid = Array.from({ length: 12 }, (_, m) => it.rcv[m] === 1 && m < last);
+    }
+  });
+}
+function stateOf(it, m) { const r = it.rcv[m] || 0; return r === 2 ? 2 : r === 0 ? 0 : (it.paid[m] ? 3 : 1); }   // 0 미수령 · 1 수령(미납) · 3 납부완료 · 2 청구없음
+function needsAction(it, m) { return !it.inactive && (stateOf(it, m) === 0 || stateOf(it, m) === 1); }
+function missingCount(sec, m) { return sec.items.filter(i => !i.inactive && stateOf(i, m) === 0).length; }
+function unpaidItems(sec, m) { return sec.items.filter(i => !i.inactive && stateOf(i, m) === 1); }
+function unpaidAmount(sec, m) { return sum(unpaidItems(sec, m), i => i.amt[m]); }
+function actionCount(sec, m) { return sec.items.filter(i => needsAction(i, m)).length; }
 function activeCount(sec) { return sec.items.filter(i => !i.inactive).length; }
+function setRcv(it, m, v) { it.rcv[m] = v; if (v !== 1) it.paid[m] = false; }
+function setPaid(it, m, b) { it.paid[m] = !!b; if (b && it.rcv[m] !== 1) it.rcv[m] = 1; }
 function setAmt(it, m, v) {
   it.amt[m] = v;
-  if (v && v > 0) it.rcv[m] = 1; else if (v == null && it.rcv[m] === 1) it.rcv[m] = 0;
+  if (v && v > 0) { if (it.rcv[m] !== 1) it.rcv[m] = 1; } else if (v == null && it.rcv[m] === 1) { it.rcv[m] = 0; it.paid[m] = false; }
 }
-/* 선택할 기본 월: 활성 항목에 미수령이 있는 가장 빠른 달 */
+function cycle4(it, m) { const n = { 0: 1, 1: 3, 3: 2, 2: 0 }[stateOf(it, m)]; if (n === 0) setRcv(it, m, 0); else if (n === 1) { it.rcv[m] = 1; it.paid[m] = false; } else if (n === 3) { it.rcv[m] = 1; it.paid[m] = true; } else setRcv(it, m, 2); }
+/* 선택할 기본 월: 확인(수령·납부)이 필요한 가장 빠른 달 */
 function defaultMonth(sec) {
-  for (let m = 0; m < 12; m++) if (missingCount(sec, m) > 0) return m;
+  for (let m = 0; m < 12; m++) if (actionCount(sec, m) > 0) return m;
   return 11;
+}
+/* 전체 요약: 종류별 미수령(지난 달까지)·미납 건수와 금액 */
+function todoSummary() {
+  return CATS.filter(([k]) => S.util[k]).map(([k, nm]) => {
+    const sec = S.util[k], L = lastFilled(sec); let missing = 0, unpaid = 0, amt = 0;
+    sec.items.forEach(it => { if (it.inactive) return; for (let m = 0; m < 12; m++) { const st = stateOf(it, m); if (st === 0 && m <= L) missing++; if (st === 1) { unpaid++; amt += it.amt[m] || 0; } } });
+    return { k, nm, missing, unpaid, amt };
+  });
+}
+/* 검색: 띄어쓰기로 나눈 낱말이 모두 들어 있으면 일치 (번호의 - 는 무시) */
+const normQ = s => String(s || '').toLowerCase().replace(/[\s\-]/g, '');
+function matchItem(it, q, extra) {
+  const terms = String(q || '').split(/\s+/).map(normQ).filter(Boolean); if (!terms.length) return true;
+  const hay = normQ([it.name, it.no1, it.no2, it.memo, it.forward, it.carrier, extra].join(' '));
+  return terms.every(t => hay.includes(t));
 }
 
 /* 말풍선 */

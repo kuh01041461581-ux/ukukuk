@@ -33,7 +33,7 @@ $('#p-settings').addEventListener('click', e => {
     const y = +$('#s-year').value; if (!y || !confirm(`${y}년 새 장부를 시작합니다.\n- 지출·지급예정·비고·월별 금액이 비워집니다(예산액은 유지 → 새 예산서를 불러와 갱신하세요)\n- 올해 월별 금액은 '전년' 비교값으로 보관됩니다\n먼저 백업 파일을 저장하셨나요?`)) return;
     S.year = y; S.asOf = y + '-01-01'; S.memo = '';
     S.lines.forEach(l => { l.spent = 0; l.scheduled = []; l.note = ''; l.ehojo = null; });
-    for (const k in S.util) S.util[k].items.forEach(it => { it.dec = it.amt[11]; it.py = it.amt.slice(); it.amt = Array(12).fill(null); it.rcv = Array(12).fill(it.inactive ? 2 : 0); });
+    for (const k in S.util) S.util[k].items.forEach(it => { it.dec = it.amt[11]; it.py = it.amt.slice(); it.amt = Array(12).fill(null); it.rcv = Array(12).fill(it.inactive ? 2 : 0); it.paid = Array(12).fill(false); });
     S.utilBudget = { elec: null, water: null, tel: null }; UI.util.month = null; save(); init(); toast(`${y}년 장부를 시작했습니다`);
   }
 });
@@ -53,6 +53,7 @@ function updateBackupChip() {
   c.textContent = lb ? '백업 ' + (lb.getMonth() + 1) + '/' + lb.getDate() : '백업 안 함'; c.classList.toggle('warn', days > 14); c.title = '[설정·백업] 탭에서 백업 파일을 저장하세요';
 }
 function init() {
+  for (const k in S.util) ensurePaid(S.util[k]);
   $('#ttl').textContent = `${S.year} 일상경비·공공요금 관리`; document.title = `${S.year} 일상경비·공공요금 관리`;
   $('#asof').value = S.asOf; updateBackupChip();
   $('#tabs').innerHTML = TABS.map(([k, n]) => `<button role="tab" data-t="${k}" aria-selected="${k === UI.tab}">${n}</button>`).join('');
@@ -74,6 +75,6 @@ window.addEventListener('afterprint', () => $$('.tab-panel').forEach(p => p.clas
     else S = loadState();
   } catch (e) { S = emptyState(); alert('저장된 데이터를 읽지 못해 빈 장부로 시작합니다: ' + (e.message || e)); }
   if (!S.utilBudget) S.utilBudget = { elec: null, water: null, tel: null };
-  for (const k of ['elec', 'water', 'tel']) if (!S.util[k]) S.util[k] = emptySec(k);
+  for (const k of ['elec', 'water', 'tel']) { if (!S.util[k]) S.util[k] = emptySec(k); ensurePaid(S.util[k]); }
   init();
 })();

@@ -39,7 +39,7 @@ async function importExcelFile(file) {
     if (r.util) {
       const had = Object.values(S.util).some(x => x.items && x.items.length);
       if (had && !confirm(`'${file.name}'의 공공요금으로 지금 입력된 공공요금(번호·월별 금액·수령 체크)을 바꿀까요?`)) { /* 건너뜀 */ }
-      else { S.util = r.util; UI.util.month = null; parts.push('공공요금(전기·상하수도·통신)'); }
+      else { S.util = r.util; for (const k in S.util) ensurePaid(S.util[k]); UI.util.month = null; parts.push('공공요금(전기·상하수도·통신)'); }
     }
     if (parts.length) { save(); showTab(UI.tab === 'import' || UI.tab === 'settings' ? 'daily' : UI.tab); toast(parts.join(' · ') + '을 가져왔습니다'); }
   } catch (e) { alert('엑셀을 읽지 못했습니다: ' + (e.message || e)); }

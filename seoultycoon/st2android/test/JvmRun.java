@@ -25,6 +25,7 @@ public class JvmRun {
         int rounds = a.length > 4 ? Integer.parseInt(a[4]) : 100;
         java.util.Map<Integer, int[]> keys = new java.util.HashMap<>();
         if (a.length > 5 && !a[5].isEmpty()) for (String k : a[5].split(",")) { String[] p = k.split(":"); keys.put(Integer.parseInt(p[0]), new int[]{Integer.parseInt(p[1]), Integer.parseInt(p[2])}); }
+        if (System.getenv("AUTOTUT") != null) H.startAutoTutorial();
         if (System.getenv("REPL") != null) {                                   // 대화형 시험: REPL=폴더. 폴더/cmd 파일의 줄을 실행하고 폴더/done 을 쓴다.  k 코드 | t 라운드 | s 그림경로 | q
             Path rd = Paths.get(System.getenv("REPL")); Files.createDirectories(rd); int dtm = System.getenv("DT") != null ? Integer.parseInt(System.getenv("DT")) : 50;
             System.out.println("REPL ready"); Files.write(rd.resolve("done"), "ready".getBytes());

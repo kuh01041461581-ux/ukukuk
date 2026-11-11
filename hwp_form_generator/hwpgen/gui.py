@@ -1146,6 +1146,11 @@ class Widget(tk.Tk):
         self.docked = False
         self._msg_job = None
         self.configure(bg=C_BG)
+        try:                                             # 창·작업 표시줄 아이콘
+            self._app_icon = tk.PhotoImage(file=os.path.join(registry.app_dir(), "assets", "app_256.png"))
+            self.iconphoto(True, self._app_icon)
+        except Exception:                                # noqa: BLE001
+            pass
         self.attributes("-topmost", True)
         self.alpha = float(self.ui.get("alpha", 0.9))
         self.sharp_hover = bool(self.ui.get("sharp_hover", True))
@@ -1808,23 +1813,10 @@ class Widget(tk.Tk):
     # ---------------------------------------------------------------- 트레이
     def _tray_image(self):
         from PIL import Image
-        im = Image.new("RGBA", (64, 64))
-        a, b = (0x5e, 0x6a, 0xd2), (0x9a, 0x6b, 0xd6)
-        px = im.load()
-        for x in range(64):
-            for y in range(64):
-                t = (x + y) / 126
-                px[x, y] = tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3)) + (255,)
-        mask = Image.new("L", (64, 64), 0)
-        from PIL import ImageDraw
-        ImageDraw.Draw(mask).rounded_rectangle((0, 0, 63, 63), 14, fill=255)
-        im.putalpha(mask)
         try:
-            ic = Image.open(os.path.join(ICON_DIR, "doc_w.png")).convert("RGBA").resize((40, 40), Image.LANCZOS)
-            im.alpha_composite(ic, (12, 12))
+            return Image.open(os.path.join(registry.app_dir(), "assets", "app_256.png")).convert("RGBA").resize((64, 64), Image.LANCZOS)
         except Exception:                                # noqa: BLE001
-            pass
-        return im
+            return Image.new("RGBA", (64, 64), (0x4a, 0x5b, 0xd8, 255))
 
     def to_tray(self):
         """창을 숨기고 알림 영역(트레이)에 아이콘만 남긴다. 아이콘을 누르면 다시 나타남."""

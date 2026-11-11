@@ -3,23 +3,30 @@ const ST_LABEL = ['☐ 미수령', '☑ 수령', '– 청구없음'];
 const ST_TIP = ['아직 고지서를 받지 못함', '고지서를 받음', '이번 달은 청구 없음(2천원 미만 합산 등)'];
 function manKey(n) { return n >= 1e8 ? (n / 1e8).toFixed(1) + '억' : n >= 1e4 ? Math.round(n / 1e4).toLocaleString('ko-KR') + '만' : String(Math.round(n)); }
 
+function visSeries() { const v = UI.util.series; return CATS.filter(([k]) => v[k] && S.util[k]); }
 function monthlyChart() {
-  const secs = CATS.map(([k]) => S.util[k]).filter(Boolean);
-  const data = MON.map((_, m) => secs.map(s => monthTotal(s, m)));
-  const maxV = Math.max(1, ...data.map(a => sum(a)));
+  const vis = visSeries();
+  if (!vis.length) return '<div class="empty">위의 체크박스에서 보고 싶은 요금을 선택하세요</div>';
+  const data = MON.map((_, m) => vis.map(([k]) => monthTotal(S.util[k], m)));
+  const maxV = Math.max(1, ...data.map(a => Math.max(...a)));
   const mag = Math.pow(10, Math.floor(Math.log10(maxV))); let nice = mag; for (const f of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 10]) { if (maxV <= f * mag) { nice = f * mag; break; } }
-  const W = 900, H = 250, L = 46, R = 10, Tp = 14, B = 26, iw = W - L - R, ih = H - Tp - B, bw = iw / 12 * 0.56;
-  let g = ''; for (let i = 0; i <= 4; i++) { const y = Tp + ih - ih * i / 4; g += `<line class="gd" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${manKey(nice * i / 4)}</text>`; }
+  const W = 900, H = 250, L = 46, R = 10, Tp = 18, B = 26, iw = W - L - R, ih = H - Tp - B;
+  const slot = iw / 12, grp = slot * 0.8, bw = grp / vis.length, showVal = vis.length === 1;
+  let g = '';
+  for (let i = 0; i <= 4; i++) { const y = Tp + ih - ih * i / 4; g += `<line class="gd" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${manKey(nice * i / 4)}</text>`; }
   data.forEach((a, m) => {
-    const cx = L + iw / 12 * (m + 0.5); let acc = 0; const tot = sum(a);
+    const gx = L + slot * m + (slot - grp) / 2;
     a.forEach((v, i) => {
-      if (!v) return; const h = v / nice * ih; const y = Tp + ih - (acc + v) / nice * ih; acc += v;
-      g += `<rect x="${cx - bw / 2}" y="${y}" width="${bw}" height="${Math.max(1, h)}" fill="${CATCOLOR[CATS[i][0]]}" stroke="var(--surface)" stroke-width="2" data-tip="${MON[m]}분 ${CATS[i][1]}\n${won(v)}원\n(3종 합계 ${won(tot)}원)"/>`;
+      const k = vis[i][0], nm = vis[i][1]; const h = v / nice * ih; const x = gx + i * bw + 1, w = Math.max(2, bw - 2);
+      if (v) {
+        const y = Tp + ih - h, r = Math.min(4, w / 2);
+        g += `<path d="M${x},${Tp + ih}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${Tp + ih}Z" fill="${CATCOLOR[k]}" data-tip="${MON[m]}분 ${nm}\n${won(v)}원"/>`;
+        if (showVal) g += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" style="fill:var(--text)">${manKey(v)}</text>`;
+      }
     });
-    g += `<text x="${cx}" y="${H - 8}" text-anchor="middle">${m + 1}월</text>`;
-    if (tot) g += `<text x="${cx}" y="${Tp + ih - tot / nice * ih - 4}" text-anchor="middle" style="fill:var(--text)">${manKey(tot)}</text>`;
+    g += `<text x="${L + slot * (m + 0.5)}" y="${H - 8}" text-anchor="middle">${m + 1}월</text>`;
   });
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 공공요금 지출 막대그래프(전기·상하수도·통신 누적)">${g}<line class="ax" x1="${L}" x2="${W - R}" y1="${Tp + ih}" y2="${Tp + ih}"/></svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 공공요금 지출 막대그래프(${vis.map(x => x[1]).join('·')})">${g}<line class="ax" x1="${L}" x2="${W - R}" y1="${Tp + ih}" y2="${Tp + ih}"/></svg>`;
 }
 
 function renderUtil() {
@@ -37,8 +44,9 @@ function renderUtil() {
       </div>`;
   }
   h += `</div>
-  <div class="card"><h2>월별 공공요금 지출 <span class="muted" style="font-weight:400;font-size:12px">전기+상하수도+통신 · 연 합계 ${won(grand)}원</span></h2>
-    <div class="legend">${CATS.map(([k, nm]) => `<span><i style="background:${CATCOLOR[k]}"></i>${nm}</span>`).join('')}</div>
+  <div class="card"><h2>월별 공공요금 지출 <span class="muted" style="font-weight:400;font-size:12px">체크한 요금만 막대로 보입니다 · 선택 합계 ${won(sum(visSeries(), ([k]) => catTotal(S.util[k])))}원</span></h2>
+    <div class="legend noprint" role="group" aria-label="표시할 요금">${CATS.map(([k, nm]) => S.util[k] ? `<label class="serchk" style="--c:${CATCOLOR[k]}"><input type="checkbox" data-u="series" data-cat="${k}" ${u.series[k] ? 'checked' : ''}><i></i>${nm}</label>` : '').join('')}
+      <button class="btn sm" data-act="series-all">3개 모두</button></div>
     ${monthlyChart()}
     <details class="fold"><summary>표로 보기</summary><div class="tbl-wrap"><table class="t"><thead><tr><th>구분</th>${MON.map(x => `<th>${x}</th>`).join('')}<th>합계</th></tr></thead><tbody>
     ${CATS.map(([k, nm]) => { const s = S.util[k]; if (!s) return ''; return `<tr><td>${nm}</td>${MON.map((_, i) => `<td class="num">${won(monthTotal(s, i))}</td>`).join('')}<td class="num"><b>${won(catTotal(s))}</b></td></tr>`; }).join('')}
@@ -124,6 +132,7 @@ const PU = $('#p-util');
 PU.addEventListener('change', e => {
   const t = e.target, u = t.dataset.u; if (!u) return;
   if (u === 'inactive') { UI.util.showInactive = t.checked; renderUtil(); return; }
+  if (u === 'series') { UI.util.series[t.dataset.cat] = t.checked; if (!visSeries().length) { UI.util.series[t.dataset.cat] = true; toast('최소 한 개는 선택해야 합니다'); } renderUtil(); return; }
   if (u === 'q') return;
   const v = parseNum(t.value);
   if (u === 'budget') { S.utilBudget[t.dataset.cat] = v && !isNaN(v) ? v : null; save(); renderUtil(); return; }
@@ -139,6 +148,7 @@ PU.addEventListener('focusin', e => { if (e.target.matches('input.cellin')) { co
 PU.addEventListener('click', e => {
   const cp = e.target.closest('[data-copy]'); if (cp) { copyText(cp.dataset.copy, '복사했습니다: ' + cp.dataset.copy); return; }
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act, u = UI.util;
+  if (a === 'series-all') { CATS.forEach(([k]) => UI.util.series[k] = true); renderUtil(); return; }
   if (a === 'cat') { u.cat = b.dataset.v; u.month = null; renderUtil(); }
   else if (a === 'mode') { u.mode = b.dataset.v; renderUtil(); }
   else if (a === 'month') { u.month = +b.dataset.v; renderUtil(); }

@@ -1,17 +1,3 @@
-/* ===== 엑셀 가져오기 (exe 전용) ===== */
-async function importXlsx(kind) {
-  if (!IS_EXE) { toast('엑셀 가져오기는 exe 프로그램에서만 됩니다'); return; }
-  const had = kind === 'daily' ? S.lines.length : Object.values(S.util).some(x => x.items && x.items.length);
-  if (had && !confirm(kind === 'daily' ? '지금 입력된 일상경비 항목·지출액을 엑셀 내용으로 바꿉니다. 계속할까요?' : '지금 입력된 공공요금(번호·월별 금액·수령 체크)을 엑셀 내용으로 바꿉니다. 계속할까요?')) return;
-  try {
-    const r = await api().import_xlsx(kind, S.year);
-    if (r.cancel) return; if (r.error) { alert(r.error); return; }
-    if (kind === 'daily') { S.lines = r.lines; S.memo = r.memo || ''; if (r.asOf) S.asOf = r.asOf; $('#asof').value = S.asOf; }
-    else { S.util = r.util; UI.util.month = null; }
-    save(); showTab(UI.tab); toast(kind === 'daily' ? `일상경비 ${r.lines.length}개 항목을 가져왔습니다` : '공공요금을 가져왔습니다');
-  } catch (e) { alert('엑셀을 읽지 못했습니다: ' + (e.message || e)); }
-}
-
 /* ===== 설정·백업 / 시작 ===== */
 function renderSettings() {
   const P = $('#p-settings'); const lb = S.lastBackup ? new Date(S.lastBackup) : null;
@@ -19,8 +5,8 @@ function renderSettings() {
   <div class="card"><h2>백업 · 복원</h2>
     <p class="sub" style="margin:0 0 10px">${IS_EXE ? '입력한 내용은 <b>이 PC의 AppData 폴더</b>에 자동 저장됩니다. PC를 바꾸거나 포맷할 때를 대비해 <b>가끔 백업 파일을 다른 곳에 저장</b>해 두세요.' : '입력한 내용은 <b>이 브라우저 안</b>에 자동 저장됩니다. 브라우저 방문 기록·사이트 데이터를 지우거나 다른 PC에서 열면 보이지 않으니, <b>가끔 백업 파일을 저장</b>해 두세요.'} (마지막 백업: ${lb ? lb.toLocaleString('ko-KR') : '없음'})</p>
     <div class="row"><button class="btn primary" data-act="backup">백업 파일 저장 (.json)</button><button class="btn" data-act="restore">백업 파일 불러오기</button></div></div>
-  ${IS_EXE ? `<div class="card"><h2>엑셀에서 가져오기</h2><p class="sub" style="margin:0 0 10px">기존 엑셀 파일에서 항목·번호·금액을 다시 읽어 옵니다(지금 입력된 내용이 바뀌니 먼저 백업하세요).</p>
-    <div class="row"><button class="btn" data-act="xl-daily">일상경비 엑셀 가져오기</button><button class="btn" data-act="xl-util">공공요금 엑셀 가져오기</button><button class="btn" data-act="datadir">데이터 폴더 열기</button></div>
+  ${IS_EXE ? `<div class="card"><h2>엑셀에서 가져오기</h2><p class="sub" style="margin:0 0 10px">엑셀 파일을 끌어 놓거나 선택하면 일상경비·공공요금을 자동으로 구분해 다시 읽어 옵니다(지금 입력된 내용이 바뀌니 먼저 백업하세요).</p>
+    <div class="row"><button class="btn" data-act="xl-daily">엑셀 파일 선택 (일상경비·공공요금)</button><button class="btn" data-act="datadir">데이터 폴더 열기</button></div>
     <p class="muted" style="margin:8px 0 0">데이터는 자동으로 <b>내 PC의 일상경비관리 폴더(AppData)</b>에 저장되고, 하루 한 번 자동 백업(30일)됩니다.</p></div>` : ''}
   <div class="card"><h2>기준일 · 연도</h2>
     <div class="row"><label class="fld" style="margin:0">연도<input type="number" id="s-year" value="${S.year}" style="width:100px"></label>
@@ -34,7 +20,7 @@ function renderSettings() {
 }
 $('#p-settings').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
-  if (a === 'xl-daily' || a === 'xl-util') importXlsx(a === 'xl-daily' ? 'daily' : 'util');
+  if (a === 'xl-daily' || a === 'xl-util') pickFiles('.xlsx,.xlsm');
   else if (a === 'datadir') api().open_data_dir();
   else if (a === 'backup') { S.lastBackup = new Date().toISOString(); save(); download(`일상경비_공공요금_백업_${today()}.json`, JSON.stringify(S, null, 1)); renderSettings(); updateBackupChip(); }
   else if (a === 'restore') {

@@ -182,3 +182,7 @@ details.fold>summary{cursor:pointer;font-weight:600;color:var(--text-2);padding:
   @page{size:A4 landscape;margin:10mm}
   .cellin{border:0!important;padding:0}
 }
+#dropov{position:fixed;inset:0;z-index:300;background:color-mix(in srgb,var(--accent) 18%,transparent);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;pointer-events:none}
+#dropov[hidden]{display:none}
+#dropov div{background:var(--surface);border:3px dashed var(--accent);border-radius:20px;padding:36px 64px;text-align:center;font-size:20px;display:flex;flex-direction:column;gap:6px;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+#dropov span{font-size:13px;color:var(--text-2)}

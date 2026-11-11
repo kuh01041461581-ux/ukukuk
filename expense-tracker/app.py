@@ -3,6 +3,7 @@
 화면(ui.html)을 pywebview 창에 띄우고, 데이터는 %APPDATA%\\일상경비관리\\data.json 에 저장합니다.
 엑셀 가져오기·백업 저장 같은 파일 작업만 이 파일이 맡습니다.
 """
+import base64
 import datetime
 import json
 import os
@@ -74,35 +75,80 @@ class Api:
         return self.window.create_file_dialog(mode, **kw)
 
     def save_text(self, name, text):
+        """백업 파일 저장: 저장 대화상자를 띄우고, 안 뜨면 '내보내기' 폴더에 저장한 뒤 탐색기로 엽니다."""
         try:
             r = self._dialog("SAVE", save_filename=name)
-            if not r:
-                return {"ok": False}
-            path = r if isinstance(r, str) else r[0]
-            Path(path).write_text(text, encoding="utf-8")
+            if r:
+                path = r if isinstance(r, str) else r[0]
+                Path(path).write_text(text, encoding="utf-8")
+                return {"ok": True, "path": str(path)}
+            return {"ok": False}
+        except Exception as e:  # noqa
+            self.log("save_text dialog", e)
+        try:
+            d = self.root / "내보내기"
+            d.mkdir(exist_ok=True)
+            path = d / name
+            path.write_text(text, encoding="utf-8")
+            if sys.platform.startswith("win"):
+                os.startfile(str(d))  # type: ignore[attr-defined]
             return {"ok": True, "path": str(path)}
         except Exception as e:  # noqa
+            self.log("save_text fallback", e)
             return {"ok": False, "error": str(e)}
 
-    def import_xlsx(self, kind, year=2026):
-        """kind='daily' 일상경비 엑셀 / 'util' 공공요금 엑셀 → 화면이 쓸 데이터"""
+    def import_xlsx_data(self, name, b64, year=2026):
+        """화면에서 읽어 보낸 엑셀 파일(base64)을 풀어 일상경비/공공요금을 자동으로 구분해 읽습니다."""
+        tmp = None
         try:
-            r = self._dialog("OPEN", allow_multiple=False, file_types=("엑셀 파일 (*.xlsx;*.xlsm)", "모든 파일 (*.*)"))
-            if not r:
-                return {"cancel": True}
-            return self.read_xlsx(kind, r[0] if not isinstance(r, str) else r, int(year))
+            data = base64.b64decode(b64)
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+                f.write(data)
+                tmp = f.name
+            return self.read_workbook(tmp, int(year))
         except Exception as e:  # noqa
-            return {"error": f"엑셀을 읽지 못했습니다.\n{e}"}
+            self.log("import_xlsx_data", e)
+            return {"error": f"엑셀 파일을 읽지 못했습니다 ({name}).\n{e}"}
+        finally:
+            if tmp:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
 
     @staticmethod
-    def read_xlsx(kind, path, year=2026):
+    def read_workbook(path, year=2026):
+        import openpyxl
         import seedlib
-        if kind == "daily":
-            lines, memo, asof = seedlib.parse_daily(path)
-            if not lines:
-                return {"error": "일상경비 표를 찾지 못했습니다. '사무관리비' 탭(연번·사업명·총예산액·지출액 열)이 있는 파일인지 확인하세요."}
-            return {"lines": lines, "memo": memo, "asOf": asof}
-        return {"util": seedlib.parse_util(path, year)}
+        wb = openpyxl.load_workbook(path)
+        names = list(wb.sheetnames)
+        daily_ws = seedlib.find_daily_sheet(wb)
+        out, errs = {}, []
+        if daily_ws is not None:
+            try:
+                lines, memo, asof = seedlib.parse_daily(path)
+                if lines:
+                    out.update({"lines": lines, "memo": memo, "asOf": asof})
+            except Exception as e:  # noqa
+                errs.append(str(e))
+        if str(year) in names:
+            try:
+                out["util"] = seedlib.parse_util(path, year)
+            except Exception as e:  # noqa
+                errs.append(str(e))
+        if not out:
+            msg = "이 엑셀에서 일상경비('사무관리비' 탭)나 공공요금('%s' 탭)을 찾지 못했습니다.\n탭 이름: %s" % (year, ", ".join(names[:10]))
+            if errs:
+                msg += "\n" + "\n".join(errs)
+            return {"error": msg}
+        return out
+
+    def log(self, where, err):
+        try:
+            with open(self.root / "app.log", "a", encoding="utf-8") as f:
+                f.write(f"{datetime.datetime.now().isoformat()} {where}: {err!r}\n")
+        except Exception:  # noqa
+            pass
 
     def open_data_dir(self):
         try:

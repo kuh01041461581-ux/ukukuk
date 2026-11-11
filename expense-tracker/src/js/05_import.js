@@ -22,10 +22,10 @@ async function handlePdf(file) {
 
 function renderImport(keepStatus) {
   const P = $('#p-import'); const imp = UI.imp || {}; const prev = keepStatus ? ($('#imp-status') || {}).textContent : '';
-  let h = `<div class="card"><h2>PDF 불러오기</h2>
-    <p class="sub" style="margin:0 0 10px">아래 두 가지 PDF를 올리면 자동으로 종류를 알아보고 금액을 채워 줍니다. PDF는 이 컴퓨터 안에서만 읽으며 어디로도 전송되지 않습니다.</p>
+  let h = `<div class="card"><h2>파일 불러오기 (PDF · 엑셀)</h2>
+    <p class="sub" style="margin:0 0 10px">합본예산서·통계목별 조회 PDF와, 일상경비·공공요금 엑셀을 올리면 자동으로 종류를 알아보고 채워 줍니다. 여러 파일을 한꺼번에 끌어 놓아도 됩니다. 파일은 이 컴퓨터 안에서만 읽으며 어디로도 전송되지 않습니다.</p>
     <ul class="help" style="margin:0 0 12px;padding-left:18px"><li><b>합본예산서</b>(세출예산사업명세서) → <b>총예산액</b>과 공공요금 연 예산 자동 입력</li><li><b>통계목별 조회</b>(e-호조 출력) → <b>지출액</b>과 원인행위·결의액 자동 입력</li></ul>
-    <div class="drop" id="drop"><div style="font-size:15px;font-weight:600">PDF 파일을 여기로 끌어 놓거나</div><div style="margin:8px 0"><button class="btn primary" data-act="pick">파일 선택</button></div><div id="imp-status" class="muted">${esc(prev || '')}</div></div></div>`;
+    <div class="drop" id="drop"><div style="font-size:15px;font-weight:600">PDF·엑셀 파일을 이 창 아무 곳에나 끌어 놓거나</div><div style="margin:8px 0"><button class="btn primary" data-act="pick">파일 선택 (탐색기 열기)</button></div><div id="imp-status" class="muted">${esc(prev || '')}</div></div></div>`;
   if (imp.budget) h += budgetPreview(imp.budget);
   if (imp.ledger) h += ledgerPreview(imp.ledger);
   P.innerHTML = h;
@@ -71,7 +71,7 @@ function ledgerPreview(doc) {
 const PI = $('#p-import');
 PI.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act; const imp = UI.imp || {};
-  if (a === 'pick') { const p = $('#pick'); p.accept = '.pdf,application/pdf'; p.value = ''; p.onchange = () => { if (p.files[0]) handlePdf(p.files[0]); }; p.click(); }
+  if (a === 'pick') pickFiles('.pdf,.xlsx,.xlsm');
   else if (a === 'clearb') { delete imp.budget; renderImport(); }
   else if (a === 'clearl') { delete imp.ledger; renderImport(); }
   else if (a === 'applyb') {
@@ -92,7 +92,3 @@ PI.addEventListener('click', e => {
     save(); delete imp.ledger; renderImport(); toast(`지출액 ${n}건을 적용했습니다 (기준일 ${S.asOf})`);
   }
 });
-PI.addEventListener('dragover', e => { const d = e.target.closest('#drop'); if (d) { e.preventDefault(); d.classList.add('on'); } });
-PI.addEventListener('dragleave', e => { const d = e.target.closest('#drop'); if (d) d.classList.remove('on'); });
-PI.addEventListener('drop', e => { const d = e.target.closest('#drop'); if (!d) return; e.preventDefault(); d.classList.remove('on'); const f = [...e.dataTransfer.files].find(f => /\.pdf$/i.test(f.name)); if (f) handlePdf(f); else toast('PDF 파일만 올릴 수 있습니다'); });
-window.addEventListener('dragover', e => e.preventDefault()); window.addEventListener('drop', e => e.preventDefault());

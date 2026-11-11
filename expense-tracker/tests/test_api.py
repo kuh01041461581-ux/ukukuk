@@ -18,11 +18,9 @@ ws["A2"] = "2026.11.06.기준"
 ws["A4"] = "사무관리비"
 ws["A5"], ws["B5"], ws["C5"], ws["E5"], ws["H5"] = 1, "문화유적지 보존관리", 18800000, 17404350, "비고"
 x = d / "t.xlsx"; wb.save(x)
-r = app.Api.read_xlsx("daily", str(x))
-assert r["lines"][0]["budget"] == 18800000 and r["lines"][0]["spent"] == 17404350 and r["asOf"] == "2026-11-06"
-try:
-    app.Api.read_xlsx("util", str(x), 2026)
-    raise SystemExit("공공요금 탭이 없는데 오류가 나지 않음")
-except ValueError as e:
-    assert "2026" in str(e)
+import base64
+r = app.Api(d).import_xlsx_data("t.xlsx", base64.b64encode(x.read_bytes()).decode(), 2026)
+assert "util" not in r and r["lines"][0]["budget"] == 18800000 and r["lines"][0]["spent"] == 17404350 and r["asOf"] == "2026-11-06"
+bad = app.Api(d).import_xlsx_data("t.xlsx", base64.b64encode(b"not excel").decode(), 2026)
+assert "error" in bad
 print("OK")

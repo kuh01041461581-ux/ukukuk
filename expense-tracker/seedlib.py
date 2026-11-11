@@ -44,9 +44,21 @@ def txt(v):
     return "" if v is None else str(v).replace("\r", "").strip()
 
 
+def find_daily_sheet(wb):
+    if "사무관리비" in wb.sheetnames:
+        return wb["사무관리비"]
+    for ws in wb.worksheets:
+        a1 = ws["A1"].value
+        if isinstance(a1, str) and "집행현황" in a1:
+            return ws
+    return None
+
+
 def parse_daily(path):
     wb = openpyxl.load_workbook(path, data_only=False)
-    ws = wb["사무관리비"] if "사무관리비" in wb.sheetnames else wb[wb.sheetnames[0]]
+    ws = find_daily_sheet(wb)
+    if ws is None:
+        raise ValueError("일상경비 표('사무관리비' 탭)를 찾지 못했습니다.")
     lines, group, seq = [], None, 0
     for r in range(4, ws.max_row + 1):
         a, b = ws.cell(r, 1).value, ws.cell(r, 2).value

@@ -30,10 +30,11 @@ function statusBadges(l) {
 }
 
 function welcomeHTML() {
-  return `<div class="card" style="text-align:center;padding:36px 20px"><h2 style="font-size:18px">처음 오셨네요 — 데이터를 가져와 시작하세요</h2>
-    <p class="sub">기존에 쓰던 엑셀에서 일상경비 항목·지출액과 공공요금(전기·상하수도·통신) 번호·금액을 한 번에 가져옵니다.</p>
-    <div class="row" style="justify-content:center;margin:14px 0">${IS_EXE ? `<button class="btn primary" data-act="xl-daily">① 일상경비 엑셀 가져오기</button><button class="btn primary" data-act="xl-util">② 공공요금 엑셀 가져오기</button>` : ''}<button class="btn" data-act="addline">＋ 직접 행 추가</button></div>
-    <p class="muted" style="margin:0">일상경비 엑셀: '사무관리비' 탭 / 공공요금 엑셀: '${esc(S.year)}' 탭이 들어 있는 파일 · 예산은 [PDF 불러오기]에서 합본예산서로 갱신할 수 있습니다.</p></div>`;
+  return `<div class="card" style="text-align:center;padding:40px 20px"><h2 style="font-size:18px">처음 오셨네요 — 파일을 끌어 놓아 시작하세요</h2>
+    <p class="sub">기존에 쓰던 <b>엑셀</b>(일상경비 집행현황 · 공공요금)과 <b>PDF</b>(합본예산서 · 통계목별 조회)를 이 창에 끌어 놓으면 종류를 자동으로 알아보고 채워 줍니다.</p>
+    <div class="drop" style="max-width:560px;margin:14px auto"><div style="font-size:15px;font-weight:600">파일을 이 창 아무 곳에나 끌어 놓거나</div>
+      <div class="row" style="justify-content:center;margin:10px 0"><button class="btn primary" data-act="pickany">파일 선택 (탐색기 열기)</button><button class="btn" data-act="addline">＋ 직접 행 추가</button></div></div>
+    <p class="muted" style="margin:0">일상경비 엑셀은 '사무관리비' 탭, 공공요금 엑셀은 '${esc(S.year)}' 탭이 있으면 됩니다. 여러 파일을 한꺼번에 놓아도 됩니다.</p></div>`;
 }
 function renderDaily() {
   const P = $('#p-daily');
@@ -126,7 +127,7 @@ $('#p-daily').addEventListener('click', e => {
   if (a === 'sch') schDialog(b.dataset.id);
   else if (a === 'editline') lineDialog(b.dataset.id);
   else if (a === 'addline') lineDialog(null);
-  else if (a === 'xl-daily' || a === 'xl-util') importXlsx(a === 'xl-daily' ? 'daily' : 'util');
+  else if (a === 'pickany') pickFiles('.xlsx,.xlsm,.pdf');
   else if (a === 'copytsv') copyText(dailyTSV(), '표를 복사했습니다 — 엑셀·한글에 붙여넣으세요');
   else if (a === 'print') { $$('.tab-panel').forEach(p => p.classList.toggle('printing', p.id === 'p-daily')); window.print(); }
 });

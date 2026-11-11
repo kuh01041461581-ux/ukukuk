@@ -10,6 +10,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 www, out = sys.argv[1], sys.argv[2]
 PACKAGE = sys.argv[3] if len(sys.argv) > 3 else None   # 예: net.featurephone.g.maple_mage
 LABEL = sys.argv[4] if len(sys.argv) > 4 else None     # 앱 이름
+ORIENT = sys.argv[5] if len(sys.argv) > 5 else None    # 화면 방향: 0 가로, 1 세로(기본)
 B = os.path.join(HERE, 'build'); shutil.rmtree(B, ignore_errors=True); os.makedirs(B + '/classes'); os.makedirs(B + '/tools')
 LIB = lambda n: os.path.join(HERE, 'lib', n)
 
@@ -28,6 +29,7 @@ run('java', '-cp', LIB('dx.jar'), 'com.android.dx.command.Main', '--dex', '--out
 mtext = open(HERE + '/AndroidManifest.xml', encoding='utf8').read()
 if PACKAGE: mtext = mtext.replace('package="net.featurephone.games"', f'package="{PACKAGE}"')
 if LABEL: mtext = mtext.replace('android:label="피처폰 게임"', f'android:label="{LABEL}"')
+if ORIENT: mtext = mtext.replace('android:screenOrientation="1"', f'android:screenOrientation="{ORIENT}"')
 a = pyaxml.AXML(); a.from_xml(mtext)
 manifest = a.pack()
 

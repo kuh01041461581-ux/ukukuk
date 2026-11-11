@@ -10,6 +10,7 @@ body{margin:0;font:16px system-ui,sans-serif;background:#f6f4ef;color:#222}
 .card{background:#fff;border:1px dashed #999;border-radius:10px;padding:10px;text-align:center;break-inside:avoid}
 .card .g{font-size:14px;color:#555}.card .n{font-size:26px;font-weight:800;margin:2px 0}
 .card svg{width:150px;height:150px}.card .t{font-size:11px;color:#888}
+@media screen and (max-width:700px){.grid{grid-template-columns:1fr 1fr}.card svg{width:120px;height:120px}.bar{position:static}}
 @media print{.bar{display:none}body{background:#fff}.grid{padding:0;gap:0}.card{border-radius:0;border:1px dashed #bbb;page-break-inside:avoid}}
 </style></head><body>
 <div class="bar"><b>QR 명찰</b> &nbsp; 단체 <select id="g"><option value="">전체</option></select> <button class="pri" id="print">인쇄</button> <button id="copy">개인 링크 목록 복사</button>

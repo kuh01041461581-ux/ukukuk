@@ -15,6 +15,15 @@ th{background:#8881}td.l{text-align:left;white-space:nowrap}
 .tabs button{margin-right:4px}.tabs .on{background:var(--pri);color:#fff}
 small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
 .g{display:grid;grid-template-columns:1fr 120px;gap:6px}
+.lec{border:1px solid #8884;border-radius:10px;padding:10px;margin:10px 0}
+.lec .hd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.lec .hd b{font-size:16px}.lec .tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.grp{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:8px}
+.gc{border:1px solid #8883;border-radius:8px;padding:6px 8px;text-align:left}.gc>b{display:block;font-size:14px}.gc.un2{opacity:.7}
+.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #8883}
+.mrow .nm{flex:1 1 110px;min-width:90px}.mrow .seg{display:flex;gap:4px}.mrow .seg button{padding:8px 11px}
+.mrow input{flex:1 1 100%}
+.lrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px;padding:8px 0;border-top:1px solid #8883}.lrow .nmi{grid-column:1/-1}
+@media(max-width:640px){main{padding:10px}.card{padding:10px}button,input,select{min-height:42px}.tabs button{margin-bottom:4px}h3{font-size:16px}}
 </style></head><body><main>
 <h1>🛠 출석 관리자</h1>
 <div id="login" class="card">비밀번호 <input id="pw" type="password"> <button class="pri" id="go">로그인</button> <span id="msg" class="ab"></span></div>
@@ -71,7 +80,7 @@ $('date').onchange=ov;$('reload').onclick=ov;$('prev').onclick=()=>shift(-1);$('
 function sessBtn(l){const s=l.session;
   if(!s)return `<button data-mk="${l.id}">출석 링크 만들기</button>`;
   const url=location.origin+'/c/'+s.token;
-  return `<small>현장코드 <b>${s.code}</b> · ${s.open?'진행중':'마감'}</small>
+  return `<span class="un">현장코드 <b>${s.code}</b> · ${s.open?'진행중':'마감'}</span>
   <button data-cp="${url}">링크 복사</button> <button data-tg="${l.id}" data-open="${!s.open}">${s.open?'마감':'다시 열기'}</button> <button data-nc="${l.id}">코드 재발급</button>`}
 document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)return;
   const post=b=>api('/api/admin/session',{method:'POST',body:JSON.stringify({date:$('date').value,...b})});
@@ -85,15 +94,15 @@ async function ov(){
   const d=await api('/api/admin/overview?date='+$('date').value);
   const wd=DAY[new Date(d.date+'T00:00:00Z').getUTCDay()];
   if(!d.lectures.length){$('ov').innerHTML=`<p>${d.date} (${wd}) 강의가 없습니다.</p>`;return}
-  const groups=d.lectures[0].groups;
   let tot={P:0,L:0,A:0,U:0};
-  const rows=d.lectures.map(l=>`<tr><td class="l"><b>${l.name}</b><small>${l.start}~${l.end}</small>${sessBtn(l)}</td>${l.groups.map(g=>{
-    for(const k in tot)tot[k]+=g[k];
-    if(!g.checked)return `<td class="un">미입력<small>${g.total}명</small></td>`;
-    return `<td><span class="ok">출 ${g.P}</span> <span class="late">지 ${g.L}</span> <span class="ab">결 ${g.A}</span>${g.U?` <span class="un">미 ${g.U}</span>`:''}
-      ${g.issues.map(i=>`<small class="${i.status==='A'?'ab':'late'}">${i.name} (${i.status==='A'?'결석':'지각'})</small>`).join('')}</td>`}).join('')}</tr>`).join('');
-  $('ov').innerHTML=`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p>
-  <table><tr><th>강의</th>${groups.map(g=>`<th>${g.name}</th>`).join('')}</tr>${rows}</table>`;
+  const cards=d.lectures.map(l=>`<div class="lec"><div class="hd"><b>${l.name}</b><span class="un">${l.start}~${l.end}</span></div>
+    <div class="tools" style="margin-top:6px">${sessBtn(l)}</div>
+    <div class="grp">${l.groups.map(g=>{
+      for(const k in tot)tot[k]+=g[k];
+      if(!g.checked)return `<div class="gc un2"><b>${g.name}</b><span class="un">미입력 · ${g.total}명</span></div>`;
+      return `<div class="gc"><b>${g.name}</b><span class="ok">출 ${g.P}</span> <span class="late">지 ${g.L}</span> <span class="ab">결 ${g.A}</span>${g.U?` <span class="un">미 ${g.U}</span>`:''}
+        ${g.issues.map(i=>`<small class="${i.status==='A'?'ab':'late'}">${i.name} (${i.status==='A'?'결석':'지각'})</small>`).join('')}</div>`}).join('')}</div></div>`).join('');
+  $('ov').innerHTML=`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p>${cards}`;
 }
 let C={groups:[],lectures:[]};
 async function cfg(){C=await api('/api/admin/config');const s=C.settings||{};$('sob').value=s.openBefore??30;$('sla').value=s.lateAfter??10;$('scl').value=s.closeAfter??30;const v=C.venue||{};$('vn').value=v.name||'';$('vlat').value=v.lat??'';$('vlng').value=v.lng??'';$('vr').value=v.radius||150;draw()}
@@ -101,10 +110,10 @@ $('here').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('vlat').val
 function draw(){
   $('gs').innerHTML=C.groups.map((g,i)=>`<div style="margin-bottom:10px"><div class="g"><input data-i="${i}" data-k="name" value="${g.name}" placeholder="단체명"><input data-i="${i}" data-k="pin" value="${g.pin}" placeholder="PIN"></div>
     <textarea data-i="${i}" data-k="members" placeholder="한 줄에 한 명: 이름 전화번호뒤4자리 (예: 홍길동 1234)">${g.members.join('\n')}</textarea><button data-del="g${i}">단체 삭제</button></div>`).join('');
-  $('ls').innerHTML=`<table>${C.lectures.map((l,i)=>`<tr><td><input data-li="${i}" data-k="name" value="${l.name}"></td>
-    <td><select data-li="${i}" data-k="weekday">${[...DAY].map((d,n)=>`<option value="${n}" ${l.weekday==n?'selected':''}>${d}</option>`).join('')}</select></td>
-    <td><input type="time" data-li="${i}" data-k="start" value="${l.start}"></td><td><input type="time" data-li="${i}" data-k="end" value="${l.end}"></td>
-    <td><button data-del="l${i}">삭제</button></td></tr>`).join('')}</table>`;
+  $('ls').innerHTML=C.lectures.map((l,i)=>`<div class="lrow"><input class="nmi" data-li="${i}" data-k="name" value="${l.name}" placeholder="강의명">
+    <select data-li="${i}" data-k="weekday">${[...DAY].map((d,n)=>`<option value="${n}" ${l.weekday==n?'selected':''}>${d}요일</option>`).join('')}</select>
+    <input type="time" data-li="${i}" data-k="start" value="${l.start}"><input type="time" data-li="${i}" data-k="end" value="${l.end}">
+    <button data-del="l${i}">삭제</button></div>`).join('');
 }
 document.addEventListener('input',e=>{const t=e.target;
   if(t.dataset.i!==undefined){const g=C.groups[t.dataset.i];g[t.dataset.k]=t.dataset.k==='members'?t.value.split('\n'):t.value}
@@ -184,15 +193,16 @@ $('md').onchange=mLec;
 $('mgo').onclick=async()=>{if(!$('ml').value)return;M=await api(`/api/admin/manual?date=${$('md').value}&lectureId=${$('ml').value}`);mm={};mn={};M.groups.forEach(g=>g.members.forEach(m=>mm[m.id]=m.status));mDraw()};
 const VIA={phone:'📱본인',kiosk:'📟태블릿','kiosk-manual':'📟태블릿',admin:'✍담당자',group:'👥단체대표'};
 function mDraw(){
-  $('mout').innerHTML=`<b>${M.lecture.name}</b> ${M.lecture.start}~${M.lecture.end}`+M.groups.map(g=>`<div style="margin:12px 0"><b>${g.name}</b> <button data-all="${g.id}">전원 출석</button>
-  <table style="margin-top:4px">${g.members.map(m=>`<tr><td class="l">${m.name}${m.via?` <small style="display:inline">${VIA[m.via]||''}</small>`:''}</td>
-   <td>${['P','L','A'].map(s=>`<button data-mid="${m.id}" data-s="${s}" style="${mm[m.id]===s?'background:'+({P:'var(--p)',L:'var(--l)',A:'var(--a)'})[s]+';color:#fff':''}">${{P:'출석',L:'지각',A:'결석'}[s]}</button>`).join(' ')} <button data-mid="${m.id}" data-s="">비움</button></td>
-   <td><input data-note="${m.id}" placeholder="사유 메모" value="${(mn[m.id]??m.note)||''}" size="14"></td>
-   <td>${m.bound?`<button data-rd="${m.id}" title="휴대폰을 바꾼 경우">기기 초기화</button>`:''}</td></tr>`).join('')}</table></div>`).join('')+'<p><button class="pri" id="msave">저장</button></p>';
+  const COL={P:'var(--p)',L:'var(--l)',A:'var(--a)'},NM={P:'출석',L:'지각',A:'결석'};
+  $('mout').innerHTML=`<b>${M.lecture.name}</b> <span class="un">${M.lecture.start}~${M.lecture.end}</span>`+M.groups.map(g=>`<div style="margin:14px 0 4px"><b>${g.name}</b> <button data-all="${g.id}">전원 출석</button></div>
+  ${g.members.map(m=>`<div class="mrow"><span class="nm">${m.name}${m.via?` <small style="display:inline">${VIA[m.via]||''}</small>`:''}</span>
+    <span class="seg">${['P','L','A'].map(s=>`<button data-mid="${m.id}" data-s="${s}" style="${mm[m.id]===s?'background:'+COL[s]+';color:#fff;border-color:transparent':''}">${NM[s]}</button>`).join('')}</span>
+    ${m.bound?`<button data-rd="${m.id}" title="휴대폰을 바꾼 경우">기기 초기화</button>`:''}
+    ${(mm[m.id]==='L'||mm[m.id]==='A'||m.note||mn[m.id])?`<input data-note="${m.id}" placeholder="사유 메모 (선택)" value="${(mn[m.id]??m.note)||''}">`:''}</div>`).join('')}`).join('')+'<p><small>같은 버튼을 한 번 더 누르면 선택이 해제됩니다.</small><button class="pri" id="msave">저장</button></p>';
   $('msave').onclick=async()=>{try{const marks={};M.groups.forEach(g=>g.members.forEach(m=>{if((m.status||null)!==(mm[m.id]||null)||mn[m.id]!==undefined)marks[m.id]=mm[m.id]||null}));
     const r=await api('/api/admin/manual',{method:'PUT',body:JSON.stringify({date:$('md').value,lectureId:M.lecture.id,marks,notes:mn})});alert(r.changed+'건 저장했습니다');$('mgo').click()}catch(e){alert(e.message)}}}
 document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d||!M||$('v5').hidden)return;
-  if(d.mid!==undefined){mm[d.mid]=d.s||null;mDraw()}
+  if(d.mid!==undefined){mm[d.mid]=(mm[d.mid]===d.s)?null:(d.s||null);mDraw()}
   if(d.all){M.groups.find(g=>g.id===d.all).members.forEach(m=>mm[m.id]='P');mDraw()}
   if(d.rd&&confirm('이 구성원의 등록된 휴대폰을 초기화할까요?')){await api('/api/admin/reset-device',{method:'POST',body:JSON.stringify({memberId:d.rd})});alert('초기화했습니다');$('mgo').click()}});
 document.addEventListener('input',e=>{if(e.target.dataset.note)mn[e.target.dataset.note]=e.target.value});

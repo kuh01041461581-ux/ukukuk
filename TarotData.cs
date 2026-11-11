@@ -98,7 +98,7 @@ internal sealed partial class TarotForm
 	private static string VerdictText(int y) { return y >= 2 ? "흐름이 강하게 받쳐 줘요. 자신 있게 진행하세요." : (y == 1 ? "조건이 맞으면 잘 풀려요. 세부만 점검하세요." : (y == 0 ? "아직 답이 정해지지 않았어요. 정보를 더 모으고 시기를 보세요." : (y == -1 ? "걸림돌이 있어요. 계획을 보완하면 달라질 수 있어요." : "지금은 흐름이 막혀 있어요. 시기를 늦추거나 방향을 바꿔 보세요."))); }
 
 	// ───────── 카드 조합 풀이: 뽑힌 카드끼리의 관계로 내 상황을 구체적으로 풀어요 ─────────
-	private static readonly int[][] PairMaj = { new[] { 16, 17 }, new[] { 6, 15 }, new[] { 13, 19 }, new[] { 1, 2 }, new[] { 0, 21 }, new[] { 7, 8 }, new[] { 9, 18 }, new[] { 10, 11 }, new[] { 4, 5 }, new[] { 3, 19 }, new[] { 12, 9 }, new[] { 16, 18 }, new[] { 15, 16 }, new[] { 17, 19 }, new[] { 14, 13 }, new[] { 20, 21 }, new[] { 2, 18 } };
+	private static readonly int[][] PairMaj = { new[] { 16, 17 }, new[] { 6, 15 }, new[] { 13, 19 }, new[] { 1, 2 }, new[] { 0, 21 }, new[] { 7, 8 }, new[] { 9, 18 }, new[] { 10, 11 }, new[] { 4, 5 }, new[] { 3, 19 }, new[] { 12, 9 }, new[] { 16, 18 }, new[] { 15, 16 }, new[] { 17, 19 }, new[] { 14, 13 }, new[] { 20, 21 }, new[] { 2, 18 } , new[] { 19, 16 }, new[] { 2, 5 }, new[] { 2, 9 }, new[] { 4, 3 }, new[] { 12, 13 }, new[] { 14, 18 }, new[] { 18, 17 }, new[] { 1, 7 }, new[] { 6, 14 }, new[] { 9, 17 }, new[] { 0, 1 }, new[] { 5, 6 }, new[] { 11, 20 }, new[] { 3, 6 }, new[] { 13, 16 } };
 	private static readonly string[] PairTx = {
 		"탑과 별이 함께 나왔어요. 무너지는 일이 있어도 그 뒤에 곧 회복과 희망이 와요. 충격은 정리의 과정이니 너무 오래 붙잡지 마세요.",
 		"연인과 악마가 함께 나왔어요. 끌림이 집착이나 의존으로 변하기 쉬워요. 좋아하는 마음과 놓지 못하는 마음을 구분해서 보세요.",
@@ -116,7 +116,22 @@ internal sealed partial class TarotForm
 		"별과 태양이 함께 나왔어요. 전망이 밝아요. 믿고 꾸준히 가면 눈에 보이는 성과로 이어져요.",
 		"절제와 죽음이 함께 나왔어요. 변화가 한 번에 오지 않고 단계적으로 와요. 속도를 조절하면 상처 없이 넘어가요.",
 		"심판과 세계가 함께 나왔어요. 과거를 정리하고 나면 완성이 와요. 미뤄 둔 매듭을 지금 풀어 보세요.",
-		"여사제와 달이 함께 나왔어요. 직감이 아주 강하지만 환상과 불안이 섞일 수 있어요. 느낌은 사실 확인과 함께 믿으세요." };
+		"여사제와 달이 함께 나왔어요. 직감이 아주 강하지만 환상과 불안이 섞일 수 있어요. 느낌은 사실 확인과 함께 믿으세요.",
+		"태양과 탑이 함께 나왔어요. 갑작스러운 일이 사실은 숨은 축복이에요. 흔들림이 끝나면 더 밝은 자리가 열려요.",
+		"여사제와 교황이 함께 나왔어요. 내 직감과 검증된 방법을 둘 다 참고하라는 신호예요. 느낌은 조언자와 한 번 맞춰 보세요.",
+		"여사제와 은둔자가 함께 나왔어요. 깊은 내면 성찰의 시간이에요. 혼자 조용히 정리하면 답이 보여요.",
+		"황제와 여황제가 함께 나왔어요. 질서와 풍요, 단단함과 따뜻함이 균형을 이뤄요. 파트너십이나 안정된 기반을 만들기 좋아요.",
+		"매달린 사람과 죽음이 함께 나왔어요. 멈춰 있던 시간 끝에 놓아줌이 와요. 붙들던 방식을 내려놓으면 전환이 시작돼요.",
+		"절제와 달이 함께 나왔어요. 불안한 마음을 서두르지 않고 균형으로 다스리는 때예요. 감정이 요동치는 날은 쉬어 가세요.",
+		"달과 별이 함께 나왔어요. 불안과 혼란이 걷히고 희망의 빛이 보여요. 어두운 구간이 끝나 가니 포기하지 마세요.",
+		"마법사와 전차가 함께 나왔어요. 재능과 추진력이 만나 돌파가 가능해요. 계획을 실행으로 옮기기 좋은 시기예요.",
+		"연인과 절제가 함께 나왔어요. 서로 맞춰 가며 조화로운 관계를 만들어요. 속도를 맞추는 것이 열쇠예요.",
+		"은둔자와 별이 함께 나왔어요. 혼자 걷던 길에서 방향을 찾아요. 작은 희망을 믿고 꾸준히 가세요.",
+		"바보와 마법사가 함께 나왔어요. 새 출발에 필요한 재능이 이미 손에 있어요. 망설이지 말고 첫 시도를 해 보세요.",
+		"교황과 연인이 함께 나왔어요. 관계가 약속과 신뢰로 깊어져요. 약속·계약·소개 같은 공식적인 단계로 나아가기 좋아요.",
+		"정의와 심판이 함께 나왔어요. 과거의 선택을 정리하고 결론을 내리는 때예요. 사실과 서류를 정직하게 점검하세요.",
+		"여황제와 연인이 함께 나왔어요. 사랑이 풍성하게 무르익어요. 마음을 표현할수록 관계가 깊어져요.",
+		"죽음과 탑이 함께 나왔어요. 큰 끝과 급작스러운 변화가 겹쳐요. 아프지만 낡은 구조를 정리하는 과정이니 안전부터 확보하세요." };
 	private static readonly string[] ElPair = {
 		"불(완드)과 흙(펜타클)이 만났어요. 열정이 현실의 성과로 굳어요. 계획한 만큼 결과가 나오는 조합이에요.",
 		"불(완드)과 물(컵)이 만났어요. 열정과 감정이 엇갈릴 수 있어요. 마음이 앞서 말이 거칠어지지 않게 한 박자 쉬세요.",
@@ -140,7 +155,7 @@ internal sealed partial class TarotForm
 		string fn = CardName(slots[0].Card), ln = CardName(slots[N - 1].Card);
 		L.Add("● 흐름: 처음 '" + fn + "' → 마지막 '" + ln + "'. " + (a1 - a0 >= 1 ? "뒤로 갈수록 기운이 올라가요. 지금의 답답함은 지나가는 구간이에요." : (a0 - a1 >= 1 ? "뒤로 갈수록 힘이 빠져요. 초반의 좋은 기운이 있을 때 중요한 일을 먼저 끝내 두세요." : "큰 오르내림 없이 비슷한 흐름이에요. 꾸준함이 열쇠예요.")));
 		if (sc[best] > sc[worst]) L.Add("● " + TopicLine[topic].Replace("{B}", CardName(slots[best].Card)).Replace("{bk}", CardKw(slots[best].Card)).Replace("{W}", CardName(slots[worst].Card)).Replace("{wk}", CardKw(slots[worst].Card)) + " (" + posN[best] + " ↔ " + posN[worst] + ")");
-		int shown = 0; for (int p = 0; p < PairMaj.Length && shown < 2; p++) { int ia = -1, ib = -1; for (int i = 0; i < N; i++) { if (slots[i].Card == PairMaj[p][0]) ia = i; if (slots[i].Card == PairMaj[p][1]) ib = i; } if (ia >= 0 && ib >= 0) { L.Add("● " + PairTx[p]); shown++; } }
+		int shown = 0; for (int p = 0; p < PairMaj.Length && shown < 3; p++) { int ia = -1, ib = -1; for (int i = 0; i < N; i++) { if (slots[i].Card == PairMaj[p][0]) ia = i; if (slots[i].Card == PairMaj[p][1]) ib = i; } if (ia >= 0 && ib >= 0) { L.Add("● " + PairTx[p]); shown++; } }
 		int[] su = new int[4]; foreach (Slot s in slots) if (s.Card >= 22) su[(s.Card - 22) / 14]++;
 		string[] pr = new string[6]; int[][] pc = { new[] { 0, 3 }, new[] { 0, 1 }, new[] { 0, 2 }, new[] { 1, 3 }, new[] { 1, 2 }, new[] { 2, 3 } }; int bp = -1, bv = 0;
 		for (int k = 0; k < 6; k++) { int v = Math.Min(su[pc[k][0]], su[pc[k][1]]); if (v > bv) { bv = v; bp = k; } }
@@ -164,11 +179,16 @@ internal sealed partial class TarotForm
 		{
 			int ca = sc[i] >= 1 ? 0 : (sc[i] <= -1 ? 2 : 1), cb = sc[i + 1] >= 1 ? 0 : (sc[i + 1] <= -1 ? 2 : 1); string el = "";
 			if (slots[i].Card >= 22 && slots[i + 1].Card >= 22) { int xa = (slots[i].Card - 22) / 14, xb = (slots[i + 1].Card - 22) / 14; if (xa == xb) el = " 같은 계열이라 이 이야기가 한 가지 주제로 깊어져요."; else for (int k = 0; k < 6; k++) if ((pc[k][0] == xa && pc[k][1] == xb) || (pc[k][0] == xb && pc[k][1] == xa)) el = " " + ElPair[k]; }
-			S.Add("● " + posN[i] + " '" + CardName(slots[i].Card) + (slots[i].Rev ? "(역)" : "") + "'(" + CardKw(slots[i].Card) + ") 뒤에 " + posN[i + 1] + " '" + CardName(slots[i + 1].Card) + (slots[i + 1].Rev ? "(역)" : "") + "'(" + CardKw(slots[i + 1].Card) + ") 카드가 이어져요 → " + Trans[ca * 3 + cb] + el);
+			for (int p = 0; p < PairMaj.Length; p++) if ((PairMaj[p][0] == slots[i].Card && PairMaj[p][1] == slots[i + 1].Card) || (PairMaj[p][1] == slots[i].Card && PairMaj[p][0] == slots[i + 1].Card)) { S.Add("● " + posN[i] + " '" + CardName(slots[i].Card) + "' + " + posN[i + 1] + " '" + CardName(slots[i + 1].Card) + "' → " + PairTx[p].Substring(PairTx[p].IndexOf(". ") + 2)); goto nextPair; }
+			S.Add("● " + posN[i] + " '" + CardName(slots[i].Card) + (slots[i].Rev ? "(역)" : "") + "'(" + CardKw(slots[i].Card) + ") 뒤에 " + posN[i + 1] + " '" + CardName(slots[i + 1].Card) + (slots[i + 1].Rev ? "(역)" : "") + "'(" + CardKw(slots[i + 1].Card) + ") 카드가 이어져요 → " + Trans[ca * 3 + cb] + el + (slots[i].Card < 22 && slots[i + 1].Card < 22 ? " 둘 다 메이저라 인생의 큰 주제예요." : (slots[i].Card >= 22 && slots[i + 1].Card >= 22 ? " 둘 다 마이너라 일시적인 상황이니 노력으로 바꿀 수 있어요." : " 메이저는 '왜'를, 마이너는 '어떻게'를 보여 줘요.")));
+			nextPair:;
 		}
 		double av = 0; for (int i = 0; i < N; i++) av += sc[i]; av /= N;
 		S.Add("● 종합 결론: " + Verd[topic * 3 + (av >= 0.6 ? 0 : (av <= -0.4 ? 2 : 1))]);
 		string ak = Act(slots[best].Card); S.Add("● 핵심 열쇠 카드 '" + CardName(slots[best].Card) + "' → " + ak.Substring(ak.IndexOf('·') + 2));
+		int nr = 0, nc = 0; for (int i = 0; i < N; i++) { if (slots[i].Rev) nr++; if (slots[i].Card >= 22 && (slots[i].Card - 22) % 14 >= 10) nc++; }
+		if (N >= 3 && nr == 0) S.Add("● 방향: 모두 정방향이라 기운이 밖으로 시원하게 흘러요. 겉으로 드러나는 일이에요."); else if (N >= 3 && nr == N) S.Add("● 방향: 모두 역방향이라 막힌 기운이거나 겉으로 드러나지 않은 내면의 이야기예요. 속마음부터 돌보세요.");
+		if (nc >= 2) S.Add("● 궁정 카드 " + nc + "장: 이번 이야기에는 여러 사람이 등장해요. 각자의 성숙도(시종·기사·여왕·왕)에 따라 힘의 균형이 달라져요.");
 		S.Add("— 세부 포인트 —"); S.AddRange(L);
 		return string.Join("\n", S.ToArray());
 	}

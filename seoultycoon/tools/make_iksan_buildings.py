@@ -14,9 +14,13 @@ def hx(h, a=255): return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4)) + (a,)
 def lerp(c0, c1, t): return tuple(int(c0[i] * (1 - t) + c1[i] * t) for i in range(3)) + (255,)
 
 class Sc:
+    OVR = None            # (캔버스 높이, 바닥 마름모의 가장 넓은 줄): 게임 조각 규칙용(2:1 마름모). tools/strips.py 참고
     def __init__(self, H, seed=1):
+        ovr = Sc.OVR
+        if ovr: H = ovr[0]
         self.H, self.WS, self.HS = H, W * S, H * S; self.im = Image.new('RGBA', (self.WS, self.HS), (0, 0, 0, 0)); self.rnd = random.Random(seed); self.nrs = np.random.RandomState(seed)
         self.T = (48, H - 43); self.R = (95, H - 24); self.L = (1, H - 24)           # 바닥 다이아몬드(아래 맞춤)
+        if ovr: self.T = (48, ovr[1] - 24); self.R = (95, ovr[1]); self.L = (1, ovr[1])
     def G(self, a, b, z=0.0):
         T, R, L = self.T, self.R, self.L
         return ((T[0] + a * (R[0] - T[0]) + b * (L[0] - T[0])) * S, (T[1] + a * (R[1] - T[1]) + b * (L[1] - T[1]) - z) * S)

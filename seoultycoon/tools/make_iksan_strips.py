@@ -45,12 +45,12 @@ def composite_preview(sheet, strips, offy, Hc=112):
         c.alpha_composite(sheet.crop((sx, sy, sx + w, sy + h)), (px, py + offy))
     return c
 
-def patch_yx(path_out):
-    d = bytearray(open(root + '/work/st2/yx.d', 'rb').read())
+def patch_yx_bytes(d):
     pat = bytes([0, 23, 96, 37, 50, 0, 18, 23, 71, 13, 2, 10, 0, 0, 24, 23, 25, 0, 24, 23]); i = d.find(pat); assert i >= 0
     new = bytes([0, 23, 96, 37, 40, 0, 30, 23, 70, 0, 6, 10, 0, 0, 40, 23, 95, 0, 1, 1])      # 변형 조각(25,0,24,23)은 비워 둔다
     d[i:i + len(pat)] = new
-    open(path_out, 'wb').write(d)
+def patch_yx(path_out):
+    d = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); patch_yx_bytes(d); open(path_out, 'wb').write(d)
 
 if __name__ == '__main__':
     F, sheet = b2(); sheet.save(f'{out}/b2.png'); patch_yx(root + '/st2android/mod/yx.d')

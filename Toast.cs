@@ -14,7 +14,7 @@ internal class TrayToast : AlertForm
 	private bool quit, hourMode; private double span = 30.0; private DateTime quitAt; private TLabel lA, lB, lC, lD; private ProgBar pBar; private string lastB = "";
 	private static int Z(int v) { return Dpi.Z(v); }
 
-	public TrayToast(string today, string month, int mon, int lim, string sum, string next, DateTime? quitTime = null, bool hourMode = false)
+	public TrayToast(string today, string month, int mon, int lim, string sum, string next, DateTime? quitTime = null, bool hourMode = false, string[] brk = null)
 	{
 		FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true;
 		StartPosition = FormStartPosition.Manual; BackColor = Theme.Bg;
@@ -54,6 +54,7 @@ internal class TrayToast : AlertForm
 			}
 			bar.C = Theme.Accent;
 		}
+		if (brk != null) { sky.Caption = "정각 건강 알림"; a.Text = n.Hour + "시 정각"; b.Text = brk[0]; b.Fore = Theme.Accent; b.SetFont(15f, 2); c.Text = brk[1]; d.Text = "누르면 닫혀요"; d.Fore = Theme.Muted; d.SetFont(10f, 0); bar.Visible = false; }
 		wp.Click += delegate { Hide2(); };
 		foreach (Control k in wp.Controls) k.Click += delegate { Hide2(); };
 
@@ -61,7 +62,7 @@ internal class TrayToast : AlertForm
 		baseTop = wa.Bottom - Height - Z(14);
 		Location = new Point(wa.Right - Width - Z(14), baseTop + Z(30));
 		Opacity = 0;
-		closeAt = quitTime.HasValue ? quitTime.Value.AddSeconds(hourMode ? 4 : 8) : DateTime.Now.AddSeconds(30);
+		closeAt = quitTime.HasValue ? quitTime.Value.AddSeconds(hourMode ? 4 : 8) : DateTime.Now.AddSeconds(brk != null ? 12 : 30);
 		tm = new FrameTimer(); tm.Interval = 16;
 		tm.Tick += Tick;
 		FormClosed += delegate { if (backup != null) { backup.Stop(); backup.Dispose(); backup = null; } if (tm != null) { tm.Stop(); tm.Dispose(); tm = null; } if (hi) { hi = false; Anim.HiRes(false); } };
@@ -156,6 +157,18 @@ internal partial class Program
 			t.FormClosed += delegate { if (toast == t) toast = null; };
 			toast = t;
 			t.Begin();
+		}
+		catch (Exception ex) { LogError(ex); }
+	}
+
+	internal static void ShowBreakToast(string[] brk)
+	{
+		try
+		{
+			CloseToast(); DateTime n = DateTime.Now;
+			TrayToast t = new TrayToast("", "", 0, 0, "", "", null, false, brk);
+			t.FormClosed += delegate { if (toast == t) toast = null; };
+			toast = t; t.Begin();
 		}
 		catch (Exception ex) { LogError(ex); }
 	}

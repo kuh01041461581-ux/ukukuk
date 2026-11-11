@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -632,17 +632,18 @@ internal partial class Program
 	}
 
 	// 매시 정각: 왼쪽 아래에 스트레칭 · 물 마시기 알림 (평일 9시~21시, 방해 금지 중에는 쉬어요)
-	private static readonly string[] BreakTx = {
-		"정각이에요! 자리에서 일어나 목과 어깨를 쭉 풀어 주세요", "물 한 잔 마실 시간이에요. 천천히 쭉 드세요", "허리를 펴고 어깨를 돌려 주세요. 눈도 멀리 보며 쉬어요",
-		"정각이에요! 물 한 컵 마시고 손목도 돌려 주세요", "잠깐 일어나 한 바퀴 걸어요. 다리 스트레칭도 좋아요", "눈 피로 풀기: 20초 동안 먼 곳 바라보고 물 한 모금!" };
+	private static readonly string[][] BreakTx = {
+		new[] { "스트레칭", "일어나서 목과 어깨를 쭉 풀어요" }, new[] { "물 마시기", "물 한 잔 천천히 마셔요" }, new[] { "스트레칭", "허리 펴고 어깨를 돌려요" },
+		new[] { "물 · 손목", "물 마시고 손목을 돌려요" }, new[] { "걷기", "잠깐 걸으며 다리를 펴요" }, new[] { "눈 쉬기", "먼 곳 보며 물 한 모금" } };
 	private static void BreakTick(DateTime now)
 	{
 		try
 		{
-			if (!breakOn || now.Minute != 0 || now.Second > 8 || now.Hour < 9 || now.Hour > 21 || IsOffDay(now)) return;
-			DateTime h = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0); if (breakAt == h) return; breakAt = h;
-			if (DndActive) return;
-			Bubble.SayLeft(BreakTx[(now.Hour + now.DayOfYear) % BreakTx.Length], 8);
+			if (!breakOn || now.Minute != 0 || now.Second > 20 || now.Hour < 9 || now.Hour > 21 || IsOffDay(now)) return;
+			DateTime h = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0); if (breakAt == h) return;
+			if (DndActive) { breakAt = h; return; }
+			if (ToastActive) return;   // 퇴근·정각 카운트다운 카드가 닫힌 뒤에 보여 줘요
+			breakAt = h; ShowBreakToast(BreakTx[(now.Hour + now.DayOfYear) % BreakTx.Length]);
 		}
 		catch (Exception ex) { LogError(ex); }
 	}

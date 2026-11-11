@@ -55,7 +55,7 @@ internal sealed class Bubble : Form
 	private static Bubble cur, curL; private bool left;
 	private string text; private readonly Image mascot;
 	private readonly FrameTimer tm = new FrameTimer(); private readonly System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
-	private double tt, last, outAt = -1; private double hold; private readonly int baseY;
+	private double tt, last, outAt = -1; private double hold; private int baseY;
 	protected override bool ShowWithoutActivation { get { return true; } }
 	protected override CreateParams CreateParams { get { CreateParams cp = base.CreateParams; cp.ExStyle |= 0x08000000 | 0x80; return cp; } }
 
@@ -65,7 +65,7 @@ internal sealed class Bubble : Form
 	{
 		try
 		{
-			if (curL == null || curL.IsDisposed) { curL = new Bubble(s, seconds); curL.left = true; Rectangle wa = Screen.PrimaryScreen.WorkingArea; curL.Location = new Point(wa.Left + Dpi.Z(16), curL.baseY + Dpi.Z(24)); }
+			if (curL == null || curL.IsDisposed) { curL = new Bubble(s, seconds); curL.left = true; curL.baseY -= curL.Height + Dpi.Z(8); curL.Location = new Point(curL.Left, curL.baseY + Dpi.Z(24)); }   // 오른쪽 아래, 기존 말풍선 위쪽
 			curL.text = s; curL.hold = seconds; curL.tt = 0; curL.outAt = -1; curL.last = curL.sw.Elapsed.TotalSeconds;
 			curL.Opacity = 0; curL.Top = curL.baseY + Dpi.Z(24);
 			if (!curL.Visible) curL.Show();

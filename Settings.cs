@@ -543,7 +543,7 @@ internal partial class Program
 
 		Card cBr = card(pAl, 541, 37);
 		Lbl(cBr, "정각 스트레칭 · 물 마시기", 11f, 1, Theme.Ink, 18, 0, 300, 20);
-		Lbl(cBr, "평일 9~21시 매시 정각에 왼쪽 아래로 알려요", 9.5f, 0, Theme.Sub, 18, 18, CW - 36 - 56, 18);
+		Lbl(cBr, "평일 9~21시 매시 정각에 오른쪽 아래로 알려요", 9.5f, 0, Theme.Sub, 18, 18, CW - 36 - 56, 18);
 		TToggle brTg = new TToggle(); brTg.BackColor = Theme.Bg; brTg.Location = new Point(Zs(CW - 42 - 16), Zs(6)); brTg.SetImmediate(breakOn); cBr.Controls.Add(brTg);
 		// 인사랑 바로가기 (주소는 프로그램 안에 들어 있어요)
 		Card cI = card(pAl, 444, 94);

@@ -26,43 +26,43 @@ def pond_to_lawn(im, box):
             r, g, b, a = px[x, y]
             if a and b > 150 and r < 140: px[x, y] = ((104, 152, 8) if (x + y) % 5 else (120, 160, 14)) + (255,)
             elif a and (r, g, b) == (105, 169, 171) and False: pass
-def pagoda(im, cx, base_y):
-    """왕궁리 오층석탑(작은 도트): 낮은 이중 기단 + 키 큰 1층 몸돌 + 위로 좁아지는 4개 지붕돌·몸돌 + 상륜. cx=가운데 x, base_y=기단 바닥 y."""
-    px = im.load(); W, H = im.size
-    L, M, D, T = (226, 218, 192), (196, 186, 160), (140, 130, 108), (246, 240, 220)
-    def put(x, y, c):
-        if 0 <= x < W and 0 <= y < H: px[x, y] = c + (255,)
-    def block(x0, x1, y0, y1, split=None):                      # 정면(왼쪽 밝음·오른쪽 어두움) 직육면체 면
-        mid = (x0 + x1) // 2 if split is None else split
-        for y in range(y0, y1 + 1):
-            for x in range(x0, x1 + 1): put(x, y, L if x <= mid else M)
-        for y in range(y0, y1 + 1): put(x1, y, D)
-        for x in range(x0, x1 + 1): put(x, y1, D)
-    def roof(xc, w, y):                                         # 얇은 지붕돌 한 켜: 위는 밝고 아래 그림자
-        for x in range(xc - w, xc + w + 1): put(x, y, T if x <= xc else L)
-        for x in range(xc - w + 1, xc + w): put(x, y + 1, M if x <= xc else D)
-    # 기단(넓고 낮은 이중)
-    block(cx - 10, cx + 10, base_y - 3, base_y - 1); block(cx - 8, cx + 8, base_y - 6, base_y - 4)
-    y = base_y - 7
-    # 1층 몸돌(크다) + 모서리 기둥 선
-    h = 9; block(cx - 5, cx + 5, y - h + 1, y)
-    for yy in range(y - h + 1, y + 1): put(cx - 5, yy, M); put(cx + 5, yy, D)
-    for xx in (cx - 2, cx + 1): put(xx, y - 3, D)               # 문 암시
-    y -= h
-    for (w, bh) in ((9, 5), (7, 4), (6, 3), (5, 3)):
-        roof(cx, w, y - 1); y -= 2
-        for k in range(2): roof(cx, w - 1 - k, y); y -= 1 if k else 0
-        block(cx - (w - 3), cx + (w - 3), y - bh + 1, y); y -= bh
-    roof(cx, 4, y - 1); y -= 2
-    for yy in range(y - 4, y): put(cx, yy, L); put(cx + 1, yy, D)            # 상륜
-    put(cx, y - 5, T)
+def pagoda(im, cx, base_y, scale=0.62):
+    """왕궁리 오층석탑: 8배 해상도로 기단·키 큰 1층 몸돌·켜켜이 쌓인 얇은 지붕돌 5개·상륜을 그려 줄여 붙인다(cx=가운데 x, base_y=기단 바닥 y)."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import make_iksan_landmarks as LM
+    from make_iksan_buildings import Sc, hx
+    s = Sc(78, 12); G = s.G; rnd = __import__('random').Random(4); cx_ = cy_ = 0.5
+    s.shadow([G(0.30, 0.70), G(0.72, 0.70), G(0.98, 0.86), G(0.50, 0.90)], 90, 9)
+    s.box(0.24, 0.76, 0.24, 0.76, 1.6, (hx('d8d0b8'), hx('9c9478')), (hx('9c9478'), hx('6a6450')), LM.STONE_T, 0)                 # 넓은 낮은 기단
+    s.box(0.30, 0.70, 0.30, 0.70, 1.6, (hx('d0c8ae'), hx('948c70')), (hx('948c70'), hx('625c48')), LM.STONE_T, 1.6)
+    z = 3.2
+    s.box(0.35, 0.65, 0.35, 0.65, 9.0, (hx('d8ccb0'), hx('a89c80')), (hx('a89c80'), hx('6a604a')), LM.STONE_T, z)                    # 키 큰 1층 몸돌
+    for k in range(1, 9): a = 0.35 + 0.30 * k / 9; s.line([G(a, 0.65, z), G(a, 0.65, z + 9.0)], hx('6a604a', 130), 2)
+    LM.weathered(s, 0.35, 0.65, 0.65, z, 9.0, rnd, 40)
+    z += 9.0
+    for (w, h, rw, lay) in ((0.135, 3.0, 0.215, 5), (0.118, 3.0, 0.19, 5), (0.102, 2.8, 0.165, 5), (0.086, 2.6, 0.14, 5), (0.07, 2.4, 0.115, 4)):
+        z = LM.layered_roof(s, cx_, cy_, rw, z, rnd, layers=lay, thick=0.62, taper=0.012)
+        s.box(cx_ - w, cx_ + w, cy_ - w, cy_ + w, h, LM.STONE_L, LM.STONE_R, LM.STONE_T, z); LM.weathered(s, cx_ - w, cx_ + w, cy_ + w, z, h, rnd, 8); z += h
+    z = LM.layered_roof(s, cx_, cy_, 0.095, z, rnd, layers=4, thick=0.55, taper=0.012)
+    s.box(cx_ - 0.02, cx_ + 0.02, cy_ - 0.02, cy_ + 0.02, 1.8, LM.STONE_L, LM.STONE_R, LM.STONE_T, z)
+    from PIL import ImageDraw
+    d = ImageDraw.Draw(s.im); x, y = G(cx_, cy_, z + 2.6); d.ellipse([x - 7, y - 8, x + 7, y + 4], fill=hx('d8d0bc')); d.ellipse([x - 5, y - 7, x - 1, y - 2], fill=hx('f2ecdc'))
+    F = s.finish(); bb = F.getbbox(); F = F.crop(bb)
+    F = F.resize((max(1, int(F.width * scale)), max(1, int(F.height * scale))), Image.LANCZOS)
+    # 알파를 이진으로(도트 느낌) 하고 기단 바닥 중앙을 (cx, base_y)에 맞춘다
+    a = np.asarray(F).copy(); a[..., 3] = np.where(a[..., 3] > 110, 255, 0); F = Image.fromarray(a, 'RGBA')
+    im.alpha_composite(F, (cx - F.width // 2, base_y - F.height + 2))
+    px = im.load()
+    for (gx, gy) in ((cx - 15, base_y + 1), (cx - 12, base_y + 3), (cx + 12, base_y + 3), (cx + 15, base_y + 1), (cx - 9, base_y + 5), (cx + 9, base_y + 5)):   # 건물터 초석
+        for dx in (0, 1):
+            if 0 <= gx + dx < im.width and 0 <= gy < im.height: px[gx + dx, gy] = (150, 146, 128, 255)
     return im
 def build():
     ensure(); res = {}
     for n in ('d84', 'd93', 'd94', 'd95', 'da4'):
         im = recolor(Image.open(f'/tmp/pk/{n}.d').convert('RGBA'))
         if n == 'd84':
-            pond_to_lawn(im, (8, 20, 33, 33)); pagoda(im, 41, 40)
+            pagoda(im, 47, 41)
         res[n] = im
     return res
 if __name__ == '__main__':

@@ -20,5 +20,6 @@ pip install -r requirements.txt
 python tests/test_api.py      # 저장·엑셀 읽기 시험
 python build.py               # app/ui.html 생성 (화면)
 python app.py                 # 창으로 실행
+python make_icon.py           # 아이콘(assets/icon.ico) 다시 만들기 (Pillow 필요)
 ```
 화면은 `src/` (HTML 틀 `app.template.html`, `style.css`, `js/*.js`), PDF 읽기는 `vendor/` 의 PDF.js(Apache-2.0).

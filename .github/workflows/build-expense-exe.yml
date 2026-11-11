@@ -31,7 +31,7 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python build.py
       - name: Build exe (파일 하나짜리)
-        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name ExpenseManager --add-data "app/ui.html;app" --hidden-import seedlib --collect-all webview app.py
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name ExpenseManager --icon assets/icon.ico --add-data "app/ui.html;app" --hidden-import seedlib --collect-all webview app.py
       - uses: actions/upload-artifact@v4
         with:
           name: ExpenseManager-windows

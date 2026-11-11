@@ -8,7 +8,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin1234';
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data.json');
 const PUBLIC = path.join(__dirname, 'public');
 
-var db = { groups: [], members: [], lectures: [], records: {}, sessions: {}, venue: { name: '', lat: null, lng: null, radius: 150 } };
+var db = { groups: [], members: [], lectures: [], records: {}, sessions: {}, bindings: {}, venue: { name: '', lat: null, lng: null, radius: 150 } };
 if (fs.existsSync(DATA_FILE)) { db = Object.assign(db, JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'))); }
 else seed();
 
@@ -119,7 +119,7 @@ async function api(req, res, url) {
       venue: db.venue.lat == null ? null : { name: db.venue.name },
       groups: db.groups.map((g) => ({ id: g.id, name: g.name,
         members: db.members.filter((x) => x.groupId === g.id).map((x) => ({
-          id: x.id, name: x.name, done: !!(((db.records[se.date] || {})[se.lectureId] || {})[g.id] || { marks: {} }).marks[x.id] })) })),
+          id: x.id, name: x.name, needPhone: !!x.phone4, done: !!(((db.records[se.date] || {})[se.lectureId] || {})[g.id] || { marks: {} }).marks[x.id] })) })),
     });
   }
   if ((mm = p.match(/^\/api\/s\/([\w-]+)\/checkin$/)) && m === 'POST') {
@@ -127,6 +127,10 @@ async function api(req, res, url) {
     if (!se.open) return json(res, 403, { error: '출석이 마감되었습니다' });
     const b = await body(req);
     const mem = db.members.find((x) => x.id === b.memberId); if (!mem) return json(res, 404, { error: '이름을 선택해 주세요' });
+    const dev0 = String(b.deviceId || '').slice(0, 64);
+    db.bindings ||= {};
+    const bound = dev0 && db.bindings[mem.id] === dev0;
+    if (!bound && mem.phone4 && String(b.phone4 || '') !== mem.phone4) return json(res, 403, { error: '본인 확인 번호(전화번호 뒤 4자리)가 맞지 않습니다', needPhone: true });
     if (String(b.code || '') !== se.code) return json(res, 403, { error: '현장 코드가 맞지 않습니다' });
     const v = db.venue; let d = null;
     if (v.lat != null) {
@@ -152,8 +156,9 @@ async function api(req, res, url) {
     rec.marks[mem.id] = late ? 'L' : 'P';
     rec.meta[mem.id] = { at: new Date().toISOString(), device: dev, dist: d == null ? null : Math.round(d), self: true };
     rec.at = rec.meta[mem.id].at;
+    if (dev) db.bindings[mem.id] = dev; // 첫 출석 성공 시 이 휴대폰을 본인 기기로 등록
     save();
-    return json(res, 200, { ok: true, status: rec.marks[mem.id] });
+    return json(res, 200, { ok: true, status: rec.marks[mem.id], memberId: mem.id });
   }
 
   if (p === '/api/day' && m === 'GET') { // 단체 대표자: 해당 날짜 강의 + 우리 단체 출석 현황
@@ -205,7 +210,7 @@ async function api(req, res, url) {
     }
     if (p === '/api/admin/config' && m === 'GET') {
       return json(res, 200, {
-        groups: db.groups.map((g) => ({ ...g, members: db.members.filter((x) => x.groupId === g.id).map((x) => x.name) })),
+        groups: db.groups.map((g) => ({ ...g, members: db.members.filter((x) => x.groupId === g.id).map((x) => x.phone4 ? `${x.name} ${x.phone4}` : x.name) })),
         lectures: db.lectures, venue: db.venue,
       });
     }
@@ -217,9 +222,13 @@ async function api(req, res, url) {
         const id = g.id && db.groups.some((x) => x.id === g.id) ? g.id : uid('g');
         groups.push({ id, name: g.name.trim(), pin: String(g.pin).trim() });
         const old = db.members.filter((x) => x.groupId === id);
-        for (const name of [...new Set((g.members || []).map((s) => s.trim()).filter(Boolean))]) {
+        const seen = new Set();
+        for (const line of (g.members || []).map((s) => s.trim()).filter(Boolean)) {
+          const mt = line.match(/^(.*\S)\s+(\d{4})$/);
+          const name = mt ? mt[1] : line, phone4 = mt ? mt[2] : '';
+          if (seen.has(name)) continue; seen.add(name);
           const ex = old.find((x) => x.name === name);
-          members.push({ id: ex ? ex.id : uid('m'), groupId: id, name });
+          members.push({ id: ex ? ex.id : uid('m'), groupId: id, name, phone4 });
         }
       }
       for (const l of b.lectures || []) {
@@ -231,7 +240,9 @@ async function api(req, res, url) {
       }
       const v = b.venue || {};
       db.venue = { name: String(v.name || ''), lat: v.lat === '' || v.lat == null ? null : +v.lat, lng: v.lng === '' || v.lng == null ? null : +v.lng, radius: +v.radius > 0 ? +v.radius : 150 };
-      db.groups = groups; db.members = members; db.lectures = lectures; save();
+      db.groups = groups; db.members = members; db.lectures = lectures;
+      db.bindings = Object.fromEntries(Object.entries(db.bindings || {}).filter(([id]) => members.some((x) => x.id === id)));
+      save();
       return json(res, 200, { ok: true });
     }
     return json(res, 404, { error: 'not found' });

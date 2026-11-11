@@ -19,7 +19,7 @@ h4{margin:12px 0 4px}
 const $=id=>document.getElementById(id);
 const token=location.pathname.split('/').pop();
 let dev=localStorage.getItem('dev');if(!dev){dev=crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now();localStorage.setItem('dev',dev)}
-let sel=null,S=null;
+let sel=localStorage.getItem('me')||null,gid=null,S=null;
 async function load(){
   const r=await fetch('/api/s/'+token);S=await r.json();
   if(!r.ok){$('body').innerHTML=`<div class="card err">${S.error}</div>`;return}
@@ -28,14 +28,22 @@ async function load(){
   draw();
 }
 function draw(msg){
-  $('body').innerHTML=`<div class="card">${S.groups.map(g=>`<h4>${g.name}</h4><div class="names">${g.members.map(m=>
-    `<button data-id="${m.id}" class="${sel===m.id?'sel':''} ${m.done?'done':''}">${m.name}${m.done?' ✔':''}</button>`).join('')}</div>`).join('')}</div>
-  <div class="card"><label>현장 코드 (교육장에서 안내)<input id="code" inputmode="numeric" maxlength="4" placeholder="4자리"></label>
+  if(!gid)gid=(me()&&S.groups.find(g=>g.members.some(m=>m.id===sel))?.id)||localStorage.getItem('gid')||null;
+  const G=S.groups.find(g=>g.id===gid);
+  $('body').innerHTML=`<div class="card"><h4 style="margin-top:0">① 소속 단체</h4><div class="names">${S.groups.map(g=>`<button data-gid="${g.id}" class="${gid===g.id?'sel':''}">${g.name}</button>`).join('')}</div>
+  ${G?`<h4>② 본인 이름</h4><div class="names">${G.members.map(m=>`<button data-id="${m.id}" class="mem ${sel===m.id?'sel':''} ${m.done?'done':''}">${m.name}${m.done?' ✔':''}</button>`).join('')}</div>`:''}</div>
+  <div class="card">${sel&&me()?`<div>👤 <b>${me().name}</b>님으로 출석합니다 <a href="#" id="other">다른 사람이에요</a></div>`:''}
+  <label ${bound()?'hidden':''}>본인 확인: 전화번호 뒤 4자리<input id="ph" inputmode="numeric" maxlength="4" placeholder="예: 1234"></label>
+  <label>현장 코드 (교육장에서 안내)<input id="code" inputmode="numeric" maxlength="4" placeholder="4자리"></label>
   ${S.venue?`<div class="mut">📍 교육장(${S.venue.name||'지정 장소'}) 안에서만 출석됩니다. 누르면 위치 권한을 허용해 주세요.</div>`:''}
   <button class="pri" id="go">출석하기</button><div id="msg" class="${msg?.err?'err':''}">${msg?.t||''}</div></div>`;
-  document.querySelectorAll('.names button').forEach(b=>b.onclick=()=>{sel=b.dataset.id;const c=$('code')?.value;draw();$('code').value=c||''});
+  document.querySelectorAll('[data-gid]').forEach(b=>b.onclick=()=>{gid=b.dataset.gid;sel=null;localStorage.setItem('gid',gid);draw()});
+  document.querySelectorAll('.mem').forEach(b=>b.onclick=()=>{sel=b.dataset.id;const c=$('code')?.value;draw();$('code').value=c||''});
   $('go').onclick=go;
+  if($('other'))$('other').onclick=e=>{e.preventDefault();localStorage.removeItem('bound');localStorage.removeItem('me');sel=null;draw()};
 }
+const me=()=>S&&S.groups.flatMap(g=>g.members).find(m=>m.id===sel);
+const bound=()=>!!localStorage.getItem('bound')&&localStorage.getItem('bound')===sel;
 function pos(){return new Promise((ok,no)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(ok,no,{enableHighAccuracy:true,timeout:15000,maximumAge:0}):no({message:'unsupported'}))}
 async function go(){
   const msg=(t,err)=>{$('msg').className=err?'err':'';$('msg').textContent=t};
@@ -44,9 +52,10 @@ async function go(){
   if(S.venue){msg('위치 확인 중…');
     try{const x=await pos();p={lat:x.coords.latitude,lng:x.coords.longitude,accuracy:x.coords.accuracy}}
     catch(e){return msg('위치를 확인할 수 없습니다. 휴대폰·브라우저의 위치 권한을 허용한 뒤 다시 눌러 주세요',1)}}
-  const r=await fetch(`/api/s/${token}/checkin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({memberId:sel,code:$('code').value,deviceId:dev,...p})});
+  const r=await fetch(`/api/s/${token}/checkin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({memberId:sel,code:$('code').value,phone4:$('ph').value,deviceId:dev,...p})});
   const j=await r.json();
   if(!r.ok)return msg(j.error,1);
+  localStorage.setItem('me',sel);localStorage.setItem('bound',sel);
   const name=S.groups.flatMap(g=>g.members).find(m=>m.id===sel).name;
   $('body').innerHTML=`<div class="card big">✅<br>${name}님<br>${j.status==='L'?'지각 처리되었습니다':'출석되었습니다'}${j.already?'<div class="mut">(이미 출석됨)</div>':''}</div>`;
 }

@@ -79,7 +79,7 @@ async function cfg(){C=await api('/api/admin/config');const v=C.venue||{};$('vn'
 $('here').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('vlat').value=p.coords.latitude.toFixed(6);$('vlng').value=p.coords.longitude.toFixed(6)},()=>alert('위치 권한을 허용해 주세요'),{enableHighAccuracy:true});
 function draw(){
   $('gs').innerHTML=C.groups.map((g,i)=>`<div style="margin-bottom:10px"><div class="g"><input data-i="${i}" data-k="name" value="${g.name}" placeholder="단체명"><input data-i="${i}" data-k="pin" value="${g.pin}" placeholder="PIN"></div>
-    <textarea data-i="${i}" data-k="members" placeholder="구성원 이름 (한 줄에 한 명)">${g.members.join('\n')}</textarea><button data-del="g${i}">단체 삭제</button></div>`).join('');
+    <textarea data-i="${i}" data-k="members" placeholder="한 줄에 한 명: 이름 전화번호뒤4자리 (예: 홍길동 1234)">${g.members.join('\n')}</textarea><button data-del="g${i}">단체 삭제</button></div>`).join('');
   $('ls').innerHTML=`<table>${C.lectures.map((l,i)=>`<tr><td><input data-li="${i}" data-k="name" value="${l.name}"></td>
     <td><select data-li="${i}" data-k="weekday">${[...DAY].map((d,n)=>`<option value="${n}" ${l.weekday==n?'selected':''}>${d}</option>`).join('')}</select></td>
     <td><input type="time" data-li="${i}" data-k="start" value="${l.start}"></td><td><input type="time" data-li="${i}" data-k="end" value="${l.end}"></td>

@@ -81,8 +81,13 @@ class _Px:
     def __getitem__(self, k): return (0, 0, 0, 255)
     def __setitem__(self, k, v): self.px[k] = v
 
+def b45():                                                                  # 베니건스(BENNIGANS 네온) → 마룡이식당(MARYONG)
+    im = Image.open('/tmp/pk/b45.d').convert('RGBA')
+    erase(im, (28, 7, 64, 41), lambda r, g, b: r >= 140 and g >= 200 and b >= 200)
+    text(im, 30, 36, 'MARYONG', (255, 255, 255), -0.85, gap=1, sx=1, sy=2); return im
+
 if __name__ == '__main__':
-    R.ensure_pk(); items = {'b32': b32}; ims = {}
+    R.ensure_pk(); items = {'b32': b32, 'b45': b45}; ims = {}
     for n, fn in items.items(): ims[n] = fn(); ims[n].save(f'{out}/{n}.png')
     if len(sys.argv) > 1:
         W = sum(i.width * 5 + 10 for i in ims.values()); H = max(i.height * 5 for i in ims.values()); w = Image.new('RGBA', (W, H), (60, 60, 70, 255)); x = 0

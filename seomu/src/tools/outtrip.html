@@ -1714,13 +1714,13 @@ function parseOpinetText(text){
    · 전 경로 실패 시 OPINET_BACKOFF_MS 부터 2배씩 늘려가며 최대 OPINET_ROUNDS 회 재시도, 그래도 실패하면 OPINET_COOLDOWN_MS 동안 자동 재요청을 쉽니다.
    · 최근 OPINET_CACHE_TTL_MS 이내에 성공한 값이 있으면 네트워크를 쓰지 않습니다("다시 조회" 버튼은 무시하고 강제 조회).
    값이 여전히 불안정하면 아래 숫자만 키우면 됩니다. */
-const OPINET_STAGGER_MS   = 700;    // 공개 중계 서버는 0.7초 간격으로 차례 시도(먼저 성공하면 나머지 취소)
-const OPINET_MIN_GAP_MS   = 300;
-const OPINET_TIMEOUT_MS   = 9000;
-const OPINET_ROUNDS       = 3;
-const OPINET_BACKOFF_MS   = 2000;
+const OPINET_STAGGER_MS   = 250;
+const OPINET_MIN_GAP_MS   = 150;
+const OPINET_TIMEOUT_MS   = 6000;
+const OPINET_ROUNDS       = 2;
+const OPINET_BACKOFF_MS   = 800;
 const OPINET_CACHE_TTL_MS = 6*60*60*1000;
-const OPINET_COOLDOWN_MS  = 60*1000;
+const OPINET_COOLDOWN_MS  = 15*1000;
 let opinetGateAt = 0, opinetCooldownUntil = 0;
 const sleepMs = ms => new Promise(r=>setTimeout(r, ms));
 async function opinetGate(){
@@ -2395,41 +2395,47 @@ function exportPaymentForm(){
   XLSX.utils.book_append_sheet(wb, ws, '거래처입력');
   XLSX.writeFile(wb, '관외출장_지급폼_'+todayStr()+'.xlsx');
 }
-/* 상세입력폼 '교통편' 코드. 서식이 정한 코드가 시청마다 다를 수 있어 화면에서 고쳐 쓸 수 있게 하고(브라우저에 저장),
-   처음 값은 기존 프로그램이 쓰던 값(002:철도, 003:자가용, 001:없음). */
-const TRANSPORT_CODE_DEFAULT = {'자차':'003:자가용','기차':'002:철도','공무용차량':'001:없음','기타':'001:없음'};
+/* ---- 여비상세입력폼 교통편 ----
+   교통편 코드는 시스템 코드표와 같아야 합니다. 처음 값은 아래 표이고, 시청 서식과 다르면 출력 탭의 '교통편 코드' 칸에서
+   고쳐 쓸 수 있습니다(브라우저에 저장). 종별 → 결의서 2쪽 '종별' 칸과 같은 글자. */
+const DETAIL_TRANSPORT_CODE = {'기차':'002:철도', '자차':'003:자가용', '공무용차량':'003:자가용', '기타':'001:없음'};
+const DETAIL_MEANS_LABEL    = {'기차':'기차', '자차':'자가용', '공무용차량':'관용차량', '기타':'대중교통'};
 function getTransportCodes(){
   let saved = {};
   try{ saved = JSON.parse(localStorage.getItem('tripTransportCodes')||'{}')||{}; }catch(e){}
-  return Object.assign({}, TRANSPORT_CODE_DEFAULT, saved);
+  return Object.assign({}, DETAIL_TRANSPORT_CODE, saved);
 }
 function saveTransportCode(key, val){
-  const cur = getTransportCodes(); cur[key] = String(val||'').trim() || TRANSPORT_CODE_DEFAULT[key];
+  const cur = getTransportCodes(); cur[key] = String(val||'').trim() || DETAIL_TRANSPORT_CODE[key];
   try{ localStorage.setItem('tripTransportCodes', JSON.stringify(cur)); }catch(e){}
 }
+function esc2(v){ return String(v==null?'':v).replace(/"/g,'&quot;'); }
 function renderTransportCodeInputs(){
   const host = document.getElementById('transportCodeBox'); if(!host) return;
   const c = getTransportCodes();
   const lab = {'자차':'자가용(자차)','기차':'철도(기차)','공무용차량':'관용차량','기타':'대중교통·기타'};
-  host.innerHTML = Object.keys(TRANSPORT_CODE_DEFAULT).map(k=>`<label class="small" style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 6px 0;">${lab[k]} <input style="width:120px" value="${esc2(c[k])}" onchange="saveTransportCode('${k}',this.value)"></label>`).join('');
+  host.innerHTML = Object.keys(DETAIL_TRANSPORT_CODE).map(k=>`<label class="small" style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 6px 0;">${lab[k]} <input style="width:120px" value="${esc2(c[k])}" onchange="saveTransportCode('${k}',this.value)"></label>`).join('');
 }
-function esc2(v){ return String(v==null?'':v).replace(/"/g,'&quot;'); }
-function transportKindLabel(t){ return t.transport==='자차' ? '자가용' : (t.transport==='공무용차량' ? '관용차량' : (t.transport==='기차' ? '철도' : '대중교통')); }
+/* 한 출장 = 한 줄. 교통편·종별은 출장(가는 편) 이동수단 기준, 거리는 왕복 총거리, 요금은 교통비 합계. 실국명은 입력한 실국(없으면 비움). */
+function buildDetailRows(t){
+  const s = staffDB.find(x=>x.name===t.name) || {};
+  const daily=calcDaily(t), meal=calcMealFee(t), trans=calcTransportFee(t), lodge=calcLodgeFee(t);
+  const total = daily+meal+trans+lodge;
+  const ymd = v => v ? String(v).split('T')[0].replace(/-/g,'') : '';
+  const startDate = ymd(t.start), endDate = ymd(t.end);
+  const tp = t.transport || '기타';
+  const isCar = tp==='자차' || tp==='공무용차량';
+  const dist = Number(t.distance)||0;
+  const codes = getTransportCodes();
+  return [[t.name, s.account||'', t.position||'', t.purpose||'', '002:실비', startDate, '익산', '', t.dest||'',
+    codes[tp]||codes['기타'], DETAIL_MEANS_LABEL[tp]||'', t.grade||'',
+    (isCar && dist>0) ? dist : '', trans, startDate, endDate, meal, lodge, daily, '', '', total, total, t.bureau||s.bureau||'', t.dept||'익산시 00000과']];
+}
 function exportDetailForm(){
   if(tripDB.length===0){ alert('출장 내역이 없습니다.'); return; }
   const header = ['출장자명\n(100자리이하)','계좌번호\n(30자리이하)','직급명\n(100자리이하)','출장목적\n(100자리이하)','정산유형\n(선택)','일자\n(8자리)','출발지\n(100자리이하)','경유지\n(100자리이하)','도착지\n(100자리이하)','교통편\n(선택)','종별\n(100자리이하)','등급\n(100자리이하)','거리\n(10자리이하)','요금\n(17자리이하)','출장시작일\n(8자리)','출장종료일\n(8자리)','식비\n(17자리이하)','숙박료\n(17자리이하)','일비\n(17자리이하)','현지교통비\n(사용하지 않는 항목)','기타\n(사용하지 않는 항목)','계\n(17자리이하)','청구 및 수령액\n(17자리이하)','실국명\n(100자리이하)','부서명\n(100자리이하)'];
-  const rows = tripDB.map(t=>{
-    const s = staffDB.find(x=>x.name===t.name) || {};
-    const daily=calcDaily(t), meal=calcMealFee(t), trans=calcTransportFee(t), lodge=calcLodgeFee(t);
-    const total = daily+meal+trans+lodge;
-    const startDate = t.start ? t.start.split('T')[0].replace(/-/g,'') : '';
-    const endDate = t.end ? t.end.split('T')[0].replace(/-/g,'') : '';
-    const transportCode = getTransportCodes()[t.transport] || getTransportCodes()['기타'];
-    const bureau = t.bureau || s.bureau || '';
-    const isCarTrip = t.transport==='자차' || t.transport==='공무용차량';
-    return [t.name, s.account||'', t.position||'', t.purpose||'', '002:실비', startDate, '익산', '', t.dest||'',
-      transportCode, transportKindLabel(t), t.grade||'', isCarTrip ? (t.distance||'') : '', trans, startDate, endDate, meal, lodge, daily, '', '', total, total, bureau, t.dept||'익산시 00000과'];
-  });
+  const rows = [];
+  tripDB.forEach(t=>{ buildDetailRows(t).forEach(r=>rows.push(r)); });
   const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '여비상세입력');
@@ -2746,11 +2752,15 @@ function wrapTextByChars(text, maxChars){
   lines.push(current);
   return lines;
 }
+/* 한글(HWPX) 규격: 줄바꿈(<hp:lineBreak/>)은 <hp:run> 바로 아래가 아니라 <hp:t> 안에 글자와 섞여 들어간다.
+   (예: <hp:t>첫줄<hp:lineBreak/>둘째줄</hp:t>) — <hp:t>…</hp:t><hp:lineBreak/><hp:t>…</hp:t> 처럼 쓰면
+   한글이 "파일이 손상되었습니다"라며 열지 못한다. */
+function hwpxTextXml(lines){
+  return '<hp:t>' + lines.map(l=>escapeXml(l)).join('<hp:lineBreak/>') + '</hp:t>';
+}
 function wrapTextToHwpxRuns(text, maxChars){
   const lines = wrapTextByChars(text, maxChars);
-  const xml = lines
-    .map(line=>`<hp:t>${escapeXml(line)}</hp:t>`)
-    .join('<hp:lineBreak/>');
+  const xml = hwpxTextXml(lines);
   return { xml, lineCount: lines.length };
 }
 /* 25글자를 초과하면 다음 줄로 넘기는 규칙을 적용할 칸 (44=적요 칸, 58=용무/목적 칸) */
@@ -2872,7 +2882,7 @@ function locateHwpxCell(xml, base, col, row){
   return { tcStart, tcEnd, tc, availPt };
 }
 function hwpxRunsFromLines(lines){
-  return lines.map(l=>`<hp:t>${escapeXml(l)}</hp:t>`).join('<hp:lineBreak/>');
+  return hwpxTextXml(lines);
 }
 function dropLineSegCache(tc){
   return tc.replace(/<hp:linesegarray>[\s\S]*?<\/hp:linesegarray>/, '');
@@ -2956,10 +2966,18 @@ async function loadHwpxTemplateFile(file){
   try{
     const zip = await JSZip.loadAsync(buf);
     if(!zip.file('Contents/section0.xml')) throw new Error('section0.xml 없음');
+    // 서식 구조 점검: 라벨(적요·출장자·월일·철도임 등)로 칸을 찾을 수 있는지 미리 확인한다.
+    const chkXml = await zip.file('Contents/section0.xml').async('string');
+    let miss = [];
+    try{
+      const blk = v3SplitBlocks(chkXml).blocks[0];
+      miss = v3Resolve(blk).missing;
+    }catch(e){ miss = ['결의서 표 구조(표 2개)']; }
     hwpxTemplateBuf = buf;
     hwpxTemplateName = file.name;
     updateTplStatus(true);
     toast('새 결의서 서식을 적용했습니다: '+file.name);
+    if(miss.length) setTimeout(()=>alert('이 서식에서 다음 항목을 찾지 못했습니다. 해당 칸은 채워지지 않을 수 있습니다.\n\n- '+miss.join('\n- ')),50);
   }catch(err){
     alert('올바른 결의서(.hwpx) 파일이 아닌 것 같습니다.');
     console.error(err);
@@ -3044,7 +3062,7 @@ function v2BuildPara(src, lines, dropSeg, charPrOverride){
   const nonEmpty = lines.some(l=>l!=='');
   const cpUse = (nonEmpty && charPrOverride) ? charPrOverride : cp;   // 글자가 있을 때만 스타일 교체
   const run = nonEmpty
-    ? `<hp:run charPrIDRef="${cpUse}">${lines.map(l=>`<hp:t>${escapeXml(l)}</hp:t>`).join('<hp:lineBreak/>')}</hp:run>`
+    ? `<hp:run charPrIDRef="${cpUse}">${hwpxTextXml(lines)}</hp:run>`
     : `<hp:run charPrIDRef="${cp}"/>`;
   // 줄 수가 바뀌는 경우엔 줄 배치 캐시를 지워 한글이 열 때 다시 계산하게 한다(적요/용무 칸과 같은 방식).
   const keepSeg = seg && !dropSeg && lines.length<=1 && segCount<=1;   // dropSeg=true 인 칸은 줄 수와 상관없이 캐시 삭제
@@ -3080,6 +3098,27 @@ function v2SetCell(xml, ti, col, row, paras, opt){
   });
   return xml.slice(0, tcStart) + head + out.join('') + tail + xml.slice(tcEnd);
 }
+/* 여행명세서 출발지/도착지 칸은 폭이 좁아(약 5자) 출장지가 길면 줄이 8~9줄로 늘어나 표가 한 쪽을 넘어 다음 페이지로 밀린다.
+   → 글자 크기를 11pt부터 6pt까지 줄여가며 (줄 수 × 글자크기)가 일정 한도 이하가 되는 가장 큰 크기를 쓴다. */
+function v2CellInfo(xml, ti, col, row){
+  const tbs = v2TableStarts(xml);
+  if(tbs.length<=ti) return null;
+  const aPos = xml.indexOf(`<hp:cellAddr colAddr="${col}" rowAddr="${row}"/>`, tbs[ti]);
+  if(aPos===-1) return null;
+  const tcStart = xml.lastIndexOf('<hp:tc ', aPos), tcEnd = xml.indexOf('</hp:tc>', aPos);
+  const tc = xml.slice(tcStart, tcEnd);
+  const w = tc.match(/<hp:cellSz width="(\d+)"/), cp = tc.match(/<hp:run charPrIDRef="(\d+)"/);
+  return { availPt: w ? (parseInt(w[1],10) - HWPX_CELL_PAD_HU)/100 : 50, cp: cp ? cp[1] : null };
+}
+function v2FitText(text, availPt, canShrink){
+  let pt = HWPX_BODY_PT, lines = wrapTextByWidth(text, availPt, pt);
+  if(!canShrink) return { pt, lines };
+  for(const cand of [11,10,9,8,7,6]){
+    pt = cand; lines = wrapTextByWidth(text, availPt, cand);
+    if(lines.length*cand <= 30) break;
+  }
+  return { pt, lines };
+}
 function fillHwpxBlockV2(blockXml, p, fo){
   fo = fo||{};
   if(v2TableStarts(blockXml).length<2) throw new Error('서식에서 결의서 표를 찾을 수 없습니다.');
@@ -3104,8 +3143,16 @@ function fillHwpxBlockV2(blockXml, p, fo){
   /* ----- 2쪽: 여행명세서 ----- */
   set(1,0,2,[`${p.startM}. ${p.startD}.`]);                                    // 가는 편 날짜
   set(1,0,3,[`${p.endM}. ${p.endD}.`]);                                        // 오는 편 날짜
-  set(1,5,2,[p.dest||''],{wrap:true,dropSeg:true});                            // 가는 편 도착지
-  set(1,1,3,[p.dest||''],{wrap:true,dropSeg:true});                            // 오는 편 출발지
+  const fitDest = (col,row)=>{                                                 // 길면 글자 크기를 줄여 표 높이를 지킨다
+    const txt = p.dest||'';
+    const info = v2CellInfo(xml, 1, col, row);
+    if(!txt || !info){ set(1,col,row,[txt],{wrap:true,dropSeg:true}); return; }
+    const fit = v2FitText(txt, info.availPt, !!(fo.cloneCharPr && info.cp));
+    const cpId = (fit.pt<HWPX_BODY_PT && fo.cloneCharPr) ? fo.cloneCharPr(info.cp, fit.pt*100) : null;
+    set(1,col,row,[fit.lines],{dropSeg:true, charPr: cpId||undefined});
+  };
+  fitDest(5,2);                                                                // 가는 편 도착지
+  fitDest(1,3);                                                                // 오는 편 출발지
   set(1,10,2,[L.dist1],{wrap:true});  set(1,12,2,[noWon(L.fee1)],{wrap:true});
   set(1,10,3,[L.dist2],{wrap:true});  set(1,12,3,[noWon(L.fee2)],{wrap:true});
   set(1,10,10,[L.distTotal],{wrap:true}); set(1,12,10,[noWon(L.feeTotal)],{wrap:true});
@@ -3171,36 +3218,339 @@ function fillHwpxBlock(blockXml, p){
   out = fillTravelStatementCells(out, p);   // 여행명세서 거리·요금 + 차마임 칸 줄바꿈
   return out;
 }
-function buildFilledSectionXml(masterXml, people, fo){
-  const v2 = hwpxIsV2Layout(masterXml);   // 기본 내장 서식 계열이면 셀 좌표 방식, 그 외 업로드 서식은 기존 방식
-  const marker = '<hp:p id="0" paraPrIDRef="15" styleIDRef="14" pageBreak="0" columnBreak="0" merged="0">';
-  const idxs = [];
-  if(v2){
-    const re = /<hp:p id="0" /g; let m;
-    while((m = re.exec(masterXml))) idxs.push(m.index);
-  }else{
-    let pos = 0;
-    while(true){
-      const i = masterXml.indexOf(marker, pos);
-      if(i===-1) break;
-      idxs.push(i); pos = i+marker.length;
+/* ============================================================
+   라벨 기반 서식 채우기 (어떤 부서 서식이든 같은 방식)
+   - 칸의 위치를 고정 좌표(colAddr,rowAddr)나 <hp:t> 순번으로 외우지 않고,
+     서식 안의 라벨 글자(적요·출장자·영수·용무·출장지, 월일·출발지·도착지, 철도임·식비·일비…)를
+     찾아 그 오른쪽/아래 칸을 값 칸으로 쓴다. 그래서 열 수나 행 수가 달라도 안전하다.
+   - "부서명"/"근무처" 같은 서식 고유 라벨은 서식에 있는 글자를 그대로 두고 값만 바꾼다(중복 삽입 없음).
+   - 여행명세서/여비명세서 칸은 서식의 칸 높이를 넘지 않도록 글자 크기를 줄여 줄 수를 맞춘다.
+     (쪽 여유가 거의 없는 서식에서 행이 조금만 늘어나도 표 전체가 다음 쪽으로 밀리기 때문)
+============================================================ */
+function v3Norm(s){ return String(s==null?'':s).replace(/[\s\u00a0\u3000]+/g,''); }
+function v3Unesc(s){ return String(s).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&'); }
+function v3ParaText(pxml){
+  const body = pxml.replace(/<hp:linesegarray>[\s\S]*?<\/hp:linesegarray>/g,'');
+  const ts = body.match(/<hp:t>[\s\S]*?<\/hp:t>/g) || [];
+  return v3Unesc(ts.map(t=>t.replace(/<[^>]+>/g,'')).join(''));
+}
+/* 표(ti번째)의 모든 셀: 위치·병합·크기·문단 글자 */
+function v3Cells(xml, ti){
+  const tbs = v2TableStarts(xml);
+  if(tbs.length<=ti) return [];
+  const t = xml.slice(tbs[ti], tbs[ti+1]!==undefined ? tbs[ti+1] : xml.length);
+  const out = []; const re = /<hp:tc [\s\S]*?<\/hp:tc>/g; let m;
+  while((m = re.exec(t))){
+    const c = m[0];
+    const a = c.match(/<hp:cellAddr colAddr="(\d+)" rowAddr="(\d+)"\/>/);
+    if(!a) continue;
+    const sp = c.match(/<hp:cellSpan colSpan="(\d+)" rowSpan="(\d+)"\/>/);
+    const sz = c.match(/<hp:cellSz width="(\d+)" height="(\d+)"/);
+    const paras = (c.match(/<hp:p [\s\S]*?<\/hp:p>/g)||[]).map(v3ParaText);
+    out.push({ col:+a[1], row:+a[2], cs: sp?+sp[1]:1, rs: sp?+sp[2]:1,
+               w: sz?+sz[1]:0, h: sz?+sz[2]:0, paras, text: v3Norm(paras.join('')) });
+  }
+  return out;
+}
+function v3Right(cells, c){
+  if(!c) return null;
+  const r = cells.filter(x=>x.row===c.row && x.col>=c.col+c.cs).sort((p,q)=>p.col-q.col);
+  return r[0] || null;
+}
+/* 한 결의서 블록(표 2개)에서 값을 넣을 칸들의 위치를 라벨로 찾는다. */
+function v3Resolve(blockXml){
+  const R = { missing:[] };
+  const T0 = v3Cells(blockXml,0), T1 = v3Cells(blockXml,1);
+  const need = (key, cell, label)=>{ if(cell) R[key] = cell; else R.missing.push(label); return cell; };
+  /* ---- 1쪽: 결의서 표 ---- */
+  const lab = (re)=> T0.find(c=>re.test(c.text) && c.text.length<=12);
+  const sett = lab(/^정산액/);
+  let amount = null;
+  if(sett) amount = T0.find(c=>c.col===0 && c.row>=sett.row+sett.rs);
+  if(!amount) amount = T0.find(c=>c.col===0 && /^금[\d,]*원/.test(c.text));
+  need('amount', amount, '금액(정산액 아래 칸)');
+  need('purpose', v3Right(T0, lab(/^적요$/)), '적요');
+  R.bank = v3Right(T0, lab(/^거래은행/));      // 없어도 진행(경고만)
+  if(!R.bank) R.missing.push('거래은행/계좌번호');
+  need('person', v3Right(T0, lab(/^출장자$/)), '출장자');
+  need('receipt', v3Right(T0, lab(/^영수$/)), '영수');
+  need('duty', v3Right(T0, lab(/^용무$/)), '용무');
+  need('dest0', v3Right(T0, lab(/^출장지$/)), '출장지');
+  /* ---- 2쪽: 여행명세서 + 여비명세서 표 ---- */
+  const hdrDate = T1.find(c=>c.text==='월일');
+  if(!hdrDate){ R.missing.push('여행명세서(월 일 머리글)'); return R; }
+  const dataStart = hdrDate.row + hdrDate.rs;
+  const H = (name)=> T1.find(c=>c.row<dataStart && c.text===name);
+  R.colDate = hdrDate.col;
+  R.colFrom = H('출발지') && H('출발지').col;
+  R.colTo   = H('도착지') && H('도착지').col;
+  R.colDist = H('거리') && H('거리').col;
+  R.colFee  = H('요금') && H('요금').col;
+  R.colDays = H('일수') && H('일수').col;
+  R.colNight= H('야수') && H('야수').col;
+  R.colRem  = H('비고') && H('비고').col;
+  ['colFrom','colTo','colDist','colFee','colDays','colNight','colRem'].forEach(k=>{ if(R[k]==null) R.missing.push('여행명세서 머리글('+k+')'); });
+  const total = T1.find(c=>c.text==='계' && c.col===hdrDate.col && c.row>=dataStart);
+  R.rowTotal = total ? total.row : null;
+  if(R.rowTotal==null) R.missing.push('여행명세서 계 줄');
+  R.row1 = dataStart; R.row2 = dataStart+1;
+  if(R.rowTotal!=null && R.row2>=R.rowTotal){ R.row2 = null; }   // 데이터 줄이 1개뿐인 서식
+  const title2 = T1.find(c=>c.text==='여비명세서');
+  if(!title2){ R.missing.push('여비명세서 제목'); return R; }
+  const rowOf = (re)=>{
+    const c = T1.find(x=>x.row>title2.row && x.col===title2.col && re.test(x.text));
+    return c ? c.row : null;
+  };
+  const rowCells = (row)=> T1.filter(x=>x.row===row).sort((p,q)=>p.col-q.col);
+  R.rows = {
+    means: rowOf(/^종별$/), rail: rowOf(/^철도임$/), car: rowOf(/^(차마임|자동차운임|자동차임|차량운임|자가용운임)/),
+    meal: rowOf(/^식비$/), lodge: rowOf(/^숙박료$/), daily: rowOf(/^일비$/), sum: rowOf(/^합계/), sign: rowOf(/^출장명령부/)
+  };
+  Object.keys(R.rows).forEach(k=>{ if(R.rows[k]==null) R.missing.push('여비명세서 '+k+' 줄'); });
+  const ref = rowCells(R.rows.rail!=null ? R.rows.rail : (R.rows.meal!=null ? R.rows.meal : -1));
+  if(ref.length>=4){ R.colType = ref[1].col; R.colUnit = ref[2].col; R.colAmt = ref[3].col; }
+  else R.missing.push('여비명세서 칸 구성');
+  if(R.rows.sign!=null){
+    const sc = rowCells(R.rows.sign);
+    R.sign1 = sc[1] || null;
+    const claim = sc.find(c=>/^청구금액/.test(c.text));
+    R.sign2 = claim ? v3Right(T1, claim) : (sc[3]||null);
+  }
+  R.cellsT1 = T1;
+  return R;
+}
+function v3CellInfo(xml, ti, col, row){
+  const tbs = v2TableStarts(xml);
+  if(tbs.length<=ti) return null;
+  const aPos = xml.indexOf(`<hp:cellAddr colAddr="${col}" rowAddr="${row}"/>`, tbs[ti]);
+  if(aPos===-1) return null;
+  const s = xml.lastIndexOf('<hp:tc ', aPos), e = xml.indexOf('</hp:tc>', aPos);
+  const tc = xml.slice(s, e);
+  const sz = tc.match(/<hp:cellSz width="(\d+)" height="(\d+)"/);
+  const mg = tc.match(/<hp:cellMargin left="(\d+)" right="(\d+)" top="(\d+)" bottom="(\d+)"/);
+  const padW = mg ? (+mg[1] + +mg[2]) : HWPX_CELL_PAD_HU, padH = mg ? (+mg[3] + +mg[4]) : HWPX_CELL_PAD_HU;
+  const cp = tc.match(/<hp:run charPrIDRef="(\d+)"/);
+  const ls = tc.match(/vertsize="(\d+)" textheight="\d+" baseline="\d+" spacing="(\d+)"/);
+  let pitch = 1.3;
+  if(ls && +ls[1]>0) pitch = Math.min(2, Math.max(1, (+ls[1] + +ls[2]) / +ls[1]));
+  return {
+    availPt: sz ? (+sz[1] - padW)/100 : 50,
+    usableH: sz ? (+sz[2] - padH)/100 : 24,
+    pitch: pitch + 0.03,
+    cp: cp ? cp[1] : null,
+    paraCount: (tc.match(/<hp:p /g)||[]).length
+  };
+}
+/* 칸 높이를 넘지 않는 가장 큰 글자 크기(0.5pt 단위)와 줄 나눔을 고른다. */
+function v3FitText(text, info, basePt, sp){
+  let best = null;
+  for(let pt=basePt; pt>=6-1e-9; pt-=0.5){
+    const lines = wrapTextByWidth(text, info.availPt, pt, sp);
+    best = { pt, lines };
+    if(lines.length*pt*info.pitch <= info.usableH + 0.01) break;
+  }
+  return best;
+}
+/* 서식 문단 글자 → 값 문단으로 바꾸되, 서식에 있는 라벨(앞부분)은 그대로 쓴다. */
+function v3LabelParas(paras, p, nm, deptVal){
+  return paras.map(tx=>{
+    let m;
+    if((m = tx.match(/^(\s*(?:부\s*서\s*명|근\s*무\s*처|소\s*속)\s*)/))) return m[1] + deptVal;
+    if((m = tx.match(/^(\s*직\s*급\s*)/))) return m[1] + (p.position||'');
+    if((m = tx.match(/^(\s*성\s*명\s*)/))){
+      const suf = (tx.match(/\s*\(\s*인\s*\)\s*$/)||['      (인)'])[0];
+      return m[1] + nm + suf;
+    }
+    return null;
+  });
+}
+function fillHwpxBlockV3(blockXml, p, fo){
+  fo = fo||{};
+  if(v2TableStarts(blockXml).length<2) throw new Error('서식에서 결의서 표(2개)를 찾을 수 없습니다.');
+  const R = v3Resolve(blockXml);
+  if(fo.warn){ R.missing.forEach(x=>{ if(fo.warn.indexOf(x)===-1) fo.warn.push(x); }); }
+  let xml = blockXml;
+  const set = (ti, c, paras, opt)=>{ if(c) xml = v2SetCell(xml, ti, c.col, c.row, paras, opt); };
+  const setAt = (ti, col, row, paras, opt)=>{ if(col!=null && row!=null) xml = v2SetCell(xml, ti, col, row, paras, opt); };
+  /* 칸 높이에 맞춰 글자 크기를 줄여서 넣는다(원래 크기로 한 줄이면 서식 그대로 둔다). */
+  const fit = (ti, col, row, text, o)=>{
+    if(col==null || row==null) return;
+    o = o||{};
+    const txt = String(text==null?'':text);
+    if(txt===''){ setAt(ti,col,row,[''],{}); return; }
+    const info = v3CellInfo(xml, ti, col, row);
+    if(!info){ setAt(ti,col,row,[txt],{wrap:true,dropSeg:true}); return; }
+    const srcCp = (o.narrow && fo.narrowCharPr) ? fo.narrowCharPr : info.cp;
+    const sp = (o.narrow && fo.narrowCharPr) ? 0.10 : undefined;
+    const basePt = (fo.charPt && srcCp && fo.charPt(srcCp)) || HWPX_BODY_PT;
+    const f = v3FitText(txt, info, basePt, sp);
+    let cpId = null;
+    if(f.pt < basePt - 1e-9 && fo.cloneCharPr && srcCp) cpId = fo.cloneCharPr(srcCp, Math.round(f.pt*100));
+    if(!cpId && o.narrow && fo.narrowCharPr) cpId = fo.narrowCharPr;
+    const multi = f.lines.length>1 || !!cpId;
+    setAt(ti,col,row,[f.lines.length>1 ? f.lines : f.lines[0]], { dropSeg: multi, charPr: cpId||undefined });
+  };
+  const nm = spacedName(p.name);
+  const deptVal = (p.bureau ? p.bureau+' ' : '') + p.dept;   // 실국이 있으면 '문화교육국 ○○과'
+  const L = buildTravelLegTexts(p);
+  const noWon = x => x ? String(x).replace(/원$/,'') : '';
+  const isCar = p.transport==='자차' || p.transport==='공무용차량';
+  const trainFareShown = p.transport==='기차' && p.trainFare>0;
+  const purposeLines = wrapTextByChars(p.purpose, HWPX_WRAP_FIELDS[44]);   // 적요/용무: 25자 기준 줄바꿈
+
+  /* ----- 1쪽: 여비지출결의서 ----- */
+  set(0, R.amount, [`금${p.total.toLocaleString()}원(금${numberToKorean(p.total)}원)`]);
+  set(0, R.purpose, [purposeLines]);
+  if(R.bank){
+    const two = R.bank.paras.length>=2;      // 서식이 은행/계좌를 두 줄로 나눠 둔 경우 그대로 두 줄
+    set(0, R.bank, two ? [p.bankName||'', p.account||''] : [`${p.bankName||''} ${p.account||''}`.trim()], {dropSeg:true});
+  }
+  if(R.person) set(0, R.person, v3LabelParas(R.person.paras, p, nm, deptVal));
+  if(R.receipt){
+    const rp = R.receipt.paras.map(tx=>{
+      if(/\d{4}\s*년|년\s*\d*\s*월|월\s*일/.test(tx) && !/^\s*성\s*명/.test(tx)){
+        const lead = (tx.match(/^\s*/)||[''])[0]; const pre = lead.length>=10 ? lead : '                                                    ';
+        return `${pre}${p.endY}년   ${p.endM}월   일`;
+      }
+      if(/^\s*성\s*명/.test(tx)) return v3LabelParas([tx], p, nm, deptVal)[0];
+      return null;
+    });
+    set(0, R.receipt, rp);
+  }
+  set(0, R.duty, [purposeLines]);
+  if(R.dest0) fit(0, R.dest0.col, R.dest0.row, p.dest||'');                      // 출장지: 칸 높이에 맞춰 글자 크기 조정
+
+  /* ----- 2쪽: 여행명세서 ----- */
+  if(R.colDate!=null){
+    const r1 = R.row1, r2 = R.row2;
+    fit(1, R.colDate, r1, `${p.startM}. ${p.startD}.`);
+    fit(1, R.colTo, r1, p.dest||'');                              // 가는 편 도착지
+    fit(1, R.colDist, r1, L.dist1);  fit(1, R.colFee, r1, noWon(L.fee1));
+    const remark = tollTxt => p.transport==='공무용차량' ? '관용차량' : tollTxt;
+    fit(1, R.colRem, r1, remark(L.toll1), {narrow:true});
+    fit(1, R.colDays, r1, String(p.days||1));                     // 일수(출장일수)
+    const lodgePaid = p.lodgeFee>0;                               // 숙박은 영수증 첨부로 지급된 경우에만 적는다
+    fit(1, R.colNight, r1, lodgePaid && p.nights>0 ? String(p.nights) : '');
+    if(r2!=null){
+      fit(1, R.colDate, r2, `${p.endM}. ${p.endD}.`);
+      fit(1, R.colFrom, r2, p.dest||'');                          // 오는 편 출발지
+      fit(1, R.colDist, r2, L.dist2);  fit(1, R.colFee, r2, noWon(L.fee2));
+      fit(1, R.colRem, r2, remark(L.toll2), {narrow:true});
+      fit(1, R.colDays, r2, '');
+    }
+    if(R.rowTotal!=null){
+      fit(1, R.colDist, R.rowTotal, L.distTotal);  fit(1, R.colFee, R.rowTotal, noWon(L.feeTotal));
+      fit(1, R.colRem, R.rowTotal, L.tollTotal, {narrow:true});
     }
   }
-  if(idxs.length===0) throw new Error('서식에서 결의서 블록을 찾을 수 없습니다.');
-  const tailMarker = '</hs:sec>';
-  const fileEndsWithTail = masterXml.endsWith(tailMarker);
-  const contentEnd = fileEndsWithTail ? masterXml.length - tailMarker.length : masterXml.length;
-  const headTemplate = idxs.length>1 ? masterXml.slice(0, idxs[1]) : masterXml.slice(0, contentEnd);
-  const unitTemplate = idxs.length>1
-    ? masterXml.slice(idxs[1], idxs.length>2 ? idxs[2] : contentEnd)
-    : headTemplate;
+
+  /* ----- 2쪽: 여비명세서 ----- */
+  if(R.colType!=null){
+    const rw = R.rows, lodgePaid = p.lodgeFee>0;
+    const cellOf = (row,col)=> (R.cellsT1||[]).find(c=>c.row===row && c.col===col);
+    const unitParas = (row, first, val)=>{ const c = cellOf(row, R.colUnit); return (c && c.paras.length>=2) ? [(c.paras[0]||first), val] : [val]; };   // 서식에 단가 문구가 두 줄이면 첫 줄(예: 1일당)은 서식 글자 그대로
+    if(rw.means!=null) fit(1, R.colType, rw.means, hwpxMeansLabel(p));
+    if(rw.rail!=null) fit(1, R.colAmt, rw.rail, trainFareShown ? `${p.trainFare.toLocaleString()}원` : '         원');
+    if(rw.car!=null){
+      if(isCar && p.distance>0) fit(1, R.colType, rw.car, `${Number(p.distance).toLocaleString('ko-KR',{maximumFractionDigits:1})}㎞`);
+      fit(1, R.colAmt, rw.car, trainFareShown ? '         원' : `${Math.round(p.transportFee).toLocaleString()}원`);
+    }
+    if(rw.meal!=null){
+      const mc = cellOf(rw.meal, R.colType);
+      const perDay = mc && /일$/.test(mc.text);
+      fit(1, R.colType, rw.meal, perDay ? `${p.days||1}일` : `${p.mealCount}식`);
+      if(perDay) setAt(1, R.colUnit, rw.meal, unitParas(rw.meal, '1일당', `${Math.round(p.mealFee/Math.max(1,p.days||1)).toLocaleString()}원`));   // 일 단위 서식: 일수 × 단가 = 금액이 맞도록
+      fit(1, R.colAmt, rw.meal, `${p.mealFee.toLocaleString()}원`);
+    }
+    if(rw.lodge!=null && lodgePaid){
+      if(p.nights>0){
+        const mc = cellOf(rw.lodge, R.colType);
+        fit(1, R.colType, rw.lodge, (mc && /일$/.test(mc.text)) ? ` ${p.nights}일` : ` ${p.nights}야`);
+        setAt(1, R.colUnit, rw.lodge, unitParas(rw.lodge, '1야당', `${Math.round(p.lodgeFee/p.nights).toLocaleString()}원`));
+      }
+      fit(1, R.colAmt, rw.lodge, `${Math.round(p.lodgeFee).toLocaleString()}원`);
+    }
+    if(rw.daily!=null){
+      if(p.dailyFee>0){
+        fit(1, R.colType, rw.daily, `${p.days||1}일`);
+        setAt(1, R.colUnit, rw.daily, unitParas(rw.daily, '1일당', `${(p.dailyUnit||p.dailyFee).toLocaleString()}원`));
+        fit(1, R.colAmt, rw.daily, `${p.dailyFee.toLocaleString()}원`);
+      } else {                                                    // 일비 없음 → 서식 예시값 지우고 빈 칸
+        fit(1, R.colType, rw.daily, '');
+        setAt(1, R.colUnit, rw.daily, unitParas(rw.daily, '1일당', '원'));
+        fit(1, R.colAmt, rw.daily, '         원');
+      }
+    }
+    if(rw.sum!=null) fit(1, R.colAmt, rw.sum, `${p.total.toLocaleString()}원`);
+    if(R.sign1) set(1, R.sign1, ['          (인)']);             // 출장명령부 대조필 — 서식 예시 이름 제거(담당자가 직접)
+    if(R.sign2) set(1, R.sign2, [`${nm} (인)`]);                  // 청구금액 외에는 포기함 — 출장자 서명
+  }
+  return xml;
+}
+
+/* 서식을 사람 수만큼 복제할 블록(제목 문단 ~ 두 번째 표 끝)으로 나눈다.
+   서식에 결의서가 1장뿐이어도, 여러 장이어도 동작한다. */
+function v3StripSection(blockXml){
+  return blockXml
+    .replace(/<hp:secPr[\s\S]*?<\/hp:secPr>/g,'')
+    .replace(/<hp:ctrl><hp:colPr[^>]*\/><\/hp:ctrl>/g,'')
+    .replace(/<hp:run charPrIDRef="\d+"><\/hp:run>/g,'');
+}
+function v3SplitBlocks(masterXml){
+  const tail = '</hs:sec>';
+  const contentEnd = masterXml.endsWith(tail) ? masterXml.length - tail.length : masterXml.length;
+  const tblN = v2TableStarts(masterXml).length;
+  const starts = [];
+  const re = /<hp:t>[^<]*여\s*비\s*지\s*출\s*결\s*의\s*서[^<]*<\/hp:t>/g; let m;
+  while((m = re.exec(masterXml))){
+    const ps = masterXml.lastIndexOf('<hp:p ', m.index);
+    if(ps===-1) continue;
+    const before = masterXml.slice(0, ps);
+    const depth = (before.match(/<hp:tc /g)||[]).length - (before.match(/<\/hp:tc>/g)||[]).length;
+    if(depth===0 && starts.indexOf(ps)===-1) starts.push(ps);
+  }
+  let blocks;
+  if(starts.length>=1 && tblN===starts.length*2){
+    blocks = starts.map((s,i)=> masterXml.slice(i===0 ? 0 : s, i+1<starts.length ? starts[i+1] : contentEnd));
+  } else {
+    // 제목 글자를 못 찾거나 표 개수가 맞지 않으면: 최상위 문단(id="0") 시작 위치로 나눈다
+    const idxs = []; const r2 = /<hp:p id="0" /g; let mm;
+    while((mm = r2.exec(masterXml))) idxs.push(mm.index);
+    if(idxs.length===0 || tblN%2!==0) throw new Error('서식에서 결의서 블록을 찾을 수 없습니다.');
+    blocks = [masterXml.slice(0, idxs.length>1 ? idxs[1] : contentEnd)];
+  }
+  return { blocks, contentEnd, tail };
+}
+function buildFilledSectionXml(masterXml, people, fo){
+  fo = fo||{};
+  const sp = v3SplitBlocks(masterXml);
+  const headT = sp.blocks[0];
+  let unitT;
+  if(sp.blocks.length>1) unitT = v3StripSection(sp.blocks[1]);
+  else {
+    const firstP = headT.indexOf('<hp:p ');
+    unitT = v3StripSection(headT.slice(firstP));
+  }
+  // 2번째 사람부터는 항상 새 쪽에서 시작(앞사람 표가 쪽 끝까지 차지 않는 서식에서도 제목이 따로 남지 않게)
+  unitT = unitT.replace(/^(<hp:p [^>]*?)pageBreak="0"/, '$1pageBreak="1"');
   let out = '';
   people.forEach((p,i)=>{
-    const tmpl = i===0 ? headTemplate : unitTemplate;
-    out += v2 ? fillHwpxBlockV2(tmpl, p, fo) : fillHwpxBlock(tmpl, p);
+    out += fillHwpxBlockV3(i===0 ? headT : unitT, p, fo);
   });
-  out += tailMarker;
-  return out;
+  out += sp.tail;
+  return hwpxUniquifyTableIds(out);
+}
+
+/* 4명 이상이면 서식의 표 ID(<hp:tbl id>)가 같은 값으로 복제되어 한글이 손상 파일로 볼 수 있다 → 문서 전체에서 고유하게 다시 매긴다. */
+function hwpxUniquifyTableIds(xml){
+  const used = new Set(); let maxId = 0, z = 0;
+  (xml.match(/<hp:tbl id="\d+"/g)||[]).forEach(m=>{ maxId = Math.max(maxId, parseInt(m.match(/\d+/)[0],10)); });
+  return xml.replace(/<hp:tbl id="(\d+)" zOrder="\d+"/g, (m, id)=>{
+    let nid = id;
+    if(used.has(nid)) nid = String(++maxId);
+    used.add(nid);
+    return `<hp:tbl id="${nid}" zOrder="${z++}"`;
+  });
 }
 function buildPersonDataForHwpx(t){
   const daily=calcDaily(t), meal=calcMealFee(t), trans=calcTransportFee(t), lodge=calcLodgeFee(t);
@@ -3244,15 +3594,37 @@ async function generateHwpxForSelected(btn){
     const hdrFile = zip.file('Contents/header.xml');
     const hdrXml = hdrFile ? await hdrFile.async('string') : '';
     // 서식에 "본문과 같은 11pt, 자간 -10%" 글자모양(id 20)이 있으면 좁은 비고 칸에 쓴다
-    const fo = { narrowCharPr: /<hh:charPr id="20" height="1100"/.test(hdrXml) ? '20' : null };
+    const fo = { narrowCharPr: /<hh:charPr id="20" height="1100"/.test(hdrXml) ? '20' : null, warn: [] };
+    // 글자 크기만 다른 글자모양(charPr)을 header.xml 에 추가해 쓰는 도우미(긴 출장지 칸 축소용)
+    let hdrNew = hdrXml; const cloneCache = {};
+    fo.cloneCharPr = (srcId, height)=>{
+      const key = srcId+':'+height;
+      if(cloneCache[key]) return cloneCache[key];
+      const m = hdrNew.match(new RegExp('<hh:charPr id="'+srcId+'"[\\s\\S]*?</hh:charPr>'));
+      if(!m) return null;
+      const ids = (hdrNew.match(/<hh:charPr id="\d+"/g)||[]).map(x=>parseInt(x.match(/\d+/)[0],10));
+      const nid = String(Math.max(...ids)+1);
+      const copy = m[0].replace(/id="\d+"/, 'id="'+nid+'"').replace(/height="\d+"/, 'height="'+height+'"');
+      hdrNew = hdrNew.replace('</hh:charProperties>', ()=>copy+'</hh:charProperties>');
+      hdrNew = hdrNew.replace(/(<hh:charProperties itemCnt=")(\d+)(")/, (a,b,c,d)=>b+(parseInt(c,10)+1)+d);
+      cloneCache[key] = nid;
+      return nid;
+    };
+    // 글자모양(charPr) id → 글자 크기(pt). 칸 높이에 맞춰 글자를 줄일 때 기준으로 쓴다.
+    fo.charPt = (id)=>{ const m = hdrNew.match(new RegExp('<hh:charPr id="'+id+'" height="(\\d+)"')); return m ? parseInt(m[1],10)/100 : null; };
     const filledXml = buildFilledSectionXml(masterXml, people, fo);
-    zip.file('Contents/section0.xml', filledXml);
-    const blob = await zip.generateAsync({type:'blob', mimeType:'application/hwp+zip'});
+    if(hdrNew !== hdrXml) zip.file('Contents/header.xml', hdrNew, {createFolders:false});
+    zip.file('Contents/section0.xml', filledXml, {createFolders:false});   // 원본에 없던 'Contents/' 폴더 항목이 생기지 않게
+    // HWPX 규격: mimetype 은 맨 앞에 압축 없이(STORE) 들어 있어야 한다. 전체를 압축 저장하면 한글이 손상 파일로 본다.
+    const mtFile = zip.file('mimetype');
+    if(mtFile){ const mtTxt = await mtFile.async('string'); zip.file('mimetype', mtTxt, {compression:'STORE', createFolders:false}); }
+    const blob = await zip.generateAsync({type:'blob', mimeType:'application/hwp+zip', compression:'DEFLATE', compressionOptions:{level:6}});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = '여비지출결의서_'+todayStr()+'.hwpx';
     document.body.appendChild(a); a.click(); a.remove();
     toast(people.length+'명분 여비지출결의서(.hwpx)를 생성했습니다.');
+    if(fo.warn.length){ setTimeout(()=>alert('선택한 서식에서 다음 칸을 찾지 못해 해당 부분은 채우지 않았습니다. 생성된 파일에서 직접 확인해 주세요.\n\n- '+fo.warn.join('\n- ')),50); }
   }catch(err){
     console.error(err);
     alert('결의서 생성 중 오류가 발생했습니다: '+err.message);
@@ -3342,7 +3714,12 @@ renderDocSelectList();
 initHwpxTemplate();
 initCarSpecSelects();
 // 페이지를 열면 거리계산용 유가를 자동으로 한 번 조회(실패해도 마지막 성공값 유지)
-setTimeout(()=>{ try{ onCarFuelChange('distOilPrice','distFuelType','distRate','distOilUnit'); }catch(e){} }, 300);
+setTimeout(()=>{ try{
+  onCarFuelChange('distOilPrice','distFuelType','distRate','distOilUnit').then(()=>{
+    // 위 조회가 끝나면 저장된 값으로 출장 입력창 유가도 바로 채움(추가 요청 없음)
+    try{ onCarFuelChange('m_oilPrice','m_fuelType','m_rate','m_oilUnit'); }catch(e){}
+  });
+}catch(e){} }, 50);
 wireDropzone('staffDropzone', handleStaffFile, ['.xlsx','.xls']);
 wireDropzone('tripDropzone', handleTripFile, ['.xlsx','.xls','.pdf']);
 wireDropzone('hwpxDropzone', loadHwpxTemplateFile, ['.hwpx']);

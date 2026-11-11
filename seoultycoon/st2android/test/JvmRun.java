@@ -25,6 +25,20 @@ public class JvmRun {
         int rounds = a.length > 4 ? Integer.parseInt(a[4]) : 100;
         java.util.Map<Integer, int[]> keys = new java.util.HashMap<>();
         if (a.length > 5 && !a[5].isEmpty()) for (String k : a[5].split(",")) { String[] p = k.split(":"); keys.put(Integer.parseInt(p[0]), new int[]{Integer.parseInt(p[1]), Integer.parseInt(p[2])}); }
+        if (System.getenv("REPL") != null) {                                   // 대화형 시험: REPL=폴더. 폴더/cmd 파일의 줄을 실행하고 폴더/done 을 쓴다.  k 코드 | t 라운드 | s 그림경로 | q
+            Path rd = Paths.get(System.getenv("REPL")); Files.createDirectories(rd); int dtm = System.getenv("DT") != null ? Integer.parseInt(System.getenv("DT")) : 50;
+            System.out.println("REPL ready"); Files.write(rd.resolve("done"), "ready".getBytes());
+            for (;;) {
+                Path cf = rd.resolve("cmd"); if (!Files.exists(cf)) { Thread.sleep(80); continue; }
+                Thread.sleep(30); java.util.List<String> lines = Files.readAllLines(cf); Files.delete(cf);
+                for (String ln : lines) { String[] q = ln.trim().split("\\s+"); if (q[0].isEmpty()) continue;
+                    if (q[0].equals("k")) { int c = Integer.parseInt(q[1]); H.postKey(1, c); H.tick(dtm); H.tick(dtm); H.postKey(2, c); H.tick(dtm); }
+                    else if (q[0].equals("t")) { for (int i = 0; i < Integer.parseInt(q[1]); i++) H.tick(dtm); }
+                    else if (q[0].equals("s")) { BufferedImage im = new BufferedImage(240, 296, BufferedImage.TYPE_INT_RGB); im.setRGB(0, 0, 240, 296, H.screen.px, 0, H.screen.w); ImageIO.write(im, "png", new File(q[1])); }
+                    else if (q[0].equals("q")) { System.out.println("bye"); return; } }
+                Files.write(rd.resolve("done"), String.valueOf(System.nanoTime()).getBytes());
+            }
+        }
         for (int r = 1; r <= rounds; r++) {
             if (keys.containsKey(r)) H.postKey(keys.get(r)[0], keys.get(r)[1]);
             if (System.getenv("JUMP") != null) { String[] q = System.getenv("JUMP").split(":"); if (r == Integer.parseInt(q[0])) {            // 시험용: 상태 배열(int[12])의 날짜·남은 일수를 바꾼다  JUMP=라운드:년:월:일:남은일수[:지지도]

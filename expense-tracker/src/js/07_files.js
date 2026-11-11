@@ -25,6 +25,12 @@ async function importExcelFile(file) {
     toast('엑셀을 읽는 중… ' + file.name);
     const r = await api().import_xlsx_data(file.name, await fileToBase64(file), S.year);
     if (r.error) { alert(r.error); return; }
+    if (r.ledger) {
+      const d = new Date(file.lastModified || Date.now());
+      const asOf = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      UI.imp = UI.imp || {}; UI.imp.ledger = { kind: 'ledger', entries: r.ledger.entries, asOf, file: file.name, src: 'xlsx', skipped: r.ledger.skipped };
+      showTab('import'); toast('통계목별 조회 엑셀(실집행액)을 읽었습니다 — 아래에서 적용할 항목을 확인하세요'); return;
+    }
     const parts = [];
     if (r.lines) {
       if (S.lines.length && !confirm(`'${file.name}'의 일상경비(${r.lines.length}개 항목)로 지금 입력된 일상경비를 바꿀까요?\n(지출액·예정·비고가 엑셀 값으로 바뀝니다)`)) { /* 건너뜀 */ }

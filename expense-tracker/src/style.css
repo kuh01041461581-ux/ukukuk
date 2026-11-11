@@ -320,3 +320,49 @@ dialog::backdrop{background:rgba(20,28,60,.28);-webkit-backdrop-filter:blur(6px)
 .serchk input:checked+i::after{content:"";position:absolute;left:3px;top:0;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
 .serchk input:focus-visible+i{outline:2px solid var(--accent);outline-offset:2px}
 .serchk:has(input:checked){background:var(--glass-hi);border-color:var(--c)}
+
+/* ===== 차분하게: 유리는 은은하게, 색은 최소로 (위 글래스 설정을 덮어씀) ===== */
+:root{
+  --bg-a:#f1f3f7; --bg-b:#eceff5; --bg-c:#eef1f6;
+  --blob1:rgba(60,110,200,.10); --blob2:rgba(120,110,200,.06); --blob3:rgba(60,160,150,.06); --blob4:rgba(220,170,90,.05);
+  --glass:rgba(255,255,255,.66); --glass-hi:rgba(255,255,255,.82); --glass-lo:rgba(255,255,255,.48);
+  --glass-edge:rgba(255,255,255,.85); --glass-edge-2:rgba(255,255,255,.3);
+  --glass-shadow:0 4px 18px rgba(30,40,70,.07),0 1px 2px rgba(30,40,70,.06);
+  --glass-inset:inset 0 1px 0 rgba(255,255,255,.95);
+  --blur:blur(16px) saturate(120%);
+}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+  --bg-a:#14161b; --bg-b:#16181e; --bg-c:#13161a;
+  --blob1:rgba(57,135,229,.10); --blob2:rgba(130,100,210,.06); --blob3:rgba(25,158,112,.05); --blob4:rgba(201,133,0,.04);
+  --glass:rgba(32,35,44,.66); --glass-hi:rgba(40,44,55,.82); --glass-lo:rgba(32,35,44,.48);
+  --glass-edge:rgba(255,255,255,.11); --glass-shadow:0 6px 22px rgba(0,0,0,.35); --glass-inset:inset 0 1px 0 rgba(255,255,255,.07);
+}}
+:root[data-theme="dark"]{
+  --bg-a:#14161b; --bg-b:#16181e; --bg-c:#13161a;
+  --blob1:rgba(57,135,229,.10); --blob2:rgba(130,100,210,.06); --blob3:rgba(25,158,112,.05); --blob4:rgba(201,133,0,.04);
+  --glass:rgba(32,35,44,.66); --glass-hi:rgba(40,44,55,.82); --glass-lo:rgba(32,35,44,.48);
+  --glass-edge:rgba(255,255,255,.11); --glass-shadow:0 6px 22px rgba(0,0,0,.35); --glass-inset:inset 0 1px 0 rgba(255,255,255,.07);
+}
+body::before{filter:blur(60px)}
+/* 패널: 그라데이션 대신 거의 단색 유리 */
+header.top,.card,.kpi,.cat-card,dialog,.drop{background:var(--glass)}
+.card,.kpi,.cat-card{border-radius:16px}
+header.top{border-radius:0 0 16px 16px}
+dialog{border-radius:20px;background:var(--glass-hi)}
+.kpi .v{background:none;-webkit-text-fill-color:currentColor;color:var(--text)}
+/* 탭·버튼: 광택/그림자 줄이기 */
+nav.tabs button[aria-selected=true]{background:var(--accent);box-shadow:0 1px 3px color-mix(in srgb,var(--accent) 35%,transparent);border-color:transparent}
+.btn,.pill,.chip,.st-btn{background:var(--glass-hi);box-shadow:0 1px 2px rgba(30,40,70,.06);-webkit-backdrop-filter:none;backdrop-filter:none}
+.btn:hover,.pill:hover{transform:none;box-shadow:0 2px 6px rgba(30,40,70,.10);background:var(--surface)}
+.btn.primary,.pill[aria-pressed=true]{background:var(--accent);border-color:transparent;box-shadow:0 1px 3px color-mix(in srgb,var(--accent) 35%,transparent)}
+.btn.primary:hover{transform:none}
+/* 막대: 광택·발광 제거, 단색 */
+.bar{box-shadow:none;background:var(--track)}
+.bar .paid{background:var(--accent);box-shadow:none}
+.bar .paid.over{background:var(--bad);box-shadow:none}
+.bar .paid::after{display:none}
+/* 표 */
+.tbl-wrap{background:transparent;box-shadow:none}
+table.t tr.tot td{background:color-mix(in srgb,var(--accent) 10%,var(--glass-hi))}
+table.t thead th{background:var(--glass-hi)}
+#tip,.toast{background:rgba(28,32,44,.88)}

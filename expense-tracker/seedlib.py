@@ -253,3 +253,42 @@ def parse_util(path, year=2026):
     return sections
 
 
+
+
+def parse_ledger_xlsx(wb):
+    """통계목별 조회 엑셀(e-호조 내려받기)에서 실집행액을 읽습니다. 없으면 None.
+    실집행액 = '집행누계액'. 이월(명시·사고) 행은 제외하고 '당해예산'만 읽습니다."""
+    need = {"세부사업": None, "통계목": None, "예산구분": None, "예산현액": None,
+            "원인행위누계액": None, "결의누계액": None, "지급누계액": None, "집행누계액": None}
+    for ws in wb.worksheets:
+        cols = dict(need)
+        head_rows = []
+        for r in (1, 2, 3):
+            head_rows.append([ws.cell(r, c).value for c in range(1, min(ws.max_column, 60) + 1)])
+        for row in head_rows:
+            for i, v in enumerate(row):
+                k = str(v).strip() if v is not None else ""
+                if k in cols and cols[k] is None:
+                    cols[k] = i + 1
+        if not (cols["세부사업"] and cols["통계목"] and cols["집행누계액"]):
+            continue
+        entries, skipped = [], 0
+        for r in range(1, ws.max_row + 1):
+            code = ws.cell(r, cols["통계목"]).value
+            code = str(code).strip() if code is not None else ""
+            if not code.isdigit() or len(code) != 5:
+                continue
+            dtype = str(ws.cell(r, cols["예산구분"]).value or "").strip() if cols["예산구분"] else ""
+            if dtype and dtype != "당해예산":
+                skipped += 1
+                continue
+            g = lambda k: num(ws.cell(r, cols[k]).value) if cols[k] else 0
+            entries.append({
+                "biz": txt(ws.cell(r, cols["세부사업"]).value), "code": code,
+                "name": txt(ws.cell(r, cols["통계목"] + 1).value),
+                "budget": g("예산현액") or 0, "commit": g("원인행위누계액") or 0,
+                "resolved": g("결의누계액") or 0, "paid": g("집행누계액") or 0, "order": g("지급누계액") or 0,
+            })
+        if entries:
+            return {"entries": entries, "skipped": skipped, "sheet": ws.title}
+    return None

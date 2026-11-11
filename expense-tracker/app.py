@@ -122,8 +122,16 @@ class Api:
         import seedlib
         wb = openpyxl.load_workbook(path)
         names = list(wb.sheetnames)
-        daily_ws = seedlib.find_daily_sheet(wb)
         out, errs = {}, []
+        try:
+            led = seedlib.parse_ledger_xlsx(wb)
+        except Exception as e:  # noqa
+            led = None
+            errs.append(str(e))
+        if led:
+            out["ledger"] = led
+            return out
+        daily_ws = seedlib.find_daily_sheet(wb)
         if daily_ws is not None:
             try:
                 lines, memo, asof = seedlib.parse_daily(path)
@@ -137,7 +145,7 @@ class Api:
             except Exception as e:  # noqa
                 errs.append(str(e))
         if not out:
-            msg = "이 엑셀에서 일상경비('사무관리비' 탭)나 공공요금('%s' 탭)을 찾지 못했습니다.\n탭 이름: %s" % (year, ", ".join(names[:10]))
+            msg = "이 엑셀에서 일상경비('사무관리비' 탭)·공공요금('%s' 탭)·통계목별 조회('집행누계액' 열)를 찾지 못했습니다.\n탭 이름: %s" % (year, ", ".join(names[:10]))
             if errs:
                 msg += "\n" + "\n".join(errs)
             return {"error": msg}

@@ -13,7 +13,7 @@ async function handlePdf(file) {
       const doc = parseBudgetDoc(lines); doc.file = file.name; UI.imp = UI.imp || {}; UI.imp.budget = doc;
       set(`합본예산서로 인식: 편성목 ${doc.entries.length}건을 찾았습니다.`);
     } else {
-      const doc = parseLedgerDoc(lines); doc.file = file.name; UI.imp = UI.imp || {}; UI.imp.ledger = doc;
+      const doc = parseLedgerDoc(lines); doc.file = file.name; doc.src = 'pdf'; UI.imp = UI.imp || {}; UI.imp.ledger = doc;
       set(`통계목별 조회로 인식: ${doc.entries.length}건 (기준일 ${doc.asOf || '확인 불가'})`);
     }
     renderImport(true);
@@ -23,8 +23,8 @@ async function handlePdf(file) {
 function renderImport(keepStatus) {
   const P = $('#p-import'); const imp = UI.imp || {}; const prev = keepStatus ? ($('#imp-status') || {}).textContent : '';
   let h = `<div class="card"><h2>파일 불러오기 (PDF · 엑셀)</h2>
-    <p class="sub" style="margin:0 0 10px">합본예산서·통계목별 조회 PDF와, 일상경비·공공요금 엑셀을 올리면 자동으로 종류를 알아보고 채워 줍니다. 여러 파일을 한꺼번에 끌어 놓아도 됩니다. 파일은 이 컴퓨터 안에서만 읽으며 어디로도 전송되지 않습니다.</p>
-    <ul class="help" style="margin:0 0 12px;padding-left:18px"><li><b>합본예산서</b>(세출예산사업명세서) → <b>총예산액</b>과 공공요금 연 예산 자동 입력</li><li><b>통계목별 조회</b>(e-호조 출력) → <b>지출액</b>과 원인행위·결의액 자동 입력</li></ul>
+    <p class="sub" style="margin:0 0 10px">합본예산서 PDF, 통계목별 조회 엑셀(실집행액), 일상경비·공공요금 엑셀을 올리면 자동으로 종류를 알아보고 채워 줍니다. 여러 파일을 한꺼번에 끌어 놓아도 됩니다. 파일은 이 컴퓨터 안에서만 읽으며 어디로도 전송되지 않습니다.</p>
+    <ul class="help" style="margin:0 0 12px;padding-left:18px"><li><b>합본예산서</b>(세출예산사업명세서) → <b>총예산액</b>과 공공요금 연 예산 자동 입력</li><li><b>통계목별 조회 엑셀</b>(e-호조 내려받기) → <b>실집행액</b>(지출액)과 원인행위·결의액 자동 입력</li><li>통계목별 조회 <b>PDF</b>는 실집행액이 없어 참고용(원인행위·결의액)으로만 쓰입니다</li></ul>
     <div class="drop" id="drop"><div style="font-size:15px;font-weight:600">PDF·엑셀 파일을 이 창 아무 곳에나 끌어 놓거나</div><div style="margin:8px 0"><button class="btn primary" data-act="pick">파일 선택 (탐색기 열기)</button></div><div id="imp-status" class="muted">${esc(prev || '')}</div></div></div>`;
   if (imp.budget) h += budgetPreview(imp.budget);
   if (imp.ledger) h += ledgerPreview(imp.ledger);
@@ -53,17 +53,18 @@ function budgetPreview(doc) {
 }
 
 function ledgerPreview(doc) {
-  let rows = '';
+  const x = doc.src === 'xlsx'; let rows = '';
   S.lines.forEach(l => {
     const e = findEntry(doc, l); const diff = e ? e.paid - l.spent : 0; const bd = e && e.budget !== l.budget;
-    rows += `<tr><td><input type="checkbox" data-ll="${l.id}" ${e && diff !== 0 ? 'checked' : ''} ${e ? '' : 'disabled'} aria-label="${esc(l.label)} 적용"></td><td>${esc(l.group)}</td><td>${esc(l.label)}<span class="hint">${esc(l.biz)} · ${esc(l.code)}</span></td>
+    rows += `<tr><td><input type="checkbox" data-ll="${l.id}" ${e && diff !== 0 && x ? 'checked' : ''} ${e ? '' : 'disabled'} aria-label="${esc(l.label)} 적용"></td><td>${esc(l.group)}</td><td>${esc(l.label)}<span class="hint">${esc(l.biz)} · ${esc(l.code)}</span></td>
       <td class="num">${won(l.spent)}</td><td class="num">${e ? won(e.paid) : '-'}</td><td class="num ${diff < 0 ? 'neg' : ''}">${e ? (diff ? (diff > 0 ? '+' : '') + won(diff) : '변동 없음') : ''}</td>
       <td class="num">${e ? won(e.commit) : ''}</td><td class="num">${e ? won(e.resolved) : ''}</td>
       <td>${e ? (bd ? `<span class="badge warn" data-tip="예산현액 ${won(e.budget)}원 / 현재 입력 ${won(l.budget)}원">예산 다름</span>` : '') : '<span class="badge bad">못 찾음</span>'}</td></tr>`;
   });
-  return `<div class="card" id="lprev"><h2>② 집행액(통계목별 조회) 결과 <span class="muted" style="font-weight:400;font-size:12px">${esc(doc.file)} · 기준일 ${esc(doc.asOf || '?')}</span></h2>
-    <p class="sub" style="margin:0 0 8px">지출액 = e-호조의 <b>지급명령액</b> 누계입니다. 원인행위(계약)는 했지만 아직 지출되지 않은 금액은 지급예정 입력창에서 한 번에 추가할 수 있습니다.</p>
-    <div class="tbl-wrap"><table class="t"><thead><tr><th>적용</th><th>구분</th><th>사업명</th><th>현재 지출</th><th>조회 지출액</th><th>증감</th><th>원인행위</th><th>결의액</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  return `<div class="card" id="lprev"><h2>② 집행액(통계목별 조회 ${x ? '엑셀' : 'PDF'}) 결과 <span class="muted" style="font-weight:400;font-size:12px">${esc(doc.file)} · 기준일 ${esc(doc.asOf || '?')}${x && doc.skipped ? ` · 이월 ${doc.skipped}행 제외(당해예산만)` : ''}</span></h2>
+    ${x ? '<p class="sub" style="margin:0 0 8px">지출액 = 엑셀의 <b>실집행액(집행누계액)</b>입니다. 원인행위(계약)는 했지만 아직 집행되지 않은 금액은 지급예정 입력창에서 한 번에 추가할 수 있습니다.</p>'
+      : '<p class="note-box" style="margin:0 0 8px">⚠ PDF에는 <b>실집행액</b>이 없어 <b>지급명령액</b>(실집행액보다 큽니다)만 나옵니다. 그래서 지출액 체크는 꺼 두었습니다. 지출액은 <b>통계목별 조회 엑셀</b>로 불러오세요. (원인행위·결의액 참고용으로만 쓰려면 체크 후 적용)</p>'}
+    <div class="tbl-wrap"><table class="t"><thead><tr><th>적용</th><th>구분</th><th>사업명</th><th>현재 지출</th><th>${x ? '실집행액' : '지급명령액(참고)'}</th><th>증감</th><th>원인행위</th><th>결의액</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="row" style="justify-content:space-between;margin-top:12px"><label class="row" style="gap:6px"><input type="checkbox" id="l-bud"> 예산이 다른 항목은 조회된 예산현액으로도 바꾸기</label>
     <span class="row"><button class="btn" data-act="clearl">닫기</button><button class="btn primary" data-act="applyl">선택한 항목 적용</button></span></div></div>`;
 }

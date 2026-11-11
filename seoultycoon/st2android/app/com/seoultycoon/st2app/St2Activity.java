@@ -34,10 +34,12 @@ public class St2Activity extends Activity implements St2View.Opener {
 
     void askName() {
         final EditText et = new EditText(this); et.setSingleLine(true); et.setText("시장");
-        new AlertDialog.Builder(this).setTitle("시장님 존함 (게임 시작 시 사용)").setView(et).setCancelable(false)
+        final android.widget.CheckBox cb = new android.widget.CheckBox(this); cb.setText("튜토리얼 자동 넘김 (처음 한 번)"); cb.setChecked(true);
+        final android.widget.LinearLayout box = new android.widget.LinearLayout(this); box.setOrientation(android.widget.LinearLayout.VERTICAL); box.setPadding(40, 10, 40, 0); box.addView(et); box.addView(cb);
+        new AlertDialog.Builder(this).setTitle("시장님 존함 (게임 시작 시 사용)").setView(box).setCancelable(false)
             .setPositiveButton("확인", new DialogInterface.OnClickListener() { public void onClick(DialogInterface d, int w) {
                 String s = et.getText().toString().trim(); if (s.length() == 0) s = "시장"; if (s.length() > 5) s = s.substring(0, 5);
-                getSharedPreferences("st2", MODE_PRIVATE).edit().putString("name", s).apply(); start(s);
+                getSharedPreferences("st2", MODE_PRIVATE).edit().putString("name", s).putBoolean("skiptut", cb.isChecked()).apply(); start(s);
             } }).show();
     }
 
@@ -46,7 +48,7 @@ public class St2Activity extends Activity implements St2View.Opener {
         loop = new Thread(null, new Runnable() { public void run() {
             try {
                 byte[] img = pf.resource("client.bin1116");
-                host = new Host(pf, img); host.defaultName = name; view.game_host = host; host.timeScale = speed();
+                host = new Host(pf, img); host.defaultName = name; if (getSharedPreferences("st2", MODE_PRIVATE).getBoolean("skiptut", false)) { host.startAutoTutorial(); getSharedPreferences("st2", MODE_PRIVATE).edit().putBoolean("skiptut", false).apply(); } view.game_host = host; host.timeScale = speed();
                 host.boot(); host.startApp();
                 long last = System.nanoTime(); int[] px = new int[240 * 296];
                 while (running) {
@@ -72,8 +74,8 @@ public class St2Activity extends Activity implements St2View.Opener {
     static final double[] SPEEDS = {1.0, 1.5, 2.0, 3.0};
     double speed() { return SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, getSharedPreferences("st2", MODE_PRIVATE).getInt("speed", 2)))]; }
     public void openModeDialog() {
-        new AlertDialog.Builder(this).setTitle("설정").setItems(new String[]{"조작 방식", "게임 속도 (부드러움)"}, new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface d, int w) { if (w == 0) openControlDialog(); else openSpeedDialog(); } }).show();
+        new AlertDialog.Builder(this).setTitle("설정").setItems(new String[]{"조작 방식", "게임 속도 (부드러움)", "다음 실행 때 튜토리얼 자동 넘김"}, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface d, int w) { if (w == 0) openControlDialog(); else if (w == 1) openSpeedDialog(); else { getSharedPreferences("st2", MODE_PRIVATE).edit().putBoolean("skiptut", true).apply(); android.widget.Toast.makeText(St2Activity.this, "다음에 게임을 켤 때 튜토리얼을 자동으로 넘깁니다", android.widget.Toast.LENGTH_LONG).show(); } } }).show();
     }
     void openSpeedDialog() {
         final String[] n = {"1배 (원본 속도, 끊겨 보임)", "1.5배", "2배 (기본)", "3배 (가장 부드럽고 빠름)"};

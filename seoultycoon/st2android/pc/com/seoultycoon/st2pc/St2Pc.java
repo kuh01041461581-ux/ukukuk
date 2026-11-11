@@ -119,7 +119,7 @@ public class St2Pc {
     static void startGame(String name) {
         Thread t = new Thread(null, () -> {
             try {
-                byte[] img = pf.resource("client.bin1116"); Host h = new Host(pf, img); h.defaultName = name; h.timeScale = speed; h.boot(); h.startApp(); host = h; panel.host = h;
+                byte[] img = pf.resource("client.bin1116"); Host h = new Host(pf, img); h.defaultName = name; h.timeScale = speed; if (pf.fileExists("skiptut.txt")) { h.startAutoTutorial(); new java.io.File(System.getProperty("user.home"), ".iksan-tycoon/skiptut.txt").delete(); } h.boot(); h.startApp(); host = h; panel.host = h;
                 long last = System.nanoTime(); int[] px = new int[240 * 296];
                 while (running) {
                     long t0 = System.nanoTime(); int dt = (int) Math.min(100, (t0 - last) / 1000000); last = t0; h.timeScale = speed;
@@ -149,6 +149,7 @@ public class St2Pc {
             String[] sn = {"게임 속도 1배", "게임 속도 1.5배", "게임 속도 2배 (기본)", "게임 속도 3배"};
             for (int i = 0; i < 4; i++) { final int k = i; JRadioButtonMenuItem it = new JRadioButtonMenuItem(sn[i], i == 2); g.add(it); m.add(it); it.addActionListener(e -> speed = SPEEDS[k]); }
             m.addSeparator(); JMenuItem rn = new JMenuItem("시장님 이름 바꾸기 (다음 실행부터)"); rn.addActionListener(e -> { String s = JOptionPane.showInputDialog(f, "새 이름 (5자까지)"); if (s != null && !s.trim().isEmpty()) pf.writeFile("name.txt", (s.trim().length() > 5 ? s.trim().substring(0, 5) : s.trim()).getBytes(StandardCharsets.UTF_8)); }); m.add(rn);
+            JMenuItem sk = new JMenuItem("다음 실행 때 튜토리얼 자동 넘김"); sk.addActionListener(e -> { pf.writeFile("skiptut.txt", new byte[]{1}); JOptionPane.showMessageDialog(f, "다음에 게임을 켤 때 튜토리얼을 자동으로 넘깁니다."); }); m.add(sk);
             JMenuItem fs = new JMenuItem("전체 화면 전환 (F11)"); fs.addActionListener(e -> toggleFull(f)); m.add(fs);
             mb.add(m); f.setJMenuBar(mb);
             JPanel ctl = controls(); ctl.setPreferredSize(new Dimension(210, 0)); ctl.setVisible(false);

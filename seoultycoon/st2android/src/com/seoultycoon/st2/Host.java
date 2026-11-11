@@ -436,7 +436,27 @@ public final class Host {
             if (x >= r[1] - 3 && x <= r[3] + 3 && y >= r[2] - 2 && y <= r[4] + 2 && regionHash(clickSurf.get(i), r[1], r[2], r[3], r[4]) == r[5]) return r[0]; }
         return -1;
     }
+    /** 튜토리얼 자동 넘김: 새 게임 첫 화면부터 가상시간(ms) 기준으로 확인/취소/방향 키를 대신 눌러 준다.
+     *  (익산 모드 하니스로 "시장저택 건설 → 시청 복귀 → 안내 문구 확인 → 남부 진입"까지 실제로 돌려 기록한 순서) */
+    static final String TUT_SCHED = "7500:53,11500:53,13500:53,14500:53,16500:53,17750:53,19000:53,20250:53,21500:53,22750:53,24000:53,25250:53,26500:53,27750:53,29000:53,30250:53,31500:53,32750:53,34000:53,35250:53,36500:53,37750:53,39000:53,40250:53,41500:53,42750:53,44000:53,50000:48,55000:54,60000:53,64000:53,68000:53,72000:53,76000:53,80000:54,83000:56,86000:53,88150:48,90300:54,92450:54,94600:56,96750:56,98900:56,101050:53,103200:54,104850:53,107500:53,110650:53,113800:53,116950:53,120100:53,123250:53,126400:53,129550:53,132700:53,135850:48,140000:53,145150:53,149300:53,153450:53,157600:53,161750:53,165900:53,170050:53,174200:53,178350:53,182500:53,186650:56,189800:56,192950:53,197100:53,201250:53,205400:56,208550:53,212700:53,216850:53,221000:53,225150:53,229300:48,233450:53,237600:53,241750:53,245900:53,250050:48,254200:48,258350:56,261500:53,265650:53,269800:53,273950:53,278100:53,279600:48";
+    long[][] autoEv; int autoIdx; long autoT; public boolean autoTutorial;
+    public void startAutoTutorial() {
+        String[] p = TUT_SCHED.split(","); java.util.ArrayList<long[]> l = new java.util.ArrayList<>();
+        for (String q : p) { String[] a = q.split(":"); long t = Long.parseLong(a[0]); int k = Integer.parseInt(a[1]); l.add(new long[]{t, 1, k}); l.add(new long[]{t + 100, 2, k}); }
+        autoEv = l.toArray(new long[0][]); autoIdx = 0; autoT = 0; autoTutorial = true;
+    }
+    /** 자동 진행 중에는 실제 경과시간과 무관하게 50ms 단위로 빠르게 되감아 돌린다(한 번에 최대 24조각). */
     public boolean tick(int dtMs) {
+        if (!autoTutorial) return tick0(dtMs);
+        boolean painted = false; double ts = timeScale; timeScale = 1.0;
+        for (int n = 0; n < 24 && autoTutorial; n++) {
+            while (autoIdx < autoEv.length && autoEv[autoIdx][0] <= autoT) { postKey((int) autoEv[autoIdx][1], (int) autoEv[autoIdx][2]); autoIdx++; }
+            if (autoIdx >= autoEv.length && autoT > autoEv[autoEv.length - 1][0] + 600) { autoTutorial = false; }
+            painted |= tick0(50); autoT += 50;
+        }
+        timeScale = ts; return painted;
+    }
+    public boolean tick0(int dtMs) {
         if (verbose && trace != null) trace.println("TICK " + vnow);
         int[] k; while ((k = pollKey()) != null) { if (currentCard != 0) vcall(currentCard, "(II)Z+keyNotify", k[0], k[1]); }
         scaleAcc += dtMs * timeScale; int adv = (int) scaleAcc; scaleAcc -= adv;

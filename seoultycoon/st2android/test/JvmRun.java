@@ -39,6 +39,7 @@ public class JvmRun {
                 Files.write(rd.resolve("done"), String.valueOf(System.nanoTime()).getBytes());
             }
         }
+        if (System.getenv("AUTOTUT") != null) H.startAutoTutorial();
         for (int r = 1; r <= rounds; r++) {
             if (keys.containsKey(r)) H.postKey(keys.get(r)[0], keys.get(r)[1]);
             if (System.getenv("JUMP") != null) { String[] q = System.getenv("JUMP").split(":"); if (r == Integer.parseInt(q[0])) {            // 시험용: 상태 배열(int[12])의 날짜·남은 일수를 바꾼다  JUMP=라운드:년:월:일:남은일수[:지지도]

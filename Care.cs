@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -52,7 +52,7 @@ internal static class Care
 
 internal sealed class Bubble : Form
 {
-	private static Bubble cur;
+	private static Bubble cur, curL; private bool left;
 	private string text; private readonly Image mascot;
 	private readonly FrameTimer tm = new FrameTimer(); private readonly System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
 	private double tt, last, outAt = -1; private double hold; private readonly int baseY;
@@ -61,6 +61,18 @@ internal sealed class Bubble : Form
 
 	private Action onClick;
 	public static void Say(string s, double seconds) { Say(s, seconds, null); }
+	public static void SayLeft(string s, double seconds)
+	{
+		try
+		{
+			if (curL == null || curL.IsDisposed) { curL = new Bubble(s, seconds); curL.left = true; Rectangle wa = Screen.PrimaryScreen.WorkingArea; curL.Location = new Point(wa.Left + Dpi.Z(16), curL.baseY + Dpi.Z(24)); }
+			curL.text = s; curL.hold = seconds; curL.tt = 0; curL.outAt = -1; curL.last = curL.sw.Elapsed.TotalSeconds;
+			curL.Opacity = 0; curL.Top = curL.baseY + Dpi.Z(24);
+			if (!curL.Visible) curL.Show();
+			curL.tm.Start(); curL.Invalidate(); Sfx.Play("ok");
+		}
+		catch (Exception ex) { Program.LogErr(ex); curL = null; }
+	}
 	public static void Say(string s, double seconds, Action click)
 	{
 		try

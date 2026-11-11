@@ -292,7 +292,7 @@ internal partial class Program
 
 	private static int monthlyLimit = 57;
 	internal const int YearLimit = 480;   // 연 초과근무 한도(시간)
-	internal static int quitHour = 18; internal static bool quitOn = true; internal static bool preHourOn = true; internal static bool popupSmall = false; internal static bool lightAlert = false; internal static bool widgetOn = false; internal static bool widgetTop = false; internal static int widgetX = -99999, widgetY = -99999; private static DateTime preHourAt = DateTime.MinValue; private static DateTime quitDay = DateTime.MinValue;
+	internal static int quitHour = 18; internal static bool quitOn = true; internal static bool preHourOn = true; internal static bool breakOn = true; private static DateTime breakAt; internal static bool popupSmall = false; internal static bool lightAlert = false; internal static bool widgetOn = false; internal static bool widgetTop = false; internal static int widgetX = -99999, widgetY = -99999; private static DateTime preHourAt = DateTime.MinValue; private static DateTime quitDay = DateTime.MinValue;
 
 	private static MenuItem soundItem;
 
@@ -559,7 +559,7 @@ internal partial class Program
 		{
 			DateTime now = DateTime.Now;
 			SnoozeTick(now);
-			QuitTick(now); PreHourTick(now);
+			QuitTick(now); PreHourTick(now); BreakTick(now);
 			if (++memN >= 300) { memN = 0; if (Mem.NoVisibleForms()) Mem.Trim(); }
 			PendingTick(now);
 			DeadlineTick(now);
@@ -627,6 +627,22 @@ internal partial class Program
 			DateTime q = now.Date.AddHours(quitHour);
 			double left = (q - now).TotalSeconds;
 			if (left <= 30 && left > -3) { quitDay = now.Date; ShowQuitToast(q); }
+		}
+		catch (Exception ex) { LogError(ex); }
+	}
+
+	// 매시 정각: 왼쪽 아래에 스트레칭 · 물 마시기 알림 (평일 9시~21시, 방해 금지 중에는 쉬어요)
+	private static readonly string[] BreakTx = {
+		"정각이에요! 자리에서 일어나 목과 어깨를 쭉 풀어 주세요", "물 한 잔 마실 시간이에요. 천천히 쭉 드세요", "허리를 펴고 어깨를 돌려 주세요. 눈도 멀리 보며 쉬어요",
+		"정각이에요! 물 한 컵 마시고 손목도 돌려 주세요", "잠깐 일어나 한 바퀴 걸어요. 다리 스트레칭도 좋아요", "눈 피로 풀기: 20초 동안 먼 곳 바라보고 물 한 모금!" };
+	private static void BreakTick(DateTime now)
+	{
+		try
+		{
+			if (!breakOn || now.Minute != 0 || now.Second > 8 || now.Hour < 9 || now.Hour > 21 || IsOffDay(now)) return;
+			DateTime h = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0); if (breakAt == h) return; breakAt = h;
+			if (DndActive) return;
+			Bubble.SayLeft(BreakTx[(now.Hour + now.DayOfYear) % BreakTx.Length], 8);
 		}
 		catch (Exception ex) { LogError(ex); }
 	}
@@ -968,6 +984,7 @@ internal partial class Program
 					case "quitHour": { int v; quitHour = 18; break; }
 					case "quitOn": quitOn = text3.Trim() != "0"; break;
 					case "preHourOn": preHourOn = text3.Trim() != "0"; break;
+					case "breakOn": breakOn = text3.Trim() != "0"; break;
 					case "widgetOn": widgetOn = text3.Trim() == "1"; break;
 					case "widgetTop": widgetTop = text3.Trim() == "1"; break;
 					case "popupSmall": popupSmall = text3.Trim() == "1"; break;
@@ -1024,7 +1041,7 @@ internal partial class Program
 			{
 				text = text + ((i <= 0) ? "" : ",") + minutes[i];
 			}
-			SaveAsync(SettingsPath, new string[40]
+			SaveAsync(SettingsPath, new string[41]
 			{
 				"minutes=" + text,
 				"weekdayHours=" + weekdayHoursText,
@@ -1044,6 +1061,7 @@ internal partial class Program
 				"quitHour=" + quitHour,
 				"quitOn=" + (quitOn ? "1" : "0"),
 				"preHourOn=" + (preHourOn ? "1" : "0"),
+				"breakOn=" + (breakOn ? "1" : "0"),
 				"widgetOn=" + (widgetOn ? "1" : "0"),
 				"widgetX=" + widgetX,
 				"widgetY=" + widgetY,

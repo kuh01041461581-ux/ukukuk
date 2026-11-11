@@ -541,6 +541,10 @@ internal partial class Program
 		TButton addMin = new TButton("추가", BK.Primary); addMin.BackColor = Theme.Bg; addMin.Location = new Point(Zs(160), Zs(94)); addMin.Size = new Size(Zs(72), Zs(34)); cA.Controls.Add(addMin);
 		Lbl(cA, "분을 고르고 추가하면 알림이 늘어나요", 10f, 0, Theme.Sub, 244, 94, 290, 34);
 
+		Card cBr = card(pAl, 541, 37);
+		Lbl(cBr, "정각 스트레칭 · 물 마시기", 11f, 1, Theme.Ink, 18, 0, 300, 20);
+		Lbl(cBr, "평일 9~21시 매시 정각에 왼쪽 아래로 알려요", 9.5f, 0, Theme.Sub, 18, 18, CW - 36 - 56, 18);
+		TToggle brTg = new TToggle(); brTg.BackColor = Theme.Bg; brTg.Location = new Point(Zs(CW - 42 - 16), Zs(6)); brTg.SetImmediate(breakOn); cBr.Controls.Add(brTg);
 		// 인사랑 바로가기 (주소는 프로그램 안에 들어 있어요)
 		Card cI = card(pAl, 444, 94);
 		Lbl(cI, "인사랑 바로가기", 11f, 1, Theme.Ink, 18, 8, 300, 24);
@@ -1245,7 +1249,7 @@ internal partial class Program
 			if (dndItem != null) dndItem.Checked = dndManual;
 			if (soundItem != null) soundItem.Checked = soundOn;
 			kasiKey = kin.Box.Text.Trim();
-			insarangFront = frontTg.Checked;
+			insarangFront = frontTg.Checked; breakOn = brTg.Checked;
 			string snap = autoStart + "|" + string.Join(",", hkMod) + "|" + string.Join(",", hkVk) + "|" + insarangFront;
 			SaveSettings();
 			if (snap != lastApplied) { ApplyHotkeys(); ApplyAutoStart(); lastApplied = snap; }   // 단축키·자동 실행이 그대로면 다시 등록하지 않아요

@@ -366,3 +366,104 @@ nav.tabs button[aria-selected=true]{background:var(--accent);box-shadow:0 1px 3p
 table.t tr.tot td{background:color-mix(in srgb,var(--accent) 10%,var(--glass-hi))}
 table.t thead th{background:var(--glass-hi)}
 #tip,.toast{background:rgba(28,32,44,.88)}
+
+/* ================= 입체감 + 리퀴드 글래스 (최종) ================= */
+:root{
+  --bg-a:#e9eef7; --bg-b:#e4e8f3; --bg-c:#e8eef5;
+  --blob1:rgba(80,130,235,.20); --blob2:rgba(150,130,235,.14); --blob3:rgba(70,185,175,.12); --blob4:rgba(255,200,120,.10);
+  --glass:rgba(255,255,255,.58); --glass-hi:rgba(255,255,255,.80); --glass-lo:rgba(255,255,255,.36);
+  --glass-edge:rgba(255,255,255,.9); --edge-dark:rgba(40,60,110,.10);
+  --lift:0 1px 1px rgba(30,45,90,.06),0 4px 10px rgba(30,45,90,.07),0 16px 32px -8px rgba(30,45,90,.16);
+  --lift-sm:0 1px 1px rgba(30,45,90,.08),0 3px 8px -1px rgba(30,45,90,.12);
+  --glass-inset:inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 0 rgba(30,45,90,.05);
+  --well:inset 0 2px 4px rgba(30,45,90,.16),inset 0 -1px 0 rgba(255,255,255,.7);
+  --blur:blur(20px) saturate(150%);
+}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+  --bg-a:#12151c; --bg-b:#141824; --bg-c:#111a1d;
+  --blob1:rgba(57,135,229,.20); --blob2:rgba(130,100,210,.13); --blob3:rgba(25,158,112,.10); --blob4:rgba(201,133,0,.07);
+  --glass:rgba(34,38,50,.58); --glass-hi:rgba(46,51,66,.78); --glass-lo:rgba(34,38,50,.36);
+  --glass-edge:rgba(255,255,255,.16); --edge-dark:rgba(0,0,0,.35);
+  --lift:0 1px 1px rgba(0,0,0,.4),0 6px 14px rgba(0,0,0,.35),0 20px 40px -10px rgba(0,0,0,.55);
+  --lift-sm:0 1px 1px rgba(0,0,0,.45),0 4px 10px -1px rgba(0,0,0,.45);
+  --glass-inset:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -1px 0 rgba(0,0,0,.25);
+  --well:inset 0 2px 5px rgba(0,0,0,.55),inset 0 -1px 0 rgba(255,255,255,.07);
+}}
+:root[data-theme="dark"]{
+  --bg-a:#12151c; --bg-b:#141824; --bg-c:#111a1d;
+  --blob1:rgba(57,135,229,.20); --blob2:rgba(130,100,210,.13); --blob3:rgba(25,158,112,.10); --blob4:rgba(201,133,0,.07);
+  --glass:rgba(34,38,50,.58); --glass-hi:rgba(46,51,66,.78); --glass-lo:rgba(34,38,50,.36);
+  --glass-edge:rgba(255,255,255,.16); --edge-dark:rgba(0,0,0,.35);
+  --lift:0 1px 1px rgba(0,0,0,.4),0 6px 14px rgba(0,0,0,.35),0 20px 40px -10px rgba(0,0,0,.55);
+  --lift-sm:0 1px 1px rgba(0,0,0,.45),0 4px 10px -1px rgba(0,0,0,.45);
+  --glass-inset:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -1px 0 rgba(0,0,0,.25);
+  --well:inset 0 2px 5px rgba(0,0,0,.55),inset 0 -1px 0 rgba(255,255,255,.07);
+}
+body::before{filter:blur(50px)}
+
+/* 떠 있는 유리 카드 */
+header.top,.card,.kpi,.cat-card,dialog,.drop{
+  background:linear-gradient(165deg,var(--glass-hi),var(--glass) 45%,var(--glass-lo));
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--glass-edge);box-shadow:var(--lift),var(--glass-inset);
+}
+.card,.kpi,.cat-card{border-radius:20px}
+header.top{border-radius:0 0 20px 20px;box-shadow:var(--lift-sm),var(--glass-inset)}
+dialog{border-radius:24px;background:linear-gradient(165deg,var(--glass-hi),var(--glass-hi) 60%,var(--glass))}
+.kpi{position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;inset:0 0 auto 0;height:46%;background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0));pointer-events:none;border-radius:20px 20px 0 0}
+.kpi .v{position:relative;z-index:1}.kpi .k,.kpi .s{position:relative;z-index:1}
+.cat-card::before{height:5px;background:linear-gradient(90deg,var(--c),color-mix(in srgb,var(--c) 55%,#fff))}
+
+/* 탭: 유리 분절 막대 + 떠오른 선택 */
+nav.tabs{background:var(--glass-lo);border:1px solid var(--edge-dark);border-radius:999px;box-shadow:var(--well);padding:4px;margin:2px 20px 10px;width:max-content;max-width:calc(100% - 40px);gap:2px}
+nav.tabs button{padding:7px 18px}
+nav.tabs button[aria-selected=true]{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 70%,#fff),var(--accent));color:#fff;border-color:transparent;
+  box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 3px 8px color-mix(in srgb,var(--accent) 40%,transparent),0 1px 2px rgba(0,0,0,.2)}
+
+/* 버튼: 살짝 솟은 유리, 누르면 눌림 */
+.btn,.pill,.chip,.st-btn,.serchk{background:linear-gradient(180deg,var(--glass-hi),var(--glass));border:1px solid var(--glass-edge);
+  box-shadow:var(--lift-sm),inset 0 1px 0 rgba(255,255,255,.8);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);transition:transform .12s,box-shadow .15s}
+.btn:hover,.pill:hover{transform:translateY(-1px);background:linear-gradient(180deg,var(--glass-hi),var(--glass-hi));box-shadow:0 2px 3px rgba(30,45,90,.10),0 8px 16px -4px rgba(30,45,90,.20),inset 0 1px 0 rgba(255,255,255,.9)}
+.btn:active,.pill:active{transform:translateY(1px);box-shadow:var(--well)}
+.btn.primary,.pill[aria-pressed=true]{color:#fff;border-color:rgba(255,255,255,.28);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 68%,#fff),var(--accent) 60%,color-mix(in srgb,var(--accent) 88%,#000));
+  box-shadow:0 1px 0 rgba(255,255,255,.45) inset,0 4px 10px color-mix(in srgb,var(--accent) 38%,transparent),0 1px 2px rgba(0,0,0,.25)}
+.btn.primary:hover{transform:translateY(-1px);filter:brightness(1.05)}
+
+/* 입력칸: 안으로 파인 느낌 */
+.cellin:hover{background:var(--glass-lo);border-color:var(--edge-dark)}
+.cellin:focus{background:var(--glass-hi);border-color:var(--accent);box-shadow:var(--well),0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent)}
+textarea.cellin[data-f=gmemo],input[type=search],.fld input,.fld textarea,.fld select,.sch-row input,.top .asof input{background:var(--glass-lo)!important;border:1px solid var(--edge-dark)!important;border-radius:12px!important;box-shadow:var(--well)}
+
+/* 표 */
+.tbl-wrap{background:var(--glass-lo);border:1px solid var(--edge-dark);border-radius:16px;box-shadow:var(--well)}
+table.t thead th{background:linear-gradient(180deg,var(--glass-hi),var(--glass));box-shadow:0 1px 0 var(--edge-dark),0 4px 8px -4px rgba(30,45,90,.15)}
+table.t tbody tr:hover td{background:color-mix(in srgb,var(--accent) 8%,var(--glass-hi))}
+table.t tr.grp td{background:linear-gradient(180deg,var(--glass-hi),var(--glass))}
+
+/* 막대: 속이 파인 유리관 안에 입체 튜브 */
+.bar{height:14px;border-radius:999px;background:color-mix(in srgb,var(--track) 75%,transparent);box-shadow:var(--well)}
+.bar.lg{height:20px}
+.bar .seg{position:relative;border-radius:999px}
+.bar .paid{border-right:0;border-radius:999px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 55%,#fff) 0%,var(--accent) 45%,color-mix(in srgb,var(--accent) 80%,#000) 100%);
+  box-shadow:0 2px 5px color-mix(in srgb,var(--accent) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.55),inset 0 -2px 3px rgba(0,0,30,.22)}
+.bar .paid.over{background:linear-gradient(180deg,color-mix(in srgb,var(--bad) 55%,#fff) 0%,var(--bad) 45%,color-mix(in srgb,var(--bad) 80%,#000) 100%);box-shadow:0 2px 5px color-mix(in srgb,var(--bad) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.5),inset 0 -2px 3px rgba(60,0,0,.25)}
+.bar .paid::after{display:block;content:"";position:absolute;left:8px;right:8px;top:2px;height:32%;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,0))}
+.bar .sch{border-right:0;margin-left:-6px;padding-left:0;border-radius:999px;
+  background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--sched) 95%,#fff) 0 4px,color-mix(in srgb,var(--sched) 70%,#000) 4px 8px);
+  box-shadow:0 2px 4px color-mix(in srgb,var(--sched) 40%,transparent),inset 0 1px 0 rgba(255,255,255,.5)}
+.bar .paid:last-of-type,.bar .sch:last-of-type{border-radius:999px}
+.rate .bar{height:11px}
+.bar .mark{border-left:2px dashed color-mix(in srgb,var(--text-3) 80%,transparent);top:-4px;bottom:-4px}
+.lg-paid{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 55%,#fff),var(--accent));box-shadow:0 1px 2px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.5)}
+
+/* 3D 막대(공공요금 그래프) */
+.bar3d{filter:drop-shadow(2px 4px 3px rgba(20,35,80,.28));transition:filter .15s}
+.bar3d:hover{filter:drop-shadow(2px 4px 3px rgba(20,35,80,.28)) brightness(1.1)}
+.serchk i{border-radius:6px;box-shadow:var(--well)}
+.serchk input:checked+i{box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 2px 4px color-mix(in srgb,var(--c) 45%,transparent)}
+.badge{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 1px 2px rgba(30,45,90,.12);border:0}
+#tip,.toast{box-shadow:0 10px 30px rgba(0,0,0,.35);border-radius:12px}
+@media print{header.top,.card,.kpi,.cat-card,dialog,.tbl-wrap,.btn,.pill,.bar,.bar .seg{box-shadow:none!important}.kpi::after{display:none}}

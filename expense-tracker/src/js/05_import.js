@@ -8,13 +8,11 @@ async function handlePdf(file) {
     set('PDF를 읽는 중… (큰 파일은 10~20초 걸릴 수 있습니다)');
     const lines = await pdfToLines(file, (p, n) => set(`PDF를 읽는 중… ${p}/${n}쪽`));
     let kind = detectDoc(lines);
-    if (!kind) { kind = /^\d{5}\s/m.test(lines.map(l => l.text).join('\n')) ? 'ledger' : 'budget'; }
+    if (kind === 'ledger') { set('통계목별 조회 PDF는 쓰지 않습니다 — 실집행액이 들어 있는 통계목별 조회 "엑셀"을 올려 주세요.'); toast('통계목별 조회는 엑셀로 불러오세요'); return; }
+    if (!kind) kind = 'budget';
     if (kind === 'budget') {
       const doc = parseBudgetDoc(lines); doc.file = file.name; UI.imp = UI.imp || {}; UI.imp.budget = doc;
       set(`합본예산서로 인식: 편성목 ${doc.entries.length}건을 찾았습니다.`);
-    } else {
-      const doc = parseLedgerDoc(lines); doc.file = file.name; doc.src = 'pdf'; UI.imp = UI.imp || {}; UI.imp.ledger = doc;
-      set(`통계목별 조회로 인식: ${doc.entries.length}건 (기준일 ${doc.asOf || '확인 불가'})`);
     }
     renderImport(true);
   } catch (e) { console.error(e); set('⚠ ' + (e.message || e)); toast('PDF를 읽지 못했습니다'); }
@@ -23,8 +21,8 @@ async function handlePdf(file) {
 function renderImport(keepStatus) {
   const P = $('#p-import'); const imp = UI.imp || {}; const prev = keepStatus ? ($('#imp-status') || {}).textContent : '';
   let h = `<div class="card"><h2>파일 불러오기 (PDF · 엑셀)</h2>
-    <p class="sub" style="margin:0 0 10px">합본예산서 PDF, 통계목별 조회 엑셀(실집행액), 일상경비·공공요금 엑셀을 올리면 자동으로 종류를 알아보고 채워 줍니다. 여러 파일을 한꺼번에 끌어 놓아도 됩니다. 파일은 이 컴퓨터 안에서만 읽으며 어디로도 전송되지 않습니다.</p>
-    <ul class="help" style="margin:0 0 12px;padding-left:18px"><li><b>합본예산서</b>(세출예산사업명세서) → <b>총예산액</b>과 공공요금 연 예산 자동 입력</li><li><b>통계목별 조회 엑셀</b>(e-호조 내려받기) → <b>실집행액</b>(지출액)과 원인행위·결의액 자동 입력</li><li>통계목별 조회 <b>PDF</b>는 실집행액이 없어 참고용(원인행위·결의액)으로만 쓰입니다</li></ul>
+    <p class="sub" style="margin:0 0 10px">합본예산서(PDF), 통계목별 조회 엑셀(실집행액), 일상경비·공공요금 엑셀을 올리면 자동으로 종류를 알아보고 채워 줍니다. 여러 파일을 한꺼번에 끌어 놓아도 됩니다. 파일은 이 컴퓨터 안에서만 읽으며 어디로도 전송되지 않습니다.</p>
+    <ul class="help" style="margin:0 0 12px;padding-left:18px"><li><b>합본예산서</b>(세출예산사업명세서) → <b>총예산액</b>과 공공요금 연 예산 자동 입력</li><li><b>통계목별 조회 엑셀</b>(e-호조 내려받기) → <b>실집행액</b>(지출액)과 원인행위·결의액 자동 입력</li></ul>
     <div class="drop" id="drop"><div style="font-size:15px;font-weight:600">PDF·엑셀 파일을 이 창 아무 곳에나 끌어 놓거나</div><div style="margin:8px 0"><button class="btn primary" data-act="pick">파일 선택 (탐색기 열기)</button></div><div id="imp-status" class="muted">${esc(prev || '')}</div></div></div>`;
   if (imp.budget) h += budgetPreview(imp.budget);
   if (imp.ledger) h += ledgerPreview(imp.ledger);
@@ -53,7 +51,7 @@ function budgetPreview(doc) {
 }
 
 function ledgerPreview(doc) {
-  const x = doc.src === 'xlsx'; let rows = '';
+  const x = true; let rows = '';
   S.lines.forEach(l => {
     const e = findEntry(doc, l); const diff = e ? e.paid - l.spent : 0; const bd = e && e.budget !== l.budget;
     rows += `<tr><td><input type="checkbox" data-ll="${l.id}" ${e && diff !== 0 && x ? 'checked' : ''} ${e ? '' : 'disabled'} aria-label="${esc(l.label)} 적용"></td><td>${esc(l.group)}</td><td>${esc(l.label)}<span class="hint">${esc(l.biz)} · ${esc(l.code)}</span></td>

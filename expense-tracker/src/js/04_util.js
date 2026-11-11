@@ -19,14 +19,18 @@ function monthlyChart() {
     a.forEach((v, i) => {
       const k = vis[i][0], nm = vis[i][1]; const h = v / nice * ih; const x = gx + i * bw + 1, w = Math.max(2, bw - 2);
       if (v) {
-        const y = Tp + ih - h, r = Math.min(4, w / 2);
-        g += `<path d="M${x},${Tp + ih}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${Tp + ih}Z" fill="${CATCOLOR[k]}" data-tip="${MON[m]}분 ${nm}\n${won(v)}원"/>`;
-        if (showVal) g += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" style="fill:var(--text)">${manKey(v)}</text>`;
+        const dx = Math.min(8, w * 0.32), dy = dx * 0.7, fw = w - dx, y = Tp + ih - h, c = CATCOLOR[k];
+        g += `<g class="bar3d" data-tip="${MON[m]}분 ${nm}\n${won(v)}원">` +
+          `<rect x="${x}" y="${y}" width="${fw}" height="${Math.max(1, h)}" rx="1.5" fill="${c}"/><rect x="${x}" y="${y}" width="${fw}" height="${Math.max(1, h)}" rx="1.5" fill="url(#gFront)"/>` +
+          `<polygon points="${x + fw},${y} ${x + fw + dx},${y - dy} ${x + fw + dx},${y + h - dy} ${x + fw},${y + h}" fill="${c}"/><polygon points="${x + fw},${y} ${x + fw + dx},${y - dy} ${x + fw + dx},${y + h - dy} ${x + fw},${y + h}" fill="#0a1228" fill-opacity=".30"/>` +
+          `<polygon points="${x},${y} ${x + dx},${y - dy} ${x + fw + dx},${y - dy} ${x + fw},${y}" fill="${c}"/><polygon points="${x},${y} ${x + dx},${y - dy} ${x + fw + dx},${y - dy} ${x + fw},${y}" fill="#fff" fill-opacity=".42"/></g>`;
+        if (showVal) g += `<text x="${x + w / 2}" y="${y - dy - 5}" text-anchor="middle" style="fill:var(--text);font-weight:600">${manKey(v)}</text>`;
       }
     });
     g += `<text x="${L + slot * (m + 0.5)}" y="${H - 8}" text-anchor="middle">${m + 1}월</text>`;
   });
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 공공요금 지출 막대그래프(${vis.map(x => x[1]).join('·')})">${g}<line class="ax" x1="${L}" x2="${W - R}" y1="${Tp + ih}" y2="${Tp + ih}"/></svg>`;
+  const defs = '<defs><linearGradient id="gFront" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset=".45" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#0a1228" stop-opacity=".22"/></linearGradient></defs>';
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 공공요금 지출 막대그래프(${vis.map(x => x[1]).join('·')})">${defs}${g}<line class="ax" x1="${L}" x2="${W - R}" y1="${Tp + ih}" y2="${Tp + ih}"/></svg>`;
 }
 
 function renderUtil() {

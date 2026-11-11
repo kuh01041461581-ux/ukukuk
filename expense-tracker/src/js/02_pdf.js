@@ -129,29 +129,6 @@ function utilBudgetFromBudget(doc, biz = '문화유적지 보존관리') {
   return out;
 }
 
-/* ===== 통계목별 조회(원 단위, 집행액) ===== */
-function parseLedgerDoc(lines) {
-  let xMok = null;
-  for (const l of lines) { if (/^\d{3}\s+\S/.test(l.text) && splitLine(l.text).nums.length) { xMok = l.x0; break; } }
-  if (xMok == null) throw new Error('편성목 줄을 찾지 못했습니다. 통계목별 조회 PDF가 맞는지 확인하세요.');
-  const stack = []; let mok = null; const entries = [];
-  let asOf = '';
-  for (const l of lines) {
-    const t = l.text; const mm = t.match(/~\s*(\d{4}-\d{2}-\d{2})/); if (mm) asOf = mm[1];
-    const { label, nums } = splitLine(t); if (!label || !nums.length) continue;
-    const ints = nums.filter(x => /^\d{1,3}(,\d{3})*$/.test(x)).map(amt);
-    if (ints.length < 13) continue;
-    let m;
-    if ((m = label.match(/^(\d{3})\s+(.+)$/))) { mok = { code: m[1], name: m[2] }; continue; }
-    if ((m = label.match(/^(\d{5})\s+(.+)$/)) && stack.length) {
-      entries.push({ biz: stack[stack.length - 1].name, code: m[1], name: m[2], budget: ints[1], commit: ints[6], resolved: ints[10], paid: ints[12] });
-      continue;
-    }
-    if (l.x0 < xMok - 3) { while (stack.length && stack[stack.length - 1].x0 >= l.x0 - 0.5) stack.pop(); stack.push({ x0: l.x0, name: label }); mok = null; }
-  }
-  return { kind: 'ledger', entries, asOf };
-}
-
 function findEntry(doc, l) {
   const nb = normName(l.biz);
   return doc.entries.find(e => normName(e.biz) === nb && e.code === l.code) ||

@@ -42,7 +42,7 @@ $('#p-settings').addEventListener('change', e => { if (e.target.id === 's-year')
 /* 숫자 칸을 떠날 때 콤마 형식 복원 */
 document.addEventListener('focusout', e => { const t = e.target; if (t.matches && t.matches('input.cellin[inputmode="numeric"]')) { const v = parseNum(t.value); if (v != null && !isNaN(v)) t.value = won(v); } });
 
-const TABS = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황'], ['import', 'PDF 불러오기'], ['settings', '설정·백업']];
+const TABS = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황'], ['import', '파일 불러오기'], ['settings', '설정·백업']];
 const RENDER = { daily: renderDaily, util: renderUtil, import: renderImport, settings: renderSettings };
 function showTab(t) {
   UI.tab = t; $$('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));

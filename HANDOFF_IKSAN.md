@@ -47,3 +47,7 @@ UX 요구: 권역별 맵 분리, 스크롤 맵 금지, 시청에서 지표(피�
 3. 랜드마크 스프라이트: 미륵사지 석탑(사용자 사진 기준 6층, 윗부분 비대칭 붕괴·동탑 9층·목탑지), 왕궁리 오층석탑+궁성, 익산역(기존역 개축), 춘포 구역사 등. 사진은 사용자가 제공(웹 이미지 열람 불가). ST2 팔레트/크기에 맞춤.
 4. 오버레이 시스템 설계(호스트 훅).
 5. 세션 환경: 네트워크 허용 목록(ko/en.wikipedia.org, iksan.go.kr, data.go.kr, namu.wiki, k-calc.com) 새 세션에서 적용 필요; Artifact 미리보기 선택.
+
+## 도트 제작 규칙 (필독)
+
+건물 도트는 게임의 조각 규칙에 맞춰 만든다. 한 장짜리로 넣으면 게임 안에서 깨진다. 자세한 규칙과 순서는 `seoultycoon/docs/SPRITE_RULES.md`, 도구는 `seoultycoon/tools/strips.py`·`seoultycoon/tools/build_sprites.py`.

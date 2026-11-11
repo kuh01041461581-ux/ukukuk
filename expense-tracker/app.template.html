@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>일상경비·공공요금 관리</title>
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <h1 id="ttl">일상경비·공공요금 관리</h1>
+    <label class="asof">기준일 <input type="date" id="asof"></label>
+    <span class="spacer"></span>
+    <span class="chip" id="bk"></span>
+    <span class="save-state" id="sv"></span>
+    <button class="btn sm" id="theme" title="화면 밝기 전환">◐</button>
+  </div>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+</header>
+<main class="wrap">
+  <section class="tab-panel" id="p-daily"></section>
+  <section class="tab-panel" id="p-util" hidden></section>
+  <section class="tab-panel" id="p-import" hidden></section>
+  <section class="tab-panel" id="p-settings" hidden></section>
+</main>
+<dialog id="dlg"></dialog>
+<div id="tip"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="pick" hidden>
+<script>window.__SEED__=/*__SEED__*/null;</script>
+<script>
+/*__PDFJS__*/
+</script>
+<script id="pdf-worker" type="text/plain">
+/*__PDFWORKER__*/
+</script>
+<script>
+/*__APPJS__*/
+</script>
+</body>
+</html>

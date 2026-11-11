@@ -760,10 +760,10 @@ def _mix(c1, c2, t):
 _AA = {}
 
 
-def aa_shape(w, h, r, fill, outline=None, bg=None, grad=None):
+def aa_shape(w, h, r, fill, outline=None, bg=None, grad=None, vfill=None):
     """안티앨리어싱된 둥근 도형 이미지(Pillow 로 3배 크기로 그려 줄임). Pillow 가 없으면 None → 호출한 쪽이 기본 도형으로 그림.
     grad=(색1, 색2): 왼쪽 위→오른쪽 아래 그라데이션으로 채움."""
-    key = (w, h, r, fill, outline, bg, grad)
+    key = (w, h, r, fill, outline, bg, grad, vfill)
     if key in _AA:
         return _AA[key]
     img = None
@@ -789,7 +789,17 @@ def aa_shape(w, h, r, fill, outline=None, bg=None, grad=None):
                     px[x, y] = (int(c1[0] + (c2[0] - c1[0]) * t), int(c1[1] + (c2[1] - c1[1]) * t), int(c1[2] + (c2[2] - c1[2]) * t))
             base.paste(gi, (0, 0), mask)
         else:
-            base.paste(Image.new("RGB", (W, H), fill), (0, 0), mask)
+            if vfill:                                        # 위→아래로 아주 살짝 어두워지는 유리 카드 느낌
+                v1 = tuple(int(vfill[0][i:i + 2], 16) for i in (1, 3, 5))
+                v2 = tuple(int(vfill[1][i:i + 2], 16) for i in (1, 3, 5))
+                vi = Image.new("RGB", (W, H))
+                vd = ImageDraw.Draw(vi)
+                for y in range(H):
+                    tt = y / max(1, H - 1)
+                    vd.line((0, y, W, y), fill=tuple(int(v1[i] + (v2[i] - v1[i]) * tt) for i in range(3)))
+                base.paste(vi, (0, 0), mask)
+            else:
+                base.paste(Image.new("RGB", (W, H), fill), (0, 0), mask)
             if outline:
                 inner = Image.new("L", (W, H), 0)
                 ImageDraw.Draw(inner).rounded_rectangle((k, k, W - 1 - k, H - 1 - k), radius=max(1, r * k - k), fill=255)
@@ -942,7 +952,10 @@ class Btn(_Anim, tk.Canvas):
             idle = C_CARD if self.kind == "card" else C_BG
             fill = C_PRESS if self.pressed else _mix(idle, C_HOVER, t)
             line = _mix(C_LINE if self.kind == "card" else C_BG, "#b9bfe6", t)
-            im = aa_shape(w - 2, h - 2, r, fill, outline=line)
+            if self.kind == "card" and not self.pressed:
+                im = aa_shape(w - 2, h - 2, r, None, outline=line, vfill=(_mix("#ffffff", "#f2f4ff", t), _mix("#f6f7fb", "#e9ecff", t)))
+            else:
+                im = aa_shape(w - 2, h - 2, r, fill, outline=line)
             fg = _mix(C_TEXT, "#2c3366", t)
         if im is not None:
             self.create_image(1, 1, image=im, anchor="nw")
@@ -1017,47 +1030,214 @@ def grad_round(cv, x0, y0, x1, y1, r, c1, c2):
         cv.create_line(x0 + x, y0 + inset, x0 + x, y1 - inset, fill=col)
 
 
-class TabTile(_Anim, tk.Canvas):
-    """분류 타일: 아이콘 + 이름. 늘 보이고 한 번 누르면 바뀌며, 지금 분류는 포인트 그라데이션으로 채워진다"""
+CAP = "#eef0fc"           # 제목줄·머리 맨 위 색(윈도우 제목줄 색과 같게 맞춰 창이 끊김 없이 이어지게)
 
-    def __init__(self, master, key, label, icon_name, on_pick, tip=None, w=48, h=54):
-        super().__init__(master, width=w, height=h, bg=C_BG, highlightthickness=0, bd=0, cursor="hand2")
-        self.key, self.label, self.icon_name, self.on_pick, self.on = key, label, icon_name, on_pick, False
-        self._anim_init()
-        self._bind_anim()
-        self.bind("<Configure>", lambda e: self.draw())
-        if tip:
-            Tip(self, tip)
 
-    def cmd(self):
-        self.on_pick(self.key)
+def make_aurora(w, h):
+    """은은한 오로라(인디고·바이올렛·하늘색 번짐) 배경 — 유리 위에 비치는 색 느낌. 맨 위는 CAP, 맨 아래는 C_BG 로 자연스럽게 이어짐"""
+    from PIL import Image, ImageDraw, ImageFilter
+    top = tuple(int(CAP[i:i + 2], 16) for i in (1, 3, 5))
+    bot = tuple(int(C_BG[i:i + 2], 16) for i in (1, 3, 5))
+    base = Image.new("RGB", (w, h))
+    d = ImageDraw.Draw(base)
+    for y in range(h):
+        t = y / max(1, h - 1)
+        d.line((0, y, w, y), fill=tuple(round(top[i] + (bot[i] - top[i]) * t) for i in range(3)))
+    blobs = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(blobs)
+    for cx, cy, r, col in ((40, 92, 70, (120, 135, 255, 120)), (222, 74, 62, (176, 140, 255, 110)),
+                           (140, 150, 84, (125, 205, 255, 95)), (250, 160, 50, (255, 170, 215, 70))):
+        bd.ellipse((cx - r, cy - r, cx + r, cy + r), fill=col)
+    blobs = blobs.filter(ImageFilter.GaussianBlur(26))
+    out = base.convert("RGBA")
+    out.alpha_composite(blobs)
+    out = out.convert("RGB")
+    d = ImageDraw.Draw(out)
+    fade = 46                                              # 아래쪽은 본문 바탕색으로 서서히
+    for i in range(fade):
+        y = h - fade + i
+        t = i / float(fade - 1)
+        row = [out.getpixel((x, y)) for x in range(w)]
+        d.line((0, y, w, y), fill=bot)
+        for x in range(w):
+            p = row[x]
+            out.putpixel((x, y), tuple(round(p[j] + (bot[j] - p[j]) * min(1.0, t * 1.15)) for j in range(3)))
+    return out
 
-    def set_on(self, v):
-        self.on = v
-        self.draw()
 
-    def draw(self):
-        self.delete("all")
-        w, h, t = self.winfo_width(), self.winfo_height(), self.t
-        if w < 4:
-            return
-        t = _q(t)
-        if self.on:
-            im = aa_shape(w - 2, h - 2, 12, None, grad=(C_G1, C_G2))
-            fg = "white"
-        else:
-            im = aa_shape(w - 2, h - 2, 12, _mix(C_BG, C_HOVER, t), outline=_mix(C_BG, C_LINE, t) if t else None)
-            fg = _mix(C_SUB, C_ACC, t)
+class _Chip:
+    """머리 안 글자(연결 상태) — 예전 Label 처럼 config(text=, fg=) 로 바꿀 수 있게"""
+
+    def __init__(self, cv, item, on_click):
+        self.cv, self.item = cv, item
+        cv.tag_bind(item, "<Button-1>", lambda e: on_click())
+
+    def config(self, **kw):
+        if "text" in kw:
+            self.cv.itemconfig(self.item, text=kw["text"])
+        if "fg" in kw:
+            self.cv.itemconfig(self.item, fill=kw["fg"])
+
+    configure = config
+
+
+class GlassHeader(tk.Canvas):
+    """윈도우 11 · 리니어 · 노션 느낌의 머리: 오로라 배경 위에 유리 알약 타일을 얹고, 제목줄과 한 덩어리로 이어진다.
+    타일은 마우스를 올리면 부드럽게 밝아지고, 선택된 타일은 포인트 그라데이션으로 채워진다."""
+
+    FULL_H, MIN_H = 184, 56
+
+    def __init__(self, master, tabs, icons, labels, on_pick, buttons, on_chip):
+        W = WIDGET_W
+        super().__init__(master, width=W, height=self.FULL_H, highlightthickness=0, bd=0, bg=C_BG)
+        self.W, self.tabs, self.icons, self.labels, self.on_pick = W, tabs, icons, labels, on_pick
+        self.active, self.tiles, self._job, self.collapsed = None, {}, None, False
+        self._bgpil = None
+        try:
+            self._bgpil = make_aurora(W, self.FULL_H)
+            self._bgimg = _pil_photo(self._bgpil)
+            self.create_image(0, 0, image=self._bgimg, anchor="nw")
+        except Exception:                                  # noqa: BLE001
+            self._bgpil = None
+            self.configure(bg=CAP)
+        self._build_top(buttons, on_chip)
+        self._build_tiles()
+
+    # --- 맨 위: 로고·제목·연결 상태·창 단추
+    def _build_top(self, buttons, on_chip):
+        logo = aa_shape(30, 30, 9, None, grad=(C_G1, C_G2), bg=CAP)
+        if logo is not None:
+            self._logo = logo
+            self.create_image(14, 12, image=logo, anchor="nw")
+        gl = icon("doc", white=True)
+        if gl is not None:
+            self.create_image(29, 27, image=gl)
+        self.create_text(54, 19, text="양식 도우미", anchor="w", fill=C_TEXT, font=(FONT[0], 11, "bold"))
+        st = self.create_text(54, 38, text="", anchor="w", fill=C_SUB, font=(FONT[0], 8), tags=("chip",))
+        self.chip = _Chip(self, st, on_chip)
+        self.tag_bind("chip", "<Enter>", lambda e: self.config(cursor="hand2"))
+        self.tag_bind("chip", "<Leave>", lambda e: self.config(cursor=""))
+        for i, (glyph, cmd, tip) in enumerate(buttons):
+            cx = self.W - 20 - i * 28
+            tag = "hb%d" % i
+            ov = self.create_oval(cx - 12, 27 - 12, cx + 12, 27 + 12, fill="", outline="", tags=(tag,))
+            tx = self.create_text(cx, 27, text=glyph, fill=C_SUB, font=(FONT[0], 11 if glyph != "▭" else 9, "bold"), tags=(tag,))
+            self.tag_bind(tag, "<Button-1>", lambda e, c=cmd: c())
+            self.tag_bind(tag, "<Enter>", lambda e, o=ov, t=tx: (self.itemconfig(o, fill="#ffffff", outline="#dfe3f5"), self.itemconfig(t, fill=C_ACC), self.config(cursor="hand2")))
+            self.tag_bind(tag, "<Leave>", lambda e, o=ov, t=tx: (self.itemconfig(o, fill="", outline=""), self.itemconfig(t, fill=C_SUB), self.config(cursor="")))
+
+    # --- 유리 타일
+    def _build_tiles(self):
+        tw, th, gap, x0, y0 = 46, 56, 5, 7, 60
+        for idx, (name, key) in enumerate(self.tabs):
+            x = x0 + (idx % 5) * (tw + gap)
+            y = y0 + (idx // 5) * (th + gap + 1)
+            tag = "tile_" + key
+            st = {"x": x, "y": y, "w": tw, "h": th, "t": 0.0, "target": 0.0, "tag": tag, "name": name}
+            self.tiles[key] = st
+            st["img"] = self.create_image(x - 4, y - 4, anchor="nw", tags=(tag,))
+            st["ico"] = self.create_image(x + tw // 2, y + 20, tags=(tag,))
+            st["txt"] = self.create_text(x + tw // 2, y + th - 13, text=name, tags=(tag,), font=(FONT[0], 9))
+            self.tag_bind(tag, "<Enter>", lambda e, k=key: self._hover(k, 1.0))
+            self.tag_bind(tag, "<Leave>", lambda e, k=key: self._hover(k, 0.0))
+            self.tag_bind(tag, "<Button-1>", lambda e, k=key: self.on_pick(k))
+            self._paint(key)
+
+    def _hover(self, key, v):
+        self.tiles[key]["target"] = v
+        self.config(cursor="hand2" if v else "")
+        if self._job is None:
+            self._step()
+
+    def _step(self):
+        busy = False
+        for k, s in self.tiles.items():
+            d = s["target"] - s["t"]
+            if abs(d) > 0.03:
+                s["t"] += d * 0.38
+                busy = True
+            else:
+                s["t"] = s["target"]
+            self._paint(k)
+        self._job = self.after(16, self._step) if busy else None
+
+    def set_active(self, key):
+        self.active = key
+        for k in self.tiles:
+            self._paint(k)
+
+    def _paint(self, key):
+        s, on = self.tiles[key], key == self.active
+        t = _q(s["t"])
+        im = self._glass(key, t, on)
         if im is not None:
-            self.create_image(1, 1, image=im, anchor="nw")
-        elif self.on:
-            grad_round(self, 1, 1, w - 1, h - 1, 12, C_G1, C_G2)
+            self.itemconfigure(s["img"], image=im)
         else:
-            round_rect(self, 1, 1, w - 2, h - 2, 12, fill=_mix(C_BG, C_HOVER, t), outline=_mix(C_BG, C_LINE, t))
-        ic = icon(self.icon_name, white=self.on)
-        if ic is not None:
-            self.create_image(w // 2, 17 + (1 if self.pressed else 0), image=ic)
-        self.create_text(w // 2, h - 12, text=self.label, fill=fg, font=(FONT[0], 9, "bold" if self.on else "normal"))
+            self.itemconfigure(s["img"], image="")
+        ic = icon(self.icons.get(key, "doc"), white=on)
+        self.itemconfigure(s["ico"], image=ic if ic is not None else "")
+        self.itemconfigure(s["txt"], fill="white" if on else _mix(C_SUB, C_ACC, t), font=(FONT[0], 9, "bold" if on else "normal"))
+
+    def _glass(self, key, t, on):
+        if self._bgpil is None:
+            return None
+        ck = ("glass", key, t, on)
+        if ck in _AA:
+            return _AA[ck]
+        im = None
+        try:
+            from PIL import Image, ImageDraw, ImageFilter
+            s = self.tiles[key]
+            pad, k = 4, 3
+            w, h = s["w"], s["h"]
+            box = (s["x"] - pad, s["y"] - pad, s["x"] + w + pad, s["y"] + h + pad)
+            base = self._bgpil.crop(box).convert("RGBA")
+            W3, H3 = (w + 2 * pad) * k, (h + 2 * pad) * k
+            sh = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
+            ImageDraw.Draw(sh).rounded_rectangle((pad * k, pad * k + 5, (pad + w) * k, (pad + h) * k + 5), radius=14 * k,
+                                                 fill=(60, 70, 140, int(34 + 40 * t) if not on else 90))
+            sh = sh.filter(ImageFilter.GaussianBlur(5 * k))
+            ov = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
+            rect = (pad * k, pad * k, (pad + w) * k - 1, (pad + h) * k - 1)
+            if on:
+                c1 = tuple(int(C_G1[i:i + 2], 16) for i in (1, 3, 5))
+                c2 = tuple(int(C_G2[i:i + 2], 16) for i in (1, 3, 5))
+                gi = Image.new("RGBA", (W3, H3))
+                gd = ImageDraw.Draw(gi)
+                for y in range(rect[1], rect[3] + 1):
+                    for x in range(rect[0], rect[2] + 1, 3):
+                        tt = ((x - rect[0]) + (y - rect[1])) / float((rect[2] - rect[0]) + (rect[3] - rect[1]))
+                        gd.line((x, y, x + 2, y), fill=tuple(round(c1[i] + (c2[i] - c1[i]) * tt) for i in range(3)) + (255,))
+                m = Image.new("L", (W3, H3), 0)
+                ImageDraw.Draw(m).rounded_rectangle(rect, radius=14 * k, fill=255)
+                ov.paste(gi, (0, 0), m)
+                shine = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
+                ImageDraw.Draw(shine).rounded_rectangle((rect[0] + 3, rect[1] + 3, rect[2] - 3, rect[1] + (rect[3] - rect[1]) // 2), radius=11 * k,
+                                                        fill=(255, 255, 255, 46))
+                shine.putalpha(Image.composite(shine.getchannel("A"), Image.new("L", (W3, H3), 0), m))
+                ov.alpha_composite(shine)
+                ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, outline=(255, 255, 255, 120), width=k)
+            else:
+                a = int(78 + 110 * t)                      # 유리: 흰색이 비쳐 보이는 정도 (올리면 더 선명)
+                ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, fill=(255, 255, 255, a),
+                                                     outline=(255, 255, 255, 215), width=k)
+                if t:
+                    ImageDraw.Draw(ov).rounded_rectangle(rect, radius=14 * k, outline=(110, 124, 235, int(110 * t)), width=k)
+            comp = Image.alpha_composite(sh, ov).resize((w + 2 * pad, h + 2 * pad), Image.LANCZOS)
+            base.alpha_composite(comp)
+            im = _pil_photo(base.convert("RGB"))
+        except Exception:                                  # noqa: BLE001
+            im = None
+        _AA[ck] = im
+        return im
+
+
+def _pil_photo(img):
+    import base64
+    import io
+    bio = io.BytesIO()
+    img.save(bio, "PNG")
+    return tk.PhotoImage(data=base64.b64encode(bio.getvalue()))
 
 
 class PillScroll(tk.Canvas):
@@ -1212,7 +1392,10 @@ class Widget(tk.Tk):
             hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
             dwm = ctypes.windll.dwmapi.DwmSetWindowAttribute
             dwm(hwnd, 33, ctypes.byref(ctypes.c_int(2)), 4)         # DWMWA_WINDOW_CORNER_PREFERENCE = ROUND
-            dwm(hwnd, 35, ctypes.byref(ctypes.c_int(0x00f8f6f5)), 4)  # 제목줄 색(BGR) = 바탕과 같은 옅은 회색
+            rgb = int(CAP[1:], 16)
+            bgr = ((rgb & 0xff) << 16) | (rgb & 0xff00) | (rgb >> 16)
+            dwm(hwnd, 35, ctypes.byref(ctypes.c_int(bgr)), 4)             # 제목줄 색 = 머리 맨 위 색(창이 끊김 없이 이어짐)
+            dwm(hwnd, 34, ctypes.byref(ctypes.c_int(bgr)), 4)             # 창 테두리 색도 같게
             dwm(hwnd, 36, ctypes.byref(ctypes.c_int(0x0029231f)), 4)  # 제목줄 글자 진한 회색
         except Exception:                                # noqa: BLE001
             pass
@@ -1220,43 +1403,12 @@ class Widget(tk.Tk):
     # ---------------------------------------------------------------- 뼈대
     def _build_frame(self):
         W = WIDGET_W
-        self.head = tk.Canvas(self, width=W, height=54, highlightthickness=0, bd=0, bg=C_BG)
+        buttons = (("⌄", self.to_tray, "트레이로 보내기"), ("▭", self.dock, "한글 옆에 붙이기"), ("–", self.toggle, "접기·펴기"))
+        self.head = GlassHeader(self, self.TABS, self.TAB_ICON, self.TAB_LABEL, self.show_tab, buttons,
+                                lambda: self.connect() if not self.bridge.connected else None)
         self.head.pack(fill="x")
-        logo = aa_shape(30, 30, 9, None, grad=(C_G1, C_G2))
-        if logo is not None:
-            self._logo = logo
-            self.head.create_image(14, 12, image=logo, anchor="nw")
-        else:
-            round_rect(self.head, 14, 12, 44, 42, 9, fill=C_G1, outline="")
-        gl = icon("doc", white=True)
-        if gl is not None:
-            self.head.create_image(29, 27, image=gl)
-        self.head.create_text(54, 19, text="양식 도우미", anchor="w", fill=C_TEXT, font=(FONT[0], 11, "bold"))
-        self.chip = tk.Label(self.head, text="", bg=C_BG, font=(FONT[0], 8), anchor="w", padx=0, pady=0, cursor="hand2")
-        self.head.create_window(54, 38, window=self.chip, anchor="w")
-        self.chip.bind("<Button-1>", lambda e: self.connect() if not self.bridge.connected else None)
-        self._hb = {}
-        for i, (nm, cmd, tip) in enumerate((("tray", self.to_tray, "트레이로 보내기"), ("dock", self.dock, "한글 옆에 붙이기"),
-                                            ("minus", self.toggle, "접기·펴기"))):
-            cx = W - 20 - i * 28
-            tag = "hb%d" % i
-            ov = self.head.create_oval(cx - 12, 27 - 12, cx + 12, 27 + 12, fill=C_BG, outline="", tags=(tag,))
-            self.head.create_text(cx, 27, text={"tray": "⌄", "dock": "▭", "minus": "–"}[nm], fill=C_SUB,
-                                  font=(FONT[0], 11 if nm != "dock" else 9, "bold"), tags=(tag, tag + "t"))
-            self._hb[tag] = ov
-            self.head.tag_bind(tag, "<Button-1>", lambda e, c=cmd: c())
-            self.head.tag_bind(tag, "<Enter>", lambda e, o=ov, tg=tag: (self.head.itemconfig(o, fill=C_HOVER), self.head.itemconfig(tg + "t", fill=C_ACC), self.head.config(cursor="hand2")))
-            self.head.tag_bind(tag, "<Leave>", lambda e, o=ov, tg=tag: (self.head.itemconfig(o, fill=C_BG), self.head.itemconfig(tg + "t", fill=C_SUB), self.head.config(cursor="")))
-        tk.Frame(self, bg=C_LINE, height=1).pack(fill="x")
-        self.tabbar = tk.Frame(self, bg=C_BG)
-        self.tabbar.pack(fill="x", padx=8, pady=(4, 2))
-        self.tiles = {}
-        for c in range(5):
-            self.tabbar.columnconfigure(c, weight=1, uniform="tile")
-        for idx, (name, key) in enumerate(self.TABS):
-            tl = TabTile(self.tabbar, key, name, self.TAB_ICON[key], self.show_tab, tip=self.TAB_LABEL[key])
-            tl.grid(row=idx // 5, column=idx % 5, padx=2, pady=2, sticky="ew")
-            self.tiles[key] = tl
+        self.chip = self.head.chip
+        self.tiles = self.head.tiles
         self.body = tk.Frame(self, bg=C_BG)
         self.body.pack(fill="both", expand=True, padx=10, pady=6)
         self.status = tk.Label(self, text="", bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w", padx=14, pady=7,
@@ -1268,8 +1420,7 @@ class Widget(tk.Tk):
 
     def show_tab(self, key):
         self.tab = key
-        for k, tl in self.tiles.items():
-            tl.set_on(k == key)
+        self.head.set_active(key)
         self.unbind_all("<MouseWheel>")
         self.unbind_all("<Button-4>")
         self.unbind_all("<Button-5>")
@@ -1313,9 +1464,9 @@ class Widget(tk.Tk):
         if tab == "report":
             prof = PR.load_profile()
             if not (prof.get("dept") or prof.get("staff_name")):
-                box = tk.Frame(parent, bg="#fbf6e8", highlightthickness=1, highlightbackground="#eadfb8")
+                box = tk.Frame(parent, bg="#ffffff", highlightthickness=1, highlightbackground="#e1e5f5")
                 box.pack(fill="x", pady=(0, 4))
-                tk.Label(box, text="내 정보(과·담당자)를 한 번 적어 두면\n양식에 자동으로 채워져요", bg="#fbf6e8", fg="#6b5a1e",
+                tk.Label(box, text="내 정보(과·담당자)를 한 번 적어 두면\n양식에 자동으로 채워져요", bg="#ffffff", fg="#5b6384",
                          font=FONT_S, justify="left", padx=10, pady=6).pack(anchor="w")
                 Btn(box, "내 정보 입력", self.open_profile, icon_name="user", h=32).pack(fill="x", padx=8, pady=(0, 8))
         tk.Label(parent, text="글을 선택하고 양식을 누르면 그 글이 양식으로 바뀌어요", bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w",
@@ -1801,12 +1952,11 @@ class Widget(tk.Tk):
         self.collapsed = not self.collapsed
         if self.collapsed:
             self._h = self.winfo_height()
-            for w in (self.tabbar, self.body, self.chip):
-                w.pack_forget()
-            self.geometry("%dx%d" % (WIDGET_W, 100))
+            self.body.pack_forget()
+            self.head.configure(height=GlassHeader.MIN_H)
+            self.geometry("%dx%d" % (WIDGET_W, GlassHeader.MIN_H + 44))
         else:
-            self.chip.pack(fill="x", after=self.head)
-            self.tabbar.pack(fill="x", padx=8, after=self.chip)
+            self.head.configure(height=GlassHeader.FULL_H)
             self.body.pack(fill="both", expand=True, padx=10, pady=6)
             self.geometry("%dx%d" % (WIDGET_W, getattr(self, "_h", 700)))
 

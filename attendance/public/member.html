@@ -16,6 +16,7 @@ button{font:inherit;padding:14px;border-radius:10px;border:0;background:var(--pr
 <div id="res" class="card" hidden></div>
 <div id="stat" class="card" hidden></div>
 <div id="his" class="card" hidden></div>
+<div class="card mut">💡 이 화면을 <b>홈 화면에 추가</b>해 두면 아이콘 한 번으로 출석됩니다.<br>안드로이드: 크롬 메뉴(⋮) → 홈 화면에 추가 · 아이폰: 공유 버튼 → 홈 화면에 추가<br>휴대폰을 바꾸면 담당자에게 &quot;기기 초기화&quot;를 요청하세요.</div>
 <script>
 const $=id=>document.getElementById(id);const token=location.pathname.split('/').pop();
 let dev=localStorage.getItem('dev');if(!dev){dev=crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now();localStorage.setItem('dev',dev)}

@@ -12,7 +12,7 @@ body{margin:0;font:16px system-ui,sans-serif;background:#f6f4ef;color:#222}
 .card svg{width:150px;height:150px}.card .t{font-size:11px;color:#888}
 @media print{.bar{display:none}body{background:#fff}.grid{padding:0;gap:0}.card{border-radius:0;border:1px dashed #bbb;page-break-inside:avoid}}
 </style></head><body>
-<div class="bar"><b>QR 명찰</b> &nbsp; 단체 <select id="g"><option value="">전체</option></select> <button class="pri" id="print">인쇄</button>
+<div class="bar"><b>QR 명찰</b> &nbsp; 단체 <select id="g"><option value="">전체</option></select> <button class="pri" id="print">인쇄</button> <button id="copy">개인 링크 목록 복사</button>
  <span style="color:#777;font-size:13px">  명찰에 넣어 나눠 드리세요. 분실 시 설정 탭에서 해당 구성원을 삭제 후 다시 추가하면 새 QR이 발급됩니다.</span></div>
 <div class="grid" id="grid"></div>
 <script src="/vendor/qrcode.js"></script>
@@ -26,4 +26,7 @@ function draw(){const f=document.getElementById('g').value;
   document.getElementById('grid').innerHTML=data.filter(g=>!f||g.id===f).flatMap(g=>g.members.map(m=>
     `<div class="card"><div class="g">${g.name}</div><div class="n">${m.name}</div>${qr(location.origin+'/m/'+m.qr)}<div class="t">입구 태블릿에 QR을 비춰 주세요</div></div>`)).join('')}
 document.getElementById('g').onchange=draw;document.getElementById('print').onclick=()=>print();
+document.getElementById('copy').onclick=async()=>{const f=document.getElementById('g').value;
+  const t=data.filter(g=>!f||g.id===f).flatMap(g=>g.members.map(m=>`${g.name}\t${m.name}\t${location.origin}/m/${m.qr}`)).join('\n');
+  try{await navigator.clipboard.writeText(t);alert('복사했습니다. 엑셀에 붙여넣거나 구성원별로 카톡에 보내세요.')}catch{prompt('복사하세요',t)}};
 </script></body></html>

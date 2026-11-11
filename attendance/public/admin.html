@@ -19,7 +19,7 @@ small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
 <h1>🛠 출석 관리자</h1>
 <div id="login" class="card">비밀번호 <input id="pw" type="password"> <button class="pri" id="go">로그인</button> <span id="msg" class="ab"></span></div>
 <div id="app" hidden>
-<div class="tabs"><button id="t1" class="on">날짜별 현황</button><button id="t2">단체·강의 설정</button><button id="t4">출석률 통계</button><button id="t3">내보내기</button></div>
+<div class="tabs"><button id="t1" class="on">날짜별 현황</button><button id="t2">단체·강의 설정</button><button id="t5">수동 출석·정정</button><button id="t4">출석률 통계</button><button id="t3">내보내기</button></div>
 <section id="v1" class="card">
   <button id="prev">◀</button> <input type="date" id="date"> <button id="next">▶</button> <button id="reload">새로고침</button>
   <div id="ov" style="margin-top:12px"></div>
@@ -44,6 +44,11 @@ small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
   <span style="color:#777;font-size:13px"> 실시된 교육(출석 링크를 만들었거나 출석 기록이 있는 강의) 기준, 출석률 = (출석+지각) ÷ 전체</span>
   <div id="sout" style="margin-top:12px"></div>
 </section>
+<section id="v5" class="card" hidden>
+  <div>날짜 <input type="date" id="md"> 강의 <select id="ml"></select> <button id="mgo" class="pri">불러오기</button></div>
+  <small>휴대폰·태블릿이 어려운 분을 담당자가 직접 체크하거나, 기록을 정정할 때 쓰세요. 시간 제한이 없고 &quot;담당자 입력&quot;으로 기록됩니다. 하단 [저장]을 눌러야 반영됩니다.</small>
+  <div id="mout" style="margin-top:10px"></div>
+</section>
 <section id="v3" class="card" hidden>기간 <input type="date" id="from"> ~ <input type="date" id="to"> <button class="pri" id="csv">엑셀(CSV) 다운로드</button></section>
 </div>
 <script>
@@ -55,7 +60,7 @@ const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4)
 const shift=n=>{const d=new Date($('date').value+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);$('date').value=d.toISOString().slice(0,10);ov()};
 $('go').onclick=async()=>{pw=$('pw').value;try{await api('/api/admin/config');sessionStorage.setItem('pw',pw);start()}catch(e){$('msg').textContent=e.message}};
 function start(){$('login').hidden=true;$('app').hidden=false;$('date').value=$('date').value||today();$('from').value=$('to').value=today();ov();cfg()}
-['1','2','3','4'].forEach(n=>$('t'+n).onclick=()=>{if(n==='4')stats();['1','2','3','4'].forEach(m=>{$('v'+m).hidden=m!==n;$('t'+m).classList.toggle('on',m===n)})});
+['1','2','3','4','5'].forEach(n=>$('t'+n).onclick=()=>{if(n==='4')stats();if(n==='5')mInit();['1','2','3','4','5'].forEach(m=>{$('v'+m).hidden=m!==n;$('t'+m).classList.toggle('on',m===n)})});
 $('date').onchange=ov;$('reload').onclick=ov;$('prev').onclick=()=>shift(-1);$('next').onclick=()=>shift(1);
 function sessBtn(l){const s=l.session;
   if(!s)return `<button data-mk="${l.id}">출석 링크 만들기</button>`;
@@ -106,6 +111,27 @@ $('saveCfg').onclick=async()=>{try{await api('/api/admin/config',{method:'PUT',b
 $('csv').onclick=async()=>{const r=await fetch(`/api/admin/export?from=${$('from').value}&to=${$('to').value}`,{headers:H()});
   const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`attendance_${$('from').value}_${$('to').value}.csv`;a.click()};
 $('sgo').onclick=stats;
+const DAYN=[...DAY];let M=null,mm={},mn={};
+async function mInit(){if(!$('md').value)$('md').value=today();await mLec()}
+async function mLec(){const c=await api('/api/admin/config');const wd=new Date($('md').value+'T00:00:00Z').getUTCDay();
+  const ls=c.lectures.filter(l=>l.weekday===wd).sort((a,b)=>a.start.localeCompare(b.start));
+  $('ml').innerHTML=ls.length?ls.map(l=>`<option value="${l.id}">${l.start} ${l.name}</option>`).join(''):'<option value="">(이 요일엔 강의 없음)</option>'}
+$('md').onchange=mLec;
+$('mgo').onclick=async()=>{if(!$('ml').value)return;M=await api(`/api/admin/manual?date=${$('md').value}&lectureId=${$('ml').value}`);mm={};mn={};M.groups.forEach(g=>g.members.forEach(m=>mm[m.id]=m.status));mDraw()};
+const VIA={phone:'📱본인',kiosk:'📟태블릿','kiosk-manual':'📟태블릿',admin:'✍담당자',group:'👥단체대표'};
+function mDraw(){
+  $('mout').innerHTML=`<b>${M.lecture.name}</b> ${M.lecture.start}~${M.lecture.end}`+M.groups.map(g=>`<div style="margin:12px 0"><b>${g.name}</b> <button data-all="${g.id}">전원 출석</button>
+  <table style="margin-top:4px">${g.members.map(m=>`<tr><td class="l">${m.name}${m.via?` <small style="display:inline">${VIA[m.via]||''}</small>`:''}</td>
+   <td>${['P','L','A'].map(s=>`<button data-mid="${m.id}" data-s="${s}" style="${mm[m.id]===s?'background:'+({P:'var(--p)',L:'var(--l)',A:'var(--a)'})[s]+';color:#fff':''}">${{P:'출석',L:'지각',A:'결석'}[s]}</button>`).join(' ')} <button data-mid="${m.id}" data-s="">비움</button></td>
+   <td><input data-note="${m.id}" placeholder="사유 메모" value="${(mn[m.id]??m.note)||''}" size="14"></td>
+   <td>${m.bound?`<button data-rd="${m.id}" title="휴대폰을 바꾼 경우">기기 초기화</button>`:''}</td></tr>`).join('')}</table></div>`).join('')+'<p><button class="pri" id="msave">저장</button></p>';
+  $('msave').onclick=async()=>{try{const marks={};M.groups.forEach(g=>g.members.forEach(m=>{if((m.status||null)!==(mm[m.id]||null)||mn[m.id]!==undefined)marks[m.id]=mm[m.id]||null}));
+    const r=await api('/api/admin/manual',{method:'PUT',body:JSON.stringify({date:$('md').value,lectureId:M.lecture.id,marks,notes:mn})});alert(r.changed+'건 저장했습니다');$('mgo').click()}catch(e){alert(e.message)}}}
+document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d||!M||$('v5').hidden)return;
+  if(d.mid!==undefined){mm[d.mid]=d.s||null;mDraw()}
+  if(d.all){M.groups.find(g=>g.id===d.all).members.forEach(m=>mm[m.id]='P');mDraw()}
+  if(d.rd&&confirm('이 구성원의 등록된 휴대폰을 초기화할까요?')){await api('/api/admin/reset-device',{method:'POST',body:JSON.stringify({memberId:d.rd})});alert('초기화했습니다');$('mgo').click()}});
+document.addEventListener('input',e=>{if(e.target.dataset.note)mn[e.target.dataset.note]=e.target.value});
 async function stats(){
   if(!$('sf').value){const t=today();$('sf').value=t.slice(0,8)+'01';$('st').value=t}
   const d=await api(`/api/admin/stats?from=${$('sf').value}&to=${$('st').value}`);

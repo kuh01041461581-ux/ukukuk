@@ -256,6 +256,11 @@ async function api(req, res, url) {
       d = dist(lat, lng, v.lat, v.lng);
       if (d > v.radius) return json(res, 403, { error: `교육장에서 ${Math.round(d)}m 떨어져 있습니다 (허용 ${v.radius}m)` });
     }
+    const dev = String(b.deviceId || '').slice(0, 64);
+    db.bindings ||= {};
+    if (db.bindings[mem.id] && dev && db.bindings[mem.id] !== dev)
+      return json(res, 403, { error: '이 휴대폰은 등록된 기기가 아닙니다. 휴대폰을 바꾸셨다면 담당자에게 기기 초기화를 요청하세요' });
+    if (dev) db.bindings[mem.id] = dev;
     const r = mark(now.date, now.lecture, mem, now.window.status, { via: 'phone', dist: d == null ? null : Math.round(d), device: String(b.deviceId || '').slice(0, 64) });
     return json(res, 200, { ok: true, lecture: now.lecture.name, ...r });
   }
@@ -317,6 +322,34 @@ async function api(req, res, url) {
       const w = windowOf(date, l); if (w.err) return json(res, 403, { error: w.err });
       const r = mark(date, l, mem, w.status, { via: b.memberId ? 'kiosk-manual' : 'kiosk' });
       return json(res, 200, { ok: true, name: mem.name, group: (db.groups.find((x) => x.id === mem.groupId) || {}).name, lecture: l.name, ...r });
+    }
+    if (p === '/api/admin/manual' && m === 'GET') {
+      const date = q.get('date'), l = db.lectures.find((x) => x.id === q.get('lectureId'));
+      if (!dateOk(date) || !l) return json(res, 400, { error: '날짜/강의를 선택하세요' });
+      const rec = (db.records[date] || {})[l.id] || {};
+      return json(res, 200, { lecture: { id: l.id, name: l.name, start: l.start, end: l.end },
+        groups: db.groups.map((g) => ({ id: g.id, name: g.name, members: db.members.filter((x) => x.groupId === g.id).map((x) => {
+          const r = rec[g.id] || {}, mt = (r.meta || {})[x.id];
+          return { id: x.id, name: x.name, status: (r.marks || {})[x.id] || null, via: mt ? mt.via || (mt.self ? 'phone' : '') : ((r.marks || {})[x.id] ? 'group' : ''), note: mt && mt.note || '', bound: !!(db.bindings || {})[x.id] };
+        }) })) });
+    }
+    if (p === '/api/admin/manual' && m === 'PUT') { // 담당자 수동 입력·정정 (시간 제한 없음)
+      const b = await body(req), l = db.lectures.find((x) => x.id === b.lectureId);
+      if (!dateOk(b.date) || !l) return json(res, 400, { error: '날짜/강의를 선택하세요' });
+      let n = 0;
+      for (const [mid, v] of Object.entries(b.marks || {})) {
+        const mem = db.members.find((x) => x.id === mid); if (!mem) continue;
+        const rec = ((db.records[b.date] ||= {})[l.id] ||= {})[mem.groupId] ||= { marks: {}, meta: {} };
+        rec.meta ||= {};
+        if (STATUS.includes(v)) { rec.marks[mid] = v; rec.meta[mid] = { at: new Date().toISOString(), via: 'admin', note: String((b.notes || {})[mid] || '').slice(0, 100) }; n++; }
+        else if (v === null || v === '') { delete rec.marks[mid]; delete rec.meta[mid]; n++; }
+      }
+      save();
+      return json(res, 200, { ok: true, changed: n });
+    }
+    if (p === '/api/admin/reset-device' && m === 'POST') {
+      const b = await body(req); if (db.bindings) delete db.bindings[b.memberId]; save();
+      return json(res, 200, { ok: true });
     }
     if (p === '/api/admin/session' && m === 'POST') {
       const b = await body(req);

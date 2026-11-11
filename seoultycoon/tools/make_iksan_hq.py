@@ -436,9 +436,157 @@ def firestation():
     return s.finish()
 
 
+def grass_ground(s, c0='7ab84a', c1='4e9232'):
+    G = s.G
+    s.grad([G(0, 1), G(1, 1), G(1, 1, -3.2), G(0, 1, -3.2)], hx('a07040'), hx('6a4426'), (0, 1), 3); s.grad([G(1, 0), G(1, 1), G(1, 1, -3.2), G(1, 0, -3.2)], hx('7a5030'), hx('4a2e18'), (0, 1), 3)
+    s.grad(s.ground_poly(), hx(c0), hx(c1), (0.4, 1), 5)
+    d = ImageDraw.Draw(s.im); rs = random.Random(4)
+    for i in range(1200):
+        a, b = rs.random(), rs.random(); x, y = G(a, b); d.line([(x, y), (x + rs.randint(-2, 2), y - rs.randint(4, 9))], fill=rs.choice([hx('c4ec7c', 150), hx('5f9a30', 150), hx('8fc455', 140)]), width=2)
+    d.line([G(0, 1), G(1, 1), G(1, 0)], fill=hx('c8e58e', 200), width=3)
+
+def bus(s, a, b, col='2a9a3a'):
+    G = s.G; c = hx(col)
+    s.grad([G(a, b, 0.4), G(a + 0.22, b, 0.4), G(a + 0.22, b, 4.6), G(a, b, 4.6)], lerp(c, (255, 255, 255), 0.25), c, (0.3, 1))
+    for k in range(5): s.grad([G(a + 0.015 + 0.04 * k, b, 2.2), G(a + 0.045 + 0.04 * k, b, 2.2), G(a + 0.045 + 0.04 * k, b, 4.0), G(a + 0.015 + 0.04 * k, b, 4.0)], hx('c8e4f8'), hx('3a5a88'), (0.2, 1))
+    s.grad([G(a + 0.22, b - 0.06, 0.4), G(a + 0.22, b, 0.4), G(a + 0.22, b, 4.6), G(a + 0.22, b - 0.06, 4.6)], lerp(c, (0, 0, 0), 0.3), lerp(c, (0, 0, 0), 0.5), (0.3, 1))
+    s.grad([G(a, b - 0.06, 4.6), G(a + 0.22, b - 0.06, 4.6), G(a + 0.22, b, 4.6), G(a, b, 4.6)], lerp(c, (255, 255, 255), 0.45), c, (1, 0.4))
+
+# ======================= 익산터미널 (b41, 96x67) =======================
+def terminal():
+    s = Sc(67, 40); G = s.G; s.ground(); rs = random.Random(7)
+    s.grad([G(0.04, 0.60), G(0.96, 0.60), G(0.96, 0.98), G(0.04, 0.98)], hx('6a6e80'), hx('50546a'), (0.5, 1), 4)
+    for i in range(1, 6): s.line([G(0.04 + 0.153 * i, 0.64), G(0.04 + 0.153 * i, 0.96)], hx('f4e44a', 200), 3)
+    pad_shadow(s, 0.08, 0.90, 0.10, 0.56, 0.10)
+    A0, A1, B0, B1, HH = 0.08, 0.90, 0.10, 0.56, 11
+    s.box(A0, A1, B0, B1, HH, (hx('fbf1c8'), hx('d6c690')), (hx('d8c88e'), hx('a89860')), (hx('c8c4b4'), hx('9a968a')))
+    facade(s, 'F', B1, A0 + 0.02, A1 - 0.01, 1.0, HH - 3.2, 2, 13, dict(STEEL, sky=hx('c8e4f4'), deep=hx('4a84a8'), frame=hx('f4f0e0'), span=hx('f6e8b0'), span2=hx('d0bc78'), fin=hx('fff6d0')), 0.0, win_h=0.62, seed=40)
+    facade(s, 'R', A1, B0 + 0.02, B1 - 0.01, 1.0, HH - 3.2, 2, 5, dict(STEEL, span=hx('d8c88e'), span2=hx('b0a068')), 0.34, win_h=0.62, seed=41)
+    s.grad([G(A0, B1, HH - 3.0), G(A1, B1, HH - 3.0), G(A1, B1, HH), G(A0, B1, HH)], hx('2a8a3a'), hx('0e5a22'), (0, 1))
+    fw = G(0.88, B1)[0] - G(0.10, B1)[0]
+    s.text_face('익산 고속버스터미널', (G(0.11, B1)[0], G(0.11, B1, HH - 0.4)[1] + 1), 0, 0, fw * 0.80 / 640.0, hx('ffffff'), font=FONT_K, size=56, shear=0.5)
+    s.grad([G(0.06, B1, 4.4), G(0.92, B1, 4.4), G(0.92, 0.70, 4.4), G(0.06, 0.70, 4.4)], hx('f4f4fa'), hx('b8bed0'), (1, 0.3))                  # 승차장 캐노피
+    s.grad([G(0.06, 0.70, 4.4), G(0.92, 0.70, 4.4), G(0.92, 0.70, 3.6), G(0.06, 0.70, 3.6)], hx('e8ecf6'), hx('9aa2b6'), (0, 1))
+    for i in range(7): s.line([G(0.08 + 0.135 * i, 0.69, 3.6), G(0.08 + 0.135 * i, 0.69, 0)], hx('e8ecf6'), 5)
+    bus(s, 0.12, 0.84, '2a9a3a'); bus(s, 0.42, 0.88, '2a7ad8'); bus(s, 0.68, 0.84, '2a9a3a')
+    s.tree(0.02, 0.58, 0.7); s.tree(0.97, 0.56, 0.7)
+    return s.finish()
+
+# ======================= 버스정류장 (b40, 96x56) =======================
+def busstop():
+    s = Sc(56, 41); G = s.G; s.ground(); rs = random.Random(8)
+    s.grad([G(0.0, 0.52), G(1.0, 0.52), G(1.0, 1.0), G(0.0, 1.0)], hx('5a5e70'), hx('42465a'), (0.5, 1), 4)                                  # 도로
+    s.line([G(0.0, 0.76), G(1.0, 0.76)], hx('f4e44a'), 4)
+    for i in range(1, 12): s.line([G(0.08 * i, 0.88), G(0.08 * i + 0.04, 0.88)], hx('f0f0f0', 200), 3)
+    pad_shadow(s, 0.20, 0.62, 0.20, 0.40, 0.08)
+    s.box(0.22, 0.62, 0.22, 0.40, 6.0, (hx('c8e0f4'), hx('5a88b8')), (hx('7aa4cc'), hx('34587e')), (hx('2a50b8'), hx('1a3480')))                     # 유리 쉼터 + 파란 지붕
+    for i in range(1, 8): s.line([G(0.22 + 0.4 * i / 8, 0.40, 0), G(0.22 + 0.4 * i / 8, 0.40, 5.4)], hx('f0f4fa'), 2)
+    s.grad([G(0.20, 0.40, 6.0), G(0.64, 0.40, 6.0), G(0.64, 0.40, 7.0), G(0.20, 0.40, 7.0)], hx('3a70e0'), hx('1a3c98'), (0, 1))
+    s.line([G(0.26, 0.40, 1.8), G(0.58, 0.40, 1.8)], hx('8a5a2a'), 5)                                                                        # 벤치
+    x, y = G(0.70, 0.40); d = ImageDraw.Draw(s.im); d.line([(x, y), (x, y - 14 * S)], fill=hx('8a92aa'), width=4); d.rectangle([x - 18, y - 14 * S - 14, x + 18, y - 14 * S + 8], fill=hx('2a50b8')); d.rectangle([x - 15, y - 14 * S - 10, x + 15, y - 14 * S + 4], fill=hx('f4f6fc'))
+    bus(s, 0.18, 0.62, '2a7ad8')
+    s.tree(0.04, 0.16, 0.7); s.tree(0.88, 0.14, 0.8)
+    return s.finish()
+
+# ======================= 서동유치원 (b47, 96x55) =======================
+def kindergarten():
+    s = Sc(55, 42); G = s.G; grass_ground(s, '86c456', '5aa23a'); rs = random.Random(9)
+    pad_shadow(s, 0.14, 0.78, 0.10, 0.40, 0.08)
+    # 알록달록 낮은 건물 3동
+    for (a0, a1, col) in ((0.14, 0.38, ('f06a8a', 'c8385e')), (0.38, 0.60, ('f4c43a', 'c8961a')), (0.60, 0.80, ('4aa8e8', '2a6eb4'))):
+        s.box(a0, a1, 0.10, 0.40, 6.0, (hx(col[0]), hx(col[1])), (lerp(hx(col[0]), (0, 0, 0), 0.25), lerp(hx(col[1]), (0, 0, 0), 0.4)), (hx('fafafc'), hx('d4d8e4')))
+        facade(s, 'F', 0.40, a0 + 0.015, a1 - 0.01, 0.8, 5.2, 1, 3, dict(STEEL, sky=hx('d4ecfa'), deep=hx('5a98c8'), frame=hx('ffffff'), span=hx(col[0]), span2=hx(col[1]), fin=hx('ffffff')), 0.0, win_h=0.62, seed=int(a0 * 100))
+        s.grad([G(a0, 0.40, 6.0), G(a1, 0.40, 6.0), G(a1, 0.40, 7.4), G(a0, 0.40, 7.4)], hx('fafafc'), hx('c8ccd8'), (0, 1))
+    x, y = G(0.50, 0.40, 8.0); d = ImageDraw.Draw(s.im); d.ellipse([x - 12, y - 12, x + 12, y + 12], fill=hx('ffd84a')); d.ellipse([x - 8, y - 8, x + 8, y + 8], fill=hx('ffec8a'))                  # 해님 간판
+    for k in range(8): ang = k * math.pi / 4; d.line([(x + math.cos(ang) * 13, y + math.sin(ang) * 13), (x + math.cos(ang) * 19, y + math.sin(ang) * 19)], fill=hx('ffd84a'), width=3)
+    # 놀이터: 미끄럼틀 + 모래밭 + 울타리
+    s.grad([G(0.14, 0.58), G(0.40, 0.58), G(0.40, 0.84), G(0.14, 0.84)], hx('ecd8a0'), hx('c8b072'), (0.4, 1), 4)
+    s.box(0.44, 0.52, 0.60, 0.68, 6.0, (hx('e84b4b'), hx('a82828')), (hx('a82828'), hx('701818')), (hx('f08a8a'), hx('c85a5a')))
+    s.grad([G(0.52, 0.62, 5.4), G(0.58, 0.62, 5.4), G(0.66, 0.78, 0.4), G(0.60, 0.78, 0.4)], hx('4aa8e8'), hx('1a68b4'), (0.5, 1))
+    for (a, c) in ((0.66, 'e84b4b'), (0.74, 'f4c43a'), (0.82, '4a9a3a')): s.box(a, a + 0.06, 0.64, 0.70, 1.8 + (a * 7 % 2), (hx(c), lerp(hx(c), (0, 0, 0), 0.4)), (lerp(hx(c), (0, 0, 0), 0.3), lerp(hx(c), (0, 0, 0), 0.55)), (lerp(hx(c), (255, 255, 255), 0.5), hx(c)), 0)
+    s.tree(0.04, 0.80, 0.8); s.tree(0.95, 0.30, 0.8); s.tree(0.88, 0.84, 0.7)
+    return s.finish()
+
+# ======================= 전국일등학교 (b48, 96x64) =======================
+def topschool():
+    s = Sc(64, 43); G = s.G; s.ground(); rs = random.Random(10)
+    s.grad([G(0.06, 0.64), G(0.94, 0.64), G(0.94, 0.96), G(0.06, 0.96)], hx('7ab84a'), hx('4e9232'), (0.4, 1), 4)
+    pad_shadow(s, 0.08, 0.86, 0.14, 0.58, 0.10)
+    SCH = dict(sky=hx('b4d6f0'), deep=hx('3c5e88'), frame=hx('f6f0e0'), fin=hx('f0e4c6'), fin2=hx('bca880'), span=hx('e8d8b2'), span2=hx('c0ac80'), sill=hx('ffffff'), lit=0.06)
+    A0, A1, B0, B1, HH = 0.08, 0.86, 0.14, 0.58, 19
+    s.box(A0, A1, B0, B1, HH, (hx('f2e6c8'), hx('c8b68a')), (hx('d0c096'), hx('a08e66')), (hx('9a948a'), hx('6a655a')))
+    facade(s, 'F', B1, A0 + 0.02, A1 - 0.01, 0.8, HH - 0.8, 4, 12, SCH, 0.0, win_h=0.56, seed=43)
+    facade(s, 'R', A1, B0 + 0.02, B1 - 0.01, 0.8, HH - 0.8, 4, 5, SCH, 0.34, win_h=0.56, seed=44)
+    for i in range(5):                                                                                                                     # 현관 기둥 + 박공
+        a = 0.36 + 0.07 * i; s.grad([G(a - 0.014, B1 + 0.05, 0), G(a + 0.014, B1 + 0.05, 0), G(a + 0.014, B1 + 0.05, 8.4), G(a - 0.014, B1 + 0.05, 8.4)], hx('faf6ec'), hx('b8ae94'), (0.3, 1))
+    s.grad([G(0.32, B1 + 0.05, 8.4), G(0.70, B1 + 0.05, 8.4), G(0.51, B1 + 0.05, 12.4)], hx('f4ecd8'), hx('c4b898'), (0, 1))
+    s.grad([G(0.32, B1 + 0.05, 8.4), G(0.70, B1 + 0.05, 8.4), G(0.70, B1, 8.4), G(0.32, B1, 8.4)], hx('d8ccae'), hx('a89c80'), (1, 0.4))
+    s.grad([G(0.44, B1 + 0.05, 0), G(0.58, B1 + 0.05, 0), G(0.58, B1 + 0.05, 5.8), G(0.44, B1 + 0.05, 5.8)], hx('3a2a1c'), hx('1a1008'), (0, 1))
+    s.text_face('1', (G(0.46, B1 + 0.05)[0], G(0.46, B1 + 0.05, 11.4)[1] + 1), 0, 0, 0.10, hx('c8382a'), size=60, bold_outline=hx('8a1c12'), shear=0.5)
+    x, y = G(0.92, 0.62); d = ImageDraw.Draw(s.im); d.line([(x, y), (x, y - 17 * S)], fill=hx('9a9a9a'), width=3); d.polygon([(x, y - 17 * S), (x + 28, y - 16 * S + 6), (x, y - 15 * S + 4)], fill=hx('2a5ac8'))
+    s.tree(0.04, 0.62, 0.8); s.tree(0.96, 0.66, 0.8)
+    return s.finish()
+
+# ======================= 국립익산박물관 (b26, 96x65) =======================
+def museum():
+    s = Sc(65, 44); G = s.G; s.ground(); rs = random.Random(11)
+    pad_shadow(s, 0.08, 0.88, 0.14, 0.56, 0.12)
+    MU = dict(sky=hx('bcd8ec'), deep=hx('4a6e92'), frame=hx('e8e4d8'), fin=hx('f2eee0'), fin2=hx('c4bca4'), span=hx('ece6d6'), span2=hx('c8c0a8'), sill=hx('ffffff'), lit=0.04)
+    A0, A1, B0, B1, HH = 0.08, 0.88, 0.14, 0.56, 12
+    s.box(A0, A1, B0, B1, HH, (hx('f4efe2'), hx('cfc8b4')), (hx('d4ceba'), hx('a8a28e')), (hx('c8c8c0'), hx('9a9a92')))
+    for i in range(1, 22): s.line([G(A0 + 0.8 * i / 22, B1, 0), G(A0 + 0.8 * i / 22, B1, HH)], hx('b8b19c', 80), 2)                    # 석재 패널 이음
+    for j in range(1, 6): s.line([G(A0, B1, HH * j / 6), G(A1, B1, HH * j / 6)], hx('b8b19c', 80), 2)
+    facade(s, 'F', B1, 0.40, 0.82, 1.0, 9.0, 1, 4, dict(MU, sky=hx('d0e6f6'), deep=hx('4a7aa2'), frame=hx('3a3a38'), span=hx('f0ecde'), span2=hx('c8c0a8')), 0.0, win_h=0.9, fin_w=0.08, seed=45)
+    facade(s, 'R', A1, B0 + 0.02, B1 - 0.01, 1.0, 9.0, 1, 3, dict(MU, sky=hx('b0cce0'), deep=hx('3a5e82')), 0.34, win_h=0.5, fin_w=0.3, seed=46)
+    s.grad([G(A0 - 0.02, B1 + 0.03, HH), G(A1 + 0.02, B1 + 0.03, HH), G(A1 + 0.02, B1 + 0.03, HH + 1.4), G(A0 - 0.02, B1 + 0.03, HH + 1.4)], hx('faf8f0'), hx('d0c8b0'), (0, 1))
+    s.grad([G(A0 - 0.02, B0, HH + 1.4), G(A1 + 0.02, B0, HH + 1.4), G(A1 + 0.02, B1 + 0.03, HH + 1.4), G(A0 - 0.02, B1 + 0.03, HH + 1.4)], hx('e8e4d6'), hx('cfc8b4'), (1, 0.4))
+    s.box(0.14, 0.34, 0.56, 0.74, 5.0, (hx('f4efe2'), hx('cfc8b4')), (hx('d4ceba'), hx('a8a28e')), (hx('e8e4d6'), hx('cfc8b4')))                  # 입구 돌출부
+    s.grad([G(0.18, 0.74, 0), G(0.30, 0.74, 0), G(0.30, 0.74, 3.8), G(0.18, 0.74, 3.8)], hx('7aa4c8'), hx('1e3a58'), (0.2, 1))
+    for k in range(5): s.box(0.40 - 0.01 * k, 0.60 + 0.01 * k, 0.74, 0.74 + 0.05 * (5 - k) * 0.5, 0.36 * (k + 1), (hx('e8e4d8'), hx('b4ae9a')), (hx('b4ae9a'), hx('827c68')), (hx('f4f0e4'), hx('d6d0bc')), 0)
+    fw = G(0.86, B1)[0] - G(0.12, B1)[0]
+    s.text_face('국립익산박물관', (G(0.12, B1)[0], G(0.12, B1, 11.2)[1] + 1), 0, 0, fw * 0.62 / 460.0, hx('4a4638'), font=FONT_K, size=56, shear=0.5)
+    s.tree(0.04, 0.78, 0.8); s.tree(0.95, 0.40, 0.8); s.tree(0.80, 0.86, 0.7)
+    return s.finish()
+
+# ======================= 놀이터 (b52, 96x42) =======================
+def playground():
+    s = Sc(42, 45); G = s.G; grass_ground(s, '86c456', '5aa23a'); rs = random.Random(12)
+    s.grad([G(0.14, 0.14), G(0.86, 0.14), G(0.86, 0.86), G(0.14, 0.86)], hx('ecd8a0'), hx('c8b072'), (0.4, 1), 4)                              # 모래/탄성 바닥
+    s.shadow([G(0.2, 0.30), G(0.5, 0.30), G(0.6, 0.42), G(0.3, 0.42)], 80, 6)
+    for (a, b, c) in ((0.22, 0.24, 'e84b4b'), (0.58, 0.60, '4a9a3a')):                                                                         # 미끄럼틀 탑 + 사다리
+        s.box(a, a + 0.12, b, b + 0.12, 5.4, (hx(c), lerp(hx(c), (0, 0, 0), 0.4)), (lerp(hx(c), (0, 0, 0), 0.3), lerp(hx(c), (0, 0, 0), 0.55)), (lerp(hx(c), (255, 255, 255), 0.5), hx(c)), 0)
+        s.grad([G(a + 0.04, b + 0.12, 4.8), G(a + 0.09, b + 0.12, 4.8), G(a + 0.20, b + 0.30, 0.4), G(a + 0.14, b + 0.30, 0.4)], hx('4aa8e8'), hx('1a68b4'), (0.5, 1))
+    for (a, b) in ((0.58, 0.18), (0.70, 0.18)):                                                                                                # 그네 틀
+        x, y = G(a, b); d = ImageDraw.Draw(s.im)
+        d.line([(x - 18, y), (x - 10, y - 5 * S)], fill=hx('2a6ad8'), width=4); d.line([(x + 18, y), (x + 10, y - 5 * S)], fill=hx('2a6ad8'), width=4); d.line([(x - 10, y - 5 * S), (x + 10, y - 5 * S)], fill=hx('2a6ad8'), width=4)
+        d.line([(x - 4, y - 5 * S), (x - 4, y - 1.6 * S)], fill=hx('888888'), width=2); d.line([(x + 4, y - 5 * S), (x + 4, y - 1.6 * S)], fill=hx('888888'), width=2); d.rectangle([x - 8, y - 1.6 * S, x + 8, y - 1.2 * S], fill=hx('e8a020'))
+    s.box(0.32, 0.50, 0.66, 0.84, 0.8, (hx('b08850'), hx('7a5a30')), (hx('7a5a30'), hx('4a3418')), (hx('e8d098'), hx('c8a868')), 0)                      # 모래 놀이틀
+    for a in (0.20, 0.40, 0.62): s.line([G(a, 0.90, 0), G(a, 0.90, 1.8)], hx('8a5a2a'), 5); s.line([G(a - 0.03, 0.90, 1.8), G(a + 0.03, 0.90, 1.8)], hx('8a5a2a'), 5)
+    s.tree(0.06, 0.20, 0.8); s.tree(0.94, 0.70, 0.7)
+    return s.finish()
+
+# ======================= 배산체육공원 (b53, 96x42) =======================
+def sportspark():
+    s = Sc(42, 46); G = s.G; grass_ground(s, '7ab84a', '4e9232'); rs = random.Random(13)
+    s.grad([G(0.10, 0.10), G(0.48, 0.10), G(0.48, 0.46), G(0.10, 0.46)], hx('2a8a5a'), hx('1a6a42'), (0.4, 1), 3)                                # 테니스 코트
+    for p in ([G(0.12, 0.12), G(0.46, 0.12), G(0.46, 0.44), G(0.12, 0.44), G(0.12, 0.12)],): s.line(p, hx('ffffff', 230), 3)
+    s.line([G(0.29, 0.12), G(0.29, 0.44)], hx('ffffff', 230), 3); s.line([G(0.12, 0.28), G(0.46, 0.28)], hx('f4f4f4'), 4)
+    s.grad([G(0.54, 0.10), G(0.92, 0.10), G(0.92, 0.46), G(0.54, 0.46)], hx('c8663a'), hx('a04a28'), (0.4, 1), 3)                                # 러닝 트랙(타원)
+    s.grad([G(0.62, 0.18), G(0.84, 0.18), G(0.84, 0.38), G(0.62, 0.38)], hx('62b852'), hx('3e8c36'), (0.4, 1), 3)
+    d = ImageDraw.Draw(s.im)
+    for k in range(1, 3): s.line([G(0.56, 0.10 + 0.12 * k), G(0.90, 0.10 + 0.12 * k)], hx('f4f4f4', 160), 2)
+    s.grad([G(0.10, 0.58), G(0.48, 0.58), G(0.48, 0.90), G(0.10, 0.90)], hx('d8c896'), hx('b8a468'), (0.4, 1), 3)                                # 농구 코트 + 골대
+    x, y = G(0.14, 0.74); d.line([(x, y), (x, y - 5 * S)], fill=hx('8a92aa'), width=4); d.rectangle([x - 8, y - 5 * S - 8, x + 8, y - 5 * S + 4], fill=hx('f4f6fc')); d.ellipse([x - 5, y - 5 * S + 2, x + 5, y - 5 * S + 8], outline=hx('e8582a'), width=2)
+    for (a, b) in ((0.58, 0.64), (0.58, 0.78)):                                                                                                # 운동기구 + 벤치
+        s.line([G(a, b, 0), G(a, b, 2.8)], hx('4a7ae0'), 5); s.line([G(a - 0.04, b, 2.8), G(a + 0.04, b, 2.8)], hx('e8a020'), 5)
+    for a in (0.74, 0.84): s.line([G(a, 0.88, 1.2), G(a + 0.07, 0.88, 1.2)], hx('8a5a2a'), 5)
+    s.tree(0.04, 0.54, 0.8); s.tree(0.96, 0.52, 0.8); s.tree(0.50, 0.96, 0.7)
+    return s.finish()
+
+
 if __name__ == '__main__':
-    items = {'b4': hotel, 'b19': cinema, 'b15': tesla, 'b22': station, 'b42': arts, 'b44': harim, 'b3': costco, 'b33': baseball, 'b27': hospital, 'b37': apartments, 'b35': school, 'b43': library, 'b11': firestation}
-    sheet = Image.new('RGBA', (5 * 96 * 5 + 50, 3 * 84 * 5 + 30), (150, 70, 160, 255))
+    items = {'b4': hotel, 'b19': cinema, 'b15': tesla, 'b22': station, 'b42': arts, 'b44': harim, 'b3': costco, 'b33': baseball, 'b27': hospital, 'b37': apartments, 'b35': school, 'b43': library, 'b11': firestation, 'b41': terminal, 'b40': busstop, 'b47': kindergarten, 'b48': topschool, 'b26': museum, 'b52': playground, 'b53': sportspark}
+    sheet = Image.new('RGBA', (5 * 96 * 5 + 50, 4 * 84 * 5 + 40), (150, 70, 160, 255))
     for k, (n, fn) in enumerate(items.items()):
         im = fn(); im.save(f'{out}/{n}.png'); bg = Image.new('RGBA', im.size, (150, 70, 160, 255)); bg.alpha_composite(im)
         sheet.paste(bg.resize((im.width * 5, im.height * 5), Image.NEAREST), ((k % 5) * (96 * 5 + 10), (k // 5) * (84 * 5 + 10)))

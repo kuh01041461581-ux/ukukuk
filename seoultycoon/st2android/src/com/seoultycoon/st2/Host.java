@@ -176,7 +176,7 @@ public final class Host {
         }
         return hc;
     }
-    int classfor(String name) { Integer c = imgClasses.get(name); return c != null ? c : hclass(name).C; }
+    public int classfor(String name) { Integer c = imgClasses.get(name); return c != null ? c : hclass(name).C; }
     void propagate(int hostC, int vidx, int M) {
         HClass obj = hclasses.get("java/lang/Object"); boolean isObj = false; /* Python 원본은 항상 False (chain_has 로만 전파) */
         ArrayList<Integer> targets = new ArrayList<>(); targets.add(hostC); targets.addAll(imgClasses.values());

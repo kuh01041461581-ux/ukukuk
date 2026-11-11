@@ -27,6 +27,13 @@ public class JvmRun {
         if (a.length > 5 && !a[5].isEmpty()) for (String k : a[5].split(",")) { String[] p = k.split(":"); keys.put(Integer.parseInt(p[0]), new int[]{Integer.parseInt(p[1]), Integer.parseInt(p[2])}); }
         for (int r = 1; r <= rounds; r++) {
             if (keys.containsKey(r)) H.postKey(keys.get(r)[0], keys.get(r)[1]);
+            if (System.getenv("JUMP") != null) { String[] q = System.getenv("JUMP").split(":"); if (r == Integer.parseInt(q[0])) {            // 시험용: 상태 배열(int[12])의 날짜·남은 일수를 바꾼다  JUMP=라운드:년:월:일:남은일수[:지지도]
+                int cls = H.classfor("[I"), end = H.hiEnd(), hdr = cls << 5, cnt = 0;
+                for (int aa = 0x50000000; aa < end; aa += 4) {
+                    if (H.vm.r32(aa) != hdr || H.vm.r32(aa + 4) != 12) continue;
+                    int y0 = H.vm.r32(aa + 8), m0 = H.vm.r32(aa + 12), d0 = H.vm.r32(aa + 16); if (y0 < 1 || y0 > 4 || m0 < 1 || m0 > 12 || d0 < 1 || d0 > 31) continue;
+                    H.vm.w32(aa + 8, Integer.parseInt(q[1])); H.vm.w32(aa + 12, Integer.parseInt(q[2])); H.vm.w32(aa + 16, Integer.parseInt(q[3])); H.vm.w32(aa + 48, Integer.parseInt(q[4])); if (q.length > 5) H.vm.w32(aa + 36, Integer.parseInt(q[5])); if (q.length > 6) H.vm.w32(aa + 20, Integer.parseInt(q[6])); if (q.length > 7) H.vm.w32(aa + 24, Integer.parseInt(q[7])); if (q.length > 8) H.vm.w32(aa + 28, Integer.parseInt(q[8])); cnt++; }
+                System.out.println("JUMP wrote " + cnt + " arrays"); } }
             H.tick(System.getenv("DT") != null ? Integer.parseInt(System.getenv("DT")) : 50);
             if (r % Math.max(1, rounds / 10) == 0 || keys.containsKey(r - 3) || (System.getenv("SHOT") != null && r % Integer.parseInt(System.getenv("SHOT")) == 0)) {
                 BufferedImage im = new BufferedImage(240, 320, BufferedImage.TYPE_INT_ARGB); im.setRGB(0, 0, 240, 296, H.screen.px, 0, H.screen.w); ImageIO.write(im, "png", out.resolve("f" + r + ".png").toFile()); }

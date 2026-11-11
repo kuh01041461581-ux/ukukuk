@@ -467,3 +467,70 @@ table.t tr.grp td{background:linear-gradient(180deg,var(--glass-hi),var(--glass)
 .badge{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 1px 2px rgba(30,45,90,.12);border:0}
 #tip,.toast{box-shadow:0 10px 30px rgba(0,0,0,.35);border-radius:12px}
 @media print{header.top,.card,.kpi,.cat-card,dialog,.tbl-wrap,.btn,.pill,.bar,.bar .seg{box-shadow:none!important}.kpi::after{display:none}}
+
+/* ================= 2D 기본 + 호버 때만 살짝 입체 (최종) ================= */
+:root{
+  --lift:0 1px 2px rgba(30,45,90,.05);
+  --lift-sm:none;
+  --lift-hover:0 10px 26px -8px rgba(30,45,90,.22),0 2px 6px rgba(30,45,90,.08);
+  --glass-inset:inset 0 1px 0 rgba(255,255,255,.75);
+  --well:none;
+  --blob1:rgba(80,130,235,.14); --blob2:rgba(150,130,235,.09); --blob3:rgba(70,185,175,.08); --blob4:rgba(255,200,120,.06);
+}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+  --lift:0 1px 2px rgba(0,0,0,.3); --lift-hover:0 12px 28px -8px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.35); --glass-inset:inset 0 1px 0 rgba(255,255,255,.07); --well:none;
+}}
+:root[data-theme="dark"]{--lift:0 1px 2px rgba(0,0,0,.3); --lift-hover:0 12px 28px -8px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.35); --glass-inset:inset 0 1px 0 rgba(255,255,255,.07); --well:none}
+
+/* 카드: 납작한 유리. 요약 카드만 올리면 떠오름 */
+header.top,.card,.kpi,.cat-card,dialog,.drop{background:var(--glass);box-shadow:var(--lift),var(--glass-inset)}
+header.top{box-shadow:var(--lift),var(--glass-inset)}
+dialog{background:var(--glass-hi);box-shadow:0 24px 60px -12px rgba(20,30,70,.35),var(--glass-inset)}
+.kpi::after{display:none}
+.kpi,.cat-card{transition:transform .2s ease,box-shadow .2s ease}
+.kpi:hover,.cat-card:hover{transform:translateY(-3px);box-shadow:var(--lift-hover),var(--glass-inset)}
+.cat-card::before{height:3px;background:var(--c)}
+.card{transition:box-shadow .2s}
+.card:hover{box-shadow:0 6px 20px -8px rgba(30,45,90,.14),var(--glass-inset)}
+
+/* 탭 */
+nav.tabs{box-shadow:none;background:var(--glass-lo);border:1px solid var(--edge-dark)}
+nav.tabs button[aria-selected=true]{background:var(--accent);box-shadow:0 1px 3px color-mix(in srgb,var(--accent) 35%,transparent);border-color:transparent}
+
+/* 버튼: 평소엔 납작, 올리면 떠오름 */
+.btn,.pill,.chip,.st-btn,.serchk{background:var(--glass-hi);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;transition:transform .15s ease,box-shadow .15s ease,background .15s}
+.btn:hover,.pill:hover,.serchk:hover{transform:translateY(-2px);background:var(--glass-hi);box-shadow:var(--lift-hover)}
+.btn:active,.pill:active,.serchk:active{transform:translateY(0);box-shadow:none}
+.btn.primary,.pill[aria-pressed=true]{background:var(--accent);color:#fff;border-color:transparent;box-shadow:none}
+.btn.primary:hover,.pill[aria-pressed=true]:hover{transform:translateY(-2px);filter:none;background:color-mix(in srgb,var(--accent) 92%,#fff);box-shadow:0 8px 18px -6px color-mix(in srgb,var(--accent) 55%,transparent)}
+.serchk i,.serchk input:checked+i{box-shadow:none}
+.badge{box-shadow:none}
+
+/* 입력칸·표: 납작 */
+textarea.cellin[data-f=gmemo],input[type=search],.fld input,.fld textarea,.fld select,.sch-row input,.top .asof input{box-shadow:none}
+.cellin:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent)}
+.tbl-wrap{box-shadow:none;background:transparent}
+table.t thead th{background:var(--glass-hi);box-shadow:0 1px 0 var(--edge-dark)}
+table.t tr.grp td{background:color-mix(in srgb,var(--glass-hi) 85%,transparent)}
+
+/* 막대: 납작한 단색, 올리면 도톰하게 떠오름 */
+.bar{height:12px;background:var(--track);box-shadow:none;border-radius:999px;transition:transform .18s ease}
+.bar.lg{height:18px}
+.rate .bar{height:10px}
+.bar .paid{background:var(--accent);box-shadow:none;border-radius:999px;transition:box-shadow .18s ease,filter .18s}
+.bar .paid.over{background:var(--bad);box-shadow:none}
+.bar .paid::after{display:none}
+.bar .sch{margin-left:-6px;background:repeating-linear-gradient(45deg,var(--sched) 0 4px,color-mix(in srgb,var(--sched) 55%,transparent) 4px 8px);box-shadow:none}
+.lg-paid{background:var(--accent);box-shadow:none}
+.chart-row,table.t tbody tr{transition:background .15s}
+.chart-row:hover .bar,table.t tbody tr:hover .rate .bar{transform:scaleY(1.35)}
+.chart-row:hover .bar .paid,table.t tbody tr:hover .rate .bar .paid{box-shadow:0 4px 10px -2px color-mix(in srgb,var(--accent) 60%,transparent)}
+.chart-row:hover .bar .paid.over,table.t tbody tr:hover .rate .bar .paid.over{box-shadow:0 4px 10px -2px color-mix(in srgb,var(--bad) 60%,transparent)}
+.chart-row:hover{background:color-mix(in srgb,var(--accent) 5%,transparent);border-radius:8px}
+.cat-card .bar:hover{transform:scaleY(1.35)}
+
+/* 월별 막대 그래프: 납작, 올리면 떠오르고 나머지는 흐려짐 */
+.barflat{transform-box:fill-box;transform-origin:50% 100%;transition:transform .18s ease,filter .18s ease,opacity .18s ease;cursor:default}
+svg:has(.barflat:hover) .barflat:not(:hover){opacity:.5}
+.barflat:hover{transform:translateY(-4px) scaleX(1.06);filter:drop-shadow(0 8px 6px rgba(20,35,80,.30))}
+@media (prefers-reduced-motion:reduce){.kpi,.cat-card,.btn,.pill,.bar,.barflat{transition:none}.kpi:hover,.cat-card:hover,.btn:hover,.pill:hover,.barflat:hover{transform:none}}

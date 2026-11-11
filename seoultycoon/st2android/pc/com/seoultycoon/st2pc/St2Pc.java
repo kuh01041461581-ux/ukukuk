@@ -54,7 +54,7 @@ public class St2Pc {
 
     // ---------------- 화면 ----------------
     static class GamePanel extends JPanel {
-        final BufferedImage lcd = new BufferedImage(960, 1184, BufferedImage.TYPE_INT_RGB); volatile boolean hq = true; volatile Host host; volatile String err;
+        final BufferedImage lcd = new BufferedImage(960, 1184, BufferedImage.TYPE_INT_RGB); volatile boolean hq = false; volatile Host host; volatile String err;
         int ox, oy; double sc = 3;
         GamePanel() { setBackground(new Color(10, 10, 20)); setFocusable(true); setPreferredSize(new Dimension(240 * 3, 296 * 3)); }
         @Override protected void paintComponent(Graphics g0) {
@@ -123,7 +123,7 @@ public class St2Pc {
                 long last = System.nanoTime(); int[] px = new int[240 * 296];
                 while (running) {
                     long t0 = System.nanoTime(); int dt = (int) Math.min(100, (t0 - last) / 1000000); last = t0; h.timeScale = speed;
-                    if (h.tick(Math.max(8, dt))) { Surf s = h.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; int[] big = PixelScale.epx4(px, 240, 296); synchronized (panel.lcd) { panel.lcd.setRGB(0, 0, 960, 1184, big, 0, 960); } panel.repaint(); }
+                    if (h.tick(Math.max(8, dt))) { Surf s = h.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; int[] big = (panel.hq ? PixelScale.epx4(px, 240, 296) : PixelScale.nn4(px, 240, 296)); synchronized (panel.lcd) { panel.lcd.setRGB(0, 0, 960, 1184, big, 0, 960); } panel.repaint(); }
                     long el = (System.nanoTime() - t0) / 1000000; if (el < 16) Thread.sleep(16 - el);
                 }
             } catch (Throwable ex) { StringWriter sw = new StringWriter(); ex.printStackTrace(new PrintWriter(sw)); panel.err = sw.toString(); panel.repaint(); try { pf.writeFile("error.txt", sw.toString().getBytes(StandardCharsets.UTF_8)); } catch (Exception e2) { } }
@@ -155,7 +155,7 @@ public class St2Pc {
             JPanel ctl = controls(); ctl.setPreferredSize(new Dimension(210, 0)); ctl.setVisible(false);
             f.add(panel, BorderLayout.CENTER); f.add(ctl, BorderLayout.EAST);
             JCheckBoxMenuItem vp = new JCheckBoxMenuItem("가상 키패드 보기 (선택 사항)"); vp.addActionListener(e -> { ctl.setVisible(vp.isSelected()); f.pack(); }); m.add(vp);
-            JCheckBoxMenuItem hqm = new JCheckBoxMenuItem("화질 보정(도트 확대 + 부드럽게)", true); hqm.addActionListener(e -> { panel.hq = hqm.isSelected(); panel.repaint(); }); m.add(hqm);
+            JCheckBoxMenuItem hqm = new JCheckBoxMenuItem("화질 보정(도트 확대 + 부드럽게, 글씨가 번질 수 있음)", false); hqm.addActionListener(e -> { panel.hq = hqm.isSelected(); panel.repaint(); }); m.add(hqm);
             JCheckBoxMenuItem inv = new JCheckBoxMenuItem("지도 끌기 방향 반대로"); inv.addActionListener(e -> dragInvert = inv.isSelected()); m.add(inv);
             JMenuItem help = new JMenuItem("조작 안내"); help.addActionListener(e -> JOptionPane.showMessageDialog(f, HELP, "조작 안내", JOptionPane.INFORMATION_MESSAGE)); m.add(help);
             Dimension sd = Toolkit.getDefaultToolkit().getScreenSize(); int s0 = Math.max(2, Math.min(4, (sd.height - 140) / 296)); panel.setPreferredSize(new Dimension(240 * s0, 296 * s0));

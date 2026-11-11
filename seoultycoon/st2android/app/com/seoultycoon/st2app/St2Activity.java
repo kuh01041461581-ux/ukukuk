@@ -55,7 +55,7 @@ public class St2Activity extends Activity implements St2View.Opener {
                     long t0 = System.nanoTime(); int dt = (int) Math.min(100, (t0 - last) / 1000000); last = t0;
                     host.timeScale = speed();
                     if (host.tick(Math.max(8, dt))) {
-                        Surf s = host.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; int[] big = com.seoultycoon.st2.PixelScale.epx4(px, 240, 296); synchronized (lcd) { lcd.setPixels(big, 0, 960, 0, 0, 960, 1184); }
+                        Surf s = host.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; int[] big = com.seoultycoon.st2.PixelScale.nn4(px, 240, 296); synchronized (lcd) { lcd.setPixels(big, 0, 960, 0, 0, 960, 1184); }
                         view.frames++;
                     }
                     long el = (System.nanoTime() - t0) / 1000000; if (el < 16) Thread.sleep(16 - el);

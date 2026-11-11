@@ -22,5 +22,7 @@ public final class PixelScale {
         return out;
     }
     /** 4배(2배를 두 번) */
+    /** 업스케일 없이 4배 최근접(글씨·도트가 그대로, 번지지 않음) */
+    public static int[] nn4(int[] s, int w, int h) { int[] o = new int[w * 4 * h * 4]; for (int y = 0; y < h * 4; y++) for (int x = 0; x < w * 4; x++) o[y * w * 4 + x] = s[(y >> 2) * w + (x >> 2)]; return o; }
     public static int[] epx4(int[] s, int w, int h) { return epx2(epx2(s, w, h, null), w * 2, h * 2, null); }
 }

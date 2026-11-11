@@ -97,12 +97,13 @@ def eave(s, ca, cb, wa, wb, z, rnd, layers=3, thick=0.55, taper=0.012):
     return z0
 
 # ---------------- 미륵사지 석탑 (b2, 96x68): 모형·사진 기준. 위로 갈수록 좁아지는 3개 층 + 오른쪽으로 무너져 층층이 좁아지는 돌 더미 ----------------
-def mireuksa():
+def mireuksa(s=None):
     global STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T
     save = (STONE_L, STONE_R, STONE_T, ROOF_L, ROOF_R, ROOF_T)
     STONE_L = (hx('cfd0c0'), hx('9a9c8a')); STONE_R = (hx('9a9c8a'), hx('62645a')); STONE_T = (hx('e2e4d2'), hx('bfc1ae'))
     ROOF_L = (hx('c8cab8'), hx('86887a')); ROOF_R = (hx('8e9080'), hx('525448')); ROOF_T = (hx('e0e2d0'), hx('b6b8a4'))
-    s = Sc(68, 11); G = s.G; rnd = random.Random(3); s.ground()
+    if s is None: s = Sc(68, 11)
+    G = s.G; rnd = random.Random(3); s.ground()
     s.shadow([G(0.22, 0.60), G(0.78, 0.60), G(1.02, 0.80), G(0.42, 0.84)], 110, 11)
     cx = cy = 0.5
     # 기단: 낮은 이중 기단 + 모서리 돌 + 앞·옆 계단

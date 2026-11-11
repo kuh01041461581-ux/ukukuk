@@ -1,0 +1,19 @@
+# Cloudflare Workers 무료 플랜 배포 설정
+name = "heritage-attendance"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true      # /c/토큰, /m/토큰, /admin 같은 주소를 Worker가 먼저 처리
+html_handling = "none"
+not_found_handling = "none"
+
+[[durable_objects.bindings]]
+name = "ATTENDANCE"
+class_name = "AttendanceDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AttendanceDO"]   # 무료 플랜은 SQLite 기반 Durable Object만 가능

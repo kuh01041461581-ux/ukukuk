@@ -29,6 +29,27 @@ function statusBadges(l) {
   return h;
 }
 
+/* 지금 확인할 것: 중요도 순 */
+function dailyAlerts() {
+  const el = elapsed(), out = [];
+  for (const l of S.lines) {
+    if (!(l.budget > 0)) continue; const c = calc(l); const remAfter = c.remainAfter, sch = c.sch;
+    if (l.spent + sch > l.budget) out.push({ sev: 3, tag: '초과', title: l.label + ' (' + l.group + ')', detail: `예정까지 반영하면 <b class="neg">${won(l.spent + sch - l.budget)}원 초과</b> · 예산 ${won(l.budget)}원`, act: 'goline', id: l.id, w: l.spent + sch - l.budget });
+    else if (remAfter / l.budget <= 0.05) out.push({ sev: 2, tag: '거의 소진', title: l.label + ' (' + l.group + ')', detail: `잔액 <b>${won(remAfter)}원</b> (${pct1(pct(remAfter, l.budget))}) — 집행률 ${pct1(c.rateAll)}`, act: 'goline', id: l.id, w: 1e9 - remAfter });
+    else if (el - c.rateAll > 20) out.push({ sev: 1, tag: '집행 저조', title: l.label + ' (' + l.group + ')', detail: `집행률 ${pct1(c.rateAll)} · 경과율 ${pct1(el)} — 잔액 <b>${won(remAfter)}원</b> 불용 우려`, act: 'goline', id: l.id, w: remAfter });
+    if (sch > 0) out.push({ sev: 1, tag: '지급예정', title: l.label + ' (' + l.group + ')', detail: `<b>${won(sch)}원</b> — ${esc((l.scheduled || []).map(x => x.text).filter(Boolean).join(', ') || '내용 미입력')}`, act: 'goline', id: l.id, w: sch });
+  }
+  for (const t of todoSummary()) {
+    if (t.unpaid) out.push({ sev: 2, tag: '미납', title: t.nm + ' 미납 ' + t.unpaid + '건', detail: `고지서는 받았지만 납부 전 · 합계 <b>${won(t.amt)}원</b>`, act: 'goutil', cat: t.k, w: t.amt });
+    if (t.missing) out.push({ sev: 1, tag: '미수령', title: t.nm + ' 고지서 미수령 ' + t.missing + '건', detail: '지난 달까지 아직 받지 못한 고지서', act: 'goutil', cat: t.k, w: t.missing });
+  }
+  return out.sort((a, b) => b.sev - a.sev || b.w - a.w).slice(0, 30);
+}
+function goLine(id) {
+  const tr = document.querySelector(`tr[data-rowid="${id}"]`); if (!tr) return;
+  tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1800);
+}
+
 function welcomeHTML() {
   return `<div class="card" style="text-align:center;padding:40px 20px"><h2 style="font-size:18px">처음 오셨네요 — 파일을 끌어 놓아 시작하세요</h2>
     <p class="sub">기존에 쓰던 <b>엑셀</b>(일상경비 집행현황 · 공공요금 · 통계목별 조회=실집행액)과 <b>합본예산서 PDF</b>를 이 창에 끌어 놓으면 종류를 자동으로 알아보고 채워 줍니다.</p>
@@ -40,35 +61,64 @@ function renderDaily() {
   const P = $('#p-daily');
   if (!S.lines.length) { P.innerHTML = welcomeHTML(); return; } const all = S.lines; const T = groupTotals(all); const el = elapsed();
   const byG = g => all.filter(l => l.group === g);
-  const kpi = (k, v, s) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s || ''}</div></div>`;
+  UI.dailySort = UI.dailySort || 'group';
+  const diff = T.rate - el;                       // 집행률 - 경과율 (%p)
+  const alerts = dailyAlerts(); UI.alertsAll = !!UI.alertsAll;
   let h = `
   <div class="row noprint" style="margin-top:16px">
     <button class="btn" data-act="addline">＋ 행 추가</button>
     <button class="btn" data-act="copytsv" data-tip="엑셀·한글에 붙여넣을 수 있게 표를 복사합니다">표 복사</button>
     <button class="btn" data-act="print">인쇄 / PDF 저장</button>
     <span class="spacer"></span>
-    <span class="muted">${esc(S.year)}년 · ${esc(S.asOf)} 기준 · 경과율 ${pct1(el)}</span>
+    <span class="muted">${esc(S.year)}년 · ${esc(S.asOf)} 기준</span>
   </div>
-  <div class="kpis">
-    ${kpi('총 예산액', won(T.budget) + '원', `${all.length}개 항목`)}
-    ${kpi('지출액', won(T.spent) + '원', `집행률 <b>${pct1(T.rate)}</b>`)}
-    ${kpi('지급예정', won(T.sch) + '원', `예정 포함 집행률 ${pct1(T.rateAll)}`)}
-    ${kpi('잔액', `<span class="${T.remain < 0 ? 'neg' : ''}">${won(T.remain)}원</span>`, `예정 반영 잔액 ${won(T.remainAfter)}원`)}
+
+  <div class="dash">
+    <div class="dash-l">
+  <div class="hero">
+    <div class="kpi hero-main">
+      <div class="k">전체 집행률 <span class="muted">(지출 기준)</span></div>
+      <div class="hero-v">${pct1(T.rate)}</div>
+      ${barHTML(T.spent, T.sch, T.budget, { lg: true })}
+      <div class="hero-s"><span>기준일 경과율 <b>${pct1(el)}</b></span><span class="pace ${diff < -10 ? 'slow' : diff > 5 ? 'fast' : 'ok'}">${diff >= 0 ? '▲ 경과율보다 ' + diff.toFixed(1) + '%p 높음' : '▼ 경과율보다 ' + Math.abs(diff).toFixed(1) + '%p 낮음'}</span></div>
+      <div class="hero-s muted">지출 ${won(T.spent)}원 / 예산 ${won(T.budget)}원</div>
+    </div>
+    <div class="kpi"><div class="k">남은 예산 (잔액)</div><div class="v ${T.remain < 0 ? 'neg' : ''}">${won(T.remain)}원</div><div class="s">지급예정 반영 후 <b>${won(T.remainAfter)}원</b></div></div>
+    <div class="kpi"><div class="k">지급 예정</div><div class="v">${won(T.sch)}원</div><div class="s">예정 포함 집행률 <b>${pct1(T.rateAll)}</b></div></div>
+  </div>
+
+  <div class="gcards">${GROUPS.map(g => {
+    const L = byG(g); if (!L.length) return ''; const gt = groupTotals(L); const gd = gt.rate - el;
+    return `<div class="kpi gcard"><div class="row" style="justify-content:space-between"><b>${g}</b><span class="pace ${gd < -10 ? 'slow' : gd > 5 ? 'fast' : 'ok'}" data-tip="기준일 경과율(${pct1(el)})과의 차이">${gd >= 0 ? '▲' : '▼'} ${Math.abs(gd).toFixed(0)}%p</span></div>
+      <div class="g-v">${pct1(gt.rate)}</div>${barHTML(gt.spent, gt.sch, gt.budget)}
+      <div class="g-s"><span>지출 ${won(gt.spent)}</span><span>예산 ${won(gt.budget)}</span></div>
+      <div class="g-r ${gt.remain < 0 ? 'neg' : ''}">잔액 <b>${won(gt.remain)}원</b>${gt.sch ? `<span class="muted"> · 예정 반영 ${won(gt.remainAfter)}</span>` : ''}</div></div>`;
+  }).join('')}</div>
+
+    </div>
+    <div class="dash-r">
+  <div class="card alerts">
+    <h2>지금 확인할 것 <span class="muted" style="font-weight:400;font-size:12px">${alerts.length ? alerts.length + '건' : ''}</span></h2>
+    ${alerts.length ? alerts.slice(0, UI.alertsAll ? 99 : 6).map(al => `<div class="alert sev${al.sev}"><span class="badge ${al.sev >= 3 ? 'bad' : al.sev === 2 ? 'warn' : 'gray'}">${al.tag}</span><div class="al-main"><b>${esc(al.title)}</b><span class="al-d">${al.detail}</span></div>
+      <button class="btn sm" data-act="${al.act}" data-id="${al.id || ''}" data-cat="${al.cat || ''}">보기</button></div>`).join('') + (alerts.length > 6 ? `<button class="btn sm noprint" style="margin-top:4px" data-act="alertsall">${UI.alertsAll ? '접기' : '더보기 (' + (alerts.length - 6) + '건)'}</button>` : '') : '<div class="empty" style="padding:10px">✓ 지금 확인할 항목이 없습니다</div>'}
+  </div>
+
+    </div>
   </div>
 
   <div class="card">
-    <h2>집행실적 한눈에</h2>
+    <div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">항목별 집행률</h2>
+      <div class="pills noprint" role="group" aria-label="정렬">${[['group', '구분별'], ['low', '집행률 낮은 순'], ['rem', '잔액 적은 순']].map(([k, n]) => `<button class="pill" aria-pressed="${UI.dailySort === k}" data-act="sortd" data-v="${k}">${n}</button>`).join('')}</div></div>
     <div class="legend"><span><i class="lg-paid"></i>지출액</span><span><i class="lg-sch"></i>지급예정</span><span><i class="lg-rem"></i>잔액</span><span><i class="lg-mark"></i>기준일 경과율 ${pct1(el)}</span></div>`;
-  for (const g of GROUPS) {
-    const L = byG(g); if (!L.length) continue; const gt = groupTotals(L);
-    h += `<div class="chart-group"><span>${g}</span><span class="muted">${won(gt.spent)} / ${won(gt.budget)}원</span></div>
-      <div class="chart-row grp"><div class="nm">${g} 합계</div>${barHTML(gt.spent, gt.sch, gt.budget, { lg: true })}
-      <div class="st"><b>${pct1(gt.rate)}</b>${gt.sch ? ` (예정 포함 ${pct1(gt.rateAll)})` : ''}<br>잔액 ${won(gt.remain)}</div></div>`;
-    for (const l of L) {
-      const c = calc(l);
-      h += `<div class="chart-row"><div class="nm" title="${esc(l.label)}">${esc(l.label)}${statusBadges(l)}</div>${barHTML(l.spent, c.sch, l.budget)}
-        <div class="st"><b>${pct1(c.rate)}</b> · 잔액 ${won(c.remain)}</div></div>`;
-    }
+  const chartRow = (l, tag) => { const c = calc(l); const bad = l.budget > 0 && c.rateAll >= 100, low = !bad && l.budget > 0 && el - c.rateAll > 20;
+    return `<div class="chart-row clickable ${bad ? 'is-bad' : low ? 'is-low' : ''}" data-act="goline" data-id="${l.id}"><div class="nm" title="${esc(l.label)}">${tag ? `<span class="gtag">${esc(l.group)}</span>` : ''}${esc(l.label)}${statusBadges(l)}</div>${barHTML(l.spent, c.sch, l.budget)}
+      <div class="st"><b class="pct ${bad ? 'neg' : ''}">${pct1(c.rate)}</b><span class="rem">잔액 ${won(c.remain)}</span></div></div>`; };
+  if (UI.dailySort === 'group') {
+    for (const g of GROUPS) { const L = byG(g); if (!L.length) continue; const gt = groupTotals(L);
+      h += `<div class="chart-group"><span>${g}</span><span class="muted">지출 ${won(gt.spent)} / 예산 ${won(gt.budget)}원 · <b>${pct1(gt.rate)}</b></span></div>` + L.map(l => chartRow(l, false)).join(''); }
+  } else {
+    const key = UI.dailySort === 'low' ? l => calc(l).rateAll : l => calc(l).remainAfter;
+    h += [...all].sort((x, y) => key(x) - key(y)).map(l => chartRow(l, true)).join('');
   }
   h += `</div>
 
@@ -88,7 +138,7 @@ function renderDaily() {
     L.forEach((l, i) => {
       const c = calc(l); const e = l.ehojo; const unpaid = e ? Math.max(0, (e.commit || 0) - (e.paid || 0)) : 0;
       const sub = (l.group === '업무추진비' || l.group === '여비') ? `<span class="hint">${esc(l.biz)}</span>` : '';
-      h += `<tr>
+      h += `<tr data-rowid="${l.id}">
         <td style="text-align:center">${i + 1}</td>
         <td class="name">${esc(l.label)}${statusBadges(l)}${sub}</td>
         <td><input class="cellin" data-f="budget" data-id="${l.id}" data-nav="b-${l.id}" value="${won(l.budget)}" inputmode="numeric"></td>
@@ -128,6 +178,10 @@ $('#p-daily').addEventListener('click', e => {
   else if (a === 'editline') lineDialog(b.dataset.id);
   else if (a === 'addline') lineDialog(null);
   else if (a === 'pickany') pickFiles('.xlsx,.xlsm,.pdf');
+  else if (a === 'alertsall') { UI.alertsAll = !UI.alertsAll; renderDaily(); }
+  else if (a === 'sortd') { UI.dailySort = b.dataset.v; renderDaily(); }
+  else if (a === 'goline') goLine(b.dataset.id);
+  else if (a === 'goutil') { const u = UI.util; u.cat = b.dataset.cat; u.mode = 'month'; u.filter = 'todo'; u.q = ''; u.month = defaultMonth(S.util[u.cat]); showTab('util'); }
   else if (a === 'copytsv') copyText(dailyTSV(), '표를 복사했습니다 — 엑셀·한글에 붙여넣으세요');
   else if (a === 'print') { $$('.tab-panel').forEach(p => p.classList.toggle('printing', p.id === 'p-daily')); window.print(); }
 });

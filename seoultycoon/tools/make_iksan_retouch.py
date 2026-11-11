@@ -8,7 +8,7 @@ import retouch_lib as R
 out = root + '/work/pak_mod'
 G3 = {  # 3x5 화소 글꼴
  'A': '010101111101101', 'C': '011100100100011', 'E': '111100110100111', 'H': '101101111101101', 'I': '111010010010111',
- 'L': '100100100100111', 'M': '101111111101101', 'O': '010101101101010', 'R': '110101110101101', 'S': '011100010001110', 'T': '111010010010010', 'K': '101110100110101', 'D': '110101101101110'}
+ 'L': '100100100100111', 'M': '101111111101101', 'O': '010101101101010', 'R': '110101110101101', 'S': '011100010001110', 'T': '111010010010010', 'K': '101110100110101', 'D': '110101101101110', 'N': '110101101101101', 'V': '101101101101010', 'U': '101101101101111', 'P': '110101110100100', 'G': '011100101101011', 'B': '110101110101110', 'Y': '101101010010010', 'W': '101101111111101'}
 def text(img, x0, y0, s, color, slope=0.0, gap=1, sx=1, sy=1):
     px = img.load(); x = x0; col = 0
     for ch in s:
@@ -22,6 +22,11 @@ def text(img, x0, y0, s, color, slope=0.0, gap=1, sx=1, sy=1):
                             xx = x + c * sx + ax; yy = y0 + r * sy + ay + int(round((xx - x0) * slope))
                             if 0 <= xx < img.width and 0 <= yy < img.height and px[xx, yy][3] > 0: px[xx, yy] = color + (255,)
         x += 3 * sx + gap
+def clear(img, box, pred):
+    px = img.load(); x0, y0, x1, y1 = box
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            if x < img.width and y < img.height and px[x, y][3] > 0 and pred(*px[x, y][:3]): px[x, y] = (0, 0, 0, 0)
 def erase(img, box, pred):
     """상자 안에서 pred(r,g,b)가 참인 화소(글자)를 주변 배경색으로 메운다."""
     px = img.load(); x0, y0, x1, y1 = box
@@ -63,8 +68,21 @@ def b3():                                                                    # �
 def b44():                                                                   # 왕도날드(빨강) → 하림푸드(파랑)
     im = Image.open('/tmp/pk/b44.d').convert('RGBA'); swap_red_blue(im); return im
 
+def b32():                                                                  # 종합운동장 COREA → IKSAN
+    im = Image.open('/tmp/pk/b32.d').convert('RGBA')
+    clear(im, (0, 0, 19, 6), lambda r, g, b: r >= 180 and g < 80)
+    px = im.load(); text(_Transparent(im), 1, 0, 'IKSAN', (219, 0, 0)); return im
+class _Transparent:
+    """투명 칸에도 글자를 쓸 수 있게 알파 검사를 끈 래퍼"""
+    def __init__(self, im): self.im = im; self.width = im.width; self.height = im.height; self._px = im.load()
+    def load(self): return _Px(self._px)
+class _Px:
+    def __init__(self, px): self.px = px
+    def __getitem__(self, k): return (0, 0, 0, 255)
+    def __setitem__(self, k, v): self.px[k] = v
+
 if __name__ == '__main__':
-    R.ensure_pk(); items = {'b3': b3, 'b9': b9, 'b15': b15, 'b19': b19, 'b44': b44}; ims = {}
+    R.ensure_pk(); items = {'b32': b32}; ims = {}
     for n, fn in items.items(): ims[n] = fn(); ims[n].save(f'{out}/{n}.png')
     if len(sys.argv) > 1:
         W = sum(i.width * 5 + 10 for i in ims.values()); H = max(i.height * 5 for i in ims.values()); w = Image.new('RGBA', (W, H), (60, 60, 70, 255)); x = 0

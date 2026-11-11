@@ -1,0 +1,29 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QR 명찰 인쇄</title>
+<style>
+body{margin:0;font:16px system-ui,sans-serif;background:#f6f4ef;color:#222}
+.bar{padding:12px 16px;background:#fff;border-bottom:1px solid #ddd;position:sticky;top:0}
+.bar button,.bar select{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid #8886;background:#fff}
+.bar button.pri{background:#2f5d50;color:#fff;border:0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px}
+.card{background:#fff;border:1px dashed #999;border-radius:10px;padding:10px;text-align:center;break-inside:avoid}
+.card .g{font-size:14px;color:#555}.card .n{font-size:26px;font-weight:800;margin:2px 0}
+.card svg{width:150px;height:150px}.card .t{font-size:11px;color:#888}
+@media print{.bar{display:none}body{background:#fff}.grid{padding:0;gap:0}.card{border-radius:0;border:1px dashed #bbb;page-break-inside:avoid}}
+</style></head><body>
+<div class="bar"><b>QR 명찰</b> &nbsp; 단체 <select id="g"><option value="">전체</option></select> <button class="pri" id="print">인쇄</button>
+ <span style="color:#777;font-size:13px">  명찰에 넣어 나눠 드리세요. 분실 시 설정 탭에서 해당 구성원을 삭제 후 다시 추가하면 새 QR이 발급됩니다.</span></div>
+<div class="grid" id="grid"></div>
+<script src="/vendor/qrcode.js"></script>
+<script>
+let pw=sessionStorage.getItem('pw')||localStorage.getItem('kpw')||prompt('관리자 비밀번호');
+let data=[];
+fetch('/api/admin/cards',{headers:{'x-admin':pw}}).then(r=>r.ok?r.json():Promise.reject()).then(d=>{data=d;
+  document.getElementById('g').innerHTML+=d.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');draw()}).catch(()=>document.body.innerHTML='비밀번호가 맞지 않습니다');
+function qr(text){const q=qrcode(0,'M');q.addData(text);q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true})}
+function draw(){const f=document.getElementById('g').value;
+  document.getElementById('grid').innerHTML=data.filter(g=>!f||g.id===f).flatMap(g=>g.members.map(m=>
+    `<div class="card"><div class="g">${g.name}</div><div class="n">${m.name}</div>${qr(location.origin+'/m/'+m.qr)}<div class="t">입구 태블릿에 QR을 비춰 주세요</div></div>`)).join('')}
+document.getElementById('g').onchange=draw;document.getElementById('print').onclick=()=>print();
+</script></body></html>

@@ -19,12 +19,17 @@ small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
 <h1>🛠 출석 관리자</h1>
 <div id="login" class="card">비밀번호 <input id="pw" type="password"> <button class="pri" id="go">로그인</button> <span id="msg" class="ab"></span></div>
 <div id="app" hidden>
-<div class="tabs"><button id="t1" class="on">날짜별 현황</button><button id="t2">단체·강의 설정</button><button id="t3">내보내기</button></div>
+<div class="tabs"><button id="t1" class="on">날짜별 현황</button><button id="t2">단체·강의 설정</button><button id="t4">출석률 통계</button><button id="t3">내보내기</button></div>
 <section id="v1" class="card">
   <button id="prev">◀</button> <input type="date" id="date"> <button id="next">▶</button> <button id="reload">새로고침</button>
   <div id="ov" style="margin-top:12px"></div>
 </section>
 <section id="v2" class="card" hidden>
+  <h3>현장 도구</h3>
+  <p><a href="/kiosk" target="_blank"><button>📟 입구 태블릿 열기</button></a> <a href="/cards" target="_blank"><button>🪪 QR 명찰 인쇄</button></a>
+  <small>태블릿은 입구에 세워 두고 열어 두세요(카메라 허용 필요). 스마트폰이 없는 분은 명찰의 QR을 태블릿에 비추면 출석됩니다.</small></p>
+  <h3>출석 인정 시간</h3>
+  <div>시작 <input id="sob" type="number" min="0" style="width:60px">분 전부터 출석 가능 · 시작 후 <input id="sla" type="number" min="0" style="width:60px">분까지 <b>출석</b>, 이후 <input id="scl" type="number" min="0" style="width:60px">분까지 <b>지각</b>, 그 뒤는 마감</div>
   <h3>교육 장소 (위치 인증)</h3>
   <div id="venue">장소명 <input id="vn" size="14"> 위도 <input id="vlat" size="10"> 경도 <input id="vlng" size="10"> 반경(m) <input id="vr" size="4" type="number">
     <button id="here">현재 위치로 지정</button><small>위도·경도를 비우면 위치 확인 없이 현장 코드만 사용합니다. 실내는 오차가 크므로 반경 100~200m 권장.</small></div>
@@ -33,6 +38,11 @@ small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
   <h3>강의 (요일·시간 반복)</h3><div id="ls"></div>
   <button id="addl">+ 강의 추가</button>
   <p><button class="pri" id="saveCfg">설정 저장</button></p>
+</section>
+<section id="v4" class="card" hidden>
+  기간 <input type="date" id="sf"> ~ <input type="date" id="st"> <button id="sgo" class="pri">조회</button>
+  <span style="color:#777;font-size:13px"> 실시된 교육(출석 링크를 만들었거나 출석 기록이 있는 강의) 기준, 출석률 = (출석+지각) ÷ 전체</span>
+  <div id="sout" style="margin-top:12px"></div>
 </section>
 <section id="v3" class="card" hidden>기간 <input type="date" id="from"> ~ <input type="date" id="to"> <button class="pri" id="csv">엑셀(CSV) 다운로드</button></section>
 </div>
@@ -45,7 +55,7 @@ const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4)
 const shift=n=>{const d=new Date($('date').value+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);$('date').value=d.toISOString().slice(0,10);ov()};
 $('go').onclick=async()=>{pw=$('pw').value;try{await api('/api/admin/config');sessionStorage.setItem('pw',pw);start()}catch(e){$('msg').textContent=e.message}};
 function start(){$('login').hidden=true;$('app').hidden=false;$('date').value=$('date').value||today();$('from').value=$('to').value=today();ov();cfg()}
-['1','2','3'].forEach(n=>$('t'+n).onclick=()=>{['1','2','3'].forEach(m=>{$('v'+m).hidden=m!==n;$('t'+m).classList.toggle('on',m===n)})});
+['1','2','3','4'].forEach(n=>$('t'+n).onclick=()=>{if(n==='4')stats();['1','2','3','4'].forEach(m=>{$('v'+m).hidden=m!==n;$('t'+m).classList.toggle('on',m===n)})});
 $('date').onchange=ov;$('reload').onclick=ov;$('prev').onclick=()=>shift(-1);$('next').onclick=()=>shift(1);
 function sessBtn(l){const s=l.session;
   if(!s)return `<button data-mk="${l.id}">출석 링크 만들기</button>`;
@@ -75,7 +85,7 @@ async function ov(){
   <table><tr><th>강의</th>${groups.map(g=>`<th>${g.name}</th>`).join('')}</tr>${rows}</table>`;
 }
 let C={groups:[],lectures:[]};
-async function cfg(){C=await api('/api/admin/config');const v=C.venue||{};$('vn').value=v.name||'';$('vlat').value=v.lat??'';$('vlng').value=v.lng??'';$('vr').value=v.radius||150;draw()}
+async function cfg(){C=await api('/api/admin/config');const s=C.settings||{};$('sob').value=s.openBefore??30;$('sla').value=s.lateAfter??10;$('scl').value=s.closeAfter??30;const v=C.venue||{};$('vn').value=v.name||'';$('vlat').value=v.lat??'';$('vlng').value=v.lng??'';$('vr').value=v.radius||150;draw()}
 $('here').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('vlat').value=p.coords.latitude.toFixed(6);$('vlng').value=p.coords.longitude.toFixed(6)},()=>alert('위치 권한을 허용해 주세요'),{enableHighAccuracy:true});
 function draw(){
   $('gs').innerHTML=C.groups.map((g,i)=>`<div style="margin-bottom:10px"><div class="g"><input data-i="${i}" data-k="name" value="${g.name}" placeholder="단체명"><input data-i="${i}" data-k="pin" value="${g.pin}" placeholder="PIN"></div>
@@ -92,8 +102,19 @@ document.addEventListener('click',e=>{const d=e.target.dataset?.del;if(!d)return
   if(!confirm('삭제할까요?'))return;(d[0]==='g'?C.groups:C.lectures).splice(+d.slice(1),1);draw()});
 $('addg').onclick=()=>{C.groups.push({name:'',pin:'',members:[]});draw()};
 $('addl').onclick=()=>{C.lectures.push({name:'',weekday:1,start:'09:00',end:'10:00'});draw()};
-$('saveCfg').onclick=async()=>{try{await api('/api/admin/config',{method:'PUT',body:JSON.stringify({...C,venue:{name:$('vn').value,lat:$('vlat').value,lng:$('vlng').value,radius:$('vr').value}})});await cfg();ov();alert('저장했습니다')}catch(e){alert(e.message)}};
+$('saveCfg').onclick=async()=>{try{await api('/api/admin/config',{method:'PUT',body:JSON.stringify({...C,settings:{openBefore:$('sob').value,lateAfter:$('sla').value,closeAfter:$('scl').value},venue:{name:$('vn').value,lat:$('vlat').value,lng:$('vlng').value,radius:$('vr').value}})});await cfg();ov();alert('저장했습니다')}catch(e){alert(e.message)}};
 $('csv').onclick=async()=>{const r=await fetch(`/api/admin/export?from=${$('from').value}&to=${$('to').value}`,{headers:H()});
   const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`attendance_${$('from').value}_${$('to').value}.csv`;a.click()};
+$('sgo').onclick=stats;
+async function stats(){
+  if(!$('sf').value){const t=today();$('sf').value=t.slice(0,8)+'01';$('st').value=t}
+  const d=await api(`/api/admin/stats?from=${$('sf').value}&to=${$('st').value}`);
+  const bar=r=>r==null?'<span class="un">-</span>':`<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:70px;height:10px;background:#8883;border-radius:5px;overflow:hidden"><i style="display:block;height:100%;width:${r}%;background:${r>=80?'var(--p)':r>=60?'var(--l)':'var(--a)'}"></i></div><b>${r}%</b></div>`;
+  const gm=Object.fromEntries(d.groups.map(g=>[g.id,g.name]));
+  $('sout').innerHTML=`<p>기간 내 실시된 교육 <b>${d.heldCount}회</b></p>
+  <h3>단체별</h3><table><tr><th>단체</th><th>인원</th><th>출석</th><th>지각</th><th>결석</th><th style="min-width:160px">출석률</th></tr>${d.groups.map(g=>`<tr><td class="l">${g.name}</td><td>${g.members}</td><td class="ok">${g.P}</td><td class="late">${g.L}</td><td class="ab">${g.A}</td><td>${bar(g.rate)}</td></tr>`).join('')}</table>
+  <h3>강의별</h3><table><tr><th>강의</th><th>요일/시간</th><th>실시</th><th>출석</th><th>지각</th><th>결석</th><th style="min-width:160px">출석률</th></tr>${d.lectures.map(l=>`<tr><td class="l">${l.name}</td><td>${DAY[l.weekday]} ${l.start}</td><td>${l.held}회</td><td class="ok">${l.P}</td><td class="late">${l.L}</td><td class="ab">${l.A}</td><td>${bar(l.rate)}</td></tr>`).join('')||'<tr><td colspan=7 class="un">실시된 교육이 없습니다</td></tr>'}</table>
+  <h3>구성원별 (출석률 낮은 순)</h3><table><tr><th>이름</th><th>단체</th><th>출석</th><th>지각</th><th>결석</th><th style="min-width:160px">출석률</th></tr>${d.members.slice().sort((a,b)=>(a.rate??101)-(b.rate??101)).map(m=>`<tr><td class="l">${m.name}</td><td>${gm[m.groupId]||''}</td><td class="ok">${m.P}</td><td class="late">${m.L}</td><td class="ab">${m.A}</td><td>${bar(m.rate)}</td></tr>`).join('')}</table>`;
+}
 if(pw)api('/api/admin/config').then(start).catch(()=>{});
 </script></main></body></html>

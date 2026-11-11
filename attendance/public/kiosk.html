@@ -1,0 +1,84 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>출석 태블릿</title>
+<style>
+:root{--bg:#10201b;--card:#1b2f28;--ink:#f2f5f3;--mut:#9bb;--pri:#3d8b74;--p:#43a047;--l:#ef8f00;--a:#e53935}
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;font:20px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;gap:12px;align-items:center;padding:12px 18px;background:var(--card);flex-wrap:wrap}
+header h1{font-size:24px;margin:0;flex:1}select,button{font:inherit;padding:10px 14px;border-radius:10px;border:0;background:#2b4a40;color:var(--ink)}
+button.pri{background:var(--pri);font-weight:700}
+#wrap{display:grid;grid-template-columns:1fr 340px;gap:14px;padding:14px;height:calc(100% - 66px)}
+@media(max-width:800px){#wrap{grid-template-columns:1fr;height:auto}}
+#cam{position:relative;background:#000;border-radius:16px;overflow:hidden;min-height:300px}
+video{width:100%;height:100%;object-fit:cover}
+#frame{position:absolute;inset:18% 18%;border:5px solid #fff8;border-radius:24px;pointer-events:none}
+#hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:24px;text-shadow:0 1px 4px #000}
+#pop{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;font-size:44px;font-weight:800}
+#pop small{font-size:26px;font-weight:600}
+#side{background:var(--card);border-radius:16px;padding:14px;overflow:auto}
+.g{margin:0 0 10px}.g b{display:block;font-size:19px}.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-size:16px;padding:3px 9px;border-radius:14px;background:#2b4a40;color:var(--mut)}
+.chip.P{background:var(--p);color:#fff}.chip.L{background:var(--l);color:#fff}
+#manual{position:fixed;inset:0;background:#000d;display:none;padding:18px;overflow:auto}
+#manual .box{max-width:700px;margin:auto;background:var(--card);border-radius:16px;padding:18px}
+.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.names button{padding:16px}.names button.done{opacity:.4}
+#login{max-width:420px;margin:20vh auto;text-align:center}input{font:inherit;padding:12px;border-radius:10px;border:0;width:100%;margin:8px 0}
+</style></head><body>
+<div id="login" hidden><h2>출석 태블릿</h2><input id="pw" type="password" placeholder="관리자 비밀번호"><button class="pri" id="go" style="width:100%">시작</button><div id="lerr"></div></div>
+<div id="app" hidden>
+<header><h1 id="title">출석</h1><select id="lec"></select><button id="man">이름으로 출석</button></header>
+<div id="wrap">
+  <div id="cam"><video id="v" playsinline muted></video><div id="frame"></div><div id="hint">명찰의 QR을 화면에 비춰 주세요</div><div id="pop"></div></div>
+  <div id="side"></div>
+</div>
+<div id="manual"><div class="box"><button id="mx" style="float:right">닫기</button><h2 id="mt">단체를 선택하세요</h2><div id="mb" class="names"></div></div></div>
+</div>
+<script src="/vendor/jsQR.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let pw=localStorage.getItem('kpw')||'',K=null,lec=null,last={t:'',at:0};
+const H=()=>({'x-admin':pw,'content-type':'application/json'});
+async function api(u,o={}){const r=await fetch(u,{...o,headers:H()});const j=await r.json();if(!r.ok)throw Object.assign(new Error(j.error),{status:r.status});return j}
+$('go').onclick=async()=>{pw=$('pw').value;try{await api('/api/admin/config');localStorage.setItem('kpw',pw);start()}catch(e){$('lerr').textContent=e.message}};
+function beep(ok){try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);
+  o.frequency.value=ok?880:220;g.gain.value=.2;o.start();o.stop(c.currentTime+(ok?.15:.4))}catch{}}
+function popup(html,color){const p=$('pop');p.style.background=color;p.innerHTML=html;p.style.display='flex';clearTimeout(popup.t);popup.t=setTimeout(()=>p.style.display='none',2200)}
+const ST={P:'출석',L:'지각'};
+async function scan(body){
+  try{const r=await api('/api/admin/scan',{method:'POST',body:JSON.stringify({...body,lectureId:lec||undefined})});
+    beep(true);popup(`✅<br>${r.name}님<small>${r.group||''} · ${r.already?'이미 출석됨':ST[r.status]+' 처리'}</small>`,r.status==='L'?'#b86e00e6':'#2e7d32e6');load()}
+  catch(e){beep(false);popup(`⚠️<br><small>${e.message}</small>`,'#b71c1ce6')}}
+async function load(){
+  K=await api('/api/admin/kiosk'+(lec?`?lectureId=${lec}`:''));
+  const sel=$('lec');sel.innerHTML=`<option value="">자동(지금 강의)</option>`+K.lectures.map(l=>`<option value="${l.id}" ${lec===l.id?'selected':''}>${l.start} ${l.name}</option>`).join('');
+  const cur=K.lectures.find(l=>l.id===K.lectureId);$('title').textContent=cur?`${cur.name} (${cur.start}~${cur.end})`:'지금은 출석 가능한 강의가 없습니다';
+  let tot=0,ok=0;
+  $('side').innerHTML=K.groups.map(g=>{const n=g.members.filter(m=>m.status).length;tot+=g.members.length;ok+=n;
+    return `<div class="g"><b>${g.name} <span style="color:var(--mut)">${n}/${g.members.length}</span></b><div class="chips">${g.members.map(m=>`<span class="chip ${m.status||''}">${m.name}</span>`).join('')}</div></div>`}).join('');
+  $('side').insertAdjacentHTML('afterbegin',`<div style="font-size:34px;font-weight:800">${ok}<span style="font-size:20px;color:var(--mut)"> / ${tot}명 출석</span></div><hr>`);
+}
+$('lec').onchange=e=>{lec=e.target.value||null;load()};
+$('man').onclick=()=>{$('manual').style.display='block';groups()};$('mx').onclick=()=>$('manual').style.display='none';
+function groups(){$('mt').textContent='단체를 선택하세요';$('mb').innerHTML=K.groups.map(g=>`<button data-g="${g.id}">${g.name}</button>`).join('');
+  $('mb').querySelectorAll('button').forEach(b=>b.onclick=()=>names(b.dataset.g))}
+function names(id){const g=K.groups.find(x=>x.id===id);$('mt').textContent=g.name+' — 본인 이름';
+  $('mb').innerHTML=`<button id="back">◀ 뒤로</button>`+g.members.map(m=>`<button data-m="${m.id}" class="${m.status?'done':''}">${m.name}${m.status?' ✔':''}</button>`).join('');
+  $('back').onclick=groups;$('mb').querySelectorAll('[data-m]').forEach(b=>b.onclick=async()=>{$('manual').style.display='none';await scan({memberId:b.dataset.m})})}
+async function start(){
+  $('login').hidden=true;$('app').hidden=false;
+  try{await load()}catch(e){if(e.status===401){localStorage.removeItem('kpw');return init()}}
+  setInterval(()=>load().catch(()=>{}),15000);
+  try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280}}});const v=$('v');v.srcObject=st;await v.play();loop()}
+  catch{ $('hint').textContent='카메라를 사용할 수 없습니다. 권한을 허용하거나 [이름으로 출석]을 사용하세요' }
+}
+const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+function handle(text){const now=Date.now();if(text===last.t&&now-last.at<4000)return;last={t:text,at:now};scan({qr:text})}
+window.__scan=handle; // 테스트용
+function loop(){const v=$('v');
+  if(v.readyState>=2&&v.videoWidth){const w=Math.min(640,v.videoWidth),h=Math.round(w*v.videoHeight/v.videoWidth);cv.width=w;cv.height=h;cx.drawImage(v,0,0,w,h);
+    const d=cx.getImageData(0,0,w,h),c=jsQR(d.data,w,h,{inversionAttempts:'dontInvert'});if(c&&c.data)handle(c.data)}
+  setTimeout(loop,150)}
+function init(){if(pw){api('/api/admin/config').then(start).catch(()=>{$('login').hidden=false})}else $('login').hidden=false}
+init();
+</script></body></html>

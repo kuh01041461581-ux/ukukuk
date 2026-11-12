@@ -11,11 +11,12 @@ def run(tool): subprocess.run([sys.executable, '-I', f'{here}/{tool}'], check=Tr
 for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_palace.py', 'make_iksan_retouch.py', 'make_iksan_minimap.py', 'make_iksan_logo.py', 'make_maryong.py', 'make_iksan_horse.py'): run(tool)
 # 2) 건물: 조각 규칙 변환
 import strips as ST
+import pixel_style as PS
 from make_iksan_buildings import Sc
-import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, make_iksan_civic as CV, make_iksan_landmarks as LM
+import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, make_iksan_civic as CV, make_iksan_landmarks as LM, make_iksan_icons as IC
 ITEMS = {4: HQ.hotel, 19: HQ.cinema, 15: HQ.tesla, 22: HQ.station, 42: HQ.arts, 44: HQ.harim, 3: HQ.costco, 33: HQ.baseball, 27: HQ.hospital, 37: HQ.apartments, 35: HQ.school, 43: HQ.library,
-         11: HQ.firestation, 41: HQ.terminal, 40: HQ.busstop, 47: HQ.kindergarten, 48: HQ.topschool, 26: HQ.museum, 52: HQ.playground, 53: HQ.sportspark,
-         21: MB.chunpo, 38: MO.baekje, 10: CV.police, 13: CV.church, 12: CV.bank_design, 20: CV.library, 2: LM.mireuksa}
+         11: IC.firestation, 41: HQ.terminal, 40: HQ.busstop, 47: HQ.kindergarten, 48: HQ.topschool, 26: HQ.museum, 52: HQ.playground, 53: HQ.sportspark,
+         21: MB.chunpo, 38: MO.baekje, 10: IC.police, 13: CV.church, 12: CV.bank_design, 20: CV.library, 2: LM.mireuksa}
 yx = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); show = []
 for k, fn in sorted(ITEMS.items()):
     Hc, yc = ST.canvas(k)
@@ -23,6 +24,7 @@ for k, fn in sorted(ITEMS.items()):
     try: F = fn()
     finally: Sc.OVR = None
     if F.size != (96, Hc): F2 = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); F2.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = F2
+    F = PS.stylize(F)
     S, rects = ST.to_sheet(k, F); S.save(f'{out}/b{k}.png'); ST.patch_yx(yx, k, rects); show.append((k, F, ST.compose(k, S, rects)))
 open(root + '/st2android/mod/yx.d', 'wb').write(yx)
 print('건물', len(ITEMS), '종 변환 완료')

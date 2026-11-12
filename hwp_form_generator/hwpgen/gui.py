@@ -107,6 +107,12 @@ class Output:
             app.say("열려 있는 문서의 커서 위치에 넣었어요")
         except Exception as e:                       # noqa: BLE001
             log = write_error_log("insert %s chunk %d/%d step=%s" % (prefix, i, n, step), e)
+            try:                                     # 실패한 양식 파일을 그대로 남겨 두면 원인을 정확히 볼 수 있다
+                d = os.path.dirname(log) if log else tempfile.gettempdir()
+                pkg.save(os.path.join(d, "failed_%s.hwpx" % prefix))
+                chunks[max(0, i - 1)].save(os.path.join(d, "failed_%s_chunk%d.hwpx" % (prefix, i)))
+            except Exception:                        # noqa: BLE001
+                pass
             if messagebox.askyesno("한글에 넣기", "%s\n\n(%s)\n\n이 양식을 새 문서로 열어 드릴까요?\n오류 기록: %s" % (
                     e, prefix, log)):
                 try:

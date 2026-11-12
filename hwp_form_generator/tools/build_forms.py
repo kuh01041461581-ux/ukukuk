@@ -646,13 +646,8 @@ def _nbud_clean(section):
 
 
 def _issue_list_fix(section):
-    """쟁점·민원 현황 첫 쪽: 추진 목적 상자의 샘플 글은 비우고, 목록 표의 사업 내용(표 머리 아래)은 모두 비운다"""
-    from hwpgen.package import ptext
-    for p in section.findall(HP + "p"):
-        for tbl in p.iter(HP + "tbl"):
-            if tbl.get("colCnt") == "1":
-                for t in tbl.iter(HP + "t"):
-                    t.text = ""
+    """쟁점·민원 현황 첫 쪽: '추진 목적' 상자의 문구는 항상 들어가는 고정 글이라 그대로 두고, 목록 표는 머리 줄만 남긴다(부서별 내용은 비움)"""
+    return
 
 
 def build_more(paths):

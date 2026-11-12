@@ -68,7 +68,7 @@ function utilFwd() {
   return parts || '<div class="empty">전달처 안내 정보가 없습니다</div>';
 }
 function renderUtil() {
-  const P = $('#p-util'); const u = UI.util; u.sub = u.sub || 'pay';
+  const P = $('#p-util'); const u = UI.util; u.sub = u.sub || 'pay'; const snap = scrollSnap(P);
   const sec = S.util[u.cat]; if (!sec) { P.innerHTML = '<div class="empty">공공요금 데이터가 없습니다</div>'; return; }
   if (u.month == null) u.month = defaultMonth(sec);
   const m = u.month, dm = defaultMonth(sec);
@@ -81,7 +81,7 @@ function renderUtil() {
   else if (u.sub === 'year') h += `<div class="row chiprow">${utilCatChips(u)}${utilControls(sec)}</div><div class="card payc"><div id="u-body">${yearView(sec, dm)}</div></div>`;
   else if (u.sub === 'stat') h += utilStat();
   else h += utilFwd();
-  P.innerHTML = h; restoreFocus();
+  P.innerHTML = h; scrollRestore(P, snap); restoreFocus();
   const q = $('[data-nav="q"]', P); if (q && document.activeElement === q) { q.setSelectionRange(q.value.length, q.value.length); }
 }
 
@@ -167,13 +167,14 @@ PU.addEventListener('change', e => {
   setAmt(it, m, v); save(); renderUtil();
 });
 PU.addEventListener('input', e => {
-  if (e.target.dataset.u === 'q') { UI.util.q = e.target.value; pendingFocus = 'q'; renderUtil(); }
+  if (e.target.dataset.u === 'q') { UI.util.q = e.target.value; pendingFocus = 'q'; UI._noKeep = true; renderUtil(); }
 });
 PU.addEventListener('keydown', e => { if (e.target.matches('input.cellin')) { const n = e.target.dataset.nav; enterNext(e, n.startsWith('y') ? n.split('-')[0] + '-' : n.slice(0, 2)); } });
 PU.addEventListener('focusin', e => { if (e.target.matches('input.cellin')) { const v = parseNum(e.target.value); e.target.value = v == null || isNaN(v) ? '' : String(v); e.target.select(); } });
 PU.addEventListener('click', e => {
   const cp = e.target.closest('[data-copy]'); if (cp) { copyText(cp.dataset.copy, '복사했습니다: ' + cp.dataset.copy); return; }
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act, u = UI.util;
+  if (['cat', 'usub', 'month', 'filter', 'todo'].includes(a)) UI._noKeep = true;
   if (a === 'series-all') { CATS.forEach(([k]) => UI.util.series[k] = true); renderUtil(); return; }
   if (a === 'find') { openFind(); return; }
   if (a === 'payform') { pickFiles('.xlsx,.xlsm', 'form'); return; }

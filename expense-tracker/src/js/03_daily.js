@@ -105,7 +105,7 @@ function dailyChartTab(T, el) {
   return h + '</div>';
 }
 function renderDaily() {
-  const P = $('#p-daily');
+  const P = $('#p-daily'); const snap = scrollSnap(P);
   if (!S.lines.length) { P.innerHTML = welcomeHTML(); return; }
   const T = groupTotals(S.lines), el = elapsed(), diff = T.rate - el;
   UI.dailySort = UI.dailySort || 'group'; UI.dsub = UI.dsub || 'now'; UI.alertsAll = !!UI.alertsAll;
@@ -118,7 +118,7 @@ function renderDaily() {
   if (UI.dsub === 'now') h += dailyNow(T, el, diff, dailyAlerts());
   else if (UI.dsub === 'chart') h += dailyChartTab(T, el);
   else h += dailyTable();
-  P.innerHTML = h; $$('textarea.cellin', P).forEach(autoGrow); restoreFocus();
+  P.innerHTML = h; $$('textarea.cellin', P).forEach(autoGrow); scrollRestore(P, snap); restoreFocus();
 }
 
 function dailyTable() {
@@ -174,9 +174,9 @@ $('#p-daily').addEventListener('click', e => {
   else if (a === 'editline') lineDialog(b.dataset.id);
   else if (a === 'addline') lineDialog(null);
   else if (a === 'pickany') pickFiles('.xlsx,.xlsm,.pdf');
-  else if (a === 'dsub') { UI.dsub = b.dataset.v; renderDaily(); window.scrollTo(0, 0); }
+  else if (a === 'dsub') { UI.dsub = b.dataset.v; UI._noKeep = true; renderDaily(); window.scrollTo(0, 0); }
   else if (a === 'alertsall') { UI.alertsAll = !UI.alertsAll; renderDaily(); }
-  else if (a === 'sortd') { UI.dailySort = b.dataset.v; renderDaily(); }
+  else if (a === 'sortd') { UI.dailySort = b.dataset.v; UI._noKeep = true; renderDaily(); }
   else if (a === 'goline') goLine(b.dataset.id);
   else if (a === 'goutil') { const u = UI.util; u.cat = b.dataset.cat; u.sub = 'pay'; u.filter = 'todo'; u.q = ''; u.month = defaultMonth(S.util[u.cat]); showTab('util'); }
   else if (a === 'copytsv') copyText(dailyTSV(), '표를 복사했습니다 — 엑셀·한글에 붙여넣으세요');

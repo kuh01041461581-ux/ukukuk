@@ -45,8 +45,8 @@ document.addEventListener('focusout', e => { const t = e.target; if (t.matches &
 const TABS = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황'], ['import', '파일 불러오기'], ['settings', '설정·백업']];
 const RENDER = { daily: renderDaily, util: renderUtil, import: renderImport, settings: renderSettings };
 function showTab(t) {
-  UI.tab = t; $$('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));
-  TABS.forEach(([k]) => { $('#p-' + k).hidden = k !== t; }); RENDER[t](); window.scrollTo(0, 0);
+  UI._noKeep = true; UI.tab = t; $$('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));
+  TABS.forEach(([k]) => { $('#p-' + k).hidden = k !== t; }); RENDER[t](); UI._noKeep = false; window.scrollTo(0, 0);
 }
 function updateBackupChip() {
   const c = $('#bk'); const lb = S.lastBackup ? new Date(S.lastBackup) : null; const days = lb ? (Date.now() - lb) / 86400000 : 999;

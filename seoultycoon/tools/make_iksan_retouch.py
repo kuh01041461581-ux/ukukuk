@@ -91,8 +91,21 @@ def b8():                                                                   # �
     band = lambda x, y: abs((y - (50 - (x - 25) * 0.64))) <= 6 and 24 <= x <= 60                  # (25,50)→(58,29) 사선 띠
     erase(im, (22, 24, 62, 54), lambda r, g, b: (r, g, b) in ((219, 255, 171), (146, 219, 85), (255, 255, 255), (36, 182, 171)), band); return im
 
+def b12():                                                                  # 은행: 원본 그대로 + 오른쪽 정면(메인 조각 안)에 NH 마크
+    im = Image.open('/tmp/pk/b12.d').convert('RGBA'); px = im.load()
+    B, Gc, Wt = (26, 86, 168, 255), (0, 150, 60, 255), (255, 255, 255, 255); x0, y0 = 64, 23
+    for yy in range(7):
+        for xx in range(10): px[x0 + xx, y0 + yy] = Wt
+    N = ['1001', '1101', '1011', '1001', '1001']; Hh = ['101', '101', '111', '101', '101']
+    for r in range(5):
+        for c in range(4):
+            if N[r][c] == '1': px[x0 + 1 + c, y0 + 1 + r] = B
+        for c in range(3):
+            if Hh[r][c] == '1': px[x0 + 6 + c, y0 + 1 + r] = Gc
+    return im
+
 if __name__ == '__main__':
-    R.ensure_pk(); items = {'b32': b32, 'b45': b45, 'b8': b8}; ims = {}
+    R.ensure_pk(); items = {'b32': b32, 'b45': b45, 'b8': b8, 'b3': b3, 'b15': b15, 'b19': b19, 'b44': b44, 'b12': b12}; ims = {}
     for n, fn in items.items(): ims[n] = fn(); ims[n].save(f'{out}/{n}.png')
     if len(sys.argv) > 1:
         W = sum(i.width * 5 + 10 for i in ims.values()); H = max(i.height * 5 for i in ims.values()); w = Image.new('RGBA', (W, H), (60, 60, 70, 255)); x = 0

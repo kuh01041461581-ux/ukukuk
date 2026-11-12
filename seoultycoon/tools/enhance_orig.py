@@ -58,8 +58,8 @@ def enhance(k, strength=1.0, im=None):
                 elif i == 101: cy = MY + main[3] + 8 + (y - (H - 8))
                 elif i >= 0 and i in pos: cy = pos[i][1] + (y - rs[i][1])
                 else: continue
-                g = 1.07 - 0.13 * (cy / max(1, Hc))
-                c = out[y, x] * g; m = c.mean(); out[y, x] = m + (c - m) * 1.10
+                g = 1.11 - 0.21 * (cy / max(1, Hc))
+                c = (out[y, x] * g - 128) * 1.07 + 128; m = c.mean(); out[y, x] = m + (c - m) * 1.20
     res = np.zeros((H, W, 4), np.uint8); res[..., :3] = np.clip(out, 0, 255).astype(np.uint8); res[..., 3] = al * 255
     return Image.fromarray(res, 'RGBA')
 if __name__ == '__main__':

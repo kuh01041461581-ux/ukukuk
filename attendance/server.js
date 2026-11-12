@@ -25,7 +25,7 @@ const core = createCore({ db, persist, adminPassword: ADMIN_PASSWORD });
 if (fresh) persist(db);
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
-const ROUTES = [['/c/', '/checkin.html', true], ['/m/', '/member.html', true], ['/kiosk', '/kiosk.html'], ['/cards', '/cards.html'], ['/admin', '/admin.html'], ['/', '/index.html']];
+const ROUTES = [['/c/', '/checkin.html', true], ['/m/', '/member.html', true], ['/admin', '/admin.html'], ['/', '/index.html']];
 
 http.createServer(async (req, res) => {
   try {

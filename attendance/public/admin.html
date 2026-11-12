@@ -2,80 +2,165 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>출석 관리자</title>
 <style>
-:root{--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#777;--pri:#2f5d50;--p:#2e7d32;--l:#ef8f00;--a:#c62828}
+:root{--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#777;--pri:#2f5d50;--p:#2e7d32;--l:#ef8f00;--a:#c62828;--line:#8884}
 @media(prefers-color-scheme:dark){:root{--bg:#171a19;--card:#222726;--ink:#eee;--mut:#9a9;--pri:#6fb59f}}
 *{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
-main{max-width:1100px;margin:0 auto;padding:16px}h1{font-size:20px}
+h2{font-size:20px;margin:4px 0 10px}h3{margin:18px 0 8px;font-size:16px}
 .card{background:var(--card);border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 1px 3px #0002;overflow-x:auto}
-input,select,button,textarea{font:inherit;padding:8px;border-radius:8px;border:1px solid #8886;background:var(--card);color:var(--ink)}
-button.pri{background:var(--pri);color:#fff;border:0;font-weight:600}
-table{border-collapse:collapse;width:100%}th,td{border:1px solid #8884;padding:6px 8px;text-align:center;vertical-align:top}
-th{background:#8881}td.l{text-align:left;white-space:nowrap}
+input,select,button,textarea{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);max-width:100%}
+button{cursor:pointer}button.pri{background:var(--pri);color:#fff;border:0;font-weight:600}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:top}
+th{background:#8881}td.l{text-align:left}
 .ok{color:var(--p)}.late{color:var(--l)}.ab{color:var(--a)}.un{color:var(--mut)}
-.tabs button{margin-right:4px}.tabs .on{background:var(--pri);color:#fff}
 small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
 .g{display:grid;grid-template-columns:1fr 120px;gap:6px}
-.lec{border:1px solid #8884;border-radius:10px;padding:10px;margin:10px 0}
-.lec .hd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.lec .hd b{font-size:16px}.lec .tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.row{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.only-pc{display:none}.only-mob{display:block}
+
+/* ── 공통: 현황 카드 / 행 ── */
+.lec{border:1px solid var(--line);border-radius:10px;padding:10px;margin:10px 0}
+.lec .hd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.lec .hd b{font-size:16px}
+.tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .grp{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:8px}
-.gc{border:1px solid #8883;border-radius:8px;padding:6px 8px;text-align:left}.gc>b{display:block;font-size:14px}.gc.un2{opacity:.7}
-.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #8883}
+.gc{border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:left}.gc>b{display:block;font-size:14px}.gc.un2{opacity:.7}
+.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-top:1px solid var(--line)}
 .mrow .nm{flex:1 1 110px;min-width:90px}.mrow .seg{display:flex;gap:4px}.mrow .seg button{padding:8px 11px}
 .mrow input{flex:1 1 100%}
-.lrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px;padding:8px 0;border-top:1px solid #8883}.lrow .nmi{grid-column:1/-1}
-@media(max-width:640px){main{padding:10px}.card{padding:10px}button,input,select{min-height:42px}.tabs button{margin-bottom:4px}h3{font-size:16px}}
-</style></head><body><main>
-<h1>🛠 출석 관리자</h1>
-<div id="login" class="card">비밀번호 <input id="pw" type="password"> <button class="pri" id="go">로그인</button> <span id="msg" class="ab"></span></div>
-<div id="app" hidden>
-<div class="tabs"><button id="t1" class="on">날짜별 현황</button><button id="t2">단체·강의 설정</button><button id="t5">수동 출석·정정</button><button id="t4">출석률 통계</button><button id="t3">내보내기</button></div>
-<section id="v1" class="card">
-  <button id="prev">◀</button> <input type="date" id="date"> <button id="next">▶</button> <button id="reload">새로고침</button>
-  <div id="ov" style="margin-top:12px"></div>
+/* 강의 개설 */
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:10px}
+.lcard{border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:8px;background:var(--card)}
+.lcard .nmi{font-weight:700;width:100%}
+.days{display:flex;flex-wrap:wrap;gap:6px}.days label{border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;user-select:none}
+.days input{display:none}.days input:checked+span{font-weight:700;color:var(--pri)}.days label:has(input:checked){background:var(--pri);border-color:var(--pri)}.days label:has(input:checked) span{color:#fff}
+.chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:14px;padding:2px 4px 2px 10px;margin:2px 4px 2px 0;font-size:13px}
+.chip button{border:0;background:none;padding:2px 6px;min-height:0;color:var(--a)}
+.savebar{position:sticky;bottom:64px;background:var(--card);padding:10px;margin:14px -4px -4px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;z-index:5}
+/* 개인 링크 */
+.lk{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}.lk .nm{flex:1 1 120px}
+
+/* ── 로그인 ── */
+#login{max-width:380px;margin:18vh auto}
+#login input{width:100%;margin:6px 0}
+/* ── 휴대폰: 하단 탭 바 ── */
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);z-index:20;padding-bottom:env(safe-area-inset-bottom)}
+nav .brand{display:none}
+nav button{flex:1;border:0;border-radius:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0;font-size:11px;min-height:56px;color:var(--mut)}
+nav button .ic{font-size:20px;line-height:1}nav button.on{color:var(--pri);font-weight:700}
+#content{padding:10px 10px 96px}
+button,input,select{min-height:42px}
+/* ── PC: 왼쪽 메뉴 + 넓은 화면 ── */
+@media(min-width:900px){
+  #shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+  nav{position:sticky;top:0;height:100vh;flex-direction:column;border-top:0;border-right:1px solid var(--line);padding:18px 12px;gap:4px;align-items:stretch}
+  nav .brand{display:block;font-weight:800;font-size:18px;padding:4px 10px 16px;line-height:1.3}
+  nav button{flex:none;flex-direction:row;font-size:15px;gap:10px;padding:10px 12px;min-height:0;border-radius:8px;justify-content:flex-start;color:var(--ink)}
+  nav button.on{background:var(--pri);color:#fff}
+  #content{padding:24px 32px 40px;max-width:1280px}
+  button,input,select{min-height:0}
+  .only-pc{display:block}.only-mob{display:none}
+  .savebar{bottom:0}
+  h2{font-size:22px}
+}
+</style></head><body>
+<div id="login" class="card"><h2>🛠 출석 관리자</h2>비밀번호<br><input id="pw" type="password" autocomplete="current-password"><button class="pri" id="go" style="width:100%">로그인</button><div id="msg" class="ab"></div></div>
+<div id="shell" hidden>
+<nav id="nav"><div class="brand">🛠 출석 관리자<small>국가무형유산 교육</small></div>
+  <button data-tab="ov" class="on"><span class="ic">📋</span><span>현황</span></button>
+  <button data-tab="lec"><span class="ic">📚</span><span>강의 개설</span></button>
+  <button data-tab="man"><span class="ic">✍️</span><span>수동 출석</span></button>
+  <button data-tab="stat"><span class="ic">📊</span><span>통계</span></button>
+  <button data-tab="set"><span class="ic">⚙️</span><span>설정</span></button>
+</nav>
+<div id="content">
+<section id="v-ov">
+  <h2>날짜별 현황</h2>
+  <div class="row"><button id="prev">◀</button><input type="date" id="date"><button id="next">▶</button><button id="reload">새로고침</button></div>
+  <div id="ov" class="card" style="margin-top:12px"></div>
 </section>
-<section id="v2" class="card" hidden>
-  <h3>현장 도구</h3>
-  <p><a href="/kiosk" target="_blank"><button>📟 입구 태블릿 열기</button></a> <a href="/cards" target="_blank"><button>🪪 QR 명찰 인쇄</button></a>
-  <small>태블릿은 입구에 세워 두고 열어 두세요(카메라 허용 필요). 스마트폰이 없는 분은 명찰의 QR을 태블릿에 비추면 출석됩니다.</small></p>
-  <h3>출석 인정 시간</h3>
-  <div>시작 <input id="sob" type="number" min="0" style="width:60px">분 전부터 출석 가능 · 시작 후 <input id="sla" type="number" min="0" style="width:60px">분까지 <b>출석</b>, 이후 <input id="scl" type="number" min="0" style="width:60px">분까지 <b>지각</b>, 그 뒤는 마감</div>
-  <h3>교육 장소 (위치 인증)</h3>
-  <div id="venue">장소명 <input id="vn" size="14"> 위도 <input id="vlat" size="10"> 경도 <input id="vlng" size="10"> 반경(m) <input id="vr" size="4" type="number">
-    <button id="here">현재 위치로 지정</button><small>위도·경도를 비우면 위치 확인 없이 현장 코드만 사용합니다. 실내는 오차가 크므로 반경 100~200m 권장.</small></div>
-  <h3>명부 엑셀 가져오기</h3>
-  <div id="imp">
-    <input type="file" id="xf" accept=".xlsx,.xls,.csv"> <button id="xtpl">양식 내려받기</button> <button id="xexp">현재 명부 내려받기</button>
-    <small>엑셀 첫 줄에 <b>단체 · 이름 · 전화번호</b> 제목을 두고 한 줄에 한 명씩 입력하세요. 전화번호는 전체(010-1234-5678)든 뒤 4자리든 됩니다(뒤 4자리만 저장). 같은 단체에 같은 이름이 둘이면 &quot;김영자(A)&quot;처럼 구분해 주세요.</small>
+<section id="v-lec" hidden>
+  <h2>강의 개설</h2>
+  <div class="card">
+    <h3 style="margin-top:0">새 강의 추가</h3>
+    <div class="row"><input id="nl-name" placeholder="강의 이름 (예: 판소리 기초)" style="flex:1 1 220px"></div>
+    <div style="margin:10px 0 4px">요일 <small style="display:inline">(여러 개 선택하면 요일마다 강의가 만들어집니다)</small></div>
+    <div class="days" id="nl-days"></div>
+    <div class="row" style="margin-top:10px">시간 <input type="time" id="nl-start" value="09:00"> ~ <input type="time" id="nl-end" value="10:30"></div>
+    <div class="row" style="margin-top:8px">기간 <input type="date" id="nl-sd"> ~ <input type="date" id="nl-ed"> <small style="display:inline">비우면 계속 반복 · 시작일=종료일이면 그날 하루만</small></div>
+    <p><button class="pri" id="nl-add">+ 강의 추가</button></p>
+  </div>
+  <h3>개설된 강의</h3>
+  <div id="ls"></div>
+  <div class="savebar"><button class="pri" id="saveLec">강의 저장</button><span class="un" id="lecHint">변경 후 저장을 눌러야 반영됩니다</span></div>
+</section>
+<section id="v-man" hidden>
+  <h2>수동 출석·정정</h2>
+  <div class="card">
+    <div class="row">날짜 <input type="date" id="md"> 강의 <select id="ml"></select> <button id="mgo" class="pri">불러오기</button></div>
+    <small>담당자가 직접 체크하거나 기록을 정정할 때 쓰세요. 시간 제한이 없고 &quot;담당자 입력&quot;으로 기록됩니다. 하단 [저장]을 눌러야 반영됩니다.</small>
+    <div id="mout" style="margin-top:10px"></div>
+  </div>
+</section>
+<section id="v-stat" hidden>
+  <h2>출석률 통계</h2>
+  <div class="card">
+    <div class="row">기간 <input type="date" id="sf"> ~ <input type="date" id="st"> <button id="sgo" class="pri">조회</button> <button id="csv">엑셀(CSV) 내려받기</button></div>
+    <small>실시된 교육(출석 링크를 만들었거나 출석 기록이 있는 강의) 기준 · 출석률 = (출석+지각) ÷ 전체</small>
+    <div id="sout" style="margin-top:12px"></div>
+  </div>
+</section>
+<section id="v-set" hidden>
+  <h2>설정</h2>
+  <div class="card">
+    <h3 style="margin-top:0">출석 인정 시간</h3>
+    <div class="row">시작 <input id="sob" type="number" min="0" style="width:70px">분 전부터 출석 가능 · 시작 후 <input id="sla" type="number" min="0" style="width:70px">분까지 <b>출석</b>, 이후 <input id="scl" type="number" min="0" style="width:70px">분까지 <b>지각</b>, 그 뒤는 마감</div>
+    <h3>교육 장소 (위치 인증)</h3>
+    <div class="row">장소명 <input id="vn" size="14"> 위도 <input id="vlat" size="10"> 경도 <input id="vlng" size="10"> 반경(m) <input id="vr" size="4" type="number" style="width:80px"> <button id="here">현재 위치로 지정</button></div>
+    <small>교육장에 서서 [현재 위치로 지정]을 누르세요. 위도·경도를 비우면 위치 확인 없이 출석됩니다. 실내는 오차가 크므로 반경 100~200m 권장.</small>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">명부 엑셀 가져오기</h3>
+    <div class="row"><input type="file" id="xf" accept=".xlsx,.xls,.csv"> <button id="xtpl">양식 내려받기</button> <button id="xexp">현재 명부 내려받기</button></div>
+    <small>엑셀 첫 줄에 <b>단체 · 이름 · 전화번호</b> 제목을 두고 한 줄에 한 명씩 입력하세요. 전화번호는 전체든 뒤 4자리든 됩니다(뒤 4자리만 저장). 같은 단체에 같은 이름이 둘이면 &quot;김영자(A)&quot;처럼 구분해 주세요.</small>
     <div id="xprev"></div>
   </div>
-  <h3>단체 (PIN은 단체 대표자가 출석 입력 시 사용)</h3><div id="gs"></div>
-  <button id="addg">+ 단체 추가</button>
-  <h3>강의 (요일·시간 반복)</h3><div id="ls"></div>
-  <button id="addl">+ 강의 추가</button>
-  <p><button class="pri" id="saveCfg">설정 저장</button></p>
+  <div class="card">
+    <h3 style="margin-top:0">단체·구성원 <small style="display:inline">(PIN은 단체 대표자가 출석 입력 시 사용)</small></h3>
+    <div id="gs"></div><button id="addg">+ 단체 추가</button>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">구성원 개인 출석 링크</h3>
+    <small>구성원마다 본인 전용 링크가 있습니다. 카톡으로 각자에게 보내 휴대폰 홈 화면에 추가해 두면, 누를 때마다 위치를 확인하고 자동으로 출석됩니다. 처음 출석한 휴대폰에 고정되어 다른 사람에게 전달해도 소용없습니다.</small>
+    <div class="row" style="margin:8px 0"><button id="lkall">전체 목록 복사 (엑셀용)</button></div>
+    <div id="links"></div>
+  </div>
+  <div class="savebar"><button class="pri" id="saveCfg">설정 저장</button><span class="un">단체·구성원·시간·장소 변경 후 저장을 눌러야 반영됩니다</span></div>
 </section>
-<section id="v4" class="card" hidden>
-  기간 <input type="date" id="sf"> ~ <input type="date" id="st"> <button id="sgo" class="pri">조회</button>
-  <span style="color:#777;font-size:13px"> 실시된 교육(출석 링크를 만들었거나 출석 기록이 있는 강의) 기준, 출석률 = (출석+지각) ÷ 전체</span>
-  <div id="sout" style="margin-top:12px"></div>
-</section>
-<section id="v5" class="card" hidden>
-  <div>날짜 <input type="date" id="md"> 강의 <select id="ml"></select> <button id="mgo" class="pri">불러오기</button></div>
-  <small>휴대폰·태블릿이 어려운 분을 담당자가 직접 체크하거나, 기록을 정정할 때 쓰세요. 시간 제한이 없고 &quot;담당자 입력&quot;으로 기록됩니다. 하단 [저장]을 눌러야 반영됩니다.</small>
-  <div id="mout" style="margin-top:10px"></div>
-</section>
-<section id="v3" class="card" hidden>기간 <input type="date" id="from"> ~ <input type="date" id="to"> <button class="pri" id="csv">엑셀(CSV) 다운로드</button></section>
-</div>
+</div></div>
 <script>
 const $=id=>document.getElementById(id);const DAY='일월화수목금토';
 let pw=sessionStorage.getItem('pw')||'';
 const H=()=>({'x-admin':pw,'content-type':'application/json'});
-async function api(u,o={}){const r=await fetch(u,{...o,headers:H()});const j=await r.json();if(!r.ok)throw new Error(j.error);return j}
+async function api(u,o={}){const r=await fetch(u,{...o,headers:H()});let j={};try{j=await r.json()}catch{}if(!r.ok)throw new Error(j.error||'오류가 발생했습니다');return j}
 const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
-const shift=n=>{const d=new Date($('date').value+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);$('date').value=d.toISOString().slice(0,10);ov()};
+const wdOf=ds=>new Date(ds+'T00:00:00Z').getUTCDay();
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function copy(text,msg){try{await navigator.clipboard.writeText(text);alert(msg||'복사했습니다')}catch{prompt('복사하세요',text)}}
+
+// ── 로그인 / 탭 ──
 $('go').onclick=async()=>{pw=$('pw').value;try{await api('/api/admin/config');sessionStorage.setItem('pw',pw);start()}catch(e){$('msg').textContent=e.message}};
-function start(){$('login').hidden=true;$('app').hidden=false;$('date').value=$('date').value||today();$('from').value=$('to').value=today();ov();cfg()}
-['1','2','3','4','5'].forEach(n=>$('t'+n).onclick=()=>{if(n==='4')stats();if(n==='5')mInit();['1','2','3','4','5'].forEach(m=>{$('v'+m).hidden=m!==n;$('t'+m).classList.toggle('on',m===n)})});
+$('pw').onkeydown=e=>{if(e.key==='Enter')$('go').click()};
+const TABS=['ov','lec','man','stat','set'];
+function show(tab){TABS.forEach(t=>{$('v-'+t).hidden=t!==tab});
+  document.querySelectorAll('nav [data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  try{sessionStorage.setItem('tab',tab)}catch{}
+  if(tab==='ov')ov();if(tab==='stat')stats();if(tab==='man')mInit();if(tab==='lec')drawLec();if(tab==='set'){draw();loadLinks()}
+  window.scrollTo(0,0)}
+document.querySelectorAll('nav [data-tab]').forEach(b=>b.onclick=()=>show(b.dataset.tab));
+function start(){$('login').hidden=true;$('shell').hidden=false;$('date').value=$('date').value||today();$('sf').value=today().slice(0,8)+'01';$('st').value=today();
+  cfg().then(()=>show(sessionStorage.getItem('tab')||'ov'))}
+
+// ── 현황 ──
+const shift=n=>{const d=new Date($('date').value+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);$('date').value=d.toISOString().slice(0,10);ov()};
 $('date').onchange=ov;$('reload').onclick=ov;$('prev').onclick=()=>shift(-1);$('next').onclick=()=>shift(1);
 function sessBtn(l){const s=l.session;
   if(!s)return `<button data-mk="${l.id}">출석 링크 만들기</button>`;
@@ -88,44 +173,89 @@ document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)retur
   if(d.mk){await post({lectureId:d.mk});ov()}
   if(d.tg){await post({lectureId:d.tg,open:d.open==='true'});ov()}
   if(d.nc){await post({lectureId:d.nc,newCode:true});ov()}
-  if(d.cp){try{await navigator.clipboard.writeText(d.cp);alert('링크를 복사했습니다. 카톡에 붙여넣어 보내세요.\n'+d.cp)}catch{prompt('링크를 복사하세요',d.cp)}}
+  if(d.cp)copy(d.cp,'링크를 복사했습니다. 카톡에 붙여넣어 보내세요.\n'+d.cp);
   }catch(er){alert(er.message)}});
+const cell=g=>g.checked?`<span class="ok">출 ${g.P}</span> <span class="late">지 ${g.L}</span> <span class="ab">결 ${g.A}</span>${g.U?` <span class="un">미 ${g.U}</span>`:''}`
+  +g.issues.map(i=>`<small class="${i.status==='A'?'ab':'late'}">${esc(i.name)} (${i.status==='A'?'결석':'지각'})</small>`).join(''):`<span class="un">미입력</span><small>${g.total}명</small>`;
 async function ov(){
   const d=await api('/api/admin/overview?date='+$('date').value);
-  const wd=DAY[new Date(d.date+'T00:00:00Z').getUTCDay()];
-  if(!d.lectures.length){$('ov').innerHTML=`<p>${d.date} (${wd}) 강의가 없습니다.</p>`;return}
-  let tot={P:0,L:0,A:0,U:0};
-  const cards=d.lectures.map(l=>`<div class="lec"><div class="hd"><b>${l.name}</b><span class="un">${l.start}~${l.end}</span></div>
+  const wd=DAY[wdOf(d.date)];
+  if(!d.lectures.length){$('ov').innerHTML=`<p>${d.date} (${wd}) 개설된 강의가 없습니다.<br><button data-go="lec" class="pri">강의 개설하러 가기</button></p>`;return}
+  const tot={P:0,L:0,A:0,U:0};d.lectures.forEach(l=>l.groups.forEach(g=>{for(const k in tot)tot[k]+=g[k]}));
+  const sum=`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p>`;
+  const groups=d.lectures[0].groups;
+  const pc=`<div class="only-pc"><table><tr><th style="min-width:200px">강의</th>${groups.map(g=>`<th>${esc(g.name)}</th>`).join('')}</tr>
+    ${d.lectures.map(l=>`<tr><td class="l"><b>${esc(l.name)}</b> <span class="un">${l.start}~${l.end}</span><div class="tools" style="margin-top:6px">${sessBtn(l)}</div></td>${l.groups.map(g=>`<td>${cell(g)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+  const mob=`<div class="only-mob">${d.lectures.map(l=>`<div class="lec"><div class="hd"><b>${esc(l.name)}</b><span class="un">${l.start}~${l.end}</span></div>
     <div class="tools" style="margin-top:6px">${sessBtn(l)}</div>
-    <div class="grp">${l.groups.map(g=>{
-      for(const k in tot)tot[k]+=g[k];
-      if(!g.checked)return `<div class="gc un2"><b>${g.name}</b><span class="un">미입력 · ${g.total}명</span></div>`;
-      return `<div class="gc"><b>${g.name}</b><span class="ok">출 ${g.P}</span> <span class="late">지 ${g.L}</span> <span class="ab">결 ${g.A}</span>${g.U?` <span class="un">미 ${g.U}</span>`:''}
-        ${g.issues.map(i=>`<small class="${i.status==='A'?'ab':'late'}">${i.name} (${i.status==='A'?'결석':'지각'})</small>`).join('')}</div>`}).join('')}</div></div>`).join('');
-  $('ov').innerHTML=`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p>${cards}`;
+    <div class="grp">${l.groups.map(g=>`<div class="gc ${g.checked?'':'un2'}"><b>${esc(g.name)}</b>${g.checked?cell(g):`<span class="un">미입력 · ${g.total}명</span>`}</div>`).join('')}</div></div>`).join('')}</div>`;
+  $('ov').innerHTML=sum+pc+mob;
 }
+document.addEventListener('click',e=>{if(e.target.dataset.go)show(e.target.dataset.go)});
+
+// ── 설정 상태 ──
 let C={groups:[],lectures:[]};
-async function cfg(){C=await api('/api/admin/config');const s=C.settings||{};$('sob').value=s.openBefore??30;$('sla').value=s.lateAfter??10;$('scl').value=s.closeAfter??30;const v=C.venue||{};$('vn').value=v.name||'';$('vlat').value=v.lat??'';$('vlng').value=v.lng??'';$('vr').value=v.radius||150;draw()}
+async function cfg(){C=await api('/api/admin/config');C.lectures.forEach(l=>{l.off=l.off||[];l.startDate=l.startDate||'';l.endDate=l.endDate||''});
+  const s=C.settings||{};$('sob').value=s.openBefore??30;$('sla').value=s.lateAfter??10;$('scl').value=s.closeAfter??30;
+  const v=C.venue||{};$('vn').value=v.name||'';$('vlat').value=v.lat??'';$('vlng').value=v.lng??'';$('vr').value=v.radius||150;draw();drawLec()}
 $('here').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('vlat').value=p.coords.latitude.toFixed(6);$('vlng').value=p.coords.longitude.toFixed(6)},()=>alert('위치 권한을 허용해 주세요'),{enableHighAccuracy:true});
 function draw(){
-  $('gs').innerHTML=C.groups.map((g,i)=>`<div style="margin-bottom:10px"><div class="g"><input data-i="${i}" data-k="name" value="${g.name}" placeholder="단체명"><input data-i="${i}" data-k="pin" value="${g.pin}" placeholder="PIN"></div>
-    <textarea data-i="${i}" data-k="members" placeholder="한 줄에 한 명: 이름 전화번호뒤4자리 (예: 홍길동 1234)">${g.members.join('\n')}</textarea><button data-del="g${i}">단체 삭제</button></div>`).join('');
-  $('ls').innerHTML=C.lectures.map((l,i)=>`<div class="lrow"><input class="nmi" data-li="${i}" data-k="name" value="${l.name}" placeholder="강의명">
-    <select data-li="${i}" data-k="weekday">${[...DAY].map((d,n)=>`<option value="${n}" ${l.weekday==n?'selected':''}>${d}요일</option>`).join('')}</select>
-    <input type="time" data-li="${i}" data-k="start" value="${l.start}"><input type="time" data-li="${i}" data-k="end" value="${l.end}">
-    <button data-del="l${i}">삭제</button></div>`).join('');
+  $('gs').innerHTML=C.groups.map((g,i)=>`<div style="margin-bottom:12px"><div class="g"><input data-i="${i}" data-k="name" value="${esc(g.name)}" placeholder="단체명"><input data-i="${i}" data-k="pin" value="${esc(g.pin)}" placeholder="PIN"></div>
+    <textarea data-i="${i}" data-k="members" placeholder="한 줄에 한 명: 이름 전화번호뒤4자리 (예: 홍길동 1234)">${esc(g.members.join('\n'))}</textarea><button data-del="g${i}">단체 삭제</button></div>`).join('')||'<p class="un">등록된 단체가 없습니다. 위의 엑셀 가져오기나 [+ 단체 추가]를 사용하세요.</p>';
 }
+$('addg').onclick=()=>{C.groups.push({name:'',pin:String(Math.floor(1000+Math.random()*9000)),members:[]});draw()};
+async function saveCfg(){try{await api('/api/admin/config',{method:'PUT',body:JSON.stringify({...C,settings:{openBefore:$('sob').value,lateAfter:$('sla').value,closeAfter:$('scl').value},venue:{name:$('vn').value,lat:$('vlat').value,lng:$('vlng').value,radius:$('vr').value}})});await cfg();if(!$('v-set').hidden)loadLinks();alert('저장했습니다')}catch(e){alert(e.message)}}
+$('saveCfg').onclick=saveCfg;$('saveLec').onclick=saveCfg;
+
+// ── 강의 개설 ──
+$('nl-days').innerHTML=[...DAY].map((d,n)=>`<label><input type="checkbox" value="${n}"><span>${d}</span></label>`).join('');
+$('nl-add').onclick=()=>{
+  const name=$('nl-name').value.trim(),sd=$('nl-sd').value,ed=$('nl-ed').value,st=$('nl-start').value||'09:00',en=$('nl-end').value||'10:00';
+  let days=[...document.querySelectorAll('#nl-days input:checked')].map(x=>+x.value);
+  if(!name)return alert('강의 이름을 입력하세요');
+  if(sd&&sd===ed)days=[wdOf(sd)];
+  if(!days.length)return alert('요일을 하나 이상 선택하세요 (하루짜리 강의는 시작일=종료일로 지정)');
+  if(sd&&ed&&sd>ed)return alert('종료일이 시작일보다 빠릅니다');
+  days.forEach(w=>C.lectures.push({name,weekday:w,start:st,end:en,startDate:sd,endDate:ed,off:[]}));
+  $('nl-name').value='';document.querySelectorAll('#nl-days input').forEach(x=>x.checked=false);
+  drawLec();$('lecHint').textContent=`${days.length}개 강의를 추가했습니다 — [강의 저장]을 눌러 반영하세요`;$('lecHint').className='ab'};
+const ORDER=[1,2,3,4,5,6,0];
+function drawLec(){
+  const items=C.lectures.map((l,i)=>({l,i})).sort((a,b)=>ORDER.indexOf(+a.l.weekday)-ORDER.indexOf(+b.l.weekday)||String(a.l.start).localeCompare(b.l.start));
+  $('ls').innerHTML=items.length?`<div class="lgrid">${items.map(({l,i})=>`<div class="lcard">
+    <input class="nmi" data-li="${i}" data-k="name" value="${esc(l.name)}" placeholder="강의 이름">
+    <div class="row"><select data-li="${i}" data-k="weekday">${[...DAY].map((d,n)=>`<option value="${n}" ${l.weekday==n?'selected':''}>${d}요일</option>`).join('')}</select>
+      <input type="time" data-li="${i}" data-k="start" value="${l.start}"> ~ <input type="time" data-li="${i}" data-k="end" value="${l.end}"></div>
+    <div class="row">기간 <input type="date" data-li="${i}" data-k="startDate" value="${l.startDate||''}"> ~ <input type="date" data-li="${i}" data-k="endDate" value="${l.endDate||''}"></div>
+    <div>휴강일 ${l.off.map(d=>`<span class="chip">${d}<button data-offdel="${i}|${d}" title="취소">×</button></span>`).join('')||'<span class="un">없음</span>'}
+      <div class="row" style="margin-top:4px"><input type="date" id="off-${i}"> <button data-offadd="${i}">휴강 추가</button></div></div>
+    <div class="row"><button data-dup="${i}">복제</button><button data-del="l${i}">삭제</button></div></div>`).join('')}</div>`
+    :'<div class="card un">개설된 강의가 없습니다. 위에서 강의를 추가하세요.</div>'}
 document.addEventListener('input',e=>{const t=e.target;
   if(t.dataset.i!==undefined){const g=C.groups[t.dataset.i];g[t.dataset.k]=t.dataset.k==='members'?t.value.split('\n'):t.value}
-  if(t.dataset.li!==undefined)C.lectures[t.dataset.li][t.dataset.k]=t.value});
-document.addEventListener('click',e=>{const d=e.target.dataset?.del;if(!d)return;
-  if(!confirm('삭제할까요?'))return;(d[0]==='g'?C.groups:C.lectures).splice(+d.slice(1),1);draw()});
-$('addg').onclick=()=>{C.groups.push({name:'',pin:'',members:[]});draw()};
-$('addl').onclick=()=>{C.lectures.push({name:'',weekday:1,start:'09:00',end:'10:00'});draw()};
-$('saveCfg').onclick=async()=>{try{await api('/api/admin/config',{method:'PUT',body:JSON.stringify({...C,settings:{openBefore:$('sob').value,lateAfter:$('sla').value,closeAfter:$('scl').value},venue:{name:$('vn').value,lat:$('vlat').value,lng:$('vlng').value,radius:$('vr').value}})});await cfg();ov();alert('저장했습니다')}catch(e){alert(e.message)}};
-$('csv').onclick=async()=>{const r=await fetch(`/api/admin/export?from=${$('from').value}&to=${$('to').value}`,{headers:H()});
-  const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`attendance_${$('from').value}_${$('to').value}.csv`;a.click()};
-$('sgo').onclick=stats;
+  if(t.dataset.li!==undefined){C.lectures[t.dataset.li][t.dataset.k]=t.value;$('lecHint').textContent='변경됨 — [강의 저장]을 눌러 반영하세요';$('lecHint').className='ab'}
+  if(t.dataset.note)mn[t.dataset.note]=t.value});
+document.addEventListener('click',e=>{const d=e.target.dataset;if(!d)return;
+  if(d.del){if(!confirm(d.del[0]==='l'?'이 강의를 삭제할까요? (저장하면 이 강의의 출석 기록은 통계·현황에서 보이지 않게 됩니다)':'이 단체를 삭제할까요? (저장하면 소속 구성원과 기록이 함께 사라집니다)'))return;
+    (d.del[0]==='g'?C.groups:C.lectures).splice(+d.del.slice(1),1);draw();drawLec()}
+  if(d.dup!==undefined){const l=C.lectures[d.dup];C.lectures.push({...l,id:undefined,name:l.name+' (복사)',off:[...l.off]});drawLec()}
+  if(d.offadd!==undefined){const v=$('off-'+d.offadd).value;if(!v)return alert('휴강 날짜를 선택하세요');const l=C.lectures[d.offadd];if(!l.off.includes(v))l.off.push(v);l.off.sort();drawLec()}
+  if(d.offdel){const [i,v]=d.offdel.split('|');C.lectures[i].off=C.lectures[i].off.filter(x=>x!==v);drawLec()}});
+
+// ── 개인 출석 링크 ──
+let LK=[];
+const linkUrl=t=>location.origin+'/m/'+t;
+const MSG=url=>`[출석 안내]\n본인 전용 출석 링크입니다. 휴대폰 홈 화면에 추가해 두고, 교육 시작 전후에 눌러 주세요. (위치 권한을 허용해야 합니다)\n다른 사람에게 전달하지 마세요.\n${url}`;
+async function loadLinks(){try{LK=await api('/api/admin/links')}catch(e){$('links').innerHTML=`<span class="ab">${e.message}</span>`;return}
+  $('links').innerHTML=LK.map(g=>`<div style="margin-top:12px"><b>${esc(g.name)}</b> <small style="display:inline">(${g.members.length}명)</small> <button data-lkg="${g.id}">단체 목록 복사</button>
+    ${g.members.map(m=>`<div class="lk"><span class="nm">${esc(m.name)} ${m.bound?'<small style="display:inline">📱 기기 등록됨</small>':''}</span>
+      <button data-lkm="${m.id}">안내문+링크 복사</button><button data-lkr="${m.id}">새 링크 발급</button></div>`).join('')}</div>`).join('')||'<p class="un">구성원을 먼저 등록하세요.</p>'}
+$('lkall').onclick=()=>copy(LK.flatMap(g=>g.members.map(m=>`${g.name}\t${m.name}\t${linkUrl(m.token)}`)).join('\n'),'전체 링크 목록을 복사했습니다. 엑셀에 붙여넣으세요.');
+document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)return;
+  if(d.lkg){const g=LK.find(x=>x.id===d.lkg);copy(g.members.map(m=>`${m.name}\t${linkUrl(m.token)}`).join('\n'),g.name+' 링크 목록을 복사했습니다.')}
+  if(d.lkm){const m=LK.flatMap(g=>g.members).find(x=>x.id===d.lkm);copy(MSG(linkUrl(m.token)),m.name+'님께 보낼 안내문을 복사했습니다. 카톡에 붙여넣으세요.')}
+  if(d.lkr&&confirm('새 링크를 발급하면 이전 링크와 등록된 휴대폰이 모두 무효가 됩니다. 계속할까요?')){try{await api('/api/admin/regen',{method:'POST',body:JSON.stringify({memberId:d.lkr})});alert('새 링크를 발급했습니다. 다시 복사해서 보내 주세요.');loadLinks()}catch(er){alert(er.message)}}});
+
 // ---- 엑셀 명부 ----
 let IMP=null;
 const last4=v=>{const d=String(v??'').replace(/\D/g,'');return d?d.slice(-4).padStart(4,'0'):''};
@@ -184,28 +314,35 @@ $('xtpl').onclick=()=>{const ws=XLSX.utils.aoa_to_sheet([['단체','이름','전
   ws['!cols']=[{wch:20},{wch:14},{wch:18}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'명부');XLSX.writeFile(wb,'출석명부_양식.xlsx')};
 $('xexp').onclick=()=>{const rows=[['단체','이름','전화번호(뒤4자리)']];C.groups.forEach(g=>g.members.forEach(l=>{const m=l.trim().match(/^(.*\S)\s+(\d{4})$/);rows.push([g.name,m?m[1]:l.trim(),m?m[2]:''])}));
   const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:20},{wch:14},{wch:18}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'명부');XLSX.writeFile(wb,'출석명부.xlsx')};
-const DAYN=[...DAY];let M=null,mm={},mn={};
+
+
+// ── 수동 출석 ──
+let M=null,mm={},mn={};
 async function mInit(){if(!$('md').value)$('md').value=today();await mLec()}
-async function mLec(){const c=await api('/api/admin/config');const wd=new Date($('md').value+'T00:00:00Z').getUTCDay();
-  const ls=c.lectures.filter(l=>l.weekday===wd).sort((a,b)=>a.start.localeCompare(b.start));
-  $('ml').innerHTML=ls.length?ls.map(l=>`<option value="${l.id}">${l.start} ${l.name}</option>`).join(''):'<option value="">(이 요일엔 강의 없음)</option>'}
+async function mLec(){const c=await api('/api/admin/config');const date=$('md').value,wd=wdOf(date);
+  const ls=c.lectures.filter(l=>l.weekday===wd&&(!l.startDate||date>=l.startDate)&&(!l.endDate||date<=l.endDate)).sort((a,b)=>a.start.localeCompare(b.start));
+  $('ml').innerHTML=ls.length?ls.map(l=>`<option value="${l.id}">${l.start} ${esc(l.name)}${(l.off||[]).includes(date)?' (휴강일)':''}</option>`).join(''):'<option value="">(이 날 개설된 강의 없음)</option>'}
 $('md').onchange=mLec;
 $('mgo').onclick=async()=>{if(!$('ml').value)return;M=await api(`/api/admin/manual?date=${$('md').value}&lectureId=${$('ml').value}`);mm={};mn={};M.groups.forEach(g=>g.members.forEach(m=>mm[m.id]=m.status));mDraw()};
-const VIA={phone:'📱본인',kiosk:'📟태블릿','kiosk-manual':'📟태블릿',admin:'✍담당자',group:'👥단체대표'};
+const VIA={phone:'📱본인',admin:'✍담당자',group:'👥단체대표'};
 function mDraw(){
   const COL={P:'var(--p)',L:'var(--l)',A:'var(--a)'},NM={P:'출석',L:'지각',A:'결석'};
-  $('mout').innerHTML=`<b>${M.lecture.name}</b> <span class="un">${M.lecture.start}~${M.lecture.end}</span>`+M.groups.map(g=>`<div style="margin:14px 0 4px"><b>${g.name}</b> <button data-all="${g.id}">전원 출석</button></div>
-  ${g.members.map(m=>`<div class="mrow"><span class="nm">${m.name}${m.via?` <small style="display:inline">${VIA[m.via]||''}</small>`:''}</span>
+  $('mout').innerHTML=`<b>${esc(M.lecture.name)}</b> <span class="un">${M.lecture.start}~${M.lecture.end}</span>`+M.groups.map(g=>`<div style="margin:14px 0 4px"><b>${esc(g.name)}</b> <button data-all="${g.id}">전원 출석</button></div>
+  ${g.members.map(m=>`<div class="mrow"><span class="nm">${esc(m.name)}${m.via?` <small style="display:inline">${VIA[m.via]||''}</small>`:''}</span>
     <span class="seg">${['P','L','A'].map(s=>`<button data-mid="${m.id}" data-s="${s}" style="${mm[m.id]===s?'background:'+COL[s]+';color:#fff;border-color:transparent':''}">${NM[s]}</button>`).join('')}</span>
     ${m.bound?`<button data-rd="${m.id}" title="휴대폰을 바꾼 경우">기기 초기화</button>`:''}
-    ${(mm[m.id]==='L'||mm[m.id]==='A'||m.note||mn[m.id])?`<input data-note="${m.id}" placeholder="사유 메모 (선택)" value="${(mn[m.id]??m.note)||''}">`:''}</div>`).join('')}`).join('')+'<p><small>같은 버튼을 한 번 더 누르면 선택이 해제됩니다.</small><button class="pri" id="msave">저장</button></p>';
+    ${(mm[m.id]==='L'||mm[m.id]==='A'||m.note||mn[m.id])?`<input data-note="${m.id}" placeholder="사유 메모 (선택)" value="${esc((mn[m.id]??m.note)||'')}">`:''}</div>`).join('')}`).join('')+'<p><small>같은 버튼을 한 번 더 누르면 선택이 해제됩니다.</small><button class="pri" id="msave">저장</button></p>';
   $('msave').onclick=async()=>{try{const marks={};M.groups.forEach(g=>g.members.forEach(m=>{if((m.status||null)!==(mm[m.id]||null)||mn[m.id]!==undefined)marks[m.id]=mm[m.id]||null}));
     const r=await api('/api/admin/manual',{method:'PUT',body:JSON.stringify({date:$('md').value,lectureId:M.lecture.id,marks,notes:mn})});alert(r.changed+'건 저장했습니다');$('mgo').click()}catch(e){alert(e.message)}}}
-document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d||!M||$('v5').hidden)return;
+document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d||!M||$('v-man').hidden)return;
   if(d.mid!==undefined){mm[d.mid]=(mm[d.mid]===d.s)?null:(d.s||null);mDraw()}
   if(d.all){M.groups.find(g=>g.id===d.all).members.forEach(m=>mm[m.id]='P');mDraw()}
   if(d.rd&&confirm('이 구성원의 등록된 휴대폰을 초기화할까요?')){await api('/api/admin/reset-device',{method:'POST',body:JSON.stringify({memberId:d.rd})});alert('초기화했습니다');$('mgo').click()}});
-document.addEventListener('input',e=>{if(e.target.dataset.note)mn[e.target.dataset.note]=e.target.value});
+
+// ── 통계 ──
+$('sgo').onclick=stats;
+$('csv').onclick=async()=>{const r=await fetch(`/api/admin/export?from=${$('sf').value}&to=${$('st').value}`,{headers:H()});
+  const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`attendance_${$('sf').value}_${$('st').value}.csv`;a.click()};
 async function stats(){
   if(!$('sf').value){const t=today();$('sf').value=t.slice(0,8)+'01';$('st').value=t}
   const d=await api(`/api/admin/stats?from=${$('sf').value}&to=${$('st').value}`);
@@ -216,5 +353,6 @@ async function stats(){
   <h3>강의별</h3><table><tr><th>강의</th><th>요일/시간</th><th>실시</th><th>출석</th><th>지각</th><th>결석</th><th style="min-width:160px">출석률</th></tr>${d.lectures.map(l=>`<tr><td class="l">${l.name}</td><td>${DAY[l.weekday]} ${l.start}</td><td>${l.held}회</td><td class="ok">${l.P}</td><td class="late">${l.L}</td><td class="ab">${l.A}</td><td>${bar(l.rate)}</td></tr>`).join('')||'<tr><td colspan=7 class="un">실시된 교육이 없습니다</td></tr>'}</table>
   <h3>구성원별 (출석률 낮은 순)</h3><table><tr><th>이름</th><th>단체</th><th>출석</th><th>지각</th><th>결석</th><th style="min-width:160px">출석률</th></tr>${d.members.slice().sort((a,b)=>(a.rate??101)-(b.rate??101)).map(m=>`<tr><td class="l">${m.name}</td><td>${gm[m.groupId]||''}</td><td class="ok">${m.P}</td><td class="late">${m.L}</td><td class="ab">${m.A}</td><td>${bar(m.rate)}</td></tr>`).join('')}</table>`;
 }
+
 if(pw)api('/api/admin/config').then(start).catch(()=>{});
-</script><script src="/vendor/xlsx.full.min.js"></script></main></body></html>
+</script><script src="/vendor/xlsx.full.min.js"></script></body></html>

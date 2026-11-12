@@ -71,6 +71,8 @@ function dist(a, b, c, d) { // meters
   const x = Math.sin(dLat / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(x));
 }
+const lecturesOn = (date) => db.lectures.filter((l) => l.weekday === wd(date)
+  && (!l.startDate || date >= l.startDate) && (!l.endDate || date <= l.endDate) && !(l.off || []).includes(date));
 const kstNow = () => new Date(Date.now() + 9 * 3600e3);
 function sessionOf(token) { return db.sessions[token] && { token, ...db.sessions[token] }; }
 
@@ -89,7 +91,7 @@ function windowOf(date, l) {
 function currentLecture() { // 지금 출석 가능한 강의(시작 시각이 가장 가까운 것)
   const date = kstNow().toISOString().slice(0, 10);
   let best = null;
-  for (const l of db.lectures.filter((x) => x.weekday === wd(date))) {
+  for (const l of lecturesOn(date)) {
     const w = windowOf(date, l); if (w.err) continue;
     if (!best || Math.abs(w.diff) < best.d) best = { l, d: Math.abs(w.diff), w };
   }
@@ -150,7 +152,7 @@ function groupAuth(req, groupId) {
 }
 
 function overview(date) {
-  const lectures = db.lectures.filter((l) => l.weekday === wd(date))
+  const lectures = lecturesOn(date)
     .sort((a, b) => a.start.localeCompare(b.start));
   const day = db.records[date] || {};
   return lectures.map((l) => {
@@ -254,7 +256,7 @@ async function api(req, url) {
   }
 
 
-  // ---- 개인 링크(/m/토큰): NFC 스티커·QR 명찰로 열면 자동 출석 ----
+  // ---- 개인 링크(/m/토큰): 구성원 본인 전용, 열면 위치 확인 후 자동 출석 (첫 기기에 고정) ----
   if ((mm = p.match(/^\/api\/m\/([\w-]+)$/)) && m === 'GET') {
     const mem = memberByQr(mm[1]); if (!mem) return json(404, { error: '유효하지 않은 링크입니다' });
     const g = db.groups.find((x) => x.id === mem.groupId), now = currentLecture();
@@ -293,7 +295,7 @@ async function api(req, url) {
     const date = q.get('date'); if (!dateOk(date)) return json(400, { error: '날짜 오류' });
     const members = db.members.filter((x) => x.groupId === g.id).map(({ id, name }) => ({ id, name }));
     const day = db.records[date] || {};
-    const lectures = db.lectures.filter((l) => l.weekday === wd(date)).sort((a, b) => a.start.localeCompare(b.start))
+    const lectures = lecturesOn(date).sort((a, b) => a.start.localeCompare(b.start))
       .map((l) => ({ ...l, marks: ((day[l.id] || {})[g.id] || {}).marks || null }));
     return json(200, { group: { id: g.id, name: g.name }, members, lectures });
   }
@@ -326,29 +328,15 @@ async function api(req, url) {
         headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="attendance.csv"' } });
     }
     if (p === '/api/admin/stats' && m === 'GET') return json(200, stats(q.get('from') || '0000-00-00', q.get('to') || '9999-99-99'));
-    if (p === '/api/admin/cards' && m === 'GET') {
+    if (p === '/api/admin/links' && m === 'GET') { // 구성원별 개인 출석 링크(토큰)
       return json(200, db.groups.map((g) => ({ id: g.id, name: g.name,
-        members: db.members.filter((x) => x.groupId === g.id).map((x) => ({ name: x.name, qr: x.qr })) })));
+        members: db.members.filter((x) => x.groupId === g.id).map((x) => ({ id: x.id, name: x.name, token: x.qr, bound: !!(db.bindings || {})[x.id] })) })));
     }
-    if (p === '/api/admin/kiosk' && m === 'GET') { // 입구 태블릿: 지금 강의 + 오늘 강의 + 출석 현황
-      const now = currentLecture(), date = kstNow().toISOString().slice(0, 10);
-      const lid = q.get('lectureId') || (now && now.lecture.id);
-      const todays = db.lectures.filter((x) => x.weekday === wd(date)).sort((a, b) => a.start.localeCompare(b.start));
-      const lec = db.lectures.find((x) => x.id === lid);
-      const rec = (lec && (db.records[date] || {})[lec.id]) || {};
-      return json(200, { date, auto: !q.get('lectureId'), lectureId: lid || null, lectures: todays.map(({ id, name, start, end }) => ({ id, name, start, end })),
-        groups: db.groups.map((g) => ({ id: g.id, name: g.name, members: db.members.filter((x) => x.groupId === g.id).map((x) => ({ id: x.id, name: x.name, status: ((rec[g.id] || {}).marks || {})[x.id] || null })) })) });
-    }
-    if (p === '/api/admin/scan' && m === 'POST') { // 태블릿 카메라로 명찰 QR 인식 또는 이름 직접 선택
-      const b = await body(req);
-      const mem = b.memberId ? db.members.find((x) => x.id === b.memberId) : memberByQr(b.qr);
-      if (!mem) return json(404, { error: '등록되지 않은 QR입니다' });
-      const date = kstNow().toISOString().slice(0, 10);
-      const l = b.lectureId ? db.lectures.find((x) => x.id === b.lectureId) : (currentLecture() || {}).lecture;
-      if (!l) return json(403, { error: '지금 출석 가능한 강의가 없습니다' });
-      const w = windowOf(date, l); if (w.err) return json(403, { error: w.err });
-      const r = mark(date, l, mem, w.status, { via: b.memberId ? 'kiosk-manual' : 'kiosk' });
-      return json(200, { ok: true, name: mem.name, group: (db.groups.find((x) => x.id === mem.groupId) || {}).name, lecture: l.name, ...r });
+    if (p === '/api/admin/regen' && m === 'POST') { // 링크 유출·분실 시 새 링크 발급 (이전 링크·등록 휴대폰 무효)
+      const b = await body(req), mem = db.members.find((x) => x.id === b.memberId);
+      if (!mem) return json(404, { error: '구성원을 찾을 수 없습니다' });
+      mem.qr = newQr(); if (db.bindings) delete db.bindings[mem.id]; save();
+      return json(200, { ok: true, token: mem.qr });
     }
     if (p === '/api/admin/manual' && m === 'GET') {
       const date = q.get('date'), l = db.lectures.find((x) => x.id === q.get('lectureId'));
@@ -418,9 +406,12 @@ async function api(req, url) {
       }
       for (const l of b.lectures || []) {
         if (!l.name) continue;
+        const sd = dateOk(l.startDate) ? l.startDate : '', ed = dateOk(l.endDate) ? l.endDate : '';
+        const off = [...new Set((Array.isArray(l.off) ? l.off : String(l.off || '').split(/[\s,]+/)).filter(dateOk))].sort();
         lectures.push({
           id: l.id && db.lectures.some((x) => x.id === l.id) ? l.id : uid('l'),
-          name: l.name.trim(), weekday: +l.weekday, start: l.start || '09:00', end: l.end || '10:00',
+          name: l.name.trim(), weekday: sd && sd === ed ? wd(sd) : +l.weekday, // 하루짜리 강의는 날짜의 요일로 자동 지정
+          start: l.start || '09:00', end: l.end || '10:00', startDate: sd, endDate: ed, off,
         });
       }
       const st = b.settings || {}, num = (x, d) => (isFinite(+x) && x !== '' && x !== null ? Math.max(0, Math.round(+x)) : d);

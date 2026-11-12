@@ -25,7 +25,7 @@ export class AttendanceDO {
   }
 }
 
-const ROUTES = [['/c/', '/checkin.html', true], ['/m/', '/member.html', true], ['/kiosk', '/kiosk.html'], ['/cards', '/cards.html'], ['/admin', '/admin.html'], ['/', '/index.html']];
+const ROUTES = [['/c/', '/checkin.html', true], ['/m/', '/member.html', true], ['/admin', '/admin.html'], ['/', '/index.html']];
 
 export default {
   async fetch(request, env) {

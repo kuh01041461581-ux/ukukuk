@@ -104,8 +104,15 @@ def b12():                                                                  # �
             if Hh[r][c] == '1': px[x0 + 6 + c, y0 + 1 + r] = Gc
     return im
 
-def b48():                                                                  # 전국일등학교 → 남성고등학교: 크림색 벽 위쪽에 남색 'NS'(남성) 글자
-    im = Image.open('/tmp/pk/b48.d').convert('RGBA'); text(im, 19, 27, 'NS', (24, 52, 150), -0.5, gap=1, sx=2, sy=1); return im
+def b48():                                                                  # 전국일등학교 → 남성고등학교: 건물 꼭대기의 둥근 표지 자리에 학교 로고(사용자 제공 그림을 줄인 도트)
+    im = Image.open('/tmp/pk/b48.d').convert('RGBA'); ref = root + '/assets/iksan_ref/namsung_logo.jpg'
+    if os.path.exists(ref):
+        lg = Image.open(ref).convert('RGB'); N = 15; sm = lg.resize((N, N), Image.LANCZOS); px = im.load(); sp = sm.load()
+        for y in range(N):
+            for x in range(N):
+                if (x - (N - 1) / 2) ** 2 + (y - (N - 1) / 2) ** 2 <= (N / 2) ** 2:
+                    r, g, b = sp[x, y]; px[40 + x, 0 + y] = (r, g, b, 255)
+    return im
 
 if __name__ == '__main__':
     R.ensure_pk(); items = {'b32': b32, 'b45': b45, 'b8': b8, 'b3': b3, 'b15': b15, 'b19': b19, 'b44': b44, 'b12': b12, 'b48': b48}; ims = {}

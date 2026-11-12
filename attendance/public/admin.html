@@ -1,6 +1,7 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>출석 관리자</title>
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <style>
 :root{--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#777;--pri:#2f5d50;--p:#2e7d32;--l:#ef8f00;--a:#c62828;--line:#8884}
 @media(prefers-color-scheme:dark){:root{--bg:#171a19;--card:#222726;--ink:#eee;--mut:#9a9;--pri:#6fb59f}}
@@ -38,6 +39,7 @@ small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
 /* 개인 링크 */
 .lk{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}.lk .nm{flex:1 1 120px}
 
+#vmap{height:300px}.leaflet-container{font:inherit}
 /* ── 로그인 ── */
 #login{max-width:380px;margin:18vh auto}
 #login input{width:100%;margin:6px 0}
@@ -75,6 +77,7 @@ button,input,select{min-height:42px}
 <section id="v-ov">
   <h2>날짜별 현황</h2>
   <div class="row"><button id="prev">◀</button><input type="date" id="date"><button id="next">▶</button><button id="reload">새로고침</button></div>
+  <small style="margin-top:8px">참석자에게는 강의별 <b>[링크 복사]</b>(현장 코드 방식) 또는 <b>설정 → 구성원 개인 출석 링크</b>를 카톡으로 보내세요.</small>
   <div id="ov" class="card" style="margin-top:12px"></div>
 </section>
 <section id="v-lec" hidden>
@@ -114,8 +117,13 @@ button,input,select{min-height:42px}
     <h3 style="margin-top:0">출석 인정 시간</h3>
     <div class="row">시작 <input id="sob" type="number" min="0" style="width:70px">분 전부터 출석 가능 · 시작 후 <input id="sla" type="number" min="0" style="width:70px">분까지 <b>출석</b>, 이후 <input id="scl" type="number" min="0" style="width:70px">분까지 <b>지각</b>, 그 뒤는 마감</div>
     <h3>교육 장소 (위치 인증)</h3>
-    <div class="row">장소명 <input id="vn" size="14"> 위도 <input id="vlat" size="10"> 경도 <input id="vlng" size="10"> 반경(m) <input id="vr" size="4" type="number" style="width:80px"> <button id="here">현재 위치로 지정</button></div>
-    <small>교육장에 서서 [현재 위치로 지정]을 누르세요. 위도·경도를 비우면 위치 확인 없이 출석됩니다. 실내는 오차가 크므로 반경 100~200m 권장.</small>
+    <div class="row"><input id="vsearch" placeholder="주소·장소 검색 (예: 서울시청)" style="flex:1 1 220px"><button id="vfind">검색</button><button id="here">현재 위치로 지정</button></div>
+    <div id="vmap" style="height:320px;margin:10px 0;border:1px solid var(--line);border-radius:10px"></div>
+    <small>지도를 눌러 교육장 위치에 핀을 찍으세요. 핀은 끌어서 옮길 수 있고, 원이 출석 인정 범위입니다.</small>
+    <div class="row" style="margin-top:10px">장소명 <input id="vn" size="14"> 반경(m) <input id="vr" size="4" type="number" style="width:80px"></div>
+    <div class="row" style="margin-top:8px">위도 <input id="vlat" size="11"> 경도 <input id="vlng" size="11"> <a id="vg" target="_blank" rel="noopener"><button type="button">구글 지도에서 보기</button></a> <a id="vnv" target="_blank" rel="noopener"><button type="button">네이버 지도에서 보기</button></a></div>
+    <div class="row" style="margin-top:8px"><input id="vpaste" placeholder="구글·네이버 지도 링크 또는 좌표 붙여넣기" style="flex:1 1 260px"><button id="vpb">좌표 읽기</button></div>
+    <small>구글 지도에서 장소를 오른쪽 클릭(휴대폰은 길게 누르기)하면 맨 위에 나오는 좌표(예: 37.5665, 126.9780)를 붙여넣거나, 주소창의 링크를 붙여넣으세요. 짧은 링크(naver.me, goo.gl 등)는 좌표를 읽을 수 없습니다. 위도·경도를 비우면 위치 확인 없이 출석됩니다. 실내는 오차가 크므로 반경 100~200m 권장.</small>
   </div>
   <div class="card">
     <h3 style="margin-top:0">명부 엑셀 가져오기</h3>
@@ -153,7 +161,7 @@ const TABS=['ov','lec','man','stat','set'];
 function show(tab){TABS.forEach(t=>{$('v-'+t).hidden=t!==tab});
   document.querySelectorAll('nav [data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   try{sessionStorage.setItem('tab',tab)}catch{}
-  if(tab==='ov')ov();if(tab==='stat')stats();if(tab==='man')mInit();if(tab==='lec')drawLec();if(tab==='set'){draw();loadLinks()}
+  if(tab==='ov')ov();if(tab==='stat')stats();if(tab==='man')mInit();if(tab==='lec')drawLec();if(tab==='set'){draw();loadLinks();if(window.syncMap)setTimeout(syncMap,60)}
   window.scrollTo(0,0)}
 document.querySelectorAll('nav [data-tab]').forEach(b=>b.onclick=()=>show(b.dataset.tab));
 function start(){$('login').hidden=true;$('shell').hidden=false;$('date').value=$('date').value||today();$('sf').value=today().slice(0,8)+'01';$('st').value=today();
@@ -197,8 +205,7 @@ document.addEventListener('click',e=>{if(e.target.dataset.go)show(e.target.datas
 let C={groups:[],lectures:[]};
 async function cfg(){C=await api('/api/admin/config');C.lectures.forEach(l=>{l.off=l.off||[];l.startDate=l.startDate||'';l.endDate=l.endDate||''});
   const s=C.settings||{};$('sob').value=s.openBefore??30;$('sla').value=s.lateAfter??10;$('scl').value=s.closeAfter??30;
-  const v=C.venue||{};$('vn').value=v.name||'';$('vlat').value=v.lat??'';$('vlng').value=v.lng??'';$('vr').value=v.radius||150;draw();drawLec()}
-$('here').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{$('vlat').value=p.coords.latitude.toFixed(6);$('vlng').value=p.coords.longitude.toFixed(6)},()=>alert('위치 권한을 허용해 주세요'),{enableHighAccuracy:true});
+  const v=C.venue||{};$('vn').value=v.name||'';$('vlat').value=v.lat??'';$('vlng').value=v.lng??'';$('vr').value=v.radius||150;draw();drawLec();if(window.syncMap&&!$('v-set').hidden)syncMap()}
 function draw(){
   $('gs').innerHTML=C.groups.map((g,i)=>`<div style="margin-bottom:12px"><div class="g"><input data-i="${i}" data-k="name" value="${esc(g.name)}" placeholder="단체명"><input data-i="${i}" data-k="pin" value="${esc(g.pin)}" placeholder="PIN"></div>
     <textarea data-i="${i}" data-k="members" placeholder="한 줄에 한 명: 이름 전화번호뒤4자리 (예: 홍길동 1234)">${esc(g.members.join('\n'))}</textarea><button data-del="g${i}">단체 삭제</button></div>`).join('')||'<p class="un">등록된 단체가 없습니다. 위의 엑셀 가져오기나 [+ 단체 추가]를 사용하세요.</p>';
@@ -355,4 +362,49 @@ async function stats(){
 }
 
 if(pw)api('/api/admin/config').then(start).catch(()=>{});
-</script><script src="/vendor/xlsx.full.min.js"></script></body></html>
+</script><script src="/vendor/xlsx.full.min.js"></script><script src="/vendor/leaflet/leaflet.js"></script><script>// ── 교육 장소 지도 ──
+(function(){
+  let map,marker,circle;
+  const num=v=>{const n=parseFloat(v);return isFinite(n)?n:null};
+  const valid=(la,ln)=>la!=null&&ln!=null&&Math.abs(la)<=90&&Math.abs(ln)<=180;
+  function ensure(){if(map)return;
+    map=L.map('vmap').setView([36.5,127.8],7);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+    map.on('click',e=>setPos(e.latlng.lat,e.latlng.lng))}
+  function setPos(la,ln,zoom){$('vlat').value=la.toFixed(6);$('vlng').value=ln.toFixed(6);draw();if(zoom)map.setView([la,ln],Math.max(map.getZoom(),17))}
+  function links(la,ln){const ok=valid(la,ln);
+    $('vg').href=ok?`https://www.google.com/maps/search/?api=1&query=${la},${ln}`:'#';
+    $('vnv').href=ok?`https://map.naver.com/p?c=17.00,${ln},${la},0,0,0,dh`:'#'}
+  function draw(){ensure();
+    const la=num($('vlat').value),ln=num($('vlng').value),r=num($('vr').value)||150;links(la,ln);
+    if(!valid(la,ln)){if(marker){map.removeLayer(marker);marker=null}if(circle){map.removeLayer(circle);circle=null}return}
+    if(!marker){marker=L.marker([la,ln],{draggable:true}).addTo(map);marker.on('dragend',()=>{const p=marker.getLatLng();setPos(p.lat,p.lng)})}else marker.setLatLng([la,ln]);
+    if(!circle)circle=L.circle([la,ln],{radius:r,color:'#2f5d50',weight:2,fillOpacity:.12}).addTo(map);else circle.setLatLng([la,ln]).setRadius(r)}
+  // 구글·네이버 지도 링크 또는 "위도, 경도" 텍스트에서 좌표 추출
+  window.parseCoord=function(t){
+    t=String(t||'').trim();try{t=decodeURIComponent(t)}catch{}let m,la,ln;const N='(-?\\d{1,3}(?:\\.\\d+)?)';
+    if(m=t.match(new RegExp('^\\s*'+N+'\\s*[,\\s]\\s*'+N+'\\s*$')))[la,ln]=[+m[1],+m[2]];
+    else if(m=t.match(new RegExp('!3d'+N+'!4d'+N)))[la,ln]=[+m[1],+m[2]];
+    else if(m=t.match(new RegExp('@'+N+','+N)))[la,ln]=[+m[1],+m[2]];
+    else if(m=t.match(new RegExp('[?&](?:q|query|ll|destination)='+N+',\\+?'+N)))[la,ln]=[+m[1],+m[2]];
+    else if(m=t.match(new RegExp('[?&]lat='+N+'.*?[?&]lng='+N))||t.match(new RegExp('[?&]lng='+N+'.*?[?&]lat='+N)))
+      [la,ln]=/lat=.*lng=/.test(m[0])?[+m[1],+m[2]]:[+m[2],+m[1]];
+    else if(m=t.match(new RegExp('[?&]c='+N+','+N+','+N)))[la,ln]=[+m[3],+m[2]]; // 네이버: c=줌,경도,위도
+    else return null;
+    if(Math.abs(la)>90&&Math.abs(ln)<=90)[la,ln]=[ln,la];   // 순서가 뒤바뀐 경우
+    return valid(la,ln)?{lat:la,lng:ln}:null};
+  $('vpb').onclick=()=>{const p=parseCoord($('vpaste').value);
+    if(!p)return alert('좌표를 찾지 못했습니다.\n지도에서 장소를 오른쪽 클릭(휴대폰은 길게 누르기)해서 나오는 좌표(예: 37.5665, 126.9780)나 주소창의 링크를 붙여넣어 주세요. 짧은 링크(naver.me, goo.gl)는 읽을 수 없습니다.');
+    setPos(p.lat,p.lng,true);$('vpaste').value=''};
+  $('vpaste').onkeydown=e=>{if(e.key==='Enter')$('vpb').click()};
+  $('vfind').onclick=async()=>{const q=$('vsearch').value.trim();if(!q)return;
+    try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=ko&q='+encodeURIComponent(q));const j=await r.json();
+      if(!j.length)return alert('검색 결과가 없습니다. 지도를 직접 눌러 지정하거나, 구글·네이버 지도의 좌표를 붙여넣어 주세요.');
+      setPos(+j[0].lat,+j[0].lon,true);if(!$('vn').value)$('vn').value=q}
+    catch{alert('검색에 실패했습니다. 지도를 직접 눌러 지정해 주세요.')}};
+  $('vsearch').onkeydown=e=>{if(e.key==='Enter')$('vfind').click()};
+  $('here').onclick=()=>navigator.geolocation.getCurrentPosition(p=>setPos(p.coords.latitude,p.coords.longitude,true),()=>alert('위치 권한을 허용해 주세요'),{enableHighAccuracy:true});
+  ['vlat','vlng','vr'].forEach(id=>$(id).addEventListener('input',()=>{draw();const la=num($('vlat').value),ln=num($('vlng').value);if(valid(la,ln)&&id!=='vr')map.panTo([la,ln])}));
+  window.syncMap=function(){ensure();map.invalidateSize();draw();const la=num($('vlat').value),ln=num($('vlng').value);if(valid(la,ln))map.setView([la,ln],17)};
+})();
+</script></body></html>

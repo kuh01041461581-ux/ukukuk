@@ -367,9 +367,35 @@ def _cut_section(pkg, section_index, slice_, drop, blank_tables=None):
     return section
 
 
+_CONTENT_TAGS = {"tbl", "pic", "container", "rect", "line", "ellipse", "polygon", "arc", "curve", "textart", "equation", "ole", "video"}
+
+
+def _trim_leading_blank(section):
+    """맨 위의 빈 줄(글·표·그림이 없는 문단)을 없애고 쪽 설정(secPr)은 첫 내용 문단으로 옮긴다 — 제목 칸부터 첫 줄에서 시작하게"""
+    ps = section.findall(HP + "p")
+
+    def has_content(p):
+        return bool(own_text(p).strip()) or any(local(e) in _CONTENT_TAGS for e in p.iter())
+
+    first = next((i for i, p in enumerate(ps) if has_content(p)), None)
+    if not first:
+        return
+    lead = ps[:first]
+    moved = []
+    for p in lead:
+        for run in p.findall(HP + "run"):
+            if any(local(c) == "secPr" for c in run):
+                moved.append(run)
+    for p in lead:
+        section.remove(p)
+    target = ps[first]
+    for run in reversed(moved):
+        target.insert(0, run)
+
+
 def register_report(sample_path, out_dir, form_id, name, audience, fields, kind="report", note="", starter="",
                     slice_=None, drop=None, section_index=0, allow_no_body=False, blank_tables=None, fix=None,
-                    body_from=None, plain_body=False, body_from_text=None, body_tail=0, frame_only=False):
+                    body_from=None, plain_body=False, body_from_text=None, body_tail=0, frame_only=False, trim_lead_off=False):
     """샘플 hwpx → 양식 폴더(form.json, template.hwpx, protos.xml).
 
     fields: [{"key","label","sample"(샘플에 들어 있던 글자),"repl"(선택: 바꿀 글자, {{키}} 포함),
@@ -383,6 +409,8 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
     flatten_mixed(section)
     if fix:
         fix(section)                      # 양식마다 손봐야 하는 틀 (예: 제목 칸 글자를 자리표시로)
+    if not frame_only and not allow_no_body and not trim_lead_off:
+        _trim_leading_blank(section)      # 본문이 있는 보고 양식은 맨 위 빈 줄 없이 제목 칸부터
     if frame_only:                        # 틀만 있는 양식(표지·목록 등): 본문 찾기를 하지 않는다
         body_from_text = body_from = None
     if body_from_text is not None:        # 본문이 시작하는 문단을 글자로 지정 (쪽을 잘라 번호가 바뀌어도 안전)

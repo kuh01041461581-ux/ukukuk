@@ -1079,7 +1079,7 @@ class Btn(_Anim, tk.Canvas):
         t, acc = _q(self.t), self.kind == "accent"
         dy = 2 if self.pressed else -int(round(1.5 * t))      # 올리면 살짝 떠오르고 누르면 눌림 — 아이콘·글자가 함께
         pad = 5
-        r = (h - 2 * pad) // 2
+        r = 8                                                # 네모 바탕 + 모서리만 둥글게
         if acc:
             im = liquid_img(w - 2 * pad, h - 2 * pad, r, base=(238, 214), tint=(C_G1, C_G2), t=t, pressed=self.pressed, pad=pad)
             fg = "white"
@@ -1137,11 +1137,11 @@ class Chip(_Anim, tk.Canvas):
         s, t = self.size, self.t
         t = _q(t)
         fill = C_PRESS if self.pressed else _mix(C_CARD, C_HOVER, t)
-        im = aa_shape(s - 2, s - 2, 10, fill, outline=_mix(C_LINE, C_ACC, t))
+        im = aa_shape(s - 2, s - 2, 8, fill, outline=_mix(C_LINE, C_ACC, t))
         if im is not None:
             self.create_image(1, 1, image=im, anchor="nw")
         else:
-            round_rect(self, 1, 1, s - 2, s - 2, 10, fill=fill, outline=_mix(C_LINE, C_ACC, t))
+            round_rect(self, 1, 1, s - 2, s - 2, 8, fill=fill, outline=_mix(C_LINE, C_ACC, t))
         c = s // 2
         if self.badge:
             n, solid = self.badge
@@ -1391,8 +1391,8 @@ class GlassHeader(tk.Canvas):
             return None
         if on:
             cc = self.colors.get(key if key != "__more" else self.active, C_ACC)
-            return liquid_img(s["w"], s["h"], 15, base=(255, 244), tint=(_mix(cc, "#000000", 0.08), _lighter(cc, 0.12)), t=t, pressed=p, pad=self.PAD)
-        return liquid_img(s["w"], s["h"], 15, base=(int(70 + 165 * t) if not p else 238, int(24 + 150 * t) if not p else 196),
+            return liquid_img(s["w"], s["h"], 9, base=(255, 244), tint=(_mix(cc, "#000000", 0.08), _lighter(cc, 0.12)), t=t, pressed=p, pad=self.PAD)
+        return liquid_img(s["w"], s["h"], 9, base=(int(70 + 165 * t) if not p else 238, int(24 + 150 * t) if not p else 196),
                           t=t, pressed=p, pad=self.PAD)
 
 

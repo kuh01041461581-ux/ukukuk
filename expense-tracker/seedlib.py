@@ -299,7 +299,15 @@ def extract_form_rows(wb, limit=4000):
     어떤 열에 무엇이 있는지는 화면 쪽에서 계약번호·납부번호와 맞춰 보며 찾습니다."""
     import datetime
     rows = []
-    for ws in wb.worksheets:
+    def _head_has_id(ws):
+        for r in range(1, min(ws.max_row, 30) + 1):
+            vals = [txt(ws.cell(r, c).value) for c in range(1, min(ws.max_column, 40) + 1)]
+            if sum(bool(v) for v in vals) >= 3:
+                return any(("계좌번호" in v or "지로번호" in v or "계약번호" in v or "고객번호" in v or "납부번호" in v) for v in vals)
+        return False
+    sheets = [ws for ws in wb.worksheets if not any(w in ws.title for w in ("설명", "참고", "안내"))]
+    id_sheets = [ws for ws in sheets if _head_has_id(ws)]
+    for ws in (id_sheets or sheets):
         header, hdr_row = [], None
         for r in range(1, min(ws.max_row, 30) + 1):
             vals = [ws.cell(r, c).value for c in range(1, min(ws.max_column, 40) + 1)]

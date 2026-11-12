@@ -13,7 +13,9 @@ async function handleFiles(files, intent) {
   const pdfs = files.filter(f => /\.pdf$/i.test(f.name)), xls = files.filter(f => /\.xls[xm]$/i.test(f.name));
   const other = files.length - pdfs.length - xls.length;
   if (other) toast('엑셀(.xlsx)과 PDF만 읽을 수 있습니다 — 건너뛴 파일 ' + other + '개');
-  for (const f of xls) await importExcelFile(f, intent);
+  const forms = [];
+  for (const f of xls) { const res = await importExcelFile(f, intent); if (res && res.form) forms.push(res); }
+  if (forms.length) openPayForm(forms.flatMap(f => f.form.map(r => ({ ...r, file: f.file }))), forms.map(f => f.file).join(', '));
   if (pdfs.length) {
     showTab('import');
     for (const f of pdfs) await handlePdf(f);     // 여러 PDF는 종류별로 각각 미리보기에 쌓임
@@ -25,7 +27,7 @@ async function importExcelFile(file, intent) {
     toast('엑셀을 읽는 중… ' + file.name);
     const r = await api().import_xlsx_data(file.name, await fileToBase64(file), S.year, intent === 'form' ? 'form' : 'auto');
     if (r.error) { alert(r.error); return; }
-    if (r.form) { openPayForm(r.form, file.name); return; }
+    if (r.form) return { form: r.form, file: file.name };
     if (r.ledger) {
       const d = new Date(file.lastModified || Date.now());
       const asOf = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');

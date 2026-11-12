@@ -61,11 +61,19 @@ function utilStat() {
   </div>`;
   return h;
 }
+function fwdNums(str) {
+  return String(str || '').split(/\s*\/\s*/).filter(Boolean).map(v => `<b class="nv sm" data-copy="${esc(v.replace(/^농협\s*/, ''))}" data-tip="누르면 복사">${esc(v)}</b>`).join('');
+}
 function utilFwd() {
-  const parts = CATS.map(([k, nm]) => { const sec = S.util[k]; if (!sec || !(sec.forwards || []).length) return '';
-    return `<div class="card" style="margin-top:0;margin-bottom:12px"><h2>${sec.title} — 타 계·부서 전달처 (${sec.forwards.length}건)</h2><div class="tbl-wrap fit"><table class="t"><thead><tr><th>관리 항목</th><th>번호</th><th>전달처</th><th>비고</th></tr></thead><tbody>
-      ${sec.forwards.map(f => `<tr><td>${esc(f.name)}</td><td class="nolist">${esc(f.numbers)}</td><td>${esc(f.to)}</td><td>${esc(f.memo)}</td></tr>`).join('')}</tbody></table></div></div>`; }).join('');
-  return parts || '<div class="empty">전달처 안내 정보가 없습니다</div>';
+  const q = UI.util.fq || '';
+  const rows = [];
+  CATS.forEach(([k, nm]) => { const sec = S.util[k]; if (sec) (sec.forwards || []).forEach(f => { if (matchFwd(f, q, nm)) rows.push({ k, nm, f }); }); });
+  const total = sum(CATS, ([k]) => S.util[k] ? (S.util[k].forwards || []).length : 0);
+  return `<div class="card" style="margin-top:0"><div class="row" style="justify-content:space-between;margin-bottom:8px"><h2 style="margin:0">다른 계에 전달할 고지서 <span class="muted" style="font-weight:400;font-size:12px">${rows.length}/${total}건 · 번호를 누르면 복사</span></h2>
+    <input type="search" data-u="fq" data-nav="fq" value="${esc(q)}" placeholder="번호·관리항목·전달처 검색 (Ctrl+F 는 전체 검색)" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface-2);width:320px"></div>
+    <div class="tbl-wrap fit fit-fwd"><table class="t"><thead><tr><th>구분</th><th>관리 항목</th><th>번호 (계약·수전·계좌)</th><th style="width:150px">전달처</th><th>비고</th></tr></thead><tbody>
+    ${rows.map(({ k, nm, f }) => `<tr><td><span class="badge" style="background:color-mix(in srgb,${CATCOLOR[k]} 18%,transparent);color:var(--text)">${nm}</span></td><td class="nolist"><b>${esc(f.name)}</b></td><td><div class="fwdnums">${fwdNums(f.numbers)}</div></td><td><span class="fwdtag lg">→ ${esc(f.to || '-')}</span></td><td class="muted">${esc(f.memo)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">찾는 항목이 없습니다</td></tr>'}
+    </tbody></table></div></div>`;
 }
 function renderUtil() {
   const P = $('#p-util'); const u = UI.util; u.sub = u.sub || 'pay'; const snap = scrollSnap(P);
@@ -89,13 +97,17 @@ function visibleItems(sec) {
   const u = UI.util;
   return sec.items.filter(i => (u.showInactive || !i.inactive) && matchItem(i, u.q));
 }
-function numLines(sec, it) {
+function numLines(sec, it, big) {
+  if (big) {
+    const n = (cls, lbl, v) => v ? `<div class="nc ${cls}"><span class="nl">${lbl}</span><b class="nv" data-copy="${esc(v)}" data-tip="누르면 복사">${esc(v)}</b></div>` : '';
+    return `<div class="numcard">${it.carrier ? `<span class="badge gray">${esc(it.carrier)}</span>` : ''}${n('pri', sec.no2Label, it.no2)}${n('sec', sec.no1Label, it.no1)}</div>`;
+  }
   const c = (lbl, v) => v ? `<span>${lbl} <b data-copy="${esc(v)}" data-tip="누르면 복사">${esc(v)}</b></span>` : '';
   return `<div class="numline">${it.carrier ? `<span class="badge gray">${esc(it.carrier)}</span>` : ''}${c(sec.no1Label, it.no1)}${c(sec.no2Label, it.no2)}</div>`;
 }
-function itemCell(sec, it) {
-  return `<div class="nolist"><b>${esc(it.name)}</b></div>${numLines(sec, it)}
-    ${it.forward ? `<span class="badge warn">전달처: ${esc(it.forward)}</span>` : ''}${it.inactive ? '<span class="badge gray">미사용/사용자 납부</span>' : ''}
+function itemCell(sec, it, big) {
+  return `<div class="nolist itname"><b>${esc(it.name)}</b>${it.forward ? `<span class="fwdtag">→ ${esc(it.forward)} 전달</span>` : ''}</div>${numLines(sec, it, big)}
+    ${it.inactive ? '<span class="badge gray">미사용/사용자 납부</span>' : ''}
     ${it.memo ? `<span class="hint">${esc(it.memo)}</span>` : ''}`;
 }
 /* 체크박스 한 칸 */
@@ -118,7 +130,7 @@ function monthView(sec, m, dm) {
       <span class="badge ${recv === n ? 'good' : 'warn'}">수령 ${recv}/${n}</span><span class="badge ${paid === n ? 'good' : 'bad'}">납부 ${paid}/${n}</span>
       ${cnt(0) ? `<span class="badge warn">미수령 ${cnt(0)}건</span>` : ''}${cnt(1) ? `<span class="badge bad">미납 ${cnt(1)}건 · ${won(uAmt)}원</span>` : ''}${cnt(2) ? `<span class="badge gray">청구없음 ${cnt(2)}</span>` : ''}
       <span>입력 합계 <b>${won(tot)}원</b></span>${prev != null ? `<span class="muted">전월 ${won(prev)}원</span>` : ''}${pyT ? `<span class="muted">전년 같은 달 ${won(pyT)}원</span>` : ''}
-      <span class="spacer"></span><div class="pills">${[['all', '전체'], ['todo', '처리 필요'], ['miss', '미수령'], ['unpaid', '미납']].map(([k, nm]) => `<button class="pill" aria-pressed="${u.filter === k}" data-act="filter" data-v="${k}">${nm}</button>`).join('')}</div></div>`;
+      <span class="spacer"></span><div class="pills">${[['all', '전체'], ['todo', '처리 필요'], ['miss', '미수령'], ['unpaid', '납부할 것(수령함)']].map(([k, nm]) => `<button class="pill" aria-pressed="${u.filter === k}" data-act="filter" data-v="${k}">${nm}</button>`).join('')}</div></div>`;
   if (!rows.length) return h + `<div class="empty">${u.filter === 'all' ? '표시할 항목이 없습니다' : '해당하는 고지서가 없습니다 👍'}</div>`;
   h += `<div class="tbl-wrap fit fit-pay"><table class="t"><thead><tr><th style="width:220px">고지서 확인</th><th>관리 항목 · 번호</th><th style="width:160px">${MON[m]}분 금액(원)</th><th>전월</th><th>전년 같은 달</th></tr></thead><tbody>`;
   for (const it of rows) {
@@ -126,7 +138,7 @@ function monthView(sec, m, dm) {
     const diff = a && p ? (a - p) / p * 100 : null;
     h += `<tr class="${it.inactive ? 'inactive' : ''} st${st}">
       <td>${statusCell(it, m)}</td>
-      <td class="name">${itemCell(sec, it)}<button class="btn sm noprint" data-act="edititem" data-id="${it.id}">편집</button></td>
+      <td class="name">${itemCell(sec, it, true)}<button class="btn sm noprint" data-act="edititem" data-id="${it.id}">편집</button></td>
       <td><input class="cellin" data-u="amt" data-id="${it.id}" data-m="${m}" data-nav="a-${it.id}" value="${a == null ? '' : won(a)}" inputmode="numeric" aria-label="${esc(it.name)} ${MON[m]}분 금액">
           <span class="stlabel s${st}">${{ 0: '미수령', 1: '수령 · 미납', 3: '납부 완료', 2: '청구없음' }[st]}</span></td>
       <td class="num muted">${pv ? won(pv) : ''}</td>
@@ -156,7 +168,7 @@ PU.addEventListener('change', e => {
   const t = e.target, u = t.dataset.u; if (!u) return;
   if (u === 'inactive') { UI.util.showInactive = t.checked; renderUtil(); return; }
   if (u === 'series') { UI.util.series[t.dataset.cat] = t.checked; if (!visSeries().length) { UI.util.series[t.dataset.cat] = true; toast('최소 한 개는 선택해야 합니다'); } renderUtil(); return; }
-  if (u === 'q') return;
+  if (u === 'q' || u === 'fq') return;
   const v = parseNum(t.value);
   if (u === 'budget') { S.utilBudget[t.dataset.cat] = v && !isNaN(v) ? v : null; save(); renderUtil(); return; }
   const sec = S.util[UI.util.cat]; const it = sec.items.find(x => x.id === t.dataset.id); if (!it) return; const m = +t.dataset.m;
@@ -168,6 +180,7 @@ PU.addEventListener('change', e => {
 });
 PU.addEventListener('input', e => {
   if (e.target.dataset.u === 'q') { UI.util.q = e.target.value; pendingFocus = 'q'; UI._noKeep = true; renderUtil(); }
+  if (e.target.dataset.u === 'fq') { UI.util.fq = e.target.value; pendingFocus = 'fq'; UI._noKeep = true; renderUtil(); }
 });
 PU.addEventListener('keydown', e => { if (e.target.matches('input.cellin')) { const n = e.target.dataset.nav; enterNext(e, n.startsWith('y') ? n.split('-')[0] + '-' : n.slice(0, 2)); } });
 PU.addEventListener('focusin', e => { if (e.target.matches('input.cellin')) { const v = parseNum(e.target.value); e.target.value = v == null || isNaN(v) ? '' : String(v); e.target.select(); } });

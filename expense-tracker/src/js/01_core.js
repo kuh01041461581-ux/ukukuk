@@ -151,6 +151,11 @@ document.addEventListener('mousemove', e => {
   tip.style.top = (e.clientY + 18 + h > innerHeight ? e.clientY - h - 12 : e.clientY + 18) + 'px';
 });
 
+function matchFwd(f, q, extra) {
+  const terms = String(q || '').split(/\s+/).map(normQ).filter(Boolean); if (!terms.length) return true;
+  const hay = normQ([f.name, f.numbers, f.to, f.memo, extra].join(' '));
+  return terms.every(t => hay.includes(t));
+}
 /* 다시 그려도 스크롤 위치 유지 (체크·금액 입력처럼 '그 자리에서' 하는 작업용).
    탭·월·종류 전환처럼 화면이 바뀌는 작업은 UI._noKeep = true 로 맨 위부터 보이게 한다. */
 function scrollSnap(P) { if (UI._noKeep) { UI._noKeep = false; return null; } return { win: window.scrollY, fits: $$('.fit', P).map(e => [e.scrollTop, e.scrollLeft]), dlg: null }; }

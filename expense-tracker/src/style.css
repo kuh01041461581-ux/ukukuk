@@ -777,3 +777,37 @@ svg:has(.barflat:hover) .barflat:not(:hover){opacity:.45}
 #dropov{background:rgba(37,99,184,.12)!important}
 #dropov div{background:var(--surface)!important;box-shadow:0 12px 36px rgba(20,28,45,.25)!important}
 .cat-cards{margin-top:14px!important}
+
+/* ===== 지로(납부)번호 크게 · 전달처 눈에 띄게 · 비고 칩 ===== */
+.itname{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.itname b{font-size:15px}
+.numcard{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-top:3px}
+.nc{display:flex;flex-direction:column;line-height:1.2}
+.nc .nl{font-size:10.5px;color:var(--text-3)}
+.nv{font-family:ui-monospace,"Cascadia Mono",Consolas,"D2Coding",monospace;font-variant-numeric:tabular-nums;cursor:pointer;border-bottom:1px dotted var(--text-3);font-weight:700}
+.nc.pri .nv{font-size:16px;letter-spacing:.02em}
+.nc.sec .nv{font-size:12.5px;color:var(--text-2);font-weight:600}
+.nv.sm{font-size:13px;margin-right:12px;display:inline-block}
+.fwdtag{display:inline-block;background:var(--warn-soft);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);border-radius:999px;padding:1px 10px;font-size:12px;font-weight:800}
+.fwdtag.lg{font-size:14px;padding:3px 12px}
+.fwdnums{display:flex;flex-wrap:wrap;gap:2px 0;margin-top:3px}
+.fwdrow{background:color-mix(in srgb,var(--warn) 4%,var(--surface))}
+.fit-fwd{max-height:calc(100vh - 260px)}
+/* 수령했고 납부할 줄은 또렷하게 */
+tr.st1 td:first-child .chk.pay i{width:24px;height:24px;border-color:var(--bad);border-width:2.5px}
+tr.st1 td:first-child .chk.pay{font-size:15px;color:var(--bad)}
+/* 비고 칩 */
+.nchips{display:flex;flex-wrap:wrap;gap:5px}
+.nchip{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-size:13px;line-height:1.35}
+.nchip.sch{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.nchips.sm .nchip{font-size:12px;padding:1px 7px}
+.amt{font-variant-numeric:tabular-nums;color:var(--accent)}
+.nchip.sch .amt{color:var(--warn)}
+.notet td{vertical-align:top;padding:8px 10px}
+.notet tr.clk{cursor:pointer}.notet tr.clk:hover td{background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.remv2{display:block;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.notet tr.rem-low .remv2{color:var(--warn)}.notet tr.rem-bad .remv2{color:var(--bad)}
+.fit-note{max-height:calc(100vh - 250px)}
+td.notecol{min-width:300px;max-width:420px}
+td.notecol .nchips{margin-bottom:5px}
+td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}

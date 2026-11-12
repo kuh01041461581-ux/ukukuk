@@ -51,6 +51,32 @@ function goLine(id) {
   tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1800);
 }
 
+/* 비고를 '용도' 조각으로 나눠 한눈에: 쉼표·슬래시로 구분, 금액은 굵게 */
+function noteChips(text, extraSched) {
+  const parts = String(text || '').split(/\s*(?:,\s+|\s\/\s|\n|，|;\s+)\s*/).map(x => x.trim()).filter(Boolean);
+  const fmt = t => esc(t).replace(/(\d[\d,]*\s*(?:만원|천원|원))/g, '<b class="amt">$1</b>');
+  const chips = parts.map(t => `<span class="nchip">${fmt(t)}</span>`);
+  (extraSched || []).forEach(x => chips.push(`<span class="nchip sch">예정 · ${esc(x.text || '')} <b class="amt">${won(x.amount)}원</b></span>`));
+  return chips.join('') || '<span class="muted">비고 없음</span>';
+}
+function goNote(id) {
+  UI.dsub = 'table'; UI._noKeep = true; renderDaily();
+  const el = document.querySelector(`textarea[data-f=note][data-id="${id}"]`); if (!el) return;
+  el.scrollIntoView({ block: 'center' }); el.focus();
+  const tr = el.closest('tr'); tr && tr.classList.add('flash'); setTimeout(() => tr && tr.classList.remove('flash'), 1800);
+}
+/* 용도(비고) 탭: 어디에 쓰는 돈인지 + 잔액 */
+function dailyNoteTab() {
+  const rows = GROUPS.map(g => {
+    const Ls = S.lines.filter(l => l.group === g); if (!Ls.length) return '';
+    return `<tr class="grp"><td colspan="3">${g}</td></tr>` + Ls.map(l => { const c = calc(l);
+      return `<tr class="clk ${remCls(l)}" data-act="gonote" data-id="${l.id}"><td class="nm2"><b>${esc(l.label)}</b>${(l.group === '업무추진비' || l.group === '여비') ? `<span class="hint">${esc(l.biz)}</span>` : ''}</td>
+        <td class="num"><span class="remv2 ${c.remain < 0 ? 'neg' : ''}">${won(c.remain)}</span><span class="hint">예산 ${won(l.budget)} · 지출 ${won(l.spent)}</span></td>
+        <td><div class="nchips">${noteChips(l.note, l.scheduled)}</div></td></tr>`; }).join('');
+  }).join('');
+  return `<div class="card" style="margin-top:12px"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">용도(비고) 한눈에 <span class="muted" style="font-weight:400;font-size:12px">줄을 누르면 비고를 고칠 수 있어요</span></h2></div>
+    <div class="tbl-wrap fit fit-note"><table class="t notet"><thead><tr><th style="width:230px">사업명</th><th style="width:170px">잔액</th><th>비고 · 어떤 항목에 쓰는 돈인지</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
 function welcomeHTML() {
   return `<div class="card" style="text-align:center;padding:40px 20px"><h2 style="font-size:18px">처음 오셨네요 — 파일을 끌어 놓아 시작하세요</h2>
     <p class="sub">기존에 쓰던 <b>엑셀</b>(일상경비 집행현황 · 공공요금 · 통계목별 조회=실집행액)과 <b>합본예산서 PDF</b>를 이 창에 끌어 놓으면 종류를 자동으로 알아보고 채워 줍니다.</p>
@@ -109,13 +135,14 @@ function renderDaily() {
   if (!S.lines.length) { P.innerHTML = welcomeHTML(); return; }
   const T = groupTotals(S.lines), el = elapsed(), diff = T.rate - el;
   UI.dailySort = UI.dailySort || 'group'; UI.dsub = UI.dsub || 'now'; UI.alertsAll = !!UI.alertsAll;
-  const SUBS = [['now', '현황 · 잔액'], ['chart', '그래프'], ['table', '입력 표']];
+  const SUBS = [['now', '현황 · 잔액'], ['note', '용도(비고)'], ['chart', '그래프'], ['table', '입력 표']];
   let h = `<div class="row noprint subbar">
     <div class="pills subtabs" role="tablist">${SUBS.map(([k, n]) => `<button class="pill" role="tab" aria-pressed="${UI.dsub === k}" data-act="dsub" data-v="${k}">${n}</button>`).join('')}</div>
     <span class="spacer"></span><span class="muted">${esc(S.year)}년 · ${esc(S.asOf)} 기준</span>
     <button class="btn sm" data-act="addline">＋ 행 추가</button><button class="btn sm" data-act="copytsv" data-tip="엑셀·한글에 붙여넣을 수 있게 표를 복사합니다">표 복사</button><button class="btn sm" data-act="print">인쇄</button>
   </div>`;
   if (UI.dsub === 'now') h += dailyNow(T, el, diff, dailyAlerts());
+  else if (UI.dsub === 'note') h += dailyNoteTab();
   else if (UI.dsub === 'chart') h += dailyChartTab(T, el);
   else h += dailyTable();
   P.innerHTML = h; $$('textarea.cellin', P).forEach(autoGrow); scrollRestore(P, snap); restoreFocus();
@@ -145,7 +172,7 @@ function dailyTable() {
             ${unpaid ? `<span class="hint" data-tip="원인행위(계약)는 했지만 아직 지출되지 않은 금액입니다">미지출 계약 ${won(unpaid)}</span>` : ''}</td>
         <td class="num ${c.remain < 0 ? 'neg' : ''}">${won(c.remain)}${c.sch ? `<span class="hint">예정 반영 ${won(c.remainAfter)}</span>` : ''}</td>
         <td><div class="rate">${barHTML(l.spent, c.sch, l.budget)}<b>${pct1(c.rate)}</b></div></td>
-        <td><textarea class="cellin" data-f="note" data-id="${l.id}" rows="1">${esc(l.note)}</textarea>${(l.scheduled || []).length ? `<span class="hint">예정: ${esc(l.scheduled.map(x => x.text + ' ' + won(x.amount)).join(', '))}</span>` : ''}</td>
+        <td class="notecol"><div class="nchips sm">${noteChips(l.note, [])}</div><textarea class="cellin" data-f="note" data-id="${l.id}" rows="1" placeholder="비고 (어떤 항목에 쓰는지)">${esc(l.note)}</textarea>${(l.scheduled || []).length ? `<span class="hint">예정: ${esc(l.scheduled.map(x => x.text + ' ' + won(x.amount)).join(', '))}</span>` : ''}</td>
         <td class="noprint"><button class="btn sm" data-act="editline" data-id="${l.id}" aria-label="행 편집">⚙</button></td></tr>`;
     });
   }
@@ -178,6 +205,7 @@ $('#p-daily').addEventListener('click', e => {
   else if (a === 'alertsall') { UI.alertsAll = !UI.alertsAll; renderDaily(); }
   else if (a === 'sortd') { UI.dailySort = b.dataset.v; UI._noKeep = true; renderDaily(); }
   else if (a === 'goline') goLine(b.dataset.id);
+  else if (a === 'gonote') goNote(b.dataset.id);
   else if (a === 'goutil') { const u = UI.util; u.cat = b.dataset.cat; u.sub = 'pay'; u.filter = 'todo'; u.q = ''; u.month = defaultMonth(S.util[u.cat]); showTab('util'); }
   else if (a === 'copytsv') copyText(dailyTSV(), '표를 복사했습니다 — 엑셀·한글에 붙여넣으세요');
   else if (a === 'print') { $$('.tab-panel').forEach(p => p.classList.toggle('printing', p.id === 'p-daily')); window.print(); }

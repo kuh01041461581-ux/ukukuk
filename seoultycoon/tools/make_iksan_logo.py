@@ -55,3 +55,39 @@ for (x0, y0, x1, y1) in ((76, 0, 111, 19), (94, 19, 111, 54), (88, 29, 111, 54),
     for _y in range(y0, min(y1, _m3.height)):
         for _x in range(x0, min(x1, _m3.width)): _p[_x, _y] = (0, 0, 0, 0)
 _m3.save(root + '/st2android/mod/3.m', format='PNG')
+
+# 시작 화면의 제작사 로고 두 장(25.m 넥슨모바일, 24.m 치즈케이크) → 마룡이 도트 / 익산시 표지(직접 만든 간단한 표지: 석탑 아이콘 + 글자. 익산시 공식 상징물을 본뜬 것이 아니다)
+from PIL import ImageDraw as _ID, ImageFont as _IF
+_mar = root + '/st2android/mod/f7.d'
+if os.path.exists(_mar):
+    _f = Image.open(_mar).convert('RGBA'); _f = _f.crop(_f.getbbox()); _c = Image.new('RGBA', (76, 73), (0, 0, 0, 0))
+    _c.alpha_composite(_f, ((76 - _f.width) // 2, max(0, (73 - _f.height) // 2))); _c.save(root + '/st2android/mod/25.m', format='PNG')
+_t = Image.new('RGBA', (114, 21), (0, 0, 0, 0)); _d = _ID.Draw(_t); _G, _B = (0, 132, 72, 255), (20, 70, 150, 255)
+for _i, (_w, _y) in enumerate(((3, 2), (9, 4), (7, 7), (13, 9), (11, 12), (17, 14))):            # 석탑 아이콘(지붕돌·몸돌 3층) + 기단
+    _d.rectangle([12 - _w // 2, _y, 12 + _w // 2, _y + (1 if _i % 2 else 2)], fill=_G)
+_d.rectangle([2, 17, 22, 19], fill=_G)
+_fk = _IF.truetype(root + '/android/assets/galmuri11.ttf', 12); _d.fontmode = '1'
+_d.text((29, 0), '익산시', font=_fk, fill=_G); _d.text((29, 0 + 1), '', font=_fk, fill=_G)
+_d.text((68, 0), 'IKSAN', font=_fk, fill=_B); _d.text((29, 10), '백제왕도 세계유산도시', font=_IF.truetype(root + '/android/assets/galmuri11.ttf', 12), fill=(90, 90, 100, 255)) if False else None
+_d.line([(29, 15), (110, 15)], fill=(255, 150, 30, 255), width=2)
+_t.save(root + '/st2android/mod/24.m', format='PNG')
+
+# 타이틀 그림(1.m, 176x178)은 화면(240) 가운데에만 그려져 좌우가 파란 띠로 빈다 → 좌우 32칸씩을 가장자리 그림을 뒤집어 이어 붙여 화면 폭을 채운다
+_t1 = Image.open(root + '/work/st2/1.m').convert('RGBA'); _wide = Image.new('RGBA', (240, _t1.height), (0, 0, 0, 0)); _wide.alpha_composite(_t1, (32, 0))
+_SW = 6                                                             # 가장자리 6칸(하늘·구름·풀밭만 있는 부분)을 뒤집어 가며 이어 붙인다(건물이 복제되지 않게)
+_ls = _t1.crop((0, 0, _SW, _t1.height)); _rs = _t1.crop((176 - _SW, 0, 176, _t1.height))
+for _k in range(0, 32 // _SW + 1):
+    _a = _ls.transpose(Image.FLIP_LEFT_RIGHT) if _k % 2 == 0 else _ls; _wide.alpha_composite(_a, (max(0, 32 - _SW * (_k + 1)), 0)) if 32 - _SW * (_k + 1) >= -_SW + 1 else None
+    _b = _rs.transpose(Image.FLIP_LEFT_RIGHT) if _k % 2 == 0 else _rs
+    if 208 + _SW * _k < 240: _wide.alpha_composite(_b, (208 + _SW * _k, 0))
+_wide.alpha_composite(_t1, (32, 0))
+_wide.save(root + '/st2android/mod/1.m', format='PNG')
+# 그림 윗변이 배경 파랑과 선으로 갈라져 보이지 않게, 위 14줄을 배경색으로 서서히 섞는다
+_BG = (44, 164, 220); _pw = _wide.load()
+for _y in range(14):
+    _k = 1 - _y / 14.0
+    for _x in range(240):
+        _r, _g, _b, _a = _pw[_x, _y]
+        if _a: _pw[_x, _y] = (int(_r + (_BG[0] - _r) * _k), int(_g + (_BG[1] - _g) * _k), int(_b + (_BG[2] - _b) * _k), 255)
+        else: _pw[_x, _y] = _BG + (255,)
+_wide.save(root + '/st2android/mod/1.m', format='PNG')

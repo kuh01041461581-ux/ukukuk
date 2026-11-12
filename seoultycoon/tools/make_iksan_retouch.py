@@ -104,8 +104,11 @@ def b12():                                                                  # �
             if Hh[r][c] == '1': px[x0 + 6 + c, y0 + 1 + r] = Gc
     return im
 
+def b48():                                                                  # 전국일등학교 → 남성고등학교: 크림색 벽 위쪽에 남색 'NS'(남성) 글자
+    im = Image.open('/tmp/pk/b48.d').convert('RGBA'); text(im, 19, 27, 'NS', (24, 52, 150), -0.5, gap=1, sx=2, sy=1); return im
+
 if __name__ == '__main__':
-    R.ensure_pk(); items = {'b32': b32, 'b45': b45, 'b8': b8, 'b3': b3, 'b15': b15, 'b19': b19, 'b44': b44, 'b12': b12}; ims = {}
+    R.ensure_pk(); items = {'b32': b32, 'b45': b45, 'b8': b8, 'b3': b3, 'b15': b15, 'b19': b19, 'b44': b44, 'b12': b12, 'b48': b48}; ims = {}
     for n, fn in items.items(): ims[n] = fn(); ims[n].save(f'{out}/{n}.png')
     if len(sys.argv) > 1:
         W = sum(i.width * 5 + 10 for i in ims.values()); H = max(i.height * 5 for i in ims.values()); w = Image.new('RGBA', (W, H), (60, 60, 70, 255)); x = 0

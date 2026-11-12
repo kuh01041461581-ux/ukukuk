@@ -8,7 +8,7 @@ root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 out = root + '/work/pak_mod'
 MT = {(21,154,70),(71,149,73),(8,104,8),(106,151,81),(24,120,24),(10,82,9),(109,179,83),(76,175,80),(8,152,8),(8,120,8),(24,152,27),(8,136,8),(8,120,24),(45,146,41),(30,136,26),(24,152,8),(24,136,8),(74,143,48)}
 # 화강암(황등석: 분홍빛 회색) 단계별 색: 어두운 골 → 밝은 면
-RAMP = [(96, 86, 80), (124, 112, 104), (150, 138, 128), (174, 162, 150), (196, 184, 170), (214, 202, 188)]
+RAMP = [(74, 72, 70), (104, 100, 96), (132, 128, 122), (158, 154, 146), (182, 178, 168), (204, 200, 190)]      # 회색 화강암(도로·건물의 회색과 어울리는 톤)
 SOIL = [(120, 84, 52), (150, 108, 66), (178, 136, 84)]
 
 def load(n):
@@ -33,26 +33,21 @@ def quarry(n, seed):
     lo, hi_ = np.percentile(hb[mask], 4), np.percentile(hb[mask], 96); N = 6
     tt = np.clip((hb - lo) / max(1e-6, hi_ - lo), 0, 1)                      # 0(골짜기)~1(능선)
     lev = np.clip((tt * N).astype(int), 0, N - 1)
-    res = a.copy(); B4 = ((0, 2), (3, 1))
+    res = a.copy(); B8 = ((0, 8, 2, 10), (12, 4, 14, 6), (3, 11, 1, 9), (15, 7, 13, 5))
+    # 원본 산 그림의 붓터치(능선·골의 명암)를 그대로 살리고 색만 바꾼다: 각 화소의 밝기를 화강암 색띠에 대응시키고,
+    # 높은 곳일수록 바위가 드러나도록 4x4 격자 디더로 숲과 섞는다(낮은 곳은 숲 그대로) → 주변 산·숲과 이어진다.
+    l0, l1 = np.percentile(lum[mask], 3), np.percentile(lum[mask], 97)
     for y in range(h):
         for x in range(w):
             if not mask[y, x]: continue
-            t = tt[y, x]; dth = (B4[y % 2][x % 2] - 1.5) / 4.0 * 0.10
-            # 산자락(낮은 곳)은 원래 숲을 그대로 둔다 → 숲 속을 깎아 낸 채석장으로 보인다. 경계는 흙·풀을 섞는다
-            if t + dth < 0.26: continue
-            if t + dth < 0.36:
-                if (x * 7 + y * 13) % 3: res[y, x, :3] = SOIL[(x + y) % 3]
-                continue
-            # 화강암: 높이에 따라 이어지는 색(격자 디더로 단을 부드럽게) + 벤치(단) 가장자리 음영
-            f = min(len(RAMP) - 1.001, max(0.0, (t + dth - 0.30) / 0.70 * (len(RAMP) - 1))); i0 = int(f); fr = f - i0
+            t = tt[y, x]; p = (t - 0.34) / 0.36; p = 0.0 if p < 0 else (1.0 if p > 1 else p * p * (3 - 2 * p))
+            if p * 16.0 <= B8[y % 4][x % 4] + 0.5: continue                      # 숲(원본 화소) 유지
+            v = max(0.0, min(0.999, (lum[y, x] - l0) / max(1e-6, l1 - l0))); f = v * (len(RAMP) - 1); i0 = int(f); fr = f - i0
             c = [RAMP[i0][q] * (1 - fr) + RAMP[i0 + 1][q] * fr for q in range(3)]
-            L = lev[y, x]; up = lev[y - 1, x] if y > 0 else L; lf = lev[y, x - 1] if x > 0 else L; dn = lev[y + 1, x] if y < h - 1 else L
-            if up > L or lf > L: c = [v * 0.72 for v in c]                  # 단 아래 그늘(수직 절개면)
-            elif dn < L: c = [min(255, v * 1.08 + 4) for v in c]             # 단 끝 밝은 모서리
-            nz = rnd.random()
-            if nz < 0.05: c = [v * 0.90 for v in c]
-            elif nz > 0.985 and t > 0.55: c = [70 + rnd.randrange(30), 140 + rnd.randrange(30), 60]      # 바위틈 풀
-            res[y, x, :3] = [int(v) for v in c]
+            L = lev[y, x]; up = lev[y - 1, x] if y > 0 else L
+            if up > L and t > 0.5: c = [v_ * 0.80 for v_ in c]                    # 채석 단(벤치) 아래 가는 그늘선
+            if rnd.random() > 0.975: c = [58 + rnd.randrange(24), 128 + rnd.randrange(24), 52]     # 바위틈 풀
+            res[y, x, :3] = [int(v_) for v_ in c]
     return Image.fromarray(np.clip(res, 0, 255).astype(np.uint8), 'RGBA')
 
 NAMES = ['d5', 'd6', 'd15', 'd16', 'd25', 'd26', 'd50', 'd51', 'd60', 'd70']

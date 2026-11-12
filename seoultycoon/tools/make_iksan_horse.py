@@ -303,7 +303,7 @@ def horse_rider():
 hr = horse_rider()
 def horse_draw():
     shadow([G(0.40, 0.60), G(0.56, 0.60), G(0.60, 0.70), G(0.42, 0.72)], 105, 7)
-    canvas.alpha_composite(hr, (int(27 * S), int(26.5 * S)))
+    canvas.alpha_composite(hr, (int((27 + float(os.environ.get('IKSAN_DX', '0'))) * S), int((26.5 + float(os.environ.get('IKSAN_DY', '0'))) * S)))      # IKSAN_DX/DY: 애니메이션 프레임용 말 위치 이동(px)
 objs.append((AC + BC + 0.05, horse_draw))
 objs.append((AC + BC + 0.9, fence(True)))
 

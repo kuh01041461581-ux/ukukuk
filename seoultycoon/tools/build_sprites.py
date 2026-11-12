@@ -25,9 +25,9 @@ def on_tile(F, yc):
         for x in range(F.width):
             if y > yc + 24 - abs(x - 48) * 24 / 47.0: px[x, y] = (0, 0, 0, 0)
     return F
-def horse():
+def horse(dx=0, dy=0):
     Hc, yc = ST.canvas(9); tmp = '/tmp/_iksan_b9.png'
-    subprocess.run([sys.executable, '-I', f'{here}/make_iksan_horse.py'], check=True, stdout=subprocess.DEVNULL, env=dict(os.environ, IKSAN_OVR=f'{Hc},{yc}', IKSAN_OUT=tmp))
+    subprocess.run([sys.executable, '-I', f'{here}/make_iksan_horse.py'], check=True, stdout=subprocess.DEVNULL, env=dict(os.environ, IKSAN_OVR=f'{Hc},{yc}', IKSAN_OUT=tmp, IKSAN_DX=str(dx), IKSAN_DY=str(dy)))
     return Image.open(tmp).convert('RGBA')
 ITEMS[9] = horse
 for k, fn in sorted(ITEMS.items()):
@@ -38,7 +38,9 @@ for k, fn in sorted(ITEMS.items()):
     if F.size != (96, Hc): F2 = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); F2.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = F2
     F = on_tile(F, yc)
     if k != 9: F = PS.stylize(F)
-    S, rects, pos = ST.to_sheet(k, F, [PS.twinkle(F, 0), PS.twinkle(F, 1)]); S.save(f'{out}/b{k}.png'); ST.patch_yx(yx, k, rects, pos)
+    # 애니메이션 프레임: 구성물이 실제로 움직이는 변형 그림을 우선 쓰고(승마장: 말이 울타리 안을 걷는다), 없으면 불빛 변형
+    vs = [on_tile(horse(6, 2), yc)] if k == 9 else [PS.twinkle(F, 0), PS.twinkle(F, 1)]
+    S, rects, pos = ST.to_sheet(k, F, vs); S.save(f'{out}/b{k}.png'); ST.patch_yx(yx, k, rects, pos)
     for fi in range(len(ST.TABLE[k]['frames'])): show.append((k, F, ST.compose(k, S, rects, frame=fi, pos=pos)))
 open(root + '/st2android/mod/yx.d', 'wb').write(yx)
 import enhance_orig as EN

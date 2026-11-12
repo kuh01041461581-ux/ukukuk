@@ -47,6 +47,15 @@ def detail(im):
     def mix(x, y, col, k):
         if 0 <= x < w and 0 <= y < h and al[y, x]: rgb[y, x] = rgb[y, x] * (1 - k) + np.array(col, dtype=np.float32) * k
     SH, SH2 = (226, 168, 132), (196, 132, 100)
+    # 0) 나이 들어 보이는 주름 지우기: 눈 밑(다크서클·잔주름)과 입 주변(팔자주름·입꼬리 주름)의 그늘을 밝은 피부색으로 편다. 눈·눈썹·입술(짙거나 붉은 화소)은 그대로.
+    LIGHT = (255, 236, 214)
+    for y in range(8, 22):
+        for x in range(w):
+            if not al[y, x]: continue
+            c = rgb[y, x]; L = lum(c)
+            lip = 15 <= y <= 21 and 7 <= x <= 16 and (c[0] > c[2] + 45 or L < 120)
+            if L < 100 or lip: continue
+            if L < 232: mix(x, y, LIGHT, 0.85)
     # 1) 윤곽 음영: 관자놀이~볼 옆은 얇게, 광대 아래부터 턱까지는 넓고 짙게 → 얼굴이 작고 갸름해 보인다
     for y in range(h):
         xs = np.where(al[y])[0]
@@ -75,7 +84,6 @@ def detail(im):
         for x in (x0, x1):
             if lum(rgb[ye + 1, x]) >= 95: mix(x, ye + 1, (255, 250, 246), 0.7)                     # 흰자
         mix(mid - 1 if c0 < 12 else mid + 1, ye + 1, (255, 255, 255), 0.9)                         # 반사광
-        for x in range(x0 + 1, x1): mix(x, ye + 2, SH, 0.35)                                       # 애교살 아래 그늘
     # 4) 입술: 입 선(짙은 줄) 위는 윗입술, 아래는 도톰한 아랫입술 + 광택
     best = None
     for y in range(16, 22):
@@ -89,7 +97,6 @@ def detail(im):
         for x in range(x0 + 1, x1):
             if not (rgb[y + 1, x] > 235).all(): mix(x, y + 1, (238, 112, 128), 0.80)
         mix((x0 + x1) // 2, y + 1, (255, 206, 210), 0.85)
-        for x in range(x0 + 2, x1 - 1): mix(x, y + 2, SH, 0.40)
     r = np.zeros((h, w, 4), np.uint8); r[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8); r[..., 3] = al * 255
     return Image.fromarray(r, 'RGBA')
 FEMALE = {'ff3', 'ff4', 'ff5', 'ff9', 'ff10', 'ff11'}

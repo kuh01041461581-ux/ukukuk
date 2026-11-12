@@ -8,6 +8,8 @@ from PIL import Image, ImageDraw, ImageFilter
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 out = root + '/work/pak_mod'; os.makedirs(out, exist_ok=True)
 S, W, H = 8, 96, 69
+_OVR = os.environ.get('IKSAN_OVR')            # 'Hc,yc': 게임 조각 규칙용 캔버스(2:1 바닥). build_sprites 가 준다
+if _OVR: H = int(_OVR.split(',')[0])
 WS, HS = W * S, H * S
 rnd = random.Random(11); nrs = np.random.RandomState(3)
 def hx(h, a=255): return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4)) + (a,)
@@ -15,6 +17,7 @@ def lerp(c0, c1, t): return tuple(int(c0[i] * (1 - t) + c1[i] * t) for i in rang
 
 # 아이소 바닥(다이아몬드): 지면 좌표 (a: 오른쪽 아래로, b: 왼쪽 아래로), z: 위로(1x 픽셀)
 TT, RR, LL = (48, 26), (95, 45), (1, 45)
+if _OVR: _yc = int(_OVR.split(',')[1]); TT, RR, LL = (48, _yc - 24), (95, _yc), (1, _yc)
 def G(a, b, z=0.0):
     return ((TT[0] + a * (RR[0] - TT[0]) + b * (LL[0] - TT[0])) * S, (TT[1] + a * (RR[1] - TT[1]) + b * (LL[1] - TT[1]) - z) * S)
 def newlayer(): return Image.new('RGBA', (WS, HS), (0, 0, 0, 0))
@@ -314,7 +317,7 @@ rgb = (a[..., :3] * al[..., None]).reshape(H, S, W, S, 3).sum((1, 3)) / np.maxim
 res = np.zeros((H, W, 4), np.uint8); res[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8); res[..., 3] = (al_s > 0.5) * 255
 # 약한 선명화로 도트 윤곽 정리
 im = Image.fromarray(res, 'RGBA'); rgb_im = im.convert('RGB').filter(ImageFilter.UnsharpMask(radius=0.8, percent=60, threshold=2)); res2 = np.asarray(rgb_im).copy()
-final = np.dstack([res2, res[..., 3]]); fin = Image.fromarray(final, 'RGBA'); fin.save(out + '/b9.png')
+final = np.dstack([res2, res[..., 3]]); fin = Image.fromarray(final, 'RGBA'); fin.save(os.environ.get('IKSAN_OUT', out + '/b9.png'))
 if len(sys.argv) > 1:
     bg = Image.new('RGBA', fin.size, (150, 70, 160, 255)); bg.alpha_composite(fin); bg.resize((W * 8, H * 8), Image.NEAREST).save(sys.argv[1])
 print('승마장 → b9.png')

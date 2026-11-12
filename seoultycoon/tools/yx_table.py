@@ -14,10 +14,10 @@ def load(path=None):
     pos = 1332; recs = []
     while pos < len(d) - 3:
         p0, p1, nF = d[pos], d[pos + 1], d[pos + 2]; q = pos + 3
-        fr = [(d[q + 2 * i], d[q + 2 * i + 1]) for i in range(nF)]; q += 2 * nF; frames = []
+        fr = [(d[q + 2 * i], d[q + 2 * i + 1]) for i in range(nF)]; q += 2 * nF; frames = []; offs = []
         for (st, cnt) in fr:
-            frames.append([(d[q + 3 * j], d[q + 3 * j + 1], d[q + 3 * j + 2]) for j in range(cnt)]); q += 3 * cnt
-        recs.append({'p': (p0, p1), 'frames': frames}); pos = q
+            frames.append([(d[q + 3 * j], d[q + 3 * j + 1], d[q + 3 * j + 2]) for j in range(cnt)]); offs.append([q + 3 * j for j in range(cnt)]); q += 3 * cnt
+        recs.append({'p': (p0, p1), 'frames': frames, 'offs': offs}); pos = q
     H = sheet_sizes(); nrect = (1332 - 132) // 4; R = [tuple(d[132 + 4 * i:136 + 4 * i]) for i in range(nrect)]
     start = 0; out = {}
     for k, r in enumerate(recs):

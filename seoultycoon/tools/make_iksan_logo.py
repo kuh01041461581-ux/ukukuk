@@ -48,3 +48,10 @@ out = root + '/st2android/mod/0.m'; os.makedirs(os.path.dirname(out), exist_ok=T
 if len(sys.argv) > 1:
     bg = Image.new('RGBA', (W, H), (40, 150, 220, 255)); bg.alpha_composite(img); bg.resize((W * 4, H * 4), Image.NEAREST).save(sys.argv[1])
 print('logo →', out)
+
+# 타이틀 화면의 통신사·배급사 표기 지우기 (3.m: PRESS ANY KEY 말풍선 옆에 magic / KTF / n / NEXON MOBILE Corporation 이 한 장에 들어 있다)
+_m3 = Image.open(root + '/work/st2/3.m').convert('RGBA'); _p = _m3.load()
+for (x0, y0, x1, y1) in ((76, 0, 111, 19), (94, 19, 111, 54), (88, 29, 111, 54), (54, 30, 111, 54), (0, 43, 111, 54)):
+    for _y in range(y0, min(y1, _m3.height)):
+        for _x in range(x0, min(x1, _m3.width)): _p[_x, _y] = (0, 0, 0, 0)
+_m3.save(root + '/st2android/mod/3.m', format='PNG')

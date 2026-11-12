@@ -29,48 +29,41 @@ def entries(k):
         for e in f:
             if e not in out: out.append(e)
     return out
-def compose(k, S, rects=None, frame=-1):
+def compose(k, S, rects=None, frame=-1, pos=None):
     r, main, MY = info(k); rs = rects or r['rects']; H = S.size[1]; Hc = MY + main[3] + 16
     C = Image.new('RGBA', (max(96, S.size[0]) + 8, Hc), (0, 0, 0, 0))
     C.alpha_composite(S.crop((64, H - 8, 96, H)), (32, MY + main[3] + 8)); C.alpha_composite(S.crop((0, H - 8, 64, H)), (16, MY + main[3]))
     for (i, x, y) in r['frames'][frame]:
         q = rs[i]
         if q[2] <= 1: continue
+        if pos and i in pos: x, y = pos[i]
         C.alpha_composite(S.crop((q[0], q[1], q[0] + q[2], q[1] + q[3])), (x, y))
     return C
 def to_sheet(k, F):
-    """완성 그림 F(폭 96, 높이 canvas(k)[0])를 시트로.
-    조각의 화면 위치(왼쪽 위)는 고정이지만 크기와 시트 안 위치는 자유이므로, 메인보다 위에 놓이는 조각마다 '화면 오른쪽 끝(96)·메인 윗변'까지 넓힌 칸을 주고
-    새 시트에 세로로 차례로 쌓는다: [위쪽 조각들][메인][바닥 끝 8줄]. 메인 위에 덧그려지는 조각(차·깃발 등)은 끈다(1x1).
-    반환 (시트, 새 조각 사각형 목록)."""
+    """완성 그림 F(폭 96, 높이 canvas(k)[0])를 시트로. 반환 (시트, 새 조각 사각형 목록, 새 화면 위치 {조각: (x, y)}).
+    조각의 시트 칸·크기·화면 위치는 모두 yx.d 의 값이므로, 메인 위쪽 전체(96 x MY)를 조각 하나에 담아 화면 (0,0)에 놓는다 → 건물 위쪽이 어디서도 잘리지 않는다.
+    그 조각은 모든 프레임에 나오는 것 중에서 고르고, 나머지 덧조각은 끈다(1x1). 시트: [줄 0 비움][위쪽 조각][메인][바닥 끝 8줄]."""
     r, main, MY = info(k); rs = r['rects']; mh = main[3]
-    pos = {}
-    for e in entries(k): pos.setdefault(e[0], (e[1], e[2]))
-    ups = sorted([i for i in pos if i != 0 and pos[i][1] < MY and rs[i][2] >= 2], key=lambda i: (pos[i][1], pos[i][0]))
-    # 같은 범위를 더 넓게 덮는 조각이 있으면 뺀다
-    keep = []
-    for i in ups:
-        x, y = pos[i]
-        if any(pos[j][0] <= x and pos[j][1] <= y for j in keep): continue
-        keep.append(i)
-    new = [(95, 0, 1, 1)] * len(rs); sy = 1; parts = []
-    for i in keep:
-        x, y = pos[i]; w, h = 96 - x, MY - y
-        new[i] = (0, sy, w, h); parts.append((i, sy)); sy += h
+    common = [i for i in range(1, len(rs)) if all(any(e[0] == i for e in f) for f in r['frames'])]
+    new = [(95, 0, 1, 1)] * len(rs); pos = {}; sy = 1; up = None
+    if MY > 0 and common:
+        up = common[0]; new[up] = (0, sy, 96, MY); pos[up] = (0, 0); sy += MY
     new[0] = (0, sy, 96, mh); H = sy + mh + 8
     S = Image.new('RGBA', (96, H), (0, 0, 0, 0))
-    for i, y0 in parts:
-        x, y = pos[i]; q = new[i]; S.paste(F.crop((x, y, x + q[2], y + q[3])), (0, y0))
+    if up is not None: S.paste(F.crop((0, 0, 96, MY)), (0, 1))
     S.paste(F.crop((0, MY, 96, MY + mh)), (0, sy))
     for rr in range(8):
         S.paste(F.crop((16, MY + mh + rr, 80, MY + mh + rr + 1)), (0, H - 8 + rr)); S.paste(F.crop((32, MY + mh + 8 + rr, 64, MY + mh + 9 + rr)), (64, H - 8 + rr))
     px = S.load()
-    for x in range(96): px[x, 0] = (0, 0, 0, 0)                 # 줄 0 은 비워 둔다(꺼진 조각이 가리키는 (95,0))
-    return S, new
+    for x in range(96): px[x, 0] = (0, 0, 0, 0)
+    return S, new, pos
 def coverage(k):
     """새 도트가 보일 수 있는 영역(조립 그림 좌표의 불리언 배열)."""
-    Hc, yc = canvas(k); F = Image.new('RGBA', (96, Hc), (255, 255, 255, 255)); S, new = to_sheet(k, F)
-    return np.asarray(compose(k, S, new))[:, :96, 3] > 0
-def patch_yx(d, k, rects):
-    start = TABLE[k]['start']
-    for i, r in enumerate(rects): d[132 + 4 * (start + i): 136 + 4 * (start + i)] = bytes(r)
+    Hc, yc = canvas(k); F = Image.new('RGBA', (96, Hc), (255, 255, 255, 255)); S, new, pos = to_sheet(k, F)
+    return np.asarray(compose(k, S, new, pos=pos))[:, :96, 3] > 0
+def patch_yx(d, k, rects, pos=None):
+    r = TABLE[k]; start = r['start']
+    for i, q in enumerate(rects): d[132 + 4 * (start + i): 136 + 4 * (start + i)] = bytes(q)
+    for f, offs in zip(r['frames'], r['offs']):
+        for e, o in zip(f, offs):
+            if pos and e[0] in pos: d[o + 1] = pos[e[0]][0]; d[o + 2] = pos[e[0]][1]

@@ -72,7 +72,21 @@ class Package:
     def section(self, i=0):
         return self.xml(self.section_names()[i])
 
+    def fix_sec_count(self):
+        """머리(header.xml)의 구역 수(secCnt)를 실제 구역 파일 수에 맞춘다 — 2구역 샘플에서 한 구역만 떼어 만든 양식이
+        secCnt=2 로 남으면 한글이 '파일이 손상되었습니다'라고 한다"""
+        n = len([k for k in list(self.files) + list(self._xml) if re.fullmatch(r"Contents/section\d+\.xml", k)])
+        n = len({k for k in list(self.files) + list(self._xml) if re.fullmatch(r"Contents/section\d+\.xml", k)})
+        if "Contents/header.xml" in self._xml:
+            self._xml["Contents/header.xml"].set("secCnt", str(max(1, n)))
+        elif "Contents/header.xml" in self.files:
+            data = self.files["Contents/header.xml"]
+            head, tail = data[:4000], data[4000:]
+            head = re.sub(rb'(secCnt=")\d+(")', rb"\g<1>%d\g<2>" % max(1, n), head, count=1)
+            self.files["Contents/header.xml"] = head + tail
+
     def to_bytes(self):
+        self.fix_sec_count()
         for name, root in self._xml.items():
             self.files[name] = dump_xml(root)
         if "version.xml" in self.files:           # 한글 2020 에서 '상위 버전' 경고가 뜨지 않게 파일 형식 버전을 2020 수준(5.0.5.0)으로 맞춘다

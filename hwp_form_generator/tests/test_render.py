@@ -341,6 +341,13 @@ class PackageSafetyTests(unittest.TestCase):
             self.assertEqual(sec.count("<hp:fieldBegin"), sec.count("<hp:fieldEnd"), fid)
             ver = z.read("version.xml").decode("utf-8")
             self.assertIn('minor="0"', ver, fid)
+            import re as _re
+            head = z.read("Contents/header.xml")[:4000].decode("utf-8", "ignore")
+            nsec = len([n for n in z.namelist() if _re.fullmatch(r"Contents/section\d+\.xml", n)])
+            self.assertEqual(int(_re.search(r'secCnt="(\d+)"', head).group(1)), nsec, fid)    # 구역 수가 어긋나면 '파일 손상'
+            hpf = z.read("Contents/content.hpf").decode("utf-8")
+            for ref in _re.findall(r'href="(Contents/section\d+\.xml)"', hpf):
+                self.assertIn(ref, z.namelist(), fid)
         from hwpgen.package import Package
         out = registry.load_form("audit_common", ROOTS).render({"dept": "x"}, "").to_bytes()
         import io

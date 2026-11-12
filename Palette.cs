@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -72,6 +72,7 @@ internal partial class Program
 		add("쉬는 시간", "마룡이 운세 · 사주", "운세 오늘의운세 사주 띠 별자리", "", delegate { FortuneForm.Open(); });
 		add("쉬는 시간", "마룡이 타로", "타로 카드 점 켈틱", "", delegate { TarotForm.Open(); });
 		add("공문 도우미", "수강후기 도우미 (200자)", "수강 후기 교육 강의 연수 소감 후기작성 200자", "강의명을 넣으면 200~210자 후기를 만들어요", delegate { ReviewForm.Open(); });
+		add("공문 도우미", "다중분개 도우미 (e호조 지급결의)", "분개 다중분개 지급결의 지출결의 e호조 회계 차변 대변 원천징수 계정과목", "지출 내용을 넣으면 차변·대변 분개를 알려줘요", delegate { JournalForm.Open(); });
 		add("쉬는 시간", "로또 추첨기", "로또 번호 복권 추첨", "재미용", delegate { LottoForm.Open(); });
 		add("쉬는 시간", "마룡이 펫 꺼내기 / 넣기", "펫 마룡이 캐릭터 바탕화면", "", delegate { PetWin.Toggle(); });
 		add("쉬는 시간", "마룡이 돌보기", "다마고치 키우기 밥 먹이기 돌봄", "", delegate { RaiseForm.Open(); });

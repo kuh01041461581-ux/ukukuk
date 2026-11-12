@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -490,6 +490,7 @@ internal partial class Program
 		contextMenu.MenuItems.Add("마룡이 운세 · 사주 · 타로", delegate { FortuneForm.Open(); });
 		MenuItem bondTray = new MenuItem(Bond.Info()); bondTray.Enabled = false; contextMenu.MenuItems.Add(bondTray); contextMenu.Popup += delegate { bondTray.Text = Bond.Info(); };
 		contextMenu.MenuItems.Add("수강후기 도우미 (200자)", delegate { ReviewForm.Open(); });
+		contextMenu.MenuItems.Add("다중분개 도우미 (e호조)", delegate { JournalForm.Open(); });
 		contextMenu.MenuItems.Add("로또 추첨기 (재미용)", delegate { LottoForm.Open(); });
 		MenuItem widgetItem = new MenuItem("공항 시계 (끌어서 옮겨요 · 우클릭으로 위치 설정)"); widgetItem.Checked = widgetOn;
 		toggleWidget = delegate { widgetOn = !widgetOn; widgetItem.Checked = widgetOn; ClockWidget.Toggle(widgetOn); SaveSettings(); };

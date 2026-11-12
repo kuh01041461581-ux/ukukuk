@@ -56,21 +56,19 @@ for (x0, y0, x1, y1) in ((76, 0, 111, 19), (94, 19, 111, 54), (88, 29, 111, 54),
         for _x in range(x0, min(x1, _m3.width)): _p[_x, _y] = (0, 0, 0, 0)
 _m3.save(root + '/st2android/mod/3.m', format='PNG')
 
-# 시작 화면의 제작사 로고 두 장(25.m 넥슨모바일, 24.m 치즈케이크) → 마룡이 도트 / 익산시 표지(직접 만든 간단한 표지: 석탑 아이콘 + 글자. 익산시 공식 상징물을 본뜬 것이 아니다)
-from PIL import ImageDraw as _ID, ImageFont as _IF
-_mar = root + '/st2android/mod/f7.d'
-if os.path.exists(_mar):
-    _f = Image.open(_mar).convert('RGBA'); _f = _f.crop(_f.getbbox()); _c = Image.new('RGBA', (76, 73), (0, 0, 0, 0))
-    _c.alpha_composite(_f, ((76 - _f.width) // 2, max(0, (73 - _f.height) // 2))); _c.save(root + '/st2android/mod/25.m', format='PNG')
-_t = Image.new('RGBA', (114, 21), (0, 0, 0, 0)); _d = _ID.Draw(_t); _G, _B = (0, 132, 72, 255), (20, 70, 150, 255)
-for _i, (_w, _y) in enumerate(((3, 2), (9, 4), (7, 7), (13, 9), (11, 12), (17, 14))):            # 석탑 아이콘(지붕돌·몸돌 3층) + 기단
-    _d.rectangle([12 - _w // 2, _y, 12 + _w // 2, _y + (1 if _i % 2 else 2)], fill=_G)
-_d.rectangle([2, 17, 22, 19], fill=_G)
-_fk = _IF.truetype(root + '/android/assets/galmuri11.ttf', 12); _d.fontmode = '1'
-_d.text((29, 0), '익산시', font=_fk, fill=_G); _d.text((29, 0 + 1), '', font=_fk, fill=_G)
-_d.text((68, 0), 'IKSAN', font=_fk, fill=_B); _d.text((29, 10), '백제왕도 세계유산도시', font=_IF.truetype(root + '/android/assets/galmuri11.ttf', 12), fill=(90, 90, 100, 255)) if False else None
-_d.line([(29, 15), (110, 15)], fill=(255, 150, 30, 255), width=2)
-_t.save(root + '/st2android/mod/24.m', format='PNG')
+# 시작 화면의 제작사 로고 두 장(25.m 넥슨모바일, 24.m 치즈케이크) → 마룡이 전신 / 익산시 로고 를 큰 도트로.
+# 사용자가 준 그림(assets/iksan_ref/)을 면적 평균으로 줄이고 색 수를 줄여 도트 느낌을 낸다. 흰 바탕은 투명 처리(시작 화면 바탕이 흰색).
+import numpy as _np
+def _dot(path, tw, th, colors=48):
+    im = Image.open(path).convert('RGBA'); bg = Image.new('RGBA', im.size, (255, 255, 255, 255)); bg.alpha_composite(im); im = bg.convert('RGB')
+    a = _np.asarray(im).astype(int); ink = (a.sum(-1) < 735); ys, xs = _np.where(ink); im = im.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
+    k = min(tw / im.width, th / im.height); sm = im.resize((max(1, int(im.width * k)), max(1, int(im.height * k))), Image.LANCZOS)
+    q = sm.quantize(colors=colors, method=Image.MEDIANCUT, dither=Image.NONE).convert('RGB'); b = _np.asarray(q).astype(int)
+    out = _np.zeros((q.height, q.width, 4), _np.uint8); out[..., :3] = b; out[..., 3] = _np.where(b.sum(-1) >= 738, 0, 255)
+    return Image.fromarray(out, 'RGBA')
+_ref = root + '/assets/iksan_ref'
+if os.path.exists(_ref + '/maryong_full.png'): _dot(_ref + '/maryong_full.png', 168, 180, 56).save(root + '/st2android/mod/25.m', format='PNG')
+if os.path.exists(_ref + '/iksan_logo.jpg'): _dot(_ref + '/iksan_logo.jpg', 200, 90, 40).save(root + '/st2android/mod/24.m', format='PNG')
 
 # 타이틀 그림(1.m, 176x178)은 화면(240) 가운데에만 그려져 좌우가 파란 띠로 빈다 → 좌우 32칸씩을 가장자리 그림을 뒤집어 이어 붙여 화면 폭을 채운다
 _t1 = Image.open(root + '/work/st2/1.m').convert('RGBA'); _wide = Image.new('RGBA', (240, _t1.height), (0, 0, 0, 0)); _wide.alpha_composite(_t1, (32, 0))

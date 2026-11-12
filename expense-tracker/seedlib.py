@@ -290,7 +290,15 @@ def parse_ledger_xlsx(wb):
                 "resolved": g("결의누계액") or 0, "paid": g("집행누계액") or 0, "order": g("지급누계액") or 0,
             })
         if entries:
-            return {"entries": entries, "skipped": skipped, "sheet": ws.title}
+            dept = ""
+            dc = next((i + 1 for i, v in enumerate([ws.cell(1, c).value for c in range(1, min(ws.max_column, 40) + 1)]) if v and "부서" in str(v)), None)
+            if dc:
+                for r in range(2, ws.max_row + 1):
+                    v = txt(ws.cell(r, dc).value)
+                    if v and v not in ("합계",):
+                        dept = v
+                        break
+            return {"entries": entries, "skipped": skipped, "sheet": ws.title, "dept": dept}
     return None
 
 

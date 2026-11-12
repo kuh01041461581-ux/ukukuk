@@ -163,6 +163,21 @@ class Api:
         except Exception:  # noqa
             pass
 
+    def snapshot(self, label="전환전"):
+        """부서(과)를 바꾸기 전 등에 현재 데이터를 backups 폴더에 따로 복사해 둡니다."""
+        try:
+            if not self.file.exists():
+                return {"ok": True, "path": ""}
+            bdir = self.root / "backups"
+            bdir.mkdir(exist_ok=True)
+            stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            dst = bdir / f"data-{stamp}-{label}.json"
+            shutil.copy2(self.file, dst)
+            return {"ok": True, "path": str(dst)}
+        except Exception as e:  # noqa
+            self.log("snapshot", e)
+            return {"ok": False, "error": str(e)}
+
     def open_data_dir(self):
         try:
             if sys.platform.startswith("win"):

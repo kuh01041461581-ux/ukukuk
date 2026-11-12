@@ -10,6 +10,7 @@ function findHits(q) {
   for (const [k, nm] of CATS) { const sec = S.util[k]; if (sec) (sec.forwards || []).forEach(f => { if (matchFwd(f, q, nm)) out.push({ kind: 'fwd', k, nm, f }); }); }
   const terms = String(q || '').split(/\s+/).map(normQ).filter(Boolean);
   for (const l of S.lines) { const hay = normQ([l.label, l.biz, l.group, l.note].join(' ')); if (terms.length && terms.every(t => hay.includes(t))) out.push({ kind: 'line', l }); }
+  if (terms.length) { let n = 0; for (const t of (S.tx || [])) { if (n >= 15) break; const l = txLineOf(t); const hay = normQ([t.memo, t.vendor, t.biz, t.name, l ? l.label : '', String(t.amt)].join(' ')); if (terms.every(x => hay.includes(x))) { out.push({ kind: 'tx', t, l }); n++; } } }
   return out;
 }
 function findMonth(h) { return FIND.month === 'auto' ? defaultMonth(h.sec) : +FIND.month; }
@@ -20,6 +21,7 @@ function findRows() {
   const hits = findHits(q); if (!hits.length) return '<div class="empty">찾는 항목이 없습니다</div>';
   const list = hits.slice(0, 40);
   return list.map((h, idx) => {
+    if (h.kind === 'tx') return `<div class="frow"><div class="fmain"><span class="badge gray">지출 내역</span> <b>${h.t.d}</b> <b>${won(h.t.amt)}원</b> ${esc(h.t.memo)}<span class="hint">${esc(h.t.vendor || '')} ${h.l ? '· ' + esc(h.l.label) : ''}</span></div></div>`;
     if (h.kind === 'fwd') return `<div class="frow fwdrow"><div class="fmain"><span class="badge" style="background:color-mix(in srgb,${CATCOLOR[h.k]} 18%,transparent);color:var(--text)">${h.nm}</span> <span class="badge warn">다른 계 전달</span> <b class="nolist">${esc(h.f.name.replace(/\n/g, ' '))}</b><div class="fwdnums">${fwdNums(h.f.numbers)}</div>${h.f.memo ? `<span class="hint">${esc(h.f.memo)}</span>` : ''}</div><div class="fact"><span class="fwdtag lg">→ ${esc(h.f.to || '-')}</span></div></div>`;
     if (h.kind === 'line') return `<div class="frow"><div class="fmain"><span class="badge gray">일상경비</span> <b>${esc(h.l.label)}</b> <span class="hint" style="display:inline">${esc(h.l.group)} · ${esc(h.l.biz)} · 잔액 ${won(calc(h.l).remain)}원</span><div class="nchips sm">${noteChips(h.l.note, h.l.scheduled)}</div></div><div class="fact"><button class="btn sm" data-fo="line" data-id="${h.l.id}">표에서 보기</button></div></div>`;
     const m = findMonth(h), it = h.it, st = stateOf(it, m), at = `data-k="${h.k}" data-id="${it.id}" data-m="${m}"`;

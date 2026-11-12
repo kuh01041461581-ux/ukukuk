@@ -8,6 +8,7 @@ function renderSettings() {
   ${IS_EXE ? `<div class="card"><h2>엑셀에서 가져오기</h2><p class="sub" style="margin:0 0 10px">엑셀 파일을 끌어 놓거나 선택하면 일상경비·공공요금을 자동으로 구분해 다시 읽어 옵니다(지금 입력된 내용이 바뀌니 먼저 백업하세요).</p>
     <div class="row"><button class="btn" data-act="xl-daily">엑셀 파일 선택 (일상경비·공공요금)</button><button class="btn" data-act="datadir">데이터 폴더 열기</button></div>
     <p class="muted" style="margin:8px 0 0">데이터는 자동으로 <b>내 PC의 일상경비관리 폴더(AppData)</b>에 저장되고, 하루 한 번 자동 백업(30일)됩니다.</p></div>` : ''}
+  <div class="card"><h2>부서(과)</h2><p class="sub" style="margin:0 0 8px">다른 과 자료(예산서·통계목별 조회)를 불러오면 부서명을 자동으로 알아봅니다. 지금 장부와 다른 과면 새 장부로 시작할지 물어보고, 이전 장부는 자동으로 따로 복사해 둡니다.</p><label class="fld" style="max-width:280px;margin:0">부서명<input id="s-dept" value="${esc(S.dept || '')}" placeholder="예: 문화유산과"></label></div>
   <div class="card"><h2>기준일 · 연도</h2>
     <div class="row"><label class="fld" style="margin:0">연도<input type="number" id="s-year" value="${S.year}" style="width:100px"></label>
     <button class="btn" data-act="newyear">새 연도 시작 (번호·항목은 유지, 금액만 비우기)</button></div></div>
@@ -37,7 +38,7 @@ $('#p-settings').addEventListener('click', e => {
     S.utilBudget = { elec: null, water: null, tel: null }; UI.util.month = null; save(); init(); toast(`${y}년 장부를 시작했습니다`);
   }
 });
-$('#p-settings').addEventListener('change', e => { if (e.target.id === 's-year') { /* 값만 보관, 새 연도 시작 버튼에서 사용 */ } });
+$('#p-settings').addEventListener('change', e => { if (e.target.id === 's-dept') { S.dept = e.target.value.trim(); save(); updateTitle(); } });
 
 /* 숫자 칸을 떠날 때 콤마 형식 복원 */
 document.addEventListener('focusout', e => { const t = e.target; if (t.matches && t.matches('input.cellin[inputmode="numeric"]')) { const v = parseNum(t.value); if (v != null && !isNaN(v)) t.value = won(v); } });
@@ -52,9 +53,10 @@ function updateBackupChip() {
   const c = $('#bk'); const lb = S.lastBackup ? new Date(S.lastBackup) : null; const days = lb ? (Date.now() - lb) / 86400000 : 999;
   c.textContent = lb ? '백업 ' + (lb.getMonth() + 1) + '/' + lb.getDate() : '백업 안 함'; c.classList.toggle('warn', days > 14); c.title = '[설정·백업] 탭에서 백업 파일을 저장하세요';
 }
+function updateTitle() { const t = `${S.year} ${S.dept ? S.dept + ' ' : ''}일상경비·공공요금 관리`; $('#ttl').textContent = t; document.title = t; }
 function init() {
   for (const k in S.util) ensurePaid(S.util[k]);
-  $('#ttl').textContent = `${S.year} 일상경비·공공요금 관리`; document.title = `${S.year} 일상경비·공공요금 관리`;
+  S.tx = S.tx || []; updateTitle();
   $('#asof').value = S.asOf; updateBackupChip();
   $('#tabs').innerHTML = TABS.map(([k, n]) => `<button role="tab" data-t="${k}" aria-selected="${k === UI.tab}">${n}</button>`).join('');
   UI.util.month = null; UI.imp = null; showTab(UI.tab);

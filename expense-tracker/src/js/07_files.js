@@ -15,22 +15,34 @@ async function handleFiles(files, intent) {
   if (other) toast('엑셀(.xlsx)과 PDF만 읽을 수 있습니다 — 건너뛴 파일 ' + other + '개');
   const forms = [];
   for (const f of xls) { const res = await importExcelFile(f, intent); if (res && res.form) forms.push(res); }
-  if (forms.length) openPayForm(forms.flatMap(f => f.form.map(r => ({ ...r, file: f.file }))), forms.map(f => f.file).join(', '));
+  const isTx = f => intent === 'tx' || (intent !== 'form' && looksLikeTx(f.form));
+  const txs = forms.filter(isTx), pays = forms.filter(f => !isTx(f));
+  if (txs.length) openTxImport(txs.flatMap(f => f.form.map(r => ({ ...r, file: f.file }))), txs.map(f => f.file).join(', '));
+  else if (pays.length) openPayForm(pays.flatMap(f => f.form.map(r => ({ ...r, file: f.file }))), pays.map(f => f.file).join(', '));
   if (pdfs.length) {
     showTab('import');
     for (const f of pdfs) await handlePdf(f);     // 여러 PDF는 종류별로 각각 미리보기에 쌓임
   }
 }
+function looksLikeTx(rows) {
+  const h = ((rows[0] && rows[0].header) || []).map(hnorm).join('|');
+  return /세부사업|통계목/.test(h) && TX_RE.amt.test(h) && TX_RE.date.test(h);
+}
 async function importExcelFile(file, intent) {
   if (!IS_EXE) { toast('엑셀 읽기는 exe 프로그램에서만 됩니다'); return; }
   try {
     toast('엑셀을 읽는 중… ' + file.name);
-    const r = await api().import_xlsx_data(file.name, await fileToBase64(file), S.year, intent === 'form' ? 'form' : 'auto');
+    const r = await api().import_xlsx_data(file.name, await fileToBase64(file), S.year, (intent === 'form' || intent === 'tx') ? 'form' : 'auto');
     if (r.error) { alert(r.error); return; }
     if (r.form) return { form: r.form, file: file.name };
     if (r.ledger) {
       const d = new Date(file.lastModified || Date.now());
       const asOf = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if (!(await checkDept(r.ledger.dept))) return;
+      if (!S.lines.length) {   // 새 장부: 일상경비 항목을 자동으로 만든다
+        const made = linesFromEntries(r.ledger.entries, asOf);
+        if (made.length) { S.lines = made; S.asOf = asOf; $('#asof').value = asOf; save(); UI.dsub = 'now'; showTab('daily'); toast(`${S.dept || ''} 일상경비 ${made.length}개 항목을 만들었습니다 (예산·실집행액 포함)`); return; }
+      }
       UI.imp = UI.imp || {}; UI.imp.ledger = { kind: 'ledger', entries: r.ledger.entries, asOf, file: file.name, src: 'xlsx', skipped: r.ledger.skipped };
       showTab('import'); toast('통계목별 조회 엑셀(실집행액)을 읽었습니다 — 아래에서 적용할 항목을 확인하세요'); return;
     }

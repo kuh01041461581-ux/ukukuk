@@ -135,7 +135,7 @@ function renderDaily() {
   if (!S.lines.length) { P.innerHTML = welcomeHTML(); return; }
   const T = groupTotals(S.lines), el = elapsed(), diff = T.rate - el;
   UI.dailySort = UI.dailySort || 'group'; UI.dsub = UI.dsub || 'now'; UI.alertsAll = !!UI.alertsAll;
-  const SUBS = [['now', '현황 · 잔액'], ['note', '용도(비고)'], ['chart', '그래프'], ['table', '입력 표']];
+  const SUBS = [['now', '현황 · 잔액'], ['note', '용도(비고)'], ['tx', '지출 내역'], ['chart', '그래프'], ['table', '입력 표']];
   let h = `<div class="row noprint subbar">
     <div class="pills subtabs" role="tablist">${SUBS.map(([k, n]) => `<button class="pill" role="tab" aria-pressed="${UI.dsub === k}" data-act="dsub" data-v="${k}">${n}</button>`).join('')}</div>
     <span class="spacer"></span><span class="muted">${esc(S.year)}년 · ${esc(S.asOf)} 기준</span>
@@ -143,6 +143,7 @@ function renderDaily() {
   </div>`;
   if (UI.dsub === 'now') h += dailyNow(T, el, diff, dailyAlerts());
   else if (UI.dsub === 'note') h += dailyNoteTab();
+  else if (UI.dsub === 'tx') h += dailyTxTab();
   else if (UI.dsub === 'chart') h += dailyChartTab(T, el);
   else h += dailyTable();
   P.innerHTML = h; $$('textarea.cellin', P).forEach(autoGrow); scrollRestore(P, snap); restoreFocus();

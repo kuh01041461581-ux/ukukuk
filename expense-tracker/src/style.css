@@ -811,3 +811,14 @@ tr.st1 td:first-child .chk.pay{font-size:15px;color:var(--bad)}
 td.notecol{min-width:300px;max-width:420px}
 td.notecol .nchips{margin-bottom:5px}
 td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
+
+/* ===== 지출 내역(월별 소비량·사용처) ===== */
+.txbar-top{gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap}
+.txgrid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,1fr);gap:12px;margin-top:12px}
+.usage{display:grid;grid-template-columns:150px 1fr 120px;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line-2)}
+.usage:last-child{border-bottom:0}
+.usage .un{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.usage .uv{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+.fit-tx{max-height:calc(100vh - 330px);min-height:200px}
+.txmap{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:1100px){.txgrid{grid-template-columns:1fr}.hero{grid-template-columns:1fr 1fr!important}}

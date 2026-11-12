@@ -2,6 +2,27 @@
 const CAND = /^(20101|20102|202\d\d|203\d\d)$/;
 function candGroup(code) { return code === '20101' ? '사무관리비' : code === '20102' ? '공공운영비' : code.startsWith('202') ? '여비' : '업무추진비'; }
 
+/* 다른 과 자료인지 확인 */
+async function checkDept(dept) {
+  if (!dept) return true;
+  if (!S.dept) { S.dept = dept; save(); updateTitle(); return true; }
+  if (S.dept === dept) return true;
+  if (!confirm(`다른 과 자료입니다.\n\n현재 장부: ${S.dept}\n불러온 자료: ${dept}\n\n'${dept}' 새 장부로 시작할까요?\n(지금 장부는 자동으로 따로 복사해 둡니다)\n\n[취소]를 누르면 불러오기를 중단합니다.`)) return false;
+  if (IS_EXE) { try { await api().snapshot('전환전-' + S.dept); } catch (e) { } }
+  S.dept = dept; S.lines = []; S.memo = ''; S.tx = []; S.utilBudget = { elec: null, water: null, tel: null };
+  for (const k of ['elec', 'water', 'tel']) S.util[k] = emptySec(k);
+  save(); updateTitle(); return true;
+}
+/* 통계목별 조회 항목들에서 일상경비 행을 한꺼번에 만든다 (새 장부 시작용) */
+function linesFromEntries(entries, asOf) {
+  const out = [];
+  for (const e of entries) {
+    if (!CAND.test(e.code) || !(e.budget > 0)) continue; const g = candGroup(e.code);
+    out.push({ id: uid('L'), group: g, label: (g === '사무관리비' || g === '공공운영비') ? e.biz : e.name, biz: e.biz, code: e.code, budget: e.budget, spent: e.paid || 0, note: '', scheduled: [], ehojo: { commit: e.commit, resolved: e.resolved, paid: e.paid, asOf } });
+  }
+  return out.sort((a, b) => GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group));
+}
+
 async function handlePdf(file) {
   const st = $('#imp-status'); const set = t => { if (st) st.textContent = t; };
   try {
@@ -11,7 +32,7 @@ async function handlePdf(file) {
     if (kind === 'ledger') { set('통계목별 조회 PDF는 쓰지 않습니다 — 실집행액이 들어 있는 통계목별 조회 "엑셀"을 올려 주세요.'); toast('통계목별 조회는 엑셀로 불러오세요'); return; }
     if (!kind) kind = 'budget';
     if (kind === 'budget') {
-      const doc = parseBudgetDoc(lines); doc.file = file.name; UI.imp = UI.imp || {}; UI.imp.budget = doc;
+      const doc = parseBudgetDoc(lines); doc.file = file.name; if (!(await checkDept(doc.dept))) { set('불러오기를 취소했습니다.'); return; } UI.imp = UI.imp || {}; UI.imp.budget = doc;
       set(`합본예산서로 인식: 편성목 ${doc.entries.length}건을 찾았습니다.`);
     }
     renderImport(true);
@@ -40,12 +61,12 @@ function budgetPreview(doc) {
       <td>${e ? (diff ? '<span class="badge warn">변경</span>' : '<span class="badge good">일치</span>') : '<span class="badge bad">예산서에서 못 찾음</span>'}</td></tr>`;
   });
   const cands = doc.entries.filter(e => CAND.test(e.code) && !used.has(e));
-  let crow = cands.map((e, i) => `<tr><td><input type="checkbox" data-bc="${i}"></td><td>${candGroup(e.code)}</td><td>${esc(e.biz)}<span class="hint">${esc(e.code)} ${esc(e.name)}</span></td><td class="num">${won(e.amount)}</td></tr>`).join('');
+  let crow = cands.map((e, i) => `<tr><td><input type="checkbox" data-bc="${i}" ${S.lines.length ? '' : 'checked'}></td><td>${candGroup(e.code)}</td><td>${esc(e.biz)}<span class="hint">${esc(e.code)} ${esc(e.name)}</span></td><td class="num">${won(e.amount)}</td></tr>`).join('');
   return `<div class="card" id="bprev"><h2>① 합본예산서 결과 <span class="muted" style="font-weight:400;font-size:12px">${esc(doc.file)}${doc.title ? ' · ' + esc(doc.title) : ''}</span></h2>
     <h3>현재 관리 중인 항목</h3><div class="tbl-wrap"><table class="t"><thead><tr><th>적용</th><th>구분</th><th>사업명</th><th>현재 예산</th><th>예산서 금액</th><th>증감</th><th>상태</th></tr></thead><tbody>${rows}</tbody></table></div>
     <h3>공공요금 연 예산 (공공운영비 '문화유적지 보존관리' 산출내역에서 계산)</h3>
     ${ub.found ? `<div class="row">${CATS.map(([k, nm]) => `<label class="row" style="gap:6px"><input type="checkbox" data-bu="${k}" ${ub[k] ? 'checked' : ''}> ${nm} <b>${won(ub[k])}원</b> <span class="muted">(현재 ${S.utilBudget[k] ? won(S.utilBudget[k]) : '미입력'})</span></label>`).join('')}</div>` : '<p class="muted">산출내역을 찾지 못했습니다. 공공요금 탭에서 직접 입력하세요.</p>'}
-    <details class="fold" style="margin-top:10px"><summary>관리하지 않던 일상경비 후보 ${cands.length}건 (필요하면 체크해서 추가)</summary>
+    <details class="fold" style="margin-top:10px" ${S.lines.length ? '' : 'open'}><summary>${S.lines.length ? '관리하지 않던 일상경비 후보' : '새 장부에 만들 일상경비 항목'} ${cands.length}건 ${S.lines.length ? '(필요하면 체크해서 추가)' : '(체크한 항목으로 장부가 만들어집니다)'}</summary>
     <div class="tbl-wrap" style="margin-top:6px"><table class="t"><thead><tr><th>추가</th><th>구분</th><th>세부사업 / 편성목</th><th>예산액</th></tr></thead><tbody>${crow || '<tr><td colspan=4 class="empty">없음</td></tr>'}</tbody></table></div></details>
     <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" data-act="clearb">닫기</button><button class="btn primary" data-act="applyb">선택한 항목 적용</button></div></div>`;
 }

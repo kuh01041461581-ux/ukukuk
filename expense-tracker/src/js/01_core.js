@@ -48,7 +48,7 @@ let S = null;                       // 전체 데이터
 const UI = { tab: 'daily', util: { cat: 'elec', sub: 'pay', mode: 'month', month: null, filter: 'all', q: '', showInactive: false, series: { elec: true, water: true, tel: true } }, imp: null };
 
 function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
-function emptyState() { return { version: 1, year: new Date().getFullYear(), asOf: today(), memo: '', lines: [], util: { elec: emptySec('elec'), water: emptySec('water'), tel: emptySec('tel') }, utilBudget: { elec: null, water: null, tel: null } }; }
+function emptyState() { return { version: 1, dept: '', tx: [], year: new Date().getFullYear(), asOf: today(), memo: '', lines: [], util: { elec: emptySec('elec'), water: emptySec('water'), tel: emptySec('tel') }, utilBudget: { elec: null, water: null, tel: null } }; }
 function emptySec(k) { const d = { elec: ['전기요금', '계약번호', '납부번호(지로·가상계좌)'], water: ['상하수도요금', '수전번호', '납부번호(지로·가상계좌)'], tel: ['통신요금(U-안전관리시스템)', '고객번호', '납부계좌(농협)'] }[k]; return { key: k, title: d[0], no1Label: d[1], no2Label: d[2], items: [], forwards: [], tips: [], budget: null }; }
 function loadState() {
   try { const raw = localStorage.getItem(KEY); if (raw) { const d = JSON.parse(raw); if (d && d.lines && d.util) return d; } } catch (e) { }

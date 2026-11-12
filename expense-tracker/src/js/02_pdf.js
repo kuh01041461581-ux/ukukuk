@@ -113,7 +113,8 @@ function parseBudgetDoc(lines) {
     delete e.raw; result.push(e);
   }
   const title = lines.slice(0, 6).map(l => l.text).find(t => /추경|본예산|예산/.test(t) && /20\d\d/.test(t)) || '';
-  return { kind: 'budget', entries: result, title };
+  const dm = lines.slice(0, 12).map(l => l.text.match(/부서\s*:\s*([^\s]+)/)).find(Boolean);
+  return { kind: 'budget', entries: result, title, dept: dm ? dm[1] : '' };
 }
 
 /* 공공운영비 산출내역에서 전기·상하수도·통신 예산 추정 */

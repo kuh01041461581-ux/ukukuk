@@ -728,16 +728,16 @@ class DetailWindow(tk.Toplevel):
 # ===================================================================== 옆에 뜨는 위젯
 WIDGET_W = 264
 # 팔레트: Linear(절제된 인디고) + Notion(차분한 회색 글자) + 윈도우 11 유리(옅은 반투명 흰색)
-C_BG = "#f2f3fb"
-C_G1 = "#4a5bd8"          # 포인트 색(인디고) 그라데이션: 진한 쪽
-C_G2 = "#8b9cf5"          # 같은 색 계열의 밝은 쪽
+C_BG = "#f4f4f2"          # 따뜻한 중성 회색(노션 느낌) — 번쩍이는 유리·네온 없이 차분한 무광 면
+C_G1 = "#3f4a8a"          # 포인트(깊은 남색) — 그라데이션 없이 단색으로만 쓴다
+C_G2 = "#566099"
 C_CARD = "#ffffff"
-C_LINE = "#e3e5ea"
-C_HOVER = "#eef0f5"
-C_PRESS = "#e1e4ec"
-C_TEXT = "#1f2329"
-C_SUB = "#7a808c"
-C_ACC = "#4a5bd8"
+C_LINE = "#e4e4df"
+C_HOVER = "#ecece8"
+C_PRESS = "#e0e0da"
+C_TEXT = "#26272b"
+C_SUB = "#80827f"
+C_ACC = "#3f4a8a"
 C_OK = "#2a9461"
 C_BAD = "#c94848"
 ICON_DIR = os.path.join(registry.app_dir(), "assets", "icons")
@@ -853,6 +853,32 @@ def aa_shape(w, h, r, fill, outline=None, bg=None, grad=None, vfill=None):
         _AA.clear()
     _AA[key] = img
     return img
+
+
+def flat_img(w, h, r, fill="#ffffff", border="#e4e4df", shadow=1.0, pad=4):
+    """무광 카드(투명 PNG): 단색 면 + 가는 테두리 + 아주 옅은 아래 그림자. 유리·광택·그라데이션 없음."""
+    key = ("flat", w, h, r, fill, border, round(shadow, 2), pad)
+    if key in _AA:
+        return _AA[key]
+    im = None
+    try:
+        from PIL import Image, ImageDraw, ImageFilter
+        k = 3
+        W3, H3 = (w + 2 * pad) * k, (h + 2 * pad) * k
+        x0, y0, x1, y1 = pad * k, pad * k, (pad + w) * k - 1, (pad + h) * k - 1
+        base = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
+        if shadow > 0:
+            sh = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
+            ImageDraw.Draw(sh).rounded_rectangle((x0 + k, y0 + int(1.5 * k), x1 - k, y1 + int(1.5 * k)), radius=r * k, fill=(30, 30, 20, int(26 * shadow)))
+            base = Image.alpha_composite(base, sh.filter(ImageFilter.GaussianBlur(1.6 * k)))
+        body = Image.new("RGBA", (W3, H3), (0, 0, 0, 0))
+        ImageDraw.Draw(body).rounded_rectangle((x0, y0, x1, y1), radius=r * k, fill=fill, outline=border, width=k)
+        out = Image.alpha_composite(base, body).resize((w + 2 * pad, h + 2 * pad), Image.LANCZOS)
+        im = _pil_photo(out)
+    except Exception:                                    # noqa: BLE001
+        im = None
+    _AA[key] = im
+    return im
 
 
 def liquid_img(w, h, r, base=(235, 160), tint=None, t=0.0, pressed=False, pad=5, hover_rim=True):
@@ -1000,15 +1026,15 @@ def round_rect(cv, x0, y0, x1, y1, r, **kw):
 
 SHOW_BTN_ICONS = True         # 단추 왼쪽에 문서 종류별 색 아이콘 — 보고 체계·문서 구별이 한눈에 되게
 # 분류(탭)·묶음·양식마다 색을 달리해 문서 종류를 구별한다
-TAB_COLOR = {"report": "#e8705f", "week": "#7c5cc9", "budget": "#2f9e8f", "assembly": "#3b82c4", "audit": "#c9627f",
-             "press": "#d6609b", "nat": "#d98c1f", "tools": "#3a9bd0", "sym": "#8a93a8", "more": "#6f7685"}
-GROUP_COLOR = {"문화교육국 보고": "#e8705f", "시장님 보고": "#3b82c4", "간부회의": "#7c5cc9", "예산 설명자료": "#2f9e8f",
-               "참고자료(백데이터)": "#4a9f5f", "이월 조서": "#d98c1f", "보도자료": "#d6609b", "국회단계 서면질의서": "#3b82c4",
-               "국회단계 정책질의서": "#5b6bd8", "국회단계 질의서": "#3b82c4", "행정사무감사": "#c9627f", "국가예산 신규사업": "#d98c1f",
-               "주간업무": "#7c5cc9"}
-FORM_COLOR = {"report_event": "#e8705f", "report_project": "#d98c1f", "report_mayor": "#3b82c4",
-              "meeting_cover": "#9a7fdc", "meeting_issue": "#7c5cc9", "meeting_card": "#6a4bb5",
-              "issue_list": "#9a7fdc", "issue_card": "#7c5cc9", "issue_ref": "#b9a3ec"}
+TAB_COLOR = {"report": "#c4675c", "week": "#6f5bb5", "budget": "#2f8a7e", "assembly": "#3d73b0", "audit": "#b45873",
+             "press": "#b9568b", "nat": "#c4821f", "tools": "#3b8cb8", "sym": "#7c8497", "more": "#6b7280"}
+GROUP_COLOR = {"문화교육국 보고": "#c4675c", "시장님 보고": "#3d73b0", "간부회의": "#6f5bb5", "예산 설명자료": "#2f8a7e",
+               "참고자료(백데이터)": "#4a8c58", "이월 조서": "#c4821f", "보도자료": "#b9568b", "국회단계 서면질의서": "#3d73b0",
+               "국회단계 정책질의서": "#5361b8", "국회단계 질의서": "#3d73b0", "행정사무감사": "#b45873", "국가예산 신규사업": "#c4821f",
+               "주간업무": "#6f5bb5"}
+FORM_COLOR = {"report_event": "#c4675c", "report_project": "#c4821f", "report_mayor": "#3d73b0",
+              "meeting_cover": "#8a76c9", "meeting_issue": "#6f5bb5", "meeting_card": "#5a469e",
+              "issue_list": "#8a76c9", "issue_card": "#6f5bb5", "issue_ref": "#a898d6"}
 
 
 def _lighter(hexcol, t=0.45):
@@ -1083,19 +1109,22 @@ class Btn(_Anim, tk.Canvas):
         if w < 4:
             return
         t, acc = _q(self.t), self.kind == "accent"
-        dy = 2 if self.pressed else -int(round(1.5 * t))      # 올리면 살짝 떠오르고 누르면 눌림 — 아이콘·글자가 함께
-        pad = 5
+        dy = 1 if self.pressed else 0
+        pad = 4
         r = 8                                                # 네모 바탕 + 모서리만 둥글게
         if acc:
-            im = liquid_img(w - 2 * pad, h - 2 * pad, r, base=(238, 214), tint=(C_G1, C_G2), t=t, pressed=self.pressed, pad=pad)
+            fillc = _mix(C_ACC, "#ffffff", 0.10 * t) if not self.pressed else _mix(C_ACC, "#000000", 0.15)
+            im = flat_img(w - 2 * pad, h - 2 * pad, r, fill=fillc, border=fillc, shadow=0 if self.pressed else 0.7, pad=pad)
             fg = "white"
         elif self.kind == "flat" and t == 0 and not self.pressed:
             im = None
             fg = C_TEXT
         else:
-            im = liquid_img(w - 2 * pad, h - 2 * pad, r, base=(238 if self.kind == "card" else 120, 168 if self.kind == "card" else 40),
-                            t=t, pressed=self.pressed, pad=pad)
-            fg = _mix(C_TEXT, "#2c3366", t)
+            card = self.kind == "card"
+            fillc = C_PRESS if self.pressed else _mix("#ffffff" if card else C_BG, "#f7f7f4" if card else C_HOVER, t)
+            borderc = _mix("#e4e4df" if card else C_BG, "#c2c2ba", t)
+            im = flat_img(w - 2 * pad, h - 2 * pad, r, fill=fillc, border=borderc, shadow=(0 if self.pressed else (0.5 + 0.5 * t)) if card else 0, pad=pad)
+            fg = _mix(C_TEXT, "#111111", t)
         if im is not None:
             self.create_image(0, 0, image=im, anchor="nw")
         ic = icon(self.icon_name, white=acc) if (self.icon_name and SHOW_BTN_ICONS) else None
@@ -1105,7 +1134,7 @@ class Btn(_Anim, tk.Canvas):
                 d = h - 14
                 cy = h // 2 + dy
                 if self.color and not acc:                      # 양식 종류별 색 바탕(둥근 네모) + 흰 선 그림
-                    tile = aa_shape(26, 26, 8, None, grad=(self.color, _lighter(self.color, 0.28)), bg="#f9faff")
+                    tile = aa_shape(26, 26, 7, self.color, bg="#ffffff")
                     if tile is not None:
                         self.create_image(x + d // 2, cy, image=tile)
                     ic = icon(self.icon_name, white=True)
@@ -1170,40 +1199,20 @@ def grad_round(cv, x0, y0, x1, y1, r, c1, c2):
         cv.create_line(x0 + x, y0 + inset, x0 + x, y1 - inset, fill=col)
 
 
-CAP = "#eef0fc"           # 제목줄·머리 맨 위 색(윈도우 제목줄 색과 같게 맞춰 창이 끊김 없이 이어지게)
+CAP = "#f9f9f7"           # 제목줄·머리 색(윈도우 제목줄 색과 같게 맞춰 창이 끊김 없이 이어지게)
 
 
 def make_aurora(w, h):
-    """은은한 오로라(인디고·바이올렛·하늘색 번짐) 배경 — 유리 위에 비치는 색 느낌. 맨 위는 CAP, 맨 아래는 C_BG 로 자연스럽게 이어짐"""
-    from PIL import Image, ImageDraw, ImageFilter
+    """머리 배경: 단색(CAP)에서 본문 바탕색으로 아주 살짝만 이어지는 무광 면 — 오로라·네온 번짐 없음"""
+    from PIL import Image, ImageDraw
     top = tuple(int(CAP[i:i + 2], 16) for i in (1, 3, 5))
     bot = tuple(int(C_BG[i:i + 2], 16) for i in (1, 3, 5))
     base = Image.new("RGB", (w, h))
     d = ImageDraw.Draw(base)
     for y in range(h):
-        t = y / max(1, h - 1)
+        t = min(1.0, max(0.0, (y - h * 0.55) / (h * 0.45)))
         d.line((0, y, w, y), fill=tuple(round(top[i] + (bot[i] - top[i]) * t) for i in range(3)))
-    blobs = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    bd = ImageDraw.Draw(blobs)
-    sc = h / 184.0
-    for cx, cy, r, col in ((40, 92 * sc, 74 * sc, (112, 128, 255, 150)), (222, 74 * sc, 66 * sc, (178, 132, 255, 140)),
-                           (140, 152 * sc, 88 * sc, (110, 205, 255, 125)), (250, 165 * sc, 54 * sc, (255, 160, 214, 100))):
-        bd.ellipse((cx - r, cy - r, cx + r, cy + r), fill=col)
-    blobs = blobs.filter(ImageFilter.GaussianBlur(26))
-    out = base.convert("RGBA")
-    out.alpha_composite(blobs)
-    out = out.convert("RGB")
-    d = ImageDraw.Draw(out)
-    fade = min(36, h // 3)                                  # 아래쪽은 본문 바탕색으로 서서히
-    for i in range(fade):
-        y = h - fade + i
-        t = i / float(fade - 1)
-        row = [out.getpixel((x, y)) for x in range(w)]
-        d.line((0, y, w, y), fill=bot)
-        for x in range(w):
-            p = row[x]
-            out.putpixel((x, y), tuple(round(p[j] + (bot[j] - p[j]) * min(1.0, t * 1.15)) for j in range(3)))
-    return out
+    return base
 
 
 class _Chip:
@@ -1251,19 +1260,13 @@ class GlassHeader(tk.Canvas):
 
     @staticmethod
     def _draw_logo(img):
-        """로고(그라데이션 둥근 네모)를 오로라 배경에 직접 그려 모서리가 배경과 자연스럽게 섞이게"""
+        """로고: 단색 남색 둥근 네모(광택 없음)"""
         from PIL import Image, ImageDraw
         k, s = 4, 30
-        c1 = tuple(int(C_G1[i:i + 2], 16) for i in (1, 3, 5))
-        c2 = tuple(int(C_G2[i:i + 2], 16) for i in (1, 3, 5))
-        g = Image.new("RGB", (s * k, s * k))
-        d = ImageDraw.Draw(g)
-        for i in range(s * k * 2):
-            t = i / float(s * k * 2)
-            d.line((i, 0, 0, i), fill=tuple(round(c1[j] + (c2[j] - c1[j]) * t) for j in range(3)))
         m = Image.new("L", (s * k, s * k), 0)
-        ImageDraw.Draw(m).rounded_rectangle((0, 0, s * k - 1, s * k - 1), radius=9 * k, fill=255)
-        img.paste(g.resize((s, s), Image.LANCZOS), (14, 12), m.resize((s, s), Image.LANCZOS))
+        ImageDraw.Draw(m).rounded_rectangle((0, 0, s * k - 1, s * k - 1), radius=8 * k, fill=255)
+        col = Image.new("RGB", (s, s), tuple(int(C_ACC[i:i + 2], 16) for i in (1, 3, 5)))
+        img.paste(col, (14, 12), m.resize((s, s), Image.LANCZOS))
 
     # --- 맨 위: 로고·제목·연결 상태·창 단추
     def _build_top(self, buttons, on_chip):
@@ -1387,19 +1390,19 @@ class GlassHeader(tk.Canvas):
         dy = (1.5 if p else (-1 * t))
         self.coords(s["txt"], s["x"] + s["w"] // 2, s["y"] + s["h"] // 2 + dy)
         tc = self.colors.get(key if key != "__more" else self.active, C_ACC) if key != "__more" or on else C_SUB
-        col = "white" if on else (_mix(_mix(tc, C_TEXT, 0.25), C_SUB, 0.15) if key != "__more" else _mix(C_SUB, C_ACC, t))
-        self.itemconfigure(s["txt"], fill=col, font=(FONT[0], 10, "bold" if (on or key != "__more") else "normal"))
+        col = _mix(tc, "#000000", 0.12) if on else (_mix(C_SUB, C_TEXT, 0.35 + 0.4 * t) if key != "__more" else _mix(C_SUB, C_ACC, t))
+        self.itemconfigure(s["txt"], fill=col, font=(FONT[0], 10, "bold" if on else "normal"))
 
     def _glass(self, key, t, on, p=False):
-        """리퀴드 글래스 타일: 평소엔 투명(테두리 없음), 올리면 유리가 떠오르고, 선택된 타일은 색 입힌 유리"""
+        """무광 탭: 평소엔 바탕 없음, 올리면 옅은 회색 면, 선택되면 그 분류 색을 옅게 깐 면(글자는 분류 색)"""
         s = self.tiles[key]
-        if not on and t == 0 and not p:
-            return None
         if on:
             cc = self.colors.get(key if key != "__more" else self.active, C_ACC)
-            return liquid_img(s["w"], s["h"], 9, base=(255, 244), tint=(_mix(cc, "#000000", 0.08), _lighter(cc, 0.12)), t=t, pressed=p, pad=self.PAD)
-        return liquid_img(s["w"], s["h"], 9, base=(int(70 + 165 * t) if not p else 238, int(24 + 150 * t) if not p else 196),
-                          t=t, pressed=p, pad=self.PAD)
+            fill = _mix("#ffffff", cc, 0.16 if not p else 0.24)
+            return flat_img(s["w"], s["h"], 8, fill=fill, border=_mix("#ffffff", cc, 0.30), shadow=0, pad=self.PAD)
+        if t == 0 and not p:
+            return None
+        return flat_img(s["w"], s["h"], 8, fill=C_PRESS if p else _mix(C_BG, "#e8e8e3", t), border=_mix(C_BG, "#dcdcd5", t), shadow=0, pad=self.PAD)
 
 
 def _pil_photo(img):

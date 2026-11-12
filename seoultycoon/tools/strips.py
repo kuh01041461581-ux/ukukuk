@@ -39,7 +39,7 @@ def compose(k, S, rects=None, frame=-1, pos=None):
         if pos and i in pos: x, y = pos[i]
         C.alpha_composite(S.crop((q[0], q[1], q[0] + q[2], q[1] + q[3])), (x, y))
     return C
-def to_sheet(k, F):
+def to_sheet(k, F, variants=None):
     """완성 그림 F(폭 96, 높이 canvas(k)[0])를 시트로. 반환 (시트, 새 조각 사각형 목록, 새 화면 위치 {조각: (x, y)}).
     조각의 시트 칸·크기·화면 위치는 모두 yx.d 의 값이므로, 메인 위쪽 전체(96 x MY)를 조각 하나에 담아 화면 (0,0)에 놓는다 → 건물 위쪽이 어디서도 잘리지 않는다.
     그 조각은 모든 프레임에 나오는 것 중에서 고르고, 나머지 덧조각은 끈다(1x1). 시트: [줄 0 비움][위쪽 조각][메인][바닥 끝 8줄]."""
@@ -48,8 +48,22 @@ def to_sheet(k, F):
     new = [(95, 0, 1, 1)] * len(rs); pos = {}; sy = 1; up = None
     if MY > 0 and common:
         up = common[0]; new[up] = (0, sy, 96, MY); pos[up] = (0, 0); sy += MY
+    # 애니메이션: 일부 프레임에만 나오는 조각에 '달라진 화소만 담은 덧그림'을 넣는다(원본이 프레임마다 다른 조각을 덧그리는 것과 같은 방식)
+    overlays = []; usedp = set()
+    if variants:
+        vi = 0
+        for f in r['frames']:
+            cand = [e[0] for e in f if e[0] != 0 and e[0] != up and e[0] not in usedp and not all(any(x[0] == e[0] for x in g) for g in r['frames'])]
+            if not cand: continue
+            i = cand[0]; usedp.add(i); V = variants[vi % len(variants)]; vi += 1
+            A = np.asarray(F)[:MY + mh]; B = np.asarray(V)[:MY + mh].copy(); diff = (A != B).any(-1); B[~diff] = 0
+            if not diff.any(): continue
+            ys, xs = np.where(diff); x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
+            O = Image.fromarray(B, 'RGBA').crop((x0, y0, x1, y1)); new[i] = (0, sy, int(x1 - x0), int(y1 - y0)); pos[i] = (int(x0), int(y0)); overlays.append((O, sy)); sy += int(y1 - y0)
+    assert sy < 250, 'sheet too tall for yx.d bytes'
     new[0] = (0, sy, 96, mh); H = sy + mh + 8
     S = Image.new('RGBA', (96, H), (0, 0, 0, 0))
+    for O, y0 in overlays: S.paste(O, (0, y0))
     if up is not None: S.paste(F.crop((0, 0, 96, MY)), (0, 1))
     S.paste(F.crop((0, MY, 96, MY + mh)), (0, sy))
     for rr in range(8):

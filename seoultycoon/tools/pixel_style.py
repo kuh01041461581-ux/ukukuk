@@ -33,3 +33,22 @@ def stylize(im, sat=1.45, con=1.22, dither=14.0, outline=0.50, edge=0.78):
                 if y + dy < h and x + dx < w and al[y + dy, x + dx] and lum[y, x] - lum[y + dy, x + dx] < -46: res[y, x] = rgb[y, x] * edge; break
     o = np.zeros((h, w, 4), np.uint8); o[..., :3] = np.clip(res, 0, 255).astype(np.uint8); o[..., 3] = al * 255
     return Image.fromarray(o, 'RGBA')
+
+def twinkle(im, phase):
+    """애니메이션용 변형 프레임: 유리창(파란 계열)의 일부를 불 켠 색으로 바꾼다. 유리가 거의 없으면 윗윤곽에 반짝임을 넣는다. phase 마다 켜지는 자리가 다르다."""
+    a = np.asarray(im).copy(); h, w = a.shape[:2]; r, g, b, al = (a[..., i].astype(int) for i in range(4))
+    glass = (al > 0) & (b > r + 40) & (g > r + 12) & (b > 120)      # 광장 바닥(연보라: 빨강=초록)은 뺀다
+    if glass.sum() >= 40:
+        for y in range(h):
+            for x in range(w):
+                if glass[y, x] and ((x // 2) * 7 + (y // 2) * 13 + phase * 3) % 5 == 0: a[y, x, :3] = (255, 240, 150)
+    else:
+        n = 0
+        for x in range(4, w - 4):
+            ys = np.where(al[:, x] > 0)[0]
+            if len(ys) == 0: continue
+            y = ys[0]; n += 1
+            if (n + phase * 4) % 9 == 0 and y + 2 < h:
+                for dx, dy in ((0, 0), (0, 1), (0, 2), (-1, 1), (1, 1)):
+                    if al[y + dy, x + dx] > 0: a[y + dy, x + dx, :3] = (255, 255, 255) if (dx, dy) == (0, 1) else (255, 244, 170)
+    return Image.fromarray(a, 'RGBA')

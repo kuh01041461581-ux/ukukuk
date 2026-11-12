@@ -38,7 +38,8 @@ for k, fn in sorted(ITEMS.items()):
     if F.size != (96, Hc): F2 = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); F2.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = F2
     F = on_tile(F, yc)
     if k != 9: F = PS.stylize(F)
-    S, rects, pos = ST.to_sheet(k, F); S.save(f'{out}/b{k}.png'); ST.patch_yx(yx, k, rects, pos); show.append((k, F, ST.compose(k, S, rects, pos=pos)))
+    S, rects, pos = ST.to_sheet(k, F, [PS.twinkle(F, 0), PS.twinkle(F, 1)]); S.save(f'{out}/b{k}.png'); ST.patch_yx(yx, k, rects, pos)
+    for fi in range(len(ST.TABLE[k]['frames'])): show.append((k, F, ST.compose(k, S, rects, frame=fi, pos=pos)))
 open(root + '/st2android/mod/yx.d', 'wb').write(yx)
 import enhance_orig as EN
 n_en = 0

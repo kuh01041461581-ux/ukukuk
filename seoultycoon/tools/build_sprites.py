@@ -14,9 +14,9 @@ import strips as ST
 import pixel_style as PS
 from make_iksan_buildings import Sc
 import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, make_iksan_civic as CV, make_iksan_landmarks as LM, make_iksan_icons as IC
-ITEMS = {4: HQ.hotel, 19: HQ.cinema, 15: HQ.tesla, 22: HQ.station, 42: HQ.arts, 44: HQ.harim, 3: HQ.costco, 33: HQ.baseball, 27: HQ.hospital, 37: HQ.apartments, 35: HQ.school, 43: HQ.library,
-         11: IC.firestation, 41: HQ.terminal, 40: HQ.busstop, 47: HQ.kindergarten, 48: HQ.topschool, 26: HQ.museum, 52: HQ.playground, 53: HQ.sportspark,
-         21: MB.chunpo, 38: MO.baekje, 10: IC.police, 13: CV.church, 12: CV.bank_design, 20: CV.library, 2: LM.mireuksa}
+# 익산 고유 건물만 새 도트를 쓴다. 그 밖의 건물(소방서·경찰서·학교·아파트·버스정류장·유치원·놀이터·체육공원 등)은 원본 도트를 그대로 두고 퀄리티만 올린다(enhance_orig).
+ITEMS = {2: LM.mireuksa, 3: HQ.costco, 4: HQ.hotel, 12: CV.bank_design, 13: CV.church, 15: HQ.tesla, 19: HQ.cinema, 20: CV.library, 21: MB.chunpo, 22: HQ.station, 26: HQ.museum, 27: HQ.hospital,
+         33: HQ.baseball, 38: MO.baekje, 41: HQ.terminal, 42: HQ.arts, 44: HQ.harim, 48: HQ.topschool}
 yx = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); show = []
 for k, fn in sorted(ITEMS.items()):
     Hc, yc = ST.canvas(k)
@@ -27,7 +27,13 @@ for k, fn in sorted(ITEMS.items()):
     F = PS.stylize(F)
     S, rects = ST.to_sheet(k, F); S.save(f'{out}/b{k}.png'); ST.patch_yx(yx, k, rects); show.append((k, F, ST.compose(k, S, rects)))
 open(root + '/st2android/mod/yx.d', 'wb').write(yx)
-print('건물', len(ITEMS), '종 변환 완료')
+import enhance_orig as EN
+n_en = 0
+for k in sorted(ST.TABLE):
+    if k >= 59 or k in ITEMS or k == 9: continue                  # b9 승마장은 전용 도트
+    p = f'{out}/b{k}.png'; src = Image.open(p).convert('RGBA') if os.path.exists(p) else None      # 간판만 고친 원본(b8·b32·b45)은 그 위에 보정
+    EN.enhance(k, im=src).save(p); n_en += 1
+print('새 도트', len(ITEMS), '종 변환, 원본 퀄리티 보정', n_en, '종')
 if len(sys.argv) > 1:
     cols = 7; cw, ch = 100, 110; rows = (len(show) + cols - 1) // cols
     w = Image.new('RGBA', (cols * cw, rows * ch), (150, 70, 160, 255))

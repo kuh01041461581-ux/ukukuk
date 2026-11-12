@@ -59,7 +59,7 @@ public class St2Pc {
         GamePanel() { setBackground(new Color(10, 10, 20)); setFocusable(true); setPreferredSize(new Dimension(240 * 3, 296 * 3)); }
         @Override protected void paintComponent(Graphics g0) {
             super.paintComponent(g0); Graphics2D g = (Graphics2D) g0;
-            sc = Math.max(1.0, Math.min(getWidth() / 240.0, getHeight() / 296.0)); if (!hq) sc = Math.floor(sc * 4) / 4;      // 1/4 배율 단위(도트가 덜 번짐)
+            sc = Math.max(1.0, Math.min(getWidth() / 240.0, getHeight() / 296.0)); if (!hq) sc = Math.max(1, Math.floor(sc));      // 1/4 배율 단위(도트가 덜 번짐)
             int w = (int) (240 * sc), h = (int) (296 * sc); ox = (getWidth() - w) / 2; oy = (getHeight() - h) / 2;
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hq ? RenderingHints.VALUE_INTERPOLATION_BICUBIC : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR); g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             synchronized (lcd) { g.drawImage(lcd, ox, oy, w, h, null); }

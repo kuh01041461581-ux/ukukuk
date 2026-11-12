@@ -30,7 +30,7 @@ public class St2View extends View {
     Btn[] btns = new Btn[0];
     final Paint bp = new Paint(Paint.ANTI_ALIAS_FLAG), tp = new Paint(Paint.ANTI_ALIAS_FLAG), sp = new Paint(Paint.ANTI_ALIAS_FLAG), gp = new Paint();
     final RectF game = new RectF(), pad = new RectF(), gear = new RectF();
-    final Rect src = new Rect(0, 0, 960, 1184);          // 화질 보정으로 4배 확대된 화면
+    final Rect src = new Rect(0, 0, 240, 296);           // 게임 원본 화면(240x296)
     Bitmap big; Canvas bigC; int bigK; int shownFrame = -1; final Paint sm = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
     public volatile String err; public volatile int frames;
     public Host game_host; public android.graphics.Bitmap lcd;
@@ -135,11 +135,10 @@ public class St2View extends View {
     @Override protected void onDraw(Canvas cv) {
         cv.drawColor(mode == MODE_TOUCH ? 0xFF000000 : 0xFF101018);
         if (lcd != null) {
-            // 픽셀 도트가 비정수 배율에서 일그러지지 않게: 정수 배율(올림)로 먼저 키운 뒤 부드럽게 줄여서 그린다
-            int k = Math.max(1, Math.min(8, (int) Math.ceil(game.width() / 240f)));
-            if (big == null || bigK != k) { if (big != null) big.recycle(); big = Bitmap.createBitmap(240 * k, 296 * k, Bitmap.Config.ARGB_8888); bigC = new Canvas(big); bigK = k; shownFrame = -1; }
-            if (shownFrame != frames) { shownFrame = frames; synchronized (lcd) { bigC.drawBitmap(lcd, src, new Rect(0, 0, 240 * k, 296 * k), gp); } }
-            cv.drawBitmap(big, new Rect(0, 0, 240 * k, 296 * k), game, sm);
+            // 글자·도트가 일그러지지 않게 반드시 정수 배율로만 그린다(예: 폭 1080 → 4배 = 960, 남는 자리는 가운데 정렬 여백)
+            int k = Math.max(1, (int) Math.floor(Math.min(game.width() / 240f, game.height() / 296f) + 0.001f));
+            float dx = game.left + (game.width() - 240 * k) / 2f, dy = game.top + (game.height() - 296 * k) / 2f;
+            synchronized (lcd) { cv.drawBitmap(lcd, src, new RectF((int) dx, (int) dy, (int) dx + 240 * k, (int) dy + 296 * k), gp); }
         }
         bp.setStyle(Paint.Style.FILL);
         for (int i = 0; i < btns.length; i++) {

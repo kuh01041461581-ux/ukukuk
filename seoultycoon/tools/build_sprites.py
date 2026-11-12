@@ -8,7 +8,7 @@ out = root + '/work/pak_mod'; os.makedirs(out, exist_ok=True)
 for f in glob.glob(out + '/*.png'): os.remove(f)
 def run(tool): subprocess.run([sys.executable, '-I', f'{here}/{tool}'], check=True, stdout=subprocess.DEVNULL)
 # 1) 지형·기타(조각 규칙과 무관)
-for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_palace.py', 'make_iksan_retouch.py', 'make_iksan_minimap.py', 'make_iksan_logo.py', 'make_maryong.py'): run(tool)
+for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_palace.py', 'make_iksan_retouch.py', 'make_iksan_minimap.py', 'make_iksan_logo.py', 'make_iksan_misc.py', 'make_maryong.py'): run(tool)
 # 2) 건물: 조각 규칙 변환
 import strips as ST
 import pixel_style as PS

@@ -8,7 +8,7 @@ root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 out = root + '/work/pak_mod'
 MT = {(21,154,70),(71,149,73),(8,104,8),(106,151,81),(24,120,24),(10,82,9),(109,179,83),(76,175,80),(8,152,8),(8,120,8),(24,152,27),(8,136,8),(8,120,24),(45,146,41),(30,136,26),(24,152,8),(24,136,8),(74,143,48)}
 # 화강암(황등석: 분홍빛 회색) 단계별 색: 어두운 골 → 밝은 면
-RAMP = [(58, 52, 54), (88, 80, 80), (116, 106, 102), (142, 130, 124), (168, 154, 146), (192, 178, 168), (214, 200, 188)]
+RAMP = [(96, 86, 80), (124, 112, 104), (150, 138, 128), (174, 162, 150), (196, 184, 170), (214, 202, 188)]
 SOIL = [(120, 84, 52), (150, 108, 66), (178, 136, 84)]
 
 def load(n):
@@ -30,29 +30,29 @@ def quarry(n, seed):
     # 높이: 산 화소의 밝기를 주변으로 번지게 한 값(산이 아닌 칸은 평균으로 채움)
     mean = lum[mask].mean(); hf = np.where(mask, lum, mean)
     hi = Image.fromarray(np.clip(hf, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.6)); hb = np.asarray(hi).astype(float)
-    lo, hi_ = np.percentile(hb[mask], 4), np.percentile(hb[mask], 96); N = 7
-    lev = np.clip(((hb - lo) / max(1e-6, hi_ - lo) * N).astype(int), 0, N - 1)
-    res = a.copy()
+    lo, hi_ = np.percentile(hb[mask], 4), np.percentile(hb[mask], 96); N = 6
+    tt = np.clip((hb - lo) / max(1e-6, hi_ - lo), 0, 1)                      # 0(골짜기)~1(능선)
+    lev = np.clip((tt * N).astype(int), 0, N - 1)
+    res = a.copy(); B4 = ((0, 2), (3, 1))
     for y in range(h):
         for x in range(w):
             if not mask[y, x]: continue
-            L = lev[y, x]; c = list(RAMP[L])
-            # 벤치 가장자리: 왼쪽·위가 한 단 높으면(그림자 쪽) 어둡게, 오른쪽·아래가 낮으면(빛 받는 모서리) 밝게
-            up = lev[y - 1, x] if y > 0 else L; lf = lev[y, x - 1] if x > 0 else L; dn = lev[y + 1, x] if y < h - 1 else L; rt = lev[y, x + 1] if x < w - 1 else L
-            if up > L or lf > L: c = [int(v * 0.62) for v in c]
-            elif dn < L or rt < L: c = [min(255, int(v * 1.12) + 6) for v in c]
-            # 화강암 결: 작은 잡티 + 가끔 세로 드릴 자국
+            t = tt[y, x]; dth = (B4[y % 2][x % 2] - 1.5) / 4.0 * 0.10
+            # 산자락(낮은 곳)은 원래 숲을 그대로 둔다 → 숲 속을 깎아 낸 채석장으로 보인다. 경계는 흙·풀을 섞는다
+            if t + dth < 0.26: continue
+            if t + dth < 0.36:
+                if (x * 7 + y * 13) % 3: res[y, x, :3] = SOIL[(x + y) % 3]
+                continue
+            # 화강암: 높이에 따라 이어지는 색(격자 디더로 단을 부드럽게) + 벤치(단) 가장자리 음영
+            f = min(len(RAMP) - 1.001, max(0.0, (t + dth - 0.30) / 0.70 * (len(RAMP) - 1))); i0 = int(f); fr = f - i0
+            c = [RAMP[i0][q] * (1 - fr) + RAMP[i0 + 1][q] * fr for q in range(3)]
+            L = lev[y, x]; up = lev[y - 1, x] if y > 0 else L; lf = lev[y, x - 1] if x > 0 else L; dn = lev[y + 1, x] if y < h - 1 else L
+            if up > L or lf > L: c = [v * 0.72 for v in c]                  # 단 아래 그늘(수직 절개면)
+            elif dn < L: c = [min(255, v * 1.08 + 4) for v in c]             # 단 끝 밝은 모서리
             nz = rnd.random()
-            if nz < 0.06: c = [int(v * 0.92) for v in c]
-            elif nz > 0.96: c = [min(255, int(v * 1.05)) for v in c]
-            # 가장 낮은 단은 흙(채굴된 바닥), 가장 높은 단 일부는 풀
-            if L == 0 and rnd.random() < 0.55: c = list(SOIL[rnd.randrange(3)])
-            res[y, x, :3] = c
-    # 벤치 수직면 질감: 단 경계 바로 아래 한 줄을 어둡게 + 세로 줄무늬 (3D 느낌)
-    for y in range(1, h):
-        for x in range(w):
-            if mask[y, x] and mask[y - 1, x] and lev[y, x] < lev[y - 1, x]:
-                res[y, x, :3] = (res[y, x, :3] * 0.72).astype(int)
+            if nz < 0.05: c = [v * 0.90 for v in c]
+            elif nz > 0.985 and t > 0.55: c = [70 + rnd.randrange(30), 140 + rnd.randrange(30), 60]      # 바위틈 풀
+            res[y, x, :3] = [int(v) for v in c]
     return Image.fromarray(np.clip(res, 0, 255).astype(np.uint8), 'RGBA')
 
 NAMES = ['d5', 'd6', 'd15', 'd16', 'd25', 'd26', 'd50', 'd51', 'd60', 'd70']

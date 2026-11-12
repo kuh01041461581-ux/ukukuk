@@ -107,11 +107,16 @@ class Sc:
         for (cx, cy, r) in cs:
             dk = max(0.0, min(1.0, (cy - (y - 80 * s)) / (50 * s))); col = lerp((130, 205, 80), (36, 112, 48), dk)
             self.grad([(cx + math.cos(t) * r, cy + math.sin(t) * r * 0.86) for t in [k * math.pi / 12 for k in range(24)]], lerp((170, 232, 110), col, 0.5), lerp(col, (22, 80, 36), 0.6), (0.5, 1), 4)
+    LAST_HD = None        # 방금 finish() 한 그림의 2배 해상도판(리마스터 HD 층용). build_sprites 가 가져간다
     def finish(self):
-        a = np.asarray(self.im).astype(float); al = a[..., 3] / 255.0; H = self.H
-        al_s = al.reshape(H, S, W, S).mean((1, 3))
-        rgb = (a[..., :3] * al[..., None]).reshape(H, S, W, S, 3).sum((1, 3)) / np.maximum(al.reshape(H, S, W, S).sum((1, 3)), 1e-6)[..., None]
-        res = np.zeros((H, W, 4), np.uint8); res[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8); res[..., 3] = (al_s > 0.5) * 255
+        if S % 2 == 0: Sc.LAST_HD = self._down(2)
+        return self._down(1)
+    def _down(self, k):
+        """8배로 그린 그림을 k배 해상도(k=1: 원래 크기, k=2: HD)로 면적 평균해 줄인다."""
+        a = np.asarray(self.im).astype(float); al = a[..., 3] / 255.0; H = self.H * k; Wk = W * k; q = S // k
+        al_s = al.reshape(H, q, Wk, q).mean((1, 3))
+        rgb = (a[..., :3] * al[..., None]).reshape(H, q, Wk, q, 3).sum((1, 3)) / np.maximum(al.reshape(H, q, Wk, q).sum((1, 3)), 1e-6)[..., None]
+        res = np.zeros((H, Wk, 4), np.uint8); res[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8); res[..., 3] = (al_s > 0.5) * 255
         im = Image.fromarray(res, 'RGBA'); sh = im.convert('RGB').filter(ImageFilter.UnsharpMask(radius=0.7, percent=45, threshold=2))
         return Image.fromarray(np.dstack([np.asarray(sh), res[..., 3]]), 'RGBA')
 

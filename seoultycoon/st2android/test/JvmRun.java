@@ -35,6 +35,7 @@ public class JvmRun {
                 for (String ln : lines) { String[] q = ln.trim().split("\\s+"); if (q[0].isEmpty()) continue;
                     if (q[0].equals("k")) { int c = Integer.parseInt(q[1]); H.postKey(1, c); H.tick(dtm); H.tick(dtm); H.postKey(2, c); H.tick(dtm); }
                     else if (q[0].equals("t")) { for (int i = 0; i < Integer.parseInt(q[1]); i++) H.tick(dtm); }
+                    else if (q[0].equals("S")) { int[] hd = H.screen.hd(); BufferedImage im = new BufferedImage(480, 592, BufferedImage.TYPE_INT_RGB); im.setRGB(0, 0, 480, 592, hd, 0, 480); ImageIO.write(im, "png", new File(q[1])); }       // HD 화면
                     else if (q[0].equals("s")) { BufferedImage im = new BufferedImage(240, 296, BufferedImage.TYPE_INT_RGB); im.setRGB(0, 0, 240, 296, H.screen.px, 0, H.screen.w); ImageIO.write(im, "png", new File(q[1])); }
                     else if (q[0].equals("d")) { int cls = H.classfor("[I"), end = H.hiEnd(), hdr = cls << 5, cnt = 0;                    // d 월 일 : 날짜 배열(int[12]) 에 쓰기
                         for (int aa = 0x50000000; aa < end; aa += 4) { if (H.vm.r32(aa) != hdr || H.vm.r32(aa + 4) != 12) continue; int y0 = H.vm.r32(aa + 8), m0 = H.vm.r32(aa + 12), d0 = H.vm.r32(aa + 16); if (y0 < 1 || y0 > 4 || m0 < 1 || m0 > 12 || d0 < 1 || d0 > 31) continue; H.vm.w32(aa + 12, Integer.parseInt(q[1])); H.vm.w32(aa + 16, Integer.parseInt(q[2])); cnt++; } System.out.println("D wrote " + cnt); }

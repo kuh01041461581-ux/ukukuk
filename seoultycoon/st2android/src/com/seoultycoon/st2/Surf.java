@@ -3,6 +3,17 @@ package com.seoultycoon.st2;
 /** 소프트웨어 2D 서피스(ARGB int[]) — WIPI Graphics 의 그리기 연산과 클립을 구현 */
 public final class Surf {
     public final int w, h; public final int[] px;
+    /** HD 층: 같은 그림을 K배 해상도로 함께 유지한다(리마스터). 게임 로직은 px(원래 해상도)만 보고, 화면 출력은 hp 를 쓴다.
+     *  HD 그림이 따로 없는 이미지는 px 를 그대로 K배 확대해 쓴다. */
+    public static final int K = 2;
+    public int[] hp;
+    public int[] hd() {
+        if (hp == null) { int W = w * K; int[] o = new int[W * h * K];
+            for (int y = 0; y < h; y++) { int ro = y * K * W; for (int x = 0; x < w; x++) { int p = px[y * w + x]; for (int b = 0; b < K; b++) o[ro + x * K + b] = p; }
+                for (int a = 1; a < K; a++) System.arraycopy(o, ro, o, ro + a * W, W); }
+            hp = o; }
+        return hp;
+    }
     public int color = 0xFF000000;
     public int cx, cy, cw, ch; public boolean hasClip;
     public Surf(int w, int h, boolean opaqueBlack) { this.w = w; this.h = h; px = new int[w * h]; if (opaqueBlack) java.util.Arrays.fill(px, 0xFF000000); }
@@ -19,8 +30,9 @@ public final class Surf {
         if (ww <= 0 || hh <= 0 || !bounds()) return;
         int ax = Math.max(x, x0), ay = Math.max(y, y0), bx = Math.min(x + ww, x1), by = Math.min(y + hh, y1);
         for (int j = ay; j < by; j++) java.util.Arrays.fill(px, j * w + ax, j * w + Math.max(ax, bx), color);
+        int[] H2 = hd(); int W = w * K; if (bx > ax) for (int j = ay * K; j < by * K; j++) java.util.Arrays.fill(H2, j * W + ax * K, j * W + bx * K, color);
     }
-    private void put(int x, int y) { if (x >= x0 && x < x1 && y >= y0 && y < y1) px[y * w + x] = color; }
+    private void put(int x, int y) { if (x >= x0 && x < x1 && y >= y0 && y < y1) { px[y * w + x] = color; int[] H2 = hd(); int W = w * K; for (int a = 0; a < K; a++) for (int b = 0; b < K; b++) H2[(y * K + a) * W + x * K + b] = color; } }
     public void drawRect(int x, int y, int ww, int hh) {
         if (ww < 0 || hh < 0 || !bounds()) return;
         for (int i = 0; i <= ww; i++) { put(x + i, y); put(x + i, y + hh); }
@@ -63,13 +75,26 @@ public final class Surf {
                 }
             }
         }
+        int[] sh = src.hd(), dh = hd(); int W = w * K, sw = src.w * K;
+        for (int j = ay * K; j < by * K; j++) {
+            int so = (j - y * K) * sw - x * K, dof = j * W;
+            for (int i = ax * K; i < bx * K; i++) {
+                int p = sh[so + i]; int al = p >>> 24;
+                if (al == 255) dh[dof + i] = p;
+                else if (al != 0) {
+                    int d = dh[dof + i], ia = 255 - al;
+                    int r = (((p >> 16) & 255) * al + ((d >> 16) & 255) * ia) / 255, g = (((p >> 8) & 255) * al + ((d >> 8) & 255) * ia) / 255, bl = ((p & 255) * al + (d & 255) * ia) / 255;
+                    dh[dof + i] = 0xFF000000 | (r << 16) | (g << 8) | bl;
+                }
+            }
+        }
     }
     /** 글자 마스크(알파)를 현재 색으로 칠함 */
     public void drawMask(byte[] a, int mw, int mh, int x, int y) {
         if (!bounds()) return;
         for (int j = 0; j < mh; j++) { int yy = y + j; if (yy < y0 || yy >= y1) continue;
             for (int i = 0; i < mw; i++) { int xx = x + i; if (xx < x0 || xx >= x1) continue;
-                if ((a[j * mw + i] & 0xff) >= 128) px[yy * w + xx] = color; } }
+                if ((a[j * mw + i] & 0xff) >= 128) { px[yy * w + xx] = color; int[] H2 = hd(); int W = w * K; for (int q = 0; q < K; q++) for (int b = 0; b < K; b++) H2[(yy * K + q) * W + xx * K + b] = color; } } }
     }
     public int getPixel(int x, int y) { return (x < 0 || y < 0 || x >= w || y >= h) ? 0 : (px[y * w + x] & 0xFFFFFF); }
 }

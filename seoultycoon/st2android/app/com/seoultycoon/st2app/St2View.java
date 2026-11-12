@@ -30,7 +30,7 @@ public class St2View extends View {
     Btn[] btns = new Btn[0];
     final Paint bp = new Paint(Paint.ANTI_ALIAS_FLAG), tp = new Paint(Paint.ANTI_ALIAS_FLAG), sp = new Paint(Paint.ANTI_ALIAS_FLAG), gp = new Paint();
     final RectF game = new RectF(), pad = new RectF(), gear = new RectF();
-    final Rect src = new Rect(0, 0, 240, 296);           // 게임 원본 화면(240x296)
+    final Rect src = new Rect(0, 0, 480, 592);           // 게임 HD 화면(480x592)
     Bitmap big; Canvas bigC; int bigK; int shownFrame = -1; final Paint sm = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
     public volatile String err; public volatile int frames;
     public Host game_host; public android.graphics.Bitmap lcd;
@@ -136,9 +136,10 @@ public class St2View extends View {
         cv.drawColor(mode == MODE_TOUCH ? 0xFF000000 : 0xFF101018);
         if (lcd != null) {
             // 글자·도트가 일그러지지 않게 반드시 정수 배율로만 그린다(예: 폭 1080 → 4배 = 960, 남는 자리는 가운데 정렬 여백)
-            int k = Math.max(1, (int) Math.floor(Math.min(game.width() / 240f, game.height() / 296f) + 0.001f));
-            float dx = game.left + (game.width() - 240 * k) / 2f, dy = game.top + (game.height() - 296 * k) / 2f;
-            synchronized (lcd) { cv.drawBitmap(lcd, src, new RectF((int) dx, (int) dy, (int) dx + 240 * k, (int) dy + 296 * k), gp); }
+            float kf = Math.min(game.width() / 480f, game.height() / 592f); int k = (int) Math.floor(kf + 0.001f);
+            float gw = k >= 1 ? 480 * k : 480 * kf, gh = k >= 1 ? 592 * k : 592 * kf;                 // 정수 배율(화면이 480 보다 좁으면 줄여서)
+            float dx = game.left + (game.width() - gw) / 2f, dy = game.top + (game.height() - gh) / 2f;
+            synchronized (lcd) { cv.drawBitmap(lcd, src, new RectF((int) dx, (int) dy, (int) dx + gw, (int) dy + gh), k >= 1 ? gp : sm); }
         }
         bp.setStyle(Paint.Style.FILL);
         for (int i = 0; i < btns.length; i++) {

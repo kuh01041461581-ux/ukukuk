@@ -17,13 +17,13 @@ import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, m
 # 익산 고유 건물만 새 도트를 쓴다. 그 밖의 건물(소방서·경찰서·학교·아파트·버스정류장·유치원·놀이터·체육공원 등)은 원본 도트를 그대로 두고 퀄리티만 올린다(enhance_orig).
 ITEMS = {2: LM.mireuksa, 13: CV.church, 20: CV.library, 21: MB.chunpo, 33: HQ.baseball, 38: MO.baekje, 42: HQ.arts}
 # 롯데시네마·코스트코·테슬라·하림·농협은행·공설운동장·방송국·마룡이식당은 원본 도트에 간판만 고친다(make_iksan_retouch) → 아래에서 퀄리티 보정까지 받는다
-yx = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); show = []
-def on_tile(F, yc):
+yx = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); show = []; hd_show = []
+def on_tile(F, yc, s=1):
     """바닥 마름모의 아래쪽 변보다 밑(바닥 두께·그림자)은 지운다 → 원본처럼 타일에 딱 붙는다(공중에 뜬 것처럼 보이지 않게)."""
     F = F.copy(); px = F.load()
-    for y in range(yc, F.height):
+    for y in range(yc * s, F.height):
         for x in range(F.width):
-            if y > yc + 24 - abs(x - 48) * 24 / 47.0: px[x, y] = (0, 0, 0, 0)
+            if y / s > yc + 24 - abs(x / s - 48) * 24 / 47.0: px[x, y] = (0, 0, 0, 0)
     return F
 def horse(dx=0, dy=0):
     Hc, yc = ST.canvas(9); tmp = '/tmp/_iksan_b9.png'
@@ -32,15 +32,23 @@ def horse(dx=0, dy=0):
 ITEMS[9] = horse
 for k, fn in sorted(ITEMS.items()):
     Hc, yc = ST.canvas(k)
-    Sc.OVR = (Hc, yc)
+    Sc.OVR = (Hc, yc); Sc.LAST_HD = None
     try: F = fn()
     finally: Sc.OVR = None
-    if F.size != (96, Hc): F2 = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); F2.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = F2
+    F2 = Sc.LAST_HD                                              # 2배 해상도판(없으면 1배 그림만)
+    if F.size != (96, Hc): Fx = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); Fx.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = Fx
     F = on_tile(F, yc)
     if k != 9: F = PS.stylize(F)
     # 애니메이션 프레임: 구성물이 실제로 움직이는 변형 그림을 우선 쓰고(승마장: 말이 울타리 안을 걷는다), 없으면 불빛 변형
     vs = [on_tile(horse(6, 2), yc)] if k == 9 else [PS.twinkle(F, 0), PS.twinkle(F, 1)]
-    S, rects, pos = ST.to_sheet(k, F, vs); S.save(f'{out}/b{k}.png'); ST.patch_yx(yx, k, rects, pos)
+    S, rects, pos = ST.to_sheet(k, F, vs); ST.patch_yx(yx, k, rects, pos)
+    import io
+    buf = io.BytesIO(); S.save(buf, format='PNG'); data = buf.getvalue()
+    if F2 is not None and F2.size == (192, Hc * 2):
+        # HD 층: 색을 줄이거나 다시 깎지 않고 고해상도 그림 그대로(채도·대비만 원작에 맞춤) 같은 조각 배치로 담아 PNG 뒤에 붙인다
+        F2 = PS.grade(on_tile(F2, yc, 2)); v2 = [PS.twinkle(F2, 0, 2), PS.twinkle(F2, 1, 2)]
+        S2 = ST.hd_sheet(k, F2, v2, rects, pos, 2); b2 = io.BytesIO(); S2.save(b2, format='PNG'); data += b2.getvalue(); hd_show.append((k, F2))
+    open(f'{out}/b{k}.png', 'wb').write(data)
     for fi in range(len(ST.TABLE[k]['frames'])): show.append((k, F, ST.compose(k, S, rects, frame=fi, pos=pos)))
 open(root + '/st2android/mod/yx.d', 'wb').write(yx)
 import enhance_orig as EN
@@ -50,6 +58,10 @@ for k in sorted(ST.TABLE):
     p = f'{out}/b{k}.png'; src = Image.open(p).convert('RGBA') if os.path.exists(p) else None      # 간판만 고친 원본(b8·b32·b45)은 그 위에 보정
     EN.enhance(k, im=src).save(p); n_en += 1
 print('새 도트', len(ITEMS), '종 변환, 원본 퀄리티 보정', n_en, '종')
+if len(sys.argv) > 2:
+    w = Image.new('RGBA', (len(hd_show) * 196, max(f.height for _, f in hd_show)), (150, 70, 160, 255))
+    for i, (k, f) in enumerate(hd_show): w.alpha_composite(f, (i * 196, w.height - f.height))
+    w.save(sys.argv[2])
 if len(sys.argv) > 1:
     cols = 7; cw, ch = 100, 110; rows = (len(show) + cols - 1) // cols
     w = Image.new('RGBA', (cols * cw, rows * ch), (150, 70, 160, 255))

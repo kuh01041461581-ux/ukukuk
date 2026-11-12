@@ -123,7 +123,7 @@ public class St2Pc {
                 long last = System.nanoTime(); int[] px = new int[240 * 296];
                 while (running) {
                     long t0 = System.nanoTime(); int dt = (int) Math.min(100, (t0 - last) / 1000000); last = t0; h.timeScale = speed;
-                    if (h.tick(Math.max(8, dt))) { Surf s = h.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; int[] big = (panel.hq ? PixelScale.epx4(px, 240, 296) : PixelScale.nn4(px, 240, 296)); synchronized (panel.lcd) { panel.lcd.setRGB(0, 0, 960, 1184, big, 0, 960); } panel.repaint(); }
+                    if (h.tick(Math.max(8, dt))) { Surf s = h.screen; int[] hd = s.hd(); int[] p2 = new int[hd.length]; for (int i = 0; i < p2.length; i++) p2[i] = hd[i] | 0xFF000000; int[] big = (panel.hq ? PixelScale.epx2(p2, 480, 592, null) : PixelScale.nn(p2, 480, 592, 2)); synchronized (panel.lcd) { panel.lcd.setRGB(0, 0, 960, 1184, big, 0, 960); } panel.repaint(); }
                     long el = (System.nanoTime() - t0) / 1000000; if (el < 16) Thread.sleep(16 - el);
                 }
             } catch (Throwable ex) { StringWriter sw = new StringWriter(); ex.printStackTrace(new PrintWriter(sw)); panel.err = sw.toString(); panel.repaint(); try { pf.writeFile("error.txt", sw.toString().getBytes(StandardCharsets.UTF_8)); } catch (Exception e2) { } }

@@ -45,9 +45,9 @@ def to_sheet(k, F, variants=None):
     그 조각은 모든 프레임에 나오는 것 중에서 고르고, 나머지 덧조각은 끈다(1x1). 시트: [줄 0 비움][위쪽 조각][메인][바닥 끝 8줄]."""
     r, main, MY = info(k); rs = r['rects']; mh = main[3]
     common = [i for i in range(1, len(rs)) if all(any(e[0] == i for e in f) for f in r['frames'])]
-    new = [(95, 0, 1, 1)] * len(rs); pos = {}; sy = 1; up = None
+    new = [(95, 0, 1, 1)] * len(rs); pos = {}; sy = 1; up = None; META.clear()
     if MY > 0 and common:
-        up = common[0]; new[up] = (0, sy, 96, MY); pos[up] = (0, 0); sy += MY
+        up = common[0]; new[up] = (0, sy, 96, MY); pos[up] = (0, 0); sy += MY; META.append((up, 'up', 0))
     # 애니메이션: 일부 프레임에만 나오는 조각에 '달라진 화소만 담은 덧그림'을 넣는다(원본이 프레임마다 다른 조각을 덧그리는 것과 같은 방식)
     overlays = []; usedp = set()
     if variants:
@@ -59,7 +59,7 @@ def to_sheet(k, F, variants=None):
             A = np.asarray(F)[:MY + mh]; B = np.asarray(V)[:MY + mh].copy(); diff = (A != B).any(-1); B[~diff] = 0
             if not diff.any(): continue
             ys, xs = np.where(diff); x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
-            O = Image.fromarray(B, 'RGBA').crop((x0, y0, x1, y1)); new[i] = (0, sy, int(x1 - x0), int(y1 - y0)); pos[i] = (int(x0), int(y0)); overlays.append((O, sy)); sy += int(y1 - y0)
+            O = Image.fromarray(B, 'RGBA').crop((x0, y0, x1, y1)); new[i] = (0, sy, int(x1 - x0), int(y1 - y0)); pos[i] = (int(x0), int(y0)); overlays.append((O, sy)); sy += int(y1 - y0); META.append((i, 'ov', (vi - 1) % len(variants)))
     assert sy < 250, 'sheet too tall for yx.d bytes'
     new[0] = (0, sy, 96, mh); H = sy + mh + 8
     S = Image.new('RGBA', (96, H), (0, 0, 0, 0))
@@ -71,6 +71,21 @@ def to_sheet(k, F, variants=None):
     px = S.load()
     for x in range(96): px[x, 0] = (0, 0, 0, 0)
     return S, new, pos
+META = []          # 방금 to_sheet 가 배치한 조각 [(조각번호, 'up'|'ov', 변형 번호)] — hd_sheet 가 같은 배치로 HD 시트를 만든다
+def hd_sheet(k, F2, variants2, new, pos, s=2):
+    """to_sheet 가 정한 배치(new, pos) 그대로, s배 해상도 그림 F2(와 변형들)로 HD 시트를 만든다."""
+    r, main, MY = info(k); mh = main[3]; H = new[0][1] + mh + 8
+    S2 = Image.new('RGBA', (96 * s, H * s), (0, 0, 0, 0))
+    for (i, kind, vi) in META:
+        x0, y0, w, h = new[i]; px_, py_ = pos[i]
+        if kind == 'up': S2.paste(F2.crop((0, 0, 96 * s, MY * s)), (0, y0 * s))
+        else:
+            V = variants2[vi % len(variants2)]; box = (px_ * s, py_ * s, (px_ + w) * s, (py_ + h) * s)
+            A = np.asarray(F2.crop(box)); B = np.asarray(V.crop(box)).copy(); B[~(A != B).any(-1)] = 0; S2.paste(Image.fromarray(B, 'RGBA'), (0, y0 * s))
+    S2.paste(F2.crop((0, MY * s, 96 * s, (MY + mh) * s)), (0, new[0][1] * s))
+    for rr in range(8 * s):
+        S2.paste(F2.crop((16 * s, (MY + mh) * s + rr, 80 * s, (MY + mh) * s + rr + 1)), (0, (H - 8) * s + rr)); S2.paste(F2.crop((32 * s, (MY + mh + 8) * s + rr, 64 * s, (MY + mh + 8) * s + rr + 1)), (64 * s, (H - 8) * s + rr))
+    return S2
 def coverage(k):
     """새 도트가 보일 수 있는 영역(조립 그림 좌표의 불리언 배열)."""
     Hc, yc = canvas(k); F = Image.new('RGBA', (96, Hc), (255, 255, 255, 255)); S, new, pos = to_sheet(k, F)

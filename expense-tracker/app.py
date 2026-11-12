@@ -97,7 +97,7 @@ class Api:
             self.log("save_text fallback", e)
             return {"ok": False, "error": str(e)}
 
-    def import_xlsx_data(self, name, b64, year=2026):
+    def import_xlsx_data(self, name, b64, year=2026, mode="auto"):
         """화면에서 읽어 보낸 엑셀 파일(base64)을 풀어 일상경비/공공요금을 자동으로 구분해 읽습니다."""
         tmp = None
         try:
@@ -105,7 +105,7 @@ class Api:
             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
                 f.write(data)
                 tmp = f.name
-            return self.read_workbook(tmp, int(year))
+            return self.read_workbook(tmp, int(year), mode)
         except Exception as e:  # noqa
             self.log("import_xlsx_data", e)
             return {"error": f"엑셀 파일을 읽지 못했습니다 ({name}).\n{e}"}
@@ -117,11 +117,13 @@ class Api:
                     pass
 
     @staticmethod
-    def read_workbook(path, year=2026):
+    def read_workbook(path, year=2026, mode="auto"):
         import openpyxl
         import seedlib
         wb = openpyxl.load_workbook(path)
         names = list(wb.sheetnames)
+        if mode == "form":
+            return {"form": seedlib.extract_form_rows(wb)}
         out, errs = {}, []
         try:
             led = seedlib.parse_ledger_xlsx(wb)
@@ -145,6 +147,9 @@ class Api:
             except Exception as e:  # noqa
                 errs.append(str(e))
         if not out:
+            rows = seedlib.extract_form_rows(wb)
+            if rows:
+                return {"form": rows}
             msg = "이 엑셀에서 일상경비('사무관리비' 탭)·공공요금('%s' 탭)·통계목별 조회('집행누계액' 열)를 찾지 못했습니다.\n탭 이름: %s" % (year, ", ".join(names[:10]))
             if errs:
                 msg += "\n" + "\n".join(errs)

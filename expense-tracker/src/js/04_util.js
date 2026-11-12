@@ -29,21 +29,25 @@ function monthlyChart() {
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 공공요금 지출 막대그래프(${vis.map(x => x[1]).join('·')})">${defs}${g}<line class="ax" x1="${L}" x2="${W - R}" y1="${Tp + ih}" y2="${Tp + ih}"/></svg>`;
 }
 
-function renderUtil() {
-  const P = $('#p-util'); const u = UI.util; const sec = S.util[u.cat]; if (!sec) { P.innerHTML = '<div class="empty">공공요금 데이터가 없습니다</div>'; return; }
-  if (u.month == null) u.month = defaultMonth(sec);
-  const m = u.month, dm = defaultMonth(sec);
-  const grand = sum(CATS, ([k]) => S.util[k] ? catTotal(S.util[k]) : 0);
-  const todo = todoSummary(); const anyTodo = todo.some(t => t.missing || t.unpaid);
-  let h = `<div class="card todo-banner ${anyTodo ? 'has' : ''}" style="margin-top:16px"><div class="row" style="justify-content:space-between"><b>${anyTodo ? '확인이 필요한 고지서' : '✓ 모든 고지서를 받았고 납부도 끝났습니다'}</b><span class="muted">Ctrl+F 로 번호·장소를 바로 찾을 수 있어요</span></div>
-    <div class="row" style="margin-top:8px">${todo.map(t => `<button class="todo-chip ${t.missing || t.unpaid ? 'on' : ''}" style="--c:${CATCOLOR[t.k]}" data-act="todo" data-cat="${t.k}"><i></i><b>${t.nm}</b>${t.unpaid ? `<span class="badge bad">미납 ${t.unpaid}건 · ${won(t.amt)}원</span>` : ''}${t.missing ? `<span class="badge warn">미수령 ${t.missing}건</span>` : ''}${t.missing || t.unpaid ? '' : '<span class="badge good">완료</span>'}</button>`).join('')}</div></div>
-  <div class="cat-cards">`;
+function utilCatChips(u) {
+  return `<div class="catchips" role="group" aria-label="요금 종류">${todoSummary().map(t => `<button class="todo-chip ${u.cat === t.k ? 'sel' : ''} ${t.missing || t.unpaid ? 'on' : ''}" style="--c:${CATCOLOR[t.k]}" data-act="cat" data-v="${t.k}"><i></i><b>${t.nm}</b>${t.unpaid ? `<span class="badge bad">미납 ${t.unpaid}건 · ${won(t.amt)}원</span>` : ''}${t.missing ? `<span class="badge warn">미수령 ${t.missing}건</span>` : ''}${t.missing || t.unpaid ? '' : '<span class="badge good">완료</span>'}</button>`).join('')}</div>`;
+}
+function utilControls(sec) {
+  const u = UI.util;
+  return `<div class="row noprint ctlrow" style="margin-left:auto">
+    ${(sec.tips || []).length ? `<span class="muted" style="font-size:12px" data-tip="${esc(sec.tips.join('\n'))}">※ ${esc(sec.tips[0])}</span>` : ''}
+    <input type="search" data-u="q" data-nav="q" value="${esc(u.q)}" placeholder="이 종류에서 검색" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface-2);width:190px">
+    <label class="row" style="gap:4px;font-size:12px"><input type="checkbox" data-u="inactive" ${u.showInactive ? 'checked' : ''}> 미사용 포함</label></div>`;
+}
+function utilStat() {
+  const u = UI.util; const grand = sum(CATS, ([k]) => S.util[k] ? catTotal(S.util[k]) : 0);
+  let h = `<div class="cat-cards" style="margin-top:0">`;
   for (const [k, nm] of CATS) {
     const s = S.util[k]; if (!s) continue; const tot = catTotal(s), bud = S.utilBudget[k];
     h += `<div class="cat-card" style="--c:${CATCOLOR[k]}"><div class="row" style="justify-content:space-between"><b>${nm}</b><span class="muted">${s.items.filter(i => !i.inactive).length}곳</span></div>
       <div class="big">${won(tot)}<span style="font-size:13px;font-weight:400"> 원</span></div>
       <div class="row" style="margin:6px 0"><span class="muted">연 예산</span><input class="cellin" style="width:130px;border-color:var(--line)" data-u="budget" data-cat="${k}" data-nav="ub-${k}" value="${bud ? won(bud) : ''}" placeholder="미입력" inputmode="numeric"><span class="muted">원</span></div>
-      ${bud ? `${barHTML(tot, 0, bud)}<div class="row" style="justify-content:space-between;margin-top:4px"><b>${pct1(pct(tot, bud))}</b><span class="muted">잔액 ${won(bud - tot)}원</span></div>` : '<div class="hint">예산을 입력하면 집행률 막대가 나옵니다 ([예산서 불러오기]에서 자동 계산 가능)</div>'}
+      ${bud ? `${barHTML(tot, 0, bud)}<div class="row" style="justify-content:space-between;margin-top:4px"><b>${pct1(pct(tot, bud))}</b><span class="muted">잔액 ${won(bud - tot)}원</span></div>` : '<div class="hint">예산을 입력하면 집행률 막대가 나옵니다 ([파일 불러오기]에서 자동 계산 가능)</div>'}
       </div>`;
   }
   h += `</div>
@@ -54,27 +58,29 @@ function renderUtil() {
     <details class="fold"><summary>표로 보기</summary><div class="tbl-wrap"><table class="t"><thead><tr><th>구분</th>${MON.map(x => `<th>${x}</th>`).join('')}<th>합계</th></tr></thead><tbody>
     ${CATS.map(([k, nm]) => { const s = S.util[k]; if (!s) return ''; return `<tr><td>${nm}</td>${MON.map((_, i) => `<td class="num">${won(monthTotal(s, i))}</td>`).join('')}<td class="num"><b>${won(catTotal(s))}</b></td></tr>`; }).join('')}
     <tr class="tot"><td>합계</td>${MON.map((_, i) => `<td class="num">${won(sum(CATS, ([k]) => S.util[k] ? monthTotal(S.util[k], i) : 0))}</td>`).join('')}<td class="num">${won(grand)}</td></tr></tbody></table></div></details>
-  </div>
-
-  <div class="card">
-    <div class="row" style="justify-content:space-between">
-      <div class="pills" role="group" aria-label="요금 종류">${CATS.map(([k, nm]) => `<button class="pill" aria-pressed="${k === u.cat}" data-act="cat" data-v="${k}">${nm}</button>`).join('')}</div>
-      <div class="pills" role="group" aria-label="보기 방식"><button class="pill" aria-pressed="${u.mode === 'month'}" data-act="mode" data-v="month">월별 입력</button><button class="pill" aria-pressed="${u.mode === 'year'}" data-act="mode" data-v="year">연간 표</button></div>
-    </div>
-    ${(sec.tips || []).length ? `<p class="muted" style="margin:8px 0 0">※ ${esc(sec.tips.join(' · '))}</p>` : ''}
-    <div class="row noprint" style="margin-top:10px">
-      <input type="search" data-u="q" data-nav="q" value="${esc(u.q)}" placeholder="항목·번호 검색 (이 종류만)" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface-2);min-width:240px"><button class="btn sm" data-act="find" data-tip="모든 요금 종류에서 찾기 (Ctrl+F)">전체에서 찾기 Ctrl+F</button>
-      <label class="row" style="gap:4px"><input type="checkbox" data-u="inactive" ${u.showInactive ? 'checked' : ''}> 미사용·사용자납부 포함</label>
-      <span class="spacer"></span>
-      <button class="btn sm" data-act="additem">＋ 항목 추가</button><button class="btn sm" data-act="tsv">표 복사</button><button class="btn sm" data-act="printu">인쇄</button>
-    </div>
-    <div id="u-body" style="margin-top:12px">${u.mode === 'month' ? monthView(sec, m, dm) : yearView(sec, dm)}</div>
   </div>`;
-  if ((sec.forwards || []).length) {
-    h += `<div class="card"><details class="fold"><summary>${sec.title} — 타 계·부서 전달처 안내표 (${sec.forwards.length}건)</summary>
-      <div class="tbl-wrap" style="margin-top:8px"><table class="t"><thead><tr><th>관리 항목</th><th>번호</th><th>전달처</th><th>비고</th></tr></thead><tbody>
-      ${sec.forwards.map(f => `<tr><td>${esc(f.name)}</td><td class="nolist">${esc(f.numbers)}</td><td>${esc(f.to)}</td><td>${esc(f.memo)}</td></tr>`).join('')}</tbody></table></div></details></div>`;
-  }
+  return h;
+}
+function utilFwd() {
+  const parts = CATS.map(([k, nm]) => { const sec = S.util[k]; if (!sec || !(sec.forwards || []).length) return '';
+    return `<div class="card" style="margin-top:0;margin-bottom:12px"><h2>${sec.title} — 타 계·부서 전달처 (${sec.forwards.length}건)</h2><div class="tbl-wrap fit"><table class="t"><thead><tr><th>관리 항목</th><th>번호</th><th>전달처</th><th>비고</th></tr></thead><tbody>
+      ${sec.forwards.map(f => `<tr><td>${esc(f.name)}</td><td class="nolist">${esc(f.numbers)}</td><td>${esc(f.to)}</td><td>${esc(f.memo)}</td></tr>`).join('')}</tbody></table></div></div>`; }).join('');
+  return parts || '<div class="empty">전달처 안내 정보가 없습니다</div>';
+}
+function renderUtil() {
+  const P = $('#p-util'); const u = UI.util; u.sub = u.sub || 'pay';
+  const sec = S.util[u.cat]; if (!sec) { P.innerHTML = '<div class="empty">공공요금 데이터가 없습니다</div>'; return; }
+  if (u.month == null) u.month = defaultMonth(sec);
+  const m = u.month, dm = defaultMonth(sec);
+  const SUBS = [['pay', '납부 확인'], ['stat', '현황 · 그래프'], ['year', '연간 표'], ['fwd', '전달처 안내']];
+  let h = `<div class="row noprint subbar"><div class="pills subtabs" role="tablist">${SUBS.map(([k, n]) => `<button class="pill" role="tab" aria-pressed="${u.sub === k}" data-act="usub" data-v="${k}">${n}</button>`).join('')}</div>
+    <span class="spacer"></span><button class="btn sm" data-act="find" data-tip="모든 요금 종류에서 번호·장소로 찾기">찾기 Ctrl+F</button>
+    <button class="btn sm primary" data-act="payform" data-tip="스캔 후 만든 지출 폼 엑셀을 올리면 기록에서 찾아 납부 완료로 바꿉니다">지출 폼 엑셀로 납부 처리</button>
+    ${u.sub === 'pay' || u.sub === 'year' ? '<button class="btn sm" data-act="additem">＋ 항목</button><button class="btn sm" data-act="tsv">표 복사</button><button class="btn sm" data-act="printu">인쇄</button>' : ''}</div>`;
+  if (u.sub === 'pay') h += `<div class="row chiprow">${utilCatChips(u)}${utilControls(sec)}</div><div class="card payc"><div id="u-body">${monthView(sec, m, dm)}</div></div>`;
+  else if (u.sub === 'year') h += `<div class="row chiprow">${utilCatChips(u)}${utilControls(sec)}</div><div class="card payc"><div id="u-body">${yearView(sec, dm)}</div></div>`;
+  else if (u.sub === 'stat') h += utilStat();
+  else h += utilFwd();
   P.innerHTML = h; restoreFocus();
   const q = $('[data-nav="q"]', P); if (q && document.activeElement === q) { q.setSelectionRange(q.value.length, q.value.length); }
 }
@@ -114,7 +120,7 @@ function monthView(sec, m, dm) {
       <span>입력 합계 <b>${won(tot)}원</b></span>${prev != null ? `<span class="muted">전월 ${won(prev)}원</span>` : ''}${pyT ? `<span class="muted">전년 같은 달 ${won(pyT)}원</span>` : ''}
       <span class="spacer"></span><div class="pills">${[['all', '전체'], ['todo', '처리 필요'], ['miss', '미수령'], ['unpaid', '미납']].map(([k, nm]) => `<button class="pill" aria-pressed="${u.filter === k}" data-act="filter" data-v="${k}">${nm}</button>`).join('')}</div></div>`;
   if (!rows.length) return h + `<div class="empty">${u.filter === 'all' ? '표시할 항목이 없습니다' : '해당하는 고지서가 없습니다 👍'}</div>`;
-  h += `<div class="tbl-wrap scroll-y"><table class="t"><thead><tr><th style="width:96px">고지서 확인</th><th>관리 항목 · 번호</th><th style="width:160px">${MON[m]}분 금액(원)</th><th>전월</th><th>전년 같은 달</th></tr></thead><tbody>`;
+  h += `<div class="tbl-wrap fit fit-pay"><table class="t"><thead><tr><th style="width:220px">고지서 확인</th><th>관리 항목 · 번호</th><th style="width:160px">${MON[m]}분 금액(원)</th><th>전월</th><th>전년 같은 달</th></tr></thead><tbody>`;
   for (const it of rows) {
     const st = stateOf(it, m), a = it.amt[m], p = it.py ? it.py[m] : null, pv = m > 0 ? it.amt[m - 1] : null;
     const diff = a && p ? (a - p) / p * 100 : null;
@@ -133,7 +139,7 @@ function yearView(sec, dm) {
   const rows = visibleItems(sec);
   const lg = (s, t) => `<span class="ycell"><span class="dot s${s}" style="display:inline-block"></span></span> ${t}`;
   let h = `<p class="muted" style="margin:0 0 8px">칸 앞의 네모를 누르면 ${lg(0, '미수령')} → ${lg(1, '수령·미납')} → ${lg(3, '납부완료')} → ${lg(2, '청구없음')} 순으로 바뀝니다.</p>
-  <div class="tbl-wrap scroll-y"><table class="t"><thead><tr><th class="sticky-l" style="min-width:230px">관리 항목</th><th>’${String(S.year - 1).slice(2)}.12</th>${MON.map((x, i) => `<th>${x}분</th>`).join('')}<th>합계</th></tr></thead><tbody>
+  <div class="tbl-wrap fit fit-year"><table class="t"><thead><tr><th class="sticky-l" style="min-width:230px">관리 항목</th><th>’${String(S.year - 1).slice(2)}.12</th>${MON.map((x, i) => `<th>${x}분</th>`).join('')}<th>합계</th></tr></thead><tbody>
   <tr class="tot"><td class="sticky-l" style="background:var(--accent-soft)">합계 (전체)</td><td class="num">${won(sum(sec.items, i => i.dec))}</td>${MON.map((_, i) => `<td class="num">${won(monthTotal(sec, i))}</td>`).join('')}<td class="num">${won(catTotal(sec))}</td></tr>`;
   for (const it of rows) {
     h += `<tr class="${it.inactive ? 'inactive' : ''}"><td class="sticky-l name"><div class="nolist"><b>${esc(it.name)}</b></div>${numLines(sec, it)}${it.memo ? `<span class="hint">${esc(it.memo)}</span>` : ''}<button class="btn sm noprint" data-act="edititem" data-id="${it.id}">편집</button></td>
@@ -170,9 +176,10 @@ PU.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act, u = UI.util;
   if (a === 'series-all') { CATS.forEach(([k]) => UI.util.series[k] = true); renderUtil(); return; }
   if (a === 'find') { openFind(); return; }
-  if (a === 'todo') { u.cat = b.dataset.cat; u.mode = 'month'; u.filter = 'todo'; u.q = ''; u.month = defaultMonth(S.util[u.cat]); renderUtil(); $('#u-body').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  if (a === 'payform') { pickFiles('.xlsx,.xlsm', 'form'); return; }
+  if (a === 'usub') { u.sub = b.dataset.v; renderUtil(); window.scrollTo(0, 0); return; }
+  if (a === 'todo') { u.cat = b.dataset.cat; u.sub = 'pay'; u.filter = 'todo'; u.q = ''; u.month = defaultMonth(S.util[u.cat]); renderUtil(); return; }
   if (a === 'cat') { u.cat = b.dataset.v; u.month = null; renderUtil(); }
-  else if (a === 'mode') { u.mode = b.dataset.v; renderUtil(); }
   else if (a === 'month') { u.month = +b.dataset.v; renderUtil(); }
   else if (a === 'filter') { u.filter = b.dataset.v; renderUtil(); }
   else if (a === 'cycle') { const it = S.util[u.cat].items.find(x => x.id === b.dataset.id); cycle4(it, +b.dataset.m); save(); renderUtil(); }

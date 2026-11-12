@@ -292,3 +292,43 @@ def parse_ledger_xlsx(wb):
         if entries:
             return {"entries": entries, "skipped": skipped, "sheet": ws.title}
     return None
+
+
+def extract_form_rows(wb, limit=4000):
+    """지출 폼(스캔한 고지서 기록 등) 엑셀의 모든 행을 있는 그대로 읽어 옵니다.
+    어떤 열에 무엇이 있는지는 화면 쪽에서 계약번호·납부번호와 맞춰 보며 찾습니다."""
+    import datetime
+    rows = []
+    for ws in wb.worksheets:
+        header, hdr_row = [], None
+        for r in range(1, min(ws.max_row, 30) + 1):
+            vals = [ws.cell(r, c).value for c in range(1, min(ws.max_column, 40) + 1)]
+            if sum(isinstance(v, str) and v.strip() != "" for v in vals) >= 3:
+                header = [txt(v) for v in vals]
+                hdr_row = r
+                break
+        start = (hdr_row or 0) + 1
+        for r in range(start, ws.max_row + 1):
+            cells, nums, dates = [], [], []
+            for c in range(1, min(ws.max_column, 40) + 1):
+                v = ws.cell(r, c).value
+                if v is None or (isinstance(v, str) and not v.strip()):
+                    cells.append("")
+                    continue
+                if isinstance(v, (datetime.datetime, datetime.date)):
+                    dates.append(v.strftime("%Y-%m-%d"))
+                    cells.append(v.strftime("%Y-%m-%d"))
+                elif isinstance(v, bool):
+                    cells.append(str(v))
+                elif isinstance(v, (int, float)):
+                    h = header[c - 1] if c - 1 < len(header) else ""
+                    nums.append([c - 1, h, v])
+                    cells.append(str(int(v)) if float(v).is_integer() else str(v))
+                else:
+                    cells.append(txt(v))
+            if any(cells):
+                rows.append({"sheet": ws.title, "r": r, "cells": cells, "nums": nums, "dates": dates,
+                             "header": header if header else []})
+                if len(rows) >= limit:
+                    return rows
+    return rows

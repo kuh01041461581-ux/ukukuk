@@ -45,7 +45,7 @@ function copyText(text, okMsg) {
 /* ===== 상태 / 저장 ===== */
 const KEY = 'ilsang-gyeongbi-v1';
 let S = null;                       // 전체 데이터
-const UI = { tab: 'daily', util: { cat: 'elec', mode: 'month', month: null, filter: 'all', q: '', showInactive: false, series: { elec: true, water: true, tel: true } }, imp: null };
+const UI = { tab: 'daily', util: { cat: 'elec', sub: 'pay', mode: 'month', month: null, filter: 'all', q: '', showInactive: false, series: { elec: true, water: true, tel: true } }, imp: null };
 
 function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
 function emptyState() { return { version: 1, year: new Date().getFullYear(), asOf: today(), memo: '', lines: [], util: { elec: emptySec('elec'), water: emptySec('water'), tel: emptySec('tel') }, utilBudget: { elec: null, water: null, tel: null } }; }

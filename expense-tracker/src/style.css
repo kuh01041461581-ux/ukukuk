@@ -627,3 +627,70 @@ tr.flash td{animation:flash 1.8s ease}
 .dash-r .alert .badge{min-width:56px;font-size:10.5px}
 .dash-r .al-main b{font-size:13px}.dash-r .al-d{font-size:12px}
 @media (max-width:1100px){.dash{grid-template-columns:1fr}}
+
+/* ===== 탭으로 나눠 스크롤 없이: 한 화면에 맞춤 ===== */
+.subbar{margin-top:14px;gap:8px}
+.subtabs .pill{padding:6px 16px;font-size:14px}
+.fit{overflow:auto;max-height:none}
+.fit-now{max-height:calc(100vh - 215px)}
+.fit-pay{max-height:calc(100vh - 470px);min-height:240px}
+.fit-year{max-height:calc(100vh - 400px);min-height:240px}
+.fit-d{max-height:calc(100vh - 250px)}
+.payc{margin-top:10px;padding:12px 16px}
+.ctlrow{gap:10px}
+.catchips{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.catchips .todo-chip{padding:8px 14px;font-size:14px}
+.todo-chip.sel{background:var(--accent-soft);border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--c)}
+/* 일상경비 현황: 왼쪽 잔액 표 + 오른쪽 핵심 */
+.now{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:14px;align-items:start;margin-top:12px}
+.nowt th,.nowt td{padding:5px 8px}
+.nowt td.nm2{font-weight:600}
+.nowt .remv{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
+.nowt tr.grp td{font-size:13px}
+.nowt tr.grp .remv{font-size:18px}
+.nowt td.pcol{min-width:150px;text-align:left}
+.nowt .rate{min-width:130px}.nowt .rate b{width:50px;font-size:12px}
+.nowt tr.clk{cursor:pointer}
+.nowt tr.rem-low td.remv{color:var(--warn)}
+.nowt tr.rem-bad td.remv{color:var(--bad)}
+.nowt tr.rem-low td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
+.nowt tr.rem-bad td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+.nowt .hint{font-weight:400}
+.bigrem{padding:16px 20px;margin:0}
+.bigrem .v{font-size:40px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.1}
+.bigrem .v small{font-size:16px;font-weight:600;margin-left:3px}
+.bigrem .s{font-size:13px;color:var(--text-2);margin-top:4px}
+@media (max-width:1100px){.now{grid-template-columns:1fr}.fit-now{max-height:none}}
+.gcards{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.chk,.serchk{position:relative}
+.fit-now{max-height:calc(100vh - 280px)}
+.fit-d{max-height:calc(100vh - 320px)}
+.fit-year{max-height:calc(100vh - 560px);min-height:220px}
+.bigrem{padding:14px 20px}.bigrem .v{font-size:36px}
+.now-r .card{padding:12px 14px}.now-r .alert{padding:7px 10px}
+
+/* 행을 촘촘하게: 한 화면에 더 많이 */
+.fit-now{max-height:calc(100vh - 205px)}
+.nowt th,.nowt td{padding:3px 8px}
+.nowt .remv{font-size:16px}.nowt tr.grp .remv{font-size:17px}
+.nowt td.nm2{font-size:13px}
+.nowt .hint{font-size:10.5px;line-height:1.2}
+.nowt .rate{gap:6px}.nowt .rate .bar{height:9px}
+.stcell{flex-direction:row;flex-wrap:wrap;gap:4px 12px;align-items:center;max-width:210px}
+.stcell .chk.mini{flex-basis:100%}
+td .cellin[data-u=amt]{width:118px;display:inline-block}
+.stlabel{display:inline-block;margin-left:8px;vertical-align:middle}
+.fit-pay table.t td{padding:5px 8px}
+.fit-pay .name .btn{margin-top:2px;padding:1px 8px}
+.fit-pay{max-height:calc(100vh - 455px)}
+.fit-now{max-height:calc(100vh - 240px)}
+.fit-pay{max-height:calc(100vh - 480px)}
+.chiprow{gap:10px;margin-top:10px;align-items:center;flex-wrap:wrap}
+.chiprow .catchips{margin-top:0}
+.payc{padding:10px 14px}
+.sumline{margin:8px 0}
+.fit-pay{max-height:calc(100vh - 395px)}
+.fit-year{max-height:calc(100vh - 345px)}
+.fit-year{max-height:calc(100vh - 470px)}
+dialog.pfbox{width:min(1000px,95vw)}
+.pfwrap td{vertical-align:middle}.pfwrap td:nth-child(5),.pfwrap td:nth-child(6){white-space:nowrap}

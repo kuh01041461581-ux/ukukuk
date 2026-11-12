@@ -82,7 +82,6 @@ $('#dlg').addEventListener('click', e => {
   if (a === 'close') { closeDlg(); return; }
   if (a === 'line') { closeDlg(); showTab('daily'); const el = document.querySelector(`input[data-f=spent][data-id="${b.dataset.id}"]`); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); const tr = el.closest('tr'); tr && tr.classList.add('flash'); setTimeout(() => tr && tr.classList.remove('flash'), 1800); } return; }
   if (a === 'util') {
-    const u = UI.util; u.cat = b.dataset.k; u.mode = 'month'; u.filter = 'all'; u.q = FIND.q; u.month = +b.dataset.m; closeDlg(); showTab('util');
-    $('#u-body').scrollIntoView({ block: 'start' });
+    const u = UI.util; u.cat = b.dataset.k; u.sub = 'pay'; u.filter = 'all'; u.q = FIND.q; u.month = +b.dataset.m; closeDlg(); showTab('util');
   }
 });

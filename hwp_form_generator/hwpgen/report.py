@@ -352,6 +352,14 @@ def _cut_section(pkg, section_index, slice_, drop, blank_tables=None):
         P.strip_lineseg(carrier)
     for p in ps:
         section.remove(p)
+    if carrier is not None and keep:
+        # 쪽 설정(secPr)은 빈 문단을 따로 두지 않고 첫 내용 문단 맨 앞에 붙인다 — 빈 문단이 있으면 맨 위에 한 줄(또는 한 쪽)이 비어 보인다
+        first = keep[0]
+        for run in reversed(carrier.findall(HP + "run")):
+            first.insert(0, run)
+        for p in keep:
+            section.append(p)
+        return section
     if carrier is not None:
         section.append(carrier)
     for p in keep:

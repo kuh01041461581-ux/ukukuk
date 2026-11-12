@@ -76,6 +76,10 @@ class Output:
         page = page_setup_of(pkg)
         empty = br.is_empty_doc()
         keep_section = bool(empty and page)          # 빈 문서에 첫 양식을 넣을 때만 샘플의 쪽 설정(용지·여백)을 가져온다
+        if empty:                                    # 빈 문서의 첫 양식은 첫 쪽에서 바로 시작(맨 앞 '쪽 나눔' 때문에 한 쪽이 비지 않게)
+            for p0 in pkg.section(0).findall(HP + "p")[:2]:
+                if p0.get("pageBreak") == "1":
+                    p0.set("pageBreak", "0")
         if keep_section:
             br.apply_page_setup(page)                # 되면 이쪽으로도 한 번 더 맞춰 둔다(안 돼도 괜찮음)
         else:
@@ -988,7 +992,22 @@ def round_rect(cv, x0, y0, x1, y1, r, **kw):
     return cv.create_polygon(pts, smooth=True, **kw)
 
 
-SHOW_BTN_ICONS = False        # 단정하게: 목록 단추에는 아이콘을 넣지 않는다(글자만)
+SHOW_BTN_ICONS = True         # 단추 왼쪽에 문서 종류별 색 아이콘 — 보고 체계·문서 구별이 한눈에 되게
+# 분류(탭)·묶음·양식마다 색을 달리해 문서 종류를 구별한다
+TAB_COLOR = {"report": "#e8705f", "week": "#7c5cc9", "budget": "#2f9e8f", "assembly": "#3b82c4", "audit": "#c9627f",
+             "press": "#d6609b", "nat": "#d98c1f", "tools": "#3a9bd0", "sym": "#8a93a8", "more": "#6f7685"}
+GROUP_COLOR = {"문화교육국 보고": "#e8705f", "시장님 보고": "#3b82c4", "간부회의": "#7c5cc9", "예산 설명자료": "#2f9e8f",
+               "참고자료(백데이터)": "#4a9f5f", "이월 조서": "#d98c1f", "보도자료": "#d6609b", "국회단계 서면질의서": "#3b82c4",
+               "국회단계 정책질의서": "#5b6bd8", "국회단계 질의서": "#3b82c4", "행정사무감사": "#c9627f", "국가예산 신규사업": "#d98c1f",
+               "주간업무": "#7c5cc9"}
+FORM_COLOR = {"report_event": "#e8705f", "report_project": "#d98c1f", "report_mayor": "#3b82c4",
+              "meeting_cover": "#9a7fdc", "meeting_issue": "#7c5cc9", "meeting_card": "#6a4bb5",
+              "issue_list": "#9a7fdc", "issue_card": "#7c5cc9", "issue_ref": "#b9a3ec"}
+
+
+def _lighter(hexcol, t=0.45):
+    c = [int(hexcol[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#%02x%02x%02x" % tuple(round(x + (255 - x) * t) for x in c)
 
 
 class _Anim:
@@ -1039,8 +1058,9 @@ class Btn(_Anim, tk.Canvas):
     kind: card(흰 알약) / accent(그라데이션 알약) / flat(투명)"""
 
     def __init__(self, master, text, command, kind="card", font=None, tip=None, icon_name=None, w=None, h=42,
-                 anchor="w", radius=None):
+                 anchor="w", radius=None, color=None):
         super().__init__(master, height=h, width=w or 10, bg=C_BG, highlightthickness=0, bd=0, cursor="hand2")
+        self.color = color
         self.kind, self.cmd, self.text, self.fnt, self.anchor = kind, command, text, font, anchor
         self.icon_name = icon_name
         self._anim_init()
@@ -1078,6 +1098,11 @@ class Btn(_Anim, tk.Canvas):
             if ic is not None:
                 d = h - 14
                 cy = h // 2 + dy
+                if self.color and not acc:                      # 양식 종류별 색 바탕(둥근 네모) + 흰 선 그림
+                    tile = aa_shape(26, 26, 8, None, grad=(self.color, _lighter(self.color, 0.28)), bg="#f9faff")
+                    if tile is not None:
+                        self.create_image(x + d // 2, cy, image=tile)
+                    ic = icon(self.icon_name, white=True)
                 self.create_image(x + d // 2, cy, image=ic)
                 x += d + 10
             else:
@@ -1202,6 +1227,7 @@ class GlassHeader(tk.Canvas):
 
     def __init__(self, master, tabs, icons, labels, on_pick, buttons, on_chip):
         W = WIDGET_W
+        self.colors = TAB_COLOR
         super().__init__(master, width=W, height=self.FULL_H, highlightthickness=0, bd=0, bg=C_BG)
         self.W, self.tabs, self.icons, self.labels, self.on_pick = W, tabs, icons, labels, on_pick
         self.active, self.tiles, self._job, self.collapsed = None, {}, None, False
@@ -1354,8 +1380,9 @@ class GlassHeader(tk.Canvas):
         self.itemconfigure(s["img"], image=im if im is not None else "")
         dy = (1.5 if p else (-1 * t))
         self.coords(s["txt"], s["x"] + s["w"] // 2, s["y"] + s["h"] // 2 + dy)
-        col = "white" if on else (_mix(C_SUB, C_ACC, t) if not p else C_ACC)
-        self.itemconfigure(s["txt"], fill=col, font=(FONT[0], 10, "bold" if on else "normal"))
+        tc = self.colors.get(key if key != "__more" else self.active, C_ACC) if key != "__more" or on else C_SUB
+        col = "white" if on else (_mix(_mix(tc, C_TEXT, 0.25), C_SUB, 0.15) if key != "__more" else _mix(C_SUB, C_ACC, t))
+        self.itemconfigure(s["txt"], fill=col, font=(FONT[0], 10, "bold" if (on or key != "__more") else "normal"))
 
     def _glass(self, key, t, on, p=False):
         """리퀴드 글래스 타일: 평소엔 투명(테두리 없음), 올리면 유리가 떠오르고, 선택된 타일은 색 입힌 유리"""
@@ -1363,7 +1390,8 @@ class GlassHeader(tk.Canvas):
         if not on and t == 0 and not p:
             return None
         if on:
-            return liquid_img(s["w"], s["h"], 15, base=(232, 190), tint=(C_G1, C_G2), t=t, pressed=p, pad=self.PAD)
+            cc = self.colors.get(key if key != "__more" else self.active, C_ACC)
+            return liquid_img(s["w"], s["h"], 15, base=(255, 244), tint=(_mix(cc, "#000000", 0.08), _lighter(cc, 0.12)), t=t, pressed=p, pad=self.PAD)
         return liquid_img(s["w"], s["h"], 15, base=(int(70 + 165 * t) if not p else 238, int(24 + 150 * t) if not p else 196),
                           t=t, pressed=p, pad=self.PAD)
 
@@ -1566,8 +1594,15 @@ class Widget(tk.Tk):
             key, lambda parent, k=key: self.build_forms_tab(parent, k))(self.body)
         self.ui["tab"] = key
 
-    def section(self, parent, text):
-        tk.Label(parent, text=text, bg=C_BG, fg=C_SUB, font=(FONT[0], 9), anchor="w").pack(fill="x", pady=(14, 3), padx=4)
+    def section(self, parent, text, color=None):
+        row = tk.Frame(parent, bg=C_BG)
+        row.pack(fill="x", pady=(14, 3), padx=4)
+        if color:                                           # 묶음마다 색 점 + 같은 색 글자로 문서 종류 구별
+            dot = tk.Canvas(row, width=10, height=10, bg=C_BG, highlightthickness=0, bd=0)
+            dot.create_oval(1, 1, 9, 9, fill=color, outline="")
+            dot.pack(side="left", padx=(0, 6), pady=(2, 0))
+        tk.Label(row, text=text, bg=C_BG, fg=(_mix(color, "#3a4058", 0.35) if color else C_SUB), font=(FONT[0], 9, "bold" if color else "normal"),
+                 anchor="w").pack(side="left")
 
     def rebuild(self):
         self.show_tab(self.tab)
@@ -1607,7 +1642,7 @@ class Widget(tk.Tk):
         if not groups:
             tk.Label(box, text="이 탭에 양식이 없어요", bg=C_BG, fg=C_SUB, font=FONT_S).pack(pady=10)
         for g, lst in groups.items():
-            self.section(box, g)
+            self.section(box, g, GROUP_COLOR.get(g))
             for fid, meta in lst:
                 self._form_btn(meta, fid)
             if any(f == "report_mayor" for f, _ in lst):
@@ -1620,7 +1655,8 @@ class Widget(tk.Tk):
             if label.startswith(pre) and len(label) > len(pre):
                 label = label[len(pre):]
         Btn(parent or self.forms_box, label, lambda f=fid: self.make_report(f),
-            tip=meta.get("note", ""), icon_name=self.FORM_ICONS.get(fid, "doc")).pack(fill="x", pady=4)
+            tip=meta.get("note", ""), icon_name=self.FORM_ICONS.get(fid, "doc"),
+            color=FORM_COLOR.get(fid) or GROUP_COLOR.get(meta.get("audience"))).pack(fill="x", pady=4)
 
     # ---------------------------------------------------------------- 주간 탭
     def target_monday(self):
@@ -1657,15 +1693,15 @@ class Widget(tk.Tk):
         n = len(PR.load_week(monday).get("items", []))
         tk.Label(parent, text="입력한 일정 %d건" % n, bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w").pack(fill="x", pady=(4, 0))
         box = self.scroll_area(parent)
-        self.section(box, "주간업무")
+        self.section(box, "주간업무", GROUP_COLOR["주간업무"])
         for txt, which, ic, tip in (("주간업무계획 표지", "cover", "cover", "날짜 상자·제목 배너·순서 목차 (대상 주 날짜 자동)"),
                                     ("주간업무계획", "plan", "plan", "대상 주 일정을 ❶ 행사명 + ◦ 일시/장소로"),
                                     ("주간 주요일정", "schedule", "schedule", "월~일 표에 시간·일정명·장소")):
-            Btn(box, txt, lambda w=which: self.make_week(w), tip=tip, icon_name=ic).pack(fill="x", pady=4)
+            Btn(box, txt, lambda w=which: self.make_week(w), tip=tip, icon_name=ic, color=GROUP_COLOR["주간업무"]).pack(fill="x", pady=4)
         Btn(box, "일정 입력·가져오기", lambda: self.open_detail("weekly"), kind="flat", icon_name="plus", h=32,
             tip="한 번 적으면 계획과 주요일정이 같이 나와요").pack(fill="x", pady=2)
         for g, lst in self.tab_forms("week").items():
-            self.section(box, g)
+            self.section(box, g, GROUP_COLOR.get(g))
             for fid, meta in lst:
                 self._form_btn(meta, fid, box)
 

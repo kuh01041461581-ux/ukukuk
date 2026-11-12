@@ -9,7 +9,7 @@ import java.util.*;
 public final class Host {
     // ---- 메모리 배치 (wipi_emu.py 와 동일)
     static final int BASE = 0x01000000, IMGSZ = 0x600000;
-    static final int STACK = 0x20000000, STACK_SZ = 0x200000;
+    static final int STACK = 0x20000000, STACK_SZ = 0x800000;   // 스레드 스택 64칸(칸당 0x20000)
     static final int LOW = 0x02000000, LOW_SZ = 0x1800000;
     static final int HI = 0x50000000;
     static final int SCREEN_W = 240, SCREEN_H = 320;

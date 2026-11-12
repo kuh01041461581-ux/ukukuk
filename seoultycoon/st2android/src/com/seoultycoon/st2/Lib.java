@@ -102,7 +102,7 @@ final class Lib {
         H.reg("java/lang/Thread", "(Ljava/lang/Runnable;)V+<init>", (t, a) -> { H.st.put(t, new int[]{(int) a[0]}); return 0; });
         H.reg("java/lang/Thread", "(Ljava/lang/Runnable;Ljava/lang/String;)V+<init>", (t, a) -> { H.st.put(t, new int[]{(int) a[0]}); return 0; });
         H.reg("java/lang/Thread", "(Ljava/lang/String;)V+<init>", (t, a) -> { H.st.put(t, new int[]{0}); return 0; });
-        H.reg("java/lang/Thread", "()V+start", (t, a) -> { Thr th = new Thr(); th.h = t; th.n = H.threads.size(); int[] st = (int[]) H.st.get(t); th.target = st[0] != 0 ? st[0] : t; H.threads.add(th); H.thrOf.put(t, th); return 0; });
+        H.reg("java/lang/Thread", "()V+start", (t, a) -> { Thr th = new Thr(); th.h = t; H.threads.removeIf(x -> x.done); { boolean[] used = new boolean[64]; for (Thr x : H.threads) if (x.n >= 0 && x.n < 64) used[x.n] = true; int n = 0; while (n < 63 && used[n]) n++; th.n = n; }   /* 끝난 스레드의 스택 자리를 다시 쓴다(자리를 계속 내려 주면 16번째부터 스택 영역을 벗어나 멈춘다) */ int[] st = (int[]) H.st.get(t); th.target = st[0] != 0 ? st[0] : t; H.threads.add(th); H.thrOf.put(t, th); return 0; });
         H.regS("java/lang/Thread", "(J)V+sleep", (t, a) -> { if (H.trace != null) H.trace.println("SLEEP " + a[0] + H.vm.stkDump()); H.yieldNow((int) Math.max(a[0], 1)); return 0; });
         H.regS("java/lang/Thread", "()V+yield", (t, a) -> { H.yieldNow(0); return 0; });
         H.regS("java/lang/Thread", "()Ljava/lang/Thread;+currentThread", (t, a) -> H.curThread != null ? H.curThread.h : H.single("java/lang/Thread"));

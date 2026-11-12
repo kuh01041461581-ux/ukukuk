@@ -694,3 +694,86 @@ td .cellin[data-u=amt]{width:118px;display:inline-block}
 .fit-year{max-height:calc(100vh - 470px)}
 dialog.pfbox{width:min(1000px,95vw)}
 .pfwrap td{vertical-align:middle}.pfwrap td:nth-child(5),.pfwrap td:nth-child(6){white-space:nowrap}
+
+/* ================= 최종: 유리·네온·광택 금지 → 불투명하고 차분한 디자인 ================= */
+:root{
+  --bg:#f3f4f6; --bg-a:#f3f4f6; --bg-b:#f3f4f6; --bg-c:#f3f4f6;
+  --surface:#ffffff; --surface-2:#f7f8fa;
+  --glass:#ffffff; --glass-hi:#ffffff; --glass-lo:#f7f8fa;
+  --glass-edge:#e2e5ea; --edge-dark:#e2e5ea; --line:#e2e5ea; --line-2:#edeff3;
+  --accent:#2563b8; --accent-soft:#e8eff9;
+  --lift:0 1px 2px rgba(20,28,45,.06);
+  --lift-hover:0 6px 16px -6px rgba(20,28,45,.18);
+  --glass-inset:none; --well:none; --blur:none;
+}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+  --bg:#15171b; --bg-a:#15171b; --bg-b:#15171b; --bg-c:#15171b;
+  --surface:#1d2025; --surface-2:#23272d;
+  --glass:#1d2025; --glass-hi:#23272d; --glass-lo:#191c20;
+  --glass-edge:#2f343c; --edge-dark:#2f343c; --line:#2f343c; --line-2:#262a31;
+  --accent:#4a86d8; --accent-soft:#1f2c42;
+  --lift:0 1px 2px rgba(0,0,0,.35); --lift-hover:0 8px 18px -8px rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --bg:#15171b; --bg-a:#15171b; --bg-b:#15171b; --bg-c:#15171b;
+  --surface:#1d2025; --surface-2:#23272d;
+  --glass:#1d2025; --glass-hi:#23272d; --glass-lo:#191c20;
+  --glass-edge:#2f343c; --edge-dark:#2f343c; --line:#2f343c; --line-2:#262a31;
+  --accent:#4a86d8; --accent-soft:#1f2c42;
+  --lift:0 1px 2px rgba(0,0,0,.35); --lift-hover:0 8px 18px -8px rgba(0,0,0,.6);
+}
+body{background:var(--bg)!important}
+body::before{display:none!important}
+*{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+
+/* 면: 불투명 단색 + 1px 선 */
+header.top,.card,.kpi,.cat-card,dialog,.drop,.alert,.todo-chip,.frow{background:var(--surface)!important;border:1px solid var(--line)!important;box-shadow:none!important}
+header.top{border-width:0 0 1px 0!important;border-radius:0!important;margin:0!important}
+.card,.kpi,.cat-card{border-radius:12px!important}
+dialog{border-radius:14px!important;box-shadow:0 18px 48px -12px rgba(20,28,45,.35)!important}
+dialog::backdrop{background:rgba(20,28,45,.45)!important}
+.kpi::after{display:none!important}
+.cat-card::before{height:3px;background:var(--c)}
+.alert{border-left:4px solid var(--text-3)!important}
+.alert.sev3{border-left-color:var(--bad)!important;background:color-mix(in srgb,var(--bad) 5%,var(--surface))!important}
+.alert.sev2{border-left-color:var(--warn)!important;background:color-mix(in srgb,var(--warn) 5%,var(--surface))!important}
+.tbl-wrap{background:var(--surface)!important;border:1px solid var(--line)!important;border-radius:10px!important;box-shadow:none!important}
+table.t thead th{background:var(--surface-2)!important;box-shadow:none!important;border-bottom:1px solid var(--line)!important}
+table.t tr.grp td{background:var(--surface-2)!important}
+table.t tr.tot td{background:var(--accent-soft)!important}
+.sticky-l,table.t thead th.sticky-l{background:var(--surface)!important}
+.fres{background:var(--surface)!important}
+
+/* 탭·버튼: 평평한 단색 */
+nav.tabs{background:var(--surface-2)!important;border:1px solid var(--line)!important;box-shadow:none!important}
+nav.tabs button[aria-selected=true],.btn.primary,.pill[aria-pressed=true]{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;box-shadow:none!important}
+.btn,.pill,.chip,.st-btn,.serchk{background:var(--surface)!important;border:1px solid var(--line)!important;box-shadow:none!important}
+.btn:hover,.pill:hover,.serchk:hover,.todo-chip:hover{box-shadow:var(--lift-hover)!important;background:var(--surface)!important}
+.btn.primary:hover,.pill[aria-pressed=true]:hover{background:var(--accent)!important;filter:brightness(1.08);box-shadow:var(--lift-hover)!important}
+.todo-chip.sel{background:var(--accent-soft)!important;border-color:var(--accent)!important}
+.chip.warn{background:var(--warn-soft)!important}
+.st-btn.s0{background:var(--warn-soft)!important}.st-btn.s1{background:var(--good-soft)!important}.st-btn.s2{background:var(--track)!important}
+
+/* 입력칸 */
+textarea.cellin[data-f=gmemo],input[type=search],.fld input,.fld textarea,.fld select,.sch-row input,.top .asof input,.fsel,.fq,.fin{background:var(--surface-2)!important;border:1px solid var(--line)!important;box-shadow:none!important}
+.cellin:hover{background:var(--surface-2)!important}
+.cellin:focus{background:var(--surface)!important;border-color:var(--accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)!important}
+
+/* 막대: 광택·발광 없이 단색 */
+.bar{background:var(--track)!important;box-shadow:none!important}
+.bar .paid{background:var(--accent)!important;box-shadow:none!important}
+.bar .paid.over{background:var(--bad)!important;box-shadow:none!important}
+.bar .paid::after{display:none!important}
+.bar .sch{box-shadow:none!important}
+.chart-row:hover .bar .paid,table.t tbody tr:hover .rate .bar .paid,.chart-row:hover .bar .paid.over,table.t tbody tr:hover .rate .bar .paid.over{box-shadow:none!important}
+.lg-paid{background:var(--accent)!important;box-shadow:none!important}
+.barflat:hover{filter:none!important;opacity:1}
+svg:has(.barflat:hover) .barflat:not(:hover){opacity:.45}
+.badge,.pace{box-shadow:none!important;border:0!important}
+.chk i,.serchk i{box-shadow:none!important;background:var(--surface)!important}
+.chk input:checked+i{background:var(--accent)!important}.chk.pay input:checked+i{background:var(--good)!important}
+.serchk input:checked+i{background:var(--c)!important}
+#tip,.toast{background:#1f242b!important;box-shadow:none!important;border:0!important}
+#dropov{background:rgba(37,99,184,.12)!important}
+#dropov div{background:var(--surface)!important;box-shadow:0 12px 36px rgba(20,28,45,.25)!important}
+.cat-cards{margin-top:14px!important}

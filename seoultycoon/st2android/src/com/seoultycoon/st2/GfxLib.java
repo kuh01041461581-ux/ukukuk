@@ -65,12 +65,21 @@ final class GfxLib {
             // --- 원본과 시트 간격이 달라 생기는 위치 보정(PC 에뮬레이터와 동일)
             boolean restore = false; int scx = dst.cx, scy = dst.cy, scw = dst.cw, sch = dst.ch;
             if (src.w == 56 && src.h == 96 && dst.hasClip && dst.ch == 12) { x -= 12; y -= 2; dst.cx -= 12; dst.cy -= 2; restore = true; }       // 메인 메뉴 글자 시트
+            if (System.getenv("DILOG") != null && ((src.w == 37 && src.h == 31) || (src.w == 77 && src.h == 11))) H.pf.log("L" + src.w + " at " + x + "," + y + " clip=" + dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch);
+            if (src.w == 77 && src.h == 11 && dst.hasClip && dst.cx - x == 42 && dst.cw == 10 && y == 5) return 0;   // 날짜 옆에 잘못 찍히던 동전 조각(시트 차이로 생긴 빈 칸)
+            if (src.w == 77 && src.h == 11 && dst.hasClip && dst.cx - x >= 52) {     // 상단 바 아이콘: 게임은 더 넓은 시트(돈 52, 자재 63, 인력 78, D 89)를 가정 → 실제 시트의 칸(돈 42, 자재 51, 인력 61, D 70)을 골라 그린다
+                int off = dst.cx - x, sx, sw; if (off == 52) { sx = 42; sw = 9; } else if (off == 63) { sx = 51; sw = 10; } else if (off == 78) { sx = 61; sw = 9; } else if (off == 89 && dst.ch > 2) { sx = 70; sw = 7; } else return 0;
+                Surf cell = new Surf(sw, 11, false); for (int r = 0; r < 11; r++) System.arraycopy(src.px, r * 77 + sx, cell.px, r * sw, sw);
+                boolean hc = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, dst.cx + Math.max(0, (dst.cw - sw) / 2), dst.cy); dst.hasClip = hc; return 0; }
+            if (src.w == 37 && src.h == 31 && dst.hasClip && dst.cw == 11 && dst.ch == 12 && dst.cy == y) {   // 피로 얼굴 아이콘: 게임은 11x12 칸으로 가정하지만 실제 시트는 9x9 얼굴 4개(맨 윗줄) → 해당 얼굴 한 칸만 그린다
+                int k = Math.max(0, Math.min(3, (dst.cx - x) / 11)); Surf cell = new Surf(9, 9, false); for (int r = 0; r < 9; r++) System.arraycopy(src.px, r * 37 + k * 9, cell.px, r * 9, 9);
+                boolean hc = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, dst.cx + 1, dst.cy + 1); dst.hasClip = hc; return 0; }
             if (src.w == 37 && src.h == 31 && dst.hasClip && dst.cy - y >= 12) y += 3;                                                                  // 하단 바 라벨 시트
             dst.drawImage(src, x, y);
             if (restore) { dst.cx = scx; dst.cy = scy; dst.cw = scw; dst.ch = sch; }
             return 0; });
         H.reg(G, "(Ljava/lang/String;III)V+drawString", (t, a) -> {
-            String s = H.pystr((int) a[0]); if (s == null) return 0; Surf dst = surf(H, t); int x = (int) a[1], y = (int) a[2], anchor = (int) a[3];
+            String s = H.pystr((int) a[0]); if (s == null) return 0; s = fullName(s); Surf dst = surf(H, t); int x = (int) a[1], y = (int) a[2], anchor = (int) a[3];
             if (H.verbose) H.pf.log("DS '" + s + "' x=" + x + " y=" + y + " anchor=" + anchor + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none"));
             int[] dims = new int[2]; byte[] mask = H.pf.renderText(s, dims); if (mask == null) return 0;
             if ((anchor & 1) != 0) x -= dims[0] / 2; if ((anchor & 8) != 0) x -= dims[0]; if ((anchor & 32) != 0) y -= 12;
@@ -154,6 +163,11 @@ final class GfxLib {
         int[] r = bd != null ? bd : bs; if (r != null) lastDate = r; return lastDate;
     }
     static String stkAddrs(Host H) { StringBuilder sb = new StringBuilder(" STK"); for (int i = 0; i < 64; i++) { int w = H.vm.r32(H.vm.r[13] + 4 * i); if ((w & 1) == 1 && w > Host.BASE && w < Host.BASE + 0x83000) sb.append(' ').append(Integer.toHexString(w - Host.BASE)); } return sb.toString(); }
+    /** 코드 이미지 안의 이름은 글자 수를 못 늘려 줄여 넣었다 → 화면에 그릴 때 온전한 이름으로 바꾼다. */
+    static final java.util.HashMap<String, String> FULL = new java.util.HashMap<>();
+    static { String[][] m = {{"롯데시네", "롯데시네마"}, {"코스트코점", "코스트코 익산점"}, {"WL호텔", "웨스턴라이프호텔"}, {"테슬라본사", "테슬라 익산본사"}, {"KTX익산", "KTX 익산역"}, {"예술전당", "익산예술의전당"},
+        {"원광대병원 ", "원광대병원"}, {"원광대학교 ", "원광대학교"}, {"익산 야구장", "익산야구장"}}; for (String[] e : m) FULL.put(e[0], e[1]); }
+    static String fullName(String s) { String f = FULL.get(s); return f != null ? f : s; }
     static boolean special(Host H, Surf dst, Surf src, int x, int y) {
         if (!dst.hasClip) return false;
         int cx = dst.cx, cy = dst.cy, cw = dst.cw, ch = dst.ch;

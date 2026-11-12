@@ -13,7 +13,7 @@ public class AndroidPlatform implements Platform {
     int vol = 100; int seq;
     public AndroidPlatform(Context c, Typeface tf) {
         ctx = c; am = c.getAssets(); dir = c.getFilesDir();
-        paint.setTypeface(tf); paint.setTextSize(11); paint.setAntiAlias(false); paint.setColor(Color.WHITE);
+        paint.setTypeface(tf); paint.setTextSize(12); paint.setAntiAlias(false); paint.setColor(Color.WHITE);
     }
     static byte[] all(InputStream in) throws IOException {
         ByteArrayOutputStream o = new ByteArrayOutputStream(); byte[] b = new byte[16384]; int n; while ((n = in.read(b)) > 0) o.write(b, 0, n); in.close(); return o.toByteArray();

@@ -126,6 +126,10 @@ final class Lib {
         H.reg("org/kwis/msp/io/File", "([B)I+read", (t, a) -> fileRead(H, t, (int) a[0], 0, H.arrInfo((int) a[0])[1]));
         H.reg("org/kwis/msp/io/File", "()I+sizeOf", (t, a) -> ((FileRef) H.st.get(t)).buf.length);
         H.reg("org/kwis/msp/io/File", "(I)V+seek", (t, a) -> { ((FileRef) H.st.get(t)).pos = (int) a[0]; return 0; });
+        // 통신사 서버(랭킹·학교 선호도 등)는 이제 없다 → 접속 실패로 알려 게임이 스스로 "접속 실패" 처리하게 한다(빈 값이면 내부 오류로 "접속중"에서 멈춘다)
+        H.reg("org/kwis/msf/io/Network", "()I+connect", (t, a) -> -1);
+        H.reg("org/kwis/msf/io/Network", "()V+disconnect", (t, a) -> 0);
+        H.reg("org/kwis/msf/io/Network", "()I+getStatus", (t, a) -> 0);
         H.reg("org/kwis/msp/io/File", "()V+close", (t, a) -> { FileRef f = (FileRef) H.st.get(t); if (f.mode != 1) H.pf.writeFile(f.name, f.buf); return 0; });
         H.reg("org/kwis/msp/io/File", "()Ljava/io/DataInputStream;+openDataInputStream", (t, a) -> { int h = H.newObj(H.classfor("java/io/DataInputStream")); H.st.put(h, new FBS((FileRef) H.st.get(t))); return h; });
         // ---- 미디어/진동(소리는 상위에서 연결)

@@ -137,15 +137,32 @@ public final class Host {
             int M = allocLow(0x20); String ik = name + "::" + key; String hn = "M:" + ik;
             char ret = key.indexOf(')') >= 0 ? key.charAt(key.indexOf(')') + 1) : 'V';
             int fn = host(hn, ret, makeCaller(ik, key));
-            int vidx = vidxNext++; if (vidxNext > 128) throw new IllegalStateException("host vtable overflow");
+            int vidx = allocVidx(C);
             int hid = 0x100 + nat.size(); nat.add(new String[]{ik, key}); w32(M + 8, hid);
             w32(M, fn); w32(M + 4, C); w32(M + 0xc, nameptr); w16(M + 0x14, vidx); w16(M + 0x16, 1);
             methods.put(key, M); w32(vtab + 4 * vidx, M); propagate(C, vidx, M);
-            if (verbose && !impls.containsKey(ik)) pf.log("resolve(미구현) " + name + " :: " + key);
+            if ((verbose || System.getenv("LOGUNIMPL") != null) && !impls.containsKey(ik)) pf.log("resolve(미구현) " + name + " :: " + key);
             return M;
         }
     }
     int vidxNext = 19;
+    /** 가상 함수 번호 배정: 번호는 한 상속 줄기(이 클래스와 그 자손) 안에서만 겹치지 않으면 된다.
+     *  예전에는 모든 클래스가 번호를 전역으로 하나씩 써서, 게임을 오래 하면 128개를 넘겨 "host vtable overflow" 로 멈췄다. */
+    final HashMap<Integer, java.util.BitSet> vused = new HashMap<>();
+    int allocVidx(int hostC) {
+        ArrayList<Integer> fam = new ArrayList<>(); fam.add(hostC);
+        for (int cx : imgClasses.values()) if (cx != hostC && chainHas(cx, hostC)) fam.add(cx);
+        for (HClass h : hclasses.values()) if (h.C != hostC && chainHas(h.C, hostC)) fam.add(h.C);
+        ArrayList<Integer> anc = new ArrayList<>();                          // 조상이 쓰는 번호도 피한다(나중에 만들어진 자손 클래스 대비)
+        for (HClass h : hclasses.values()) if (h.C != hostC && chainHas(hostC, h.C)) anc.add(h.C);
+        for (int idx = 19; idx < 128; idx++) {
+            boolean free = true;
+            for (int cx : anc) { java.util.BitSet b = vused.get(cx); if (b != null && b.get(idx)) { free = false; break; } }
+            if (free) for (int cx : fam) { java.util.BitSet b = vused.get(cx); if (b != null && b.get(idx)) { free = false; break; } }
+            if (free) { for (int cx : fam) vused.computeIfAbsent(cx, k -> new java.util.BitSet()).set(idx); return idx; }
+        }
+        throw new IllegalStateException("host vtable overflow");
+    }
     final ArrayList<String[]> nat = new ArrayList<>();
     final HashMap<String, HClass> hclasses = new HashMap<>();
     static final HashMap<String, Integer> HOST_SIZE = new HashMap<>();

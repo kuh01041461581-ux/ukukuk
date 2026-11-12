@@ -112,7 +112,7 @@ public class St2Pc {
         String[] nums = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", ""};
         for (int i = 0; i < 12; i++) { if (nums[i].isEmpty()) continue; c.gridx = i % 3; c.gridy = 4 + i / 3; p.add(pad(nums[i], nums[i].charAt(0), "숫자 " + nums[i]), c); }
         c.gridx = 0; c.gridy = 8; c.gridwidth = 3; c.weighty = 0;
-        JLabel tip = new JLabel("<html><div style='width:170px;color:#444'>왼쪽 클릭=확인 · 오른쪽 클릭=취소<br>휠=위/아래 · 시청 메뉴는 항목 직접 클릭<br>패드식 키: 방향 WASD, A=Enter/Z, B=Esc/X</div></html>"); tip.setFont(tip.getFont().deriveFont(11f)); p.add(tip, c);
+        JLabel tip = new JLabel("<html><div style='width:170px;color:#444'>왼쪽 클릭=확인 · 오른쪽 클릭=취소<br>휠=위/아래 · 시청 메뉴는 항목 직접 클릭<br>패드식 키: 방향 WASD, A=Enter/Z, B=Esc/X</div></html>"); tip.setFont(tip.getFont().deriveFont(12f)); p.add(tip, c);
         return p;
     }
 
@@ -132,7 +132,7 @@ public class St2Pc {
     }
 
     public static void main(String[] a) throws Exception {
-        Font font = Font.createFont(Font.TRUETYPE_FONT, new ByteArrayInputStream(PcPlatform.res("/galmuri11.ttf"))).deriveFont(11f);
+        Font font = Font.createFont(Font.TRUETYPE_FONT, new ByteArrayInputStream(PcPlatform.res("/galmuri11.ttf"))).deriveFont(12f);
         Path dir = Paths.get(System.getProperty("user.home"), ".iksan-tycoon"); pf = new PcPlatform(dir, font);
         String name = null; try { Path np = dir.resolve("name.txt"); if (Files.exists(np)) name = new String(Files.readAllBytes(np), StandardCharsets.UTF_8).trim(); } catch (IOException e) { }
         final String auto = System.getProperty("st2.script");            // 시험용 스크립트

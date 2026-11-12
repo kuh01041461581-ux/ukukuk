@@ -229,7 +229,7 @@ class NewFormsTests(unittest.TestCase):
 
     def test_all_new_forms_render(self):
         want = {"meeting_cover": "현안·당면 업무보고", "meeting_issue": "현안업무(3)", "meeting_card": "프로그램 내용",
-                "audit_cover": "제282회", "audit_common": "감사자료 과 공통사항", "audit_item": "확인자", "budget_cover": "주요사업 설명자료",
+                "audit_cover": "제282회", "audit_common": "감사자료 과 공통사항", "budget_cover": "주요사업 설명자료",
                 "budget_project": "세부사업명 : 세부 C", "press_release": "시험 제목", "written_cover": "서면질의서", "written_list": "서면질의 목록",
                 "written_item": "< ○○위원회 / ○○부 소관 / 일반회계 >", "policy_cover": "정책질의서", "policy_list": "활동사업 목록",
                 "policy_item": "정책질의서", "policy_ref": "건의 문구", "budget_ref_cover": "(참고자료)", "budget_ref_detail": "시험 제목", "budget_ref_return": "시험 제목"}
@@ -318,7 +318,7 @@ class NewFormsTests(unittest.TestCase):
         import zipfile
         bad = ("010-", "전주영", "김형남", "조상미", "조선영", "진소현", "박수진", "조승재", "윤보훈", "전북권", "숭림사", "고선희", "조진선", "이선아", "859-7410", "아동학대", "김태곤", "박환조", "고광민", "남철기", "설재진", "양선화",
                "이용범", "박미자", "홀로그램", "안지훈", "김건우", "강태환", "이시온", "859-5", "류재현", "최나은", "박갑수", "정경석", "농림축산식품부", "식품박물관", "나바위", "왕궁리", "미륵사", "솜리", "휴게소", "로컬푸드", "가축분뇨", "동산동", "어양동", "전주영", "김형남", "정서윤", "함열", "아이행복")
-        for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_common", "audit_item",
+        for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_toc", "audit_common", "audit_divider", "audit_i01", "audit_i03", "audit_i06", "audit_i23", "audit_i34", "audit_req",
                                     "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
                     "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref", "carry_item", "nbud_main", "nbud_ref1", "nbud_ref2", "issue_list", "issue_card", "issue_ref"):
             d = os.path.join(FORMS, fid)

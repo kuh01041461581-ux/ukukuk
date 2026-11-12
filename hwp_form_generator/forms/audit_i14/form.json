@@ -1,0 +1,17 @@
+{
+  "id": "audit_i14",
+  "name": "14. 의원 발의 조례 제‧개정 후 추진현황",
+  "audience": "감사자료 항목",
+  "kind": "report",
+  "note": "행정사무감사 14. 의원 발의 조례 제‧개정 후 추진현황 — 제목·소제목·표 머리만 있는 틀",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

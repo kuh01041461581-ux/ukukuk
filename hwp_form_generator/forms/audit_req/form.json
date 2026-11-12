@@ -1,0 +1,17 @@
+{
+  "id": "audit_req",
+  "name": "과 요구사항 사업 쪽 (1. ○○○ 사업)",
+  "audience": "감사자료 항목",
+  "kind": "report",
+  "note": "과 요구사항 사업 1건: □ 사업개요 · 추진실적 · 문제점 및 쟁점사항 · 개선방안 · 향후 추진계획",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

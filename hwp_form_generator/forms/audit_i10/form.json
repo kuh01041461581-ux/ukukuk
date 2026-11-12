@@ -1,0 +1,17 @@
+{
+  "id": "audit_i10",
+  "name": "10. 2025년도 행정사무감사 지적사항에 대한 조치 결과",
+  "audience": "감사자료 항목",
+  "kind": "report",
+  "note": "행정사무감사 10. 2025년도 행정사무감사 지적사항에 대한 조치 결과 — 제목·소제목·표 머리만 있는 틀",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

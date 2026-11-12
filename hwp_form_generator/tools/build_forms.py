@@ -650,9 +650,161 @@ def _issue_list_fix(section):
     return
 
 
+# ------------------------------------------------------------------ 행정사무감사 자료 서식 전체(37개 항목 + 과 요구사항)
+AUDIT_ITEM_STARTS = [63, 84, 103, 116, 128, 147, 163, 180, 202, 217, 231, 252, 262, 268, 283, 301, 326, 335, 340, 349, 360, 372,
+                     382, 393, 399, 408, 428, 443, 462, 478, 499, 504, 523, 548, 600, 618, 628]
+
+
+def _clean_audit_table(tbl):
+    """표: 머리 줄과 칸 모양은 그대로, 내용 줄은 빈 줄 두 개만 남긴다(샘플의 숫자·이름·사업명은 모두 비움)"""
+    import re
+    from hwpgen.package import ptext
+    for pic in list(tbl.iter(HP + "pic")):
+        pic.getparent().remove(pic)
+    rows = tbl.findall(HP + "tr")
+    if not rows:
+        return
+    num = re.compile(r"^[\d,.\s%~\-△()]+(원|천원|백만원|건|명|개|㎡|억원)?$")
+
+    def texts(tr):
+        return [ptext(tc).strip() for tc in tr.findall(HP + "tc")]
+
+    h = 0
+    while h < min(len(rows), 3):
+        cells = [c for c in texts(rows[h]) if c]
+        if h > 0 and (not cells or any(len(c) > 18 or num.match(c) for c in cells)):
+            break
+        if h == 0 and cells and any(num.match(c) and len(c) > 3 for c in cells):
+            h = 1
+            break
+        h += 1
+    h = max(h, 1)
+    for r_i, tr in enumerate(rows[:h]):                     # 머리 줄의 세로 합친 칸이 더 아래까지 걸치면 그만큼 머리로
+        for tc in tr.findall(HP + "tc"):
+            h = max(h, r_i + int(tc.find(HP + "cellSpan").get("rowSpan")))
+    h = min(h, len(rows))
+    body = rows[h:h + 2]
+    for tr in rows[h + len(body):]:
+        tbl.remove(tr)
+    kept = rows[:h + len(body)]
+    for tr in body:
+        for t in tr.iter(HP + "t"):
+            t.text = ""
+    for i, tr in enumerate(kept):
+        for tc in tr.findall(HP + "tc"):
+            tc.find(HP + "cellAddr").set("rowAddr", str(i))
+            sp = tc.find(HP + "cellSpan")
+            if i + int(sp.get("rowSpan")) > len(kept):
+                sp.set("rowSpan", str(len(kept) - i))
+    tbl.set("rowCnt", str(len(kept)))
+    try:
+        tbl.find(HP + "sz").set("height", str(sum(max(int(tc.find(HP + "cellSz").get("height")) for tc in tr.findall(HP + "tc")) for tr in kept)))
+    except Exception:                                      # noqa: BLE001
+        pass
+    for tr in rows[:h]:                                    # 머리 줄 안의 샘플 값(숫자·이름)도 비움: 숫자 칸만
+        for tc in tr.findall(HP + "tc"):
+            if num.match(ptext(tc).strip()) and len(ptext(tc).strip()) > 3:
+                for t in tc.iter(HP + "t"):
+                    t.text = ""
+
+
+def _audit_page_clean(section):
+    """감사자료 한 항목 쪽: 제목·□ 소제목·표 머리·◦▸ 표시만 남기고 샘플 내용(사업명·금액·이름·설명)은 모두 비운다"""
+    import re
+    from hwpgen.package import ptext, own_text
+    head_re = re.compile(r"^\s*(\d+\.\s|□|■|<\s*\d{4}\s*년|\(참고\)|\[)")
+    bullets = "◦○‣▸·ㅇ▪-"
+    for ctrl in list(section.iter(HP + "ctrl")):             # 숨은 필드·메모(끝 없는 필드는 손상의 원인)는 모두 뺀다
+        if any(c.tag in (HP + "fieldBegin", HP + "fieldEnd") for c in ctrl):
+            ctrl.getparent().remove(ctrl)
+    prev_blank = 0
+    for p in list(section.findall(HP + "p")):
+        tbls = list(p.iter(HP + "tbl"))
+        txt = ptext(p)
+        if tbls:
+            if "확인자" in txt:
+                _audit_sign_fix_p(p)
+            else:
+                for tb in tbls:
+                    _clean_audit_table(tb)
+            prev_blank = 0
+            continue
+        for pic in list(p.iter(HP + "pic")):
+            pic.getparent().remove(pic)
+        s = own_text(p).strip()
+        if not s:
+            prev_blank += 1
+            if prev_blank > 2:
+                p.getparent().remove(p)
+            continue
+        prev_blank = 0
+        if head_re.match(s):
+            continue
+        if s[0] in bullets:
+            lead = own_text(p)[: len(own_text(p)) - len(own_text(p).lstrip())]
+            _set_ts(p, [lead + s[0] + " "])
+            continue
+        p.getparent().remove(p)                              # 그 밖의 안내·설명 글은 뺀다
+
+
+def _audit_sign_fix_p(p):
+    from hwpgen.package import ptext
+    for pic in list(p.iter(HP + "pic")):
+        pic.getparent().remove(pic)
+    for t in p.iter(HP + "t"):
+        x = (t.text or "").strip()
+        if x not in ("확인자", "작성자", ":") and not (t.text or "").startswith("\U000f012b"):
+            t.text = ""
+
+
+def build_audit2(path):
+    """a06368d3(2026 행정사무감사자료 서식 전체): 표지 · 목차 · 과 공통사항 · 구분 쪽 · 1~37 항목 · 과 요구사항 사업 쪽"""
+    import re as _re
+    out = {}
+    F = FORMS
+    ts = _flat_texts(path, 0)
+    out["audit_cover"] = report.register_report(
+        path, os.path.join(F, "audit_cover"), "audit_cover", "행정사무감사 표지", "행정사무감사", [
+            {"key": "adate", "label": "표지 날짜 (예: 6. 11.)", "sample": ts[0], "exact": True, "once": True},
+            {"key": "session", "label": "회기 (예: 제282회)", "sample": next(t.strip() for t in ts if _re.fullmatch(r".*제\d+회.*", t.strip()) and len(t.strip()) <= 12) if any(_re.fullmatch(r"제\d+회", t.strip()) for t in ts) else "제282회"},
+            {"key": "org", "label": "국 이름", "sample": ts[-1], "profile": "org"},
+        ], note="2026 행정사무감사자료 표지(날짜·회기·국 이름)", allow_no_body=True, frame_only=True)
+    out["audit_toc"] = report.register_report(
+        path, os.path.join(F, "audit_toc"), "audit_toc", "행정사무감사 목차", "행정사무감사", [],
+        note="목 차 표(과 이름·쪽 번호 칸은 비움)", allow_no_body=True, frame_only=True, section_index=1, slice_=(0, 37),
+        fix=lambda sec: [(_clean_audit_table(t)) for t in sec.iter(HP + "tbl")])
+    dept = _flat_texts_para(path, 37, 38, 1)[0]
+    out["audit_common"] = report.register_report(
+        path, os.path.join(F, "audit_common"), "audit_common", "행정사무감사 과 공통사항", "행정사무감사", [
+            {"key": "dept", "label": "과 이름", "sample": dept, "profile": "dept"},
+        ], note="과 이름표 + 감사자료 과 공통사항 목록(1~37)", allow_no_body=True, frame_only=True, section_index=1, slice_=(37, 43),
+        fix=_audit_common_fix)
+    out["audit_divider"] = report.register_report(
+        path, os.path.join(F, "audit_divider"), "audit_divider", "과 공통사항 구분 쪽", "행정사무감사", [],
+        note="'감사자료 과 공통사항' 구분 쪽", allow_no_body=True, frame_only=True, section_index=1, slice_=(43, 62))
+    sec1 = Package.load(path).section(1)
+    ps1 = sec1.findall(HP + "p")
+    starts = AUDIT_ITEM_STARTS + [635]
+    for k, a in enumerate(AUDIT_ITEM_STARTS):
+        b = starts[k + 1]
+        title = "".join(t.text or "" for t in ps1[a].iter(HP + "t")).strip()
+        fid = "audit_i%02d" % (k + 1)
+        out[fid] = report.register_report(
+            path, os.path.join(F, fid), fid, title, "감사자료 항목", [],
+            note="행정사무감사 %s — 제목·소제목·표 머리만 있는 틀" % title, allow_no_body=True, frame_only=True, section_index=1,
+            slice_=(a, b), fix=_audit_page_clean)
+    out["audit_req"] = report.register_report(
+        path, os.path.join(F, "audit_req"), "audit_req", "과 요구사항 사업 쪽 (1. ○○○ 사업)", "감사자료 항목", [],
+        note="과 요구사항 사업 1건: □ 사업개요 · 추진실적 · 문제점 및 쟁점사항 · 개선방안 · 향후 추진계획", allow_no_body=True,
+        frame_only=True, section_index=1, slice_=(649, len(ps1)), fix=_audit_page_clean)
+    return out
+
+
 def build_more(paths):
     out = {}
     F = FORMS
+    if "audit2" in paths:
+        out.update(build_audit2(paths["audit2"]))
     if "issue" in paths:
         ip = paths["issue"]
         out["issue_list"] = report.register_report(
@@ -704,8 +856,8 @@ if __name__ == "__main__":
         sys.exit(1)
     res = build(*pos) if pos else {}
     if extra:
-        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "nbud", "issue")}))
-        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "nbud", "issue")}))
+        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "nbud", "issue", "audit2")}))
+        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "nbud", "issue", "audit2")}))
         res.update(build_queries({k: v for k, v in extra.items() if k in ("written", "policy")}))
     for k, v in res.items():
         print(k, "→", {a: b for a, b in v.items() if a != "style"})

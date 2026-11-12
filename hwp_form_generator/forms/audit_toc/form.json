@@ -1,0 +1,17 @@
+{
+  "id": "audit_toc",
+  "name": "행정사무감사 목차",
+  "audience": "행정사무감사",
+  "kind": "report",
+  "note": "목 차 표(과 이름·쪽 번호 칸은 비움)",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

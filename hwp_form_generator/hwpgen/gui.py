@@ -1030,7 +1030,7 @@ TAB_COLOR = {"report": "#c4675c", "week": "#6f5bb5", "budget": "#2f8a7e", "assem
              "press": "#b9568b", "nat": "#c4821f", "tools": "#3b8cb8", "sym": "#7c8497", "more": "#6b7280"}
 GROUP_COLOR = {"문화교육국 보고": "#c4675c", "시장님 보고": "#3d73b0", "간부회의": "#6f5bb5", "예산 설명자료": "#2f8a7e",
                "참고자료(백데이터)": "#4a8c58", "이월 조서": "#c4821f", "보도자료": "#b9568b", "국회단계 서면질의서": "#3d73b0",
-               "국회단계 정책질의서": "#5361b8", "국회단계 질의서": "#3d73b0", "행정사무감사": "#b45873", "국가예산 신규사업": "#c4821f",
+               "국회단계 정책질의서": "#5361b8", "국회단계 질의서": "#3d73b0", "행정사무감사": "#b45873", "감사자료 항목": "#b45873", "국가예산 신규사업": "#c4821f",
                "주간업무": "#6f5bb5"}
 FORM_COLOR = {"report_event": "#c4675c", "report_project": "#c4821f", "report_mayor": "#3d73b0",
               "meeting_cover": "#8a76c9", "meeting_issue": "#6f5bb5", "meeting_card": "#5a469e",
@@ -1471,17 +1471,17 @@ class Widget(tk.Tk):
     # 양식 묶음(audience) → 탭. 사용자가 추가한 양식은 '보고' 탭에 들어간다
     AUDIENCE_TAB = {"문화교육국 보고": "report", "시장님 보고": "report", "간부회의": "week", "예산 설명자료": "budget", "참고자료(백데이터)": "budget",
                     "보도자료": "press", "국회단계 질의서": "assembly", "국회단계 서면질의서": "assembly",
-                    "국회단계 정책질의서": "assembly", "행정사무감사": "audit", "이월 조서": "budget",
+                    "국회단계 정책질의서": "assembly", "행정사무감사": "audit", "감사자료 항목": "audit", "이월 조서": "budget",
                     "국가예산 신규사업": "nat"}
     GROUP_ORDER = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "참고자료(백데이터)", "보도자료", "국회단계 서면질의서",
-                   "국회단계 정책질의서", "국회단계 질의서", "행정사무감사", "이월 조서", "국가예산 신규사업"]
+                   "국회단계 정책질의서", "국회단계 질의서", "행정사무감사", "감사자료 항목", "이월 조서", "국가예산 신규사업"]
     FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card", "issue_list", "issue_card", "issue_ref",
                   "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
                   "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item",
-                  "policy_ref", "audit_cover", "audit_common", "audit_item", "carry_item", "nbud_main", "nbud_ref1", "nbud_ref2"]
+                  "policy_ref", "audit_cover", "audit_toc", "audit_common", "audit_divider", "carry_item", "nbud_main", "nbud_ref1", "nbud_ref2"]
     FORM_ICONS = {"report_event": "event", "report_project": "project", "report_mayor": "mayor",
                   "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project", "issue_list": "plan", "issue_card": "event", "issue_ref": "clip",
-                  "audit_cover": "cover", "audit_common": "plan", "audit_item": "project", "carry_item": "project",
+                  "audit_cover": "cover", "audit_toc": "plan", "audit_common": "plan", "audit_divider": "cover", "audit_req": "project", "carry_item": "project",
                   "nbud_main": "nation", "nbud_ref1": "table", "nbud_ref2": "doc",
                   "budget_cover": "cover", "budget_project": "project", "budget_ref_cover": "cover",
                   "budget_ref_detail": "project", "budget_ref_return": "plan"}
@@ -1637,7 +1637,7 @@ class Widget(tk.Tk):
             if self.AUDIENCE_TAB.get(aud, "report") == tab:
                 groups.setdefault(aud, []).append((fid, meta))
         key = lambda kv: self.GROUP_ORDER.index(kv[0]) if kv[0] in self.GROUP_ORDER else 99      # noqa: E731
-        fkey = lambda it: self.FORM_ORDER.index(it[0]) if it[0] in self.FORM_ORDER else 99       # noqa: E731
+        fkey = lambda it: (self.FORM_ORDER.index(it[0]) if it[0] in self.FORM_ORDER else 99, it[0])       # noqa: E731
         return {k: sorted(v, key=fkey) for k, v in sorted(groups.items(), key=key)}
 
     def build_forms_tab(self, parent, tab):
@@ -1659,7 +1659,7 @@ class Widget(tk.Tk):
                     tip="보고 1장 뒤에 새 쪽과 '참고자료' 제목을 붙여요").pack(fill="x", pady=2)
 
     def _form_btn(self, meta, fid, parent=None):
-        label = meta["name"].split(" (")[0]
+        label = meta["name"] if meta.get("audience") == "감사자료 항목" else meta["name"].split(" (")[0]
         for pre in ("행정사무감사 ", "간부회의 "):          # 묶음 이름과 겹치는 앞말은 뺀다(좁은 창에서 안 잘리게)
             if label.startswith(pre) and len(label) > len(pre):
                 label = label[len(pre):]

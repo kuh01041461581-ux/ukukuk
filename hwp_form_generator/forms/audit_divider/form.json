@@ -1,0 +1,17 @@
+{
+  "id": "audit_divider",
+  "name": "과 공통사항 구분 쪽",
+  "audience": "행정사무감사",
+  "kind": "report",
+  "note": "'감사자료 과 공통사항' 구분 쪽",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

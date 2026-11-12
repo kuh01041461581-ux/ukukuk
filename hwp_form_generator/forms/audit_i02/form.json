@@ -1,0 +1,17 @@
+{
+  "id": "audit_i02",
+  "name": "2. 예산집행 및 추진사항(명시·사고이월 등 포함)",
+  "audience": "감사자료 항목",
+  "kind": "report",
+  "note": "행정사무감사 2. 예산집행 및 추진사항(명시·사고이월 등 포함) — 제목·소제목·표 머리만 있는 틀",
+  "fields": [],
+  "has_body": false,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": " ◦",
+    "kv": null
+  },
+  "starter": "",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

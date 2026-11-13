@@ -16,50 +16,10 @@ def labels(k, W, H):
     else: lab[:, :] = 0
     return lab
 def enhance(k, strength=1.0, im=None):
-    im = im or ST.orig(k); a = np.asarray(im).astype(np.float32); H, W = a.shape[:2]; rgb = a[..., :3]; al = a[..., 3] > 0; lab = labels(k, W, H)
-    out = rgb.copy()
-    def same(y, x, yy, xx): return 0 <= yy < H and 0 <= xx < W and al[yy, xx] and lab[yy, xx] == lab[y, x]
-    def eq(c1, c2): return np.abs(c1 - c2).sum() < 6
-    for y in range(H):
-        for x in range(W):
-            if not al[y, x]: continue
-            c = rgb[y, x]
-            n4 = [(y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)]; nd = [(y - 1, x - 1), (y - 1, x + 1), (y + 1, x - 1), (y + 1, x + 1)]
-            v4 = [rgb[p] for p in n4 if same(y, x, *p)]; vd = [rgb[p] for p in nd if same(y, x, *p)]
-            if len(v4) < 3 or len(vd) < 2: continue
-            diff4 = sum(1 for v in v4 if not eq(v, c)); samed = sum(1 for v in vd if eq(v, c))
-            # 격자 디더: 상하좌우는 다른 색(서로는 같은 색), 대각은 자기와 같은 색
-            if diff4 >= len(v4) - 0 and samed >= max(2, len(vd) - 1):
-                m = np.mean(v4, axis=0)
-                if all(eq(v, v4[0]) for v in v4) and np.abs(m - c).sum() < 240:      # 두 색의 격자 → 중간색
-                    out[y, x] = c * (1 - 0.5 * strength) + m * (0.5 * strength)
-    # 경계 보존 매끄럽게: 색이 비슷한 이웃끼리만 조금 섞어 계단진 음영을 풀어 준다(윤곽·글자는 그대로)
-    sm = out.copy()
-    for y in range(H):
-        for x in range(W):
-            if not al[y, x]: continue
-            c = out[y, x]; acc = c * 2.0; wt = 2.0
-            for p in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
-                if same(y, x, *p):
-                    dd = np.abs(out[p] - c).sum()
-                    if dd < 70: acc = acc + out[p]; wt += 1.0
-            sm[y, x] = acc / wt
-    out = sm
-    # 위쪽은 살짝 밝게, 아래쪽은 살짝 어둡게(조립 그림의 세로 위치 기준 → 조각이 달라도 이어진다) + 채도 약간
-    if k in ST.TABLE and k < 59:
-        r, main, MY = ST.info(k); pos = {}
-        for e in ST.entries(k): pos.setdefault(e[0], (e[1], e[2]))
-        Hc = MY + main[3] + 16; rs = r['rects']
-        for y in range(H):
-            for x in range(W):
-                if not al[y, x]: continue
-                i = lab[y, x]
-                if i == 100: cy = MY + main[3] + (y - (H - 8))
-                elif i == 101: cy = MY + main[3] + 8 + (y - (H - 8))
-                elif i >= 0 and i in pos: cy = pos[i][1] + (y - rs[i][1])
-                else: continue
-                g = 1.11 - 0.21 * (cy / max(1, Hc))
-                c = (out[y, x] * g - 128) * 1.07 + 128; m = c.mean(); out[y, x] = m + (c - m) * 1.20
+    """원본 그림의 선명함과 특색을 지키면서 색만 또렷하게: 채도·대비를 조금 올리고 윗면은 살짝 밝게, 아래는 살짝 어둡게. 디더(격자 질감)를 풀거나 이웃 색을 섞지 않는다(흐려지고 특색이 사라지므로)."""
+    im = im or ST.orig(k); a = np.asarray(im).astype(np.float32); H, W = a.shape[:2]; rgb = a[..., :3]; al = a[..., 3] > 0
+    g = rgb.mean(-1, keepdims=True); out = g + (rgb - g) * (1.0 + 0.12 * strength); out = (out - 128) * (1.0 + 0.06 * strength) + 128
+    yy = np.linspace(1.0, 0.0, H)[:, None, None]; out = out * (1.0 + 0.05 * strength * (yy - 0.5))
     res = np.zeros((H, W, 4), np.uint8); res[..., :3] = np.clip(out, 0, 255).astype(np.uint8); res[..., 3] = al * 255
     return Image.fromarray(res, 'RGBA')
 if __name__ == '__main__':

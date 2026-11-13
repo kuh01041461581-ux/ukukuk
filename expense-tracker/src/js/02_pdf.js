@@ -1,6 +1,10 @@
 /* ===== PDF 읽기 (pdf.js) → 줄 단위 텍스트 ===== */
 async function pdfToLines(file, onProgress) {
-  if (typeof pdfjsLib === 'undefined') throw new Error('PDF 읽기 모듈을 불러오지 못했습니다.');
+  if (typeof pdfjsLib === 'undefined') {   // 처음 PDF를 열 때 한 번만 읽어 들임
+    const el = $('#pdf-lib'); if (!el) throw new Error('PDF 읽기 모듈을 불러오지 못했습니다.');
+    const sc = document.createElement('script'); sc.textContent = el.textContent; document.head.appendChild(sc); sc.remove();
+    if (typeof pdfjsLib === 'undefined') throw new Error('PDF 읽기 모듈을 불러오지 못했습니다.');
+  }
   if (!pdfToLines._w) {
     pdfToLines._w = URL.createObjectURL(new Blob([$('#pdf-worker').textContent], { type: 'text/javascript' }));
     pdfjsLib.GlobalWorkerOptions.workerSrc = pdfToLines._w;

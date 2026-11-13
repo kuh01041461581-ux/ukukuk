@@ -60,6 +60,7 @@ function init() {
   $('#asof').value = S.asOf; updateBackupChip();
   $('#tabs').innerHTML = TABS.map(([k, n]) => `<button role="tab" data-t="${k}" aria-selected="${k === UI.tab}">${n}</button>`).join('');
   UI.util.month = null; UI.imp = null; showTab(UI.tab);
+  const bt = $('#boot'); if (bt) bt.remove();
 }
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) showTab(b.dataset.t); });
 $('#asof').addEventListener('change', e => { if (e.target.value) { S.asOf = e.target.value; save(); RENDER[UI.tab](); } });

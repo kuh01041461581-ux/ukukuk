@@ -193,10 +193,12 @@ def main():
     api = Api(root)
     # 화면 파일을 데이터 폴더에 풀어 file:// 로 연다(PDF 읽기용 작업자 스레드가 정상 동작)
     ui = root / "ui.html"
-    shutil.copyfile(resource("app/ui.html"), ui)
-    win = webview.create_window("일상경비·공공요금 관리", url=ui.as_uri(), js_api=api, width=1480, height=940, min_size=(1000, 650))
+    src = resource("app/ui.html")
+    if not ui.exists() or ui.stat().st_size != src.stat().st_size or ui.stat().st_mtime < src.stat().st_mtime - 1:
+        shutil.copyfile(src, ui)
+    win = webview.create_window("일상경비·공공요금 관리", url=ui.as_uri(), js_api=api, width=1480, height=940, min_size=(1000, 650), background_color="#f3f4f6")
     api.window = win
-    webview.start(storage_path=str(root / "webview"))
+    webview.start(storage_path=str(root / "webview"), private_mode=False)   # 고정 프로필: 매번 새 임시 프로필을 만들지 않아 시작이 빠름
 
 
 if __name__ == "__main__":

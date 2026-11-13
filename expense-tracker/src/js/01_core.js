@@ -25,7 +25,14 @@ function toast(msg) {
 const IS_EXE = !!window.__EXE__;
 const api = () => window.pywebview && window.pywebview.api;
 function waitApi() {
-  return new Promise((res, rej) => { let n = 0; const t = setInterval(() => { if (api() && api().load_state) { clearInterval(t); res(); } else if (++n > 200) { clearInterval(t); rej(new Error('프로그램 내부 연결을 찾지 못했습니다')); } }, 50); });
+  return new Promise((res, rej) => {
+    const ok = () => api() && api().load_state; if (ok()) return res();
+    let n = 0, done = false;
+    const fin = f => { if (done) return; done = true; clearInterval(t); window.removeEventListener('pywebviewready', onr); f(); };
+    const onr = () => { if (ok()) fin(res); };
+    window.addEventListener('pywebviewready', onr);
+    const t = setInterval(() => { if (ok()) fin(res); else if (++n > 600) fin(() => rej(new Error('프로그램 내부 연결을 찾지 못했습니다'))); }, 20);
+  });
 }
 async function download(name, text, type = 'application/json') {
   if (IS_EXE) { try { const r = await api().save_text(name, text); if (r && r.ok) toast('저장했습니다: ' + r.path); else if (r && r.error) toast('저장 실패: ' + r.error); } catch (e) { toast('저장 실패'); } return; }

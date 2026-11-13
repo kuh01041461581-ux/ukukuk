@@ -32,10 +32,20 @@ jobs:
         run: python build.py
       - name: Build exe (파일 하나짜리)
         run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name ExpenseManager --icon assets/icon.ico --add-data "app/ui.html;app" --hidden-import seedlib --collect-all webview app.py
+      - name: Build 폴더형 (압축을 풀지 않아 실행이 훨씬 빠름)
+        run: python -m PyInstaller --noconfirm --clean --onedir --windowed --name ExpenseManager --icon assets/icon.ico --add-data "app/ui.html;app" --hidden-import seedlib --collect-all webview --workpath build_dir app.py
+      - name: 폴더형 확인 후 zip
+        shell: pwsh
+        run: |
+          if (-not (Get-ChildItem -Recurse dist/ExpenseManager -Filter ui.html)) { throw "ui.html 이 폴더형 결과물에 없습니다" }
+          Compress-Archive -Path dist/ExpenseManager -DestinationPath dist/ExpenseManager-fast.zip -Force
+          Get-Item dist/ExpenseManager-fast.zip, dist/ExpenseManager.exe | Format-Table Name, Length
       - uses: actions/upload-artifact@v4
         with:
           name: ExpenseManager-windows
-          path: expense-tracker/dist/ExpenseManager.exe
+          path: |
+            expense-tracker/dist/ExpenseManager.exe
+            expense-tracker/dist/ExpenseManager-fast.zip
       - name: Publish to Releases
         uses: softprops/action-gh-release@v2
         with:
@@ -43,4 +53,6 @@ jobs:
           name: 일상경비·공공요금 관리 최신 빌드 (exe)
           prerelease: true
           target_commitish: ${{ github.sha }}
-          files: expense-tracker/dist/ExpenseManager.exe
+          files: |
+            expense-tracker/dist/ExpenseManager-fast.zip
+            expense-tracker/dist/ExpenseManager.exe

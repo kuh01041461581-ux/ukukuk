@@ -103,13 +103,13 @@ function txScope() {
   });
 }
 function txMonthChart(list, sel) {
-  const tot = Array(12).fill(0); list.forEach(t => { tot[+t.d.slice(5, 7) - 1] += t.amt; });
+  const tot = Array(12).fill(0), cnt = Array(12).fill(0); list.forEach(t => { const m = +t.d.slice(5, 7) - 1; tot[m] += t.amt; cnt[m]++; });
   const maxV = Math.max(1, ...tot); const mag = Math.pow(10, Math.floor(Math.log10(maxV))); let nice = mag; for (const f of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 10]) { if (maxV <= f * mag) { nice = f * mag; break; } }
   const W = 760, H = 230, L = 50, R = 8, Tp = 22, B = 26, iw = W - L - R, ih = H - Tp - B, slot = iw / 12, bw = slot * 0.62;
   let g = ''; for (let i = 0; i <= 4; i++) { const y = Tp + ih - ih * i / 4; g += `<line class="gd" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${manKey(nice * i / 4)}</text>`; }
   tot.forEach((v, m) => {
     const x = L + slot * m + (slot - bw) / 2, h = v / nice * ih, y = Tp + ih - h, r = Math.min(5, bw / 2), dim = sel != null && sel !== m;
-    if (v) g += `<path class="barflat txbar" data-act="txmonth" data-m="${m}" style="opacity:${dim ? .35 : 1};cursor:pointer" d="M${x},${Tp + ih}V${y + r}Q${x},${y} ${x + r},${y}H${x + bw - r}Q${x + bw},${y} ${x + bw},${y + r}V${Tp + ih}Z" fill="var(--accent)" data-tip="${MON[m]}\n${won(v)}원 (${list.filter(t => +t.d.slice(5, 7) - 1 === m).length}건)\n누르면 이 달만 보기"/>`;
+    if (v) g += `<path class="barflat txbar" data-act="txmonth" data-m="${m}" style="opacity:${dim ? .35 : 1};cursor:pointer" d="M${x},${Tp + ih}V${y + r}Q${x},${y} ${x + r},${y}H${x + bw - r}Q${x + bw},${y} ${x + bw},${y + r}V${Tp + ih}Z" fill="var(--accent)" data-tip="${MON[m]}\n${won(v)}원 (${cnt[m]}건)\n누르면 이 달만 보기"/>`;
     g += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle" ${sel === m ? 'style="fill:var(--text);font-weight:700"' : ''}>${m + 1}월</text>`;
     if (v && bw > 20) g += `<text x="${x + bw / 2}" y="${y - 5}" text-anchor="middle" style="fill:var(--text)">${manKey(v)}</text>`;
   });
@@ -146,8 +146,8 @@ function dailyTxTab() {
       <div class="card" style="margin:0"><h2>월별 소비량 <span class="muted" style="font-weight:400;font-size:12px">막대를 누르면 그 달만 봅니다</span></h2>${txMonthChart(base, u.month)}</div>
       <div class="card" style="margin:0"><h2>어디에 썼나 <span class="muted" style="font-weight:400;font-size:12px">${(S.tx || []).some(t => t.vendor) ? '거래처' : '적요'} 기준 상위 8</span></h2>
         ${top.map(([k, v]) => `<div class="usage"><div class="un" title="${esc(k)}">${esc(k)}</div><div class="bar"><span class="seg paid" style="width:${(v / topMax * 100).toFixed(1)}%"></span></div><div class="uv"><b>${won(v)}</b><span class="muted"> ${pct(v, total).toFixed(0)}%</span></div></div>`).join('') || '<div class="empty">내역이 없습니다</div>'}</div></div>
-    <div class="card" style="margin-top:12px"><h2>지급명령 내역 <span class="muted" style="font-weight:400;font-size:12px">${list.length.toLocaleString('ko-KR')}건${list.length > 400 ? ' · 최근 400건만 표시' : ''}</span></h2>
-      <div class="tbl-wrap fit fit-tx"><table class="t"><thead><tr><th>날짜</th><th>사업</th><th>통계목</th><th>적요</th><th>거래처</th><th>금액</th></tr></thead><tbody>${[...list].reverse().slice(0, 400).map(t => { const l = txLineOf(t); return `<tr><td>${t.d}</td><td>${l ? esc(l.label) : `<span class="muted">${esc(t.biz || '-')}</span>`}</td><td class="muted">${esc(t.name || (l ? l.group : t.code))}</td><td>${esc(t.memo)}</td><td>${esc(t.vendor)}</td><td class="num"><b>${won(t.amt)}</b></td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">조건에 맞는 내역이 없습니다</td></tr>'}</tbody></table></div></div>`;
+    <div class="card" style="margin-top:12px"><h2>지급명령 내역 <span class="muted" style="font-weight:400;font-size:12px">${list.length.toLocaleString('ko-KR')}건${list.length > (u.limit || 150) ? ' · 최근 ' + (u.limit || 150) + '건만 표시' : ''}</span></h2>
+      <div class="tbl-wrap fit fit-tx"><table class="t"><thead><tr><th>날짜</th><th>사업</th><th>통계목</th><th>적요</th><th>거래처</th><th>금액</th></tr></thead><tbody>${list.slice(-(u.limit || 150)).reverse().map(t => { const l = txLineOf(t); return `<tr><td>${t.d}</td><td>${l ? esc(l.label) : `<span class="muted">${esc(t.biz || '-')}</span>`}</td><td class="muted">${esc(t.name || (l ? l.group : t.code))}</td><td>${esc(t.memo)}</td><td>${esc(t.vendor)}</td><td class="num"><b>${won(t.amt)}</b></td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">조건에 맞는 내역이 없습니다</td></tr>'}</tbody></table></div>${list.length > (u.limit || 150) ? `<div style="text-align:center;margin-top:8px"><button class="btn sm" data-act="txmore">더 보기 (+300건)</button></div>` : ''}</div>`;
 }
 $('#p-daily').addEventListener('change', e => {
   const k = e.target.dataset.txf; if (!k) return; UI.tx = UI.tx || { group: 'all', line: 'all', month: null, q: '' };
@@ -157,6 +157,7 @@ $('#p-daily').addEventListener('input', e => { if (e.target.dataset.txf === 'q')
 $('#p-daily').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
   if (a === 'txmonth') { UI.tx.month = UI.tx.month === +b.dataset.m ? null : +b.dataset.m; UI._noKeep = true; renderDaily(); }
+  else if (a === 'txmore') { UI.tx.limit = (UI.tx.limit || 150) + 300; renderDaily(); }
   else if (a === 'txpick') pickFiles('.xlsx,.xlsm', 'tx');
   else if (a === 'txclear') { if (confirm(`불러온 지급명령 내역 ${(S.tx || []).length.toLocaleString('ko-KR')}건을 모두 지웁니다. 계속할까요?`)) { S.tx = []; save(); renderDaily(); } }
 });

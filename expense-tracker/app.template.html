@@ -9,6 +9,7 @@
 </style>
 </head>
 <body>
+<div id="boot"><div class="boot-in"><div class="boot-spin"></div><div>불러오는 중…</div></div></div>
 <header class="top">
   <div class="top-in">
     <h1 id="ttl">일상경비·공공요금 관리</h1>
@@ -32,13 +33,14 @@
 <input type="file" id="pick" hidden>
 <script>window.__SEED__=/*__SEED__*/null;window.__EXE__=/*__EXE__*/false;</script>
 <script>
+/*__APPJS__*/
+</script>
+<!-- PDF 읽기 모듈은 PDF를 열 때만 불러온다(시작이 빨라짐). 아래는 실행되지 않는 글자 덩어리 -->
+<script id="pdf-lib" type="text/plain">
 /*__PDFJS__*/
 </script>
 <script id="pdf-worker" type="text/plain">
 /*__PDFWORKER__*/
-</script>
-<script>
-/*__APPJS__*/
 </script>
 </body>
 </html>

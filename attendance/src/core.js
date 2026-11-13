@@ -77,6 +77,7 @@ const lecturesOn = (date) => db.lectures.filter((l) => l.weekday === wd(date)
   && (!l.startDate || date >= l.startDate) && (!l.endDate || date <= l.endDate) && !(l.off || []).includes(date));
 const kstNow = () => new Date(Date.now() + 9 * 3600e3);
 function sessionOf(token) { return db.sessions[token] && { token, ...db.sessions[token] }; }
+const targeted = (l, groupId) => !(l.targets && l.targets.length) || l.targets.includes(groupId); // 대상 단체 (비우면 전체)
 const todayKst = () => kstNow().toISOString().slice(0, 10);
 const newCode = () => String(Math.floor(1000 + Math.random() * 9000));
 // 해당 날짜·강의의 출석 세션 (없으면 자동 개설). [토큰, 세션, 새로 만들었는지]
@@ -119,13 +120,13 @@ function windowOf(date, l) {
   if (diff > S.closeAfter) return { err: `출석 시간이 지났습니다 (시작 ${S.closeAfter}분 후 마감)` };
   return { status: diff > S.lateAfter ? 'L' : 'P', diff };
 }
-function currentLecture() { // 지금 출석 가능한 강의(시작 시각이 가장 가까운 것)
+function currentLecture(groupId) { // 지금 출석 가능한 강의(시작 시각이 가장 가까운 것). 내 단체가 대상인 강의를 우선
   const date = kstNow().toISOString().slice(0, 10);
-  let best = null;
-  for (const l of lecturesOn(date)) {
-    const w = windowOf(date, l); if (w.err) continue;
-    if (!best || Math.abs(w.diff) < best.d) best = { l, d: Math.abs(w.diff), w };
-  }
+  const pick = (list) => { let best = null;
+    for (const l of list) { const w = windowOf(date, l); if (w.err) continue; if (!best || Math.abs(w.diff) < best.d) best = { l, d: Math.abs(w.diff), w }; }
+    return best; };
+  const all = lecturesOn(date);
+  const best = (groupId && pick(all.filter((l) => targeted(l, groupId) && l.targets && l.targets.length))) || pick(all.filter((l) => !groupId || targeted(l, groupId))) || pick(all);
   return best && { date, lecture: best.l, window: best.w };
 }
 function mark(date, l, mem, status, meta) {
@@ -151,16 +152,18 @@ function stats(from, to) {
   for (const v of Object.values(db.sessions)) keys.add(v.date + '|' + v.lectureId);
   for (const [d, byL] of Object.entries(db.records)) for (const lid of Object.keys(byL)) keys.add(d + '|' + lid);
   for (const k of keys) { const [d, lid] = k.split('|'); if (d >= from && d <= to && db.lectures.some((x) => x.id === lid)) held.push({ d, lid }); }
-  const mem = db.members.map((m) => ({ id: m.id, name: m.name, groupId: m.groupId, P: 0, L: 0, A: 0 }));
+  const mem = db.members.map((m) => ({ id: m.id, name: m.name, groupId: m.groupId, P: 0, L: 0, A: 0, n: 0 }));
   const byId = Object.fromEntries(mem.map((m) => [m.id, m]));
-  const lec = Object.fromEntries(db.lectures.map((l) => [l.id, { id: l.id, name: l.name, weekday: l.weekday, start: l.start, held: 0, P: 0, L: 0, A: 0 }]));
+  const lec = Object.fromEntries(db.lectures.map((l) => [l.id, { id: l.id, name: l.name, weekday: l.weekday, start: l.start, held: 0, n: 0, P: 0, L: 0, A: 0 }]));
   for (const { d, lid } of held) {
     lec[lid].held++;
     const rec = (db.records[d] || {})[lid] || {};
+    const L = db.lectures.find((x) => x.id === lid);
     for (const m of mem) {
       const s = ((rec[m.groupId] || {}).marks || {})[m.id];
+      if (!s && !targeted(L, m.groupId)) continue;   // 대상이 아닌 단체는 결석으로 세지 않음
       const k = s === 'P' ? 'P' : s === 'L' ? 'L' : 'A';
-      m[k]++; lec[lid][k]++;
+      m[k]++; m.n++; lec[lid][k]++; lec[lid].n++;
     }
   }
   const rate = (o, n) => (n ? Math.round(((o.P + o.L) / n) * 1000) / 10 : null);
@@ -171,8 +174,8 @@ function stats(from, to) {
   });
   return {
     from, to, heldCount: held.length, groups,
-    members: mem.map((m) => ({ ...m, held: held.length, rate: rate(m, held.length) })),
-    lectures: Object.values(lec).filter((x) => x.held).map((x) => ({ ...x, rate: rate(x, x.held * db.members.length) })),
+    members: mem.map((m) => ({ ...m, held: m.n, rate: rate(m, m.n) })),
+    lectures: Object.values(lec).filter((x) => x.held).map((x) => ({ ...x, rate: rate(x, x.n) })),
   };
 }
 
@@ -202,9 +205,9 @@ function overview(date) {
       const absent = [];
       ms.forEach((m) => {
         const s = marks[m.id];
-        if (s) { c[s]++; if (s !== 'P') absent.push({ name: m.name, status: s }); } else c.U++;
+        if (s) { c[s]++; if (s !== 'P') absent.push({ name: m.name, status: s }); } else if (targeted(l, g.id)) c.U++;
       });
-      return { groupId: g.id, name: g.name, total: ms.length, checked: !!rec, ...c, issues: absent };
+      return { groupId: g.id, name: g.name, total: ms.length, checked: !!rec, na: !rec && !targeted(l, g.id), ...c, issues: absent };
     }),
   }; });
 }
@@ -330,19 +333,19 @@ async function api(req, url, ctx) {
   if ((mm = p.match(/^\/api\/m\/([\w-]+)$/)) && m === 'GET') {
     const mem = memberByQr(mm[1]); if (!mem) return json(404, { error: '유효하지 않은 링크입니다' });
     deviceOf(req, q.get('deviceId'), ctx, true);
-    const g = db.groups.find((x) => x.id === mem.groupId), now = currentLecture();
+    const g = db.groups.find((x) => x.id === mem.groupId), now = currentLecture(mem.groupId);
     const st = stats('0000-00-00', '9999-99-99').members.find((x) => x.id === mem.id);
     const hist = [];
     for (const d of Object.keys(db.records).sort().reverse()) for (const [lid, byG] of Object.entries(db.records[d])) {
       const l = db.lectures.find((x) => x.id === lid); const s = ((byG[mem.groupId] || {}).marks || {})[mem.id];
-      if (l) hist.push({ date: d, lecture: l.name, status: s || 'A' });
+      if (l && (s || targeted(l, mem.groupId))) hist.push({ date: d, lecture: l.name, status: s || 'A' });
     }
     return json(200, { name: mem.name, group: g && g.name, stats: st, history: hist.slice(0, 15),
       now: now && { lecture: now.lecture.name, start: now.lecture.start, date: now.date, venue: db.venue.lat != null } });
   }
   if ((mm = p.match(/^\/api\/m\/([\w-]+)\/checkin$/)) && m === 'POST') {
     const mem = memberByQr(mm[1]); if (!mem) return json(404, { error: '유효하지 않은 링크입니다' });
-    const now = currentLecture(); if (!now) return json(403, { error: `지금은 출석 가능한 강의가 없습니다 (시작 ${db.settings.openBefore}분 전 ~ ${db.settings.closeAfter}분 후)` });
+    const now = currentLecture(mem.groupId); if (!now) return json(403, { error: `지금은 출석 가능한 강의가 없습니다 (시작 ${db.settings.openBefore}분 전 ~ ${db.settings.closeAfter}분 후)` });
     const b = await body(req), v = db.venue; let d = null;
     if (v.lat != null) {
       const lat = +b.lat, lng = +b.lng, acc = +b.accuracy || 0;
@@ -368,7 +371,7 @@ async function api(req, url, ctx) {
     const date = q.get('date'); if (!dateOk(date)) return json(400, { error: '날짜 오류' });
     const members = db.members.filter((x) => x.groupId === g.id).map(({ id, name }) => ({ id, name }));
     const day = db.records[date] || {};
-    const lectures = lecturesOn(date).sort((a, b) => a.start.localeCompare(b.start))
+    const lectures = lecturesOn(date).filter((l) => targeted(l, g.id)).sort((a, b) => a.start.localeCompare(b.start))
       .map((l) => ({ ...l, marks: ((day[l.id] || {})[g.id] || {}).marks || null }));
     return json(200, { group: { id: g.id, name: g.name }, members, lectures });
   }
@@ -416,7 +419,7 @@ async function api(req, url, ctx) {
       if (!dateOk(date) || !l) return json(400, { error: '날짜/강의를 선택하세요' });
       const rec = (db.records[date] || {})[l.id] || {};
       return json(200, { lecture: { id: l.id, name: l.name, start: l.start, end: l.end },
-        groups: db.groups.map((g) => ({ id: g.id, name: g.name, members: db.members.filter((x) => x.groupId === g.id).map((x) => {
+        groups: db.groups.filter((g) => targeted(l, g.id) || rec[g.id]).map((g) => ({ id: g.id, name: g.name, members: db.members.filter((x) => x.groupId === g.id).map((x) => {
           const r = rec[g.id] || {}, mt = (r.meta || {})[x.id];
           return { id: x.id, name: x.name, status: (r.marks || {})[x.id] || null, via: mt ? mt.via || (mt.self ? 'phone' : '') : ((r.marks || {})[x.id] ? 'group' : ''), note: mt && mt.note || '', bound: !!(db.bindings || {})[x.id] };
         }) })) });
@@ -502,6 +505,7 @@ async function api(req, url, ctx) {
             id: ex ? ex.id : uid('l'), token: ex && ex.token ? ex.token : newQr(),   // 고정 출석 링크는 강의를 고쳐도 유지
             name: String(l.name).trim(), weekday: sd && sd === ed ? wd(sd) : +l.weekday, // 하루짜리 강의는 날짜의 요일로 자동 지정
             start: /^\d{2}:\d{2}$/.test(l.start) ? l.start : '09:00', end: /^\d{2}:\d{2}$/.test(l.end) ? l.end : '10:00', startDate: sd, endDate: ed, off,
+            targets: [...new Set((Array.isArray(l.targets) ? l.targets : []).filter((id) => db.groups.some((g) => g.id === id)))],
           });
         }
         db.lectures = lectures; lastTick = '';   // 오늘 새로 생긴 강의도 바로 자동 개설

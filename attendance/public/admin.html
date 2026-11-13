@@ -100,6 +100,7 @@ button,input,select{min-height:42px}
       <input id="nl-date" class="din wide" placeholder="날짜 입력 (예: 11/20 · 1120 · 내일)"> <div class="hint" id="nl-date-h"></div>
       <div class="qk"><button type="button" data-qd="0">오늘</button><button type="button" data-qd="1">내일</button><button type="button" data-qd="2">모레</button></div>
     </div>
+    <div style="margin-top:12px">대상 단체 <small style="display:inline">(선택 안 하면 모든 단체)</small></div><div class="days" id="nl-tg"></div>
     <div class="trow" style="margin-top:14px">
       <label>시작 시간<input id="nl-start" class="tin" placeholder="예: 10시 반 · 14:00"></label>
       <label>끝나는 시간<input id="nl-end" class="tin" placeholder="예: 12:00"></label>
@@ -212,7 +213,7 @@ document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)retur
   if(d.nc){await post({lectureId:d.nc,newCode:true});ov()}
   if(d.cp)copy(d.cp,'링크를 복사했습니다. 카톡에 붙여넣어 보내세요.\n'+d.cp);
   }catch(er){alert(er.message)}});
-const cell=g=>g.checked?`<span class="ok">출 ${g.P}</span> <span class="late">지 ${g.L}</span> <span class="ab">결 ${g.A}</span>${g.U?` <span class="un">미 ${g.U}</span>`:''}`
+const cell=g=>g.na?'<span class="un">대상 아님</span>':g.checked?`<span class="ok">출 ${g.P}</span> <span class="late">지 ${g.L}</span> <span class="ab">결 ${g.A}</span>${g.U?` <span class="un">미 ${g.U}</span>`:''}`
   +g.issues.map(i=>`<small class="${i.status==='A'?'ab':'late'}">${esc(i.name)} (${i.status==='A'?'결석':'지각'})</small>`).join(''):`<span class="un">미입력</span><small>${g.total}명</small>`;
 async function ov(){
   const rq=await api('/api/admin/device-requests').catch(()=>[]);
@@ -229,14 +230,14 @@ async function ov(){
     ${d.lectures.map(l=>`<tr><td class="l"><b>${esc(l.name)}</b> <span class="un">${l.start}~${l.end}</span><div class="tools" style="margin-top:6px">${sessBtn(l)}</div></td>${l.groups.map(g=>`<td>${cell(g)}</td>`).join('')}</tr>`).join('')}</table></div>`;
   const mob=`<div class="only-mob">${d.lectures.map(l=>`<div class="lec"><div class="hd"><b>${esc(l.name)}</b><span class="un">${l.start}~${l.end}</span></div>
     <div class="tools" style="margin-top:6px">${sessBtn(l)}</div>
-    <div class="grp">${l.groups.map(g=>`<div class="gc ${g.checked?'':'un2'}"><b>${esc(g.name)}</b>${g.checked?cell(g):`<span class="un">미입력 · ${g.total}명</span>`}</div>`).join('')}</div></div>`).join('')}</div>`;
+    <div class="grp">${l.groups.map(g=>`<div class="gc ${g.checked&&!g.na?'':'un2'}"><b>${esc(g.name)}</b>${g.na?'<span class="un">대상 아님</span>':g.checked?cell(g):`<span class="un">미입력 · ${g.total}명</span>`}</div>`).join('')}</div></div>`).join('')}</div>`;
   $('ov').innerHTML=sum+pc+mob;
 }
 document.addEventListener('click',e=>{if(e.target.dataset.go)show(e.target.dataset.go)});
 
 // ── 설정 상태 ──
 let C={groups:[],lectures:[]};
-async function cfg(){C=await api('/api/admin/config');C.lectures.forEach(l=>{l.off=l.off||[];l.startDate=l.startDate||'';l.endDate=l.endDate||''});
+async function cfg(){C=await api('/api/admin/config');C.lectures.forEach(l=>{l.off=l.off||[];l.targets=l.targets||[];l.startDate=l.startDate||'';l.endDate=l.endDate||''});
   const s=C.settings||{};$('suc').checked=!!s.useCode;$('sob').value=s.openBefore??30;$('sla').value=s.lateAfter??10;$('scl').value=s.closeAfter??30;
   const v=C.venue||{};$('vn').value=v.name||'';$('vlat').value=v.lat??'';$('vlng').value=v.lng??'';$('vr').value=v.radius||150;draw();drawLec();if(window.syncMap&&!$('v-set').hidden)syncMap()}
 function draw(){
@@ -286,6 +287,8 @@ const hint=(id,t,cls)=>{const e=$(id);if(e){e.textContent=t;e.className='hint '+
 const durText=m=>m>=60?`${Math.floor(m/60)}시간${m%60?` ${m%60}분`:''}`:`${m}분`;
 
 // ── 새 강의 만들기 폼 ──
+function drawNlTargets(){const on=new Set([...document.querySelectorAll('#nl-tg input:checked')].map(x=>x.value)); // 다시 그려도 선택 유지
+  $('nl-tg').innerHTML=C.groups.map(g=>`<label><input type="checkbox" value="${g.id}" ${on.has(g.id)?'checked':''}><span>${esc(g.name)}</span></label>`).join('')||'<span class="un">등록된 단체가 없습니다</span>'}
 let NLMODE='weekly',NLDUR=90;
 $('nl-days').innerHTML=[...DAY].map((d,n)=>`<label><input type="checkbox" value="${n}"><span>${d}</span></label>`).join('');
 $('nl-startq').innerHTML='<span class="un">자주 쓰는 시작 시간</span>'+['09:00','10:00','11:00','13:00','14:00','15:00','16:00','19:00'].map(t=>`<button type="button" data-qs="${t}">${t}</button>`).join('');
@@ -313,11 +316,11 @@ const setLecState=(t,bad)=>{const e=$('lecState');e.textContent=t;e.className=ba
 function saveLecturesSoon(){setLecState('저장 중…');clearTimeout(saveTimer);saveTimer=setTimeout(saveLecturesNow,500)}
 async function saveLecturesNow(){clearTimeout(saveTimer);
   try{await api('/api/admin/config',{method:'PUT',body:JSON.stringify({lectures:C.lectures})});
-    const f=await api('/api/admin/config');f.lectures.forEach(l=>{l.off=l.off||[];l.startDate=l.startDate||'';l.endDate=l.endDate||''});
+    const f=await api('/api/admin/config');f.lectures.forEach(l=>{l.off=l.off||[];l.targets=l.targets||[];l.startDate=l.startDate||'';l.endDate=l.endDate||''});
     if(f.lectures.length===C.lectures.length)f.lectures.forEach((l,i)=>{C.lectures[i].id=l.id;C.lectures[i].token=l.token});else C.lectures=f.lectures;
     setLecState('저장됨 ✓');return true}catch(e){setLecState('저장 실패: '+e.message,true);return false}}
 function lecShare(l){const once=l.startDate&&l.startDate===l.endDate;
-  return `[출석 안내] ${l.name}\n${once?`${wlabel(l.startDate)} ${l.start}~${l.end}`:`매주 ${DAY[l.weekday]}요일 ${l.start}~${l.end}`}\n교육 당일 아래 링크를 눌러 출석해 주세요.${once?'':' (매주 같은 링크입니다)'}\n위치 권한을 허용해야 합니다${C.settings&&C.settings.useCode?' · 현장 코드는 현장에서 안내':''}\n${location.origin}/c/${l.token}`}
+  return `[출석 안내] ${l.name}\n${once?`${wlabel(l.startDate)} ${l.start}~${l.end}`:`매주 ${DAY[l.weekday]}요일 ${l.start}~${l.end}`}\n${(l.targets||[]).length?`대상: ${l.targets.map(id=>(C.groups.find(g=>g.id===id)||{}).name).filter(Boolean).join(', ')}\n`:''}교육 당일 아래 링크를 눌러 출석해 주세요.${once?'':' (매주 같은 링크입니다)'}\n위치 권한을 허용해야 합니다${C.settings&&C.settings.useCode?' · 현장 코드는 현장에서 안내':''}\n${location.origin}/c/${l.token}`}
 
 async function addLecture(){
   const err=(t,el)=>{$('nl-msg').textContent=t;if(el)el.focus();return false};$('nl-msg').textContent='';
@@ -333,7 +336,8 @@ async function addLecture(){
     if(a&&!(sd=parseDate(a)))return err('시작일을 알아볼 수 없어요',$('nl-sd'));if(b&&!(ed=parseDate(b)))return err('종료일을 알아볼 수 없어요',$('nl-ed'));
     if(sd&&ed&&sd>ed)return err('종료일이 시작일보다 빠릅니다',$('nl-ed'))}
   const first=C.lectures.length;
-  days.forEach(w=>C.lectures.push({name,weekday:w,start:st,end:en,startDate:sd,endDate:ed,off:[]}));
+  const targets=[...document.querySelectorAll('#nl-tg input:checked')].map(x=>x.value);
+  days.forEach(w=>C.lectures.push({name,weekday:w,start:st,end:en,startDate:sd,endDate:ed,off:[],targets}));
   $('nl-add').disabled=true;const ok=await saveLecturesNow();$('nl-add').disabled=false;
   if(!ok)return err('저장에 실패했습니다. 다시 시도해 주세요');
   NEWIDX=days.map((_,i)=>first+i);drawLec();
@@ -341,7 +345,7 @@ async function addLecture(){
   $('nl-done').innerHTML=`<div class="box2">✅ <b>${esc(name)}</b> 강의를 만들었습니다 — ${NLMODE==='once'?wlabel(sd)+' 하루만':days.map(d=>DAY[d]).join('·')+'요일 매주'} ${st}~${en}
     <div class="un" style="margin-top:6px">출석은 강의 날에 자동으로 열립니다. 출석 링크를 한 번만 보내 두세요.</div>
     ${days.length===1&&L.token?`<div class="row" style="margin-top:8px"><button class="pri" data-lsh="${first}">${shareLabel()}</button><button data-lcp="${first}">링크 복사</button></div>`:'<div class="un">아래 강의 카드에서 요일별 링크를 보내세요.</div>'}</div>`;
-  $('nl-name').value='';document.querySelectorAll('#nl-days input').forEach(x=>x.checked=false);
+  $('nl-name').value='';document.querySelectorAll('#nl-days input,#nl-tg input').forEach(x=>x.checked=false);
   setTimeout(()=>document.querySelector('.lcard.new')?.scrollIntoView({block:'nearest',behavior:'smooth'}),100)}
 $('nl-add').onclick=addLecture;
 $('nl-name').onkeydown=e=>{if(e.key==='Enter')addLecture()};
@@ -350,12 +354,14 @@ $('nl-name').onkeydown=e=>{if(e.key==='Enter')addLecture()};
 let NEWIDX=[];
 const ORDER=[1,2,3,4,5,6,0];
 function drawLec(){
+  drawNlTargets();
   const items=C.lectures.map((l,i)=>({l,i})).sort((a,b)=>ORDER.indexOf(+a.l.weekday)-ORDER.indexOf(+b.l.weekday)||String(a.l.start).localeCompare(b.l.start));
   $('ls').innerHTML=items.length?`<div class="lgrid">${items.map(({l,i})=>{const once=l.startDate&&l.startDate===l.endDate;return `<div class="lcard ${NEWIDX.includes(i)?'new':''}">
     <input class="nmi" data-li="${i}" data-k="name" value="${esc(l.name)}" placeholder="강의 이름">
     <div class="row">${once?`<b>📅 ${wlabel(l.startDate)} 하루만</b>`:`<select data-li="${i}" data-k="weekday">${[...DAY].map((d,n)=>`<option value="${n}" ${l.weekday==n?'selected':''}>매주 ${d}요일</option>`).join('')}</select>`}</div>
     <div class="trow"><label>시작<input class="tin" data-li="${i}" data-k="start" value="${l.start}"></label><label>끝<input class="tin" data-li="${i}" data-k="end" value="${l.end}"></label></div>
     ${once?'':`<div class="trow"><label>기간 시작일<input class="din" data-li="${i}" data-k="startDate" value="${l.startDate||''}" placeholder="비우면 계속"></label><label>기간 종료일<input class="din" data-li="${i}" data-k="endDate" value="${l.endDate||''}" placeholder="비우면 계속"></label></div>`}
+    <div>대상 단체 <small style="display:inline">(선택 안 하면 모든 단체)</small><div class="days" style="margin-top:4px">${C.groups.map(g=>`<label><input type="checkbox" data-tg="${i}|${g.id}" ${(l.targets||[]).includes(g.id)?'checked':''}><span>${esc(g.name)}</span></label>`).join('')}</div></div>
     <div>휴강일 ${l.off.map(d=>`<span class="chip">${wlabel(d)}<button data-offdel="${i}|${d}" title="취소">×</button></span>`).join('')||'<span class="un">없음</span>'}
       <div class="row" style="margin-top:4px"><input class="din" id="off-${i}" placeholder="예: 11/27" style="width:110px"> <button data-offadd="${i}">휴강 추가</button></div></div>
     <div class="row">${l.token?`<button class="pri" data-lsh="${i}">${shareLabel()}</button><button data-lcp="${i}">링크 복사</button><span class="un">${once?'':'매주 같은 링크'}</span>`:'<span class="un">링크 만드는 중…</span>'}</div>
@@ -376,6 +382,9 @@ document.addEventListener('change',e=>{const t=e.target;if(t.dataset.li===undefi
     const sd=k==='startDate'?v:l.startDate,ed=k==='endDate'?v:l.endDate;if(sd&&ed&&sd>ed){t.value=l[k]||'';flashBad(t);return alert('종료일이 시작일보다 빠릅니다')}}
   else if(k==='weekday')v=+v;
   l[k]=v;saveLecturesSoon()});
+document.addEventListener('change',e=>{const t=e.target;if(!t.dataset||!t.dataset.tg)return;
+  const [i,gid]=t.dataset.tg.split('|'),l=C.lectures[i];l.targets=l.targets||[];
+  l.targets=t.checked?[...new Set([...l.targets,gid])]:l.targets.filter(x=>x!==gid);saveLecturesSoon()});
 // ── 단체 입력 · 강의 카드 버튼 ──
 document.addEventListener('input',e=>{const t=e.target;
   if(t.dataset.i!==undefined){const g=C.groups[t.dataset.i];g[t.dataset.k]=t.dataset.k==='members'?t.value.split('\n'):t.value}

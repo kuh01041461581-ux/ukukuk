@@ -38,8 +38,24 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Get-ChildItem -Recurse dist/ExpenseManager -Filter ui.html)) { throw "ui.html 이 폴더형 결과물에 없습니다" }
+          Copy-Item Run-in-Browser.bat dist/ExpenseManager/Run-in-Browser.bat
           Compress-Archive -Path dist/ExpenseManager -DestinationPath dist/ExpenseManager-fast.zip -Force
           Get-Item dist/ExpenseManager-fast.zip, dist/ExpenseManager.exe | Format-Table Name, Length
+      - name: 점검 1 - 만든 exe 가 실제로 실행되고 화면 서버가 응답하는가
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist/ExpenseManager/ExpenseManager.exe" -ArgumentList "--selftest" -PassThru
+          if (-not $p.WaitForExit(90000)) { $p.Kill(); Get-Content "$env:APPDATA/일상경비관리/app.log" -ErrorAction SilentlyContinue; throw "점검 1: 시간 초과(90초)" }
+          Get-Content "$env:APPDATA/일상경비관리/app.log" -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "점검 1 실패 (종료 코드 $($p.ExitCode))" }
+      - name: 점검 2 - 창을 실제로 띄워 화면이 연결되는가 (실패해도 배포는 계속, 기록만 남김)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist/ExpenseManager/ExpenseManager.exe" -ArgumentList "--selftest-gui" -PassThru
+          if (-not $p.WaitForExit(110000)) { $p.Kill(); Get-Content "$env:APPDATA/일상경비관리/app.log" -ErrorAction SilentlyContinue; throw "점검 2: 창이 110초 안에 끝나지 않음" }
+          Get-Content "$env:APPDATA/일상경비관리/app.log" -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "점검 2 실패 (종료 코드 $($p.ExitCode))" }
       - uses: actions/upload-artifact@v4
         with:
           name: ExpenseManager-windows

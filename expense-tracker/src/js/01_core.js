@@ -35,7 +35,7 @@ function waitApi() {
   });
 }
 async function download(name, text, type = 'application/json') {
-  if (IS_EXE) { try { const r = await api().save_text(name, text); if (r && r.ok) toast('저장했습니다: ' + r.path); else if (r && r.error) toast('저장 실패: ' + r.error); } catch (e) { toast('저장 실패'); } return; }
+  if (IS_EXE && !window.__HTTP__) { try { const r = await api().save_text(name, text); if (r && r.ok) toast('저장했습니다: ' + r.path); else if (r && r.error) toast('저장 실패: ' + r.error); } catch (e) { toast('저장 실패'); } return; }
   const blob = new Blob([text], { type: type + ';charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);

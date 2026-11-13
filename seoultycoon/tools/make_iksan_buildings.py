@@ -22,10 +22,15 @@ class Sc:
         self.H, self.WS, self.HS = H, W * S, H * S; self.im = Image.new('RGBA', (self.WS, self.HS), (0, 0, 0, 0)); self.rnd = random.Random(seed); self.nrs = np.random.RandomState(seed)
         self.T = (48, H - 43); self.R = (95, H - 24); self.L = (1, H - 24)           # 바닥 다이아몬드(아래 맞춤)
         if ovr: self.T = (48, ovr[1] - 24); self.R = (95, ovr[1]); self.L = (1, ovr[1])
+    FS = 1.0           # 건물 규모 배율(바닥 중심 기준 가로·세로로 키운다). 바닥 마름모(ground)는 키우지 않는다
     def G(self, a, b, z=0.0):
+        if Sc.FS != 1.0 and not getattr(self, '_gr', False): a = 0.5 + (a - 0.5) * Sc.FS; b = 0.5 + (b - 0.5) * Sc.FS
         T, R, L = self.T, self.R, self.L
         return ((T[0] + a * (R[0] - T[0]) + b * (L[0] - T[0])) * S, (T[1] + a * (R[1] - T[1]) + b * (L[1] - T[1]) - z * Sc.ZS) * S)      # ZS: 높이 배율(원작처럼 캔버스 윗부분까지 건물을 키울 때 build_sprites 가 자동으로 정한다)
-    def ground_poly(self): return [self.G(0, 0), self.G(1, 0), self.G(1, 1), self.G(0, 1)]
+    def ground_poly(self):
+        self._gr = True
+        try: return [self.G(0, 0), self.G(1, 0), self.G(1, 1), self.G(0, 1)]
+        finally: self._gr = False
     def grad(self, pts, c0, c1, d=(0, 1), noise=0.0):
         m = Image.new('L', self.im.size, 0); ImageDraw.Draw(m).polygon(pts, fill=255); bb = m.getbbox()
         if not bb: return
@@ -52,6 +57,10 @@ class Sc:
         lay = Image.new('RGBA', self.im.size, (26, 30, 48, 255)); lay.putalpha(sh); self.im.alpha_composite(lay)
     # ---- 바닥: 포장 광장(연보라 체크) + 두께 ----
     def ground(self, plaza=True):
+        self._gr = True
+        try: self._ground(plaza)
+        finally: self._gr = False
+    def _ground(self, plaza=True):
         G = self.G
         self.grad([G(0, 1), G(1, 1), G(1, 1, -3.2), G(0, 1, -3.2)], hx('c9c4e8'), hx('8a86b8'), (0, 1), 3)
         self.grad([G(1, 0), G(1, 1), G(1, 1, -3.2), G(1, 0, -3.2)], hx('aaa6d2'), hx('6e6a9c'), (0, 1), 3)

@@ -222,10 +222,10 @@ def church():
 
     # ================= 세부 묘사(2배 해상도에서 보이는 질감) =================
     # (1) 붉은 벽돌 줄눈: 파사드·종탑 앞면에 가로 줄눈 + 엇갈린 세로 줄눈
-    for z in [0.8 * k for k in range(1, 13)]: s.line([G(fa0, fb1, z), G(fa1, fb1, z)], hx('7a3228', 70), 1)
-    for z in [0.8 * k for k in range(1, 26)]: s.line([G(TA0, TB1, z), G(TA1, TB1, z)], hx('7a3228', 70), 1)
+    for z in [0.8 * k for k in range(1, 13)]: s.line([G(fa0, fb1, z), G(fa1, fb1, z)], hx('5a2018', 150), 2)
+    for z in [0.8 * k for k in range(1, 26)]: s.line([G(TA0, TB1, z), G(TA1, TB1, z)], hx('5a2018', 150), 2)
     for k, z in enumerate([0.8 * q for q in range(0, 25)]):
-        for a in [TA0 + 0.03 + 0.045 * m + (0.022 if k % 2 else 0) for m in range(5)]: s.line([G(a, TB1, z), G(a, TB1, z + 0.8)], hx('7a3228', 60), 1)
+        for a in [TA0 + 0.03 + 0.045 * m + (0.022 if k % 2 else 0) for m in range(5)]: s.line([G(a, TB1, z), G(a, TB1, z + 0.8)], hx('5a2018', 120), 2)
     # (2) 종탑 종루: 루버 아치창을 더 크게 + 시계 대신 둥근 장미창 테두리
     for k in range(2):
         a = TA0 + 0.045 + k * 0.095

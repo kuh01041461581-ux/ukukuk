@@ -32,15 +32,15 @@ def horse(dx=0, dy=0):
 ITEMS[9] = horse
 for k, fn in sorted(ITEMS.items()):
     Hc, yc = ST.canvas(k)
-    Sc.OVR = (Hc, yc); Sc.LAST_HD = None; Sc.ZS = 1.0
+    Sc.OVR = (Hc, yc); Sc.LAST_HD = None; Sc.ZS = 1.0; Sc.FS = {20: 1.16, 21: 1.16, 42: 1.14, 41: 1.12}.get(k, 1.0)      # 레퍼런스가 뚜렷하지 않은 건물은 규모를 키운다
     try:
         F = fn()
         if k not in (9, 38):                                          # 원작 건물처럼 캔버스 윗부분까지 쓰도록 높이를 자동으로 키운다(최대 1.5배, 미륵석탑은 1.3배)
             ys = [y for y in range(F.height) if any(F.getpixel((x, y))[3] for x in range(F.width))]
             if ys and ys[0] > 6:
-                Sc.ZS = max(1.0, min(1.3 if k == 2 else 1.5, (yc - 5) / max(1.0, yc - ys[0]))); Sc.LAST_HD = None
+                Sc.ZS = max(1.0, min(1.3 if k == 2 else (1.9 if k == 13 else 1.6), (yc - 5) / max(1.0, yc - ys[0]))); Sc.LAST_HD = None
                 if Sc.ZS > 1.02: F = fn()
-    finally: Sc.OVR = None; Sc.ZS = 1.0
+    finally: Sc.OVR = None; Sc.ZS = 1.0; Sc.FS = 1.0
     F2 = Sc.LAST_HD                                              # 2배 해상도판(없으면 1배 그림만)
     if F.size != (96, Hc): Fx = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); Fx.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = Fx
     F = on_tile(F, yc)

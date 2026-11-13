@@ -112,6 +112,21 @@ public class St2Pc {
         return b;
     }
 
+    /** 게임 화면 옆에 늘 보이는 조작표. 게임 하단의 "*:INFO  #:MAP  0:EXIT" 표시가 어떤 키인지도 적었다. */
+    static JPanel legend() {
+        String h = "<html><div style='width:214px;font-size:11px;color:#1c2330'>"
+            + "<b style='font-size:13px'>조작 안내</b> <span style='color:#667'>(F1 로 숨김/보임)</span><br><br>"
+            + "<b>이동·선택</b><br>방향키 / WASD &nbsp;커서 이동<br>Enter / Space / Z &nbsp;확인<br>Esc / X / Backspace &nbsp;취소<br><br>"
+            + "<b>화면 아래 표시된 키</b><br><b>*:INFO</b> &nbsp;= C 키 (또는 *)<br>&nbsp;&nbsp;선택한 건물·부지의 정보<br>"
+            + "<b>#:MAP</b> &nbsp;= V / Tab 키 (또는 #)<br>&nbsp;&nbsp;도시 전체 미니맵<br>"
+            + "<b>0:EXIT</b> &nbsp;= 숫자 0<br>&nbsp;&nbsp;나가기 / 시청으로 돌아가기<br><br>"
+            + "<b>숫자 1~9</b> &nbsp;번호 선택지 고르기<br><br>"
+            + "<b>마우스</b><br>왼쪽 클릭 &nbsp;확인 · 선택지 직접 클릭<br>오른쪽 클릭 &nbsp;취소<br>가운데 클릭 &nbsp;미니맵<br>끌기 &nbsp;지도 이동<br>휠 &nbsp;위/아래<br><br>"
+            + "<b>기타</b><br>F11 &nbsp;전체 화면<br>설정 메뉴 &nbsp;게임 속도·이름·화질</div></html>";
+        JPanel p = new JPanel(new BorderLayout()); p.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8)); p.setBackground(new Color(238, 240, 236));
+        p.add(new JLabel(h), BorderLayout.NORTH); return p;
+    }
+
     static JPanel controls() {
         JPanel p = new JPanel(new GridBagLayout()); p.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8)); p.setBackground(new Color(238, 240, 236));
         GridBagConstraints c = new GridBagConstraints(); c.fill = GridBagConstraints.BOTH; c.weightx = 1; c.weighty = 1; c.insets = new Insets(3, 3, 3, 3);
@@ -165,16 +180,18 @@ public class St2Pc {
             JMenuItem fs = new JMenuItem("전체 화면 전환 (F11)"); fs.addActionListener(e -> toggleFull(f)); m.add(fs);
             mb.add(m); f.setJMenuBar(mb);
             JPanel ctl = controls(); ctl.setPreferredSize(new Dimension(210, 0)); ctl.setVisible(false);
+            final JPanel lg = legend(); lg.setPreferredSize(new Dimension(236, 0)); f.add(lg, BorderLayout.WEST);
             f.add(panel, BorderLayout.CENTER); f.add(ctl, BorderLayout.EAST);
             JCheckBoxMenuItem vp = new JCheckBoxMenuItem("가상 키패드 보기 (선택 사항)"); vp.addActionListener(e -> { ctl.setVisible(vp.isSelected()); f.pack(); }); m.add(vp);
             JCheckBoxMenuItem hqm = new JCheckBoxMenuItem("화질 보정(도트 확대 + 부드럽게, 글씨가 번질 수 있음)", false); hqm.addActionListener(e -> { panel.hq = hqm.isSelected(); panel.repaint(); }); m.add(hqm);
             JCheckBoxMenuItem inv = new JCheckBoxMenuItem("지도 끌기 방향 반대로"); inv.addActionListener(e -> dragInvert = inv.isSelected()); m.add(inv);
+            JMenuItem lgm = new JMenuItem("조작표 보이기/숨기기 (F1)"); lgm.addActionListener(e -> { lg.setVisible(!lg.isVisible()); f.pack(); }); m.add(lgm);
             JMenuItem help = new JMenuItem("조작 안내"); help.addActionListener(e -> JOptionPane.showMessageDialog(f, HELP, "조작 안내", JOptionPane.INFORMATION_MESSAGE)); m.add(help);
-            Dimension sd = Toolkit.getDefaultToolkit().getScreenSize(); int s0 = Math.max(2, Math.min(4, (sd.height - 140) / 296)); panel.setPreferredSize(new Dimension(240 * s0, 296 * s0));
+            Dimension sd = Toolkit.getDefaultToolkit().getScreenSize(); int s0 = Math.max(2, Math.min(4, (sd.height - 140) / 296)); panel.setPreferredSize(new Dimension(480 * (s0 + 1) / 2, 592 * (s0 + 1) / 2));
             f.pack(); f.setLocationRelativeTo(null);
             KeyAdapter ka = new KeyAdapter() {
                 final java.util.Set<Integer> down = new java.util.HashSet<>();
-                @Override public void keyPressed(KeyEvent e) { if (e.getKeyCode() == KeyEvent.VK_F11) { toggleFull(f); return; } int k = mapKey(e); if (k != 0 && down.add(e.getKeyCode())) key(k, true); }
+                @Override public void keyPressed(KeyEvent e) { if (e.getKeyCode() == KeyEvent.VK_F11) { toggleFull(f); return; } if (e.getKeyCode() == KeyEvent.VK_F1) { lg.setVisible(!lg.isVisible()); f.pack(); return; } int k = mapKey(e); if (k != 0 && down.add(e.getKeyCode())) key(k, true); }
                 @Override public void keyReleased(KeyEvent e) { int k = mapKey(e); if (k != 0 && down.remove(e.getKeyCode())) key(k, false); }
             };
             f.addKeyListener(ka); panel.addKeyListener(ka);

@@ -35,6 +35,7 @@ small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
 .days input{display:none}.days input:checked+span{font-weight:700;color:var(--pri)}.days label:has(input:checked){background:var(--pri);border-color:var(--pri)}.days label:has(input:checked) span{color:#fff}
 .chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:14px;padding:2px 4px 2px 10px;margin:2px 4px 2px 0;font-size:13px}
 .chip button{border:0;background:none;padding:2px 6px;min-height:0;color:var(--a)}
+.savebar button{white-space:nowrap;flex:none}.savebar .un{font-size:13px;line-height:1.35}
 .savebar{position:sticky;bottom:64px;background:var(--card);padding:10px;margin:14px -4px -4px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;z-index:5}
 /* 개인 링크 */
 .lk{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}.lk .nm{flex:1 1 120px}
@@ -170,11 +171,17 @@ function start(){$('login').hidden=true;$('shell').hidden=false;$('date').value=
 // ── 현황 ──
 const shift=n=>{const d=new Date($('date').value+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);$('date').value=d.toISOString().slice(0,10);ov()};
 $('date').onchange=ov;$('reload').onclick=ov;$('prev').onclick=()=>shift(-1);$('next').onclick=()=>shift(1);
+// ── 카톡 공유: 휴대폰 공유창(Web Share)을 열어 카카오톡을 고르면 바로 전송, 지원 안 하면 복사 ──
+const CAN_SHARE=typeof navigator.share==='function';
+const shareLabel=()=>CAN_SHARE?'💬 카톡 공유':'📋 카톡용 복사';
+async function shareText(title,text){
+  if(CAN_SHARE){try{await navigator.share({title,text});return}catch(e){if(e&&e.name==='AbortError')return}}
+  copy(text,'안내문을 복사했습니다. 카톡에 붙여넣어 보내세요.')}
 function sessBtn(l){const s=l.session;
   if(!s)return `<button data-mk="${l.id}">출석 링크 만들기</button>`;
   const url=location.origin+'/c/'+s.token;
   return `<span class="un">현장코드 <b>${s.code}</b> · ${s.open?'진행중':'마감'}</span>
-  <button data-cp="${url}">링크 복사</button> <button data-tg="${l.id}" data-open="${!s.open}">${s.open?'마감':'다시 열기'}</button> <button data-nc="${l.id}">코드 재발급</button>`}
+  <button class="pri" data-shl="${l.id}">${shareLabel()}</button> <button data-cp="${url}">링크 복사</button> <button data-tg="${l.id}" data-open="${!s.open}">${s.open?'마감':'다시 열기'}</button> <button data-nc="${l.id}">코드 재발급</button>`}
 document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)return;
   const post=b=>api('/api/admin/session',{method:'POST',body:JSON.stringify({date:$('date').value,...b})});
   try{
@@ -186,7 +193,7 @@ document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)retur
 const cell=g=>g.checked?`<span class="ok">출 ${g.P}</span> <span class="late">지 ${g.L}</span> <span class="ab">결 ${g.A}</span>${g.U?` <span class="un">미 ${g.U}</span>`:''}`
   +g.issues.map(i=>`<small class="${i.status==='A'?'ab':'late'}">${esc(i.name)} (${i.status==='A'?'결석':'지각'})</small>`).join(''):`<span class="un">미입력</span><small>${g.total}명</small>`;
 async function ov(){
-  const d=await api('/api/admin/overview?date='+$('date').value);
+  const d=await api('/api/admin/overview?date='+$('date').value);window.OVD=d;
   const wd=DAY[wdOf(d.date)];
   if(!d.lectures.length){$('ov').innerHTML=`<p>${d.date} (${wd}) 개설된 강의가 없습니다.<br><button data-go="lec" class="pri">강의 개설하러 가기</button></p>`;return}
   const tot={P:0,L:0,A:0,U:0};d.lectures.forEach(l=>l.groups.forEach(g=>{for(const k in tot)tot[k]+=g[k]}));
@@ -252,15 +259,17 @@ document.addEventListener('click',e=>{const d=e.target.dataset;if(!d)return;
 // ── 개인 출석 링크 ──
 let LK=[];
 const linkUrl=t=>location.origin+'/m/'+t;
-const MSG=url=>`[출석 안내]\n본인 전용 출석 링크입니다. 휴대폰 홈 화면에 추가해 두고, 교육 시작 전후에 눌러 주세요. (위치 권한을 허용해야 합니다)\n다른 사람에게 전달하지 마세요.\n${url}`;
+const MSG=(url,name)=>`[출석 안내]\n${name?name+'님, ':''}본인 전용 출석 링크입니다. 휴대폰 홈 화면에 추가해 두고, 교육 시작 전후에 눌러 주세요. (위치 권한을 허용해야 합니다)\n다른 사람에게 전달하지 마세요.\n${url}`;
 async function loadLinks(){try{LK=await api('/api/admin/links')}catch(e){$('links').innerHTML=`<span class="ab">${e.message}</span>`;return}
   $('links').innerHTML=LK.map(g=>`<div style="margin-top:12px"><b>${esc(g.name)}</b> <small style="display:inline">(${g.members.length}명)</small> <button data-lkg="${g.id}">단체 목록 복사</button>
     ${g.members.map(m=>`<div class="lk"><span class="nm">${esc(m.name)} ${m.bound?'<small style="display:inline">📱 기기 등록됨</small>':''}</span>
-      <button data-lkm="${m.id}">안내문+링크 복사</button><button data-lkr="${m.id}">새 링크 발급</button></div>`).join('')}</div>`).join('')||'<p class="un">구성원을 먼저 등록하세요.</p>'}
+      <button class="pri" data-lks="${m.id}">${shareLabel()}</button><button data-lkm="${m.id}">안내문 복사</button><button data-lkr="${m.id}">새 링크 발급</button></div>`).join('')}</div>`).join('')||'<p class="un">구성원을 먼저 등록하세요.</p>'}
 $('lkall').onclick=()=>copy(LK.flatMap(g=>g.members.map(m=>`${g.name}\t${m.name}\t${linkUrl(m.token)}`)).join('\n'),'전체 링크 목록을 복사했습니다. 엑셀에 붙여넣으세요.');
 document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)return;
   if(d.lkg){const g=LK.find(x=>x.id===d.lkg);copy(g.members.map(m=>`${m.name}\t${linkUrl(m.token)}`).join('\n'),g.name+' 링크 목록을 복사했습니다.')}
-  if(d.lkm){const m=LK.flatMap(g=>g.members).find(x=>x.id===d.lkm);copy(MSG(linkUrl(m.token)),m.name+'님께 보낼 안내문을 복사했습니다. 카톡에 붙여넣으세요.')}
+  if(d.lkm){const m=LK.flatMap(g=>g.members).find(x=>x.id===d.lkm);copy(MSG(linkUrl(m.token),m.name),m.name+'님께 보낼 안내문을 복사했습니다. 카톡에 붙여넣으세요.')}
+  if(d.lks){const m=LK.flatMap(g=>g.members).find(x=>x.id===d.lks);shareText('출석 링크',MSG(linkUrl(m.token),m.name))}
+  if(d.shl){const l=(window.OVD?.lectures||[]).find(x=>x.id===d.shl);if(l&&l.session)shareText('출석 안내',`[출석 안내] ${l.name}\n${OVD.date} ${l.start}~${l.end}\n교육장에서 아래 링크를 눌러 출석해 주세요. (위치 권한 허용 필요 · 현장 코드는 현장에서 안내)\n${location.origin}/c/${l.session.token}`)}
   if(d.lkr&&confirm('새 링크를 발급하면 이전 링크와 등록된 휴대폰이 모두 무효가 됩니다. 계속할까요?')){try{await api('/api/admin/regen',{method:'POST',body:JSON.stringify({memberId:d.lkr})});alert('새 링크를 발급했습니다. 다시 복사해서 보내 주세요.');loadLinks()}catch(er){alert(er.message)}}});
 
 // ---- 엑셀 명부 ----

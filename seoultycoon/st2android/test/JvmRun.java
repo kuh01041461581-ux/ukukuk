@@ -6,9 +6,18 @@ public class JvmRun {
     public static void main(String[] a) throws Exception {
         final Path res = Paths.get(a[1]), out = Paths.get(a[2]); Files.createDirectories(out.resolve("save"));
         final Font font = Font.createFont(Font.TRUETYPE_FONT, new File(a[3])).deriveFont(12f);
+        Font hf0 = null; try { hf0 = Font.createFont(Font.TRUETYPE_FONT, new File(new File(a[3]).getParentFile(), "pretendard.ttf")).deriveFont(11f * com.seoultycoon.st2.Surf.K); } catch (Exception e) { } final Font hdFont = hf0;
         Platform pf = new Platform() {
             public byte[] resource(String n) { if (System.getenv("RESLOG") != null) System.out.println("RES " + n); String mod = System.getenv("MOD"); if (mod != null) try { return Files.readAllBytes(Paths.get(mod).resolve(n)); } catch (IOException e0) { } try { return Files.readAllBytes(res.resolve(n)); } catch (IOException e) { return null; } }
             public int[] decodePng(byte[] d, int[] o) { try { BufferedImage im = ImageIO.read(new ByteArrayInputStream(d)); if (im == null) return null; o[0] = im.getWidth(); o[1] = im.getHeight(); return im.getRGB(0, 0, o[0], o[1], null, 0, o[0]); } catch (Exception e) { return null; } }
+            public byte[] renderTextHd(String s, int targetW, int[] dims) {
+                if (hdFont == null || targetW <= 0 || s.isEmpty()) return null;
+                int K = com.seoultycoon.st2.Surf.K, h = 14 * K, w = targetW + K;
+                BufferedImage im = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB); Graphics2D g = im.createGraphics();
+                g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON); g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+                g.setFont(hdFont); int sw = g.getFontMetrics().stringWidth(s); if (sw <= 0) { g.dispose(); return null; }
+                g.scale(targetW / (double) sw, 1.0); g.setColor(Color.WHITE); g.drawString(s, 0, 11 * K - 1); g.dispose();
+                byte[] r = new byte[w * h]; for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) r[y * w + x] = (byte) (im.getRGB(x, y) >>> 24); dims[0] = w; dims[1] = h; return r; }
             public byte[] renderText(String s, int[] dims) {
                 BufferedImage m = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB); Graphics2D g = m.createGraphics(); g.setFont(font); FontMetrics fm = g.getFontMetrics(); int w = fm.stringWidth(s) + 1, h = 14; g.dispose();
                 BufferedImage im = new BufferedImage(Math.max(w, 1), h, BufferedImage.TYPE_INT_ARGB); g = im.createGraphics(); g.setFont(font); g.setColor(Color.WHITE); g.drawString(s, 0, 11); g.dispose();

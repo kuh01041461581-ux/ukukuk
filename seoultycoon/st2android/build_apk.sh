@@ -14,7 +14,7 @@ java -cp $OUT/tool:$ASM Delambda $OUT/classes 2>&1 | { grep -v JAVA_TOOL || true
 cp ../work/st2/* $OUT/stage/assets/st2/ ; rm -f $OUT/stage/assets/st2/cc2     # 세이브(cc2)는 포함하지 않는다
 python3 -I ../tools/convert_audio_res.py $OUT/stage/assets/st2                  # MMF(s*.d) -> 표준 MIDI
 mkdir -p $OUT/stage/assets/st2mod; python3 -I ../tools/st2_mod_build.py; python3 -I ../tools/build_sprites.py; python3 -I ../tools/st2_pak_build.py; cp mod/*.d mod/*.m mod/client.bin1116 mod/data1.pak $OUT/stage/assets/st2mod/ 2>/dev/null || true     # 익산 모드(텍스트 치환 .d)
-cp ../android/assets/galmuri11.ttf $OUT/stage/assets/
+cp ../android/assets/galmuri11.ttf ../android/assets/pretendard.ttf $OUT/stage/assets/
 aapt package -f -M AndroidManifest.xml -S ../android/res -I $AJ -F $OUT/base.apk
 cp $OUT/classes.dex $OUT/stage/
 ( cd $OUT/stage && aapt add -f ../base.apk classes.dex $(find assets -type f) >/dev/null )

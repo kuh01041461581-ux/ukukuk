@@ -90,7 +90,8 @@ final class GfxLib {
             if (H.verbose) H.pf.log("DS '" + s + "' x=" + x + " y=" + y + " anchor=" + anchor + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none"));
             int[] dims = new int[2]; byte[] mask = H.pf.renderText(s, dims); if (mask == null) return 0;
             if ((anchor & 1) != 0) x -= dims[0] / 2; if ((anchor & 8) != 0) x -= dims[0]; if ((anchor & 32) != 0) y -= 12;
-            dst.drawMask(mask, dims[0], dims[1], x, y - 2);
+            int[] d2 = new int[2]; byte[] hm = H.pf.renderTextHd(s, (dims[0] - 1) * Surf.K, d2);
+            dst.drawMask(mask, dims[0], dims[1], x, y - 2, hm, d2[0], d2[1]);
             if (dst.w == 240 && dst.h >= 290) {                                       // 번호 선택지("1.예 2.아니오" 등)의 클릭 영역 기록(그린 직후의 화면 픽셀 해시와 함께)
                 java.util.regex.Matcher mm = java.util.regex.Pattern.compile("(?:^|\\s)([1-9])\\s*\\.").matcher(s); java.util.ArrayList<int[]> st = new java.util.ArrayList<>();
                 while (mm.find()) st.add(new int[]{mm.start(1), mm.group(1).charAt(0) - '0'});
@@ -147,8 +148,9 @@ final class GfxLib {
     static void label(Host H, Surf dst, String t, int x, int y) {
         int[] dims = new int[2]; byte[] m = H.pf.renderText(t, dims); if (m == null) return;
         int sc = dst.color; boolean hc = dst.hasClip; dst.hasClip = false;
-        dst.setColor(0x000000); dst.drawMask(m, dims[0], dims[1], x + 1, y + 1); dst.drawMask(m, dims[0], dims[1], x + 1, y);
-        dst.setColor(0xFFFFFF); dst.drawMask(m, dims[0], dims[1], x, y);
+        int[] d2 = new int[2]; byte[] hm = H.pf.renderTextHd(t, (dims[0] - 1) * Surf.K, d2);
+        dst.setColor(0x000000); dst.drawMask(m, dims[0], dims[1], x + 1, y + 1, hm, d2[0], d2[1]); dst.drawMask(m, dims[0], dims[1], x + 1, y, hm, d2[0], d2[1]);
+        dst.setColor(0xFFFFFF); dst.drawMask(m, dims[0], dims[1], x, y, hm, d2[0], d2[1]);
         dst.color = sc; dst.hasClip = hc;
     }
     // 게임의 상태 배열 int[12] = {년, 월, 일, ..., [10]=우상단 표시값, ...} 를 찾아 날짜를 읽는다(게임이 날짜 숫자를 직접 그리지 않기 때문)

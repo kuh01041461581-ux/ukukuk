@@ -89,12 +89,24 @@ public final class Surf {
             }
         }
     }
-    /** 글자 마스크(알파)를 현재 색으로 칠함 */
-    public void drawMask(byte[] a, int mw, int mh, int x, int y) {
+    /** 글자 마스크(알파)를 현재 색으로 칠함. ha 가 있으면 HD 층에는 그 매끈한 마스크(알파 섞기)를 쓴다 */
+    public void drawMask(byte[] a, int mw, int mh, int x, int y) { drawMask(a, mw, mh, x, y, null, 0, 0); }
+    public void drawMask(byte[] a, int mw, int mh, int x, int y, byte[] ha, int hw, int hh) {
         if (!bounds()) return;
+        int[] H2 = hd(); int W = w * K;
         for (int j = 0; j < mh; j++) { int yy = y + j; if (yy < y0 || yy >= y1) continue;
             for (int i = 0; i < mw; i++) { int xx = x + i; if (xx < x0 || xx >= x1) continue;
-                if ((a[j * mw + i] & 0xff) >= 128) { px[yy * w + xx] = color; int[] H2 = hd(); int W = w * K; for (int q = 0; q < K; q++) for (int b = 0; b < K; b++) H2[(yy * K + q) * W + xx * K + b] = color; } } }
+                if ((a[j * mw + i] & 0xff) >= 128) { px[yy * w + xx] = color;
+                    if (ha == null) for (int q = 0; q < K; q++) for (int b = 0; b < K; b++) H2[(yy * K + q) * W + xx * K + b] = color; } } }
+        if (ha != null) {
+            int cr = (color >> 16) & 255, cg = (color >> 8) & 255, cb = color & 255;
+            for (int j = 0; j < hh; j++) { int yy = y * K + j; if (yy < y0 * K || yy >= y1 * K) continue;
+                for (int i = 0; i < hw; i++) { int xx = x * K + i; if (xx < x0 * K || xx >= x1 * K) continue;
+                    int al = ha[j * hw + i] & 0xff; if (al == 0) continue;
+                    if (al >= 250) { H2[yy * W + xx] = color; continue; }
+                    int d = H2[yy * W + xx], ia = 255 - al;
+                    H2[yy * W + xx] = 0xFF000000 | (((cr * al + ((d >> 16) & 255) * ia) / 255) << 16) | (((cg * al + ((d >> 8) & 255) * ia) / 255) << 8) | ((cb * al + (d & 255) * ia) / 255); } }
+        }
     }
     public int getPixel(int x, int y) { return (x < 0 || y < 0 || x >= w || y >= h) ? 0 : (px[y * w + x] & 0xFFFFFF); }
 }

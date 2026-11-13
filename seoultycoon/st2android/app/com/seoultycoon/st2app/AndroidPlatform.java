@@ -14,6 +14,7 @@ public class AndroidPlatform implements Platform {
     public AndroidPlatform(Context c, Typeface tf) {
         ctx = c; am = c.getAssets(); dir = c.getFilesDir();
         paint.setTypeface(tf); paint.setTextSize(12); paint.setAntiAlias(false); paint.setColor(Color.WHITE);
+        try { hdPaint.setTypeface(Typeface.createFromAsset(am, "pretendard.ttf")); hdPaint.setTextSize(11f * com.seoultycoon.st2.Surf.K); hdPaint.setColor(Color.WHITE); hdOk = true; } catch (Throwable t) { hdOk = false; }
     }
     static byte[] all(InputStream in) throws IOException {
         ByteArrayOutputStream o = new ByteArrayOutputStream(); byte[] b = new byte[16384]; int n; while ((n = in.read(b)) > 0) o.write(b, 0, n); in.close(); return o.toByteArray();
@@ -22,6 +23,15 @@ public class AndroidPlatform implements Platform {
     public int[] decodePng(byte[] d, int[] out) {
         Bitmap b = BitmapFactory.decodeByteArray(d, 0, d.length); if (b == null) return null;
         out[0] = b.getWidth(); out[1] = b.getHeight(); int[] px = new int[out[0] * out[1]]; b.getPixels(px, 0, out[0], 0, 0, out[0], out[1]); b.recycle(); return px;
+    }
+    final Paint hdPaint = new Paint(Paint.ANTI_ALIAS_FLAG); boolean hdOk;
+    public byte[] renderTextHd(String s, int targetW, int[] dims) {
+        if (!hdOk || targetW <= 0 || s.length() == 0) return null;
+        int K = com.seoultycoon.st2.Surf.K, h = 14 * K, w = targetW + K;
+        hdPaint.setTextScaleX(1f); float sw = hdPaint.measureText(s); if (sw <= 0) return null; hdPaint.setTextScaleX(targetW / sw);
+        Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888); Canvas c = new Canvas(b); c.drawText(s, 0, 11 * K - 1, hdPaint);
+        int[] px = new int[w * h]; b.getPixels(px, 0, w, 0, 0, w, h); b.recycle();
+        byte[] r = new byte[w * h]; for (int i = 0; i < r.length; i++) r[i] = (byte) (px[i] >>> 24); dims[0] = w; dims[1] = h; return r;
     }
     public byte[] renderText(String s, int[] dims) {
         int w = Math.max(1, (int) Math.ceil(paint.measureText(s)) + 1), h = 14;

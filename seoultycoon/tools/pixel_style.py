@@ -72,7 +72,7 @@ def twinkle(im, phase, s=1):
             ys = np.where(al[:, x] > 0)[0]
             if len(ys) == 0: continue
             y = ys[0]; n += 1
-            if (n + phase * 4) % 9 == 0 and y + 2 < h:
+            if (n + phase * 4) % 9 == 0 and y + 2 < h and y < h * 0.45:      # 위쪽 윤곽에만(덧그림 높이를 작게 유지)
                 for dx, dy in ((0, 0), (0, 1), (0, 2), (-1, 1), (1, 1)):
                     if al[y + dy, x + dx] > 0: a[y + dy, x + dx, :3] = (255, 255, 255) if (dx, dy) == (0, 1) else (255, 244, 170)
     return Image.fromarray(a, 'RGBA')

@@ -59,8 +59,9 @@ def to_sheet(k, F, variants=None):
             A = np.asarray(F)[:MY + mh]; B = np.asarray(V)[:MY + mh].copy(); diff = (A != B).any(-1); B[~diff] = 0
             if not diff.any(): continue
             ys, xs = np.where(diff); x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
+            if sy + int(y1 - y0) + mh > 126: continue                   # 조각표 좌표는 부호 있는 1바이트(127 이하)로 읽힌다 → 넘치면 이 프레임 덧그림은 뺀다
             O = Image.fromarray(B, 'RGBA').crop((x0, y0, x1, y1)); new[i] = (0, sy, int(x1 - x0), int(y1 - y0)); pos[i] = (int(x0), int(y0)); overlays.append((O, sy)); sy += int(y1 - y0); META.append((i, 'ov', (vi - 1) % len(variants)))
-    assert sy < 250, 'sheet too tall for yx.d bytes'
+    assert sy + mh <= 127, 'sheet too tall for yx.d signed bytes'
     new[0] = (0, sy, 96, mh); H = sy + mh + 8
     S = Image.new('RGBA', (96, H), (0, 0, 0, 0))
     for O, y0 in overlays: S.paste(O, (0, y0))

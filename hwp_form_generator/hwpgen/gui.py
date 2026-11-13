@@ -433,12 +433,15 @@ class WeeklyTab(ttk.Frame):
         orgs = [self.org()] + [o for o in weekly.DEFAULT_ORGS if o != self.org()]
         secs = weekly.split_org_sections(lines, orgs)
         key = self.org().replace(" ", "")
-        if key not in secs:                              # 국 이름표가 없으면 전체를 우리 국 글로 본다
-            items = weekly.parse_plan_lines(lines)
-        else:
-            items = weekly.parse_plan_lines(secs[key])
+        src = lines if key not in secs else secs[key]          # 국 이름표가 없으면 전체를 우리 국 글로 본다
+        items = weekly.parse_plan_lines(src)
+        weak = not items or sum(1 for i in items if i.get("date") or i.get("place")) * 2 < len(items)
+        if weak:                                               # 엄격한 서식이 아니면 '제목 기준'으로 일시·장소·주최·내용을 붙여 읽는다
+            loose = weekly.parse_loose_plan(src, getattr(self, "dept", "") or "", "", "", self.monday.year)
+            if loose:
+                items = loose
         if not items:
-            messagebox.showinfo("가져오기", "일정 항목(❶ 제목 (부서 담당자 내선) + ◦ 일시 줄)을 찾지 못했어요")
+            messagebox.showinfo("가져오기", "일정 제목을 찾지 못했어요. 제목 줄 아래에 일시·장소·내용을 적어 주세요")
             return
         have = {(i.get("date"), i.get("title")) for i in self.data["items"]}
         added = 0
@@ -2043,7 +2046,7 @@ class Widget(tk.Tk):
                 prof = PR.load_profile()
                 sel = self.bridge.get_selection_text() if self.bridge.connected else ""
                 if sel.strip():                          # 아무렇게나 쓴 글을 선택하고 누르면 그 글이 주간업무계획 서식으로
-                    rough_items = weekly.parse_rough_plan(sel, prof.get("dept", ""), prof.get("staff_name", ""), prof.get("staff_ext", ""))
+                    rough_items = weekly.parse_rough_plan(sel, prof.get("dept", ""), prof.get("staff_name", ""), prof.get("staff_ext", ""), monday.year)
                     if rough_items:
                         replace = "selection"
                         pkg = registry.load_form("weekly_plan").render({"org": org, "items": rough_items})

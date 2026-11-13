@@ -328,6 +328,21 @@ class NewFormsTests(unittest.TestCase):
                 self.assertNotIn(w, blob, (fid, w))
 
 
+class LoosePlanTests(unittest.TestCase):
+    def test_title_based_parsing(self):
+        """제목을 기준으로 이름·일시·장소·내용 줄을 그 제목에 붙인다(줄마다 제목이 되면 안 됨)"""
+        from hwpgen import weekly
+        its = weekly.parse_rough_plan("익산 푸드 페스티벌\n홍길동\n일시 2026. 11. 20.(금) 14:00\n장소 중앙체육관\n내용 먹거리 부스\n내용 체험", "과", "", "", 2026)
+        self.assertEqual(len(its), 1)
+        it = its[0]
+        self.assertEqual((it["title"], it["staff"], it["date"], it["time"], it["place"]), ("익산 푸드 페스티벌", "홍길동", "2026-11-20", "14:00", "중앙체육관"))
+        self.assertEqual([v for k, v in it["lines"]], ["먹거리 부스", "체험"])
+        its = weekly.parse_rough_plan("가을 음악회\n11/20 14:00\n시청\n\n간담회\n일시: 11. 21. 10:00\n장소: 회의실", "", "", "", 2026)
+        self.assertEqual([i["title"] for i in its], ["가을 음악회", "간담회"])
+        self.assertEqual(its[0]["date"], "2026-11-20")
+        self.assertEqual(its[1]["place"], "회의실")
+
+
 class PackageSafetyTests(unittest.TestCase):
     def test_no_unbalanced_fields_and_version(self):
         """시작만 있고 끝이 없는 필드는 한글에서 '파일 손상'이 된다. 파일 형식 버전은 한글 2020 이 열 수 있는 값이어야 한다."""

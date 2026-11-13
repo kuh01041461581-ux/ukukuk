@@ -575,12 +575,23 @@ def parse_plan_lines(lines):
     return items
 
 
+_DATE_LOOSE = re.compile(r"(?<![\d:])(?:(\d{4})\s*[.\-/년]\s*)?(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?\.?\s*(?:\(([월화수목금토일])\))?")
+_YEAR = [None]                  # 연도 없이 적은 날짜(11. 20.)에 쓸 연도(작성 대상 주의 연도)
+
+
 def _fill_when(it, value):
     m = _DATE_RE.search(value)
+    year = None
+    if not m:
+        m = _DATE_LOOSE.search(value)
+        if m:
+            year = int(m[1]) if m[1] else (_YEAR[0] or datetime.date.today().year)
     if not m:
         it["lines"].append(("일시", value))
         return
-    it["date"] = "%04d-%02d-%02d" % (int(m[1]), int(m[2]), int(m[3]))
+    if year is None:
+        year = int(m[1])
+    it["date"] = "%04d-%02d-%02d" % (year, int(m[2]), int(m[3]))
     rest = value[m.end():]
     head, _, tail = rest.partition("/")
     times = _TIME_RE.findall(head)
@@ -682,44 +693,117 @@ class WeeklyCoverForm:
         return pkg
 
 
-# =========================================================== 아무렇게나 쓴 글 → 주간업무계획 항목
-_LABELS = {"일시": "일시", "일자": "일시", "날짜": "일시", "기간": "일시", "시간": "일시", "장소": "장소", "위치": "장소",
-           "주최": "주최", "주관": "주최", "내용": "내용", "주요내용": "내용", "참석": "참석", "참석자": "참석", "대상": "참석"}
+# =========================================================== 아무렇게나 쓴 글·읽어 온 글 → 주간업무계획 항목
+_LABEL_MAP = {"일시": "when", "일자": "when", "날짜": "when", "기간": "when", "시간": "when", "장소": "place", "위치": "place",
+              "주최": "host", "주관": "host", "내용": "content", "주요내용": "content", "참석": "attend", "참석자": "attend", "대상": "attend",
+              "담당": "staff", "담당자": "staff", "이름": "staff", "성명": "staff", "제목": "title", "행사명": "title", "업무명": "title",
+              "사업명": "title", "비고": "note"}
+_LABEL_RE = re.compile(r"^\s*(?:[◦○ㅇ▸‣\-·•*]\s*)?(%s)(?=[\s:：]|$)\s*[:：]?\s*(.*)$" % "|".join(
+    sorted((re.sub(r"(.)", r"\1\\s*", k).rstrip("\\s*") if False else k for k in _LABEL_MAP), key=len, reverse=True)))
+_WHEN_ONLY = re.compile(r"^[\d\s.\-/~∼～:()월화수목금토일년시분오전후]+$")
+_NAME_ONLY = re.compile(r"^[가-힣]{2,4}$")
 
 
-def parse_rough_plan(text, dept="", staff="", phone=""):
-    """서식 없이 쓴 글 → 항목 목록. 잘 맞는 형식(❶ 제목(부서 담당자) + ◦ 일시 : …)이면 그대로 쓰고,
-    아니면 빈 줄로 나뉜 덩어리마다 첫 줄을 제목, '이름 : 값' 줄은 항목, 나머지 줄은 내용으로 본다."""
-    lines = [ln for ln in (text or "").replace("\r", "").split("\n")]
-    items = parse_plan_lines(lines)
-    if items:
-        return items
-    blocks, cur = [], []
-    for ln in lines:
-        if ln.strip():
-            cur.append(ln.strip())
-        elif cur:
-            blocks.append(cur)
-            cur = []
-    if cur:
-        blocks.append(cur)
-    if len(blocks) == 1 and len(blocks[0]) > 1 and not any(re.match(r"^[^:：]{1,8}[:：]", x) for x in blocks[0][1:]):
-        blocks = [[x] for x in blocks[0]]                         # 한 줄씩 적은 행사 목록
-    for b in blocks:
-        title = re.sub(r"^[\s%s\d.)\-·ㆍ▸○◦ㅇ]+" % _SYM[1:-1], "", b[0]).strip()
-        it = {"title": title, "dept": dept, "staff": staff, "phone": phone, "lines": []}
-        for ln in b[1:]:
-            body = re.sub(r"^[\s○◦ㅇ▸\-·ㆍ]+", "", ln)
-            m = re.match(r"^([^:：]{1,8}?)\s*[:：]\s*(.*)$", body)
-            label = _LABELS.get(re.sub(r"\s", "", m.group(1))) if m else None
-            if label == "일시" and "date" not in it:
-                _fill_when(it, m.group(2).strip())
-            elif label == "장소" and not it.get("place"):
-                it["place"] = m.group(2).strip()
-            elif m and label:
-                it["lines"].append((label, m.group(2).strip()))
+def _label_of(line):
+    """'일시 …' / '일 시 : …' / '◦ 장소: …' → (표준이름, 값). 라벨이 아니면 None"""
+    s = re.sub(r"^(\s*[◦○ㅇ▸‣\-·•*]\s*)", "", line)
+    m = re.match(r"^([가-힣]{1,4}(?:\s[가-힣])?)(?=[\s:：]|$)\s*[:：]?\s*(.*)$", s)
+    if m:
+        key = re.sub(r"\s+", "", m.group(1))
+        if key in _LABEL_MAP:
+            return _LABEL_MAP[key], m.group(2).strip()
+    return None
+
+
+def parse_loose_plan(lines, dept="", staff="", phone="", year=None):
+    """제목을 기준으로 항목을 만든다: 제목 줄 다음에 오는 이름·일시·장소·주최·내용 줄을 그 제목에 붙인다.
+    라벨은 '일시 : …' 처럼 쌍점이 있어도 없어도, 라벨 없이 날짜만 적어도 알아본다.
+    제목은 ❶ 제목(부서 담당자) 꼴·'제목 :' 라벨·빈 줄 뒤 새로 시작하는 줄·라벨 없는 첫 줄."""
+    _YEAR[0] = year
+    items, cur = [], None
+    any_field = any(_label_of(ln) or (_WHEN_ONLY.match(ln.strip()) and len(ln.strip()) > 3 and _DATE_LOOSE.search(ln)) for ln in lines if ln.strip())
+    blank_before = True
+
+    def new_item(title, who=None):
+        nonlocal cur
+        d = {"title": title.strip(), "dept": dept, "staff": staff, "phone": phone, "lines": []}
+        if who:
+            parts = who.split()
+            d["dept"] = parts[0] if parts else dept
+            d["staff"] = parts[1] if len(parts) > 1 else staff
+            d["phone"] = parts[2] if len(parts) > 2 else phone
+        items.append(d)
+        cur = d
+        return d
+
+    for raw in lines:
+        ln = raw.strip()
+        if not ln:
+            blank_before = True
+            continue
+        hm = _HEAD_RE.match(raw) if not ln.startswith(tuple(T.BULLETS)) else None
+        if hm:
+            new_item(hm.group(1), hm.group(2))
+            blank_before = False
+            continue
+        lab = _label_of(raw)
+        if lab and lab[0] == "title":
+            new_item(lab[1])
+            blank_before = False
+            continue
+        if not any_field:                                     # 라벨·날짜가 전혀 없으면 한 줄이 한 행사(제목 목록)
+            new_item(re.sub(r"^[\s◦○ㅇ▸‣\-·•*\d.)]+", "", ln))
+            continue
+        if lab and cur is not None:
+            kind, val = lab
+            if kind == "when" and "date" not in cur:
+                _fill_when(cur, val)
+                if cur.get("place_from_when") and not cur.get("place"):
+                    cur["place"] = cur.pop("place_from_when")
+            elif kind == "place" and not cur.get("place"):
+                cur["place"] = val
+            elif kind == "staff":
+                cur["staff"] = val
+            elif kind == "host":
+                cur["lines"].append(("주최", val))
+            elif kind == "attend":
+                cur["lines"].append(("참석", val))
+            elif kind == "note":
+                cur["lines"].append(("비고", val))
             else:
-                it["lines"].append(("내용", body.strip()))
+                cur["lines"].append(("내용", val))
+            blank_before = False
+            continue
+        body = re.sub(r"^[\s◦○ㅇ▸‣\-·•*]+", "", ln)
+        if cur is not None and _WHEN_ONLY.match(body) and _DATE_LOOSE.search(body) and "date" not in cur:      # 라벨 없이 날짜만
+            _fill_when(cur, body)
+            if cur.get("place_from_when") and not cur.get("place"):
+                cur["place"] = cur.pop("place_from_when")
+            blank_before = False
+            continue
+        if cur is not None and not cur.get("staff") and _NAME_ONLY.match(body) and not cur["lines"] and "date" not in cur and not cur.get("place"):
+            cur["staff"] = body                               # 제목 바로 다음의 이름 한 줄은 담당자
+            blank_before = False
+            continue
+        if cur is not None and "date" in cur and not cur.get("place") and not cur["lines"] and len(body) <= 24 and not blank_before:
+            cur["place"] = body                               # 날짜 바로 다음의 짧은 줄은 장소
+            blank_before = False
+            continue
+        has_fields = cur is not None and ("date" in cur or cur.get("place") or cur["lines"])
+        if cur is None or (blank_before and has_fields):
+            new_item(body)
+        else:
+            cur["lines"].append(("내용", body))
+        blank_before = False
+    for it in items:
         it.pop("place_from_when", None)
-        items.append(it)
     return items
+
+
+def parse_rough_plan(text, dept="", staff="", phone="", year=None):
+    """선택한 글 → 항목: 엄격한 서식(❶ 제목(부서 담당자) + ◦ 일시 : …)이면 그대로, 아니면 제목 기준으로 느슨하게 읽는다"""
+    lines = (text or "").replace("\r", "").split("\n")
+    strict = parse_plan_lines(lines)
+    if strict and sum(1 for it in strict if it.get("date") or it.get("place")) * 2 >= len(strict):
+        return strict
+    return parse_loose_plan(lines, dept, staff, phone, year)

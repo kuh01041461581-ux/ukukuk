@@ -1,7 +1,7 @@
 // 국가무형유산 출석체크 — 플랫폼 공통 로직 (Node 로컬 서버 / Cloudflare Worker 공용)
 // Web 표준 Request/Response만 사용합니다.
 
-const DEFAULT_SETTINGS = { openBefore: 30, lateAfter: 10, closeAfter: 30 };
+const DEFAULT_SETTINGS = { openBefore: 30, lateAfter: 10, closeAfter: 30, useCode: false }; // useCode: 현장 코드도 함께 입력받기(기본 꺼짐)
 
 export function emptyDb() {
   return { groups: [], members: [], lectures: [], records: {}, sessions: {}, bindings: {},
@@ -65,6 +65,7 @@ export function createCore({ db, persist, adminPassword }) {
   const dateOk = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
   const wd = (d) => new Date(d + 'T00:00:00Z').getUTCDay();
   const STATUS = ['P', 'L', 'A']; // 출석, 지각, 결석
+  const NO_VENUE = '교육 장소가 아직 설정되지 않아 출석할 수 없습니다. 담당자에게 문의하세요.';
 
 function dist(a, b, c, d) { // meters
   const R = 6371000, r = Math.PI / 180, dLat = (c - a) * r, dLng = (d - b) * r;
@@ -206,7 +207,7 @@ async function api(req, url) {
     const se = sessionOf(mm[1]); if (!se) return json(404, { error: '유효하지 않은 링크입니다' });
     const l = db.lectures.find((x) => x.id === se.lectureId);
     return json(200, {
-      open: se.open, date: se.date, lecture: l && { name: l.name, start: l.start, end: l.end },
+      open: se.open, useCode: !!db.settings.useCode, date: se.date, lecture: l && { name: l.name, start: l.start, end: l.end },
       venue: db.venue.lat == null ? null : { name: db.venue.name },
       groups: db.groups.map((g) => ({ id: g.id, name: g.name,
         members: db.members.filter((x) => x.groupId === g.id).map((x) => ({
@@ -228,7 +229,7 @@ async function api(req, url) {
       if (blocked(pk)) return json(429, { error: '시도가 너무 많습니다. 10분 뒤에 다시 시도하세요' });
       if (!same(String(b.phone4 || ''), mem.phone4)) { strike(pk); return json(403, { error: '본인 확인 번호(전화번호 뒤 4자리)가 맞지 않습니다', needPhone: true }); }
     }
-    if (String(b.code || '') !== se.code) return json(403, { error: '현장 코드가 맞지 않습니다' });
+    if (db.settings.useCode && String(b.code || '') !== se.code) return json(403, { error: '현장 코드가 맞지 않습니다' });
     const v = db.venue; let d = null;
     if (v.lat != null) {
       const lat = +b.lat, lng = +b.lng, acc = +b.accuracy || 0;
@@ -236,7 +237,7 @@ async function api(req, url) {
       if (acc > 300) return json(403, { error: `위치가 부정확합니다(±${Math.round(acc)}m). 실외/창가에서 다시 시도해 주세요` });
       d = dist(lat, lng, v.lat, v.lng);
       if (d > v.radius) return json(403, { error: `교육장에서 ${Math.round(d)}m 떨어져 있습니다 (허용 ${v.radius}m)` });
-    }
+    } else if (!db.settings.useCode) return json(403, { error: NO_VENUE });
     const rec = ((db.records[se.date] ||= {})[se.lectureId] ||= {})[mem.groupId] ||= { marks: {}, meta: {} };
     rec.meta ||= {};
     const dev = String(b.deviceId || '').slice(0, 64);
@@ -279,7 +280,7 @@ async function api(req, url) {
       if (acc > 300) return json(403, { error: `위치가 부정확합니다(±${Math.round(acc)}m). 다시 시도해 주세요` });
       d = dist(lat, lng, v.lat, v.lng);
       if (d > v.radius) return json(403, { error: `교육장에서 ${Math.round(d)}m 떨어져 있습니다 (허용 ${v.radius}m)` });
-    }
+    } else return json(403, { error: NO_VENUE });
     const dev = String(b.deviceId || '').slice(0, 64);
     db.bindings ||= {};
     if (db.bindings[mem.id] && dev && db.bindings[mem.id] !== dev)
@@ -415,7 +416,7 @@ async function api(req, url) {
         });
       }
       const st = b.settings || {}, num = (x, d) => (isFinite(+x) && x !== '' && x !== null ? Math.max(0, Math.round(+x)) : d);
-      db.settings = { openBefore: num(st.openBefore, 30), lateAfter: num(st.lateAfter, 10), closeAfter: num(st.closeAfter, 30) };
+      db.settings = { openBefore: num(st.openBefore, 30), lateAfter: num(st.lateAfter, 10), closeAfter: num(st.closeAfter, 30), useCode: st.useCode === true || st.useCode === 'true' };
       const v = b.venue || {};
       db.venue = { name: String(v.name || ''), lat: v.lat === '' || v.lat == null ? null : +v.lat, lng: v.lng === '' || v.lng == null ? null : +v.lng, radius: +v.radius > 0 ? +v.radius : 150 };
       db.groups = groups; db.members = members; db.lectures = lectures;

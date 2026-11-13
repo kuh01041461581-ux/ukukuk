@@ -20,12 +20,29 @@ const $=id=>document.getElementById(id);
 const token=location.pathname.split('/').pop();
 let dev=localStorage.getItem('dev');if(!dev){dev=crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now();localStorage.setItem('dev',dev)}
 let sel=localStorage.getItem('me')||null,gid=null,S=null;
+let LOC=null,locState='idle'; // idle | asking | ok | denied | error
+const HELP=`<b>위치 권한을 켜 주세요.</b><br>· 안드로이드: 주소창 왼쪽 자물쇠(또는 설정) → 권한 → 위치 → 허용<br>· 아이폰: 설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari(또는 사용 중인 브라우저) → <b>앱을 사용하는 동안</b><br>· 카카오톡에서 열었다면 오른쪽 아래 ⋮ → <b>다른 브라우저로 열기</b> 후 다시 시도`;
+function locHtml(){
+  if(!S.venue)return '';
+  const box=(t,cls)=>`<div class="${cls}" style="margin:8px 0;padding:10px;border-radius:10px;border:1px solid #8886">${t}</div>`;
+  if(locState==='ok')return box(`📍 위치 확인됨 — 교육장(${S.venue.name||'지정 장소'}) 안에서 출석할 수 있습니다`,'');
+  if(locState==='asking')return box('📍 위치 권한을 허용해 주세요… (허용 창이 보이면 [허용]을 눌러 주세요)','');
+  if(locState==='denied')return box(HELP+'<br><button id="retry" class="pri" style="margin-top:8px">위치 다시 확인</button>','');
+  if(locState==='error')return box('📍 위치를 가져오지 못했습니다. 실외나 창가에서 <button id="retry" style="width:auto;padding:6px 10px;margin:0">다시 시도</button>','');
+  return '';}
+function askLocation(){
+  if(!S||!S.venue)return;
+  if(!navigator.geolocation){locState='denied';draw();return}
+  locState='asking';draw();
+  navigator.geolocation.getCurrentPosition(x=>{LOC={lat:x.coords.latitude,lng:x.coords.longitude,accuracy:x.coords.accuracy,t:Date.now()};locState='ok';draw()},
+    e=>{locState=e&&e.code===1?'denied':'error';draw()},{enableHighAccuracy:true,timeout:15000,maximumAge:0})}
 async function load(){
   const r=await fetch('/api/s/'+token);S=await r.json();
   if(!r.ok){$('body').innerHTML=`<div class="card err">${S.error}</div>`;return}
   $('title').textContent=S.lecture.name;$('sub').textContent=`${S.date} · ${S.lecture.start}~${S.lecture.end}`;
   if(!S.open){$('body').innerHTML='<div class="card err">출석이 마감되었습니다.</div>';return}
-  draw();
+  if(!S.venue&&!S.useCode){$('body').innerHTML='<div class="card err">교육 장소가 아직 설정되지 않아 출석할 수 없습니다. 담당자에게 문의하세요.</div>';return}
+  draw();askLocation(); // 링크를 열면 바로 위치 권한을 요청
 }
 function draw(msg){
   if(!gid)gid=(me()&&S.groups.find(g=>g.members.some(m=>m.id===sel))?.id)||localStorage.getItem('gid')||null;
@@ -34,12 +51,13 @@ function draw(msg){
   ${G?`<h4>② 본인 이름</h4><div class="names">${G.members.map(m=>`<button data-id="${m.id}" class="mem ${sel===m.id?'sel':''} ${m.done?'done':''}">${m.name}${m.done?' ✔':''}</button>`).join('')}</div>`:''}</div>
   <div class="card">${sel&&me()?`<div>👤 <b>${me().name}</b>님으로 출석합니다 <a href="#" id="other">다른 사람이에요</a></div>`:''}
   <label ${bound()?'hidden':''}>본인 확인: 전화번호 뒤 4자리<input id="ph" inputmode="numeric" maxlength="4" placeholder="예: 1234"></label>
-  <label>현장 코드 (교육장에서 안내)<input id="code" inputmode="numeric" maxlength="4" placeholder="4자리"></label>
-  ${S.venue?`<div class="mut">📍 교육장(${S.venue.name||'지정 장소'}) 안에서만 출석됩니다. 누르면 위치 권한을 허용해 주세요.</div>`:''}
+  ${S.useCode?`<label>현장 코드 (교육장에서 안내)<input id="code" inputmode="numeric" maxlength="4" placeholder="4자리"></label>`:''}
+  ${locHtml()}
   <button class="pri" id="go">출석하기</button><div id="msg" class="${msg?.err?'err':''}">${msg?.t||''}</div></div>`;
   document.querySelectorAll('[data-gid]').forEach(b=>b.onclick=()=>{gid=b.dataset.gid;sel=null;localStorage.setItem('gid',gid);draw()});
-  document.querySelectorAll('.mem').forEach(b=>b.onclick=()=>{sel=b.dataset.id;const c=$('code')?.value;draw();$('code').value=c||''});
+  document.querySelectorAll('.mem').forEach(b=>b.onclick=()=>{sel=b.dataset.id;const c=$('code')?.value;draw();if($('code'))$('code').value=c||''});
   $('go').onclick=go;
+  if($('retry'))$('retry').onclick=askLocation;
   if($('other'))$('other').onclick=e=>{e.preventDefault();localStorage.removeItem('bound');localStorage.removeItem('me');sel=null;draw()};
 }
 const me=()=>S&&S.groups.flatMap(g=>g.members).find(m=>m.id===sel);
@@ -51,8 +69,9 @@ async function go(){
   let p={};
   if(S.venue){msg('위치 확인 중…');
     try{const x=await pos();p={lat:x.coords.latitude,lng:x.coords.longitude,accuracy:x.coords.accuracy}}
-    catch(e){return msg('위치를 확인할 수 없습니다. 휴대폰·브라우저의 위치 권한을 허용한 뒤 다시 눌러 주세요',1)}}
-  const r=await fetch(`/api/s/${token}/checkin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({memberId:sel,code:$('code').value,phone4:$('ph').value,deviceId:dev,...p})});
+    catch(e){if(LOC&&Date.now()-LOC.t<120000)p={lat:LOC.lat,lng:LOC.lng,accuracy:LOC.accuracy};
+      else{locState=e&&e.code===1?'denied':'error';draw();return}}}
+  const r=await fetch(`/api/s/${token}/checkin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({memberId:sel,code:$('code')?$('code').value:'',phone4:$('ph').value,deviceId:dev,...p})});
   const j=await r.json();
   if(!r.ok)return msg(j.error,1);
   localStorage.setItem('me',sel);localStorage.setItem('bound',sel);

@@ -36,6 +36,10 @@ export default {
     if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method Not Allowed', { status: 405 });
     const hit = ROUTES.find(([p, , prefix]) => (prefix ? url.pathname.startsWith(p) : url.pathname === p));
     if (hit) url.pathname = hit[1];
-    return env.ASSETS.fetch(new Request(url, request));
+    const res = await env.ASSETS.fetch(new Request(url, request));
+    if (!hit) return res;
+    const page = new Response(res.body, res);               // 화면(HTML)에서 위치 기능을 사용할 수 있음을 명시
+    page.headers.set('Permissions-Policy', 'geolocation=(self)');
+    return page;
   },
 };

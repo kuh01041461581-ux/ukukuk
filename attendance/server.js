@@ -42,7 +42,7 @@ http.createServer(async (req, res) => {
     const hit = ROUTES.find(([p, , prefix]) => (prefix ? url.pathname.startsWith(p) : url.pathname === p));
     const f = path.join(PUBLIC, path.normalize(hit ? hit[1] : url.pathname));
     if (!f.startsWith(PUBLIC) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' });
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', ...(hit ? { 'Permissions-Policy': 'geolocation=(self)' } : {}) });
     fs.createReadStream(f).pipe(res);
   } catch (e) { res.writeHead(500); res.end(String(e.message || e)); }
 }).listen(PORT, () => console.log(`출석체크 서버: http://localhost:${PORT}  (관리자: /admin)`));

@@ -10,6 +10,7 @@ public interface Platform {
     byte[] renderText(String s, int[] dims);
     /** HD 층용 글자: 매끈한 글꼴로 그린 K배 알파 마스크. 폭은 targetW(= 낮은 해상도 글자 폭 x K)에 맞춘다. 높이 14*K, 기준선 11*K. 없으면 null(도트 글꼴을 확대) */
     /** 하단 키 안내 글자("*:INFO" 등)를 이 플랫폼 키에 맞게 바꾼다. 기본은 게임 원래 표기 */
+    default void toast(String msg) { log(msg); }
     default String[] keyHints() { return new String[]{"*:INFO", "#:MAP", "0:EXIT"}; }
     default byte[] renderTextHd(String s, int targetW, int[] dims) { return null; }
     /** 앱 저장소 파일 읽기/쓰기 (세이브·data1.pak 등) */

@@ -48,6 +48,7 @@ public class St2Pc {
             byte[] r = new byte[w * h]; for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) r[y * w + x] = (byte) (im.getRGB(x, y) >>> 24 >= 128 ? 255 : 0);
             dims[0] = w; dims[1] = h; return r;
         }
+        public void toast(String m) { if (panel != null) { panel.banner = m; panel.bannerUntil = System.currentTimeMillis() + 6000; } }
         public String[] keyHints() { return new String[]{"C:정보", "V:지도", "0:나가기"}; }
         byte[] pakCache;
         public byte[] readFile(String n) {
@@ -70,7 +71,7 @@ public class St2Pc {
 
     // ---------------- 화면 ----------------
     static class GamePanel extends JPanel {
-        final BufferedImage lcd = new BufferedImage(960, 1184, BufferedImage.TYPE_INT_RGB); volatile boolean hq = false; volatile Host host; volatile String err; final Rectangle helpBtn = new Rectangle();
+        final BufferedImage lcd = new BufferedImage(960, 1184, BufferedImage.TYPE_INT_RGB); volatile boolean hq = false; volatile Host host; volatile String err; volatile String banner; volatile long bannerUntil; final Rectangle helpBtn = new Rectangle();
         int ox, oy; double sc = 3;
         GamePanel() { setBackground(new Color(10, 10, 20)); setFocusable(true); setPreferredSize(new Dimension(240 * 3, 296 * 3)); }
         @Override protected void paintComponent(Graphics g0) {
@@ -81,6 +82,7 @@ public class St2Pc {
             synchronized (lcd) { g.drawImage(lcd, ox, oy, w, h, null); }
             { int bw = Math.max(20, (int) (h / 24.0)); int bx = ox + w - bw - 6, by = oy + 4 + h / 14; g.setColor(new Color(20, 44, 160, 210)); g.fillOval(bx, by, bw, bw); g.setColor(new Color(255, 255, 255, 230)); g.drawOval(bx, by, bw, bw);
               g.setFont(g.getFont().deriveFont(Font.BOLD, bw * 0.7f)); FontMetrics fm = g.getFontMetrics(); g.drawString("?", bx + (bw - fm.stringWidth("?")) / 2, by + (bw + fm.getAscent() - fm.getDescent()) / 2); helpBtn.setBounds(bx, by, bw, bw); }
+            if (banner != null && System.currentTimeMillis() < bannerUntil) { g.setFont(g.getFont().deriveFont(Font.BOLD, 18f)); FontMetrics bf = g.getFontMetrics(); int bw2 = bf.stringWidth(banner) + 28; g.setColor(new Color(20, 44, 160, 230)); g.fillRoundRect((getWidth() - bw2) / 2, oy + 40, bw2, 34, 12, 12); g.setColor(Color.WHITE); g.drawString(banner, (getWidth() - bw2) / 2 + 14, oy + 63); }
             if (err != null) { g.setColor(new Color(0, 0, 0, 200)); g.fillRect(0, 0, getWidth(), 120); g.setColor(Color.WHITE); int y = 18; for (String ln : err.split("\n")) { g.drawString(ln.length() > 120 ? ln.substring(0, 120) : ln, 8, y); y += 14; if (y > 110) break; } }
         }
         int gx(int mx) { return (int) ((mx - ox) / sc); } int gy(int my) { return (int) ((my - oy) / sc); }

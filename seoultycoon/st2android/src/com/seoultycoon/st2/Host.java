@@ -488,6 +488,7 @@ public final class Host {
             for (Lib.Thr t : threads) if (!t.done && t.wake > vnow && t.wake < next) next = t.wake;
             vnow = Math.max(vnow + 1, Math.min(next, vnow + 2));
         }
+        Festival.tick(this, dtMs);
         boolean painted = false;
         if (currentCard != 0 && (repaintReq || ++paintSkip >= 10)) {
             repaintReq = false; paintSkip = 0;

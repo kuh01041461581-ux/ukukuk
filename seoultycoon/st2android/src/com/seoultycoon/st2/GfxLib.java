@@ -8,7 +8,7 @@ final class GfxLib {
     static Surf surf(Host H, int h) { return (Surf) H.st.get(h); }
     static Surf decode(Host H, byte[] d) {
         int[] wh = new int[2]; int[] px = H.pf.decodePng(d, wh); if (px == null) return null;
-        Surf s = new Surf(wh[0], wh[1], false); System.arraycopy(px, 0, s.px, 0, px.length);
+        Surf s = new Surf(wh[0], wh[1], false); s.smooth = true; System.arraycopy(px, 0, s.px, 0, px.length);
         // HD 그림: PNG 끝(IEND) 뒤에 K배 크기 PNG 가 한 장 더 붙어 있으면 그것을 HD 층으로 쓴다(tools/build_sprites.py 가 붙인다)
         for (int i = 8; i + 12 <= d.length - 8; i++) if (d[i] == 'I' && d[i + 1] == 'E' && d[i + 2] == 'N' && d[i + 3] == 'D') {
             int o = i + 8; if (o + 8 < d.length && (d[o] & 0xff) == 0x89 && d[o + 1] == 'P' && d[o + 2] == 'N' && d[o + 3] == 'G') {

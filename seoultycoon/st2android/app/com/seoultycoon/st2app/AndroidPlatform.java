@@ -28,7 +28,8 @@ public class AndroidPlatform implements Platform {
     public byte[] renderTextHd(String s, int targetW, int[] dims) {
         if (!hdOk || targetW <= 0 || s.length() == 0) return null;
         int K = com.seoultycoon.st2.Surf.K, h = 14 * K, w = targetW + K;
-        hdPaint.setTextScaleX(1f); float sw = hdPaint.measureText(s); if (sw <= 0) return null; hdPaint.setTextScaleX(targetW / sw);
+        hdPaint.setTextSize(11.8f * K); hdPaint.setLetterSpacing(0f); float sw = hdPaint.measureText(s); if (sw <= 0) return null;
+        if (sw > targetW) { hdPaint.setTextSize(11.8f * K * targetW / sw); sw = targetW; } else if (s.length() > 1) hdPaint.setLetterSpacing(Math.min(1.2f * K, (targetW - sw) / (s.length() - 1)) / hdPaint.getTextSize());
         Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888); Canvas c = new Canvas(b); c.drawText(s, 0, 11 * K - 1, hdPaint);
         int[] px = new int[w * h]; b.getPixels(px, 0, w, 0, 0, w, h); b.recycle();
         byte[] r = new byte[w * h]; for (int i = 0; i < r.length; i++) r[i] = (byte) (px[i] >>> 24); dims[0] = w; dims[1] = h; return r;

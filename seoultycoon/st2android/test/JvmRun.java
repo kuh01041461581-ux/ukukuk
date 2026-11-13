@@ -15,8 +15,11 @@ public class JvmRun {
                 int K = com.seoultycoon.st2.Surf.K, h = 14 * K, w = targetW + K;
                 BufferedImage im = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB); Graphics2D g = im.createGraphics();
                 g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON); g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
-                g.setFont(hdFont); int sw = g.getFontMetrics().stringWidth(s); if (sw <= 0) { g.dispose(); return null; }
-                g.scale(targetW / (double) sw, 1.0); g.setColor(Color.WHITE); g.drawString(s, 0, 11 * K - 1); g.dispose();
+                Font f0 = hdFont.deriveFont(11.8f * K); g.setFont(f0); int sw = g.getFontMetrics().stringWidth(s); if (sw <= 0) { g.dispose(); return null; }
+                if (sw > targetW) { f0 = f0.deriveFont(f0.getSize2D() * targetW / sw); g.setFont(f0); }      // 넘치면 글자를 가로세로 같은 비율로 줄인다(찌그러지지 않게)
+                FontMetrics fm = g.getFontMetrics(); sw = fm.stringWidth(s); float extra = s.length() > 1 ? Math.min(K * 1.2f, (targetW - sw) / (float) (s.length() - 1)) : 0f;   // 남는 폭은 글자 사이로
+                g.setColor(Color.WHITE); float cx = 0; int by = 11 * K - 1;
+                for (int i = 0; i < s.length(); i++) { String ch = s.substring(i, i + 1); g.drawString(ch, cx, by); cx += fm.stringWidth(ch) + extra; } g.dispose();
                 byte[] r = new byte[w * h]; for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) r[y * w + x] = (byte) (im.getRGB(x, y) >>> 24); dims[0] = w; dims[1] = h; return r; }
             public byte[] renderText(String s, int[] dims) {
                 BufferedImage m = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB); Graphics2D g = m.createGraphics(); g.setFont(font); FontMetrics fm = g.getFontMetrics(); int w = fm.stringWidth(s) + 1, h = 14; g.dispose();

@@ -10,11 +10,15 @@ final class GfxLib {
         int[] wh = new int[2]; int[] px = H.pf.decodePng(d, wh); if (px == null) return null;
         Surf s = new Surf(wh[0], wh[1], false); System.arraycopy(px, 0, s.px, 0, px.length);
         { java.util.HashSet<Integer> cs = new java.util.HashSet<>(); for (int p : px) if ((p >>> 24) > 127) { cs.add(p & 0xFFFFFF); if (cs.size() > 14) break; } s.smooth = cs.size() > 14 && wh[0] >= 24 && wh[1] >= 24; }      // 색이 많은 그림(건물·지형·인물)만 모서리를 다듬는다. 숫자·글자 시트는 획이 깨지므로 그대로
-        // HD 그림: PNG 끝(IEND) 뒤에 K배 크기 PNG 가 한 장 더 붙어 있으면 그것을 HD 층으로 쓴다(tools/build_sprites.py 가 붙인다)
+        // HD 그림: 첫 PNG 끝(IEND) 뒤에 K배 크기 PNG 가 1장(고정) 또는 여러 장(동작 단계)으로 이어 붙어 있다(tools/build_sprites.py)
         for (int i = 8; i + 12 <= d.length - 8; i++) if (d[i] == 'I' && d[i + 1] == 'E' && d[i + 2] == 'N' && d[i + 3] == 'D') {
-            int o = i + 8; if (o + 8 < d.length && (d[o] & 0xff) == 0x89 && d[o + 1] == 'P' && d[o + 2] == 'N' && d[o + 3] == 'G') {
-                int[] wh2 = new int[2]; int[] p2 = H.pf.decodePng(java.util.Arrays.copyOfRange(d, o, d.length), wh2);
-                if (p2 != null && wh2[0] == s.w * Surf.K && wh2[1] == s.h * Surf.K) { s.hp = p2; if (System.getenv("LOGHD") != null) H.pf.log("HDLAYER " + s.w + "x" + s.h); } else if (System.getenv("LOGHD") != null) H.pf.log("HDBAD " + s.w + "x" + s.h + " got " + (p2 == null ? "null" : wh2[0] + "x" + wh2[1])); }
+            int o = i + 8; java.util.ArrayList<int[]> ph = new java.util.ArrayList<>();
+            while (o + 8 < d.length && (d[o] & 0xff) == 0x89 && d[o + 1] == 'P' && d[o + 2] == 'N' && d[o + 3] == 'G') {
+                int e = d.length; for (int q = o + 8; q + 12 <= d.length; q++) if (d[q] == 'I' && d[q + 1] == 'E' && d[q + 2] == 'N' && d[q + 3] == 'D') { e = q + 8; break; }
+                int[] wh2 = new int[2]; int[] p2 = H.pf.decodePng(java.util.Arrays.copyOfRange(d, o, e), wh2);
+                if (p2 != null && wh2[0] == s.w * Surf.K && wh2[1] == s.h * Surf.K) ph.add(p2); o = e; }
+            if (ph.size() == 1) s.hp = ph.get(0); else if (ph.size() > 1) { s.hps = ph.toArray(new int[0][]); s.hp = ph.get(0); }
+            if (System.getenv("LOGHD") != null) H.pf.log("HDLAYER " + s.w + "x" + s.h + " phases=" + ph.size());
             break; }
         return s;
     }

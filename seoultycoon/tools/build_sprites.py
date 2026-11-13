@@ -46,7 +46,7 @@ for k, fn in sorted(ITEMS.items()):
     F = on_tile(F, yc)
     if k != 9: F = PS.stylize(F)
     # 애니메이션 프레임: 구성물이 실제로 움직이는 변형 그림을 우선 쓰고(승마장: 말이 울타리 안을 걷는다), 없으면 불빛 변형
-    vs = [on_tile(horse(6, 2), yc)] if k == 9 else [PS.twinkle(F, 0), PS.twinkle(F, 1)]
+    vs = [on_tile(horse(1.5, 1), yc)] if k == 9 else [PS.twinkle(F, 0), PS.twinkle(F, 1)]
     S, rects, pos = ST.to_sheet(k, F, vs); ST.patch_yx(yx, k, rects, pos)
     import io
     buf = io.BytesIO(); S.save(buf, format='PNG'); data = buf.getvalue()
@@ -58,6 +58,17 @@ for k, fn in sorted(ITEMS.items()):
     for fi in range(len(ST.TABLE[k]['frames'])): show.append((k, F, ST.compose(k, S, rects, frame=fi, pos=pos)))
 open(root + '/st2android/mod/yx.d', 'wb').write(yx)
 import enhance_orig as EN
+# 승마장(b9): 말이 울타리 안을 천천히 도는 12단계 동작을 고해상도 층에 넣는다(작게 움직여서 튀지 않게)
+def horse_phases(N=12):
+    import io, math, vectorize as VC
+    Hc, yc = ST.canvas(9); F0 = on_tile(horse(0, 0), yc); S0, rects, pos = ST.to_sheet(9, F0, []); hds = []
+    for q in range(N):
+        a = 2 * math.pi * q / N; Fq = on_tile(horse(2.6 * math.cos(a), 1.3 * math.sin(a) - 0.5 * abs(math.sin(2 * a))), yc); Sq, _, _ = ST.to_sheet(9, Fq, [])
+        hds.append(VC.vec_sheet(Sq, list(rects) + [(0, Sq.height - 8, 64, 8), (64, Sq.height - 8, 32, 8)]))
+    b = io.BytesIO(); S0.save(b, format='PNG'); data = b.getvalue()
+    for h in hds: bb = io.BytesIO(); h.save(bb, format='PNG', optimize=True); data += bb.getvalue()
+    open(f'{out}/b9.png', 'wb').write(data); ST.patch_yx(yx, 9, rects, pos); open(root + '/st2android/mod/yx.d', 'wb').write(yx)
+horse_phases()
 n_en = 0
 for k in sorted(ST.TABLE):
     if k >= 59 or k in ITEMS or k == 9: continue                  # b9 승마장은 전용 도트

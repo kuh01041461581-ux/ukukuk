@@ -7,7 +7,9 @@ public final class Surf {
      *  HD 그림이 따로 없는 이미지는 px 를 그대로 K배 확대해 쓴다. */
     public static final int K = 2;
     public int[] hp; public boolean smooth;     // smooth: 불러온 그림(건물·지형·인물 등)은 HD 층을 Scale2x 로 계단 모서리를 다듬어 만든다(화면 버퍼는 제외)
+    public int[][] hps;     // 동작 단계가 여러 장인 그림(승마장 등): 시간에 따라 단계를 돌려 가며 보여 준다(게임 로직과 무관한 장식 애니메이션)
     public int[] hd() {
+        if (hps != null) return hps[(int) ((System.currentTimeMillis() / 110) % hps.length)];
         if (hp == null && smooth && K == 2) hp = PixelScale.epx2(px, w, h, null);      // 선명한 확대(계단 모서리만 정리, 색은 섞지 않는다)
         if (hp == null) { int W = w * K; int[] o = new int[W * h * K];
             for (int y = 0; y < h; y++) { int ro = y * K * W; for (int x = 0; x < w; x++) { int p = px[y * w + x]; for (int b = 0; b < K; b++) o[ro + x * K + b] = p; }

@@ -1,0 +1,71 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>출석체크</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#777;--pri:#2f5d50;--p:#2e7d32;--l:#ef8f00;--a:#c62828}
+@media(prefers-color-scheme:dark){:root{--bg:#171a19;--card:#222726;--ink:#eee;--mut:#9a9;--pri:#6fb59f}}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+main{max-width:560px;margin:0 auto;padding:16px}h1{font-size:20px}
+.card{background:var(--card);border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 1px 3px #0002}
+input,select,button{font:inherit;padding:10px;border-radius:8px;border:1px solid #8886;background:var(--card);color:var(--ink);width:100%;margin:4px 0}
+button.pri{background:var(--pri);color:#fff;border:0;font-weight:600}
+.lec{font-weight:600}.time{color:var(--mut);font-size:14px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid #8883}
+.seg{display:flex;gap:4px}.seg button{width:auto;margin:0;padding:6px 12px}
+.seg .on[data-s=P]{background:var(--p);color:#fff}.seg .on[data-s=L]{background:var(--l);color:#fff}.seg .on[data-s=A]{background:var(--a);color:#fff}
+.done{color:var(--p);font-size:13px}.err{color:var(--a)}
+a{color:var(--pri)}
+</style></head><body><main>
+<h1>📋 출석체크</h1>
+<div id="login" class="card">
+  <label>단체<select id="g"></select></label>
+  <label>PIN<input id="pin" type="password" inputmode="numeric" autocomplete="off"></label>
+  <button class="pri" id="go">들어가기</button><div id="msg" class="err"></div>
+</div>
+<div id="app" hidden>
+  <div class="card"><b id="gname"></b> <button id="out" style="width:auto;float:right;padding:4px 10px">나가기</button>
+    <input type="date" id="date"></div>
+  <div id="list"></div>
+</div>
+<p style="text-align:center"><a href="/admin">관리자 페이지</a></p>
+<script>
+const $=id=>document.getElementById(id);
+const ST={P:'출석',L:'지각',A:'결석'};
+let auth=null; try{auth=JSON.parse(localStorage.getItem('auth'))}catch{}
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+async function api(url,opt={}){const r=await fetch(url,{...opt,headers:{'x-pin':auth?.pin||'','content-type':'application/json'}});
+  const j=await r.json();if(!r.ok)throw new Error(j.error||'오류');return j}
+async function init(){
+  const gs=await (await fetch('/api/groups')).json();
+  $('g').innerHTML=gs.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
+  if(auth){$('g').value=auth.groupId;load().catch(()=>{auth=null;localStorage.removeItem('auth')})}
+}
+$('go').onclick=async()=>{auth={groupId:$('g').value,pin:$('pin').value};$('date').value=today();
+  try{await load();localStorage.setItem('auth',JSON.stringify(auth));$('msg').textContent=''}catch(e){auth=null;$('msg').textContent=e.message}};
+$('out').onclick=()=>{auth=null;localStorage.removeItem('auth');location.reload()};
+$('date').onchange=()=>load();
+async function load(){
+  if(!$('date').value)$('date').value=today();
+  const d=await api(`/api/day?groupId=${auth.groupId}&date=${$('date').value}`);
+  $('login').hidden=true;$('app').hidden=false;$('gname').textContent=d.group.name;
+  const el=$('list');el.innerHTML='';
+  if(!d.lectures.length)el.innerHTML='<div class="card">이 날짜에는 강의가 없습니다.</div>';
+  d.lectures.forEach(l=>{
+    const marks={...(l.marks||{})};
+    const c=document.createElement('div');c.className='card';
+    c.innerHTML=`<div class="lec">${l.name} <span class="done">${l.marks?'✔ 저장됨':''}</span></div><div class="time">${l.start} ~ ${l.end}</div>`;
+    const draw=()=>{c.querySelectorAll('.row,.tools').forEach(x=>x.remove());
+      const t=document.createElement('div');t.className='tools';
+      t.innerHTML='<button class="all" style="width:auto;padding:4px 10px">전원 출석</button>';
+      t.firstChild.onclick=()=>{d.members.forEach(m=>marks[m.id]='P');draw()};c.appendChild(t);
+      d.members.forEach(m=>{const r=document.createElement('div');r.className='row';
+        r.innerHTML=`<span>${m.name}</span><span class="seg">${Object.keys(ST).map(s=>`<button data-s="${s}" class="${marks[m.id]===s?'on':''}">${ST[s]}</button>`).join('')}</span>`;
+        r.querySelectorAll('button').forEach(b=>b.onclick=()=>{marks[m.id]=b.dataset.s;draw()});c.appendChild(r)});
+      const s=document.createElement('button');s.className='pri';s.textContent='저장';
+      s.onclick=async()=>{try{await api('/api/attendance',{method:'PUT',body:JSON.stringify({groupId:auth.groupId,date:$('date').value,lectureId:l.id,marks})});
+        c.querySelector('.done').textContent='✔ 저장됨';}catch(e){alert(e.message)}};
+      c.querySelector('.row')?.parentNode;c.appendChild(Object.assign(document.createElement('div'),{className:'row'})).appendChild(s)};
+    draw();el.appendChild(c)});
+}
+init();
+</script></main></body></html>

@@ -1,0 +1,114 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>출석 체크</title>
+<meta property="og:title" content="출석 체크"><meta property="og:description" content="링크를 눌러 출석해 주세요">
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#777;--pri:#2f5d50;--a:#c62828}
+@media(prefers-color-scheme:dark){:root{--bg:#171a19;--card:#222726;--ink:#eee;--mut:#9a9;--pri:#6fb59f}}
+*{box-sizing:border-box}body{margin:0;font:20px/1.55 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+main{max-width:480px;margin:0 auto;padding:16px}.card{background:var(--card);border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 1px 3px #0002}
+input,button{font:inherit;padding:14px;min-height:56px;border-radius:12px;border:1px solid #8886;background:var(--card);color:var(--ink);width:100%;margin:4px 0}
+button.pri{background:var(--pri);color:#fff;border:0;font-weight:700}
+.names{display:grid;grid-template-columns:1fr 1fr;gap:6px}.names button{margin:0}
+.names .sel{background:var(--pri);color:#fff}
+.box{margin:8px 0;padding:10px;border-radius:10px;border:1px solid #8886}.row{display:flex;gap:8px;align-items:center}.row>*{margin:0}
+.who{font-size:32px;font-weight:800}
+button.pri{font-size:24px;min-height:68px}
+h4{font-size:21px}
+.err{color:var(--a);font-weight:600}.mut{color:var(--mut);font-size:17px}.big{font-size:30px;text-align:center;font-weight:800;line-height:1.5}
+h4{margin:12px 0 4px}
+</style></head><body><main>
+<h2 id="title">출석 체크</h2><div id="sub" class="mut"></div>
+<div id="body"></div>
+<script>
+const $=id=>document.getElementById(id);
+const token=location.pathname.split('/').pop();
+let dev=null;try{dev=localStorage.getItem('dev');if(!dev){dev=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now()+Math.random());localStorage.setItem('dev',dev)}}catch{}
+let S=null,gid=null,sel=null,errBox=null; // errBox: {t, memberId?, canRequest?}
+let autoTried=false,LOC=null,locState='idle'; // idle | asking | ok | denied | error
+const HELP=`<b>위치 권한을 켜 주세요.</b><br>① 카카오톡 앱의 위치 권한이 꺼져 있을 수 있습니다.<br>· 안드로이드: 휴대폰 <b>설정 → 앱 → 카카오톡 → 권한 → 위치 → 허용</b><br>· 아이폰: <b>설정 → 카카오톡 → 위치 → 앱을 사용하는 동안</b><br>② 허용 창이 나오면 <b>[허용]</b>을 눌러 주세요.<br>③ 그래도 안 되면 담당자에게 문의해 주세요.`;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function locHtml(){
+  if(!S.venue)return '';
+  if(locState==='ok')return `<div class="box">📍 위치 확인됨 — 교육장(${esc(S.venue.name||'지정 장소')}) 안에서 출석할 수 있습니다</div>`;
+  if(locState==='asking')return '<div class="box">📍 위치 권한을 허용해 주세요… (허용 창이 보이면 [허용]을 눌러 주세요)</div>';
+  if(locState==='denied')return `<div class="box">${HELP}<br><button id="retry" class="pri" style="margin-top:8px">위치 다시 확인</button></div>`;
+  if(locState==='error')return '<div class="box">📍 위치를 가져오지 못했습니다. 실외나 창가에서 <button id="retry" style="width:auto;padding:6px 10px;margin:0">다시 시도</button></div>';
+  return ''}
+function askLocation(){
+  if(!S||!S.venue)return;
+  if(!navigator.geolocation){locState='denied';draw();return}
+  locState='asking';draw();
+  navigator.geolocation.getCurrentPosition(x=>{LOC={lat:x.coords.latitude,lng:x.coords.longitude,accuracy:x.coords.accuracy,t:Date.now()};locState='ok';draw();
+      if(S.me&&!S.me.done&&!S.useCode&&!autoTried){autoTried=true;$('go').textContent='출석 처리 중…';go()}},
+    e=>{locState=e&&e.code===1?'denied':'error';draw()},{enableHighAccuracy:true,timeout:15000,maximumAge:0})}
+async function load(){
+  const r=await fetch('/api/s/'+token+'?deviceId='+encodeURIComponent(dev||''));S=await r.json();
+  if(!r.ok){$('body').innerHTML=`<div class="card err">${esc(S.error)}</div>`;return}
+  if(S.notToday){ // 강의 고정 링크인데 오늘은 강의가 없는 날
+    const D='일월화수목금토',nx=S.next?(()=>{const d=new Date(S.next+'T00:00:00Z');return `${d.getUTCMonth()+1}월 ${d.getUTCDate()}일 (${D[d.getUTCDay()]}) ${S.lecture.start}`})():null;
+    $('title').textContent=S.lecture.name;$('sub').textContent='';
+    $('body').innerHTML=`<div class="card"><div class="who" style="font-size:26px">오늘은 이 강의가 없는 날입니다</div>${nx?`<div style="margin-top:10px">다음 강의: <b>${nx}</b></div>`:''}<div class="mut" style="margin-top:10px">강의 날에 이 링크를 다시 눌러 주세요.</div></div>`;return}
+  if(S.deviceId){dev=S.deviceId;try{localStorage.setItem('dev',dev)}catch{}} // 서버가 정한 기기 ID를 저장소에도 보관
+  $('title').textContent=S.lecture.name;$('sub').textContent=`${S.date} · ${S.lecture.start}~${S.lecture.end}`;
+  if(!S.open){$('body').innerHTML='<div class="card err">출석이 마감되었습니다.</div>';return}
+  if(!S.venue&&!S.useCode){$('body').innerHTML='<div class="card err">교육 장소가 아직 설정되지 않아 출석할 수 없습니다. 담당자에게 문의하세요.</div>';return}
+  draw();askLocation(); // 링크를 열면 바로 위치 권한을 요청
+}
+function errHtml(){
+  if(!errBox)return '';
+  return `<div class="box err">${esc(errBox.t)}${errBox.canRequest?`<br><br><button id="req" style="font-weight:600">담당자에게 기기 변경 요청</button>`:''}</div>`}
+function draw(){
+  if(S.me){ // ── 이미 등록된 휴대폰: 이름 선택 없이 바로 출석 ──
+    $('body').innerHTML=`<div class="card"><div class="mut">이 휴대폰은 아래 분 전용입니다</div><div class="who">👤 ${esc(S.me.name)}</div><div class="mut">${esc(S.me.group||'')}</div></div>
+    <div class="card">${S.useCode?`<label>현장 코드 (교육장에서 안내)<input id="code" inputmode="numeric" maxlength="4" placeholder="4자리"></label>`:''}
+    ${locHtml()}${errHtml()}
+    <button class="pri" id="go">${S.me.done?'✔ 이미 출석했습니다':'출석하기'}</button></div>
+    <div class="mut" style="text-align:center">본인이 아닌가요? 담당자에게 문의해 주세요.</div>`;
+  }else{ // ── 처음 접속: 단체 → 이름 → 전화번호 뒤 4자리로 등록 ──
+    if(!gid)gid=(S.groups.length===1?S.groups[0].id:null);
+    const G=S.groups.find(g=>g.id===gid);
+    $('body').innerHTML=`<div class="card"><b>처음 한 번만 본인 확인을 합니다.</b>
+      <div class="mut">한 번만 하면 됩니다. 다음부터는 <b>링크만 누르면 자동으로 출석</b>됩니다. 이 휴대폰은 선택한 분 본인 전용이 됩니다.</div></div>
+    <div class="card"><h4 style="margin-top:0">① 소속 단체</h4><div class="names">${S.groups.map(g=>`<button data-gid="${g.id}" class="${gid===g.id?'sel':''}">${esc(g.name)}</button>`).join('')}</div>
+    ${G?`<h4>② 본인 이름</h4><div class="names">${G.members.map(m=>`<button data-id="${m.id}" class="mem ${sel===m.id?'sel':''}">${esc(m.name)}</button>`).join('')}</div>`:''}</div>
+    <div class="card"><label>③ 본인 확인 (전화번호 뒤 4자리)<input id="ph" inputmode="numeric" maxlength="4" placeholder="예: 1234" autocomplete="off"></label>
+    ${S.useCode?`<label>현장 코드 (교육장에서 안내)<input id="code" inputmode="numeric" maxlength="4" placeholder="4자리"></label>`:''}
+    ${locHtml()}${errHtml()}
+    <button class="pri" id="go">등록하고 출석하기</button></div>`;
+    document.querySelectorAll('[data-gid]').forEach(b=>b.onclick=()=>{gid=b.dataset.gid;sel=null;errBox=null;draw()});
+    document.querySelectorAll('.mem').forEach(b=>b.onclick=()=>{sel=b.dataset.id;errBox=null;const ph=$('ph')?.value;draw();if($('ph'))$('ph').value=ph||''});
+  }
+  $('go').onclick=go;
+  if($('retry'))$('retry').onclick=askLocation;
+  if($('req'))$('req').onclick=reqChange;
+}
+function pos(){return new Promise((ok,no)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(ok,no,{enableHighAccuracy:true,timeout:15000,maximumAge:0}):no({message:'unsupported'}))}
+async function go(){
+  errBox=null;
+  if(!S.me&&!sel){errBox={t:'소속 단체와 본인 이름을 눌러 주세요'};return draw()}
+  if(!S.me&&!($('ph')&&$('ph').value.length===4)){errBox={t:'전화번호 뒤 4자리를 입력해 주세요'};return draw()}
+  let p={};
+  if(S.venue){
+    if(LOC&&Date.now()-LOC.t<20000)p={lat:LOC.lat,lng:LOC.lng,accuracy:LOC.accuracy}; // 방금 확인한 위치를 그대로 사용 (연속 요청 방지)
+    else try{const x=await pos();p={lat:x.coords.latitude,lng:x.coords.longitude,accuracy:x.coords.accuracy}}
+    catch(e){if(LOC&&Date.now()-LOC.t<120000)p={lat:LOC.lat,lng:LOC.lng,accuracy:LOC.accuracy};
+      else{locState=e&&e.code===1?'denied':'error';draw();return}}}
+  const body={deviceId:dev,code:$('code')?$('code').value:'',...p};
+  if(!S.me){body.memberId=sel;body.phone4=$('ph').value}
+  const ph=$('ph')?.value;
+  const r=await fetch(`/api/s/${token}/checkin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!r.ok){errBox={t:j.error,canRequest:j.canRequest,memberId:j.memberId};draw();if($('ph')&&ph)$('ph').value=ph;return}
+  $('body').innerHTML=`<div class="card big">✅<br>${esc(j.name)}님<br>${j.status==='L'?'지각 처리되었습니다':'출석되었습니다'}${j.already?'<div class="mut">(이미 출석됨)</div>':''}</div>
+  ${j.registered?`<div class="card mut">이 휴대폰이 <b>${esc(j.name)}</b>님 전용으로 등록되었습니다. 다음부터는 링크만 누르면 자동으로 출석됩니다.</div>`:''}`;
+}
+async function reqChange(){
+  const ph=$('ph')?.value;if(!ph||ph.length!==4){errBox={t:'전화번호 뒤 4자리를 입력한 뒤 다시 요청해 주세요',canRequest:true,memberId:sel};return draw()}
+  const r=await fetch(`/api/s/${token}/device-request`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deviceId:dev,memberId:errBox&&errBox.memberId||sel,phone4:ph})});
+  const j=await r.json();
+  $('body').innerHTML=r.ok?`<div class="card big">📨<br>요청했습니다</div><div class="card mut">담당자가 확인하고 승인하면 이 휴대폰으로 출석할 수 있습니다. 승인 후 이 링크를 다시 열어 주세요.</div>`
+    :`<div class="card err">${esc(j.error)}</div>`;
+}
+load();
+</script></main></body></html>

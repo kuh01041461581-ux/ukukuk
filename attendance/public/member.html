@@ -1,0 +1,49 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>내 출석</title>
+<meta property="og:title" content="내 출석"><meta property="og:description" content="링크를 눌러 출석해 주세요">
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#777;--pri:#2f5d50;--p:#2e7d32;--l:#ef8f00;--a:#c62828}
+@media(prefers-color-scheme:dark){:root{--bg:#171a19;--card:#222726;--ink:#eee;--mut:#9a9;--pri:#6fb59f}}
+*{box-sizing:border-box}body{margin:0;font:20px/1.55 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+main{max-width:480px;margin:0 auto;padding:16px}.card{background:var(--card);border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 1px 3px #0002}
+button{font:inherit;min-height:60px;font-size:22px;padding:14px;border-radius:10px;border:0;background:var(--pri);color:#fff;width:100%;font-weight:700}
+.big{font-size:26px;text-align:center;font-weight:700}.mut{color:var(--mut);font-size:17px}.err{color:var(--a);font-weight:600}
+.ok{color:var(--p)}.late{color:var(--l)}.ab{color:var(--a)}
+.row{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #8883}
+.bar{height:12px;background:#8883;border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--p)}
+</style></head><body><main>
+<div id="who" style="text-align:center;color:var(--mut)">불러오는 중…</div>
+<div id="res" class="card" hidden></div>
+<div id="stat" class="card" hidden></div>
+<div id="his" class="card" hidden></div>
+<div class="card mut">💡 이 화면을 <b>홈 화면에 추가</b>해 두면 아이콘 한 번으로 출석됩니다.<br>안드로이드: 크롬 메뉴(⋮) → 홈 화면에 추가 · 아이폰: 공유 버튼 → 홈 화면에 추가<br>휴대폰을 바꾸면 담당자에게 &quot;기기 초기화&quot;를 요청하세요.</div>
+<script>
+const $=id=>document.getElementById(id);const token=location.pathname.split('/').pop();
+let dev=localStorage.getItem('dev');if(!dev){dev=crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now();localStorage.setItem('dev',dev)}
+const L={P:['출석','ok'],L:['지각','late'],A:['결석','ab']};
+const pos=()=>new Promise((ok,no)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(ok,no,{enableHighAccuracy:true,timeout:15000,maximumAge:0}):no());
+async function info(){const r=await fetch('/api/m/'+token+'?deviceId='+encodeURIComponent(dev||''));const d=await r.json();
+  if(!r.ok){$('who').innerHTML=`<span class="err">${d.error}</span>`;return null}
+  $('who').innerHTML=`<div class="big">${d.name}</div><div class="mut" style="text-align:center">${d.group||''}</div>`;
+  const s=d.stats;$('stat').hidden=false;
+  $('stat').innerHTML=`<b>내 출석률</b> <span style="float:right;font-size:22px">${s.rate==null?'-':s.rate+'%'}</span><div class="bar" style="margin:8px 0"><i style="width:${s.rate||0}%"></i></div>
+  <span class="ok">출석 ${s.P}</span> · <span class="late">지각 ${s.L}</span> · <span class="ab">결석 ${s.A}</span> <span class="mut">(교육 ${s.held}회)</span>`;
+  $('his').hidden=!d.history.length;$('his').innerHTML='<b>최근 기록</b>'+d.history.map(h=>`<div class="row"><span>${h.date.slice(5)} ${h.lecture}</span><span class="${L[h.status][1]}">${L[h.status][0]}</span></div>`).join('');
+  return d}
+async function auto(d){
+  const box=$('res');box.hidden=false;
+  if(!d.now){box.innerHTML='<div class="mut">지금은 출석 가능한 강의가 없습니다.<br>(출석은 강의 시작 전후에만 가능합니다)</div>';return}
+  box.innerHTML=`<div class="mut">${d.now.lecture} (${d.now.start} 시작)</div><div id="msg">📍 위치 확인 중…</div>`;
+  let p={};
+  if(d.now.venue){try{const x=await pos();p={lat:x.coords.latitude,lng:x.coords.longitude,accuracy:x.coords.accuracy}}
+    catch{ $('msg').innerHTML='<span class="err">위치 권한을 켜 주세요.</span><div class="mut" style="margin:8px 0">① 카카오톡 앱의 위치 권한이 꺼져 있을 수 있습니다.<br>· 안드로이드: <b>설정 → 앱 → 카카오톡 → 권한 → 위치 → 허용</b><br>· 아이폰: <b>설정 → 카카오톡 → 위치 → 앱을 사용하는 동안</b><br>② 허용 창이 나오면 <b>[허용]</b>을 눌러 주세요.</div><button id="retry">다시 시도</button>';$('retry').onclick=()=>auto(d);return}}
+  const r=await fetch(`/api/m/${token}/checkin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deviceId:dev,...p})});
+  const j=await r.json();
+  if(!r.ok){$('msg').innerHTML=`<span class="err">${j.error}</span><br><br><button id="retry">다시 시도</button>`;$('retry').onclick=()=>auto(d);return}
+  const [t,c]=L[j.status];
+  box.innerHTML=`<div class="big">✅ ${t} 되었습니다</div><div class="mut" style="text-align:center">${j.lecture}${j.already?' (이미 출석됨)':''}</div>`;
+  info();
+}
+info().then(d=>d&&auto(d));
+</script></main></body></html>

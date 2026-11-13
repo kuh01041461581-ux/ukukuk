@@ -63,6 +63,15 @@ for k in sorted(ST.TABLE):
     if k >= 59 or k in ITEMS or k == 9: continue                  # b9 승마장은 전용 도트
     p = f'{out}/b{k}.png'; src = Image.open(p).convert('RGBA') if os.path.exists(p) else None      # 간판만 고친 원본(b8·b32·b45)은 그 위에 보정
     EN.enhance(k, im=src).save(p); n_en += 1
+# 지형 조각(d#)·인물 초상(f#)도 같은 방식으로 일괄 보정(격자 디더 풀기·경계 보존 다듬기·약한 명암). 이미 따로 손본 조각(석산·왕궁리 등)은 건드리지 않는다.
+import glob as _gl, re as _re
+n_t = 0
+for f in sorted(_gl.glob('/tmp/pk/d*.d')):
+    n = os.path.basename(f)[:-2]
+    if not _re.match(r'^d[0-9a-f]+$', n) or os.path.exists(f'{out}/{n}.png'): continue
+    try: EN.enhance(999, im=Image.open(f).convert('RGBA')).save(f'{out}/{n}.png'); n_t += 1
+    except Exception: pass
+print('지형 조각 보정', n_t, '장')
 print('새 도트', len(ITEMS), '종 변환, 원본 퀄리티 보정', n_en, '종')
 if len(sys.argv) > 2:
     w = Image.new('RGBA', (len(hd_show) * 196, max(f.height for _, f in hd_show)), (150, 70, 160, 255))

@@ -4,7 +4,7 @@
 const DEFAULT_SETTINGS = { openBefore: 30, lateAfter: 10, closeAfter: 30, useCode: false }; // useCode: 현장 코드도 함께 입력받기(기본 꺼짐)
 
 export function emptyDb() {
-  return { groups: [], members: [], lectures: [], records: {}, sessions: {}, bindings: {},
+  return { groups: [], members: [], lectures: [], records: {}, sessions: {}, bindings: {}, deviceRequests: [],
     settings: { ...DEFAULT_SETTINGS }, venue: { name: '', lat: null, lng: null, radius: 150 } };
 }
 
@@ -109,6 +109,9 @@ function mark(date, l, mem, status, meta) {
   save();
   return { status };
 }
+const memberOfDevice = (dev) => { // 이 휴대폰에 등록된 구성원 (한 휴대폰 = 한 사람)
+  if (!dev) return null; const e = Object.entries(db.bindings || {}).find(([, v]) => v === dev);
+  return e ? db.members.find((x) => x.id === e[0]) || null : null; };
 const memberByQr = (q) => { const t = String(q || '').trim().split('/').pop().split('?')[0]; return db.members.find((m) => m.qr === t); };
 
 // ---- 출석률 통계 ----
@@ -206,12 +209,16 @@ async function api(req, url) {
   if ((mm = p.match(/^\/api\/s\/([\w-]+)$/)) && m === 'GET') {
     const se = sessionOf(mm[1]); if (!se) return json(404, { error: '유효하지 않은 링크입니다' });
     const l = db.lectures.find((x) => x.id === se.lectureId);
+    const me = memberOfDevice(String(q.get('deviceId') || '').slice(0, 64));
+    const meGroup = me && db.groups.find((g) => g.id === me.groupId);
+    const done = me && !!((((db.records[se.date] || {})[se.lectureId] || {})[me.groupId] || {}).marks || {})[me.id];
     return json(200, {
       open: se.open, useCode: !!db.settings.useCode, date: se.date, lecture: l && { name: l.name, start: l.start, end: l.end },
       venue: db.venue.lat == null ? null : { name: db.venue.name },
-      groups: db.groups.map((g) => ({ id: g.id, name: g.name,
-        members: db.members.filter((x) => x.groupId === g.id).map((x) => ({
-          id: x.id, name: x.name, needPhone: !!x.phone4, done: !!(((db.records[se.date] || {})[se.lectureId] || {})[g.id] || { marks: {} }).marks[x.id] })) })),
+      me: me ? { id: me.id, name: me.name, group: meGroup && meGroup.name, done: !!done } : null,
+      // 등록 전 휴대폰에만 단체·이름 목록을 보여줍니다
+      groups: me ? [] : db.groups.map((g) => ({ id: g.id, name: g.name,
+        members: db.members.filter((x) => x.groupId === g.id).map((x) => ({ id: x.id, name: x.name })) })),
     });
   }
   if ((mm = p.match(/^\/api\/s\/([\w-]+)\/checkin$/)) && m === 'POST') {
@@ -220,15 +227,24 @@ async function api(req, url) {
     const lec0 = db.lectures.find((x) => x.id === se.lectureId);
     const w = windowOf(se.date, lec0); if (w.err) return json(403, { error: w.err });
     const b = await body(req);
-    const mem = db.members.find((x) => x.id === b.memberId); if (!mem) return json(404, { error: '이름을 선택해 주세요' });
-    const dev0 = String(b.deviceId || '').slice(0, 64);
+    const dev = String(b.deviceId || '').slice(0, 64);
+    if (dev.length < 8) return json(400, { error: '이 브라우저에서 기기 정보를 저장할 수 없습니다. 사생활 보호(시크릿) 모드를 끄고 다시 열어 주세요.' });
     db.bindings ||= {};
-    const bound = dev0 && db.bindings[mem.id] === dev0;
-    if (!bound && mem.phone4) {
+    // ① 본인 확인: 이미 등록된 휴대폰이면 그 사람으로만 출석, 처음이면 단체·이름·전화번호 뒤 4자리로 등록
+    let mem = memberOfDevice(dev), registering = false;
+    if (mem) {
+      if (b.memberId && b.memberId !== mem.id) return json(403, { error: `이 휴대폰은 ${mem.name}님으로 등록되어 있어 다른 분 이름으로는 출석할 수 없습니다.` });
+    } else {
+      mem = db.members.find((x) => x.id === b.memberId); if (!mem) return json(404, { error: '단체와 본인 이름을 선택해 주세요' });
+      if (!mem.phone4) return json(403, { error: '명부에 전화번호가 없어 등록할 수 없습니다. 담당자에게 문의하세요.' });
       const pk = 'ph:' + mem.id + ':' + ip(req);
       if (blocked(pk)) return json(429, { error: '시도가 너무 많습니다. 10분 뒤에 다시 시도하세요' });
-      if (!same(String(b.phone4 || ''), mem.phone4)) { strike(pk); return json(403, { error: '본인 확인 번호(전화번호 뒤 4자리)가 맞지 않습니다', needPhone: true }); }
+      if (!same(String(b.phone4 || ''), mem.phone4)) { strike(pk); return json(403, { error: '전화번호 뒤 4자리가 맞지 않습니다', needPhone: true }); }
+      if (db.bindings[mem.id] && db.bindings[mem.id] !== dev)
+        return json(403, { error: `${mem.name}님은 이미 다른 휴대폰에 등록되어 있습니다. 휴대폰을 바꾸셨다면 아래에서 기기 변경을 요청하세요.`, canRequest: true, memberId: mem.id });
+      registering = true;
     }
+    // ② 현장 코드(선택) · 위치
     if (db.settings.useCode && String(b.code || '') !== se.code) return json(403, { error: '현장 코드가 맞지 않습니다' });
     const v = db.venue; let d = null;
     if (v.lat != null) {
@@ -238,22 +254,31 @@ async function api(req, url) {
       d = dist(lat, lng, v.lat, v.lng);
       if (d > v.radius) return json(403, { error: `교육장에서 ${Math.round(d)}m 떨어져 있습니다 (허용 ${v.radius}m)` });
     } else if (!db.settings.useCode) return json(403, { error: NO_VENUE });
+    // ③ 기록
+    if (registering) db.bindings[mem.id] = dev; // 위치까지 통과한 뒤에만 이 휴대폰을 본인 전용으로 등록
     const rec = ((db.records[se.date] ||= {})[se.lectureId] ||= {})[mem.groupId] ||= { marks: {}, meta: {} };
     rec.meta ||= {};
-    const dev = String(b.deviceId || '').slice(0, 64);
-    if (dev && !(rec.meta[mem.id] && rec.meta[mem.id].device === dev)) {
-      for (const g of Object.values(db.records[se.date][se.lectureId]))
-        for (const [id, mt] of Object.entries(g.meta || {}))
-          if (mt.device === dev && id !== mem.id) return json(403, { error: '이 휴대폰으로는 이미 다른 분이 출석했습니다' });
-    }
-    if (rec.marks[mem.id] && rec.meta[mem.id]) return json(200, { ok: true, already: true, status: rec.marks[mem.id] });
+    if (rec.marks[mem.id] && rec.meta[mem.id]) { if (registering) save(); return json(200, { ok: true, already: true, status: rec.marks[mem.id], name: mem.name, registered: registering }); }
     rec.marks[mem.id] = w.status;
     rec.meta[mem.id] = { at: new Date().toISOString(), device: dev, dist: d == null ? null : Math.round(d), self: true };
     rec.at = rec.meta[mem.id].at;
-    if (dev) db.bindings[mem.id] = dev; // 첫 출석 성공 시 이 휴대폰을 본인 기기로 등록
     dirty.add(se.date);
     save();
-    return json(200, { ok: true, status: rec.marks[mem.id], memberId: mem.id });
+    return json(200, { ok: true, status: rec.marks[mem.id], name: mem.name, registered: registering });
+  }
+  // 휴대폰을 바꾼 구성원이 담당자에게 기기 변경을 요청 (전화번호 뒤 4자리 확인 후 접수)
+  if ((mm = p.match(/^\/api\/s\/([\w-]+)\/device-request$/)) && m === 'POST') {
+    if (!sessionOf(mm[1])) return json(404, { error: '유효하지 않은 링크입니다' });
+    const b = await body(req), dev = String(b.deviceId || '').slice(0, 64);
+    const mem = db.members.find((x) => x.id === b.memberId);
+    if (!mem || dev.length < 8) return json(400, { error: '요청 정보가 올바르지 않습니다' });
+    const pk = 'ph:' + mem.id + ':' + ip(req);
+    if (blocked(pk)) return json(429, { error: '시도가 너무 많습니다. 10분 뒤에 다시 시도하세요' });
+    if (!mem.phone4 || !same(String(b.phone4 || ''), mem.phone4)) { strike(pk); return json(403, { error: '전화번호 뒤 4자리가 맞지 않습니다' }); }
+    db.deviceRequests = (db.deviceRequests || []).filter((r) => r.memberId !== mem.id);
+    db.deviceRequests.push({ id: uid('r'), memberId: mem.id, deviceId: dev, at: new Date().toISOString() });
+    save();
+    return json(200, { ok: true });
   }
 
 
@@ -283,6 +308,8 @@ async function api(req, url) {
     } else return json(403, { error: NO_VENUE });
     const dev = String(b.deviceId || '').slice(0, 64);
     db.bindings ||= {};
+    const other = memberOfDevice(dev);
+    if (other && other.id !== mem.id) return json(403, { error: `이 휴대폰은 ${other.name}님으로 등록되어 있어 다른 분의 링크로는 출석할 수 없습니다.` });
     if (db.bindings[mem.id] && dev && db.bindings[mem.id] !== dev)
       return json(403, { error: '이 휴대폰은 등록된 기기가 아닙니다. 휴대폰을 바꾸셨다면 담당자에게 기기 초기화를 요청하세요' });
     if (dev) db.bindings[mem.id] = dev;
@@ -364,6 +391,20 @@ async function api(req, url) {
       save();
       return json(200, { ok: true, changed: n });
     }
+    if (p === '/api/admin/device-requests' && m === 'GET') {
+      return json(200, (db.deviceRequests || []).map((r) => { const mem = db.members.find((x) => x.id === r.memberId);
+        return mem ? { id: r.id, name: mem.name, group: (db.groups.find((g) => g.id === mem.groupId) || {}).name, at: r.at } : null; }).filter(Boolean));
+    }
+    if (p === '/api/admin/device-requests' && m === 'POST') {
+      const b = await body(req), r = (db.deviceRequests || []).find((x) => x.id === b.id);
+      if (!r) return json(404, { error: '요청을 찾을 수 없습니다' });
+      if (b.approve) { // 새 휴대폰으로 교체: 그 휴대폰의 기존 등록·이전 휴대폰 등록 모두 정리
+        for (const [id, v] of Object.entries(db.bindings || {})) if (v === r.deviceId) delete db.bindings[id];
+        db.bindings[r.memberId] = r.deviceId;
+      }
+      db.deviceRequests = db.deviceRequests.filter((x) => x.id !== r.id); save();
+      return json(200, { ok: true });
+    }
     if (p === '/api/admin/reset-device' && m === 'POST') {
       const b = await body(req); if (db.bindings) delete db.bindings[b.memberId]; save();
       return json(200, { ok: true });
@@ -421,6 +462,7 @@ async function api(req, url) {
       db.venue = { name: String(v.name || ''), lat: v.lat === '' || v.lat == null ? null : +v.lat, lng: v.lng === '' || v.lng == null ? null : +v.lng, radius: +v.radius > 0 ? +v.radius : 150 };
       db.groups = groups; db.members = members; db.lectures = lectures;
       db.bindings = Object.fromEntries(Object.entries(db.bindings || {}).filter(([id]) => members.some((x) => x.id === id)));
+      db.deviceRequests = (db.deviceRequests || []).filter((r) => members.some((x) => x.id === r.memberId));
       save();
       return json(200, { ok: true });
     }

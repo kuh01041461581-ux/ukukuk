@@ -139,7 +139,7 @@ button,input,select{min-height:42px}
   </div>
   <div class="card">
     <h3 style="margin-top:0">구성원 개인 출석 링크</h3>
-    <small>구성원마다 본인 전용 링크가 있습니다. 카톡으로 각자에게 보내 휴대폰 홈 화면에 추가해 두면, 누를 때마다 위치를 확인하고 자동으로 출석됩니다. 처음 출석한 휴대폰에 고정되어 다른 사람에게 전달해도 소용없습니다.</small>
+    <small>구성원마다 본인 전용 링크가 있습니다. 카톡으로 각자에게 보내 휴대폰 홈 화면에 추가해 두면, 누를 때마다 위치를 확인하고 자동으로 출석됩니다. 처음 출석한 휴대폰에 고정되어 다른 사람에게 전달해도 소용없습니다. (강의별 링크도 같은 방식으로, 처음 한 번 본인 확인 후 그 휴대폰은 본인 전용이 됩니다.)</small>
     <div class="row" style="margin:8px 0"><button id="lkall">전체 목록 복사 (엑셀용)</button></div>
     <div id="links"></div>
   </div>
@@ -194,12 +194,15 @@ document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)retur
 const cell=g=>g.checked?`<span class="ok">출 ${g.P}</span> <span class="late">지 ${g.L}</span> <span class="ab">결 ${g.A}</span>${g.U?` <span class="un">미 ${g.U}</span>`:''}`
   +g.issues.map(i=>`<small class="${i.status==='A'?'ab':'late'}">${esc(i.name)} (${i.status==='A'?'결석':'지각'})</small>`).join(''):`<span class="un">미입력</span><small>${g.total}명</small>`;
 async function ov(){
+  const rq=await api('/api/admin/device-requests').catch(()=>[]);
+  const reqHtml=rq.length?`<div class="card" style="border:1px solid var(--l);margin:0 0 10px"><b>📱 기기 변경 요청 ${rq.length}건</b> <small style="display:inline">휴대폰을 바꾼 분이 요청했습니다. 본인이 맞는지 확인하고 승인하세요.</small>
+    ${rq.map(r=>`<div class="lk"><span class="nm">${esc(r.name)} <small style="display:inline">${esc(r.group||'')}</small></span><button class="pri" data-rqa="${r.id}">승인</button><button data-rqd="${r.id}">거절</button></div>`).join('')}</div>`:'';
   const d=await api('/api/admin/overview?date='+$('date').value);window.OVD=d;
   const wd=DAY[wdOf(d.date)];
-  if(!d.lectures.length){$('ov').innerHTML=`<p>${d.date} (${wd}) 개설된 강의가 없습니다.<br><button data-go="lec" class="pri">강의 개설하러 가기</button></p>`;return}
+  if(!d.lectures.length){$('ov').innerHTML=reqHtml+`<p>${d.date} (${wd}) 개설된 강의가 없습니다.<br><button data-go="lec" class="pri">강의 개설하러 가기</button></p>`;return}
   const tot={P:0,L:0,A:0,U:0};d.lectures.forEach(l=>l.groups.forEach(g=>{for(const k in tot)tot[k]+=g[k]}));
   const warn=(C.venue&&C.venue.lat!=null)||(C.settings&&C.settings.useCode)?'':`<div class="card" style="border:1px solid var(--a);margin:0 0 10px"><b class="ab">⚠ 교육 장소가 설정되지 않았습니다.</b> 지금은 링크로 출석할 수 없습니다. <button data-go="set" class="pri">설정에서 장소 지정</button></div>`;
-  const sum=warn+`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p>`;
+  const sum=reqHtml+warn+`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p>`;
   const groups=d.lectures[0].groups;
   const pc=`<div class="only-pc"><table><tr><th style="min-width:200px">강의</th>${groups.map(g=>`<th>${esc(g.name)}</th>`).join('')}</tr>
     ${d.lectures.map(l=>`<tr><td class="l"><b>${esc(l.name)}</b> <span class="un">${l.start}~${l.end}</span><div class="tools" style="margin-top:6px">${sessBtn(l)}</div></td>${l.groups.map(g=>`<td>${cell(g)}</td>`).join('')}</tr>`).join('')}</table></div>`;
@@ -265,13 +268,15 @@ const MSG=(url,name)=>`[출석 안내]\n${name?name+'님, ':''}본인 전용 출
 async function loadLinks(){try{LK=await api('/api/admin/links')}catch(e){$('links').innerHTML=`<span class="ab">${e.message}</span>`;return}
   $('links').innerHTML=LK.map(g=>`<div style="margin-top:12px"><b>${esc(g.name)}</b> <small style="display:inline">(${g.members.length}명)</small> <button data-lkg="${g.id}">단체 목록 복사</button>
     ${g.members.map(m=>`<div class="lk"><span class="nm">${esc(m.name)} ${m.bound?'<small style="display:inline">📱 기기 등록됨</small>':''}</span>
-      <button class="pri" data-lks="${m.id}">${shareLabel()}</button><button data-lkm="${m.id}">안내문 복사</button><button data-lkr="${m.id}">새 링크 발급</button></div>`).join('')}</div>`).join('')||'<p class="un">구성원을 먼저 등록하세요.</p>'}
+      <button class="pri" data-lks="${m.id}">${shareLabel()}</button><button data-lkm="${m.id}">안내문 복사</button><button data-lkr="${m.id}">새 링크 발급</button>${m.bound?`<button data-lkd="${m.id}">기기 초기화</button>`:''}</div>`).join('')}</div>`).join('')||'<p class="un">구성원을 먼저 등록하세요.</p>'}
 $('lkall').onclick=()=>copy(LK.flatMap(g=>g.members.map(m=>`${g.name}\t${m.name}\t${linkUrl(m.token)}`)).join('\n'),'전체 링크 목록을 복사했습니다. 엑셀에 붙여넣으세요.');
 document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)return;
   if(d.lkg){const g=LK.find(x=>x.id===d.lkg);copy(g.members.map(m=>`${m.name}\t${linkUrl(m.token)}`).join('\n'),g.name+' 링크 목록을 복사했습니다.')}
   if(d.lkm){const m=LK.flatMap(g=>g.members).find(x=>x.id===d.lkm);copy(MSG(linkUrl(m.token),m.name),m.name+'님께 보낼 안내문을 복사했습니다. 카톡에 붙여넣으세요.')}
   if(d.lks){const m=LK.flatMap(g=>g.members).find(x=>x.id===d.lks);shareText('출석 링크',MSG(linkUrl(m.token),m.name))}
   if(d.shl){const l=(window.OVD?.lectures||[]).find(x=>x.id===d.shl);if(l&&l.session)shareText('출석 안내',`[출석 안내] ${l.name}\n${OVD.date} ${l.start}~${l.end}\n교육장에서 아래 링크를 눌러 출석해 주세요. (위치 권한을 허용해야 합니다${C.settings&&C.settings.useCode?' · 현장 코드는 현장에서 안내':''})\n${location.origin}/c/${l.session.token}`)}
+  if(d.rqa||d.rqd){try{await api('/api/admin/device-requests',{method:'POST',body:JSON.stringify({id:d.rqa||d.rqd,approve:!!d.rqa})});ov()}catch(er){alert(er.message)}}
+  if(d.lkd&&confirm('이 구성원의 등록된 휴대폰을 초기화할까요? 다음 출석 때 새 휴대폰으로 다시 등록해야 합니다.')){try{await api('/api/admin/reset-device',{method:'POST',body:JSON.stringify({memberId:d.lkd})});loadLinks()}catch(er){alert(er.message)}}
   if(d.lkr&&confirm('새 링크를 발급하면 이전 링크와 등록된 휴대폰이 모두 무효가 됩니다. 계속할까요?')){try{await api('/api/admin/regen',{method:'POST',body:JSON.stringify({memberId:d.lkr})});alert('새 링크를 발급했습니다. 다시 복사해서 보내 주세요.');loadLinks()}catch(er){alert(er.message)}}});
 
 // ---- 엑셀 명부 ----

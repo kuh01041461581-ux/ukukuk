@@ -29,7 +29,7 @@ npx wrangler secret put ADMIN_PASSWORD   # 관리자 비밀번호 입력 (코드
 4. 설정 → **구성원 개인 출석 링크**에서 구성원별 [안내문+링크 복사] → 카톡으로 각자에게 전달
 
 ## 업데이트·운영
-- **가장 쉬운 방법 (윈도우)**: `update-windows.bat` 를 더블클릭하면 최신 코드를 내려받아 설치하고 바로 배포까지 합니다. (처음 한 번 `npx wrangler login` 을 한 PC에서 실행해야 합니다)
+- **가장 쉬운 방법 (윈도우)**: 브라우저로 저장소 ZIP을 내려받은 뒤(다운로드 폴더에 `ukukuk-….zip`), `update-windows.bat` 를 더블클릭하면 그 ZIP을 풀어 설치하고 배포까지 합니다. (처음 한 번 `npx wrangler login` 을 한 PC에서 실행해야 합니다)
 - 직접 하려면 새 코드를 받은 뒤 `attendance` 폴더에서 `npm install` → `npx wrangler deploy`. 데이터(출석 기록)는 그대로 유지됩니다.
 - **백업**: 관리자 → 내보내기 탭에서 CSV를 주기적으로 받아 두세요. 명부는 "현재 명부 내려받기"로 받을 수 있습니다.
 - 데이터는 Cloudflare Durable Object(SQLite)에 저장됩니다. 서버가 재시작·절전되어도 사라지지 않습니다.

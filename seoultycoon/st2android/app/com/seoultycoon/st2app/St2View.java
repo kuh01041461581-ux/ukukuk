@@ -136,10 +136,11 @@ public class St2View extends View {
         cv.drawColor(mode == MODE_TOUCH ? 0xFF000000 : 0xFF101018);
         if (lcd != null) {
             // 글자·도트가 일그러지지 않게 반드시 정수 배율로만 그린다(예: 폭 1080 → 4배 = 960, 남는 자리는 가운데 정렬 여백)
-            float kf = Math.min(game.width() / 480f, game.height() / 592f); int k = (int) Math.floor(kf + 0.001f);
-            float gw = k >= 1 ? 480 * k : 480 * kf, gh = k >= 1 ? 592 * k : 592 * kf;                 // 정수 배율(화면이 480 보다 좁으면 줄여서)
+            // 게임 영역을 가득 채우는 크기로 그린다(정수 배율로 줄이면 화면이 작아지므로). 2배 해상도 그림을 부드럽게 줄이거나(1배~2배) 늘려서 맞춘다
+            float kf = Math.min(game.width() / 480f, game.height() / 592f); float gw = 480 * kf, gh = 592 * kf;
             float dx = game.left + (game.width() - gw) / 2f, dy = game.top + (game.height() - gh) / 2f;
-            synchronized (lcd) { cv.drawBitmap(lcd, src, new RectF((int) dx, (int) dy, (int) dx + gw, (int) dy + gh), k >= 1 ? gp : sm); }
+            boolean exact = Math.abs(kf - Math.round(kf)) < 0.02f && kf >= 1f;
+            synchronized (lcd) { cv.drawBitmap(lcd, src, new RectF(dx, dy, dx + gw, dy + gh), exact ? gp : sm); }
         }
         bp.setStyle(Paint.Style.FILL);
         for (int i = 0; i < btns.length; i++) {

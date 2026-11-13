@@ -48,7 +48,10 @@ public class St2Pc {
             byte[] r = new byte[w * h]; for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) r[y * w + x] = (byte) (im.getRGB(x, y) >>> 24 >= 128 ? 255 : 0);
             dims[0] = w; dims[1] = h; return r;
         }
+        byte[] pakCache;
         public byte[] readFile(String n) {
+            if (n.equals("data1.pak") && pakCache != null) return pakCache;
+            if (n.equals("data1.pak")) { try { Path p = dir.resolve(n); if (Files.exists(p)) return pakCache = Files.readAllBytes(p); } catch (IOException e) { } return pakCache = resource(n); }
             try { Path p = dir.resolve(n); if (Files.exists(p)) return Files.readAllBytes(p); } catch (IOException e) { }
             return n.equals("data1.pak") ? resource(n) : null;           // 건물·지형 그림 묶음은 처음엔 모드(익산) → 원본 순
         }

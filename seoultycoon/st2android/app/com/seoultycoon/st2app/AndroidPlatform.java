@@ -41,8 +41,10 @@ public class AndroidPlatform implements Platform {
         byte[] r = new byte[w * h]; for (int i = 0; i < r.length; i++) r[i] = (byte) ((px[i] >>> 24) >= 128 ? 255 : 0);
         dims[0] = w; dims[1] = h; return r;
     }
+    byte[] pakCache;     // 건물·지형 그림 묶음(약 1MB)은 게임이 그림을 부를 때마다 통째로 읽으므로 한 번만 읽어 둔다(반복해서 읽다가 메모리가 모자라 멈추던 문제)
     public byte[] readFile(String n) {
-        if (n.equals("data1.pak")) try { return all(am.open("st2mod/" + n)); } catch (IOException e0) { }   // 모드 건물·지형 그림 묶음 우선
+        if (n.equals("data1.pak") && pakCache != null) return pakCache;
+        if (n.equals("data1.pak")) try { pakCache = all(am.open("st2mod/" + n)); return pakCache; } catch (IOException e0) { }   // 모드 건물·지형 그림 묶음 우선
         File f = new File(dir, n);
         try { if (f.exists()) return all(new FileInputStream(f)); } catch (IOException e) { }
         try { return all(am.open("st2/" + n)); } catch (IOException e) { return null; }       // data1.pak 처럼 처음엔 assets 에서

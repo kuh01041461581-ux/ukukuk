@@ -8,7 +8,8 @@ final class GfxLib {
     static Surf surf(Host H, int h) { return (Surf) H.st.get(h); }
     static Surf decode(Host H, byte[] d) {
         int[] wh = new int[2]; int[] px = H.pf.decodePng(d, wh); if (px == null) return null;
-        Surf s = new Surf(wh[0], wh[1], false); s.smooth = true; System.arraycopy(px, 0, s.px, 0, px.length);
+        Surf s = new Surf(wh[0], wh[1], false); System.arraycopy(px, 0, s.px, 0, px.length);
+        { java.util.HashSet<Integer> cs = new java.util.HashSet<>(); for (int p : px) if ((p >>> 24) > 127) { cs.add(p & 0xFFFFFF); if (cs.size() > 14) break; } s.smooth = cs.size() > 14 && wh[0] >= 24 && wh[1] >= 24; }      // 색이 많은 그림(건물·지형·인물)만 모서리를 다듬는다. 숫자·글자 시트는 획이 깨지므로 그대로
         // HD 그림: PNG 끝(IEND) 뒤에 K배 크기 PNG 가 한 장 더 붙어 있으면 그것을 HD 층으로 쓴다(tools/build_sprites.py 가 붙인다)
         for (int i = 8; i + 12 <= d.length - 8; i++) if (d[i] == 'I' && d[i + 1] == 'E' && d[i + 2] == 'N' && d[i + 3] == 'D') {
             int o = i + 8; if (o + 8 < d.length && (d[o] & 0xff) == 0x89 && d[o + 1] == 'P' && d[o + 2] == 'N' && d[o + 3] == 'G') {
@@ -68,6 +69,7 @@ final class GfxLib {
             if (H.verbose) H.pf.log("DI src=" + src.w + "x" + src.h + " x=" + x + " y=" + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none") + " anchor=" + anchor + " lr=" + Integer.toHexString(H.vm.r[14] - Host.BASE));
             if (H.verbose && src.w == 77 && src.h == 11 && y == 5 && dst.cx == 6) { StringBuilder sb = new StringBuilder("STK"); for (int i = 0; i < 48; i++) { int w = H.vm.r32(H.vm.r[13] + 4 * i); if ((w & 1) == 1 && w > Host.BASE && w < Host.BASE + 0x83000) sb.append(' ').append(Integer.toHexString(w - Host.BASE)); } H.pf.log(sb.toString()); }
             if (System.getenv("DILOG") != null && src.w >= 90 && src.w <= 100 && src.h >= 40) H.pf.log("BSPR " + src.w + "x" + src.h + " at " + x + "," + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none") + " lr=" + Integer.toHexString(H.vm.r[14] - Host.BASE) + stkAddrs(H) + " px0=" + Integer.toHexString(src.px[src.w * (src.h / 2) + src.w / 2]));
+            if (System.getenv("LOGDIG") != null && ((src.w == 50 && src.h == 9) || (src.w == 40 && src.h == 7) || (src.w == 41 && src.h == 9))) H.pf.log("DIG " + src.w + "x" + src.h + " at " + x + "," + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none") + " lr=" + Integer.toHexString(H.vm.r[14] - Host.BASE) + stkAddrs(H));
             if (special(H, dst, src, x, y)) return 0;
             // --- 원본과 시트 간격이 달라 생기는 위치 보정(PC 에뮬레이터와 동일)
             boolean restore = false; int scx = dst.cx, scy = dst.cy, scw = dst.cw, sch = dst.ch;

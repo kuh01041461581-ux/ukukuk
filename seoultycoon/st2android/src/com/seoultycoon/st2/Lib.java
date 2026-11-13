@@ -40,11 +40,11 @@ final class Lib {
         H.reg("java/lang/StringBuffer", "()V+<init>", (t, a) -> { H.st.put(t, new StringBuilder()); return 0; });
         H.reg("java/lang/StringBuffer", "(I)V+<init>", (t, a) -> { H.st.put(t, new StringBuilder()); return 0; });
         H.reg("java/lang/StringBuffer", "(Ljava/lang/String;)Ljava/lang/StringBuffer;+append", (t, a) -> { int s = (int) a[0]; ((StringBuilder) H.st.get(t)).append(s == 0 ? "null" : H.pystr(s)); return t; });
-        H.reg("java/lang/StringBuffer", "(I)Ljava/lang/StringBuffer;+append", (t, a) -> { ((StringBuilder) H.st.get(t)).append((int) a[0]); return t; });
+        H.reg("java/lang/StringBuffer", "(I)Ljava/lang/StringBuffer;+append", (t, a) -> { if (System.getenv("LOGINT") != null && (a[0] == 190 || a[0] == 175)) H.pf.log("APPEND " + a[0] + " lr=" + Integer.toHexString(H.vm.r[14] - Host.BASE)); ((StringBuilder) H.st.get(t)).append((int) a[0]); return t; });
         H.reg("java/lang/StringBuffer", "()Ljava/lang/String;+toString", (t, a) -> H.jstr(H.st.get(t).toString()));
         H.reg("java/lang/StringBuffer", "()I+length", (t, a) -> ((StringBuilder) H.st.get(t)).length());
         H.reg("java/lang/StringBuffer", "(II)Ljava/lang/StringBuffer;+delete", (t, a) -> { StringBuilder sb = (StringBuilder) H.st.get(t); int i = (int) a[0], j = Math.min((int) a[1], sb.length()); if (i < j) sb.delete(i, j); return t; });
-        H.regS("java/lang/Integer", "(I)Ljava/lang/String;+toString", (t, a) -> H.jstr(Integer.toString((int) a[0])));
+        H.regS("java/lang/Integer", "(I)Ljava/lang/String;+toString", (t, a) -> { if (System.getenv("LOGINT") != null && (a[0] == 190 || a[0] == 175)) H.pf.log("ITOS " + a[0] + " lr=" + Integer.toHexString(H.vm.r[14] - Host.BASE)); return H.jstr(Integer.toString((int) a[0])); });
         H.regS("java/lang/Integer", "(I)Ljava/lang/String;+toHexString", (t, a) -> H.jstr(Integer.toHexString((int) a[0])));
         H.regS("java/lang/Math", "(I)I+abs", (t, a) -> Math.abs((int) a[0]));
         H.regS("java/lang/Math", "(II)I+max", (t, a) -> Math.max((int) a[0], (int) a[1]));

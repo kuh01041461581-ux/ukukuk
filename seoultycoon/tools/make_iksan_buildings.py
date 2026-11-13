@@ -14,6 +14,7 @@ def hx(h, a=255): return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4)) + (a,)
 def lerp(c0, c1, t): return tuple(int(c0[i] * (1 - t) + c1[i] * t) for i in range(3)) + (255,)
 
 class Sc:
+    ZS = 1.0
     OVR = None            # (캔버스 높이, 바닥 마름모의 가장 넓은 줄): 게임 조각 규칙용(2:1 마름모). tools/strips.py 참고
     def __init__(self, H, seed=1):
         ovr = Sc.OVR
@@ -23,7 +24,7 @@ class Sc:
         if ovr: self.T = (48, ovr[1] - 24); self.R = (95, ovr[1]); self.L = (1, ovr[1])
     def G(self, a, b, z=0.0):
         T, R, L = self.T, self.R, self.L
-        return ((T[0] + a * (R[0] - T[0]) + b * (L[0] - T[0])) * S, (T[1] + a * (R[1] - T[1]) + b * (L[1] - T[1]) - z) * S)
+        return ((T[0] + a * (R[0] - T[0]) + b * (L[0] - T[0])) * S, (T[1] + a * (R[1] - T[1]) + b * (L[1] - T[1]) - z * Sc.ZS) * S)      # ZS: 높이 배율(원작처럼 캔버스 윗부분까지 건물을 키울 때 build_sprites 가 자동으로 정한다)
     def ground_poly(self): return [self.G(0, 0), self.G(1, 0), self.G(1, 1), self.G(0, 1)]
     def grad(self, pts, c0, c1, d=(0, 1), noise=0.0):
         m = Image.new('L', self.im.size, 0); ImageDraw.Draw(m).polygon(pts, fill=255); bb = m.getbbox()

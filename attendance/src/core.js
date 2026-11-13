@@ -33,6 +33,7 @@ export function normalizeDb(db) {
   for (const k of Object.keys(base)) if (db[k] === undefined) { db[k] = base[k]; changed = true; }
   db.settings = { ...DEFAULT_SETTINGS, ...db.settings };
   for (const m of db.members) if (!m.qr) { m.qr = newQr(); changed = true; }
+  for (const l of db.lectures) if (!l.token) { l.token = newQr(); changed = true; }
   return changed;
 }
 
@@ -76,6 +77,35 @@ const lecturesOn = (date) => db.lectures.filter((l) => l.weekday === wd(date)
   && (!l.startDate || date >= l.startDate) && (!l.endDate || date <= l.endDate) && !(l.off || []).includes(date));
 const kstNow = () => new Date(Date.now() + 9 * 3600e3);
 function sessionOf(token) { return db.sessions[token] && { token, ...db.sessions[token] }; }
+const todayKst = () => kstNow().toISOString().slice(0, 10);
+const newCode = () => String(Math.floor(1000 + Math.random() * 9000));
+// 해당 날짜·강의의 출석 세션 (없으면 자동 개설). [토큰, 세션, 새로 만들었는지]
+function ensureSession(date, lectureId) {
+  let e = Object.entries(db.sessions).find(([, v]) => v.date === date && v.lectureId === lectureId);
+  if (e) return [e[0], e[1], false];
+  const t = newQr(); db.sessions[t] = { date, lectureId, code: newCode(), open: true, auto: true };
+  return [t, db.sessions[t], true];
+}
+function nextDateOf(lec) { // 이 강의의 다음 진행일 (오늘 이후)
+  const d = new Date(todayKst() + 'T00:00:00Z');
+  for (let i = 1; i <= 120; i++) { d.setUTCDate(d.getUTCDate() + 1); const ds = d.toISOString().slice(0, 10); if (lecturesOn(ds).some((l) => l.id === lec.id)) return ds; }
+  return null;
+}
+// 링크 토큰 → 오늘 출석 세션. 옛 날짜별 링크도, 강의 고정 링크(매주 동일)도 지원
+function resolveSession(token) {
+  const se = sessionOf(token); if (se) return { se };
+  const lec = db.lectures.find((l) => l.token === token); if (!lec) return null;
+  const d = todayKst();
+  if (!lecturesOn(d).some((l) => l.id === lec.id)) return { lec, notToday: true, next: nextDateOf(lec) };
+  const [t, v, created] = ensureSession(d, lec.id); if (created) save();
+  return { se: { token: t, ...v }, lec };
+}
+let lastTick = '';
+function tick() { // 하루 한 번: 오늘 열리는 모든 강의의 출석을 자동으로 개설
+  const d = todayKst(); if (lastTick === d) return; lastTick = d;
+  let n = 0; for (const l of lecturesOn(d)) if (ensureSession(d, l.id)[2]) n++;
+  if (n) save();
+}
 
 
 // ---- 출석 인정 시간 ----
@@ -216,7 +246,9 @@ async function api(req, url, ctx) {
 
   let mm;
   if ((mm = p.match(/^\/api\/s\/([\w-]+)$/)) && m === 'GET') {
-    const se = sessionOf(mm[1]); if (!se) return json(404, { error: '유효하지 않은 링크입니다' });
+    const rs = resolveSession(mm[1]); if (!rs) return json(404, { error: '유효하지 않은 링크입니다' });
+    if (rs.notToday) return json(200, { notToday: true, lecture: { name: rs.lec.name, start: rs.lec.start, end: rs.lec.end, weekday: rs.lec.weekday }, next: rs.next });
+    const se = rs.se;
     const l = db.lectures.find((x) => x.id === se.lectureId);
     const devId = deviceOf(req, q.get('deviceId'), ctx, true);
     const me = memberOfDevice(devId);
@@ -232,7 +264,9 @@ async function api(req, url, ctx) {
     });
   }
   if ((mm = p.match(/^\/api\/s\/([\w-]+)\/checkin$/)) && m === 'POST') {
-    const se = sessionOf(mm[1]); if (!se) return json(404, { error: '유효하지 않은 링크입니다' });
+    const rs = resolveSession(mm[1]); if (!rs) return json(404, { error: '유효하지 않은 링크입니다' });
+    if (rs.notToday) return json(403, { error: `오늘은 '${rs.lec.name}' 강의가 없습니다.` + (rs.next ? ` 다음 강의: ${rs.next}` : '') });
+    const se = rs.se;
     if (!se.open) return json(403, { error: '출석이 마감되었습니다' });
     const lec0 = db.lectures.find((x) => x.id === se.lectureId);
     const w = windowOf(se.date, lec0); if (w.err) return json(403, { error: w.err });
@@ -278,7 +312,7 @@ async function api(req, url, ctx) {
   }
   // 휴대폰을 바꾼 구성원이 담당자에게 기기 변경을 요청 (전화번호 뒤 4자리 확인 후 접수)
   if ((mm = p.match(/^\/api\/s\/([\w-]+)\/device-request$/)) && m === 'POST') {
-    if (!sessionOf(mm[1])) return json(404, { error: '유효하지 않은 링크입니다' });
+    if (!resolveSession(mm[1])) return json(404, { error: '유효하지 않은 링크입니다' });
     const b = await body(req), dev = deviceOf(req, b.deviceId, ctx, false);
     const mem = db.members.find((x) => x.id === b.memberId);
     if (!mem || dev.length < 8) return json(400, { error: '요청 정보가 올바르지 않습니다' });
@@ -423,14 +457,9 @@ async function api(req, url, ctx) {
     if (p === '/api/admin/session' && m === 'POST') {
       const b = await body(req);
       if (!dateOk(b.date) || !db.lectures.some((x) => x.id === b.lectureId)) return json(400, { error: '입력 오류' });
-      let e = Object.entries(db.sessions).find(([, v]) => v.date === b.date && v.lectureId === b.lectureId);
-      if (!e) {
-        const t = newQr();
-        db.sessions[t] = { date: b.date, lectureId: b.lectureId, code: String(Math.floor(1000 + Math.random() * 9000)), open: true };
-        e = [t, db.sessions[t]];
-      }
+      const e = ensureSession(b.date, b.lectureId);
       if (typeof b.open === 'boolean') e[1].open = b.open;
-      if (b.newCode) e[1].code = String(Math.floor(1000 + Math.random() * 9000));
+      if (b.newCode) e[1].code = newCode();
       save();
       return json(200, { token: e[0], code: e[1].code, open: e[1].open });
     }
@@ -442,38 +471,50 @@ async function api(req, url, ctx) {
     }
     if (p === '/api/admin/config' && m === 'PUT') {
       const b = await body(req);
-      const groups = [], members = [], lectures = [];
-      for (const g of b.groups || []) {
-        if (!g.name || !g.pin) continue;
-        const id = g.id && db.groups.some((x) => x.id === g.id) ? g.id : uid('g');
-        groups.push({ id, name: g.name.trim(), pin: String(g.pin).trim() });
-        const old = db.members.filter((x) => x.groupId === id);
-        const seen = new Set();
-        for (const line of (g.members || []).map((s) => s.trim()).filter(Boolean)) {
-          const mt = line.match(/^(.*\S)\s+(\d{4})$/);
-          const name = mt ? mt[1] : line, phone4 = mt ? mt[2] : '';
-          if (seen.has(name)) continue; seen.add(name);
-          const ex = old.find((x) => x.name === name);
-          members.push({ id: ex ? ex.id : uid('m'), groupId: id, name, phone4, qr: ex && ex.qr ? ex.qr : newQr() });
+      if (b.groups !== undefined) {
+        const groups = [], members = [];
+        for (const g of b.groups || []) {
+          if (!g.name || !g.pin) continue;
+          const id = g.id && db.groups.some((x) => x.id === g.id) ? g.id : uid('g');
+          groups.push({ id, name: g.name.trim(), pin: String(g.pin).trim() });
+          const old = db.members.filter((x) => x.groupId === id);
+          const seen = new Set();
+          for (const line of (g.members || []).map((s) => s.trim()).filter(Boolean)) {
+            const mt = line.match(/^(.*\S)\s+(\d{4})$/);
+            const name = mt ? mt[1] : line, phone4 = mt ? mt[2] : '';
+            if (seen.has(name)) continue; seen.add(name);
+            const ex = old.find((x) => x.name === name);
+            members.push({ id: ex ? ex.id : uid('m'), groupId: id, name, phone4, qr: ex && ex.qr ? ex.qr : newQr() });
+          }
         }
+        db.groups = groups; db.members = members;
+        db.bindings = Object.fromEntries(Object.entries(db.bindings || {}).filter(([id]) => members.some((x) => x.id === id)));
+        db.deviceRequests = (db.deviceRequests || []).filter((r) => members.some((x) => x.id === r.memberId));
       }
-      for (const l of b.lectures || []) {
-        if (!l.name) continue;
-        const sd = dateOk(l.startDate) ? l.startDate : '', ed = dateOk(l.endDate) ? l.endDate : '';
-        const off = [...new Set((Array.isArray(l.off) ? l.off : String(l.off || '').split(/[\s,]+/)).filter(dateOk))].sort();
-        lectures.push({
-          id: l.id && db.lectures.some((x) => x.id === l.id) ? l.id : uid('l'),
-          name: l.name.trim(), weekday: sd && sd === ed ? wd(sd) : +l.weekday, // 하루짜리 강의는 날짜의 요일로 자동 지정
-          start: l.start || '09:00', end: l.end || '10:00', startDate: sd, endDate: ed, off,
-        });
+      if (b.lectures !== undefined) {
+        const lectures = [];
+        for (const l of b.lectures || []) {
+          if (!l.name) continue;
+          const sd = dateOk(l.startDate) ? l.startDate : '', ed = dateOk(l.endDate) ? l.endDate : '';
+          const off = [...new Set((Array.isArray(l.off) ? l.off : String(l.off || '').split(/[\s,]+/)).filter(dateOk))].sort();
+          const ex = l.id && db.lectures.find((x) => x.id === l.id);
+          lectures.push({
+            id: ex ? ex.id : uid('l'), token: ex && ex.token ? ex.token : newQr(),   // 고정 출석 링크는 강의를 고쳐도 유지
+            name: String(l.name).trim(), weekday: sd && sd === ed ? wd(sd) : +l.weekday, // 하루짜리 강의는 날짜의 요일로 자동 지정
+            start: /^\d{2}:\d{2}$/.test(l.start) ? l.start : '09:00', end: /^\d{2}:\d{2}$/.test(l.end) ? l.end : '10:00', startDate: sd, endDate: ed, off,
+          });
+        }
+        db.lectures = lectures; lastTick = '';   // 오늘 새로 생긴 강의도 바로 자동 개설
       }
-      const st = b.settings || {}, num = (x, d) => (isFinite(+x) && x !== '' && x !== null ? Math.max(0, Math.round(+x)) : d);
-      db.settings = { openBefore: num(st.openBefore, 30), lateAfter: num(st.lateAfter, 10), closeAfter: num(st.closeAfter, 30), useCode: st.useCode === true || st.useCode === 'true' };
-      const v = b.venue || {};
-      db.venue = { name: String(v.name || ''), lat: v.lat === '' || v.lat == null ? null : +v.lat, lng: v.lng === '' || v.lng == null ? null : +v.lng, radius: +v.radius > 0 ? +v.radius : 150 };
-      db.groups = groups; db.members = members; db.lectures = lectures;
-      db.bindings = Object.fromEntries(Object.entries(db.bindings || {}).filter(([id]) => members.some((x) => x.id === id)));
-      db.deviceRequests = (db.deviceRequests || []).filter((r) => members.some((x) => x.id === r.memberId));
+      if (b.settings !== undefined) {
+        const st = b.settings || {}, num = (x, d) => (isFinite(+x) && x !== '' && x !== null ? Math.max(0, Math.round(+x)) : d);
+        db.settings = { openBefore: num(st.openBefore, 30), lateAfter: num(st.lateAfter, 10), closeAfter: num(st.closeAfter, 30), useCode: st.useCode === true || st.useCode === 'true' };
+      }
+      if (b.venue !== undefined) {
+        const v = b.venue || {};
+        db.venue = { name: String(v.name || ''), lat: v.lat === '' || v.lat == null ? null : +v.lat, lng: v.lng === '' || v.lng == null ? null : +v.lng, radius: +v.radius > 0 ? +v.radius : 150 };
+      }
+      tick();
       save();
       return json(200, { ok: true });
     }
@@ -487,11 +528,12 @@ async function api(req, url, ctx) {
     if (!url.pathname.startsWith('/api/')) return null;
     const ctx = { setDev: '' };
     try {
+      tick();
       const res = await api(request, url, ctx);
       if (ctx.setDev) res.headers.append('Set-Cookie', `dev=${ctx.setDev}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax${url.protocol === 'https:' ? '; Secure' : ''}`);
       return res;
     }
     catch (e) { return json(500, { error: String((e && e.message) || e) }); }
   }
-  return { handle };
+  return { handle, tick };
 }

@@ -23,6 +23,7 @@ const persist = (d) => {
 };
 const core = createCore({ db, persist, adminPassword: ADMIN_PASSWORD });
 if (fresh) persist(db);
+core.tick(); setInterval(() => core.tick(), 30 * 60e3); // 오늘 열리는 강의 출석 자동 개설 (날짜가 바뀌면 새로 개설)
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
 const ROUTES = [['/c/', '/checkin.html', true], ['/m/', '/member.html', true], ['/admin', '/admin.html'], ['/', '/index.html']];

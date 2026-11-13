@@ -2,6 +2,12 @@
 // Durable Object는 요청을 한 줄로 처리하므로 여러 명이 동시에 출석해도 기록이 겹쳐 사라지지 않습니다.
 import { createCore, emptyDb } from './core.js';
 
+// 다음 한국 시간 00:05 (UTC 기준 밀리초)
+function nextKstMidnight() {
+  const KST = 9 * 3600e3, DAY = 86400e3, now = Date.now();
+  return Math.floor((now + KST) / DAY) * DAY + DAY + 5 * 60e3 - KST;
+}
+
 export class AttendanceDO {
   constructor(ctx, env) {
     this.ctx = ctx;
@@ -17,7 +23,14 @@ export class AttendanceDO {
         ctx.storage.put(entries).catch((e) => console.error('storage.put failed', e));
       };
       this.core = createCore({ db, persist, adminPassword: env.ADMIN_PASSWORD });
+      this.core.tick();                                  // 오늘 열리는 강의 출석 자동 개설
+      if ((await ctx.storage.getAlarm()) == null) await ctx.storage.setAlarm(nextKstMidnight());
     });
+  }
+  async alarm() { // 매일 한국 시간 자정 직후: 그날 열리는 강의의 출석을 자동으로 개설하고 다음 알람 예약
+    await this.ready;
+    this.core.tick();
+    await this.ctx.storage.setAlarm(nextKstMidnight());
   }
   async fetch(request) {
     await this.ready;

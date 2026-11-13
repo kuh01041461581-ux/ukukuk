@@ -45,6 +45,10 @@ function askLocation(){
 async function load(){
   const r=await fetch('/api/s/'+token+'?deviceId='+encodeURIComponent(dev||''));S=await r.json();
   if(!r.ok){$('body').innerHTML=`<div class="card err">${esc(S.error)}</div>`;return}
+  if(S.notToday){ // 강의 고정 링크인데 오늘은 강의가 없는 날
+    const D='일월화수목금토',nx=S.next?(()=>{const d=new Date(S.next+'T00:00:00Z');return `${d.getUTCMonth()+1}월 ${d.getUTCDate()}일 (${D[d.getUTCDay()]}) ${S.lecture.start}`})():null;
+    $('title').textContent=S.lecture.name;$('sub').textContent='';
+    $('body').innerHTML=`<div class="card"><div class="who" style="font-size:26px">오늘은 이 강의가 없는 날입니다</div>${nx?`<div style="margin-top:10px">다음 강의: <b>${nx}</b></div>`:''}<div class="mut" style="margin-top:10px">강의 날에 이 링크를 다시 눌러 주세요.</div></div>`;return}
   if(S.deviceId){dev=S.deviceId;try{localStorage.setItem('dev',dev)}catch{}} // 서버가 정한 기기 ID를 저장소에도 보관
   $('title').textContent=S.lecture.name;$('sub').textContent=`${S.date} · ${S.lecture.start}~${S.lecture.end}`;
   if(!S.open){$('body').innerHTML='<div class="card err">출석이 마감되었습니다.</div>';return}

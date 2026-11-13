@@ -14,7 +14,7 @@ final class GfxLib {
         for (int i = 8; i + 12 <= d.length - 8; i++) if (d[i] == 'I' && d[i + 1] == 'E' && d[i + 2] == 'N' && d[i + 3] == 'D') {
             int o = i + 8; if (o + 8 < d.length && (d[o] & 0xff) == 0x89 && d[o + 1] == 'P' && d[o + 2] == 'N' && d[o + 3] == 'G') {
                 int[] wh2 = new int[2]; int[] p2 = H.pf.decodePng(java.util.Arrays.copyOfRange(d, o, d.length), wh2);
-                if (p2 != null && wh2[0] == s.w * Surf.K && wh2[1] == s.h * Surf.K) s.hp = p2; }
+                if (p2 != null && wh2[0] == s.w * Surf.K && wh2[1] == s.h * Surf.K) { s.hp = p2; if (System.getenv("LOGHD") != null) H.pf.log("HDLAYER " + s.w + "x" + s.h); } else if (System.getenv("LOGHD") != null) H.pf.log("HDBAD " + s.w + "x" + s.h + " got " + (p2 == null ? "null" : wh2[0] + "x" + wh2[1])); }
             break; }
         return s;
     }

@@ -72,6 +72,27 @@ for f in sorted(_gl.glob('/tmp/pk/d*.d')):
     try: EN.enhance(999, im=Image.open(f).convert('RGBA')).save(f'{out}/{n}.png'); n_t += 1
     except Exception: pass
 print('지형 조각 보정', n_t, '장')
+# ---- 벡터풍 2배 해상도 층: 건물·지형 그림 전부(이미 고해상도판이 붙은 새 건물은 그대로) ----
+import vectorize as VC, io, struct, zlib, yx_table as _YT, shutil
+def has_hd(data):
+    i = data.find(b'IEND'); return i >= 0 and data[i + 8:i + 12] == b'\x89PNG'
+T2, _ = _YT.load(root + '/st2android/mod/yx.d'); n_v = 0
+for f in sorted(_gl.glob('/tmp/pk/[bd]*.d')):
+    n = os.path.basename(f)[:-2]
+    if not _re.match(r'^[bd][0-9a-f]+$', n): continue
+    p = f'{out}/{n}.png'
+    data = open(p, 'rb').read() if os.path.exists(p) else open(f, 'rb').read()
+    if has_hd(data): continue
+    try: im = Image.open(io.BytesIO(data)).convert('RGBA')
+    except Exception: continue
+    k = int(n[1:]) if n[0] == 'b' and n[1:].isdigit() else -1
+    if 0 <= k < 59 and k in T2:
+        H = im.height; rects = list(T2[k]['rects']) + [(0, H - 8, 64, 8), (64, H - 8, 32, 8)]; hd = VC.vec_sheet(im, rects)
+    else: hd = VC.vec_hd(im)
+    b = io.BytesIO(); im.save(b, format='PNG'); b2 = io.BytesIO(); hd.save(b2, format='PNG', optimize=True)
+    open(p, 'wb').write(b.getvalue() + b2.getvalue()); n_v += 1
+print('벡터풍 2배 해상도 층', n_v, '장')
+
 print('새 도트', len(ITEMS), '종 변환, 원본 퀄리티 보정', n_en, '종')
 if len(sys.argv) > 2:
     w = Image.new('RGBA', (len(hd_show) * 196, max(f.height for _, f in hd_show)), (150, 70, 160, 255))

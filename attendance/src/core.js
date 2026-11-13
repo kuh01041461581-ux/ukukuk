@@ -199,7 +199,16 @@ function csv(from, to) {
   return '﻿' + rows.map((r) => r.map(q).join(',')).join('\r\n');
 }
 
-async function api(req, url) {
+const cleanId = (v) => String(v || '').replace(/[^\w-]/g, '').slice(0, 64);
+const cookieOf = (req, name) => { const m = String(req.headers.get('cookie') || '').match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)')); return m ? cleanId(m[1]) : ''; };
+// 기기 ID: 서버가 심은 쿠키가 있으면 그것을, 없으면 브라우저 저장소 값을, 둘 다 없으면 새로 발급
+function deviceOf(req, given, ctx, create) {
+  let dev = cookieOf(req, 'dev'); if (dev.length < 8) dev = cleanId(given);
+  if (dev.length < 8 && create) dev = newQr() + newQr();
+  if (dev.length >= 8) ctx.setDev = dev; // 응답에 쿠키로 다시 심어 유효기간 연장
+  return dev.length >= 8 ? dev : '';
+}
+async function api(req, url, ctx) {
   const p = url.pathname, q = url.searchParams, m = req.method;
 
   if (p === '/api/groups' && m === 'GET') return json(200, db.groups.map(({ id, name }) => ({ id, name })));
@@ -209,11 +218,12 @@ async function api(req, url) {
   if ((mm = p.match(/^\/api\/s\/([\w-]+)$/)) && m === 'GET') {
     const se = sessionOf(mm[1]); if (!se) return json(404, { error: '유효하지 않은 링크입니다' });
     const l = db.lectures.find((x) => x.id === se.lectureId);
-    const me = memberOfDevice(String(q.get('deviceId') || '').slice(0, 64));
+    const devId = deviceOf(req, q.get('deviceId'), ctx, true);
+    const me = memberOfDevice(devId);
     const meGroup = me && db.groups.find((g) => g.id === me.groupId);
     const done = me && !!((((db.records[se.date] || {})[se.lectureId] || {})[me.groupId] || {}).marks || {})[me.id];
     return json(200, {
-      open: se.open, useCode: !!db.settings.useCode, date: se.date, lecture: l && { name: l.name, start: l.start, end: l.end },
+      deviceId: devId, open: se.open, useCode: !!db.settings.useCode, date: se.date, lecture: l && { name: l.name, start: l.start, end: l.end },
       venue: db.venue.lat == null ? null : { name: db.venue.name },
       me: me ? { id: me.id, name: me.name, group: meGroup && meGroup.name, done: !!done } : null,
       // 등록 전 휴대폰에만 단체·이름 목록을 보여줍니다
@@ -227,7 +237,7 @@ async function api(req, url) {
     const lec0 = db.lectures.find((x) => x.id === se.lectureId);
     const w = windowOf(se.date, lec0); if (w.err) return json(403, { error: w.err });
     const b = await body(req);
-    const dev = String(b.deviceId || '').slice(0, 64);
+    const dev = deviceOf(req, b.deviceId, ctx, false);
     if (dev.length < 8) return json(400, { error: '이 브라우저에서 기기 정보를 저장할 수 없습니다. 사생활 보호(시크릿) 모드를 끄고 다시 열어 주세요.' });
     db.bindings ||= {};
     // ① 본인 확인: 이미 등록된 휴대폰이면 그 사람으로만 출석, 처음이면 단체·이름·전화번호 뒤 4자리로 등록
@@ -269,7 +279,7 @@ async function api(req, url) {
   // 휴대폰을 바꾼 구성원이 담당자에게 기기 변경을 요청 (전화번호 뒤 4자리 확인 후 접수)
   if ((mm = p.match(/^\/api\/s\/([\w-]+)\/device-request$/)) && m === 'POST') {
     if (!sessionOf(mm[1])) return json(404, { error: '유효하지 않은 링크입니다' });
-    const b = await body(req), dev = String(b.deviceId || '').slice(0, 64);
+    const b = await body(req), dev = deviceOf(req, b.deviceId, ctx, false);
     const mem = db.members.find((x) => x.id === b.memberId);
     if (!mem || dev.length < 8) return json(400, { error: '요청 정보가 올바르지 않습니다' });
     const pk = 'ph:' + mem.id + ':' + ip(req);
@@ -285,6 +295,7 @@ async function api(req, url) {
   // ---- 개인 링크(/m/토큰): 구성원 본인 전용, 열면 위치 확인 후 자동 출석 (첫 기기에 고정) ----
   if ((mm = p.match(/^\/api\/m\/([\w-]+)$/)) && m === 'GET') {
     const mem = memberByQr(mm[1]); if (!mem) return json(404, { error: '유효하지 않은 링크입니다' });
+    deviceOf(req, q.get('deviceId'), ctx, true);
     const g = db.groups.find((x) => x.id === mem.groupId), now = currentLecture();
     const st = stats('0000-00-00', '9999-99-99').members.find((x) => x.id === mem.id);
     const hist = [];
@@ -306,14 +317,14 @@ async function api(req, url) {
       d = dist(lat, lng, v.lat, v.lng);
       if (d > v.radius) return json(403, { error: `교육장에서 ${Math.round(d)}m 떨어져 있습니다 (허용 ${v.radius}m)` });
     } else return json(403, { error: NO_VENUE });
-    const dev = String(b.deviceId || '').slice(0, 64);
+    const dev = deviceOf(req, b.deviceId, ctx, true);
     db.bindings ||= {};
     const other = memberOfDevice(dev);
     if (other && other.id !== mem.id) return json(403, { error: `이 휴대폰은 ${other.name}님으로 등록되어 있어 다른 분의 링크로는 출석할 수 없습니다.` });
     if (db.bindings[mem.id] && dev && db.bindings[mem.id] !== dev)
       return json(403, { error: '이 휴대폰은 등록된 기기가 아닙니다. 휴대폰을 바꾸셨다면 담당자에게 기기 초기화를 요청하세요' });
     if (dev) db.bindings[mem.id] = dev;
-    const r = mark(now.date, now.lecture, mem, now.window.status, { via: 'phone', dist: d == null ? null : Math.round(d), device: String(b.deviceId || '').slice(0, 64) });
+    const r = mark(now.date, now.lecture, mem, now.window.status, { via: 'phone', dist: d == null ? null : Math.round(d), device: dev });
     return json(200, { ok: true, lecture: now.lecture.name, ...r });
   }
 
@@ -474,7 +485,12 @@ async function api(req, url) {
   async function handle(request) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) return null;
-    try { return await api(request, url); }
+    const ctx = { setDev: '' };
+    try {
+      const res = await api(request, url, ctx);
+      if (ctx.setDev) res.headers.append('Set-Cookie', `dev=${ctx.setDev}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax${url.protocol === 'https:' ? '; Secure' : ''}`);
+      return res;
+    }
     catch (e) { return json(500, { error: String((e && e.message) || e) }); }
   }
   return { handle };

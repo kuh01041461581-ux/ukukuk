@@ -1,13 +1,14 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>내 출석</title>
+<meta property="og:title" content="내 출석"><meta property="og:description" content="링크를 눌러 출석해 주세요">
 <style>
 :root{--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#777;--pri:#2f5d50;--p:#2e7d32;--l:#ef8f00;--a:#c62828}
 @media(prefers-color-scheme:dark){:root{--bg:#171a19;--card:#222726;--ink:#eee;--mut:#9a9;--pri:#6fb59f}}
-*{box-sizing:border-box}body{margin:0;font:17px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+*{box-sizing:border-box}body{margin:0;font:20px/1.55 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
 main{max-width:480px;margin:0 auto;padding:16px}.card{background:var(--card);border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 1px 3px #0002}
-button{font:inherit;padding:14px;border-radius:10px;border:0;background:var(--pri);color:#fff;width:100%;font-weight:700}
-.big{font-size:26px;text-align:center;font-weight:700}.mut{color:var(--mut);font-size:14px}.err{color:var(--a);font-weight:600}
+button{font:inherit;min-height:60px;font-size:22px;padding:14px;border-radius:10px;border:0;background:var(--pri);color:#fff;width:100%;font-weight:700}
+.big{font-size:26px;text-align:center;font-weight:700}.mut{color:var(--mut);font-size:17px}.err{color:var(--a);font-weight:600}
 .ok{color:var(--p)}.late{color:var(--l)}.ab{color:var(--a)}
 .row{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #8883}
 .bar{height:12px;background:#8883;border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--p)}
@@ -22,7 +23,7 @@ const $=id=>document.getElementById(id);const token=location.pathname.split('/')
 let dev=localStorage.getItem('dev');if(!dev){dev=crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now();localStorage.setItem('dev',dev)}
 const L={P:['출석','ok'],L:['지각','late'],A:['결석','ab']};
 const pos=()=>new Promise((ok,no)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(ok,no,{enableHighAccuracy:true,timeout:15000,maximumAge:0}):no());
-async function info(){const r=await fetch('/api/m/'+token);const d=await r.json();
+async function info(){const r=await fetch('/api/m/'+token+'?deviceId='+encodeURIComponent(dev||''));const d=await r.json();
   if(!r.ok){$('who').innerHTML=`<span class="err">${d.error}</span>`;return null}
   $('who').innerHTML=`<div class="big">${d.name}</div><div class="mut" style="text-align:center">${d.group||''}</div>`;
   const s=d.stats;$('stat').hidden=false;
@@ -36,7 +37,7 @@ async function auto(d){
   box.innerHTML=`<div class="mut">${d.now.lecture} (${d.now.start} 시작)</div><div id="msg">📍 위치 확인 중…</div>`;
   let p={};
   if(d.now.venue){try{const x=await pos();p={lat:x.coords.latitude,lng:x.coords.longitude,accuracy:x.coords.accuracy}}
-    catch{ $('msg').innerHTML='<span class="err">위치 권한을 켜 주세요.</span><div class="mut" style="margin:8px 0">· 안드로이드: 주소창 왼쪽 자물쇠(또는 설정) → 권한 → 위치 → 허용<br>· 아이폰: 설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari(또는 사용 중인 브라우저) → <b>앱을 사용하는 동안</b><br>· 카카오톡에서 열었다면 오른쪽 아래 ⋮ → <b>다른 브라우저로 열기</b> 후 다시 시도</div><button id="retry">다시 시도</button>';$('retry').onclick=()=>auto(d);return}}
+    catch{ $('msg').innerHTML='<span class="err">위치 권한을 켜 주세요.</span><div class="mut" style="margin:8px 0">① 카카오톡 앱의 위치 권한이 꺼져 있을 수 있습니다.<br>· 안드로이드: <b>설정 → 앱 → 카카오톡 → 권한 → 위치 → 허용</b><br>· 아이폰: <b>설정 → 카카오톡 → 위치 → 앱을 사용하는 동안</b><br>② 허용 창이 나오면 <b>[허용]</b>을 눌러 주세요.</div><button id="retry">다시 시도</button>';$('retry').onclick=()=>auto(d);return}}
   const r=await fetch(`/api/m/${token}/checkin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deviceId:dev,...p})});
   const j=await r.json();
   if(!r.ok){$('msg').innerHTML=`<span class="err">${j.error}</span><br><br><button id="retry">다시 시도</button>`;$('retry').onclick=()=>auto(d);return}

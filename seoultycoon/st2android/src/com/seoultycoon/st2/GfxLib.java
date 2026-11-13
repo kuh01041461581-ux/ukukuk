@@ -147,6 +147,7 @@ final class GfxLib {
         seq[n] = 53; return seq;
     }
     static final String[] MENU_LABELS = {"현황", "비서", "행사", "정보"};
+    static final String[] SEC_NAMES = {"김비서", "솜리길", "보석왕", "서동이", "맑은강", "마한이", "쌀부자", "마룡이"};   // 시트 줄 순서(원작: 김비서·노막힘·돈이면·부르리·푸르게·달리리·잘살리·머든지)
     static final int[] daysDigit = {-1, -1, -1, -1};
     static void label(Host H, Surf dst, String t, int x, int y) {
         int[] dims = new int[2]; byte[] m = H.pf.renderText(t, dims); if (m == null) return;
@@ -193,6 +194,11 @@ final class GfxLib {
             if (y == 5 && (cx == 42 || cx == 75)) return true;                                          // 원본의 어긋난 년·월 조각은 생략
             return false;
         }
+        if (src.w == 30 && src.h == 80 && ch <= 14) {                                                    // 비서 이름표: 원본은 글자 그림(8명 x 3글자). 이름 칸에 맞춰 고해상도 글꼴로 직접 쓴다
+            int row = Math.round((float) (cy - y) / 10f); if (row < 0 || row >= SEC_NAMES.length) return false;
+            int sc = dst.color; boolean hcn = dst.hasClip; dst.hasClip = false; int[] dm = new int[2]; byte[] m = H.pf.renderText(SEC_NAMES[row], dm); int[] d2 = new int[2]; byte[] hm = H.pf.renderTextHd(SEC_NAMES[row], cw * Surf.K, d2);
+            dst.setColor(0x000000); dst.drawMask(m, dm[0], dm[1], cx + 1, cy - 1, hm, d2[0], d2[1]); dst.setColor(0xFFFFFF); dst.drawMask(m, dm[0], dm[1], cx, cy - 2, hm, d2[0], d2[1]);
+            dst.color = sc; dst.hasClip = hcn; return true; }
         if (src.w == 70 && src.h == 9) {                                                                 // 시청 팝업 메뉴 라벨
             int srcx = cx - x; int[] st = {0, 20, 38, 57}; int menuIdx = 0; for (int i = 1; i < 4; i++) if (Math.abs(srcx - st[i]) < Math.abs(srcx - st[menuIdx])) menuIdx = i;   // 선택 항목이 먼저 그려지므로 그리는 순서가 아니라 시트 속 위치로 라벨을 고른다
             label(H, dst, MENU_LABELS[menuIdx], curBarX + 19, curBarY + 1); return true; }

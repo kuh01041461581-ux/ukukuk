@@ -8,7 +8,7 @@ public final class Surf {
     public static final int K = 2;
     public int[] hp; public boolean smooth;     // smooth: 불러온 그림(건물·지형·인물 등)은 HD 층을 Scale2x 로 계단 모서리를 다듬어 만든다(화면 버퍼는 제외)
     public int[] hd() {
-        if (hp == null && smooth && K == 2) hp = PixelScale.epx2(px, w, h, null);
+        if (hp == null && smooth && K == 2) hp = PixelScale.epx2s(px, w, h, null);
         if (hp == null) { int W = w * K; int[] o = new int[W * h * K];
             for (int y = 0; y < h; y++) { int ro = y * K * W; for (int x = 0; x < w; x++) { int p = px[y * w + x]; for (int b = 0; b < K; b++) o[ro + x * K + b] = p; }
                 for (int a = 1; a < K; a++) System.arraycopy(o, ro, o, ro + a * W, W); }

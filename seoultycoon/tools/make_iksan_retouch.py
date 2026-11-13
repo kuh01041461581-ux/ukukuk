@@ -115,7 +115,7 @@ def b48():                                                                  # ì 
     return im
 
 if __name__ == '__main__':
-    R.ensure_pk(); items = {'b32': b32, 'b45': b45, 'b8': b8, 'b3': b3, 'b15': b15, 'b19': b19, 'b44': b44, 'b12': b12, 'b48': b48}; ims = {}
+    R.ensure_pk(); items = {'b32': b32, 'b45': b45, 'b8': b8, 'b3': b3, 'b15': b15, 'b44': b44, 'b12': b12, 'b48': b48}; ims = {}
     for n, fn in items.items(): ims[n] = fn(); ims[n].save(f'{out}/{n}.png')
     if len(sys.argv) > 1:
         W = sum(i.width * 5 + 10 for i in ims.values()); H = max(i.height * 5 for i in ims.values()); w = Image.new('RGBA', (W, H), (60, 60, 70, 255)); x = 0

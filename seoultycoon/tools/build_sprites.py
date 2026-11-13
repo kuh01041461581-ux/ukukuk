@@ -13,9 +13,9 @@ for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_pal
 import strips as ST
 import pixel_style as PS
 from make_iksan_buildings import Sc
-import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, make_iksan_civic as CV, make_iksan_landmarks as LM, make_iksan_icons as IC, make_iksan_chunpo as CK
+import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, make_iksan_civic as CV, make_iksan_landmarks as LM, make_iksan_icons as IC, make_iksan_chunpo as CK, make_iksan_arts as AR
 # 익산 고유 건물만 새 도트를 쓴다. 그 밖의 건물(소방서·경찰서·학교·아파트·버스정류장·유치원·놀이터·체육공원 등)은 원본 도트를 그대로 두고 퀄리티만 올린다(enhance_orig).
-ITEMS = {2: LM.mireuksa, 13: CV.church, 20: CV.library, 21: CK.chunpo, 33: HQ.baseball, 38: MO.baekje, 42: HQ.arts}
+ITEMS = {2: LM.mireuksa, 13: CV.church, 20: CV.library, 21: CK.chunpo, 19: HQ.cinema, 33: HQ.baseball, 38: MO.baekje, 42: AR.arts}
 # 롯데시네마·코스트코·테슬라·하림·농협은행·공설운동장·방송국·마룡이식당은 원본 도트에 간판만 고친다(make_iksan_retouch) → 아래에서 퀄리티 보정까지 받는다
 yx = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); show = []; hd_show = []
 def on_tile(F, yc, s=1):
@@ -32,7 +32,7 @@ def horse(dx=0, dy=0):
 ITEMS[9] = horse
 for k, fn in sorted(ITEMS.items()):
     Hc, yc = ST.canvas(k)
-    Sc.OVR = (Hc, yc); Sc.LAST_HD = None; Sc.ZS = 1.0; Sc.FS = {20: 1.16, 21: 1.16, 42: 1.14, 41: 1.12}.get(k, 1.0)      # 레퍼런스가 뚜렷하지 않은 건물은 규모를 키운다
+    Sc.OVR = (Hc, yc); Sc.LAST_HD = None; Sc.ZS = 1.0; Sc.FS = {20: 1.16, 21: 1.16, 41: 1.12}.get(k, 1.0)      # 레퍼런스가 뚜렷하지 않은 건물은 규모를 키운다
     try:
         F = fn()
         if k not in (9, 38):                                          # 원작 건물처럼 캔버스 윗부분까지 쓰도록 높이를 자동으로 키운다(최대 1.5배, 미륵석탑은 1.3배)

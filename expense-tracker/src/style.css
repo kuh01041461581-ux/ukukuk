@@ -860,3 +860,15 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
 .dl .dv{text-align:right;color:var(--text-3);font-variant-numeric:tabular-nums;font-size:12px}
 .pill.sm{padding:3px 10px;font-size:12px}
 .bigrem{padding:14px 20px}.bigrem .v{font-size:38px}
+
+/* 사용법 */
+.guide .gfig{margin:10px 0 14px;border:1px solid var(--edge-dark,#cfd6e0);border-radius:10px;overflow:hidden;background:#fff}
+.guide .gfig img{display:block;width:100%;height:auto}
+.guide .gfig figcaption{padding:7px 12px;font-size:13px;color:var(--text-2);border-top:1px solid var(--edge-dark,#e1e6ee)}
+.guide .gh{display:flex;align-items:center;gap:8px;margin:18px 0 6px;font-size:16px}
+.guide .gn{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#e5251b;color:#fff;font-size:13px;font-weight:800}
+.guide .gol{padding-left:20px;line-height:1.9;margin:0}
+.guide ul{padding-left:20px;line-height:1.8;margin:6px 0}
+.guide p{margin:6px 0;line-height:1.7}
+.caret{display:inline-block;width:14px;color:var(--text-2)}
+#p-biz tr.sub td{background:var(--track,#f3f5f9)}

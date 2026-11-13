@@ -39,6 +39,7 @@ async function importExcelFile(file, intent) {
       const d = new Date(file.lastModified || Date.now());
       const asOf = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       if (!(await checkDept(r.ledger.dept))) return;
+      S.biz = { asOf, file: file.name, entries: r.ledger.entries }; save();   // 전체 사업 진척용(설정에서 켜면 보임)
       if (!S.lines.length) {   // 새 장부: 일상경비 항목을 자동으로 만든다
         const made = linesFromEntries(r.ledger.entries, asOf);
         if (made.length) { S.lines = made; S.asOf = asOf; $('#asof').value = asOf; save(); UI.dsub = 'now'; showTab('daily'); toast(`${S.dept || ''} 일상경비 ${made.length}개 항목을 만들었습니다 (예산·실집행액 포함)`); return; }

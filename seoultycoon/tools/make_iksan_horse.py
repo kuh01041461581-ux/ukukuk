@@ -317,7 +317,11 @@ rgb = (a[..., :3] * al[..., None]).reshape(H, S, W, S, 3).sum((1, 3)) / np.maxim
 res = np.zeros((H, W, 4), np.uint8); res[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8); res[..., 3] = (al_s > 0.5) * 255
 # 약한 선명화로 도트 윤곽 정리
 im = Image.fromarray(res, 'RGBA'); rgb_im = im.convert('RGB').filter(ImageFilter.UnsharpMask(radius=0.8, percent=60, threshold=2)); res2 = np.asarray(rgb_im).copy()
-final = np.dstack([res2, res[..., 3]]); fin = Image.fromarray(final, 'RGBA'); fin.save(os.environ.get('IKSAN_OUT', out + '/b9.png'))
+final = np.dstack([res2, res[..., 3]]); # 2배 해상도판(8배 그림을 4배로 줄임: 윤곽 안티앨리어싱 유지)
+a4 = al.reshape(H * 2, S // 2, W * 2, S // 2).mean((1, 3)); r4 = (a[..., :3] * al[..., None]).reshape(H * 2, S // 2, W * 2, S // 2, 3).sum((1, 3)) / np.maximum(al.reshape(H * 2, S // 2, W * 2, S // 2).sum((1, 3)), 1e-6)[..., None]
+hd4 = np.zeros((H * 2, W * 2, 4), np.uint8); hd4[..., :3] = np.clip(r4, 0, 255).astype(np.uint8); hd4[..., 3] = np.clip(a4 * 255 * 1.4, 0, 255).astype(np.uint8)
+Image.fromarray(hd4, 'RGBA').filter(ImageFilter.UnsharpMask(radius=1.0, percent=70, threshold=2)).save(os.environ.get('IKSAN_OUT', out + '/b9.png') + '.hd.png')
+fin = Image.fromarray(final, 'RGBA'); fin.save(os.environ.get('IKSAN_OUT', out + '/b9.png'))
 if len(sys.argv) > 1:
     bg = Image.new('RGBA', fin.size, (150, 70, 160, 255)); bg.alpha_composite(fin); bg.resize((W * 8, H * 8), Image.NEAREST).save(sys.argv[1])
 print('승마장 → b9.png')

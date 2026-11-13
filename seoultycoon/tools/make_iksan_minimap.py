@@ -3,7 +3,7 @@
 윤곽은 사용자가 찍어 준 익산시 관광 지도(남북으로 긴 모양, 서쪽 만경강 경계)를 따라 손으로 단순화했다.
 → st2android/mod/mn.d   사용: python3 -I tools/make_iksan_minimap.py [미리보기.png]"""
 import os, sys
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageChops
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 orig = Image.open(root + '/work/st2/mn.d').convert('RGBA')
 W, H = orig.size
@@ -39,6 +39,27 @@ for (x0, y0), (x1, y1) in zip(west, west[1:]):
 d.line([mp((1000, 88)), mp((905, 98)), (west[0][0] + 2, west[0][1])], fill=RIVER, width=1)   # 북서쪽 하구 쪽
 img.paste(icon, (47, 22), icon)
 img.save(root + '/st2android/mod/mn.d', format='PNG')
+
+# ---- 2배 해상도 층: 같은 도형을 8배 크기로 그려 4배로 줄여(안티앨리어싱) 매끈한 해안선·강·도로를 만든다(범례 글자·아이콘은 정수배 확대) ----
+import io
+SS = 8; Z = SS * 2
+mk = Image.new('L', (W * Z, H * Z), 0); ImageDraw.Draw(mk).polygon([(x * Z, y * Z) for x, y in poly], fill=255)
+m2 = ImageDraw.Draw(mk)
+for hx_, hy_ in LOTS:
+    lx, ly = (hx_ - 120) / 2.3077, (hy_ - 143) / 2.1; m2.ellipse([(lx - 6) * Z, (ly - 5) * Z, (lx + 6) * Z, (ly + 5) * Z], fill=255)
+big = Image.new('RGBA', (W * Z, H * Z), (0, 0, 0, 0)); big.paste(Image.new('RGBA', big.size, GREEN), (0, 0), mk)
+rd2 = Image.new('L', big.size, 0); r2 = ImageDraw.Draw(rd2)
+r2.line([(0, (cy + 0.5 * cx) * Z), (W * Z, (cy - 0.5 * (W - cx)) * Z)], fill=255, width=int(Z * 0.9)); r2.line([(0, (cy - 0.5 * cx) * Z), (W * Z, (cy + 0.5 * (W - cx)) * Z)], fill=255, width=int(Z * 0.9))
+big.paste(Image.new('RGBA', big.size, LIGHT), (0, 0), ImageChops.multiply(rd2, mk))
+bd = ImageDraw.Draw(big)
+for (x0, y0), (x1, y1) in zip(west, west[1:]):
+    bd.line([((x0 + 2) * Z, y0 * Z), ((x1 + 2) * Z, y1 * Z)], fill=RIVER_D, width=int(Z * 2)); bd.line([((x0 + 2) * Z, y0 * Z), ((x1 + 2) * Z, y1 * Z)], fill=RIVER, width=int(Z * 1.1))
+bd.line([(a_ * Z, b_ * Z) for a_, b_ in [mp((1000, 88)), mp((905, 98)), (west[0][0] + 2, west[0][1])]], fill=RIVER, width=int(Z * 1.1))
+hd = big.resize((W * 2, H * 2), Image.LANCZOS)
+leg = orig.crop((0, 70, W, H)).resize((W * 2, (H - 70) * 2), Image.NEAREST); hd.paste(leg, (0, 140))
+hd.alpha_composite(icon.resize((icon.width * 2, icon.height * 2), Image.NEAREST), (94, 44))
+b_ = io.BytesIO(); img.save(b_, format='PNG'); b2_ = io.BytesIO(); hd.save(b2_, format='PNG')
+open(root + '/st2android/mod/mn.d', 'wb').write(b_.getvalue() + b2_.getvalue())
 if len(sys.argv) > 1:
     bg = Image.new('RGBA', (W, H), (20, 20, 20, 255)); bg.alpha_composite(img); bg.resize((W * 6, H * 6), Image.NEAREST).save(sys.argv[1])
 print('미니맵 → mn.d')

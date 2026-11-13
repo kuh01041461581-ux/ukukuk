@@ -25,10 +25,10 @@ def on_tile(F, yc, s=1):
         for x in range(F.width):
             if y / s > yc + 24 - abs(x / s - 48) * 24 / 47.0: px[x, y] = (0, 0, 0, 0)
     return F
-def horse(dx=0, dy=0):
+def horse(dx=0, dy=0, hd=False):
     Hc, yc = ST.canvas(9); tmp = '/tmp/_iksan_b9.png'
     subprocess.run([sys.executable, '-I', f'{here}/make_iksan_horse.py'], check=True, stdout=subprocess.DEVNULL, env=dict(os.environ, IKSAN_OVR=f'{Hc},{yc}', IKSAN_OUT=tmp, IKSAN_DX=str(dx), IKSAN_DY=str(dy)))
-    return Image.open(tmp).convert('RGBA')
+    return Image.open(tmp + '.hd.png' if hd else tmp).convert('RGBA')
 ITEMS[9] = horse
 for k, fn in sorted(ITEMS.items()):
     Hc, yc = ST.canvas(k)
@@ -41,7 +41,7 @@ for k, fn in sorted(ITEMS.items()):
                 Sc.ZS = max(1.0, min(1.3 if k == 2 else (1.9 if k == 13 else (2.2 if k == 21 else 1.6)), (yc - 5) / max(1.0, yc - ys[0]))); Sc.LAST_HD = None
                 if Sc.ZS > 1.02: F = fn()
     finally: Sc.OVR = None; Sc.ZS = 1.0; Sc.FS = 1.0
-    F2 = None if k == 9 else Sc.LAST_HD                                              # 2배 해상도판(없으면 1배 그림만)
+    F2 = horse(0, 0, True) if k == 9 else Sc.LAST_HD                                              # 2배 해상도판(없으면 1배 그림만)
     if F.size != (96, Hc): Fx = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); Fx.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = Fx
     F = on_tile(F, yc)
     if k != 9: F = PS.stylize(F)
@@ -52,7 +52,7 @@ for k, fn in sorted(ITEMS.items()):
     buf = io.BytesIO(); S.save(buf, format='PNG'); data = buf.getvalue()
     if F2 is not None and F2.size == (192, Hc * 2):
         # HD 층: 색을 줄이거나 다시 깎지 않고 고해상도 그림 그대로(채도·대비만 원작에 맞춤) 같은 조각 배치로 담아 PNG 뒤에 붙인다
-        F2 = PS.grade(on_tile(F2, yc, 2)); v2 = [PS.twinkle(F2, 0, 2, 23, True), PS.twinkle(F2, 1, 2, 23, True)] if k == 42 else [PS.twinkle(F2, 0, 2), PS.twinkle(F2, 1, 2)]
+        F2 = PS.grade(on_tile(F2, yc, 2)); v2 = [PS.grade(on_tile(horse(1.0, 0.5, True), yc, 2))] if k == 9 else [PS.twinkle(F2, 0, 2, 23, True), PS.twinkle(F2, 1, 2, 23, True)] if k == 42 else [PS.twinkle(F2, 0, 2), PS.twinkle(F2, 1, 2)]
         S2 = ST.hd_sheet(k, F2, v2, rects, pos, 2); b2 = io.BytesIO(); S2.save(b2, format='PNG'); data += b2.getvalue(); hd_show.append((k, F2))
     open(f'{out}/b{k}.png', 'wb').write(data)
     for fi in range(len(ST.TABLE[k]['frames'])): show.append((k, F, ST.compose(k, S, rects, frame=fi, pos=pos)))

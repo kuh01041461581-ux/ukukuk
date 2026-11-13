@@ -27,12 +27,21 @@ internal static class JournalGen
 		new Rule("기간제·공무직 인건비", "P", "101-04 기간제근로자등 보수", "기간제근로자등인건비", "", "4대보험 사업주 부담분은 법정부담금으로 따로 지출결의해요", "기간제", "공무직", "무기계약", "시간선택제"),
 		new Rule("일용직 임금", "P", "101-04 기간제근로자등 보수", "기간제근로자등인건비", "일용", "일용근로소득은 일급에서 15만원을 빼고 6%의 45%만 원천징수해요(지방소득세 10% 별도)", "일용", "일당", "노임", "아르바이트", "단기근로"),
 		new Rule("공무원 보수·수당", "P", "101-01 보수", "급여", "", "소득세·4대보험 등 공제액은 예수금으로 나눠 기록돼요(공제 내역 입력 필요)", "급여", "보수", "수당", "상여", "연가보상", "성과급", "초과근무", "시간외"),
+		new Rule("일·숙직비", "E", "201-01 사무관리비(운영수당-일·숙직비)", "일숙직비", "", "일·숙직 명을 받고 근무하는 자에게 주는 수당이에요. 당직업무 부서에서 일정 기간(일주일·10일 등) 개산급(정액)으로 인출해 당일 일·숙직자에게 줄 수 있어요(일상경비)", "일숙직", "일·숙직", "숙직비", "일직비", "당직수당", "당직비", "숙직수당", "일직수당"),
+		new Rule("공무원 피복비", "E", "201-01 사무관리비(피복비)", "공무원피복비", "", "상시착용(작업복 포함) 피복을 공무원·현업부서 공무직에게 지급·대여하는 경비예요. 업무상 제복이 불가피한 직접 담당자에게만 주고, 개인에게 현금으로 직접 지급할 수 없어요. 통일 복장은 회계부서가 일괄 구매해요", "피복", "작업복", "정모", "단화", "넥타이", "근무복", "제복", "안전화", "방한복", "하계복", "동계복", "신규직원 피복", "침구", "개인장구", "정복"),
+		new Rule("급식비(급량비)", "E", "201-01 사무관리비(급식비)", "급량비※", "", "공무원 급식비는 1식 9,000원 이내, 가능하면 구매카드로 쓰고 현금 지급은 안 돼요. 초과근무 등 실제 근무 사실을 확인한 뒤 줘요", "급식", "급량", "야근 식", "야근식", "석식", "중식", "초과근무 식", "시간외 식", "주식대", "부식대"),
+		new Rule("위원회·심사·시험 수당", "E", "201-01 사무관리비(운영수당)", "운영수당※", "기타", "위원회 참석수당은 예산 단가·조례 기준을 따르고, 자기 소속 자치단체 위원회에 참여하는 공무원에게는 원칙적으로 주지 않아요. 심사수당은 법령·조례에 있을 때만 줘요. 외부 위원은 기타소득 원천징수 대상이에요", "위원회", "참석수당", "심사", "평가수당", "면접수당", "시험관리", "위원수당", "회의수당", "평가위원"),
+		new Rule("공무원교육 외래강사료", "E", "201-01 사무관리비(운영수당-외래강사료)", "운영수당※", "기타", "공무원 교육의 외래강사료는 기준경비 별표의 단가를 따라요", "외래강사", "교육 강사", "교육강사", "공무원교육 강사"),
+		new Rule("공무원 의료비", "E", "201-02 공공운영비(공무원 의료비)", "공무원의료비", "", "", "의료비", "건강검진", "공무원 건강", "예방접종"),
+		new Rule("차량·선박 유지비", "E", "201-02 공공운영비(차량·선박비)", "차량유지비※", "", "업무용 승용차는 직원 출퇴근용으로 쓸 수 없고, 유류는 공공조달 유류구매카드를 활용해요", "차량 유지", "차량유지", "차량수리", "자동차보험", "정기검사", "엔진오일", "타이어", "선박", "세차"),
+		new Rule("맞춤형복지(복지포인트)", "E", "201-04 맞춤형복지제도 시행경비", "복리후생비※", "", "집행 잔액은 복지포인트로 재배정할 수 없어요", "복지포인트", "맞춤형복지", "맞춤형 복지"),
+		new Rule("직책급·특정업무경비", "E", "204 직무수행경비", "직무수행경비※", "", "30일 이상 직책을 수행하지 못하면 월액을 일할 계산해요. 시간선택제·한시임기제는 근무시간 비례로 줘요", "직책급", "특정업무경비", "대민활동비", "직무수행경비"),
 		new Rule("통장·이장 수당", "E", "301-07 통장·이장·반장활동보상금", "기타운영비※", "", "", "통장", "이장", "반장수당"),
 		new Rule("국내 출장·여비", "E", "202-01 국내여비", "여비교통비※", "", "", "출장", "여비", "숙박", "교통비", "국내여비", "KTX", "항공", "시외버스"),
-		new Rule("업무추진비(간담회·격려)", "E", "203 업무추진비", "업무추진비※", "", "기관운영/시책추진/부서운영 중 어느 통계목인지 사업 성격에 맞춰 골라요", "간담회", "격려", "축의", "부의", "업무추진", "회식", "오찬", "만찬", "식대", "조의"),
+		new Rule("업무추진비(간담회·격려)", "E", "203 업무추진비", "업무추진비※", "", "기관운영/시책추진/부서운영 중 사업 성격에 맞는 통계목을 골라요. 식사는 1인 1회 5만원 이하, 현금 사용 금지, 건당 50만원 이상은 증빙에 상대방 소속·성명을 적어요", "간담회", "격려", "축의", "부의", "업무추진", "회식", "오찬", "만찬", "조의", "식사비", "다과비"),
 		new Rule("연구·전산개발 용역", "E", "207 연구개발비", "연구용역비※", "사업", "연구용역은 207-01, 정보화·시스템 개발은 207-02예요. 개인 대상이면 사업소득 3.3%를 떼요", "연구용역", "정보화", "전산개발", "시스템 개발", "소프트웨어 개발", "프로그램 개발"),
 		new Rule("개인 용역·번역·촬영 등", "E", "201-01 사무관리비(소규모 용역비)", "용역비※", "", "개인에게 주면 사업소득 3.3%(일시적이면 기타소득 8.8%), 사업자·법인이면 원천징수가 없어요. 금액 앞에 '3.3' 또는 '8.8'을 쓰면 계산해요", "용역", "번역", "통역", "촬영", "디자인", "컨설팅", "대행", "속기", "녹취"),
-		new Rule("강사료·원고료·심사비", "E", "201-03 행사운영비", "행사운영비※", "기타", "일시적 강의·원고·심사는 기타소득(8.8%), 계속·반복이면 사업소득(3.3%)이에요. 지급액 12.5만원 이하는 원천징수가 없어요", "강사료", "강의료", "원고료", "심사비", "심사료", "자문료", "회의수당", "사례금", "위원수당", "면접수당", "평가수당"),
+		new Rule("강사료·원고료·심사비", "E", "201-03 행사운영비", "행사운영비※", "기타", "일시적 강의·원고·심사는 기타소득(8.8%), 계속·반복이면 사업소득(3.3%)이에요. 지급액 12.5만원 이하는 원천징수가 없어요", "강사료", "강의료", "원고료", "자문료", "사례금"),
 		new Rule("행사 경비", "E", "201-03 행사운영비", "행사운영비※", "", "", "행사", "현수막", "상패", "초청장", "축제", "기념식", "체육대회"),
 		new Rule("위탁교육·교육훈련", "E", "201-01 사무관리비(위탁교육비)", "교육훈련비※", "", "공무원 본인 교육여비는 202-05 공무원 교육여비예요", "위탁교육", "교육훈련", "수강료", "교육비", "연수비"),
 		new Rule("공공요금(전화·전기·유류)", "E", "201-02 공공운영비", "공공운영비※", "", "성격별 계정(통신료·수도광열비 등)이 갈려 있으면 그에 맞춰 골라요", "전화", "우편", "통신", "인터넷", "전기", "수도", "가스", "난방", "유류", "주유", "경유", "휘발유", "등유", "택배"),
@@ -44,7 +53,7 @@ internal static class JournalGen
 		new Rule("포상금·상금", "E", "303 포상금", "포상금※", "기타", "상금·부상은 기타소득 원천징수 대상이 될 수 있어요", "포상금", "성과금", "상금", "부상"),
 		new Rule("비품·장비 구입(자산)", "A", "405-01 자산 및 물품취득비", "집기비품", "", "단가가 기준금액 미만이면 소모품비로 비용처리하는 지자체가 많아요(재무회계 운영규정 확인)", "비품", "컴퓨터", "노트북", "모니터", "프린터", "책상", "의자", "캐비닛", "에어컨", "냉장고", "복사기", "TV", "카메라", "서버", "장비", "기계", "자동차", "차량", "집기"),
 		new Rule("도서 구입", "A", "405-02 도서구입비", "집기비품", "", "일반 간행물·신문은 사무관리비(소모품)로 처리해요", "도서구입", "도서 구입", "도서관", "서적"),
-		new Rule("소모품·사무용품·인쇄", "E", "201-01 사무관리비", "소모품비", "", "", "소모품", "사무용품", "문구", "복사용지", "용지", "토너", "잉크", "인쇄", "복사", "간행물", "신문", "구독", "피복", "급식", "다과", "청소용품", "비품 수선"),
+		new Rule("소모품·사무용품·인쇄", "E", "201-01 사무관리비", "소모품비", "", "", "소모품", "사무용품", "문구", "복사용지", "용지", "토너", "잉크", "인쇄", "복사", "간행물", "신문", "구독", "다과", "청소용품", "방역", "무인경비", "참가비", "등록비"),
 	};
 
 	private static readonly Regex Amt = new Regex(@"(\d{1,3}(?:,\d{3})+|\d+)\s*(만\s*원|천\s*원|만|원)", RegexOptions.Compiled);
@@ -78,6 +87,12 @@ internal static class JournalGen
 	{
 		Item it = new Item { Text = line.Trim() }; long a = ParseAmt(line); it.Amt = a;
 		Rule r = Pick(line);
+		if (Has(line, "피복", "작업복", "정모", "단화", "안전화", "근무복", "제복", "방한복", "하계복", "동계복", "정복"))
+		{
+			if (Has(line, "기간제", "무기계약", "공무직")) r = new Rule("기간제·무기계약 피복비", "P", "101-04 기간제근로자등 보수", "기간제근로자등인건비", "", "기간제·무기계약근로자의 피복비는 피복비 과목이 아니라 인건비(기간제근로자등 보수·무기계약근로자 인건비)로 잡아요. 공무원·현업부서 공무직 외에는 피복비로 구매할 수 없어요", "");
+			else if (Has(line, "감독")) r = new Rule("현장감독공무원 피복비", "E", "401-03 시설부대비", "공무원피복비", "", "공사기간·내용연수·실제 필요성·가격 적정성을 보고 조달청을 통해 우선 구매해요. 고가 등산용품은 살 수 없어요", "");
+			else for (int q = 0; q < Rules.Length; q++) if (Rules[q].Name == "공무원 피복비") r = Rules[q];
+		}
 		if (r == null) { it.Title = "분류하지 못했어요"; it.Note = "내용을 조금 더 구체적으로 써 주세요 (예: 사무용품 구입, 강사료 지급, 출장비, 전기요금, 공사 기성금)"; return it; }
 		it.Matched = true; it.Title = r.Name; it.Tong = r.Tong; it.Note = r.Note;
 		string wh = r.Wh;
@@ -117,6 +132,20 @@ internal static class JournalGen
 			St s1 = new St { Name = "① 지급" }; s1.L.Add(L(true, r.Acct, a)); s1.L.Add(L(false, "현금과예금", a)); it.S.Add(s1);
 		}
 		return it;
+	}
+
+	// 분개 사전: 모든 분류를 "지출 종류 → (차변)계정 / (대변)미지급" 형식으로 보여 줘요
+	public static string Catalog()
+	{
+		StringBuilder sb = new StringBuilder("══ 분개 사전 (지출 종류별 · 지출결의 단계) ══\r\n\r\n");
+		foreach (Rule r in Rules)
+		{
+			string cr = r.Kind == "A" || r.Kind == "W" ? "일반미지급금" : r.Kind == "S" || r.Kind == "D" || r.Kind == "I" || r.Kind == "R" ? "현금과예금" : "일반미지급비용";
+			sb.Append("■ ").Append(r.Name); if (r.Tong.Length > 0) sb.Append("  [").Append(r.Tong).Append("]"); sb.Append("\r\n   (차) ").Append(r.Acct).Append(" / (대) ").Append(cr).Append("\r\n");
+			sb.Append("   예: ").Append(string.Join(", ", r.Kw, 0, Math.Min(5, r.Kw.Length))).Append("\r\n"); if (r.Note.Length > 0) sb.Append("   ").Append(r.Note).Append("\r\n"); sb.Append("\r\n");
+		}
+		sb.Append("※ 표시 계정은 일반적인 명칭이에요. e호조 계정과목 검색에서 정확한 명칭을 확인하세요.");
+		return sb.ToString();
 	}
 
 	public static string Run(string input)
@@ -177,15 +206,17 @@ internal sealed class JournalForm : Form
 		tIn.Text = "사무용품 구입 350,000원\r\n외부강사 강사료 200,000원\r\n컴퓨터 구입 1,200,000원";
 		Button go = new Button { Text = "분개 만들기", Left = (int)(12 * s), Top = (int)(124 * s), Width = (int)(100 * s), Height = (int)(28 * s), FlatStyle = FlatStyle.System };
 		Button cp = new Button { Text = "결과 복사", Left = (int)(120 * s), Top = (int)(124 * s), Width = (int)(90 * s), Height = (int)(28 * s), FlatStyle = FlatStyle.System };
-		Button ex = new Button { Text = "예시 보기", Left = (int)(218 * s), Top = (int)(124 * s), Width = (int)(90 * s), Height = (int)(28 * s), FlatStyle = FlatStyle.System };
-		lSt.Left = (int)(316 * s); lSt.Top = (int)(130 * s); lSt.Width = (int)(232 * s); lSt.Height = (int)(20 * s); lSt.ForeColor = Color.FromArgb(80, 110, 150);
+		Button ex = new Button { Text = "예시 보기", Left = (int)(218 * s), Top = (int)(124 * s), Width = (int)(70 * s), Height = (int)(28 * s), FlatStyle = FlatStyle.System };
+		Button cat = new Button { Text = "분개 사전", Left = (int)(294 * s), Top = (int)(124 * s), Width = (int)(80 * s), Height = (int)(28 * s), FlatStyle = FlatStyle.System };
+		lSt.Left = (int)(382 * s); lSt.Top = (int)(130 * s); lSt.Width = (int)(166 * s); lSt.Height = (int)(20 * s); lSt.ForeColor = Color.FromArgb(80, 110, 150);
 		tOut.Left = (int)(12 * s); tOut.Top = (int)(160 * s); tOut.Width = (int)(536 * s); tOut.Height = (int)(388 * s); tOut.Multiline = true; tOut.ReadOnly = true; tOut.ScrollBars = ScrollBars.Vertical; tOut.BackColor = Color.White; tOut.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 		Action make = delegate { try { tOut.Text = JournalGen.Run(tIn.Text); lSt.Text = tOut.Text.Length == 0 ? "내용을 입력해 주세요" : "만들었어요"; } catch (Exception e) { Program.LogErr(e); lSt.Text = "오류가 났어요"; } };
 		go.Click += delegate { make(); };
+		cat.Click += delegate { tOut.Text = JournalGen.Catalog(); tOut.SelectionStart = 0; tOut.SelectionLength = 0; lSt.Text = "분개 사전이에요"; };
 		cp.Click += delegate { try { if (tOut.Text.Length > 0) { Clipboard.SetText(tOut.Text); lSt.Text = "복사했어요"; } } catch { } };
 		string[] exs = { "사무용품 구입 350,000원\r\n외부강사 강사료 200,000원\r\n컴퓨터 구입 1,200,000원", "도로 포장공사 기성금 25,000,000원\r\n공사 감리비 2,000,000원", "직원 국내 출장비 80,000원\r\n간담회 식대 120,000원\r\n전기요금 540,000원", "일용직 노임 220,000원\r\n(주)OO 청소용역 선금 1,000,000원", "일상경비 전도금 500,000원\r\n전화요금 70,000원" }; int ei = 0;
 		ex.Click += delegate { tIn.Text = exs[ei++ % exs.Length]; make(); };
 		tIn.KeyDown += delegate(object o, KeyEventArgs e) { if (e.KeyCode == Keys.Enter && e.Control) { e.SuppressKeyPress = true; make(); } };
-		Controls.AddRange(new Control[] { l1, tIn, go, cp, ex, lSt, tOut }); make(); Shown += delegate { tIn.SelectionStart = tIn.Text.Length; tIn.SelectionLength = 0; };
+		Controls.AddRange(new Control[] { l1, tIn, go, cp, ex, cat, lSt, tOut }); make(); Shown += delegate { tIn.SelectionStart = tIn.Text.Length; tIn.SelectionLength = 0; };
 	}
 }

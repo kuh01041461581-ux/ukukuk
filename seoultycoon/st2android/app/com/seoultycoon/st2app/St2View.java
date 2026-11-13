@@ -7,6 +7,7 @@ import android.os.Looper;
 import android.view.MotionEvent;
 import android.view.View;
 import com.seoultycoon.st2.Host;
+import com.seoultycoon.st2.Surf;
 
 /**
  * LCD 비트맵을 그리고 터치/가상키 입력을 피처폰 키 입력으로 바꾼다.
@@ -30,7 +31,7 @@ public class St2View extends View {
     Btn[] btns = new Btn[0];
     final Paint bp = new Paint(Paint.ANTI_ALIAS_FLAG), tp = new Paint(Paint.ANTI_ALIAS_FLAG), sp = new Paint(Paint.ANTI_ALIAS_FLAG), gp = new Paint();
     final RectF game = new RectF(), pad = new RectF(), gear = new RectF();
-    final Rect src = new Rect(0, 0, 480, 592);           // 게임 HD 화면(480x592)
+    final Rect src = new Rect(0, 0, 240 * Surf.K, 296 * Surf.K);           // 게임 HD 화면(480x592)
     Bitmap big; Canvas bigC; int bigK; int shownFrame = -1; final Paint sm = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
     public volatile String err; public volatile int frames;
     public Host game_host; public android.graphics.Bitmap lcd;
@@ -137,7 +138,7 @@ public class St2View extends View {
         if (lcd != null) {
             // 글자·도트가 일그러지지 않게 반드시 정수 배율로만 그린다(예: 폭 1080 → 4배 = 960, 남는 자리는 가운데 정렬 여백)
             // 게임 영역을 가득 채우는 크기로 그린다(정수 배율로 줄이면 화면이 작아지므로). 2배 해상도 그림을 부드럽게 줄이거나(1배~2배) 늘려서 맞춘다
-            float kf = Math.min(game.width() / 480f, game.height() / 592f); float gw = 480 * kf, gh = 592 * kf;
+            float kf = Math.min(game.width() / (240f * Surf.K), game.height() / (296f * Surf.K)); float gw = 240 * Surf.K * kf, gh = 296 * Surf.K * kf;
             float dx = game.left + (game.width() - gw) / 2f, dy = game.top + (game.height() - gh) / 2f;
             boolean exact = Math.abs(kf - Math.round(kf)) < 0.02f && kf >= 1f;
             synchronized (lcd) { cv.drawBitmap(lcd, src, new RectF(dx, dy, dx + gw, dy + gh), exact ? gp : sm); }

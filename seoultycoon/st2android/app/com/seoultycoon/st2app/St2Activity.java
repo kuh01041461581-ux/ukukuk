@@ -23,7 +23,7 @@ public class St2Activity extends Activity implements St2View.Opener {
         Typeface tf = Typeface.DEFAULT;
         try { tf = Typeface.createFromAsset(getAssets(), "galmuri11.ttf"); } catch (Throwable t) { }
         pf = new AndroidPlatform(this, tf);
-        lcd = Bitmap.createBitmap(480, 592, Bitmap.Config.ARGB_8888);                          // HD 층(2배) 화면      // 화질 보정: 도트 확대(EPX 4배) 결과를 담는다
+        lcd = Bitmap.createBitmap(240 * Surf.K, 296 * Surf.K, Bitmap.Config.ARGB_8888);                          // HD 층(2배) 화면      // 화질 보정: 도트 확대(EPX 4배) 결과를 담는다
         view = new St2View(this); view.host = this; view.lcd = lcd;
         view.mode = getSharedPreferences("st2", MODE_PRIVATE).getInt("mode", St2View.MODE_PHONE);
         setContentView(view);
@@ -55,7 +55,7 @@ public class St2Activity extends Activity implements St2View.Opener {
                     long t0 = System.nanoTime(); int dt = (int) Math.min(100, (t0 - last) / 1000000); last = t0;
                     host.timeScale = speed();
                     if (host.tick(Math.max(8, dt))) {
-                        Surf s = host.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; int[] hd = s.hd(); synchronized (lcd) { lcd.setPixels(hd, 0, 480, 0, 0, 480, 592); }
+                        Surf s = host.screen; for (int i = 0; i < px.length; i++) px[i] = s.px[i] | 0xFF000000; int[] hd = s.hd(); synchronized (lcd) { lcd.setPixels(hd, 0, 240 * Surf.K, 0, 0, 240 * Surf.K, 296 * Surf.K); }
                         view.frames++;
                     }
                     long el = (System.nanoTime() - t0) / 1000000; if (el < 16) Thread.sleep(16 - el);

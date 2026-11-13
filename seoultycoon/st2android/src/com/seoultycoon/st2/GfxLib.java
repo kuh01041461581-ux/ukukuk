@@ -70,6 +70,7 @@ final class GfxLib {
             if (H.verbose && src.w == 77 && src.h == 11 && y == 5 && dst.cx == 6) { StringBuilder sb = new StringBuilder("STK"); for (int i = 0; i < 48; i++) { int w = H.vm.r32(H.vm.r[13] + 4 * i); if ((w & 1) == 1 && w > Host.BASE && w < Host.BASE + 0x83000) sb.append(' ').append(Integer.toHexString(w - Host.BASE)); } H.pf.log(sb.toString()); }
             if (System.getenv("DILOG") != null && src.w >= 90 && src.w <= 100 && src.h >= 40) H.pf.log("BSPR " + src.w + "x" + src.h + " at " + x + "," + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none") + " lr=" + Integer.toHexString(H.vm.r[14] - Host.BASE) + stkAddrs(H) + " px0=" + Integer.toHexString(src.px[src.w * (src.h / 2) + src.w / 2]));
             if (System.getenv("LOGDIG") != null && ((src.w == 50 && src.h == 9) || (src.w == 40 && src.h == 7) || (src.w == 41 && src.h == 9))) H.pf.log("DIG " + src.w + "x" + src.h + " at " + x + "," + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none") + " lr=" + Integer.toHexString(H.vm.r[14] - Host.BASE) + stkAddrs(H));
+            if (System.getenv("LOGSEC") != null && src.w == 30 && src.h == 80) H.pf.log("SEC at " + x + "," + y + " clip=" + (dst.hasClip ? dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch : "none"));
             if (special(H, dst, src, x, y)) return 0;
             // --- 원본과 시트 간격이 달라 생기는 위치 보정(PC 에뮬레이터와 동일)
             boolean restore = false; int scx = dst.cx, scy = dst.cy, scw = dst.cw, sch = dst.ch;
@@ -198,10 +199,12 @@ final class GfxLib {
         if (src.w == 48 && src.h == 34) {                                                                // 팝업 마름모 버튼: 선택=빨강, 그 외=파랑
             int row0 = (cy - y) < 9 ? 0 : 14; Surf cell = new Surf(48, 14, false); System.arraycopy(src.px, row0 * 48, cell.px, 0, 48 * 14);
             boolean hc = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, cy); dst.hasClip = hc; curBarX = x; curBarY = cy; recordBar(H, x, cy, row0 == 0); return true; }
-        if (src.w == 25 && src.h == 21) {                                                                // 하단 키 안내: 줄 3개(*:INFO, #:MAP, 0:EXIT) 가 [0,7)[7,15)[15,21) — 게임은 10행 간격을 가정
-            int k = Math.max(0, Math.min(2, Math.round((float) (cy - y) / 10f))); int[] b = {0, 7, 15, 21}; int h = b[k + 1] - b[k];
-            Surf cell = new Surf(25, h, false); System.arraycopy(src.px, b[k] * 25, cell.px, 0, 25 * h);
-            boolean hc3 = dst.hasClip; dst.hasClip = false; dst.drawImage(cell, x, cy + (10 - h) / 2); dst.hasClip = hc3; return true; }
+        if (src.w == 25 && src.h == 21) {                                                                // 하단 키 안내: 원본은 그림(*:INFO, #:MAP, 0:EXIT). 글꼴로 직접 그려 플랫폼 키 이름(PC: C:정보 V:지도 0:나가기)에 맞춘다
+            int k = Math.max(0, Math.min(2, Math.round((float) (cy - y) / 10f))); String[] hints = H.pf.keyHints();
+            int sc = dst.color; boolean hcx = dst.hasClip; dst.hasClip = false; int ty = cy + 1;
+            int[] dm = new int[2]; byte[] m = H.pf.renderText(hints[k], dm); int[] d2 = new int[2]; byte[] hm = H.pf.renderTextHd(hints[k], (dm[0] - 1) * Surf.K, d2);
+            dst.setColor(0x000040); dst.drawMask(m, dm[0], dm[1], x + 1, ty - 4, hm, d2[0], d2[1]); dst.setColor(0x6DB6FF); dst.drawMask(m, dm[0], dm[1], x, ty - 5, hm, d2[0], d2[1]);
+            dst.color = sc; dst.hasClip = hcx; return true; }
         if (src.w == 10 && src.h == 36) {                                                                // 아이콘 4개(그래프/얼굴/폭죽/서류)가 세로로 이어진 시트
             int k = Math.round((float) (cy - y) / 12f); if (k < 0 || k > 3) return true;
             int[] b = {0, 7, 17, 27, 36}; int h = b[k + 1] - b[k]; Surf cell = new Surf(10, h, false); System.arraycopy(src.px, b[k] * 10, cell.px, 0, 10 * h);

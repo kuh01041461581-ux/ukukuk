@@ -74,7 +74,8 @@ function dailyNoteTab() {
         <td class="num"><span class="remv2 ${c.remain < 0 ? 'neg' : ''}">${won(c.remain)}</span><span class="hint">예산 ${won(l.budget)} · 지출 ${won(l.spent)}</span></td>
         <td><div class="nchips">${noteChips(l.note, l.scheduled)}</div></td></tr>`; }).join('');
   }).join('');
-  return `<div class="card" style="margin-top:12px"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">용도(비고) 한눈에 <span class="muted" style="font-weight:400;font-size:12px">줄을 누르면 비고를 고칠 수 있어요</span></h2></div>
+  const memoCard = `<div class="card" style="margin-top:12px;padding:12px 16px"><h2 style="margin-bottom:6px">지급예정·메모 <span class="muted" style="font-weight:400;font-size:12px">(전체 공통 메모)</span></h2><textarea class="cellin" data-f="gmemo" rows="2" style="width:100%;text-align:left;border-color:var(--edge-dark)" placeholder="예: 남중마트 미납 759,690원, 지성솔루션 토너 490,000원">${esc(S.memo)}</textarea></div>`;
+  return memoCard + `<div class="card" style="margin-top:12px"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">용도(비고) 한눈에 <span class="muted" style="font-weight:400;font-size:12px">줄을 누르면 비고를 고칠 수 있어요</span></h2></div>
     <div class="tbl-wrap fit fit-note"><table class="t notet"><thead><tr><th style="width:230px">사업명</th><th style="width:170px">잔액</th><th>비고 · 어떤 항목에 쓰는 돈인지</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function welcomeHTML() {
@@ -85,25 +86,62 @@ function welcomeHTML() {
     <p class="muted" style="margin:0">일상경비 엑셀은 '사무관리비' 탭, 공공요금 엑셀은 '${esc(S.year)}' 탭이 있으면 됩니다. 여러 파일을 한꺼번에 놓아도 됩니다.</p></div>`;
 }
 /* 현황 탭: 잔액을 숫자로 한눈에 */
+/* ===== 원그래프(도넛): 집행 내역 구성 + 퍼센트 ===== */
+const DONUT_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#6250d6', '#e87ba4', '#e34948'];
+function donutSVG(items, centerTop, centerSub) {
+  const total = sum(items, x => x.v) || 1, R = 62, C = 2 * Math.PI * R; let off = 0;
+  const segs = items.filter(x => x.v > 0).map(x => {
+    const len = x.v / total * C, gap = items.filter(y => y.v > 0).length > 1 ? 2.5 : 0, dash = Math.max(len - gap, 0.6);
+    const s = `<circle class="dseg" cx="80" cy="80" r="${R}" fill="none" stroke="${x.color}" stroke-width="26" stroke-dasharray="${dash.toFixed(2)} ${(C - dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 80 80)" data-tip="${esc(x.name)}\n${won(x.v)}원 (${pct1(x.v / total * 100)})"/>`;
+    off += len; return s;
+  }).join('');
+  return `<svg class="donut" viewBox="0 0 160 160" role="img" aria-label="집행 내역 원그래프"><circle cx="80" cy="80" r="${R}" fill="none" stroke="var(--track)" stroke-width="26"/>${segs}
+    <text x="80" y="76" text-anchor="middle" style="font-size:20px;font-weight:800;fill:var(--text)">${esc(centerTop)}</text><text x="80" y="96" text-anchor="middle" style="font-size:11px;fill:var(--text-2)">${esc(centerSub)}</text></svg>`;
+}
+function donutData(mode, T) {
+  if (mode === 'rate') {
+    const c = Math.max(0, T.budget - T.spent - T.sch);
+    return { items: [{ name: '지출', v: T.spent, color: 'var(--accent)' }, { name: '지급예정', v: T.sch, color: 'var(--sched)' }, { name: '남은 잔액', v: c, color: '#9aa3b2' }], top: pct1(T.rate), sub: '집행률', total: T.budget };
+  }
+  if (mode === 'biz') {
+    const rows = S.lines.filter(l => l.spent > 0).map(l => ({ name: l.label, v: l.spent })).sort((a, b) => b.v - a.v);
+    const top = rows.slice(0, 6), rest = sum(rows.slice(6), x => x.v);
+    const items = top.map((x, i) => ({ ...x, color: DONUT_COLORS[i] })); if (rest > 0) items.push({ name: '기타 ' + (rows.length - 6) + '개', v: rest, color: '#9aa3b2' });
+    return { items, top: won(T.spent / 1e6 | 0) + '백만', sub: '지출 합계', total: T.spent };
+  }
+  const items = GROUPS.map((g, i) => ({ name: g, v: sum(S.lines.filter(l => l.group === g), l => l.spent), color: DONUT_COLORS[i] })).filter(x => x.v > 0);
+  return { items, top: won(T.spent / 1e6 | 0) + '백만', sub: '지출 합계', total: T.spent };
+}
+function donutCard(T) {
+  const mode = UI.donut || 'group'; const d = donutData(mode, T);
+  const tot = sum(d.items, x => x.v) || 1;
+  return `<div class="card donutc"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">집행 내역</h2>
+    <div class="pills noprint" role="group" aria-label="원그래프 기준">${[['group', '구분별'], ['biz', '사업별'], ['rate', '예산 대비']].map(([k, n]) => `<button class="pill sm" aria-pressed="${mode === k}" data-act="donut" data-v="${k}">${n}</button>`).join('')}</div></div>
+    <div class="donutwrap">${donutSVG(d.items, d.top, d.sub)}
+      <div class="dleg">${d.items.map(x => `<div class="dl"><i style="background:${x.color}"></i><span class="dn" title="${esc(x.name)}">${esc(x.name)}</span><b class="dp">${pct1(x.v / tot * 100)}</b><span class="dv">${won(x.v)}</span></div>`).join('') || '<div class="muted">집행 내역이 없습니다</div>'}</div></div></div>`;
+}
+
+/* 현황 탭: 사업명과 남은 잔액이 가장 잘 보이게 */
 function remCls(l) { const c = calc(l); if (l.budget <= 0) return ''; if (c.remainAfter < 0) return 'rem-bad'; if (c.remainAfter / l.budget <= 0.05) return 'rem-low'; return ''; }
 function dailyNow(T, el, diff, alerts) {
   const rows = GROUPS.map(g => {
     const Ls = S.lines.filter(l => l.group === g); if (!Ls.length) return ''; const gt = groupTotals(Ls);
-    return `<tr class="grp"><td>${g}</td><td class="num">${won(gt.budget)}</td><td class="num">${won(gt.spent)}</td><td class="num remv ${gt.remain < 0 ? 'neg' : ''}">${won(gt.remain)}</td><td class="pcol">${pct1(gt.rate)}</td></tr>` +
-      Ls.map(l => { const c = calc(l); return `<tr class="clk ${remCls(l)}" data-act="goline" data-id="${l.id}"><td class="nm2">${esc(l.label)}${statusBadges(l)}${c.sch ? `<span class="hint">예정 ${won(c.sch)} → 예정 반영 잔액 ${won(c.remainAfter)}</span>` : ''}</td><td class="num">${won(l.budget)}</td><td class="num">${won(l.spent)}</td><td class="num remv">${won(c.remain)}</td><td class="pcol"><div class="rate">${barHTML(l.spent, c.sch, l.budget)}<b>${pct1(c.rate)}</b></div></td></tr>`; }).join('');
+    return `<tr class="grp"><td>${g}</td><td class="num remv ${gt.remain < 0 ? 'neg' : ''}">${won(gt.remain)}</td><td class="num sm">${won(gt.budget)}</td><td class="num sm">${won(gt.spent)}</td><td class="pcol">${pct1(gt.rate)}</td></tr>` +
+      Ls.map(l => { const c = calc(l); return `<tr class="clk ${remCls(l)}" data-act="goline" data-id="${l.id}"><td class="nm2">${esc(l.label)}${statusBadges(l)}${c.sch ? `<span class="hint">예정 ${won(c.sch)} → 예정 반영 잔액 ${won(c.remainAfter)}</span>` : ''}</td><td class="num remv">${won(c.remain)}</td><td class="num sm">${won(l.budget)}</td><td class="num sm">${won(l.spent)}</td><td class="pcol"><div class="rate">${barHTML(l.spent, c.sch, l.budget)}<b>${pct1(c.rate)}</b></div></td></tr>`; }).join('');
   }).join('');
+  const nAl = UI.alertsAll ? 99 : 3;
   return `<div class="now">
-    <div class="now-l"><div class="tbl-wrap fit fit-now"><table class="t nowt"><thead><tr><th>사업명</th><th>예산</th><th>지출</th><th>잔액</th><th>집행률</th></tr></thead><tbody>${rows}
-      <tr class="tot"><td>전체 합계</td><td class="num">${won(T.budget)}</td><td class="num">${won(T.spent)}</td><td class="num remv">${won(T.remain)}</td><td class="pcol">${pct1(T.rate)}</td></tr></tbody></table></div></div>
+    <div class="now-l"><div class="tbl-wrap fit fit-now"><table class="t nowt"><thead><tr><th>사업명</th><th>남은 잔액</th><th>예산</th><th>지출</th><th>집행률</th></tr></thead><tbody>${rows}
+      <tr class="tot"><td>전체 합계</td><td class="num remv">${won(T.remain)}</td><td class="num sm">${won(T.budget)}</td><td class="num sm">${won(T.spent)}</td><td class="pcol">${pct1(T.rate)}</td></tr></tbody></table></div></div>
     <div class="now-r">
       <div class="kpi bigrem"><div class="k">전체 남은 예산 (잔액)</div><div class="v ${T.remain < 0 ? 'neg' : ''}">${won(T.remain)}<small>원</small></div>
-        <div class="s">지급예정 ${won(T.sch)}원 반영 후 <b>${won(T.remainAfter)}원</b></div>
-        <div class="row" style="gap:8px;margin-top:8px"><span>집행률 <b>${pct1(T.rate)}</b></span><span class="pace ${diff < -10 ? 'slow' : diff > 5 ? 'fast' : 'ok'}">경과율 ${pct1(el)} 대비 ${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%p</span></div></div>
+        <div class="s">지급예정 ${won(T.sch)}원 반영 후 <b>${won(T.remainAfter)}원</b> · 집행률 <b>${pct1(T.rate)}</b> <span class="pace ${diff < -10 ? 'slow' : diff > 5 ? 'fast' : 'ok'}">경과율 ${pct1(el)} 대비 ${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%p</span></div></div>
+      ${donutCard(T)}
       <div class="card alerts" style="margin-top:12px"><h2>지금 확인할 것 <span class="muted" style="font-weight:400;font-size:12px">${alerts.length ? alerts.length + '건' : ''}</span></h2>
-        ${alerts.length ? alerts.slice(0, UI.alertsAll ? 99 : 4).map(al => `<div class="alert sev${al.sev}"><span class="badge ${al.sev >= 3 ? 'bad' : al.sev === 2 ? 'warn' : 'gray'}">${al.tag}</span><div class="al-main"><b>${esc(al.title)}</b><span class="al-d">${al.detail}</span></div><button class="btn sm" data-act="${al.act}" data-id="${al.id || ''}" data-cat="${al.cat || ''}">보기</button></div>`).join('') + (alerts.length > 4 ? `<button class="btn sm noprint" style="margin-top:4px" data-act="alertsall">${UI.alertsAll ? '접기' : '더보기 (' + (alerts.length - 5) + '건)'}</button>` : '') : '<div class="empty" style="padding:10px">✓ 지금 확인할 항목이 없습니다</div>'}</div>
-      <div class="card" style="margin-top:12px;padding:12px 16px"><h2 style="margin-bottom:6px">지급예정·메모</h2><textarea class="cellin" data-f="gmemo" rows="1" style="width:100%;text-align:left;border-color:var(--edge-dark)" placeholder="예: 남중마트 미납 759,690원, 지성솔루션 토너 490,000원">${esc(S.memo)}</textarea></div>
+        ${alerts.length ? alerts.slice(0, nAl).map(al => `<div class="alert sev${al.sev}"><span class="badge ${al.sev >= 3 ? 'bad' : al.sev === 2 ? 'warn' : 'gray'}">${al.tag}</span><div class="al-main"><b>${esc(al.title)}</b><span class="al-d">${al.detail}</span></div><button class="btn sm" data-act="${al.act}" data-id="${al.id || ''}" data-cat="${al.cat || ''}">보기</button></div>`).join('') + (alerts.length > 3 ? `<button class="btn sm noprint" style="margin-top:4px" data-act="alertsall">${UI.alertsAll ? '접기' : '더보기 (' + (alerts.length - 3) + '건)'}</button>` : '') : '<div class="empty" style="padding:10px">✓ 지금 확인할 항목이 없습니다</div>'}</div>
     </div></div>`;
 }
+
 /* 그래프 탭 */
 function dailyChartTab(T, el) {
   const byG = g => S.lines.filter(l => l.group === g);
@@ -203,6 +241,7 @@ $('#p-daily').addEventListener('click', e => {
   else if (a === 'addline') lineDialog(null);
   else if (a === 'pickany') pickFiles('.xlsx,.xlsm,.pdf');
   else if (a === 'dsub') { UI.dsub = b.dataset.v; UI._noKeep = true; renderDaily(); window.scrollTo(0, 0); }
+  else if (a === 'donut') { UI.donut = b.dataset.v; UI._noKeep = true; renderDaily(); }
   else if (a === 'alertsall') { UI.alertsAll = !UI.alertsAll; renderDaily(); }
   else if (a === 'sortd') { UI.dailySort = b.dataset.v; UI._noKeep = true; renderDaily(); }
   else if (a === 'goline') goLine(b.dataset.id);

@@ -218,7 +218,33 @@ def church():
     s.grad([G(TA0 - 0.01, TB1 + 0.01, TH), G(TA1 + 0.01, TB1 + 0.01, TH), apex], hx('d0684c'), hx('8a382a'), (0, 1))
     s.grad([G(TA1 + 0.01, TB0 - 0.01, TH), G(TA1 + 0.01, TB1 + 0.01, TH), apex], hx('a84a38'), hx('6a281e'), (0.3, 1))
     d.line([apex, (apex[0], apex[1] - 22)], fill=hx('f0ece4'), width=5); d.line([(apex[0] - 8, apex[1] - 14), (apex[0] + 8, apex[1] - 14)], fill=hx('f0ece4'), width=5)
-    s.tree(0.04, 0.88, 0.7); s.tree(0.94, 0.30, 0.7); s.tree(0.10, 0.36, 0.6)
+    s.tree(0.03, 0.93, 0.7); s.tree(0.95, 0.24, 0.7)
+
+    # ================= 세부 묘사(2배 해상도에서 보이는 질감) =================
+    # (1) 붉은 벽돌 줄눈: 파사드·종탑 앞면에 가로 줄눈 + 엇갈린 세로 줄눈
+    for z in [0.8 * k for k in range(1, 13)]: s.line([G(fa0, fb1, z), G(fa1, fb1, z)], hx('7a3228', 70), 1)
+    for z in [0.8 * k for k in range(1, 26)]: s.line([G(TA0, TB1, z), G(TA1, TB1, z)], hx('7a3228', 70), 1)
+    for k, z in enumerate([0.8 * q for q in range(0, 25)]):
+        for a in [TA0 + 0.03 + 0.045 * m + (0.022 if k % 2 else 0) for m in range(5)]: s.line([G(a, TB1, z), G(a, TB1, z + 0.8)], hx('7a3228', 60), 1)
+    # (2) 종탑 종루: 루버 아치창을 더 크게 + 시계 대신 둥근 장미창 테두리
+    for k in range(2):
+        a = TA0 + 0.045 + k * 0.095
+        for zz in (16.9, 17.6, 18.3, 19.0): s.line([G(a, TB1 + 0.002, zz), G(a + 0.05, TB1 + 0.002, zz)], hx('3a2a24'), 2)
+    # (3) 지붕 능선 장식: 종탑 꼭대기 첨탑 끝 + 박공 모서리 석재 장식
+    for (aa, zz) in ((fa0, fh), (fa1, fh)):
+        x, y = G(aa, fb1, zz); d.ellipse([x - 5, y - 6, x + 5, y + 2], fill=hx('d8d4c8'))
+    # (4) 한옥 예배당: 기와 막새(처마 끝 둥근 장식)와 추녀마루, 용마루 위 치미, 문살 창호의 가로 살
+    for k in range(0, 31):
+        b = b0 - ov + (b1 - b0 + 2 * ov) * k / 30; x, y = G(a1 + ov, b, zr); d.ellipse([x - 3, y - 2, x + 3, y + 4], fill=hx('e8e4f0')); d.ellipse([x - 1.5, y - 0.5, x + 1.5, y + 2.5], fill=hx('5a5c6a'))
+    for (bb, up) in ((b0 + 0.03, 1), (b1 - 0.03, 1)):
+        x, y = G(am, bb, zr + RZ); d.polygon([(x - 6, y), (x + 6, y), (x + 4, y - 14), (x - 4, y - 14)], fill=hx('2c2e38')); d.ellipse([x - 4, y - 18, x + 4, y - 10], fill=hx('d8d4e4'))
+    for k in range(0, 8):
+        bb0 = b0 + 0.05 + (b1 - b0 - 0.10) * (k + 0.12) / 9; bb1 = b0 + 0.05 + (b1 - b0 - 0.10) * (k + 0.88) / 9
+        for z in (2.0, 3.2, 4.4): s.line([G(a1 + 0.002, bb0, z), G(a1 + 0.002, bb1, z)], hx('6a4a32'), 2)
+    # (5) 앞마당: 박석 길 + 돌계단 + 장명등(돌 등)
+    for q in range(6):
+        a = 0.14 + q * 0.07; x, y = G(a, 0.92 - q * 0.015); d.polygon([(x - 18, y), (x, y - 7), (x + 18, y), (x, y + 7)], fill=hx('c8c4b8')); d.polygon([(x - 18, y), (x, y + 7), (x, y + 10), (x - 18, y + 3)], fill=hx('8a867a'))
+    x, y = G(0.60, 0.95); d.rectangle([x - 4, y - 36, x + 4, y], fill=hx('b8b4a8')); d.polygon([(x - 10, y - 36), (x + 10, y - 36), (x, y - 50)], fill=hx('8a867a')); d.rectangle([x - 5, y - 30, x + 5, y - 22], fill=hx('ffe49a'))
     return s.finish()
 
 # ---------------- b20 도서관 (사진: 흰 모더니즘 3단 매스 · 층마다 내민 흰 슬래브 + 세로 핀 열주 + 초승달 조형물) ----------------

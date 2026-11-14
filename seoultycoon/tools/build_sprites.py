@@ -46,13 +46,13 @@ for k, fn in sorted(ITEMS.items()):
     F = on_tile(F, yc)
     if k != 9: F = PS.stylize(F)
     # 애니메이션 프레임: 구성물이 실제로 움직이는 변형 그림을 우선 쓰고(승마장: 말이 울타리 안을 걷는다), 없으면 불빛 변형
-    vs = [on_tile(horse(1.0, 0.5), yc)] if k == 9 else ([PS.twinkle(F, 0, 1, 23, True), PS.twinkle(F, 1, 1, 23, True)] if k == 42 else [PS.twinkle(F, 0), PS.twinkle(F, 1)])
+    vs = [on_tile(horse(1.0, 0.5), yc)] if k == 9 else ([PS.twinkle(F, 0, 1, 23, True), PS.twinkle(F, 1, 1, 23, True)] if k in (21, 42) else [PS.twinkle(F, 0), PS.twinkle(F, 1)])
     S, rects, pos = ST.to_sheet(k, F, vs); ST.patch_yx(yx, k, rects, pos)
     import io
     buf = io.BytesIO(); S.save(buf, format='PNG'); data = buf.getvalue()
     if F2 is not None and F2.size == (192, Hc * 2):
         # HD 층: 색을 줄이거나 다시 깎지 않고 고해상도 그림 그대로(채도·대비만 원작에 맞춤) 같은 조각 배치로 담아 PNG 뒤에 붙인다
-        F2 = PS.grade(on_tile(F2, yc, 2)); v2 = [PS.grade(on_tile(horse(1.0, 0.5, True), yc, 2))] if k == 9 else [PS.twinkle(F2, 0, 2, 23, True), PS.twinkle(F2, 1, 2, 23, True)] if k == 42 else [PS.twinkle(F2, 0, 2), PS.twinkle(F2, 1, 2)]
+        F2 = PS.grade(on_tile(F2, yc, 2)); v2 = [PS.grade(on_tile(horse(1.0, 0.5, True), yc, 2))] if k == 9 else [PS.twinkle(F2, 0, 2, 23, True), PS.twinkle(F2, 1, 2, 23, True)] if k in (21, 42) else [PS.twinkle(F2, 0, 2), PS.twinkle(F2, 1, 2)]
         S2 = ST.hd_sheet(k, F2, v2, rects, pos, 2); b2 = io.BytesIO(); S2.save(b2, format='PNG'); data += b2.getvalue(); hd_show.append((k, F2))
     open(f'{out}/b{k}.png', 'wb').write(data)
     for fi in range(len(ST.TABLE[k]['frames'])): show.append((k, F, ST.compose(k, S, rects, frame=fi, pos=pos)))

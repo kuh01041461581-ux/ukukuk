@@ -319,3 +319,33 @@ for i in range(18):
     _save(f'ff{i}', raw, k, a)
 for i in range(18):                                              # 표정 조각 맨 윗 3줄을 4번째 줄 그대로 복사(밝은 점선 제거)
     raw, k, a = _load(f'ff{i}'); a[0] = a[3]; a[1] = a[3]; a[2] = a[3]; _save(f'ff{i}', raw, k, a)
+
+# 왼쪽·오른쪽 옆머리 이음: 머리 조각(fh1) 맨 아래 머리색을 바탕 얼굴(fd1) 윗 12줄 머리에 서서히 맞춘다(머리와 머리 사이의 색·결 단차 제거)
+_, _, h1 = _load('fh1'); _rawd, _kd, d1 = _load('fd1')
+hh = h1.shape[0]
+hair1 = (h1[hh - 4:hh, :, 3] > 200) & ~_skin2(h1[hh - 4:hh]); hm1 = h1[hh - 4:hh][hair1][:, :3].mean(0) if hair1.any() else None
+hairmask = (d1[..., 3] > 200) & ~_skin2(d1) & ((d1[..., :3] @ np.array([.3, .59, .11])) < 150)
+if hm1 is not None:
+    for r in range(0, 14):
+        t = (1 - r / 14.0) * 0.8; m = hairmask[r]; cur = d1[r][m][:, :3]
+        if len(cur): d1[r, m, :3] = d1[r, m, :3] + (hm1 - cur.mean(0)) * t
+_save('fd1', _rawd, _kd, d1)
+# 가는 흩어진 검은 점(잔 화소) 정리: 머리 조각 가장자리에서 떨어진 1~2화소 짜리 덩어리 제거
+from scipy import ndimage as _nd2
+for nm in ('fh1', 'fd1'):
+    raw, k, a = _load(nm); op = a[..., 3] > 0; lab, n_ = _nd2.label(op)
+    if n_ > 1:
+        sizes = _nd2.sum(op, lab, range(1, n_ + 1)); big = 1 + int(np.argmax(sizes))
+        for j in range(1, n_ + 1):
+            if j != big and sizes[j - 1] < 12: a[lab == j, 3] = 0
+    _save(nm, raw, k, a)
+
+# 왼쪽 윤곽 단차 정리: 머리 조각(fh1) 아래쪽 왼쪽 가장자리를 바깥으로 조금씩 벌려(222→219) 바탕 얼굴(fd1)의 윤곽(220→217)과 한 선으로 이어지게 한다
+raw, k, a = _load('fh1'); h = a.shape[0]
+for r in range(h - 16, h):
+    xs = np.where(a[r, :, 3] > 200)[0]
+    if len(xs) == 0: continue
+    L = int(xs.min()); t = (r - (h - 16)) / 15.0; want = int(round(L + 2 - 3 * t - 2)) if False else int(round(L - 3 * t * t))
+    for x in range(max(0, want), L):
+        a[r, x, :3] = a[r, L + 2, :3]; a[r, x, 3] = 255
+_save('fh1', raw, k, a)

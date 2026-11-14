@@ -349,3 +349,12 @@ for r in range(h - 16, h):
     for x in range(max(0, want), L):
         a[r, x, :3] = a[r, L + 2, :3]; a[r, x, 3] = 255
 _save('fh1', raw, k, a)
+
+# ===== 여자 상체 가로 1.14배(어깨를 넓게) + 머리 끝을 어깨 앞으로 늘어뜨림 =====
+raw, k, a = _load('fb1'); h, w = a.shape[:2]
+SX = 1.14; cx = w / 2.0; xs = np.arange(w); src = ((xs - cx) / SX + cx)
+x0 = np.clip(np.floor(src).astype(int), 0, w - 1); x1 = np.clip(x0 + 1, 0, w - 1); fx = (src - np.floor(src))[None, :, None]
+wide = a[:, x0] * (1 - fx) + a[:, x1] * fx
+wide[:, :, 3] = np.where(a[:, x0, 3] > 0, np.maximum(a[:, x0, 3], a[:, x1, 3]), a[:, x1, 3] * (fx[0, :, 0] > 0.5))
+a = wide
+_save('fb1', raw, k, a)

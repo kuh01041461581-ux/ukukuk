@@ -55,6 +55,6 @@ for nm in [f'ff{i}' for i in range(18)] + [f'fh{i}' for i in range(7)]:
     if False and nm.startswith('ff'): a = eye_shine(a)      # 눈이 너무 작아 효과가 미미하고 잡티처럼 보여 꺼 둠
     hd = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
     if nm.startswith('ff'): hd = crisp(hd)
-    if nm in MALE: hd = sideburns(hd)
+    # (남자 구레나룻 덧그리기는 어색해서 쓰지 않는다)
     b = io.BytesIO(); hd.save(b, format='PNG', optimize=True); open(mp, 'wb').write(raw[:i] + b.getvalue()); n += 1
 print('시장 얼굴·머리 벡터풍 2배 층', n, '장')

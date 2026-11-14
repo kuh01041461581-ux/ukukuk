@@ -79,6 +79,7 @@ final class GfxLib {
             // --- 원본과 시트 간격이 달라 생기는 위치 보정(PC 에뮬레이터와 동일)
             boolean restore = false; int scx = dst.cx, scy = dst.cy, scw = dst.cw, sch = dst.ch;
             if (src.w == 56 && src.h == 96 && dst.hasClip && dst.ch == 12) { x -= 12; y -= 2; dst.cx -= 12; dst.cy -= 2; restore = true; }       // 메인 메뉴 글자 시트
+            if (System.getenv("LOGALL") != null && src.w >= 16 && src.w <= 140 && x > 40 && x < 200 && y > 100 && y < 200) H.pf.log("ALL " + src.w + "x" + src.h + " at " + x + "," + y + " p0=" + Integer.toHexString(src.px[src.px.length / 2]) + " p1=" + Integer.toHexString(src.px[src.px.length / 3]));
             if (System.getenv("LOGFACE") != null && ((src.w == 24 && src.h == 26) || (src.w >= 32 && src.w <= 34 && src.h >= 13 && src.h <= 15) || (src.w == 53 && src.h == 49) || (src.h >= 19 && src.h <= 23 && src.w >= 56 && src.w <= 70))) H.pf.log("FACE " + src.w + "x" + src.h + " at " + x + "," + y);
             if (System.getenv("DILOG") != null && ((src.w == 37 && src.h == 31) || (src.w == 77 && src.h == 11))) H.pf.log("L" + src.w + " at " + x + "," + y + " clip=" + dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch);
             if (src.w == 77 && src.h == 11 && dst.hasClip && dst.cx - x == 42 && dst.cw == 10 && y == 5) return 0;   // 날짜 옆에 잘못 찍히던 동전 조각(시트 차이로 생긴 빈 칸)

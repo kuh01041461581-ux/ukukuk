@@ -53,7 +53,11 @@ for nm, box in (('fa0', (515, 442, 597, 495)), ('fa1', (599, 442, 686, 600)), ('
     S2 = S.copy(); ImageDraw.Draw(S2).rectangle([box[0], box[1] - 12, box[0] + 40, box[1] + 8], fill=tuple(int(v) for v in bgS)); n += apply(nm, cut(S2, box, bgS, 70))
 # 3) 머리 스트라이프(fh)는 원본 유지
 if os.path.exists(gp + '/fb1_new.png'):                          # 사용자가 GPT 로 다시 그려 준 여자 시장 상체(목선이 조금 열린 판)를 그대로 쓴다
-    N = Image.open(gp + '/fb1_new.png').convert('RGB'); bgN = np.median(np.asarray(N)[:6, :6].reshape(-1, 3), axis=0); n += apply('fb1', cut(N, (0, 0, N.width, N.height), bgN, 50)); print('fb1: 사용자 제공 그림')
+    N = Image.open(gp + '/fb1_new.png').convert('RGB'); bgN = np.median(np.asarray(N)[:6, :6].reshape(-1, 3), axis=0); n += apply('fb1', noblue(cut(N, (0, 0, N.width, N.height), bgN, 50)))
+    raw = open(f'{mod}/fb1.d', 'rb').read(); i = raw.find(b'IEND') + 8; hd1 = np.asarray(Image.open(io.BytesIO(raw[i:])).convert('RGBA')).copy()      # 목 밑선 제거: 맨 윗줄이 비면 배경이 선으로 비치므로 아래 줄을 복사해 채운다
+    for r in (1, 0):
+        m = (hd1[r, :, 3] < 255) & (hd1[r + 1, :, 3] > 0); hd1[r, m] = hd1[r + 1, m]
+    bb = io.BytesIO(); Image.fromarray(hd1, 'RGBA').save(bb, format='PNG', optimize=True); open(f'{mod}/fb1.d', 'wb').write(raw[:i] + bb.getvalue()); print('fb1: 사용자 제공 그림')
 # 4) 여자 시장 상체(fb1): 아래쪽에 부드러운 음영(곡면 그늘)과 하이라이트를 넣어 앞가슴이 도톰해 보이게 한다(가슴 자체는 그림 밖이라 음영으로만 표현)
 from PIL import ImageDraw
 if os.path.exists(gp + '/fb1_new.png'): sys.exit(0)

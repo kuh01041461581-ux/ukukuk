@@ -363,7 +363,7 @@ _save('fb1', raw, k, a)
 raw, k, a = _load('fb1'); h, w = a.shape[:2]; SC = 0.92
 im_ = Image.fromarray(a.astype(np.uint8), 'RGBA'); sm = im_.resize((int(w * SC), h), Image.LANCZOS)
 top_op = np.asarray(sm)[:4, :, 3] > 0; sk_ = _skin2(np.asarray(sm).astype(np.float32)[:4]); ncx = float(np.where(sk_.any(0))[0].mean()) if sk_.any() else sm.width / 2.0
-FACE_NECK_X = 63                                                   # 조각 안에서 얼굴 목 중심 위치(HD)
+FACE_NECK_X = 56                                                   # 조각 안에서 얼굴 목 중심 위치(HD)
 dx = int(round(FACE_NECK_X - ncx)); dx = min(dx, w - sm.width); dx = max(dx, 0)
 canvas = Image.new('RGBA', (w, h), (0, 0, 0, 0)); canvas.alpha_composite(sm, (dx, 0)); na = np.asarray(canvas).astype(np.float32)
 last = h - 1

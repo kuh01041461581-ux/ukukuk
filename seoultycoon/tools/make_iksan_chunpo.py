@@ -61,9 +61,6 @@ def chunpo():
     x, y = pk; d.ellipse([x - 3, y - 7, x + 3, y - 1], fill=hx('5cc8a4'))
     wx, wy = G(PM, PB1, HH - 2.4); d.rectangle([wx - 15, wy - 6, wx + 15, wy + 6], fill=hx('e8d8a8')); d.rectangle([wx - 15, wy - 6, wx + 15, wy + 6], outline=hx('3a6a5c'), width=2)
     d.text((wx - 11, wy - 6), '春浦', font=__import__('PIL.ImageFont', fromlist=['x']).truetype('/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc', 12), fill=hx('2a4a40')) if os.path.exists('/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc') else None
-    # 현관 앞 얕은 차양(벽에 붙은 작은 지붕)
-    s.grad([G(PA0 + 0.02, PB1 + 0.07, HH - 5.2), G(PA1 - 0.02, PB1 + 0.07, HH - 5.2), G(PA1 - 0.02, PB1, HH - 3.6), G(PA0 + 0.02, PB1, HH - 3.6)], SL[0], SL[1], (0, 1))
-    for xx in (PA0 + 0.03, PA1 - 0.03): s.line([G(xx, PB1 + 0.07, 0), G(xx, PB1 + 0.07, HH - 5.2)], hx('5cc8a4'), 4)
     x, y = G(0.56, PB1, HH - 5.8); d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=hx('fff6c0'))                          # 처마 등
     # 오른쪽 낮은 부속채(파란 지붕·붉은 벽돌 느낌) + 나무 울타리 말뚝
     s.box(0.90, 0.99, 0.20, 0.44, 4.6, (hx('b86a4a'), hx('82402c')), (hx('9c5238'), hx('6a3020')), (hx('3a9ad8'), hx('2a70b0')))

@@ -180,3 +180,25 @@ for i in range(6):
     f = (1 - shadow - side + light) * fade + (1 - fade)
     a[sk, :3] = np.clip(a[sk, :3] * f[sk][:, None], 0, 255)
     b = io.BytesIO(); Image.fromarray(a.astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:k] + b.getvalue())
+
+# 목·옷깃·잔머리 정리
+def _load(nm):
+    raw = open(f'{mod}/{nm}.d', 'rb').read(); k = raw.find(b'IEND') + 8; return raw, k, np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(np.float32)
+def _save(nm, raw, k, a):
+    b = io.BytesIO(); Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(f'{mod}/{nm}.d', 'wb').write(raw[:k] + b.getvalue())
+for nm in ('fd0', 'fd2'):                                     # 남자 바탕 얼굴 아래쪽: 푸른 옷깃 조각을 지우고(상체 그림이 대신 보인다), 턱 밑에 은은한 그늘
+    raw, k, a = _load(nm); h = a.shape[0]
+    for r in range(h - 16, h):
+        bl = (a[r, :, 3] > 0) & (a[r, :, 2] >= a[r, :, 0] - 5) & ((a[r, :, :3] @ np.array([.3, .59, .11])) < 170); a[r, bl, 3] = 0
+    for r in range(h - 8, h):
+        t = (r - (h - 8) + 1) / 8.0 * 0.14; m = _skin2(a[r]); a[r, m, :3] *= (1 - t)
+    _save(nm, raw, k, a)
+raw, k, a = _load('fd1'); h = a.shape[0]                       # 여자 바탕 얼굴: 머리끝을 가로로 잘린 선 대신 서서히 사라지게
+for r in range(h - 14, h):
+    t = (h - r) / 14.0; hair = (a[r, :, 3] > 0) & ~_skin2(a[r]); a[r, hair, 3] *= t ** 0.9
+_save('fd1', raw, k, a); chin = a[h - 24:h - 10][_skin2(a[h - 24:h - 10])][:, :3].mean(0)
+raw, k, a = _load('fb1')                                       # 여자 상체 윗부분 목 피부를 턱색으로 맞춰 가로선 제거
+for r in range(0, 12):
+    t = 1.0 - r / 12.0; m = _skin2(a[r]); a[r, m, :3] = a[r, m, :3] * (1 - t) + chin * t
+_save('fb1', raw, k, a)
+

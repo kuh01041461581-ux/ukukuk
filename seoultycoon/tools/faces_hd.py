@@ -102,8 +102,8 @@ def _force(nm, top):
     if top: a[0] = a[3]; a[1] = a[3]; a[2] = a[3]
     else: a[-1] = a[-4]; a[-2] = a[-4]; a[-3] = a[-4]
     b = io.BytesIO(); Image.fromarray(a, 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:i] + b.getvalue())
-for i in range(18): _force(f'ff{i}', True)
-for i in range(3): _force(f'fd{i}', True)
+for i in (0, 1, 2, 6, 7, 8, 15, 16, 17): _force(f'ff{i}', True)
+for i in (0, 2): _force(f'fd{i}', True)
 for i in range(6): _force(f'fh{i}', False)
 
 # 바탕 얼굴(fd0~2) 머리카락 색을 새 머리(갈색) 색으로 통일
@@ -154,13 +154,14 @@ for i in range(6):
 
 # 표정 조각 맨 윗 12줄의 피부를 같은 성별 평균색(위에서 정한 머리 조각 아랫줄 색)으로 시작해 서서히 원래 색으로 풀어, 경계의 색 단차를 없앤다
 for i in range(18):
+    if i in (3, 4, 5, 9, 10, 11, 12, 13, 14): continue
     p = f'{mod}/ff{i}.d'; raw = open(p, 'rb').read(); k = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(np.float32)
-    tgt = TF if i in (3, 4, 5, 9, 10, 11, 12, 13, 14) else TM
+    tgt = TM
     for r in range(0, 14):
         t = 1.0 - r / 14.0; m = _skin2(a[r]); a[r, m, :3] = a[r, m, :3] * (1 - t) + tgt * t
     b = io.BytesIO(); Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:k] + b.getvalue())
-for i in range(3):
-    p = f'{mod}/fd{i}.d'; raw = open(p, 'rb').read(); k = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(np.float32); tgt = TF if i == 1 else TM
+for i in (0, 2):
+    p = f'{mod}/fd{i}.d'; raw = open(p, 'rb').read(); k = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(np.float32); tgt = TM
     for r in range(0, 14):
         t = 1.0 - r / 14.0; m = _skin2(a[r]); a[r, m, :3] = a[r, m, :3] * (1 - t) + tgt * t
     b = io.BytesIO(); Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:k] + b.getvalue())
@@ -217,3 +218,58 @@ hc = _f[_hm][:, :3].mean(0); lum_h = (_f[_hm][:, :3] @ np.array([.3, .59, .11]))
 dm = (a[:14, :, 3] > 0) & ((a[:14, :, :3] @ np.array([.3, .59, .11])) < 45)
 sh = (hc.mean() / max(1.0, 1.0)) ; a[:14][dm, :3] = hc[None, :]
 _save('fb1', raw, k, a)
+
+# ===== 여자 시장 마무리: 상체 여백(목 길이), 앞머리 몇 가닥, 이마 음영 =====
+from PIL import ImageDraw as _ID
+SH = 0                                                         # 상체를 아래로 6줄(HD) 내려 목이 보이게: 위에 생기는 줄은 목 피부색(얼굴 목 색)·머리색으로 단색 채움(줄무늬 방지)
+raw, k, a = _load('fb1'); b2 = a.copy()
+_fn = _load('fd1')[2]; _nm = _skin2(_fn[-6]); NC = _fn[-6][_nm][:, :3].mean(0) if _nm.any() else TF
+_hm = (_fn[..., 3] > 250) & ((_fn[..., :3] @ np.array([.3, .59, .11])) < 120) & (~_skin2(_fn)); HC = _fn[_hm][:, :3].mean(0)
+sk0 = _skin2(a[0]) & (a[0, :, 2] < a[0, :, 1] - 5); op0 = a[0, :, 3] > 0
+for r in range(SH):
+    b2[r, :, 3] = 0; b2[r, op0 & ~sk0, :3] = HC; b2[r, op0 & ~sk0, 3] = 255; b2[r, sk0, :3] = NC; b2[r, sk0, 3] = 255
+_save('fb1', raw, k, b2)
+FEM = (3, 4, 5, 9, 10, 11, 12, 13, 14)
+for i in FEM:                                                  # 이마 음영(표정 조각 윗부분): 머리카락 아래 그늘, 관자놀이 어둡게, 중앙 은은한 하이라이트
+    raw, k, a = _load(f'ff{i}'); h, w = a.shape[:2]; sk = _skin2(a); yy, xx = np.mgrid[0:h, 0:w].astype(np.float32); cx = w / 2.0
+    top_ = np.exp(-yy / 5.0) * 0.04; side = 0.10 * np.clip((np.abs(xx - cx) / (w / 2.0) - 0.55) / 0.45, 0, 1) * np.exp(-yy / 18.0)
+    light = 0.05 * np.exp(-(((xx - cx) / (w * 0.22)) ** 2 + ((yy - 10) / 9.0) ** 2))
+    f = (1 - top_ - side + light)[..., None]; m = sk[..., None]; a[..., :3] = np.where(m, a[..., :3] * f, a[..., :3])
+    _save(f'ff{i}', raw, k, a)
+# 앞머리: 원본 GPT 머리 조각(fh6)에서 이마선 바로 아래(앞머리가 흘러내리는 부분)까지만 남기고, 옆·아랫머리는 바탕 얼굴(fd1)이 맡는다
+raw, k, a = _load('fh6'); h6, w6 = a.shape[:2]
+_ys = np.where(_skin2(a))[0]; ytop = int(_ys.min()) if len(_ys) else int(h6 * 0.4)
+cut_ = ytop + 12; new = a.copy(); new[cut_:, :, 3] = 0
+cxh = w6 / 2.0
+for r in range(ytop, cut_):                                            # 이마선 아래로는 가운데(이마 앞)만 남기고 양옆 머리는 서서히 안쪽부터 걷어 낸다
+    t = (r - ytop) / 12.0; lim = w6 * (0.50 - 0.17 * t)
+    new[r, np.abs(np.arange(w6) - cxh) > lim, 3] = 0
+new[_skin2(new), 3] = 0                                              # 이마 피부는 지운다(바탕 얼굴 fd1 의 이마가 보이게)
+_save('fh6', raw, k, new)
+# fd1 이마 음영(머리카락 아래 그늘·관자놀이·중앙 하이라이트)
+raw, k, a = _load('fd1'); h, w = a.shape[:2]; sk = _skin2(a); yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+sx = np.where(sk.any(0))[0]; cxf = (sx.min() + sx.max()) / 2.0; hwf = max(1.0, (sx.max() - sx.min()) / 2.0)
+f = (1 - 0.18 * np.exp(-yy / 9.0) - 0.10 * np.clip((np.abs(xx - cxf) / hwf - 0.55) / 0.45, 0, 1) * np.exp(-yy / 20.0) + 0.05 * np.exp(-(((xx - cxf) / (hwf * 0.5)) ** 2 + ((yy - 12) / 9.0) ** 2)))[..., None]
+a[..., :3] = np.where(sk[..., None], a[..., :3] * f, a[..., :3]); _save('fd1', raw, k, a)
+
+# 여자 시장이 쓰는 34x15 머리 조각(fh1): 이마 피부를 지워 바탕 얼굴(fd1)의 이마가 보이게 하고, 앞머리 몇 가닥을 이마 위로 내린다
+raw, k, a = _load('fh1'); h, w = a.shape[:2]
+sk = _skin2(a); hair_op = (a[..., 3] > 200) & ~sk
+# (이마 피부는 이 조각이 그리는 유일한 이마이므로 남긴다)
+hc1 = a[hair_op][:, :3].mean(0); hl1 = a[hair_op][(a[hair_op][:, :3] @ np.array([.3, .59, .11])) > 70][:, :3].mean(0) if ((a[hair_op][:, :3] @ np.array([.3, .59, .11])) > 70).any() else hc1 * 1.4
+# 이마 음영: 헤어라인 아래 그늘, 관자놀이 어둡게, 중앙 은은한 하이라이트(아래 끝은 얼굴 윗줄과 같은 색)
+dist = _ndi.distance_transform_edt(sk); yy, xx = np.mgrid[0:h, 0:w].astype(np.float32); _sx = np.where(sk.any(0))[0]; _cx = (_sx.min() + _sx.max()) / 2.0; _hw = max(1.0, (_sx.max() - _sx.min()) / 2.0)
+fade = np.clip((h - 1 - yy) / 10.0, 0, 1)
+ff_ = ((1 - 0.20 * np.exp(-dist / 6.0) - 0.10 * np.clip((np.abs(xx - _cx) / _hw - 0.55) / 0.45, 0, 1) + 0.05 * np.exp(-(((xx - _cx) / (_hw * 0.5)) ** 2 + ((yy - h * 0.7) / 10.0) ** 2))) * fade + (1 - fade))[..., None]
+a[..., :3] = np.where(sk[..., None], a[..., :3] * ff_, a[..., :3])
+S = 4; big = Image.new('RGBA', (w * S, h * S), (0, 0, 0, 0)); d = _ID.Draw(big)
+_cnt = sk.sum(1); y0 = int(np.where(_cnt >= 8)[0].min()) if (_cnt >= 8).any() else int(h * 0.65); _s2 = np.where(sk[y0 + 2])[0]; x0f, x1f = int(_s2.min()), int(_s2.max())
+for fx, ln, wd, bend in ((0.16, 8, 3.2, -2), (0.34, 10, 3.6, -2), (0.52, 6, 2.8, 1), (0.68, 9, 3.4, 3), (0.84, 6, 2.8, 2)):
+    xs0 = x0f + (x1f - x0f) * fx; pts = []
+    for t in np.linspace(0, 1, 16):
+        pts.append(((xs0 + bend * t * t) * S, (y0 - 2 + ln * t) * S, wd * S * (1 - 0.88 * t) / 2))
+    d.polygon([(x - r, y) for x, y, r in pts] + [(x + r, y) for x, y, r in pts][::-1], fill=tuple(int(v) for v in hc1) + (255,))
+    d.line([(x, y) for x, y, r in pts[:11]], fill=tuple(int(min(255, v * 1.25)) for v in hl1) + (255,), width=max(1, int(S * 0.6)))
+big = np.asarray(big.resize((w, h), Image.LANCZOS)).astype(np.float32); m = big[..., 3:4] / 255.0
+a[..., :3] = a[..., :3] * (1 - m) + big[..., :3] * m; a[..., 3] = np.maximum(a[..., 3], big[..., 3])
+_save('fh1', raw, k, a)

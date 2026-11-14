@@ -49,15 +49,12 @@ def chunpo():
     for k in range(1, 5):
         zz = zr + RZ * k / 5; aL = A0 - ov + (0.04 + ov) * k / 5; aR = A1 + ov - (0.04 + ov) * k / 5; bb = (B1 + ov) + (bm - B1 - ov) * k / 5
         s.line([G(aL, bb, zz), G(aR, bb, zz)], hx('4a6a68', 140), 2)
-    for k in range(0, 40):                                                        # 흰 마름모 하이라이트 몇 개
-        a = rs.uniform(A0, A1 - 0.1); kk = rs.randint(0, 4); zz = zr + RZ * kk / 5; bb = (B1 + ov) + (bm - B1 - ov) * kk / 5; x, y = G(a, bb, zz + 0.5)
-        d.polygon([(x - 5, y), (x, y - 4), (x + 5, y), (x, y + 4)], fill=hx('e8f2ee', 190))
     s.line([G(A0 - ov, B1 + ov, zr), G(A1 + ov, B1 + ov, zr)], hx('7fd6b4'), 5); s.line([G(A0 + 0.04, bm, zr + RZ), G(A1 - 0.04, bm, zr + RZ)], hx('a4d4c4'), 4)
     # --- 가운데 박공 돌출부: 흰 박공 + 민트 처마 + 현판 ---
     PA0, PA1, PB1 = 0.46, 0.66, B1 + 0.04
     s.box(PA0, PA1, B1 - 0.16, PB1, HH + 1.2, CR, CRR, (hx('e8d89a'), hx('c0ae70')))
     s.grad([G(PA0, PB1, 0), G(PA1, PB1, 0), G(PA1, PB1, 2.6), G(PA0, PB1, 2.6)], MINT[0], MINT[1], (0, 1))
-    pk = G((PA0 + PA1) / 2, PB1, HH + 1.2 + 8.0)
+    pk = G((PA0 + PA1) / 2, PB1, HH + 1.2 + 5.0)
     s.grad([G(PA0, PB1, HH + 1.2), G(PA1, PB1, HH + 1.2), pk], hx('fffdf0'), hx('e4dcc0'), (0.2, 1))
     s.grad([G(PA1, B1 - 0.16, HH + 1.2), G(PA1, PB1, HH + 1.2), pk], SLR[0], SLR[1], (0.3, 1))
     s.line([G(PA0 - 0.012, PB1 + 0.01, HH + 1.1), pk, G(PA1 + 0.012, PB1 + 0.01, HH + 1.1)], hx('7fd6b4'), 6)

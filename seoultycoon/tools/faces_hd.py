@@ -271,8 +271,6 @@ for r in range(h - RAD, h):
     a[r, hair[r], :3] *= (1 - 0.12 * (d + 1) / RAD)
 _save('fd1', raw, k, a)
 
-raw, k, a = _load('fb1'); dm = (a[:16, :, 3] > 0) & ((a[:16, :, :3] @ np.array([.3, .59, .11])) < 90) & ~_skin2(a[:16]); a[:16][dm, 3] = 0      # 목 옆 어두운 삼각 덩어리 제거
-_save('fb1', raw, k, a)
 
 # 여자 이마판(fh1): 아래에 이어지는 표정 조각(ff) 맨 윗줄의 열별 색을 이마판 맨 아랫줄에 그대로 맞추고, 위로 올라가며 헤어라인 쪽으로 자연스럽게 어두워지는 세로 그라데이션 + 중앙 하이라이트로 다시 칠한다
 raw, k, a = _load('fh1'); h, w = a.shape[:2]; sk = _skin2(a); OFF = 12
@@ -370,3 +368,18 @@ last = h - 1
 while last > 0 and na[last, :, 3].max() == 0: last -= 1
 for r in range(last + 1, h): na[r] = na[last]
 _save('fb1', raw, k, na)
+
+# 얼굴·몸 피부톤 맞춤: 몸 피부(비키니 제외)의 평균색을 얼굴(여자 표정 조각·바탕 얼굴) 평균 피부색에 맞춘다. 목 윗부분은 100%, 아래로 갈수록 70%
+fs = []
+for nm in ('ff3', 'ff4', 'ff5', 'ff9', 'ff10', 'ff11', 'fd1'):
+    _, _, fa = _load(nm); m = _skin2(fa) & (fa[..., 2] < fa[..., 1] - 5); fs.append(fa[m][:, :3])
+FACE_SKIN = np.concatenate(fs).mean(0)
+raw, k, a = _load('fb1'); h, w = a.shape[:2]
+bm = _skin2(a) & (a[..., 2] < a[..., 1] - 5) & (a[..., 3] > 200)                   # 비키니 분홍은 제외한 몸 피부
+BODY_SKIN = a[bm][:, :3].mean(0); delta = FACE_SKIN - BODY_SKIN
+for r in range(h):
+    t = 0.45; m = bm[r]; lum = a[r, :, :3] @ np.array([.3, .59, .11]); keep = np.clip((lum - 225) / 25.0, 0, 1)         # 하이라이트(밝은 윤기)는 건드리지 않고 중간톤만 얼굴 쪽으로
+    a[r, m, :3] = np.clip(a[r, m, :3] + delta[None, :] * (t * (1 - keep[m]))[:, None], 0, 255)
+_save('fb1', raw, k, a)
+print('피부톤 얼굴', FACE_SKIN.round(), '몸', BODY_SKIN.round())
+

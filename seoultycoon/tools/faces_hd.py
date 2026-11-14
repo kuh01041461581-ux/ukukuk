@@ -114,3 +114,26 @@ for nm in ('fd0', 'fd1', 'fd2'):
     tgt = np.array([60., 33., 34.], np.float32); k = np.clip(lum[hair] / max(lum[hair].mean(), 1), 0.4, 2.2)[:, None]
     a[hair, :3] = np.clip(tgt * k * 1.1, 0, 255)
     b = io.BytesIO(); Image.fromarray(a.astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(mp, 'wb').write(raw[:i] + b.getvalue())
+
+# 헤어라인 맞춤: 머리 조각 맨 아래 14줄의 이마(피부) 폭을 바탕 얼굴 맨 윗줄의 피부 폭으로 서서히 넓히거나 좁혀, 이마에서 얼굴로 이어지는 선의 단차를 없앤다
+def _skin2(a): return (a[..., 3] > 0) & (a[..., 0] > 170) & (a[..., 1] > 100) & (a[..., 0] > a[..., 2] + 35)
+_fd = np.asarray(Image.open(io.BytesIO(open(f'{mod}/fd0.d', 'rb').read()[open(f'{mod}/fd0.d', 'rb').read().find(b'IEND') + 8:])).convert('RGBA')).astype(np.float32)
+_sk = np.where(_skin2(_fd[4]))[0]; FD_L, FD_R = int(_sk.min()), int(_sk.max())
+for i in range(6):
+    p = f'{mod}/fh{i}.d'; raw = open(p, 'rb').read(); k = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(np.float32); h, w = a.shape[:2]
+    hairc = a[(a[..., 3] > 250) & ((a[..., :3] @ np.array([.3, .59, .11])) < 80)][:, :3]; hc = hairc.mean(0) if len(hairc) else np.array([40., 25., 28.])
+    FDL, FDR = FD_L, FD_R
+    if i == 1:                                                           # 여자 머리 조각: 바탕 얼굴은 fd1(37폭), 머리보다 3칸(HD 6) 왼쪽에서 시작한다
+        _f1 = np.asarray(Image.open(io.BytesIO(open(f'{mod}/fd1.d', 'rb').read()[open(f'{mod}/fd1.d', 'rb').read().find(b'IEND') + 8:])).convert('RGBA')).astype(np.float32)
+        _s1 = np.where(_skin2(_f1[4]))[0]; FDL, FDR = int(_s1.min()) - 6, int(_s1.max()) - 6
+    N = 7; r0 = h - N; sk0 = np.where(_skin2(a[r0]))[0]
+    if len(sk0) == 0: continue
+    L0, R0 = int(sk0.min()), int(sk0.max())
+    for r in range(r0, h):
+        t = ((r - r0 + 1) / N) ** 0.8; L = int(round(L0 * (1 - t) + FDL * t)); R = int(round(R0 * (1 - t) + FDR * t))
+        row = a[r]; skm = _skin2(row); tone = row[np.where(skm)[0][len(np.where(skm)[0]) // 2], :3].copy() if skm.any() else TOP
+        for x in range(w):
+            inside = L <= x <= R
+            if inside and not skm[x]: row[x, :3] = tone; row[x, 3] = 255
+            elif (not inside) and skm[x]: row[x, :3] = hc; row[x, 3] = 255
+    b = io.BytesIO(); Image.fromarray(a.astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:k] + b.getvalue())

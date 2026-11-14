@@ -55,4 +55,16 @@ for nm, box in (('fa0', (515, 442, 597, 495)), ('fa1', (599, 442, 686, 600)), ('
 hair = [(444, 805, 543, 862), (546, 805, 646, 862), (648, 805, 747, 862), (749, 805, 847, 862), (849, 805, 946, 862)]
 for i, box in enumerate(hair): n += apply(f'fh{i}', cut(S, box, bgS, 70))
 n += apply('fh6', cut(S, (944, 806, 1098, 960), bgS, 70))
+# 4) 여자 시장 상체(fb1): 아래쪽에 부드러운 음영(곡면 그늘)과 하이라이트를 넣어 앞가슴이 도톰해 보이게 한다(가슴 자체는 그림 밖이라 음영으로만 표현)
+from PIL import ImageDraw
+raw = open(f'{mod}/fb1.d', 'rb').read(); i = raw.find(b'IEND') + 8; first = raw[:i]; hd = Image.open(io.BytesIO(raw[i:])).convert('RGBA'); w, h = hd.size
+sh = Image.new('RGBA', (w * 4, h * 4), (0, 0, 0, 0)); d = ImageDraw.Draw(sh); hl = Image.new('RGBA', (w * 4, h * 4), (0, 0, 0, 0)); e = ImageDraw.Draw(hl)
+for cx in (44, 104):                                               # 좌·우 앞판의 둥근 면: 아래쪽 초승달 그늘 + 위쪽 하이라이트
+    d.pieslice([(cx - 26) * 4, 4 * 4, (cx + 26) * 4, 46 * 4], 15, 165, fill=(110, 10, 60, 190)); e.ellipse([(cx - 13) * 4, 18 * 4, (cx + 4) * 4, 27 * 4], fill=(255, 205, 230, 130))
+sh = sh.filter(ImageFilter.GaussianBlur(10)).resize((w, h), Image.LANCZOS); hl = hl.filter(ImageFilter.GaussianBlur(8)).resize((w, h), Image.LANCZOS)
+al = hd.getchannel('A')
+for layer in (sh, hl):
+    la = layer.getchannel('A'); layer.putalpha(Image.fromarray((np.minimum(np.asarray(la), np.asarray(al))).astype(np.uint8)))      # 옷 밖으로 번지지 않게
+hd.alpha_composite(sh); hd.alpha_composite(hl)
+b = io.BytesIO(); hd.save(b, format='PNG', optimize=True); open(f'{mod}/fb1.d', 'wb').write(first + b.getvalue())
 print('GPT 그림 반영', n, '장')

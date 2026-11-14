@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageDraw
 from scipy import ndimage as ndi
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); gp = root + '/work/gpt'; src = root + '/work/st2'; mod = root + '/st2android/mod'
-if not os.path.exists(gp + '/faces18.png'): print('gpt 이미지 없음 — 건너뜀'); sys.exit(0)
+if not os.path.exists(gp + '/sheet.png'): print('gpt 이미지 없음 — 건너뜀'); sys.exit(0)
 K = 2
 
 def cut(im, box, bgc, thr=70):
@@ -20,6 +20,10 @@ def cut(im, box, bgc, thr=70):
     al = Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8)).point(lambda v: 255 if v > 150 else (0 if v < 60 else int((v - 60) * 255 / 90)))
     out = im.crop(box).convert('RGBA'); out.putalpha(al); bb = out.getbbox(); return out.crop(bb) if bb else None
 
+def noblue(spr):
+    if spr is None: return None
+    a = np.asarray(spr).copy(); bad = (a[..., 2].astype(int) > a[..., 0].astype(int) + 25) & (a[..., 3] > 0); a[bad, 3] = 0
+    return Image.fromarray(a, 'RGBA')
 def apply(name, spr, fmt='.d'):
     p = f'{src}/{name}{fmt}'
     if spr is None or not os.path.exists(p): return False
@@ -31,12 +35,13 @@ def apply(name, spr, fmt='.d'):
     open(f'{mod}/{name}{fmt}', 'wb').write(first + b.getvalue()); return True
 
 n = 0
-# 1) 표정 18장 (ff0~ff17): 9열 x 2행
-F = Image.open(gp + '/faces18.png').convert('RGB'); bgF = np.median(np.asarray(F)[:8, :8].reshape(-1, 3), axis=0)
-xs = [2, 248, 490, 729, 976, 1219, 1467, 1713, 1943]; ws = [234, 230, 227, 235, 231, 236, 238, 222, 193]
-for r, (y0, hh) in enumerate(((104, 238), (461, 241))):
-    for c in range(9):
-        n += apply(f'ff{r * 9 + c}', cut(F, (max(0, xs[c] - 3), y0, xs[c] + ws[c] + 3, y0 + hh), bgF, 60))
+# 1) 시장 표정 18장 (ff0~ff17): sheet.png 의 얼굴 줄을 쓴다(남자 13 + 여자 5). GPT 가 8번째 얼굴을 한 장 더 그려서(번호 f8 이 두 번) 그 한 장은 뺀다
+S0 = Image.open(gp + '/sheet.png').convert('RGB'); bgF = np.median(np.asarray(S0)[:8, :8].reshape(-1, 3), axis=0)
+r1 = [(27, 78), (111, 94), (205, 94), (299, 94), (393, 94), (494, 94), (588, 94), (681, 90), (774, 91), (868, 92), (965, 91), (1061, 93), (1159, 90), (1254, 90)]
+for gi, (x, w) in enumerate(r1):
+    if gi == 9: continue                                        # 중복된 한 장
+    n += apply(f'ff{gi if gi < 9 else gi - 1}', noblue(cut(S0, (x - 1, 658, x + w + 1, 752), bgF, 60)))
+for k in range(5): n += apply(f'ff{13 + k}', noblue(cut(S0, (5 + 86 * k - 1, 803, 5 + 86 * k + 86, 906), bgF, 60)))
 # 2) 초상·상체·장식(sheet.png): 행별로 서로 붙은 인물을 가장 좁은 열에서 나눈다
 S = Image.open(gp + '/sheet.png').convert('RGB'); bgS = np.median(np.asarray(S)[:8, :8].reshape(-1, 3), axis=0)
 def label_free(box):                                           # 칸 왼쪽 위의 번호 글자 자리를 배경색으로 덮는다
@@ -70,4 +75,7 @@ for layer in (sh, hl):
     la = layer.getchannel('A'); layer.putalpha(Image.fromarray((np.minimum(np.asarray(la), np.asarray(al))).astype(np.uint8)))      # 옷 밖으로 번지지 않게
 hd.alpha_composite(sh); hd.alpha_composite(hl)
 b = io.BytesIO(); hd.save(b, format='PNG', optimize=True); open(f'{mod}/fb1.d', 'wb').write(first + b.getvalue())
-print('GPT 그림 반영', n, '장')
+# ff0 왼쪽 아래에 남는 파란 옷 조각 정리
+raw = open(f'{mod}/ff0.d', 'rb').read(); i = raw.find(b'IEND') + 8; hd0 = Image.open(io.BytesIO(raw[i:])).convert('RGBA'); a0 = np.asarray(hd0).copy(); hh0, ww0 = a0.shape[:2]; a0[int(hh0 * 0.62):, :int(ww0 * 0.2), 3] = 0
+bb0 = io.BytesIO(); Image.fromarray(a0, 'RGBA').save(bb0, format='PNG', optimize=True); open(f'{mod}/ff0.d', 'wb').write(raw[:i] + bb0.getvalue())
+print('GPT 그림 반영', n, '장 (fd0~fd2 는 원본 유지)')

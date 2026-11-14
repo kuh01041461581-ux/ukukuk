@@ -289,7 +289,33 @@ for x in range(w):
     y_a, y_b = int(colm.min()), int(colm.max())
     for y in range(y_a, y_b + 1):
         u = (y - ry0) / max(1.0, (ry1 - ry0))                          # 0=헤어라인, 1=아래(표정 조각과 접함)
-        sh = 1 - 0.22 * (1 - u) ** 1.6                                 # 헤어라인 쪽 그늘
+        sh = 1 - 0.07 * (1 - u) ** 1.6                                 # 헤어라인 쪽 그늘(약하게: 세게 곱하면 회색빛이 돈다)
         side = 1 - 0.09 * (1 - u) * min(1.0, abs(x - (cl + cr) / 2.0) / ((cr - cl) / 2.0 + 1e-6)) ** 2
-        a[y, x, :3] = np.clip(base * sh * side, 0, 255); a[y, x, 3] = 255
+        a[y, x, :3] = np.clip(base * np.array([1.0, sh ** 1.25, sh ** 1.6]) * side, 0, 255); a[y, x, 3] = 255        # 그늘은 붉은 기를 남기고 푸른 쪽을 더 줄여 따뜻한 음영
 _save('fh1', raw, k, a)
+
+# 회색 가는 선 제거: 조각 맨 윗·맨 아랫줄 근처에서 반투명(알파<255)으로 남은 화소가 뒤 배경(회색)을 비치게 한다 — 안쪽 줄이 불투명인 곳은 알파를 255 로 채운다
+def _opaque_edges(nm, top=True, bottom=False, n=5):
+    raw, k, a = _load(nm); h = a.shape[0]
+    if top:
+        for r in range(0, n):
+            m = (a[r, :, 3] < 255) & (a[n, :, 3] >= 250); a[r, m, 3] = 255
+            if True:
+                m2 = (a[r, :, 3] > 0) & (a[r, :, 3] < 255); a[r, m2, 3] = 255
+    if bottom:
+        for r in range(h - n, h):
+            m = (a[r, :, 3] < 255) & (a[h - n - 1, :, 3] >= 250); a[r, m, :3] = a[h - n - 1, m, :3]; a[r, m, 3] = 255
+    _save(nm, raw, k, a)
+for i in range(18): _opaque_edges(f'ff{i}')
+for i in range(3): _opaque_edges(f'fd{i}')
+_opaque_edges('fh1', top=False, bottom=True)
+for i in (0, 2, 3, 4, 5): _opaque_edges(f'fh{i}', top=False, bottom=True)
+
+# 표정 조각 윗 4줄의 채도 낮은(회색빛) 화소를 안쪽 줄 색으로 대체
+for i in range(18):
+    raw, k, a = _load(f'ff{i}')
+    for r in range(0, 4):
+        dull = (a[r, :, 3] > 0) & ((a[r, :, 0] - a[r, :, 2]) < 55) & ((a[r, :, :3] @ np.array([.3, .59, .11])) > 120); a[r, dull, :3] = a[4, dull, :3]
+    _save(f'ff{i}', raw, k, a)
+for i in range(18):                                              # 표정 조각 맨 윗 3줄을 4번째 줄 그대로 복사(밝은 점선 제거)
+    raw, k, a = _load(f'ff{i}'); a[0] = a[3]; a[1] = a[3]; a[2] = a[3]; _save(f'ff{i}', raw, k, a)

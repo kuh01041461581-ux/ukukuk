@@ -273,3 +273,23 @@ _save('fd1', raw, k, a)
 
 raw, k, a = _load('fb1'); dm = (a[:16, :, 3] > 0) & ((a[:16, :, :3] @ np.array([.3, .59, .11])) < 90) & ~_skin2(a[:16]); a[:16][dm, 3] = 0      # 목 옆 어두운 삼각 덩어리 제거
 _save('fb1', raw, k, a)
+
+# 여자 이마판(fh1): 아래에 이어지는 표정 조각(ff) 맨 윗줄의 열별 색을 이마판 맨 아랫줄에 그대로 맞추고, 위로 올라가며 헤어라인 쪽으로 자연스럽게 어두워지는 세로 그라데이션 + 중앙 하이라이트로 다시 칠한다
+raw, k, a = _load('fh1'); h, w = a.shape[:2]; sk = _skin2(a); OFF = 12
+tops = []
+for i in (3, 4, 5, 9, 10, 11, 12, 13, 14):
+    _, _, fa = _load(f'ff{i}'); tops.append(fa[2:5].mean(0))
+tops = np.mean(tops, axis=0)                                          # (48, 4)
+fcols = np.where(sk.any(0))[0]; cl, cr = int(fcols.min()), int(fcols.max())
+rows = np.where(sk.any(1))[0]; ry0, ry1 = int(rows.min()), int(rows.max())
+for x in range(w):
+    cx_ = min(47, max(0, x - OFF)); base = tops[cx_, :3] if tops[cx_, 3] > 100 else tops[min(47, max(0, cx_ + (3 if cx_ < 24 else -3))), :3]
+    colm = np.where(sk[:, x])[0]
+    if len(colm) == 0: continue
+    y_a, y_b = int(colm.min()), int(colm.max())
+    for y in range(y_a, y_b + 1):
+        u = (y - ry0) / max(1.0, (ry1 - ry0))                          # 0=헤어라인, 1=아래(표정 조각과 접함)
+        sh = 1 - 0.22 * (1 - u) ** 1.6                                 # 헤어라인 쪽 그늘
+        side = 1 - 0.09 * (1 - u) * min(1.0, abs(x - (cl + cr) / 2.0) / ((cr - cl) / 2.0 + 1e-6)) ** 2
+        a[y, x, :3] = np.clip(base * sh * side, 0, 255); a[y, x, 3] = 255
+_save('fh1', raw, k, a)

@@ -5,8 +5,8 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage as ndi
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); mod = root + '/st2android/mod'
-which = os.environ.get('BODY', 'b'); p = f'{root}/work/gpt/body_{which}.png'
-if not os.path.exists(p): print('body 그림 없음 — 건너뜀'); sys.exit(0)
+which = os.environ.get('BODY', ''); p = f'{root}/work/gpt/body_{which}.png'
+if not which or not os.path.exists(p): print('body 그림 없음 — 건너뜀'); sys.exit(0)
 im = Image.open(p).convert('RGB'); a = np.asarray(im).astype(int); bg = np.median(a[:6, :6].reshape(-1, 3), axis=0)
 m = np.abs(a - bg).sum(2) > 50; m = ndi.binary_closing(m, iterations=1); lab, n = ndi.label(m); sizes = ndi.sum(m, lab, range(1, n + 1)); m = ndi.binary_fill_holes(lab == 1 + int(np.argmax(sizes)))
 al = Image.fromarray((m * 255).astype(np.uint8)); o = im.convert('RGBA'); o.putalpha(al)

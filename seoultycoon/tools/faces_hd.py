@@ -352,9 +352,21 @@ _save('fh1', raw, k, a)
 
 # ===== 여자 상체 가로 1.14배(어깨를 넓게) + 머리 끝을 어깨 앞으로 늘어뜨림 =====
 raw, k, a = _load('fb1'); h, w = a.shape[:2]
-SX = 1.14; cx = w / 2.0; xs = np.arange(w); src = ((xs - cx) / SX + cx)
+SX = 1.0; cx = w / 2.0; xs = np.arange(w); src = ((xs - cx) / SX + cx)
 x0 = np.clip(np.floor(src).astype(int), 0, w - 1); x1 = np.clip(x0 + 1, 0, w - 1); fx = (src - np.floor(src))[None, :, None]
 wide = a[:, x0] * (1 - fx) + a[:, x1] * fx
 wide[:, :, 3] = np.where(a[:, x0, 3] > 0, np.maximum(a[:, x0, 3], a[:, x1, 3]), a[:, x1, 3] * (fx[0, :, 0] > 0.5))
 a = wide
 _save('fb1', raw, k, a)
+
+# 상체 비율·위치: 0.92배로 줄여 오른쪽 가슴이 조각 끝에서 잘리지 않게 하고, 목 중심을 얼굴(바탕 얼굴 목 중심)에 맞춘다
+raw, k, a = _load('fb1'); h, w = a.shape[:2]; SC = 0.92
+im_ = Image.fromarray(a.astype(np.uint8), 'RGBA'); sm = im_.resize((int(w * SC), h), Image.LANCZOS)
+top_op = np.asarray(sm)[:4, :, 3] > 0; sk_ = _skin2(np.asarray(sm).astype(np.float32)[:4]); ncx = float(np.where(sk_.any(0))[0].mean()) if sk_.any() else sm.width / 2.0
+FACE_NECK_X = 63                                                   # 조각 안에서 얼굴 목 중심 위치(HD)
+dx = int(round(FACE_NECK_X - ncx)); dx = min(dx, w - sm.width); dx = max(dx, 0)
+canvas = Image.new('RGBA', (w, h), (0, 0, 0, 0)); canvas.alpha_composite(sm, (dx, 0)); na = np.asarray(canvas).astype(np.float32)
+last = h - 1
+while last > 0 and na[last, :, 3].max() == 0: last -= 1
+for r in range(last + 1, h): na[r] = na[last]
+_save('fb1', raw, k, na)

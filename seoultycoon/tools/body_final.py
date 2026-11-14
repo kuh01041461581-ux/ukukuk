@@ -16,9 +16,9 @@ m = np.abs(a - bg).sum(2) > 50; m = ndi.binary_closing(m, iterations=1); lab, n 
 o = im.convert('RGBA'); o.putalpha(Image.fromarray((m * 255).astype(np.uint8)))
 arr = np.asarray(o).copy(); arr[(arr[..., 2].astype(int) > arr[..., 0].astype(int) + 30) & (arr[..., 3] > 0) & (arr[..., 0] < 200), 3] = 0; o = Image.fromarray(arr, 'RGBA')
 W, H = 112, 40
-SCX = float(os.environ.get('SCX', '0.92')); NECK_SRC = float(os.environ.get('NECK_SRC', '58')); NECK_DST = float(os.environ.get('NECK_DST', '64'))     # 그림의 목 중심(56)을 얼굴 목 중심(63)에 맞추며 가로를 줄여 오른쪽이 안 잘리게
-CROP = float(os.environ.get('CROP_TOP', '0.08')); o = o.crop((0, int(o.height * CROP), o.width, o.height))      # 위쪽 목 부분을 잘라 내고(어깨 윗선이 턱 밑에 닿게) 나머지를 조각 높이에 맞춰 키운다
-sm = o.resize((int(round(W * SCX)), H), Image.LANCZOS); dx = int(round(NECK_DST - NECK_SRC * SCX)); dx = max(0, min(dx, W - sm.width))
+SCX = float(os.environ.get('SCX', '1.04')); NECK_SRC = float(os.environ.get('NECK_SRC', '58')); NECK_DST = float(os.environ.get('NECK_DST', '64'))     # 그림의 목 중심(56)을 얼굴 목 중심(63)에 맞추며 가로를 줄여 오른쪽이 안 잘리게
+CROP = float(os.environ.get('CROP_TOP', '0.12')); o = o.crop((0, int(o.height * CROP), o.width, o.height))      # 위쪽 목 부분을 잘라 내고(어깨 윗선이 턱 밑에 닿게) 나머지를 조각 높이에 맞춰 키운다
+sm = o.resize((int(round(W * SCX)), H), Image.LANCZOS); dx = int(round(NECK_DST - NECK_SRC * SCX)); dx = int(round(NECK_DST - NECK_SRC * SCX)); dx = min(dx, 0 + max(0, W - sm.width)) if sm.width <= W else dx
 cv = Image.new('RGBA', (W, H), (0, 0, 0, 0)); cv.alpha_composite(sm, (dx, 0)); fa = np.asarray(cv).astype(np.float32)
 lum = fa[..., :3] @ np.array([.3, .59, .11])
 skin = sk2(fa)

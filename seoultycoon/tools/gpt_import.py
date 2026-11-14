@@ -43,12 +43,14 @@ def label_free(box):                                           # 칸 왼쪽 위�
     x0, y0 = box[0], box[1]; ImageDrawRect(x0, y0)
 def ImageDrawRect(x0, y0): pass
 PORTRAITS = ['f%d' % i for i in range(16)]                                          # 반영할 인물 초상 번호(예: ['f3', 'f5']). 비어 있으면 원본 유지
-rows = [(2, 228, [0, 194, 396, 607, 799, 992, 1160, 1358], ['f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6']),
-        (226, 442, [0, 188, 376, 598, 803, 996, 1168, 1358], ['f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'f13']),
-        (440, 640, [0, 194, 390], ['f14', 'f15'])]
+P2 = Image.open(gp + '/sheet2.png').convert('RGB') if os.path.exists(gp + '/sheet2.png') else S           # 비서 얼굴은 새로 받은 시트(sheet2)에서
+bgP = np.median(np.asarray(P2)[:6, :6].reshape(-1, 3), axis=0)
+rows = [(0, 211, [0, 194, 396, 607, 799, 992, 1160, 1358], ['f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6']),
+        (213, 424, [0, 188, 376, 598, 803, 996, 1168, 1358], ['f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'f13']),
+        (428, 628, [0, 194, 391], ['f14', 'f15'])]
 for y0, y1, cuts, names in rows:                        # 번호 글자는 작은 조각이라 cut() 이 알아서 버린다(머리를 가리는 네모칸 지우기는 쓰지 않는다)
     for i, nm in enumerate(names):
-        if nm in PORTRAITS: n += apply(nm, cut(S, (max(0, cuts[i] - 6), y0, min(S.width, cuts[i + 1] + 6), y1), bgS, 70))
+        if nm in PORTRAITS: n += apply(nm, cut(P2, (max(0, cuts[i] - 6), y0, min(P2.width, cuts[i + 1] + 6), y1), bgP, 70))
 for nm, box in (('fa0', (515, 442, 597, 495)), ('fa1', (599, 442, 686, 600)), ('fa2', (689, 442, 800, 600)), ('fb0', (804, 458, 991, 536)), ('fb1', (992, 458, 1161, 536)), ('fb2', (1164, 458, 1358, 536))):
     S2 = S.copy(); ImageDraw.Draw(S2).rectangle([box[0], box[1] - 12, box[0] + 40, box[1] + 8], fill=tuple(int(v) for v in bgS)); n += apply(nm, cut(S2, box, bgS, 70))
 # 3) 머리 스트라이프(fh)는 원본 유지

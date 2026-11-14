@@ -44,14 +44,41 @@ def sideburns(hd):
             for xx in (x, w - 1 - x):
                 if a[y, xx, 3] > 0: a[y, xx, :3] = dk * (1 - 0.0) ; a[y, xx, 3] = 255
     return Image.fromarray(a, 'RGBA')
+def face_top_color():
+    """정리 시트 얼굴(ff)의 이마 쪽 평균색(머리 조각 아래 피부와 이음새를 맞추기 위해)"""
+    acc = []
+    for i in range(18):
+        p = f'{mod}/ff{i}.d'
+        if not os.path.exists(p): continue
+        raw = open(p, 'rb').read(); k = raw.find(b'IEND') + 8
+        try: im = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(float)
+        except Exception: continue
+        top = im[0:3]; m = top[..., 3] > 200; acc.append(top[m][:, :3])
+    return np.concatenate(acc).mean(0) if acc else np.array([240., 200., 155.])
+TOP = face_top_color()
+def match_skin(a):
+    """머리 조각 안의 이마 피부를 위쪽은 원래 색, 아래(얼굴과 닿는 쪽)는 얼굴 이마색으로 서서히 바꿔 가로 이음새를 없앤다."""
+    a = a.copy(); h = a.shape[0]
+    skin = (a[..., 3] > 0) & (a[..., 0] > 190) & (a[..., 1] > 110) & (a[..., 0] > a[..., 2] + 40)
+    ys = np.where(skin.any(1))[0]
+    if len(ys) == 0: return a
+    y0, y1 = ys.min(), h - 1
+    for y in range(y0, h):
+        t = min(1.0, (y - y0) / max(1, y1 - y0)) ** 0.8 * (1.0 if y >= h - 3 else 0.92)
+        row = skin[y]; a[y, row, :3] = a[y, row, :3] * (1 - t) + TOP * t
+    return a
 n = 0
-for nm in [f'ff{i}' for i in range(18)] + [f'fh{i}' for i in range(7)]:
+for nm in [f'fh{i}' for i in range(7)]:          # 표정(ff)·바탕 얼굴(fd)은 정리 시트(gpt_import)를 쓴다
     mp = f'{mod}/{nm}.d'; sp = f'{src}/{nm}.d'
     raw = open(mp if os.path.exists(mp) else sp, 'rb').read(); i = raw.find(b'IEND') + 8; base = Image.open(io.BytesIO(raw[:i])).convert('RGBA')
     hd = VC.vec_hd(base)
     a = np.asarray(hd).astype(np.float32); al = a[..., 3:4] > 0
     lum = a[..., :3] @ np.array([0.30, 0.59, 0.11], np.float32); skin = (a[..., 0] > 150) & (a[..., 0] > a[..., 2] + 30)           # 피부: 아주 약한 밝기 보정(촉촉한 느낌)
     a[..., :3] = np.where(skin[..., None], np.clip(a[..., :3] * 1.03 + 2, 0, 255), a[..., :3])
+    if nm.startswith('fh'):
+        a = match_skin(a)
+        for r in (a.shape[0] - 1, a.shape[0] - 2):                       # 맨 아랫줄이 비면 배경이 선으로 비친다 — 위 줄을 복사
+            m = (a[r, :, 3] < 255) & (a[r - 1, :, 3] > 200); a[r, m] = a[r - 1, m]
     if False and nm.startswith('ff'): a = eye_shine(a)      # 눈이 너무 작아 효과가 미미하고 잡티처럼 보여 꺼 둠
     hd = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
     if nm.startswith('ff'): hd = crisp(hd)

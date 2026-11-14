@@ -35,7 +35,31 @@ def apply(name, spr, fmt='.d'):
     open(f'{mod}/{name}{fmt}', 'wb').write(first + b.getvalue()); return True
 
 n = 0
-# 1) 시장 표정(ff)·머리(fh)는 원본을 쓴다(GPT 얼굴과 원본 머리의 이질감 때문) — 건너뜀
+# 1) 시장 표정 ff0~ff17 · 바탕 얼굴 fd0~fd2: 사용자가 정리해 준 얼굴 시트(faceA: 전체, faceB: 9~11번만, fd_gpt: 바탕 얼굴)
+def comps(img_path, thr, minh):
+    im = Image.open(img_path).convert('RGB'); a = np.asarray(im).astype(int); bg = np.median(a[:8, :8].reshape(-1, 3), axis=0)
+    m = ndi.binary_closing(np.abs(a - bg).sum(2) > thr, iterations=2); lab, k = ndi.label(m); out = []
+    for sl in ndi.find_objects(lab):
+        h = sl[0].stop - sl[0].start; w = sl[1].stop - sl[1].start
+        if h >= minh and w >= minh: out.append((sl[1].start, sl[0].start, sl[1].stop, sl[0].stop))
+    return im, bg, sorted(out, key=lambda b: (b[1] // 250, b[0]))
+if os.path.exists(gp + '/faceA.png'):
+    IA, bgA, cA = comps(gp + '/faceA.png', 60, 120); IB, bgB, cB = comps(gp + '/faceB.png', 60, 120)
+    for i in range(18):
+        if i in (9, 10, 11): im_, bg_, box = IB, bgB, (cB[i - 1][0], 456, cB[i - 1][2], cB[i - 1][3])                           # 9·10·11번은 세 번째 그림에서(그 그림의 둘째 줄은 8번이 앞줄에 합쳐져 한 칸씩 당겨진다)
+        else: im_, bg_, box = IA, bgA, cA[i]
+        n += apply(f'ff{i}', noblue(cut(im_, (box[0] - 2, max(0, box[1] - 2), box[2] + 2, box[3] + 2), bg_, 60)))
+    IF, bgF2, cF = comps(gp + '/fd_gpt.png', 60, 150)
+    for i in range(3): n += apply(f'fd{i}', noblue(cut(IF, (cF[i][0] - 2, cF[i][1] - 2, cF[i][2] + 2, cF[i][3] + 2), bgF2, 60)))
+def fill_top(name, rows=2):
+    """2배 층 맨 윗줄이 비면 뒤 배경이 가는 선으로 비친다 — 아랫줄을 복사해 채운다"""
+    p = f'{mod}/{name}.d'; raw = open(p, 'rb').read(); i = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[i:])).convert('RGBA')).copy()
+    for r in range(rows - 1, -1, -1):
+        m = (a[r, :, 3] < 255) & (a[r + 1, :, 3] > 200); a[r, m] = a[r + 1, m]
+    bb = io.BytesIO(); Image.fromarray(a, 'RGBA').save(bb, format='PNG', optimize=True); open(p, 'wb').write(raw[:i] + bb.getvalue())
+if os.path.exists(gp + '/faceA.png'):
+    for i in range(18): fill_top(f'ff{i}')
+    for i in range(3): fill_top(f'fd{i}', 3)
 S0 = None
 # 2) 초상·상체·장식(sheet.png): 행별로 서로 붙은 인물을 가장 좁은 열에서 나눈다
 S = Image.open(gp + '/sheet.png').convert('RGB'); bgS = np.median(np.asarray(S)[:8, :8].reshape(-1, 3), axis=0)

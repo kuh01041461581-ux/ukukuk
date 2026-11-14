@@ -206,5 +206,14 @@ raw, k, a = _load('fh6'); h6, w6 = a.shape[:2]
 ys_, xs_ = np.where(_skin2(a)); top = int(ys_.min()) if len(ys_) else int(h6 * 0.4)
 keep = np.zeros((h6, w6), bool); keep[:top + 4] = True
 a[~keep, 3] = 0
+for r in range(top - 2, top + 4):
+    a[r, :, 3] *= max(0.0, 1.0 - (r - (top - 2)) / 6.0) ** 0.8
 _save('fh6', raw, k, a)
 
+
+# 목 옆 머리타래(상체 그림 위쪽의 검은 조각)를 바탕 얼굴의 머리색으로 맞춰 이어 보이게 한다
+raw, k, a = _load('fb1'); _f = _load('fd1')[2]; _hm = (_f[..., 3] > 250) & ((_f[..., :3] @ np.array([.3, .59, .11])) < 120) & (~_skin2(_f))
+hc = _f[_hm][:, :3].mean(0); lum_h = (_f[_hm][:, :3] @ np.array([.3, .59, .11])).mean()
+dm = (a[:14, :, 3] > 0) & ((a[:14, :, :3] @ np.array([.3, .59, .11])) < 45)
+sh = (hc.mean() / max(1.0, 1.0)) ; a[:14][dm, :3] = hc[None, :]
+_save('fb1', raw, k, a)

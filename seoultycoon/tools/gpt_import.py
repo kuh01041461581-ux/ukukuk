@@ -135,7 +135,6 @@ if os.path.exists(gp + '/fb1_new.png'):                          # 사용자가 
     raw = open(f'{mod}/fb1.d', 'rb').read(); i = raw.find(b'IEND') + 8; hd1 = np.asarray(Image.open(io.BytesIO(raw[i:])).convert('RGBA')).copy()      # 목 밑선 제거: 맨 윗줄이 비면 배경이 선으로 비치므로 아래 줄을 복사해 채운다
     for r in (1, 0):
         m = (hd1[r, :, 3] < 255) & (hd1[r + 1, :, 3] > 0); hd1[r, m] = hd1[r + 1, m]
-    dk_ = (hd1[:10, :, 3] > 0) & ((hd1[:10, :, :3] @ np.array([.3, .59, .11])) < 70); hd1[:10][dk_, 3] = 0          # 상체 위쪽 어깨 뒤 머리타래 조각 제거
     bb = io.BytesIO(); Image.fromarray(hd1, 'RGBA').save(bb, format='PNG', optimize=True); open(f'{mod}/fb1.d', 'wb').write(raw[:i] + bb.getvalue()); print('fb1: 사용자 제공 그림')
 # 4) 여자 시장 상체(fb1): 아래쪽에 부드러운 음영(곡면 그늘)과 하이라이트를 넣어 앞가슴이 도톰해 보이게 한다(가슴 자체는 그림 밖이라 음영으로만 표현)
 from PIL import ImageDraw

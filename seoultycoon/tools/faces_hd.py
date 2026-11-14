@@ -71,7 +71,8 @@ n = 0
 for nm in [f'fh{i}' for i in range(7)]:          # 표정(ff)·바탕 얼굴(fd)은 정리 시트(gpt_import)를 쓴다
     mp = f'{mod}/{nm}.d'; sp = f'{src}/{nm}.d'
     raw = open(mp if os.path.exists(mp) else sp, 'rb').read(); i = raw.find(b'IEND') + 8; base = Image.open(io.BytesIO(raw[:i])).convert('RGBA')
-    hd = VC.vec_hd(base)
+    GPT_HAIR = os.path.exists(root + '/work/gpt/hair.png') and len(raw) > i + 8
+    hd = Image.open(io.BytesIO(raw[i:])).convert('RGBA') if GPT_HAIR else VC.vec_hd(base)       # 정리 시트 머리가 있으면 그 2배 층을 그대로 쓴다
     a = np.asarray(hd).astype(np.float32); al = a[..., 3:4] > 0
     lum = a[..., :3] @ np.array([0.30, 0.59, 0.11], np.float32); skin = (a[..., 0] > 150) & (a[..., 0] > a[..., 2] + 30)           # 피부: 아주 약한 밝기 보정(촉촉한 느낌)
     a[..., :3] = np.where(skin[..., None], np.clip(a[..., :3] * 1.03 + 2, 0, 255), a[..., :3])

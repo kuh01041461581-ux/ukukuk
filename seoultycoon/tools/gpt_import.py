@@ -60,6 +60,16 @@ def fill_top(name, rows=2):
 if os.path.exists(gp + '/faceA.png'):
     for i in range(18): fill_top(f'ff{i}')
     for i in range(3): fill_top(f'fd{i}', 3)
+# 머리 스트라이프 fh0~fh6: 사용자 정리 시트(hair.png)의 둘째 줄 6장 + 셋째 줄의 큰 여자 머리(둘째 것)
+if os.path.exists(gp + '/hair.png'):
+    IH, bgH, cH = comps(gp + '/hair.png', 60, 60) if False else (None, None, None)
+    _im = Image.open(gp + '/hair.png').convert('RGB'); _a = np.asarray(_im).astype(int); bgH = np.median(_a[:8, :8].reshape(-1, 3), axis=0)
+    _m = ndi.binary_closing(np.abs(_a - bgH).sum(2) > 60, iterations=2); _lab, _k = ndi.label(_m); cH = []
+    for sl in ndi.find_objects(_lab):
+        if sl[0].stop - sl[0].start >= 60 and sl[1].stop - sl[1].start >= 100: cH.append((sl[1].start, sl[0].start, sl[1].stop, sl[0].stop))
+    cH = sorted(cH, key=lambda b: (b[1] // 190, b[0]))
+    pick = {0: cH[6], 1: cH[7], 2: cH[8], 3: cH[9], 4: cH[10], 5: cH[11], 6: cH[13]}
+    for i, bx in pick.items(): n += apply(f'fh{i}', cut(_im, (bx[0] - 2, bx[1] - 2, bx[2] + 2, bx[3] + 2), bgH, 60))
 S0 = None
 # 2) 초상·상체·장식(sheet.png): 행별로 서로 붙은 인물을 가장 좁은 열에서 나눈다
 S = Image.open(gp + '/sheet.png').convert('RGB'); bgS = np.median(np.asarray(S)[:8, :8].reshape(-1, 3), axis=0)

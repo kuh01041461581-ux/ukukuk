@@ -42,7 +42,13 @@ S = Image.open(gp + '/sheet.png').convert('RGB'); bgS = np.median(np.asarray(S)[
 def label_free(box):                                           # 칸 왼쪽 위의 번호 글자 자리를 배경색으로 덮는다
     x0, y0 = box[0], box[1]; ImageDrawRect(x0, y0)
 def ImageDrawRect(x0, y0): pass
-rows = []                                                # 인물 초상(f0~f15)은 원본 유지
+PORTRAITS = []                                          # 반영할 인물 초상 번호(예: ['f3', 'f5']). 비어 있으면 원본 유지
+rows = [(2, 228, [0, 194, 396, 607, 799, 992, 1160, 1358], ['f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6']),
+        (226, 442, [0, 188, 376, 598, 803, 996, 1168, 1358], ['f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'f13']),
+        (440, 640, [0, 194, 390], ['f14', 'f15'])]
+for y0, y1, cuts, names in rows:                        # 번호 글자는 작은 조각이라 cut() 이 알아서 버린다(머리를 가리는 네모칸 지우기는 쓰지 않는다)
+    for i, nm in enumerate(names):
+        if nm in PORTRAITS: n += apply(nm, cut(S, (max(0, cuts[i] - 6), y0, min(S.width, cuts[i + 1] + 6), y1), bgS, 70))
 for nm, box in (('fb0', (804, 458, 991, 536)), ('fb1', (992, 458, 1161, 536)), ('fb2', (1164, 458, 1358, 536))):
     S2 = S.copy(); ImageDraw.Draw(S2).rectangle([box[0], box[1] - 12, box[0] + 40, box[1] + 8], fill=tuple(int(v) for v in bgS)); n += apply(nm, cut(S2, box, bgS, 70))
 # 3) 머리 스트라이프: 작은 것 5장(fh0~fh4) + 큰 여자 머리(fh6)

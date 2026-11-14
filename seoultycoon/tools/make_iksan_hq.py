@@ -288,16 +288,16 @@ def baseball():
     N = 9; ZR = 0.95
     def rows(k, along):
         z0 = 0.5 + k * ZR; z1 = z0 + ZR; off0 = 0.15 - 0.0105 * k; off1 = 0.15 - 0.0105 * (k + 1)
-        col = [hx('2850b8'), hx('e8ecf8')][(k // 2) % 2] if k < 6 else hx('f4c43a'); dark = lerp(col, (0, 0, 0), 0.35)
+        col = [hx('2850b8'), hx('e8ecf8')][k % 2] if k < 6 else hx('f4c43a'); dark = lerp(col, (0, 0, 0), 0.35)
         if along == 'b': return [G(0.13, off0, z0), G(0.90, off0, z0), G(0.90, off0, z1), G(0.13, off0, z1)], [G(0.13, off0, z1), G(0.90, off0, z1), G(0.90, off1, z1), G(0.13, off1, z1)], col, dark
         return [G(off0, 0.13, z0), G(off0, 0.90, z0), G(off0, 0.90, z1), G(off0, 0.13, z1)], [G(off0, 0.13, z1), G(off0, 0.90, z1), G(off1, 0.90, z1), G(off1, 0.13, z1)], col, dark
     for k in range(N - 1, -1, -1):
         for along in ('b', 'a'):
             rq, tq, col, dark = rows(k, along); s.flat(tq, lerp(col, (255, 255, 255), 0.30)); s.grad(rq, lerp(col, (255, 255, 255), 0.10), dark, (0, 1))
             for t in np.linspace(0.16, 0.86, 22):                                                                 # 관중(작은 점)
-                if rs.random() < 0.55:
+                if rs.random() < 0.38:
                     P = G(0.13 + 0.77 * t, 0.15 - 0.0105 * (k + 0.5), 0.5 + (k + 0.6) * ZR) if along == 'b' else G(0.15 - 0.0105 * (k + 0.5), 0.13 + 0.77 * t, 0.5 + (k + 0.6) * ZR)
-                    d.ellipse([P[0] - 2, P[1] - 4, P[0] + 2, P[1] + 1], fill=rs.choice([hx('f0c8a0'), hx('e84b4b'), hx('3a3a4a'), hx('fff0a0'), hx('7ab0ff')]))
+                    d.ellipse([P[0] - 1.6, P[1] - 3, P[0] + 1.6, P[1] + 0.8], fill=rs.choice([lerp(col, (20, 20, 40), 0.55), lerp(col, (255, 255, 255), 0.45), hx('f0c8a0')]))
     for a in (0.30, 0.50, 0.70): s.line([G(a, 0.15, 0.5), G(a, 0.15 - 0.0105 * N, 0.5 + N * ZR)], hx('dcdce8'), 6)
     for b in (0.30, 0.50, 0.70): s.line([G(0.15, b, 0.5), G(0.15 - 0.0105 * N, b, 0.5 + N * ZR)], hx('dcdce8'), 6)
     s.grad([G(0.13, 0.15, 0.4), G(0.90, 0.15, 0.4), G(0.90, 0.15, 1.5), G(0.13, 0.15, 1.5)], hx('1a2a68'), hx('0e1844'), (0, 1))

@@ -195,18 +195,16 @@ for nm in ('fd0', 'fd2'):                                     # 남자 바탕 �
     _save(nm, raw, k, a)
 raw, k, a = _load('fd1'); h = a.shape[0]
 _save('fd1', raw, k, a); chin = TF * 0.93                       # 목 맨 윗줄은 턱 그늘색
-raw, k, a = _load('fb1'); h2, w2 = a.shape[:2]                 # 여자 목: 사다리꼴(위 좁고 아래 넓음)을 또렷하게 다시 그리고, 목 밖의 피부 조각은 지운다
-NR = 18; cx0 = 59.0
+raw, k, a = _load('fb1')                                       # 여자 상체(사용자 GPT 그림): 모양은 그대로 두고 피부 톤만 얼굴(fd1 목 색)에 맞춘다
 _fdn = _load('fd1')[2]; _nm = _skin2(_fdn[-6]); NECKC = _fdn[-6][_nm][:, :3].mean(0) if _nm.any() else TF
-ref = a[NR + 2][_skin2(a[NR + 2]) & (a[NR + 2, :, 2] < a[NR + 2, :, 1] - 5)][:, :3].mean(0)
-xs = np.arange(w2)
-for r in range(0, NR):
-    hwid = 13 + 8 * (r / NR); inside = np.abs(xs - cx0) <= hwid
-    old = _skin2(a[r]) & (a[r, :, 2] < a[r, :, 1] - 5)
-    t = min(1.0, r / (NR * 0.5)); base = NECKC * (1 - t) + ref * t
-    side = 1 - 0.08 * np.clip((np.abs(xs - cx0) / hwid - 0.35) / 0.65, 0, 1)         # 원통 음영: 가운데 밝고 양옆 어둡게
-    col = base[None, :] * side[:, None]
-    paint = old | (inside & (a[r, :, 3] == 0))
-    a[r, paint, :3] = col[paint]; a[r, paint, 3] = 255
+_sk = _skin2(a) & (a[..., 2] < a[..., 1] - 5); cur = a[_sk][:, :3].mean(0); delta = NECKC - a[:12][_sk[:12]][:, :3].mean(0) if _sk[:12].any() else NECKC - cur
+for r in range(a.shape[0]):
+    t = max(0.0, 1.0 - r / 28.0); m = _sk[r]; a[r, m, :3] += delta * t        # 목 윗부분은 얼굴색으로, 아래로 갈수록 원래 색
 _save('fb1', raw, k, a)
+# 여자 머리 조각(fh6): 앞머리 몇 가닥만 — 정수리·앞머리 윗부분만 남기고 옆·아랫머리는 바탕 얼굴(fd1)의 머리가 담당
+raw, k, a = _load('fh6'); h6, w6 = a.shape[:2]
+ys_, xs_ = np.where(_skin2(a)); top = int(ys_.min()) if len(ys_) else int(h6 * 0.4)
+keep = np.zeros((h6, w6), bool); keep[:top + 4] = True
+a[~keep, 3] = 0
+_save('fh6', raw, k, a)
 

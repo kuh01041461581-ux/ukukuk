@@ -88,15 +88,6 @@ for nm in [f'fh{i}' for i in range(7)]:          # 표정(ff)·바탕 얼굴(fd)
     b = io.BytesIO(); hd.save(b, format='PNG', optimize=True); open(mp, 'wb').write(raw[:i] + b.getvalue()); n += 1
 print('시장 얼굴·머리 벡터풍 2배 층', n, '장')
 
-# 바탕 얼굴(fd0~2) 머리카락 색을 새 머리(갈색) 색으로 통일
-for nm in ('fd0', 'fd1', 'fd2'):
-    mp = f'{mod}/{nm}.d'; raw = open(mp, 'rb').read(); i = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[i:])).convert('RGBA')).astype(np.float32)
-    lum = a[..., :3] @ np.array([.3, .59, .11], np.float32); hair = (a[..., 3] > 0) & (lum < 95) & (a[..., 0] < 140)
-    if hair.sum() == 0: continue
-    tgt = np.array([60., 33., 34.], np.float32); k = np.clip(lum[hair] / max(lum[hair].mean(), 1), 0.4, 2.2)[:, None]
-    a[hair, :3] = np.clip(tgt * k * 1.1, 0, 255)
-    b = io.BytesIO(); Image.fromarray(a.astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(mp, 'wb').write(raw[:i] + b.getvalue())
-
 # 바탕 얼굴 맨 윗부분(머리 조각과 닿는 6줄)의 피부를 이마색으로 서서히 맞춰 가로 이음새를 줄인다
 for nm in ('fd0', 'fd1', 'fd2'):
     mp = f'{mod}/{nm}.d'; raw = open(mp, 'rb').read(); i = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[i:])).convert('RGBA')).astype(np.float32)

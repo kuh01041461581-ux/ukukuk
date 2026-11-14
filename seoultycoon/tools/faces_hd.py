@@ -221,27 +221,8 @@ _save('fb1', raw, k, a)
 
 # ===== 여자 시장 마무리: 상체 여백(목 길이), 앞머리 몇 가닥, 이마 음영 =====
 from PIL import ImageDraw as _ID
-SH = 7                                                         # 상체를 아래로 6줄(HD) 내려 목이 보이게: 위에 생기는 줄은 목 피부색(얼굴 목 색)·머리색으로 단색 채움(줄무늬 방지)
-raw, k, a = _load('fb1'); b2 = np.zeros_like(a); b2[SH:] = a[:-SH]
-_fn = _load('fd1')[2]; _nm = _skin2(_fn[-6]); NC = _fn[-6][_nm][:, :3].mean(0) if _nm.any() else TF
-_hm = (_fn[..., 3] > 250) & ((_fn[..., :3] @ np.array([.3, .59, .11])) < 120) & (~_skin2(_fn)); HC = _fn[_hm][:, :3].mean(0)
-sk0 = _skin2(a[0]) & (a[0, :, 2] < a[0, :, 1] - 5); op0 = a[0, :, 3] > 0
-NECK_R = 22; FILL = SH + 6
-for r in range(NECK_R):                                          # 목 영역을 깨끗하게 새로 칠한다: 피부 열은 가운데 밝고 양옆 어두운 단색 그라데이션, 목 옆 어두운 덩어리는 투명(바탕 얼굴의 머리가 대신 보인다)
-    src_r = a[min(r, a.shape[0] - 1) if r < SH else 0]
-    row_src = b2[r] if r >= SH else a[4]
-    m = _skin2(row_src) & (row_src[:, 2] < row_src[:, 1] - 5)
-    cols = np.where(_skin2(a[4]) & (a[4, :, 2] < a[4, :, 1] - 5))[0]
-    if len(cols) == 0: continue
-    cl, cr = int(cols.min()), int(cols.max()); cxn = (cl + cr) / 2.0; hwn = max(1.0, (cr - cl) / 2.0); x = np.arange(a.shape[1])
-    inside = (x >= cl) & (x <= cr); t = min(1.0, r / float(NECK_R)); cyl = 1 - 0.05 * np.clip(np.abs(x - cxn) / hwn, 0, 1) ** 2
-    _bm = _skin2(b2[FILL + 4]) & (b2[FILL + 4, :, 2] < b2[FILL + 4, :, 1] - 5); BELOW = b2[FILL + 4][_bm][:, :3].mean(0) if _bm.any() else NC
-    u = min(1.0, r / float(FILL)); colr = (NC * 1.06 * (1 - u) + BELOW * u)[None, :] * cyl[:, None]
-    dark = (b2[r, :, 3] > 0) & ((b2[r, :, :3] @ np.array([.3, .59, .11])) < 90) & ~inside
-    if r < SH or True: b2[r, dark, 3] = 0
-    if r < FILL:
-        b2[r, inside, :3] = colr[inside]; b2[r, inside, 3] = 255
-        if r < SH: b2[r, ~inside, 3] = 0
+SH = 0
+raw, k, a = _load('fb1'); b2 = np.zeros_like(a); UP = 3; b2[:-UP] = a[UP:]; b2[-UP:] = a[-1]       # 상체를 위로 올려 턱에 맞닿게
 _save('fb1', raw, k, b2)
 FEM = (3, 4, 5, 9, 10, 11, 12, 13, 14)
 for i in FEM:                                                  # 이마 음영(표정 조각 윗부분): 머리카락 아래 그늘, 관자놀이 어둡게, 중앙 은은한 하이라이트
@@ -277,3 +258,12 @@ fade = np.clip((h - 1 - yy) / 10.0, 0, 1)
 ff_ = ((1 - 0.20 * np.exp(-dist / 6.0) - 0.10 * np.clip((np.abs(xx - _cx) / _hw - 0.55) / 0.45, 0, 1) + 0.05 * np.exp(-(((xx - _cx) / (_hw * 0.5)) ** 2 + ((yy - h * 0.7) / 10.0) ** 2))) * fade + (1 - fade))[..., None]
 a[..., :3] = np.where(sk[..., None], a[..., :3] * ff_, a[..., :3])
 _save('fh1', raw, k, a)
+
+# 얼굴 하단 깎기(여자): 바탕 얼굴(fd1) 맨 아래의 머리 끝자락(피부가 아닌 부분)만 정리해 상체와 맞닿게 한다 — 목 피부는 남긴다
+raw, k, a = _load('fd1'); h = a.shape[0]
+nsk = ~_skin2(a)
+for r in range(h - 10, h): a[r, nsk[r], 3] = 0
+_save('fd1', raw, k, a)
+
+raw, k, a = _load('fb1'); dm = (a[:16, :, 3] > 0) & ((a[:16, :, :3] @ np.array([.3, .59, .11])) < 90) & ~_skin2(a[:16]); a[:16][dm, 3] = 0      # 목 옆 어두운 삼각 덩어리 제거
+_save('fb1', raw, k, a)

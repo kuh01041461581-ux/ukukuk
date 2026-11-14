@@ -193,12 +193,20 @@ for nm in ('fd0', 'fd2'):                                     # 남자 바탕 �
     for r in range(h - 8, h):
         t = (r - (h - 8) + 1) / 8.0 * 0.14; m = _skin2(a[r]); a[r, m, :3] *= (1 - t)
     _save(nm, raw, k, a)
-raw, k, a = _load('fd1'); h = a.shape[0]                       # 여자 바탕 얼굴: 머리끝을 가로로 잘린 선 대신 서서히 사라지게
-for r in range(h - 14, h):
-    t = (h - r) / 14.0; hair = (a[r, :, 3] > 0) & ~_skin2(a[r]); a[r, hair, 3] *= t ** 0.9
+raw, k, a = _load('fd1'); h = a.shape[0]
 _save('fd1', raw, k, a); chin = TF * 0.93                       # 목 맨 윗줄은 턱 그늘색
-raw, k, a = _load('fb1')                                       # 여자 상체 윗부분 목 피부를 턱색에 맞춰 가로선만 제거
-for r in range(0, 10):
-    t = 1.0 - r / 10.0; m = _skin2(a[r]) & (a[r, :, 2] < a[r, :, 1] - 5); a[r, m, :3] = a[r, m, :3] * (1 - t * 0.7) + (TF * 0.93) * (t * 0.7)
+raw, k, a = _load('fb1'); h2, w2 = a.shape[:2]                 # 여자 목: 사다리꼴(위 좁고 아래 넓음)을 또렷하게 다시 그리고, 목 밖의 피부 조각은 지운다
+NR = 18; cx0 = 59.0
+_fdn = _load('fd1')[2]; _nm = _skin2(_fdn[-6]); NECKC = _fdn[-6][_nm][:, :3].mean(0) if _nm.any() else TF
+ref = a[NR + 2][_skin2(a[NR + 2]) & (a[NR + 2, :, 2] < a[NR + 2, :, 1] - 5)][:, :3].mean(0)
+xs = np.arange(w2)
+for r in range(0, NR):
+    hwid = 13 + 8 * (r / NR); inside = np.abs(xs - cx0) <= hwid
+    old = _skin2(a[r]) & (a[r, :, 2] < a[r, :, 1] - 5)
+    t = min(1.0, r / (NR * 0.5)); base = NECKC * (1 - t) + ref * t
+    side = 1 - 0.08 * np.clip((np.abs(xs - cx0) / hwid - 0.35) / 0.65, 0, 1)         # 원통 음영: 가운데 밝고 양옆 어둡게
+    col = base[None, :] * side[:, None]
+    paint = old | (inside & (a[r, :, 3] == 0))
+    a[r, paint, :3] = col[paint]; a[r, paint, 3] = 255
 _save('fb1', raw, k, a)
 

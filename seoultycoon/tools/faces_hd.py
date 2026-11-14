@@ -164,3 +164,19 @@ for i in range(3):
     for r in range(0, 14):
         t = 1.0 - r / 14.0; m = _skin2(a[r]); a[r, m, :3] = a[r, m, :3] * (1 - t) + tgt * t
     b = io.BytesIO(); Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:k] + b.getvalue())
+
+# 이마 음영: 머리카락 바로 아래는 그늘, 이마 가운데는 살짝 밝게, 양옆(관자놀이)은 어둡게 — 얼굴처럼 입체감을 주되 맨 아랫줄은 얼굴 윗줄과 같은 색으로 끝낸다
+from scipy import ndimage as _ndi
+for i in range(6):
+    p = f'{mod}/fh{i}.d'; raw = open(p, 'rb').read(); k = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(np.float32); h, w = a.shape[:2]
+    sk = _skin2(a)
+    if sk.sum() < 30: continue
+    dist = _ndi.distance_transform_edt(sk); ys, xs = np.where(sk); cx = (xs.min() + xs.max()) / 2.0; hw = max(1.0, (xs.max() - xs.min()) / 2.0); cy = ys.min() + (ys.max() - ys.min()) * 0.45
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    shadow = 0.16 * np.exp(-dist / 5.0)                                         # 머리카락 가장자리 그늘
+    side = 0.10 * np.clip((np.abs(xx - cx) / hw - 0.55) / 0.45, 0, 1) ** 1.5     # 관자놀이 쪽 어둡게
+    light = 0.07 * np.exp(-(((xx - cx) / (hw * 0.55)) ** 2 + ((yy - cy) / (max(4.0, (ys.max() - ys.min()) * 0.35)) ** 2)))   # 이마 중앙 하이라이트
+    fade = np.clip((h - 1 - yy) / 8.0, 0, 1)                                      # 아래로 갈수록 효과 0
+    f = (1 - shadow - side + light) * fade + (1 - fade)
+    a[sk, :3] = np.clip(a[sk, :3] * f[sk][:, None], 0, 255)
+    b = io.BytesIO(); Image.fromarray(a.astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:k] + b.getvalue())

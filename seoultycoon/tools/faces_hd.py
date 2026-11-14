@@ -196,9 +196,9 @@ for nm in ('fd0', 'fd2'):                                     # 남자 바탕 �
 raw, k, a = _load('fd1'); h = a.shape[0]                       # 여자 바탕 얼굴: 머리끝을 가로로 잘린 선 대신 서서히 사라지게
 for r in range(h - 14, h):
     t = (h - r) / 14.0; hair = (a[r, :, 3] > 0) & ~_skin2(a[r]); a[r, hair, 3] *= t ** 0.9
-_save('fd1', raw, k, a); chin = a[h - 24:h - 10][_skin2(a[h - 24:h - 10])][:, :3].mean(0)
-raw, k, a = _load('fb1')                                       # 여자 상체 윗부분 목 피부를 턱색으로 맞춰 가로선 제거
-for r in range(0, 12):
-    t = 1.0 - r / 12.0; m = _skin2(a[r]); a[r, m, :3] = a[r, m, :3] * (1 - t) + chin * t
+_save('fd1', raw, k, a); chin = TF * 0.93                       # 목 맨 윗줄은 턱 그늘색
+raw, k, a = _load('fb1')                                       # 여자 상체 윗부분 목 피부를 턱색에 맞춰 가로선만 제거
+for r in range(0, 10):
+    t = 1.0 - r / 10.0; m = _skin2(a[r]) & (a[r, :, 2] < a[r, :, 1] - 5); a[r, m, :3] = a[r, m, :3] * (1 - t * 0.7) + (TF * 0.93) * (t * 0.7)
 _save('fb1', raw, k, a)
 

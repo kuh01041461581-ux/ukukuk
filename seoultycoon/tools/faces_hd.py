@@ -137,3 +137,30 @@ for i in range(6):
             if inside and not skm[x]: row[x, :3] = tone; row[x, 3] = 255
             elif (not inside) and skm[x]: row[x, :3] = hc; row[x, 3] = 255
     b = io.BytesIO(); Image.fromarray(a.astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:k] + b.getvalue())
+
+# 마지막 정리: 머리 조각 아래 이마 피부를 '실제로 아래에 덮이는 표정 조각 맨 윗줄'의 평균색으로 맞춘다(선처럼 나뉘어 보이는 색 차이 제거)
+def _row_mean(nm, r):
+    raw = open(f'{mod}/{nm}.d', 'rb').read(); k = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(np.float32); m = _skin2(a[r])
+    return a[r][m][:, :3].mean(0) if m.any() else None
+_male = [_row_mean(f'ff{i}', 3) for i in (0, 1, 2, 6, 7, 8, 15, 16, 17)]; _fem = [_row_mean(f'ff{i}', 3) for i in (3, 4, 5, 9, 10, 11, 12, 13, 14)]
+TM = np.mean([c for c in _male if c is not None], axis=0); TF = np.mean([c for c in _fem if c is not None], axis=0)
+for i in range(6):
+    p = f'{mod}/fh{i}.d'; raw = open(p, 'rb').read(); k = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(np.float32); h = a.shape[0]
+    tgt = TF if i == 1 else TM; N = 12
+    for r in range(h - N, h):
+        t = min(1.0, (r - (h - N) + 1) / (N * 0.6)); m = _skin2(a[r])
+        a[r, m, :3] = a[r, m, :3] * (1 - t) + tgt * t
+    b = io.BytesIO(); Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:k] + b.getvalue())
+
+# 표정 조각 맨 윗 12줄의 피부를 같은 성별 평균색(위에서 정한 머리 조각 아랫줄 색)으로 시작해 서서히 원래 색으로 풀어, 경계의 색 단차를 없앤다
+for i in range(18):
+    p = f'{mod}/ff{i}.d'; raw = open(p, 'rb').read(); k = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(np.float32)
+    tgt = TF if i in (3, 4, 5, 9, 10, 11, 12, 13, 14) else TM
+    for r in range(0, 14):
+        t = 1.0 - r / 14.0; m = _skin2(a[r]); a[r, m, :3] = a[r, m, :3] * (1 - t) + tgt * t
+    b = io.BytesIO(); Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:k] + b.getvalue())
+for i in range(3):
+    p = f'{mod}/fd{i}.d'; raw = open(p, 'rb').read(); k = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(np.float32); tgt = TF if i == 1 else TM
+    for r in range(0, 14):
+        t = 1.0 - r / 14.0; m = _skin2(a[r]); a[r, m, :3] = a[r, m, :3] * (1 - t) + tgt * t
+    b = io.BytesIO(); Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:k] + b.getvalue())

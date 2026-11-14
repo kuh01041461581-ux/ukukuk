@@ -35,31 +35,23 @@ def apply(name, spr, fmt='.d'):
     open(f'{mod}/{name}{fmt}', 'wb').write(first + b.getvalue()); return True
 
 n = 0
-# 1) 시장 표정 18장 (ff0~ff17): sheet.png 의 얼굴 줄을 쓴다(남자 13 + 여자 5). GPT 가 8번째 얼굴을 한 장 더 그려서(번호 f8 이 두 번) 그 한 장은 뺀다
-S0 = Image.open(gp + '/sheet.png').convert('RGB'); bgF = np.median(np.asarray(S0)[:8, :8].reshape(-1, 3), axis=0)
-r1 = [(27, 78), (111, 94), (205, 94), (299, 94), (393, 94), (494, 94), (588, 94), (681, 90), (774, 91), (868, 92), (965, 91), (1061, 93), (1159, 90), (1254, 90)]
-for gi, (x, w) in enumerate(r1):
-    if gi == 9: continue                                        # 중복된 한 장
-    n += apply(f'ff{gi if gi < 9 else gi - 1}', noblue(cut(S0, (x - 1, 658, x + w + 1, 752), bgF, 60)))
-for k in range(5): n += apply(f'ff{13 + k}', noblue(cut(S0, (5 + 86 * k - 1, 803, 5 + 86 * k + 86, 906), bgF, 60)))
+# 1) 시장 표정(ff)·머리(fh)는 원본을 쓴다(GPT 얼굴과 원본 머리의 이질감 때문) — 건너뜀
+S0 = None
 # 2) 초상·상체·장식(sheet.png): 행별로 서로 붙은 인물을 가장 좁은 열에서 나눈다
 S = Image.open(gp + '/sheet.png').convert('RGB'); bgS = np.median(np.asarray(S)[:8, :8].reshape(-1, 3), axis=0)
 def label_free(box):                                           # 칸 왼쪽 위의 번호 글자 자리를 배경색으로 덮는다
     x0, y0 = box[0], box[1]; ImageDrawRect(x0, y0)
 def ImageDrawRect(x0, y0): pass
-PORTRAITS = []                                          # 반영할 인물 초상 번호(예: ['f3', 'f5']). 비어 있으면 원본 유지
+PORTRAITS = ['f%d' % i for i in range(16)]                                          # 반영할 인물 초상 번호(예: ['f3', 'f5']). 비어 있으면 원본 유지
 rows = [(2, 228, [0, 194, 396, 607, 799, 992, 1160, 1358], ['f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6']),
         (226, 442, [0, 188, 376, 598, 803, 996, 1168, 1358], ['f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'f13']),
         (440, 640, [0, 194, 390], ['f14', 'f15'])]
 for y0, y1, cuts, names in rows:                        # 번호 글자는 작은 조각이라 cut() 이 알아서 버린다(머리를 가리는 네모칸 지우기는 쓰지 않는다)
     for i, nm in enumerate(names):
         if nm in PORTRAITS: n += apply(nm, cut(S, (max(0, cuts[i] - 6), y0, min(S.width, cuts[i + 1] + 6), y1), bgS, 70))
-for nm, box in (('fb0', (804, 458, 991, 536)), ('fb1', (992, 458, 1161, 536)), ('fb2', (1164, 458, 1358, 536))):
+for nm, box in (('fa0', (515, 442, 597, 495)), ('fa1', (599, 442, 686, 600)), ('fa2', (689, 442, 800, 600)), ('fb0', (804, 458, 991, 536)), ('fb1', (992, 458, 1161, 536)), ('fb2', (1164, 458, 1358, 536))):
     S2 = S.copy(); ImageDraw.Draw(S2).rectangle([box[0], box[1] - 12, box[0] + 40, box[1] + 8], fill=tuple(int(v) for v in bgS)); n += apply(nm, cut(S2, box, bgS, 70))
-# 3) 머리 스트라이프: 작은 것 5장(fh0~fh4) + 큰 여자 머리(fh6)
-hair = [(444, 805, 543, 862), (546, 805, 646, 862), (648, 805, 747, 862), (749, 805, 847, 862), (849, 805, 946, 862)]
-for i, box in enumerate(hair): n += apply(f'fh{i}', cut(S, box, bgS, 70))
-n += apply('fh6', cut(S, (944, 806, 1098, 960), bgS, 70))
+# 3) 머리 스트라이프(fh)는 원본 유지
 if os.path.exists(gp + '/fb1_new.png'):                          # 사용자가 GPT 로 다시 그려 준 여자 시장 상체(목선이 조금 열린 판)를 그대로 쓴다
     N = Image.open(gp + '/fb1_new.png').convert('RGB'); bgN = np.median(np.asarray(N)[:6, :6].reshape(-1, 3), axis=0); n += apply('fb1', cut(N, (0, 0, N.width, N.height), bgN, 50)); print('fb1: 사용자 제공 그림')
 # 4) 여자 시장 상체(fb1): 아래쪽에 부드러운 음영(곡면 그늘)과 하이라이트를 넣어 앞가슴이 도톰해 보이게 한다(가슴 자체는 그림 밖이라 음영으로만 표현)
@@ -75,7 +67,4 @@ for layer in (sh, hl):
     la = layer.getchannel('A'); layer.putalpha(Image.fromarray((np.minimum(np.asarray(la), np.asarray(al))).astype(np.uint8)))      # 옷 밖으로 번지지 않게
 hd.alpha_composite(sh); hd.alpha_composite(hl)
 b = io.BytesIO(); hd.save(b, format='PNG', optimize=True); open(f'{mod}/fb1.d', 'wb').write(first + b.getvalue())
-# ff0 왼쪽 아래에 남는 파란 옷 조각 정리
-raw = open(f'{mod}/ff0.d', 'rb').read(); i = raw.find(b'IEND') + 8; hd0 = Image.open(io.BytesIO(raw[i:])).convert('RGBA'); a0 = np.asarray(hd0).copy(); hh0, ww0 = a0.shape[:2]; a0[int(hh0 * 0.62):, :int(ww0 * 0.2), 3] = 0
-bb0 = io.BytesIO(); Image.fromarray(a0, 'RGBA').save(bb0, format='PNG', optimize=True); open(f'{mod}/ff0.d', 'wb').write(raw[:i] + bb0.getvalue())
-print('GPT 그림 반영', n, '장 (fd0~fd2 는 원본 유지)')
+print('GPT 그림 반영', n, '장 (시장 표정·머리·fd 는 원본 유지)')

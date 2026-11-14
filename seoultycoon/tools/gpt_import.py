@@ -3,7 +3,7 @@
 work/gpt 가 없으면 아무것도 하지 않는다.   → st2android/mod/{ff,f,fa,fb,fh}*.d"""
 import os, io, sys
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageDraw
 from scipy import ndimage as ndi
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); gp = root + '/work/gpt'; src = root + '/work/st2'; mod = root + '/st2android/mod'
 if not os.path.exists(gp + '/faces18.png'): print('gpt 이미지 없음 — 건너뜀'); sys.exit(0)
@@ -42,14 +42,8 @@ S = Image.open(gp + '/sheet.png').convert('RGB'); bgS = np.median(np.asarray(S)[
 def label_free(box):                                           # 칸 왼쪽 위의 번호 글자 자리를 배경색으로 덮는다
     x0, y0 = box[0], box[1]; ImageDrawRect(x0, y0)
 def ImageDrawRect(x0, y0): pass
-rows = [(14, 226, [0, 194, 396, 607, 799, 992, 1160, 1358], ['f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6']),
-        (230, 440, [0, 188, 376, 598, 803, 996, 1168, 1358], ['f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'f13']),
-        (442, 640, [0, 194, 390], ['f14', 'f15'])]
-for y0, y1, cuts, names in rows:
-    for i, nm in enumerate(names):
-        S2 = S.copy(); from PIL import ImageDraw; ImageDraw.Draw(S2).rectangle([cuts[i], y0, cuts[i] + 40, y0 + 34], fill=tuple(int(v) for v in bgS))
-        n += apply(nm, cut(S2, (cuts[i], y0, cuts[i + 1], y1), bgS, 70))
-for nm, box in (('fa0', (515, 442, 597, 495)), ('fa1', (599, 442, 686, 600)), ('fa2', (689, 442, 800, 600)), ('fb0', (804, 458, 991, 536)), ('fb1', (992, 458, 1161, 536)), ('fb2', (1164, 458, 1358, 536))):
+rows = []                                                # 인물 초상(f0~f15)은 원본 유지
+for nm, box in (('fb0', (804, 458, 991, 536)), ('fb1', (992, 458, 1161, 536)), ('fb2', (1164, 458, 1358, 536))):
     S2 = S.copy(); ImageDraw.Draw(S2).rectangle([box[0], box[1] - 12, box[0] + 40, box[1] + 8], fill=tuple(int(v) for v in bgS)); n += apply(nm, cut(S2, box, bgS, 70))
 # 3) 머리 스트라이프: 작은 것 5장(fh0~fh4) + 큰 여자 머리(fh6)
 hair = [(444, 805, 543, 862), (546, 805, 646, 862), (648, 805, 747, 862), (749, 805, 847, 862), (849, 805, 946, 862)]

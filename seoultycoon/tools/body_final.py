@@ -1,22 +1,30 @@
-"""여자 시장 상체: 사용자 제공 큰 그림(work/gpt/body_X.png, 목이 가운데 위에 있는 상반신)을 상체 조각(56x20, HD 112x40)에 맞춰 넣는다.
-조각 폭(112)에 맞춰 줄이고 위에서부터 40줄만 쓴다(목~어깨~가슴 윗부분). 환경변수 BODY=a|b 로 고른다. work/gpt/body_X.png 가 없으면 건너뜀."""
+"""여자 시장 상체: 사용자 제공 그림(work/gpt/body_c.png, 조각 비율 2.8:1 로 만든 목·어깨·옷 그림)을 상체 조각(56x20, HD 112x40)에 통째로 맞춘다.
+피부색은 얼굴에, 머리카락 색은 바탕 얼굴의 머리색에 맞춘다. 환경변수 BODY=c 일 때만 동작(없으면 건너뜀).  → st2android/mod/fb1.d"""
 import os, io, sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage as ndi
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); mod = root + '/st2android/mod'
-which = os.environ.get('BODY', ''); p = f'{root}/work/gpt/body_{which}.png'
-if not which or not os.path.exists(p): print('body 그림 없음 — 건너뜀'); sys.exit(0)
+which = os.environ.get('BODY', 'c')                                  # 기본: c
+p = f'{root}/work/gpt/body_{which}.png'
+if not os.path.exists(p): print('body 그림 없음 — 건너뜀'); sys.exit(0)
+def ld(nm):
+    r = open(f'{mod}/{nm}.d', 'rb').read(); k = r.find(b'IEND') + 8; return np.asarray(Image.open(io.BytesIO(r[k:])).convert('RGBA')).astype(np.float32)
+sk2 = lambda x: (x[..., 3] > 200) & (x[..., 0] > 170) & (x[..., 1] > 100) & (x[..., 0] > x[..., 2] + 35) & (x[..., 2] < x[..., 1] - 5)
 im = Image.open(p).convert('RGB'); a = np.asarray(im).astype(int); bg = np.median(a[:6, :6].reshape(-1, 3), axis=0)
 m = np.abs(a - bg).sum(2) > 50; m = ndi.binary_closing(m, iterations=1); lab, n = ndi.label(m); sizes = ndi.sum(m, lab, range(1, n + 1)); m = ndi.binary_fill_holes(lab == 1 + int(np.argmax(sizes)))
-al = Image.fromarray((m * 255).astype(np.uint8)); o = im.convert('RGBA'); o.putalpha(al)
-arr = np.asarray(o).copy(); arr[(arr[..., 2].astype(int) > arr[..., 0].astype(int) + 30) & (arr[..., 3] > 0), 3] = 0; o = Image.fromarray(arr, 'RGBA'); o = o.crop(o.getbbox())
-W, H = 112, 40; f = float(os.environ.get('SCALE', '0.074')) * (1536.0 / im.width) if False else float(os.environ.get('SCALE', '0.074')) * 1536.0 / o.width * (o.width / 1536.0) * (1.0)
-f = float(os.environ.get('SCALE', '0.074')) * (im.width / o.width) * (o.width / im.width)       # 원본 그림 폭 기준 배율
-big = o.resize((max(1, int(o.width * f)), max(1, int(o.height * f))), Image.LANCZOS)
-nz = np.asarray(big)[:6, :, 3] > 0; ncx = float(np.where(nz.any(0))[0].mean()); NECK_X = float(os.environ.get('NECKX', '58')); TOP = int(os.environ.get('TOPOFF', '0'))
-hd = Image.new('RGBA', (W, H), (0, 0, 0, 0)); hd.alpha_composite(big.crop((0, TOP, big.width, TOP + H)) if False else big, (int(round(NECK_X - ncx)), -TOP)) if False else None
-canvas = Image.new('RGBA', (W + 400, H + 400), (0, 0, 0, 0)); canvas.alpha_composite(big, (200 + int(round(NECK_X - ncx)), 200 - TOP)); hd = canvas.crop((200, 200, 200 + W, 200 + H))
-raw = open(f'{mod}/fb1.d', 'rb').read(); i = raw.find(b'IEND') + 8; first = raw[:i]
-lo = Image.open(io.BytesIO(first)).convert('RGBA'); lo2 = hd.resize((56, 20), Image.LANCZOS); aa = np.asarray(lo2).copy(); aa[..., 3] = (aa[..., 3] > 127) * 255; lo2 = Image.fromarray(aa, 'RGBA')
-b1 = io.BytesIO(); lo2.save(b1, format='PNG'); b2 = io.BytesIO(); hd.save(b2, format='PNG', optimize=True); open(f'{mod}/fb1.d', 'wb').write(b1.getvalue() + b2.getvalue()); print('상체 적용', which, big.size)
+o = im.convert('RGBA'); o.putalpha(Image.fromarray((m * 255).astype(np.uint8)))
+arr = np.asarray(o).copy(); arr[(arr[..., 2].astype(int) > arr[..., 0].astype(int) + 30) & (arr[..., 3] > 0) & (arr[..., 0] < 200), 3] = 0; o = Image.fromarray(arr, 'RGBA')
+W, H = 112, 40; fa = np.asarray(o.resize((W, H), Image.LANCZOS)).astype(np.float32)
+lum = fa[..., :3] @ np.array([.3, .59, .11])
+skin = sk2(fa)
+fd = ld('fd1'); fsk = np.concatenate([ld(n)[sk2(ld(n))][:, :3] for n in ('ff3', 'ff4', 'ff9', 'fd1')]).mean(0)
+hm = (fd[..., 3] > 250) & ~sk2(fd) & ((fd[..., :3] @ np.array([.3, .59, .11])) < 150); fhair = fd[hm][:, :3].mean(0)
+hair = (fa[..., 3] > 200) & ~skin & (fa[..., 0] > fa[..., 2]) & (lum < 140) & (np.arange(H)[:, None] < 22)
+fa[skin, :3] += (fsk - fa[skin][:, :3].mean(0)) * 0.6 * (1 - np.clip((lum[skin] - 225) / 25.0, 0, 1))[:, None]
+if hair.any(): fa[hair, :3] += (fhair - fa[hair][:, :3].mean(0)) * 0.9
+hd = Image.fromarray(np.clip(fa, 0, 255).astype(np.uint8), 'RGBA')
+raw = open(f'{mod}/fb1.d', 'rb').read(); i = raw.find(b'IEND') + 8
+lo = hd.resize((56, 20), Image.LANCZOS); aa = np.asarray(lo).copy(); aa[..., 3] = (aa[..., 3] > 127) * 255
+b1 = io.BytesIO(); Image.fromarray(aa, 'RGBA').save(b1, format='PNG'); b2 = io.BytesIO(); hd.save(b2, format='PNG', optimize=True)
+open(f'{mod}/fb1.d', 'wb').write(b1.getvalue() + b2.getvalue()); print('상체 적용', which)

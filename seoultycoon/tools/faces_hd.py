@@ -34,6 +34,16 @@ def crisp(im):
     lum = a @ np.array([0.30, 0.59, 0.11], np.float32); a *= np.where(lum < 100, 0.86, 1.0)[..., None]   # 짙은 선
     rgb = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGB').filter(ImageFilter.UnsharpMask(radius=1.0, percent=55, threshold=3))
     out = rgb.convert('RGBA'); out.putalpha(im.getchannel('A')); return out
+MALE = {'ff0', 'ff1', 'ff2', 'ff6', 'ff7', 'ff8', 'ff12'}
+def sideburns(hd):
+    """남자 얼굴 위쪽 양옆(관자놀이)에 구레나룻을 그려, 머리 조각(얼굴보다 넓은 모자 모양)과 이어지게 한다. 대머리 단계에서는 옆머리 술이 된다."""
+    a = np.asarray(hd).copy(); h, w = a.shape[:2]; dk = np.array([26, 20, 30], np.uint8)
+    for y in range(0, 16):                                          # 위 8줄(2배 층 16행): 폭이 위에서 아래로 좁아진다
+        t = y / 16.0; wd = int(round(7 - 5.0 * t))
+        for x in range(0, wd):
+            for xx in (x, w - 1 - x):
+                if a[y, xx, 3] > 0: a[y, xx, :3] = dk * (1 - 0.0) ; a[y, xx, 3] = 255
+    return Image.fromarray(a, 'RGBA')
 n = 0
 for nm in [f'ff{i}' for i in range(18)] + [f'fh{i}' for i in range(7)]:
     mp = f'{mod}/{nm}.d'; sp = f'{src}/{nm}.d'
@@ -45,5 +55,6 @@ for nm in [f'ff{i}' for i in range(18)] + [f'fh{i}' for i in range(7)]:
     if False and nm.startswith('ff'): a = eye_shine(a)      # 눈이 너무 작아 효과가 미미하고 잡티처럼 보여 꺼 둠
     hd = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
     if nm.startswith('ff'): hd = crisp(hd)
+    if nm in MALE: hd = sideburns(hd)
     b = io.BytesIO(); hd.save(b, format='PNG', optimize=True); open(mp, 'wb').write(raw[:i] + b.getvalue()); n += 1
 print('시장 얼굴·머리 벡터풍 2배 층', n, '장')

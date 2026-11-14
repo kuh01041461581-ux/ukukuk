@@ -54,7 +54,7 @@ def face_top_color():
         try: im = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(float)
         except Exception: continue
         top = im[0:6]; m = top[..., 3] > 200; acc.append(top[m][:, :3])
-    return np.clip(np.concatenate(acc).mean(0) * 1.05, 0, 255) if acc else np.array([240., 200., 155.])
+    return np.clip(np.concatenate(acc).mean(0) * 1.0, 0, 255) if acc else np.array([240., 200., 155.])
 TOP = face_top_color()
 def match_skin(a):
     """머리 조각 안의 이마 피부를 위쪽은 원래 색, 아래(얼굴과 닿는 쪽)는 얼굴 이마색으로 서서히 바꿔 가로 이음새를 없앤다."""
@@ -64,9 +64,9 @@ def match_skin(a):
     if len(ys) == 0: return a
     y0, y1 = ys.min(), h - 1
     for y in range(y0, h):
-        t = min(1.0, (y - y0) / max(1, y1 - y0)) ** 0.8 * (1.0 if y >= h - 3 else 0.92)
+        t = min(1.0, (y - y0) / max(1, y1 - y0)) ** 0.8 * (1.0 if y >= h - 6 else 0.92)
         row = skin[y]; a[y, row, :3] = a[y, row, :3] * (1 - t) + TOP * t
-        u = (y - y0) / max(1, y1 - y0); a[y, row, :3] *= (0.80 + 0.20 * min(1.0, u * 1.6) ** 0.7)           # 머리 바로 아래 이마는 그늘, 아래로 갈수록 얼굴색
+        u = (y - y0) / max(1, y1 - y0); a[y, row, :3] *= (0.80 + 0.20 * min(1.0, u * 3.0) ** 0.7)           # 머리 바로 아래 이마는 그늘, 아래로 갈수록 얼굴색
     return a
 n = 0
 for nm in [f'fh{i}' for i in range(7)]:          # 표정(ff)·바탕 얼굴(fd)은 정리 시트(gpt_import)를 쓴다
@@ -95,3 +95,13 @@ for nm in ('fd0', 'fd1', 'fd2'):
     for y in range(0, 8):
         t = 0.85 * (1 - y / 8.0); r = sk[y]; a[y, r, :3] = a[y, r, :3] * (1 - t) + TOP * t
     b = io.BytesIO(); Image.fromarray(a.astype(np.uint8), 'RGBA').save(b, format='PNG', optimize=True); open(mp, 'wb').write(raw[:i] + b.getvalue())
+
+# 이음새 줄 정리: 표정(ff)·바탕(fd)의 맨 윗 2줄과 머리(fh)의 맨 아랫 2줄을 이웃 줄과 같게 복사(가로 띠 제거)
+def _force(nm, top):
+    p = f'{mod}/{nm}.d'; raw = open(p, 'rb').read(); i = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[i:])).convert('RGBA')).copy()
+    if top: a[0] = a[3]; a[1] = a[3]; a[2] = a[3]
+    else: a[-1] = a[-4]; a[-2] = a[-4]; a[-3] = a[-4]
+    b = io.BytesIO(); Image.fromarray(a, 'RGBA').save(b, format='PNG', optimize=True); open(p, 'wb').write(raw[:i] + b.getvalue())
+for i in range(18): _force(f'ff{i}', True)
+for i in range(3): _force(f'fd{i}', True)
+for i in range(6): _force(f'fh{i}', False)

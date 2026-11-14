@@ -20,9 +20,9 @@ def cut(im, box, bgc, thr=70):
     al = Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8)).point(lambda v: 255 if v > 150 else (0 if v < 60 else int((v - 60) * 255 / 90)))
     out = im.crop(box).convert('RGBA'); out.putalpha(al); bb = out.getbbox(); return out.crop(bb) if bb else None
 
-def noblue(spr):
+def noblue(spr, th=25):
     if spr is None: return None
-    a = np.asarray(spr).copy(); bad = (a[..., 2].astype(int) > a[..., 0].astype(int) + 25) & (a[..., 3] > 0); a[bad, 3] = 0
+    a = np.asarray(spr).copy(); bad = (a[..., 2].astype(int) > a[..., 0].astype(int) + th) & (a[..., 3] > 0); a[bad, 3] = 0
     return Image.fromarray(a, 'RGBA')
 def apply(name, spr, fmt='.d'):
     p = f'{src}/{name}{fmt}'
@@ -50,7 +50,7 @@ if os.path.exists(gp + '/faceA.png'):
         else: im_, bg_, box = IA, bgA, cA[i]
         n += apply(f'ff{i}', noblue(cut(im_, (box[0] - 2, max(0, box[1] - 2), box[2] + 2, box[3] + 2), bg_, 60)))
     IF, bgF2, cF = comps(gp + '/fd_gpt.png', 60, 150)
-    for i in range(3): n += apply(f'fd{i}', noblue(cut(IF, (cF[i][0] - 2, cF[i][1] - 2, cF[i][2] + 2, cF[i][3] + 2), bgF2, 60)))
+    for i in range(3): n += apply(f'fd{i}', noblue(th=(25 if i == 1 else 8), spr=cut(IF, (cF[i][0] - 2, cF[i][1] - 2, cF[i][2] + 2, cF[i][3] + 2), bgF2, 60)))
 def fill_top(name, rows=2):
     """2배 층 맨 윗줄이 비면 뒤 배경이 가는 선으로 비친다 — 아랫줄을 복사해 채운다"""
     p = f'{mod}/{name}.d'; raw = open(p, 'rb').read(); i = raw.find(b'IEND') + 8; a = np.asarray(Image.open(io.BytesIO(raw[i:])).convert('RGBA')).copy()

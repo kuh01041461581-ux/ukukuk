@@ -53,8 +53,8 @@ def face_top_color():
         raw = open(p, 'rb').read(); k = raw.find(b'IEND') + 8
         try: im = np.asarray(Image.open(io.BytesIO(raw[k:])).convert('RGBA')).astype(float)
         except Exception: continue
-        top = im[0:3]; m = top[..., 3] > 200; acc.append(top[m][:, :3])
-    return np.concatenate(acc).mean(0) if acc else np.array([240., 200., 155.])
+        top = im[0:6]; m = top[..., 3] > 200; acc.append(top[m][:, :3])
+    return np.clip(np.concatenate(acc).mean(0) * 1.05, 0, 255) if acc else np.array([240., 200., 155.])
 TOP = face_top_color()
 def match_skin(a):
     """머리 조각 안의 이마 피부를 위쪽은 원래 색, 아래(얼굴과 닿는 쪽)는 얼굴 이마색으로 서서히 바꿔 가로 이음새를 없앤다."""

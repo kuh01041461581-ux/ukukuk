@@ -51,17 +51,20 @@ def chunpo():
         s.line([G(aL, bb, zz), G(aR, bb, zz)], hx('4a6a68', 140), 2)
     s.line([G(A0 - ov, B1 + ov, zr), G(A1 + ov, B1 + ov, zr)], hx('7fd6b4'), 5); s.line([G(A0 + 0.04, bm, zr + RZ), G(A1 - 0.04, bm, zr + RZ)], hx('a4d4c4'), 4)
     # --- 가운데 박공 돌출부: 흰 박공 + 민트 처마 + 현판 ---
-    PA0, PA1, PB1 = 0.46, 0.66, B1 + 0.12
-    s.box(PA0, PA1, B1 - 0.02, PB1, HH, CR, CRR, (hx('e8d89a'), hx('c0ae70')))
-    s.grad([G(PA0, PB1, 0), G(PA1, PB1, 0), G(PA1, PB1, 2.6), G(PA0, PB1, 2.6)], MINT[0], MINT[1], (0, 1))
-    pk = G((PA0 + PA1) / 2, PB1, HH + 5.0)
-    s.grad([G(PA0, PB1, HH), G(PA1, PB1, HH), pk], hx('fffdf0'), hx('e4dcc0'), (0.2, 1))
-    s.grad([G(PA1, B1 - 0.02, HH), G(PA1, PB1, HH), pk], SLR[0], SLR[1], (0.3, 1))
-    s.line([G(PA0 - 0.012, PB1 + 0.01, HH + 1.1), pk, G(PA1 + 0.012, PB1 + 0.01, HH + 1.1)], hx('7fd6b4'), 6)
-    x, y = pk; d.ellipse([x - 4, y - 9, x + 4, y - 1], fill=hx('5cc8a4'))                                              # 박공 꼭대기 장식
-    wx, wy = G((PA0 + PA1) / 2, PB1, HH + 3.4); d.rectangle([wx - 20, wy - 8, wx + 20, wy + 8], fill=hx('e8d8a8')); d.rectangle([wx - 20, wy - 8, wx + 20, wy + 8], outline=hx('3a6a5c'), width=3)
-    d.text((wx - 14, wy - 7), '春浦', font=__import__('PIL.ImageFont', fromlist=['x']).truetype('/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc', 15), fill=hx('2a4a40')) if os.path.exists('/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc') else None
-    x, y = G(0.55, PB1, HH + 1.8); d.ellipse([x - 4, y - 4, x + 4, y + 4], fill=hx('fff6c0'))                          # 처마 등
+    PA0, PA1, PB1 = 0.44, 0.68, B1 + 0.02; PM = (PA0 + PA1) / 2; PK = HH + 6.0
+    pk = G(PM, PB1, PK); ridge = G(PM, bm, zr + RZ)
+    s.grad([G(PA0, PB1, HH), pk, ridge, G(PA0, bm, zr + RZ * 0.4)], SL[0], SL[1], (0, 1))                         # 교차 박공 지붕(왼쪽 면): 본 지붕 마루로 이어진다
+    s.grad([G(PA1, PB1, HH), pk, ridge], SLR[0], SLR[1], (0.3, 1))                                                  # 오른쪽 면
+    s.grad([G(PA0, PB1, HH), G(PA1, PB1, HH), pk], hx('fffdf0'), hx('e4dcc0'), (0.2, 1))                            # 흰 박공 면(벽과 같은 면)
+    s.line([G(PA0 - 0.01, PB1, HH - 0.2), pk, G(PA1 + 0.01, PB1, HH - 0.2)], hx('7fd6b4'), 5)
+    s.line([G(PA0, PB1, HH), G(PA1, PB1, HH)], hx('7fd6b4'), 4)
+    x, y = pk; d.ellipse([x - 3, y - 7, x + 3, y - 1], fill=hx('5cc8a4'))
+    wx, wy = G(PM, PB1, HH - 2.4); d.rectangle([wx - 15, wy - 6, wx + 15, wy + 6], fill=hx('e8d8a8')); d.rectangle([wx - 15, wy - 6, wx + 15, wy + 6], outline=hx('3a6a5c'), width=2)
+    d.text((wx - 11, wy - 6), '春浦', font=__import__('PIL.ImageFont', fromlist=['x']).truetype('/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc', 12), fill=hx('2a4a40')) if os.path.exists('/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc') else None
+    # 현관 앞 얕은 차양(벽에 붙은 작은 지붕)
+    s.grad([G(PA0 + 0.02, PB1 + 0.07, HH - 5.2), G(PA1 - 0.02, PB1 + 0.07, HH - 5.2), G(PA1 - 0.02, PB1, HH - 3.6), G(PA0 + 0.02, PB1, HH - 3.6)], SL[0], SL[1], (0, 1))
+    for xx in (PA0 + 0.03, PA1 - 0.03): s.line([G(xx, PB1 + 0.07, 0), G(xx, PB1 + 0.07, HH - 5.2)], hx('5cc8a4'), 4)
+    x, y = G(0.56, PB1, HH - 5.8); d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=hx('fff6c0'))                          # 처마 등
     # 오른쪽 낮은 부속채(파란 지붕·붉은 벽돌 느낌) + 나무 울타리 말뚝
     s.box(0.90, 0.99, 0.20, 0.44, 4.6, (hx('b86a4a'), hx('82402c')), (hx('9c5238'), hx('6a3020')), (hx('3a9ad8'), hx('2a70b0')))
     for k in range(0, 9): x, y = G(0.10 + 0.10 * k, 0.74); d.rectangle([x - 2, y - 8, x + 2, y], fill=hx('a8743c'))

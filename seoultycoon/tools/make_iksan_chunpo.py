@@ -51,12 +51,12 @@ def chunpo():
         s.line([G(aL, bb, zz), G(aR, bb, zz)], hx('4a6a68', 140), 2)
     s.line([G(A0 - ov, B1 + ov, zr), G(A1 + ov, B1 + ov, zr)], hx('7fd6b4'), 5); s.line([G(A0 + 0.04, bm, zr + RZ), G(A1 - 0.04, bm, zr + RZ)], hx('a4d4c4'), 4)
     # --- 가운데 박공 돌출부: 흰 박공 + 민트 처마 + 현판 ---
-    PA0, PA1, PB1 = 0.46, 0.66, B1 + 0.04
-    s.box(PA0, PA1, B1 - 0.16, PB1, HH + 1.2, CR, CRR, (hx('e8d89a'), hx('c0ae70')))
+    PA0, PA1, PB1 = 0.46, 0.66, B1 + 0.12
+    s.box(PA0, PA1, B1 - 0.02, PB1, HH, CR, CRR, (hx('e8d89a'), hx('c0ae70')))
     s.grad([G(PA0, PB1, 0), G(PA1, PB1, 0), G(PA1, PB1, 2.6), G(PA0, PB1, 2.6)], MINT[0], MINT[1], (0, 1))
-    pk = G((PA0 + PA1) / 2, PB1, HH + 1.2 + 5.0)
-    s.grad([G(PA0, PB1, HH + 1.2), G(PA1, PB1, HH + 1.2), pk], hx('fffdf0'), hx('e4dcc0'), (0.2, 1))
-    s.grad([G(PA1, B1 - 0.16, HH + 1.2), G(PA1, PB1, HH + 1.2), pk], SLR[0], SLR[1], (0.3, 1))
+    pk = G((PA0 + PA1) / 2, PB1, HH + 5.0)
+    s.grad([G(PA0, PB1, HH), G(PA1, PB1, HH), pk], hx('fffdf0'), hx('e4dcc0'), (0.2, 1))
+    s.grad([G(PA1, B1 - 0.02, HH), G(PA1, PB1, HH), pk], SLR[0], SLR[1], (0.3, 1))
     s.line([G(PA0 - 0.012, PB1 + 0.01, HH + 1.1), pk, G(PA1 + 0.012, PB1 + 0.01, HH + 1.1)], hx('7fd6b4'), 6)
     x, y = pk; d.ellipse([x - 4, y - 9, x + 4, y - 1], fill=hx('5cc8a4'))                                              # 박공 꼭대기 장식
     wx, wy = G((PA0 + PA1) / 2, PB1, HH + 3.4); d.rectangle([wx - 20, wy - 8, wx + 20, wy + 8], fill=hx('e8d8a8')); d.rectangle([wx - 20, wy - 8, wx + 20, wy + 8], outline=hx('3a6a5c'), width=3)

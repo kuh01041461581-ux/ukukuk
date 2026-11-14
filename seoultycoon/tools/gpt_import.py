@@ -60,16 +60,58 @@ def fill_top(name, rows=2):
 if os.path.exists(gp + '/faceA.png'):
     for i in range(18): fill_top(f'ff{i}')
     for i in range(3): fill_top(f'fd{i}', 3)
-# 머리 스트라이프 fh0~fh6: 사용자 정리 시트(hair.png)의 둘째 줄 6장 + 셋째 줄의 큰 여자 머리(둘째 것)
-if os.path.exists(gp + '/hair.png'):
-    IH, bgH, cH = comps(gp + '/hair.png', 60, 60) if False else (None, None, None)
-    _im = Image.open(gp + '/hair.png').convert('RGB'); _a = np.asarray(_im).astype(int); bgH = np.median(_a[:8, :8].reshape(-1, 3), axis=0)
+# 머리 스트라이프 fh0~fh6: 사용자 정리 시트(hair2.png, 이마 피부 없는 머리만)의 둘째 줄 6장 + 큰 여자 머리(둘째 것).
+# 원본 조각 크기에 맞춰 늘리고, 머리 사이 빈 이마·정수리 자리는 얼굴 이마 톤으로 채운다(큰 여자 머리는 이마 줄까지만).
+def _face_top_tone():
+    acc = []
+    for i in range(18):
+        p = f'{mod}/ff{i}.d'
+        if not os.path.exists(p): continue
+        raw_ = open(p, 'rb').read(); k_ = raw_.find(b'IEND') + 8
+        try: im_ = np.asarray(Image.open(io.BytesIO(raw_[k_:])).convert('RGBA')).astype(float)
+        except Exception: continue
+        top = im_[0:6]; mm = top[..., 3] > 200; acc.append(top[mm][:, :3])
+    return np.clip(np.concatenate(acc).mean(0) * 1.05, 0, 255) if acc else np.array([240., 200., 155.])
+hair_src = gp + '/hair3.png' if os.path.exists(gp + '/hair3.png') else gp + '/hair2.png' if os.path.exists(gp + '/hair2.png') else (gp + '/hair.png' if os.path.exists(gp + '/hair.png') else None)
+if hair_src:
+    _im = Image.open(hair_src).convert('RGB'); _a = np.asarray(_im).astype(int); bgH = np.median(_a[:8, :8].reshape(-1, 3), axis=0)
     _m = ndi.binary_closing(np.abs(_a - bgH).sum(2) > 60, iterations=2); _lab, _k = ndi.label(_m); cH = []
     for sl in ndi.find_objects(_lab):
         if sl[0].stop - sl[0].start >= 60 and sl[1].stop - sl[1].start >= 100: cH.append((sl[1].start, sl[0].start, sl[1].stop, sl[0].stop))
     cH = sorted(cH, key=lambda b: (b[1] // 190, b[0]))
     pick = {0: cH[6], 1: cH[7], 2: cH[8], 3: cH[9], 4: cH[10], 5: cH[11], 6: cH[13]}
-    for i, bx in pick.items(): n += apply(f'fh{i}', cut(_im, (bx[0] - 2, bx[1] - 2, bx[2] + 2, bx[3] + 2), bgH, 60))
+    TOPC = _face_top_tone()
+    for i, bx in pick.items():
+        spr = cut(_im, (bx[0] - 2, bx[1] - 2, bx[2] + 2, bx[3] + 2), bgH, 60)
+        if spr is None: continue
+        raw0 = open(f'{src}/fh{i}.d', 'rb').read(); base = Image.open(io.BytesIO(raw0)).convert('RGBA'); w, h = base.size; K2 = 2
+        ob = np.asarray(base).astype(int); sk = (ob[..., 3] > 0) & (ob[..., 0] > 200) & (ob[..., 1] > 120) & (ob[..., 2] > 60) & (ob[..., 0] > ob[..., 2] + 40)
+        ys = np.where(sk.any(1))[0]; y_lo, y_hi = (int(ys.min()), int(ys.max())) if len(ys) else (0, h - 1)
+        hairHD = Image.new('RGBA', (w * K2, h * K2), (0, 0, 0, 0)); hairHD.alpha_composite(spr.resize((w * K2, h * K2), Image.LANCZOS), (0, 0))
+        ha = np.asarray(hairHD).astype(np.float32); opq = ha[..., 3] > 40
+        dk_ = ha[(ha[..., 3] > 250) & ((ha[..., :3] @ np.array([.3, .59, .11])) < 90)][:, :3]; dkc = dk_.mean(0) if len(dk_) else np.array([30., 22., 26.])
+        edge_ = (ha[..., 3] > 0) & (ha[..., 3] < 250); ha[edge_, :3] = dkc                       # 가장자리 반투명 화소에 섞인 푸른 배경색을 머리색으로 바꾼다
+        hairHD = Image.fromarray(ha.astype(np.uint8), 'RGBA')
+        hole = ~opq; lab2, k2 = ndi.label(hole); fill = np.zeros_like(opq)
+        lo = (y_lo * K2) if i == 6 else 0; hi = ((y_hi + 1) * K2) if i == 6 else h * K2
+        for j in range(1, k2 + 1):
+            comp = lab2 == j; yy, xx = np.where(comp)
+            if i == 6: continue                                                              # 큰 여자 머리는 아래에서 줄 단위로 채운다
+            else:                                                                            # 머리 조각: 가장자리 밖이 아닌, 조각 아래쪽에 닿는 빈 곳(두 다리 사이·정수리)
+                if xx.min() == 0 or xx.max() == w * K2 - 1: continue
+                if yy.max() >= h * K2 - 1: fill |= comp
+        if i == 6:                                                                           # 이마 줄(원본 피부 줄 범위)만: 머리카락 사이 가로 빈 구간을 채운다
+            for r in range(lo, hi):
+                xs_ = np.where(opq[r])[0]
+                if len(xs_) < 2: continue
+                run = np.diff(xs_) > 1; idx = np.where(run)[0]
+                if len(idx): g0 = idx[np.argmax(np.diff(xs_)[idx])]; fill[r, xs_[g0] + 1:xs_[g0 + 1]] = True      # 가장 넓은 안쪽 틈
+        skin_img = np.zeros((h * K2, w * K2, 4), np.float32); rows = np.arange(h * K2)[:, None]
+        shade = 0.88 + 0.12 * np.clip((rows - lo) / max(1, (hi - lo)), 0, 1)                  # 머리 바로 아래는 살짝 어둡게(그늘), 아래로 갈수록 얼굴 이마색
+        skin_img[..., :3] = (TOPC[None, None, :] * shade[..., None]); skin_img[..., 3] = np.where(fill, 255, 0)
+        out = Image.fromarray(np.clip(skin_img, 0, 255).astype(np.uint8), 'RGBA'); out = out.filter(ImageFilter.GaussianBlur(0.6)) if False else out
+        out.alpha_composite(hairHD)
+        i2 = raw0.find(b'IEND') + 8; b2 = io.BytesIO(); out.save(b2, format='PNG', optimize=True); open(f'{mod}/fh{i}.d', 'wb').write(raw0[:i2] + b2.getvalue()); n += 1
 S0 = None
 # 2) 초상·상체·장식(sheet.png): 행별로 서로 붙은 인물을 가장 좁은 열에서 나눈다
 S = Image.open(gp + '/sheet.png').convert('RGB'); bgS = np.median(np.asarray(S)[:8, :8].reshape(-1, 3), axis=0)

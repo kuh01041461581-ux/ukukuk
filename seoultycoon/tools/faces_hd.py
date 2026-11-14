@@ -383,3 +383,26 @@ for r in range(h):
 _save('fb1', raw, k, a)
 print('피부톤 얼굴', FACE_SKIN.round(), '몸', BODY_SKIN.round())
 
+
+# ===== 마무리: 왼쪽 머리 윤곽 정리(오목한 틈·흩어진 점) =====
+from scipy import ndimage as _nd3
+raw, k, a = _load('fd1'); op = a[..., 3] > 0
+med = _nd3.median_filter(op.astype(np.uint8), size=5) > 0; win = np.zeros_like(op); win[:26, :26] = True
+new_on = med & ~op & win; new_off = op & ~med & win
+idx = _nd3.distance_transform_edt(~op, return_indices=True)[1]
+for y, x in zip(*np.where(new_on)): a[y, x, :3] = a[idx[0][y, x], idx[1][y, x], :3]; a[y, x, 3] = 255
+a[new_off, 3] = 0
+_save('fd1', raw, k, a)
+
+# 왼쪽 머리 바깥 윤곽을 세로로 부드럽게(계단·턱 제거): 각 줄의 왼쪽 끝을 이동평균해 그 선까지 머리색으로 채우거나 깎는다
+raw, k, a = _load('fd1'); h = a.shape[0]; R = 40
+Ls = np.array([np.where(a[r, :, 3] > 0)[0].min() if (a[r, :, 3] > 0).any() else 0 for r in range(R)], float)
+Ss = _nd3.gaussian_filter1d(Ls, 3.0, mode='nearest')
+for r in range(R):
+    old = int(Ls[r]); new = int(round(Ss[r]))
+    if new < old:
+        src = a[r, old + 3, :3].copy()
+        for x in range(new, old): a[r, x, :3] = src; a[r, x, 3] = 255
+    elif new > old:
+        a[r, old:new, 3] = 0
+_save('fd1', raw, k, a)

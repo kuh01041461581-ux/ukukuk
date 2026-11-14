@@ -16,7 +16,7 @@ m = np.abs(a - bg).sum(2) > 50; m = ndi.binary_closing(m, iterations=1); lab, n 
 o = im.convert('RGBA'); o.putalpha(Image.fromarray((m * 255).astype(np.uint8)))
 arr = np.asarray(o).copy(); arr[(arr[..., 2].astype(int) > arr[..., 0].astype(int) + 30) & (arr[..., 3] > 0) & (arr[..., 0] < 200), 3] = 0; o = Image.fromarray(arr, 'RGBA')
 W, H = 112, 40
-SCX = float(os.environ.get('SCX', '0.90')); NECK_SRC = float(os.environ.get('NECK_SRC', '56')); NECK_DST = float(os.environ.get('NECK_DST', '63'))     # 그림의 목 중심(56)을 얼굴 목 중심(63)에 맞추며 가로를 줄여 오른쪽이 안 잘리게
+SCX = float(os.environ.get('SCX', '0.90')); NECK_SRC = float(os.environ.get('NECK_SRC', '58')); NECK_DST = float(os.environ.get('NECK_DST', '63'))     # 그림의 목 중심(56)을 얼굴 목 중심(63)에 맞추며 가로를 줄여 오른쪽이 안 잘리게
 sm = o.resize((int(round(W * SCX)), H), Image.LANCZOS); dx = int(round(NECK_DST - NECK_SRC * SCX)); dx = max(0, min(dx, W - sm.width))
 cv = Image.new('RGBA', (W, H), (0, 0, 0, 0)); cv.alpha_composite(sm, (dx, 0)); fa = np.asarray(cv).astype(np.float32)
 lum = fa[..., :3] @ np.array([.3, .59, .11])
@@ -26,7 +26,9 @@ hm = (fd[..., 3] > 250) & ~sk2(fd) & ((fd[..., :3] @ np.array([.3, .59, .11])) <
 hair = (fa[..., 3] > 200) & ~skin & (fa[..., 0] > fa[..., 2]) & (lum < 140) & (np.arange(H)[:, None] < 22)
 fa[skin, :3] += (fsk - fa[skin][:, :3].mean(0)) * 0.6 * (1 - np.clip((lum[skin] - 225) / 25.0, 0, 1))[:, None]
 if hair.any(): fa[hair, :3] += (fhair - fa[hair][:, :3].mean(0)) * 0.9
-fa[0] = fa[3]; fa[1] = fa[3]; fa[2] = fa[3]                          # 얼굴 턱 밑과 만나는 맨 윗줄들: 안쪽 줄 그대로(밝은 가로선 방지)
+cutm = (fa[..., 3] > 0) & ~skin & (lum < 150) & (np.arange(H)[:, None] < int(os.environ.get('HAIRCUT', '12')))                   # 목 위쪽 짧은 머리 끝자락은 지운다(얼굴 머리가 대신 덮는다)
+fa[cutm, 3] = 0
+for rr in (0, 1, 2): sm_ = skin[3] & (fa[3, :, 3] > 0); fa[rr, sm_, :] = fa[3, sm_, :]            # 목 맨 윗줄은 피부만 안쪽 줄 복사(밝은 가로선 방지)
 hd = Image.fromarray(np.clip(fa, 0, 255).astype(np.uint8), 'RGBA')
 raw = open(f'{mod}/fb1.d', 'rb').read(); i = raw.find(b'IEND') + 8
 lo = hd.resize((56, 20), Image.LANCZOS); aa = np.asarray(lo).copy(); aa[..., 3] = (aa[..., 3] > 127) * 255

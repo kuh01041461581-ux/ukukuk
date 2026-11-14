@@ -23,6 +23,7 @@ hm = (fd[..., 3] > 250) & ~sk2(fd) & ((fd[..., :3] @ np.array([.3, .59, .11])) <
 hair = (fa[..., 3] > 200) & ~skin & (fa[..., 0] > fa[..., 2]) & (lum < 140) & (np.arange(H)[:, None] < 22)
 fa[skin, :3] += (fsk - fa[skin][:, :3].mean(0)) * 0.6 * (1 - np.clip((lum[skin] - 225) / 25.0, 0, 1))[:, None]
 if hair.any(): fa[hair, :3] += (fhair - fa[hair][:, :3].mean(0)) * 0.9
+fa[0] = fa[3]; fa[1] = fa[3]; fa[2] = fa[3]                          # 얼굴 턱 밑과 만나는 맨 윗줄들: 안쪽 줄 그대로(밝은 가로선 방지)
 hd = Image.fromarray(np.clip(fa, 0, 255).astype(np.uint8), 'RGBA')
 raw = open(f'{mod}/fb1.d', 'rb').read(); i = raw.find(b'IEND') + 8
 lo = hd.resize((56, 20), Image.LANCZOS); aa = np.asarray(lo).copy(); aa[..., 3] = (aa[..., 3] > 127) * 255

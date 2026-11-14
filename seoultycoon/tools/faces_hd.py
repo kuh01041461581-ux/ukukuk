@@ -261,8 +261,14 @@ _save('fh1', raw, k, a)
 
 # 얼굴 하단 깎기(여자): 바탕 얼굴(fd1) 맨 아래의 머리 끝자락(피부가 아닌 부분)만 정리해 상체와 맞닿게 한다 — 목 피부는 남긴다
 raw, k, a = _load('fd1'); h = a.shape[0]
-nsk = ~_skin2(a)
-for r in range(h - 10, h): a[r, nsk[r], 3] = 0
+# 머리 끝자락: 평평하게 자르지 않고 바깥쪽 아래 모서리를 둥글게 깎아 끝이 안쪽으로 말리는 단발 끝처럼 만든다(머리 끝은 살짝 어둡게)
+w = a.shape[1]; hair = (a[..., 3] > 0) & ~_skin2(a); xs_h = np.where(hair.any(0))[0]; xl, xr = int(xs_h.min()), int(xs_h.max()); RAD = 14
+for r in range(h - RAD, h):
+    d = r - (h - RAD); inset = RAD - np.sqrt(max(0.0, RAD * RAD - d * d)) if False else RAD * (1 - np.sqrt(max(0.0, 1 - ((d + 1) / RAD) ** 2)))   # 모서리 둥글림(아래로 갈수록 바깥을 많이 깎음)
+    inset = RAD * (1 - np.sqrt(max(0.0, 1 - ((RAD - d - 1) / RAD) ** 2)))
+    for x in range(w):
+        if hair[r, x] and (x < xl + inset or x > xr - inset): a[r, x, 3] = 0
+    a[r, hair[r], :3] *= (1 - 0.12 * (d + 1) / RAD)
 _save('fd1', raw, k, a)
 
 raw, k, a = _load('fb1'); dm = (a[:16, :, 3] > 0) & ((a[:16, :, :3] @ np.array([.3, .59, .11])) < 90) & ~_skin2(a[:16]); a[:16][dm, 3] = 0      # 목 옆 어두운 삼각 덩어리 제거

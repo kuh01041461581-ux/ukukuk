@@ -20,6 +20,10 @@ final class GfxLib {
             if (ph.size() == 1) s.hp = ph.get(0); else if (ph.size() > 1) { s.hps = ph.toArray(new int[0][]); s.hp = ph.get(0); }
             if (System.getenv("LOGHD") != null) H.pf.log("HDLAYER " + s.w + "x" + s.h + " phases=" + ph.size());
             break; }
+        for (int i = 8; i + 12 <= d.length; i++) if (d[i] == 'B' && d[i + 1] == 'I' && d[i + 2] == 'G' && d[i + 3] == 'H') {         // 통머리: 'BIGH' + 오프셋 2개(short) + PNG
+            int bx = (short) (((d[i + 4] & 0xff) << 8) | (d[i + 5] & 0xff)), by = (short) (((d[i + 6] & 0xff) << 8) | (d[i + 7] & 0xff)); int[] wh3 = new int[2];
+            int[] p3 = H.pf.decodePng(java.util.Arrays.copyOfRange(d, i + 8, d.length), wh3); if (p3 != null) { s.big = p3; s.bigW = wh3[0]; s.bigH = wh3[1]; s.bigX = bx; s.bigY = by; } break; }
+        if (d.length > 12 && d[d.length - 4] == 'S' && d[d.length - 3] == 'K' && d[d.length - 2] == 'I' && d[d.length - 1] == 'P') s.skip = true;
         return s;
     }
     static Surf digitSheet;
@@ -80,6 +84,8 @@ final class GfxLib {
             boolean restore = false; int scx = dst.cx, scy = dst.cy, scw = dst.cw, sch = dst.ch;
             if (src.w == 56 && src.h == 96 && dst.hasClip && dst.ch == 12) { x -= 12; y -= 2; dst.cx -= 12; dst.cy -= 2; restore = true; }       // 메인 메뉴 글자 시트
             if (System.getenv("LOGALL") != null && src.w >= 16 && src.w <= 140 && x > 40 && x < 200 && y > 100 && y < 200) H.pf.log("ALL " + src.w + "x" + src.h + " at " + x + "," + y + " p0=" + Integer.toHexString(src.px[src.px.length / 2]) + " p1=" + Integer.toHexString(src.px[src.px.length / 3]));
+            if (src.skip) return 0;
+            if (src.big != null) { dst.drawBig(src, x, y); return 0; }
             if (System.getenv("LOGFACE") != null && ((src.w == 24 && src.h == 26) || (src.w >= 32 && src.w <= 34 && src.h >= 13 && src.h <= 15) || (src.w == 53 && src.h == 49) || (src.h >= 19 && src.h <= 23 && src.w >= 56 && src.w <= 70))) H.pf.log("FACE " + src.w + "x" + src.h + " at " + x + "," + y);
             if (System.getenv("DILOG") != null && ((src.w == 37 && src.h == 31) || (src.w == 77 && src.h == 11))) H.pf.log("L" + src.w + " at " + x + "," + y + " clip=" + dst.cx + "," + dst.cy + "," + dst.cw + "," + dst.ch);
             if (src.w == 77 && src.h == 11 && dst.hasClip && dst.cx - x == 42 && dst.cw == 10 && y == 5) return 0;   // 날짜 옆에 잘못 찍히던 동전 조각(시트 차이로 생긴 빈 칸)

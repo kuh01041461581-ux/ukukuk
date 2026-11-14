@@ -7,6 +7,7 @@ public final class Surf {
      *  HD 그림이 따로 없는 이미지는 px 를 그대로 K배 확대해 쓴다. */
     public static final int K = 2;
     public int[] hp; public boolean smooth;     // smooth: 불러온 그림(건물·지형·인물 등)은 HD 층을 Scale2x 로 계단 모서리를 다듬어 만든다(화면 버퍼는 제외)
+    public int[] big; public int bigW, bigH, bigX, bigY; public boolean skip;     // 시장 통머리(표정 조각 자리에 머리까지 한 장으로 그림) / 조립용 바탕·머리 조각은 그리지 않음
     public int[][] hps;     // 동작 단계가 여러 장인 그림(승마장 등): 시간에 따라 단계를 돌려 가며 보여 준다(게임 로직과 무관한 장식 애니메이션)
     public int[] hd() {
         if (hps != null) return hps[(int) ((System.currentTimeMillis() / 110) % hps.length)];
@@ -89,6 +90,20 @@ public final class Surf {
                     int r = (((p >> 16) & 255) * al + ((d >> 16) & 255) * ia) / 255, g = (((p >> 8) & 255) * al + ((d >> 8) & 255) * ia) / 255, bl = ((p & 255) * al + (d & 255) * ia) / 255;
                     dh[dof + i] = 0xFF000000 | (r << 16) | (g << 8) | bl;
                 }
+            }
+        }
+    }
+    /** 통머리: src(표정 조각)의 자리 (x,y) 기준 HD 오프셋(bigX,bigY)에 big 을 클립 안에서 알파 섞기로 그린다. 저해상도 층에는 표본 추출로 같이 그린다 */
+    public void drawBig(Surf src, int x, int y) {
+        if (!bounds()) return;
+        int[] dh = hd(); int W = w * K, ox = x * K + src.bigX, oy = y * K + src.bigY;
+        for (int j = Math.max(oy, y0 * K); j < Math.min(oy + src.bigH, y1 * K); j++) {
+            for (int i = Math.max(ox, x0 * K); i < Math.min(ox + src.bigW, x1 * K); i++) {
+                int p = src.big[(j - oy) * src.bigW + (i - ox)]; int al = p >>> 24; if (al == 0) continue;
+                int d = dh[j * W + i], ia = 255 - al;
+                int r = (((p >> 16) & 255) * al + ((d >> 16) & 255) * ia) / 255, g = (((p >> 8) & 255) * al + ((d >> 8) & 255) * ia) / 255, bl = ((p & 255) * al + (d & 255) * ia) / 255;
+                int c = 0xFF000000 | (r << 16) | (g << 8) | bl; dh[j * W + i] = c;
+                if ((i % K) == 0 && (j % K) == 0 && al > 127) px[(j / K) * w + i / K] = c;
             }
         }
     }

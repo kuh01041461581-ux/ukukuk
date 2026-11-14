@@ -221,13 +221,27 @@ _save('fb1', raw, k, a)
 
 # ===== 여자 시장 마무리: 상체 여백(목 길이), 앞머리 몇 가닥, 이마 음영 =====
 from PIL import ImageDraw as _ID
-SH = 0                                                         # 상체를 아래로 6줄(HD) 내려 목이 보이게: 위에 생기는 줄은 목 피부색(얼굴 목 색)·머리색으로 단색 채움(줄무늬 방지)
-raw, k, a = _load('fb1'); b2 = a.copy()
+SH = 7                                                         # 상체를 아래로 6줄(HD) 내려 목이 보이게: 위에 생기는 줄은 목 피부색(얼굴 목 색)·머리색으로 단색 채움(줄무늬 방지)
+raw, k, a = _load('fb1'); b2 = np.zeros_like(a); b2[SH:] = a[:-SH]
 _fn = _load('fd1')[2]; _nm = _skin2(_fn[-6]); NC = _fn[-6][_nm][:, :3].mean(0) if _nm.any() else TF
 _hm = (_fn[..., 3] > 250) & ((_fn[..., :3] @ np.array([.3, .59, .11])) < 120) & (~_skin2(_fn)); HC = _fn[_hm][:, :3].mean(0)
 sk0 = _skin2(a[0]) & (a[0, :, 2] < a[0, :, 1] - 5); op0 = a[0, :, 3] > 0
-for r in range(SH):
-    b2[r, :, 3] = 0; b2[r, op0 & ~sk0, :3] = HC; b2[r, op0 & ~sk0, 3] = 255; b2[r, sk0, :3] = NC; b2[r, sk0, 3] = 255
+NECK_R = 22; FILL = SH + 6
+for r in range(NECK_R):                                          # 목 영역을 깨끗하게 새로 칠한다: 피부 열은 가운데 밝고 양옆 어두운 단색 그라데이션, 목 옆 어두운 덩어리는 투명(바탕 얼굴의 머리가 대신 보인다)
+    src_r = a[min(r, a.shape[0] - 1) if r < SH else 0]
+    row_src = b2[r] if r >= SH else a[4]
+    m = _skin2(row_src) & (row_src[:, 2] < row_src[:, 1] - 5)
+    cols = np.where(_skin2(a[4]) & (a[4, :, 2] < a[4, :, 1] - 5))[0]
+    if len(cols) == 0: continue
+    cl, cr = int(cols.min()), int(cols.max()); cxn = (cl + cr) / 2.0; hwn = max(1.0, (cr - cl) / 2.0); x = np.arange(a.shape[1])
+    inside = (x >= cl) & (x <= cr); t = min(1.0, r / float(NECK_R)); cyl = 1 - 0.05 * np.clip(np.abs(x - cxn) / hwn, 0, 1) ** 2
+    _bm = _skin2(b2[FILL + 4]) & (b2[FILL + 4, :, 2] < b2[FILL + 4, :, 1] - 5); BELOW = b2[FILL + 4][_bm][:, :3].mean(0) if _bm.any() else NC
+    u = min(1.0, r / float(FILL)); colr = (NC * 1.06 * (1 - u) + BELOW * u)[None, :] * cyl[:, None]
+    dark = (b2[r, :, 3] > 0) & ((b2[r, :, :3] @ np.array([.3, .59, .11])) < 90) & ~inside
+    if r < SH or True: b2[r, dark, 3] = 0
+    if r < FILL:
+        b2[r, inside, :3] = colr[inside]; b2[r, inside, 3] = 255
+        if r < SH: b2[r, ~inside, 3] = 0
 _save('fb1', raw, k, b2)
 FEM = (3, 4, 5, 9, 10, 11, 12, 13, 14)
 for i in FEM:                                                  # 이마 음영(표정 조각 윗부분): 머리카락 아래 그늘, 관자놀이 어둡게, 중앙 은은한 하이라이트
@@ -262,14 +276,4 @@ dist = _ndi.distance_transform_edt(sk); yy, xx = np.mgrid[0:h, 0:w].astype(np.fl
 fade = np.clip((h - 1 - yy) / 10.0, 0, 1)
 ff_ = ((1 - 0.20 * np.exp(-dist / 6.0) - 0.10 * np.clip((np.abs(xx - _cx) / _hw - 0.55) / 0.45, 0, 1) + 0.05 * np.exp(-(((xx - _cx) / (_hw * 0.5)) ** 2 + ((yy - h * 0.7) / 10.0) ** 2))) * fade + (1 - fade))[..., None]
 a[..., :3] = np.where(sk[..., None], a[..., :3] * ff_, a[..., :3])
-S = 4; big = Image.new('RGBA', (w * S, h * S), (0, 0, 0, 0)); d = _ID.Draw(big)
-_cnt = sk.sum(1); y0 = int(np.where(_cnt >= 8)[0].min()) if (_cnt >= 8).any() else int(h * 0.65); _s2 = np.where(sk[y0 + 2])[0]; x0f, x1f = int(_s2.min()), int(_s2.max())
-for fx, ln, wd, bend in ((0.16, 8, 3.2, -2), (0.34, 10, 3.6, -2), (0.52, 6, 2.8, 1), (0.68, 9, 3.4, 3), (0.84, 6, 2.8, 2)):
-    xs0 = x0f + (x1f - x0f) * fx; pts = []
-    for t in np.linspace(0, 1, 16):
-        pts.append(((xs0 + bend * t * t) * S, (y0 - 2 + ln * t) * S, wd * S * (1 - 0.88 * t) / 2))
-    d.polygon([(x - r, y) for x, y, r in pts] + [(x + r, y) for x, y, r in pts][::-1], fill=tuple(int(v) for v in hc1) + (255,))
-    d.line([(x, y) for x, y, r in pts[:11]], fill=tuple(int(min(255, v * 1.25)) for v in hl1) + (255,), width=max(1, int(S * 0.6)))
-big = np.asarray(big.resize((w, h), Image.LANCZOS)).astype(np.float32); m = big[..., 3:4] / 255.0
-a[..., :3] = a[..., :3] * (1 - m) + big[..., :3] * m; a[..., 3] = np.maximum(a[..., 3], big[..., 3])
 _save('fh1', raw, k, a)

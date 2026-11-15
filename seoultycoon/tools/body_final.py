@@ -16,10 +16,10 @@ m = np.abs(a - bg).sum(2) > 50; m = ndi.binary_closing(m, iterations=1); lab, n 
 o = im.convert('RGBA'); o.putalpha(Image.fromarray((m * 255).astype(np.uint8)))
 arr = np.asarray(o).copy(); arr[(arr[..., 2].astype(int) > arr[..., 0].astype(int) + 30) & (arr[..., 3] > 0) & (arr[..., 0] < 200), 3] = 0; o = Image.fromarray(arr, 'RGBA')
 W, H = 112, 40
-WB = int(os.environ.get('WIDE', '132'))                                # 상체를 조각 폭(112)보다 넓은 WB 로 그린다(게임 쪽 BIGH 통그림 기능이 조각 밖까지 그린다)
-CROP = float(os.environ.get('CROP_TOP', '0.15')); o = o.crop((0, int(o.height * CROP), o.width, o.height))      # 위쪽 목 부분을 잘라 낸다
+WB = int(os.environ.get('WIDE', '126'))                                # 상체를 조각 폭(112)보다 넓은 WB 로 그린다(게임 쪽 BIGH 통그림 기능이 조각 밖까지 그린다)
+CROP = float(os.environ.get('CROP_TOP', '0.075')); o = o.crop((0, int(o.height * CROP), o.width, o.height))      # 위쪽 목 부분을 잘라 낸다
 NECK_DST = float(os.environ.get('NECK_DST', '64')); NECK_FRAC = float(os.environ.get('NECK_FRAC', str(58 / 112.0)))
-UP = int(os.environ.get('UP', '6')); H = 40 + UP                         # 위로 UP줄 더 그려 얼굴 아래에 겹치게(상체 머리가 얼굴 머리 밑으로 이어진다)
+UP = int(os.environ.get('UP', '0')); H = 40 + UP                         # 위로 UP줄 더 그려 얼굴 아래에 겹치게(상체 머리가 얼굴 머리 밑으로 이어진다)
 cv = o.resize((WB, H), Image.LANCZOS); fa = np.asarray(cv).astype(np.float32); BIGX = int(round(NECK_DST - NECK_FRAC * WB))
 W = WB
 lum = fa[..., :3] @ np.array([.3, .59, .11])

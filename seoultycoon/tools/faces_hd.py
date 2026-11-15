@@ -406,3 +406,28 @@ for r in range(R):
     elif new > old:
         a[r, old:new, 3] = 0
 _save('fd1', raw, k, a)
+
+
+# 왼쪽 윗머리 층계 제거: 바탕 얼굴(fd1) 윗 20줄에서 왼쪽 머리 끝을 머리 조각(fh1) 가장자리(열 6)에서 시작해 본래 윤곽으로 서서히 벌어지게 한다
+raw, k, a = _load('fd1')
+for r in range(0, 20):
+    xs = np.where(a[r, :, 3] > 0)[0]
+    if len(xs) == 0: continue
+    nat = int(xs.min()); t = r / 20.0; lim = int(round(6 * (1 - t) + nat * t))
+    if lim > nat: a[r, nat:lim, 3] = 0
+_save('fd1', raw, k, a)
+# 이마판 왼쪽·오른쪽 위 모서리의 직각을 머리로 둥글게 덮는다(피부 모서리를 곡선으로 깎고, 깎인 자리는 가까운 머리색으로 채움)
+raw, k, a = _load('fh1'); h, w = a.shape[:2]; sk = _skin2(a)
+rowsk = np.where(sk.sum(1) >= 8)[0]; y0 = int(rowsk.min()); cols = np.where(sk[y0 + 3])[0]; xl, xr = int(cols.min()), int(cols.max())
+hair = (a[..., 3] > 200) & ~sk & ((a[..., :3] @ np.array([.3, .59, .11])) < 100); idx = _nd3.distance_transform_edt(~hair, return_indices=True)[1]      # 모서리를 채울 머리색은 어두운 머리 화소만(주황 가장자리 제외)
+R = 8
+for (cxc, sgn) in ((xl, 1), (xr, -1)):
+    for y in range(max(0, y0 - 1), min(h, y0 + R + 1)):
+        for x in range(w):
+            dx = (x - cxc) * sgn
+            if dx < -1 or dx > R: continue
+            # 모서리 원: 중심(cxc+sgn*R, y0+R) 반지름 R 바깥은 머리
+            ccx = cxc + sgn * R; ccy = y0 + R
+            if (x - ccx) ** 2 + (y - ccy) ** 2 > R * R and (x - cxc) * sgn <= R and y <= ccy and sk[y, x]:
+                a[y, x, :3] = a[idx[0][y, x], idx[1][y, x], :3]
+_save('fh1', raw, k, a)

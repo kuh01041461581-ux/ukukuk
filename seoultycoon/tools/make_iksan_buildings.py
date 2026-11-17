@@ -124,6 +124,10 @@ class Sc:
     def _down(self, k):
         """8배로 그린 그림을 k배 해상도(k=1: 원래 크기, k=2: HD)로 면적 평균해 줄인다."""
         a = np.asarray(self.im).astype(float); al = a[..., 3] / 255.0; H = self.H * k; Wk = W * k; q = S // k
+        if os.environ.get('DOTMODE') and k == 1:                        # 도트 모드: 평균내지 않고 각 칸 한가운데 표본의 '가장 흔한 색'을 쓴다(안티앨리어싱 없음 → 또렷한 면·계단 윤곽)
+            blk = a.reshape(H, q, Wk, q, 4); c = blk[:, q // 2 - 1:q // 2 + 1, :, :][:, :, :, q // 2 - 1:q // 2 + 1].mean((1, 3))
+            res = np.zeros((H, Wk, 4), np.uint8); res[..., :3] = np.clip(c[..., :3], 0, 255).astype(np.uint8); res[..., 3] = (c[..., 3] > 127) * 255
+            return Image.fromarray(res, 'RGBA')
         al_s = al.reshape(H, q, Wk, q).mean((1, 3))
         rgb = (a[..., :3] * al[..., None]).reshape(H, q, Wk, q, 3).sum((1, 3)) / np.maximum(al.reshape(H, q, Wk, q).sum((1, 3)), 1e-6)[..., None]
         res = np.zeros((H, Wk, 4), np.uint8); res[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8); res[..., 3] = (al_s > 0.5) * 255

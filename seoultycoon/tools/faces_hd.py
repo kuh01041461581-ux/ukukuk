@@ -431,3 +431,6 @@ for (cxc, sgn) in ((xl, 1), (xr, -1)):
             if (x - ccx) ** 2 + (y - ccy) ** 2 > R * R and (x - cxc) * sgn <= R and y <= ccy and sk[y, x]:
                 a[y, x, :3] = a[idx[0][y, x], idx[1][y, x], :3]
 _save('fh1', raw, k, a)
+
+# 머리쪽(바탕 얼굴 fd1) 아래를 1픽셀(HD 2줄) 깎는다
+raw, k, a = _load('fd1'); a[-2:, :, 3] = 0; _save('fd1', raw, k, a)

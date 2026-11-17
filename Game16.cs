@@ -7,7 +7,7 @@ using System.Windows.Forms;
 // ── 시청 철거 대작전 : 1) 낡은 구청사를 미사일·운석·연속포·폭격기로 철거 2) 그 자리 뒤편에 신청사를 층층이 올려요 (블록 약식 모형, 실제 설계도 아님) ──
 internal sealed class CityHallGame : MiniGame
 {
-	private const int N = 28, HH = 14; private const float S = 12f, OX = 200f, OY = 352f, EL = 0.6f;
+	private const int N = 28, HH = 14, KS = 2, NF = 56, HF = 28; private const float S = 12f, OX = 200f, OY = 352f, EL = 0.6f, U = 0.5f;
 	private sealed class Blk { public int X, Y, Z; public Color C; public float Hp, Max; public byte K; public bool Win, Roof; public float Dp, Fire; }
 	private sealed class Fall { public Blk B; public float Y, Vy; }
 	private sealed class Deb { public float X, Y, Z, Vx, Vy, Vz, Life, Sz; public Color C; }
@@ -18,10 +18,12 @@ internal sealed class CityHallGame : MiniGame
 	private sealed class Ball { public float X, Y, Z, R, Age; }
 	private sealed class Shot { public int Kind; public float T, Dur; public PointF From; public float Tx, Ty, Tz, R, Pow; public List<PointF> Tr = new List<PointF>(); public PointF Cur; }
 	private sealed class Plane { public float X, Y, Vx, Dir; public float Tx, Tz, Ty; public float[] Ks; public bool[] Done; }
-	private Blk[,,] grid = new Blk[N, HH, N]; private readonly List<Blk> all = new List<Blk>(), vis = new List<Blk>();
+	private Blk[,,] grid = new Blk[NF, HF, NF]; private readonly List<Blk> all = new List<Blk>(), vis = new List<Blk>();
 	private readonly List<Fall> falls = new List<Fall>(); private readonly List<Deb> debs = new List<Deb>(); private readonly List<Puff> puffs = new List<Puff>(); private readonly List<Ball> balls = new List<Ball>(); private readonly List<Shot> shots = new List<Shot>(); private readonly List<Plane> planes = new List<Plane>();
 	private float yaw, yawT, cs = 1f, sn = 0f, builtYaw = 99f, msgT, wonT, ringT; private string msg = ""; private bool dirty = true, sceneDirty = true, won; private int hallTotal, hallAlive, weapon, kills, combo, phase, buildStep, buildClicks; private float phaseT, popT; private float comboT;
-	private readonly float[] cd = new float[6]; private static readonly float[] CdMax = { 0.55f, 6f, 2.2f, 8f, 14f, 32f }; private static readonly string[] WName = { "미사일", "운석", "연속포", "폭격기", "허리케인", "핵폭탄" }; private static readonly float[] WR = { 2.6f, 4.4f, 1.6f, 2.2f, 3.6f, 9f };
+	private readonly float[] cd = new float[8]; private static readonly float[] CdMax = { 0.55f, 6f, 2.2f, 8f, 14f, 32f, 10f, 24f }; private static readonly string[] WName = { "미사일", "운석", "연속포", "폭격기", "허리케인", "핵폭탄", "철퇴", "지진" }; private static readonly float[] WR = { 2.6f, 4.4f, 1.6f, 2.2f, 3.6f, 9f, 3.4f, 0f };
+	private sealed class Wreck { public float X, Y, Z, T; public int Hit; public float Sx, Sz; }
+	private readonly List<Wreck> wrecks = new List<Wreck>(); private float quakeT, qkT;
 	private sealed class Storm { public float X, Z, Dx, Dz, Age, Life, Tick; }
 	private readonly List<float[]> bq = new List<float[]>(); private readonly List<Blk> burn = new List<Blk>(); private float bqT, brT;
 	private readonly List<Storm> storms = new List<Storm>(); private float nukeT, nx, ny, nz;
@@ -31,7 +33,7 @@ internal sealed class CityHallGame : MiniGame
 	public override string Name { get { return "시청 철거 대작전"; } }
 	public override string Key { get { return "hall"; } }
 	public override string Desc { get { return "구청사를 부수고 신청사를 지어요"; } }
-	public override string Help { get { return "① 철거: 클릭하면 고른 무기로 발사해요 · 1~6(아래 버튼)로 무기 바꾸기 · A/D 또는 ◀▶ 버튼으로 화면 돌리기\n건물 아랫부분을 부수면 위쪽이 통째로 무너져요 · 구청사를 88% 이상 부수면 ② 건설 시작!\n② 건설: 마구 클릭하면 신청사가 한 층씩 올라가요 (지상 10층) · 60초 안에 준공하면 보너스\n※ 빨간 통은 폭발해서 주변까지 부숴요 · 폭발 근처 건물에 불이 붙어 점점 타요 · 허리케인은 블록을 빨아올려요\n※ 블록으로 만든 약식 모형이에요 (구청사 4층 · 신청사 지상 10층, 외관은 약식이에요)"; } }
+	public override string Help { get { return "① 철거: 클릭하면 고른 무기로 발사해요 · 1~8(아래 버튼)로 무기 바꾸기 · A/D 또는 ◀▶ 버튼으로 화면 돌리기\n건물 아랫부분을 부수면 위쪽이 통째로 무너져요 · 구청사를 88% 이상 부수면 ② 건설 시작!\n② 건설: 마구 클릭하면 신청사가 한 층씩 올라가요 (지상 10층) · 60초 안에 준공하면 보너스\n※ 철퇴는 큰 쇠공이 좌우로 흔들리며 벽을 때려요 · 지진은 건물 전체를 흔들어 약한 곳부터 무너뜨려요\n※ 회색 기둥(철근콘크리트)은 단단해요 · 유리창이 깨지면 파편이 튀어요\n※ 빨간 통은 폭발해서 주변까지 부숴요 · 폭발 근처 건물에 불이 붙어 점점 타요 · 허리케인은 블록을 빨아올려요\n※ 블록으로 만든 약식 모형이에요 (구청사 4층 · 신청사 지상 10층, 외관은 약식이에요)"; } }
 	public override string RightText { get { return phase == 0 ? Pct() + "%" : buildStep + "/10층"; } }
 	private int Pct() { return hallTotal <= 0 ? 0 : (int)Math.Round(100.0 * (hallTotal - hallAlive) / hallTotal); }
 	public override void Icon(Graphics g, float cx, float cy)
@@ -43,7 +45,11 @@ internal sealed class CityHallGame : MiniGame
 	// ── 모형 만들기 ──────────────────────────────────────────────
 	private void Put(int x, int y, int z, Color c, byte k, float hp, bool win, bool roof)
 	{
-		if (x < 0 || z < 0 || y < 0 || x >= N || z >= N || y >= HH || grid[x, y, z] != null) return;
+		for (int sy = 0; sy < KS; sy++) for (int sx = 0; sx < KS; sx++) for (int sz = 0; sz < KS; sz++) PutF(x * KS + sx, y * KS + sy, z * KS + sz, c, k, hp, win && sy == 0, roof);
+	}
+	private void PutF(int x, int y, int z, Color c, byte k, float hp, bool win, bool roof)
+	{
+		if (x < 0 || z < 0 || y < 0 || x >= NF || z >= NF || y >= HF || grid[x, y, z] != null) return;
 		int h = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791); int v = ((h & 7) - 3); Color cc = Color.FromArgb(Math.Max(0, Math.Min(255, c.R + v)), Math.Max(0, Math.Min(255, c.G + v)), Math.Max(0, Math.Min(255, c.B + v)));
 		Blk b = new Blk { X = x, Y = y, Z = z, C = cc, Hp = hp, Max = hp, K = k, Win = win, Roof = roof }; grid[x, y, z] = b; all.Add(b); if (k == 0) hallTotal++;
 	}
@@ -60,7 +66,7 @@ internal sealed class CityHallGame : MiniGame
 	private void Car(int x, int z, bool alongX, Color c) { Put(x, 0, z, c, 3, 0.6f, false, false); Put(alongX ? x + 1 : x, 0, alongX ? z : z + 1, c, 3, 0.6f, false, false); Put(x, 1, z, Color.FromArgb(150, 190, 220), 3, 0.6f, false, false); }
 	private void Build()
 	{
-		grid = new Blk[N, HH, N]; all.Clear(); hallTotal = 0; bq.Clear(); burn.Clear(); bqT = brT = 0f;
+		grid = new Blk[NF, HF, NF]; all.Clear(); hallTotal = 0; bq.Clear(); burn.Clear(); bqT = brT = 0f;
 		// 항공사진의 구청사 단지: 길쭉한 4층 본관(옥상은 연둣빛 · 설비 상자) + 뒤쪽 높은 흰 건물 + 오른쪽 별관 + 앞쪽 오른편 초록 지붕 건물 + 앞마당 주차장과 원형 화단
 		Color cream = Color.FromArgb(222, 216, 196), gr = Color.FromArgb(150, 196, 140), white = Color.FromArgb(238, 240, 242), dk = Color.FromArgb(82, 88, 104);
 		Shell(4, 12, 20, 8, 0, 4, cream, gr, 0, 0.5f, 1);                                      // 본관
@@ -84,7 +90,7 @@ internal sealed class CityHallGame : MiniGame
 		for (int i = 0; i < 3; i++) Car(17 + i * 3, 23 + (i % 2) * 2, true, cc[(i + 1) % 5]);
 		for (int i = 0; i < 4; i++) Car(5 + i * 4, 10, true, cc[i % 5]);
 		foreach (int[] bp in new[] { new[] { 9, 0, 21 }, new[] { 18, 0, 21 }, new[] { 19, 0, 21 }, new[] { 18, 1, 21 }, new[] { 7, 0, 5 }, new[] { 7, 1, 5 }, new[] { 2, 0, 16 }, new[] { 24, 0, 17 }, new[] { 6, 0, 8 }, new[] { 21, 0, 15 } }) Put(bp[0], bp[1], bp[2], Color.FromArgb(206, 50, 44), 4, 0.3f, false, false);   // 폭발 드럼통
-		foreach (Blk pb in all) if (pb.K == 0 && pb.Y <= 1 && !pb.Roof && ((pb.X + pb.Z) % 4 == 0)) { pb.C = Color.FromArgb(150, 152, 160); pb.Hp = pb.Max = 1.7f; pb.Win = false; }   // 철근콘크리트 기둥 (잘 안 부서져요)
+		foreach (Blk pb in all) if (pb.K == 0 && pb.Y < 2 * KS && !pb.Roof && ((pb.X / KS + pb.Z / KS) % 4 == 0)) { pb.C = Color.FromArgb(150, 152, 160); pb.Hp = pb.Max = 1.7f; pb.Win = false; }   // 철근콘크리트 기둥 (잘 안 부서져요)
 		hallAlive = hallTotal;
 	}
 	private static readonly Color NewWall = Color.FromArgb(236, 238, 242), NewGlass = Color.FromArgb(206, 220, 234), NewRoof = Color.FromArgb(150, 160, 176);
@@ -112,7 +118,7 @@ internal sealed class CityHallGame : MiniGame
 	public override void Reset()
 	{
 		Build(); rubs.Clear(); cracks.Clear(); glassSnd = 0; falls.Clear(); debs.Clear(); puffs.Clear(); balls.Clear(); shots.Clear(); planes.Clear(); storms.Clear(); nukeT = 0f; Fx.Clear(); yaw = yawT = 0.55f; builtYaw = 99f; dirty = true; sceneDirty = true; Score = 0; Over = false; won = false; wonT = 0f; weapon = 0; combo = 0; comboT = 0f; kills = 0; msg = ""; msgT = 0f; phase = 0; buildStep = 0; buildClicks = 0; phaseT = 0f; popT = 0f;
-		for (int i = 0; i < 4; i++) cd[i] = 0f;
+		for (int i = 0; i < 8; i++) cd[i] = 0f; wrecks.Clear(); quakeT = 0f; qkT = 0f;
 	}
 	// ── 투영 ──────────────────────────────────────────────────
 	private PointF Pr(float x, float y, float z) { float dx = x - N / 2f, dz = z - N / 2f, rx = dx * cs - dz * sn, rz = dx * sn + dz * cs; return new PointF(OX + rx * S, OY + rz * sinE * S - y * cosE * S); }
@@ -121,28 +127,30 @@ internal sealed class CityHallGame : MiniGame
 	private static readonly float[] Shade = { 0.84f, 0.66f, 0.76f, 0.58f };   // +x, -x, +z, -z
 	private static readonly int[] Nx = { 1, -1, 0, 0 }, Nz = { 0, 0, 1, -1 };
 	private readonly PointF[][] fp = { new PointF[4], new PointF[4], new PointF[4], new PointF[4], new PointF[4] }; private readonly float[] fs = new float[5]; private readonly int[] fk = new int[5];   // 면: 0~3 옆, 4 윗면
+	private PointF Pf(float x, float y, float z) { return Pr(x * U, y * U, z * U); }
 	private int Faces(float x, float y, float z, bool[] open)
 	{
 		int n = 0;
-		if (open[4]) { fp[n][0] = Pr(x, y + 1, z); fp[n][1] = Pr(x + 1, y + 1, z); fp[n][2] = Pr(x + 1, y + 1, z + 1); fp[n][3] = Pr(x, y + 1, z + 1); fs[n] = 1f; fk[n] = 4; n++; }
+		if (open[4]) { fp[n][0] = Pf(x, y + 1, z); fp[n][1] = Pf(x + 1, y + 1, z); fp[n][2] = Pf(x + 1, y + 1, z + 1); fp[n][3] = Pf(x, y + 1, z + 1); fs[n] = 1f; fk[n] = 4; n++; }
 		for (int s = 0; s < 4; s++)
 		{
 			if (!open[s]) continue; float nrz = Nx[s] * sn + Nz[s] * cs; if (nrz <= 0.001f) continue;
-			if (s == 0) { fp[n][0] = Pr(x + 1, y, z); fp[n][1] = Pr(x + 1, y, z + 1); fp[n][2] = Pr(x + 1, y + 1, z + 1); fp[n][3] = Pr(x + 1, y + 1, z); }
-			else if (s == 1) { fp[n][0] = Pr(x, y, z); fp[n][1] = Pr(x, y, z + 1); fp[n][2] = Pr(x, y + 1, z + 1); fp[n][3] = Pr(x, y + 1, z); }
-			else if (s == 2) { fp[n][0] = Pr(x, y, z + 1); fp[n][1] = Pr(x + 1, y, z + 1); fp[n][2] = Pr(x + 1, y + 1, z + 1); fp[n][3] = Pr(x, y + 1, z + 1); }
-			else { fp[n][0] = Pr(x, y, z); fp[n][1] = Pr(x + 1, y, z); fp[n][2] = Pr(x + 1, y + 1, z); fp[n][3] = Pr(x, y + 1, z); }
+			if (s == 0) { fp[n][0] = Pf(x + 1, y, z); fp[n][1] = Pf(x + 1, y, z + 1); fp[n][2] = Pf(x + 1, y + 1, z + 1); fp[n][3] = Pf(x + 1, y + 1, z); }
+			else if (s == 1) { fp[n][0] = Pf(x, y, z); fp[n][1] = Pf(x, y, z + 1); fp[n][2] = Pf(x, y + 1, z + 1); fp[n][3] = Pf(x, y + 1, z); }
+			else if (s == 2) { fp[n][0] = Pf(x, y, z + 1); fp[n][1] = Pf(x + 1, y, z + 1); fp[n][2] = Pf(x + 1, y + 1, z + 1); fp[n][3] = Pf(x, y + 1, z + 1); }
+			else { fp[n][0] = Pf(x, y, z); fp[n][1] = Pf(x + 1, y, z); fp[n][2] = Pf(x + 1, y + 1, z); fp[n][3] = Pf(x, y + 1, z); }
 			fs[n] = Shade[s]; fk[n] = s; n++;
 		}
 		return n;
 	}
+	private readonly SolidBrush shb = new SolidBrush(Color.White); private bool pickStale = true; private float pmx = -1f, pmy = -1f;
 	private readonly bool[] op = new bool[5], opAll = { true, true, true, true, true };
-	private bool Empty(int x, int y, int z) { return x < 0 || z < 0 || y < 0 || x >= N || z >= N || y >= HH || grid[x, y, z] == null; }
+	private bool Empty(int x, int y, int z) { return x < 0 || z < 0 || y < 0 || x >= NF || z >= NF || y >= HF || grid[x, y, z] == null; }
 	private void Rebuild()
 	{
 		cs = (float)Math.Cos(yaw); sn = (float)Math.Sin(yaw); builtYaw = yaw; vis.Clear();
-		foreach (Blk b in all) { bool ex = Empty(b.X, b.Y + 1, b.Z); for (int s = 0; s < 4 && !ex; s++) ex = Empty(b.X + Nx[s], b.Y, b.Z + Nz[s]); if (!ex) continue; b.Dp = Depth(b.X + 0.5f, b.Y + 0.5f, b.Z + 0.5f); vis.Add(b); }
-		vis.Sort((a, c) => a.Dp.CompareTo(c.Dp)); dirty = false; sceneDirty = true;
+		foreach (Blk b in all) { bool ex = Empty(b.X, b.Y + 1, b.Z); for (int s = 0; s < 4 && !ex; s++) ex = Empty(b.X + Nx[s], b.Y, b.Z + Nz[s]); if (!ex) continue; b.Dp = Depth((b.X + 0.5f) * U, (b.Y + 0.5f) * U, (b.Z + 0.5f) * U); vis.Add(b); }
+		vis.Sort((a, c) => a.Dp.CompareTo(c.Dp)); dirty = false; sceneDirty = true; pickStale = true;
 	}
 	private static Color Mul(Color c, float f, int a = 255) { return Color.FromArgb(a, Math.Min(255, (int)(c.R * f)), Math.Min(255, (int)(c.G * f)), Math.Min(255, (int)(c.B * f))); }
 	private void RenderScene(float sc)
@@ -170,8 +178,7 @@ internal sealed class CityHallGame : MiniGame
 				int n = Faces(b.X, b.Y, b.Z, op); float dm = b.Hp < b.Max * 0.99f ? 0.78f + 0.22f * Math.Max(0f, b.Hp / b.Max) : 1f;
 				for (int f = 0; f < n; f++)
 				{
-					using (SolidBrush br = new SolidBrush(Mul(b.C, fs[f] * dm))) g.FillPolygon(br, fp[f]);
-					g.DrawPolygon(fk[f] == 4 ? eh : eo, fp[f]);
+					shb.Color = Mul(b.C, fs[f] * dm); g.FillPolygon(shb, fp[f]);
 					if (b.Win && fk[f] < 4) { PointF[] q = fp[f]; PointF a0 = Lerp(q[0], q[1], 0.2f), a1 = Lerp(q[0], q[1], 0.8f), b0 = Lerp(q[3], q[2], 0.2f), b1 = Lerp(q[3], q[2], 0.8f); PointF[] w = { Lerp(a0, b0, 0.25f), Lerp(a1, b1, 0.25f), Lerp(a1, b1, 0.75f), Lerp(a0, b0, 0.75f) }; using (SolidBrush wb = new SolidBrush(Mul(Color.FromArgb(96, 130, 176), fs[f]))) g.FillPolygon(wb, w); }
 				}
 			}
@@ -188,7 +195,7 @@ internal sealed class CityHallGame : MiniGame
 		for (int i = vis.Count - 1; i >= 0; i--)
 		{
 			Blk b = vis[i]; op[4] = Empty(b.X, b.Y + 1, b.Z); for (int s = 0; s < 4; s++) op[s] = Empty(b.X + Nx[s], b.Y, b.Z + Nz[s]); int n = Faces(b.X, b.Y, b.Z, op);
-			for (int f = 0; f < n; f++) if (Inside(fp[f], mx, my)) { aimOk = true; ax = b.X + 0.5f; ay = b.Y + 0.5f; az = b.Z + 0.5f; return; }
+			for (int f = 0; f < n; f++) if (Inside(fp[f], mx, my)) { aimOk = true; ax = (b.X + 0.5f) * U; ay = (b.Y + 0.5f) * U; az = (b.Z + 0.5f) * U; return; }
 		}
 		float gx, gz; if (Ground(mx, my, out gx, out gz)) { aimOk = true; ax = gx; ay = 0f; az = gz; }
 	}
@@ -197,14 +204,14 @@ internal sealed class CityHallGame : MiniGame
 	{
 		if (Over || won) return;
 		if (phase == 1) { if (y < 526f) Build1(); else { if (y > 470f && (x < 50f || x > 350f)) yawT += x < 50f ? -0.5f : 0.5f; } return; }
-		if (y >= 526f) { int i = (int)((x - 6f) / 65f); if (i >= 0 && i < 6) { weapon = i; Sfx.Play("tick"); } return; }
+		if (y >= 526f) { int i = (int)((x - 6f) / 49f); if (i >= 0 && i < 8) { weapon = i; Sfx.Play("tick"); } return; }
 		if (y > 470f && (x < 50f || x > 350f)) { yawT += x < 50f ? -0.5f : 0.5f; Sfx.Play("tick"); return; }
 		Pick(x, y); if (aimOk) Fire(ax, ay, az);
 	}
 	public override void Press(Keys k)
 	{
 		if (phase == 1 && !Over && !won && k == Keys.Space) { Build1(); return; }
-		if (k >= Keys.D1 && k <= Keys.D6) weapon = k - Keys.D1; else if (k >= Keys.NumPad1 && k <= Keys.NumPad6) weapon = k - Keys.NumPad1;
+		if (k >= Keys.D1 && k <= Keys.D8) weapon = k - Keys.D1; else if (k >= Keys.NumPad1 && k <= Keys.NumPad8) weapon = k - Keys.NumPad1;
 		else if (k == Keys.Left || k == Keys.A) yawT -= 0.4f; else if (k == Keys.Right || k == Keys.D) yawT += 0.4f;
 	}
 	private void Build1()
@@ -221,15 +228,17 @@ internal sealed class CityHallGame : MiniGame
 		else if (weapon == 2) { for (int i = 0; i < 7; i++) shots.Add(new Shot { Kind = 2, T = -i * 0.08f, Dur = 0.3f, From = new PointF(200f + (i - 3) * 40f, H - 80f), Tx = tx + ((float)Rnd.NextDouble() - 0.5f) * 3f, Ty = ty, Tz = tz + ((float)Rnd.NextDouble() - 0.5f) * 3f, R = 1.6f, Pow = 1.7f }); Sfx.Play("whoosh"); }
 		else if (weapon == 4) { float a = (float)Rnd.NextDouble() * 6.28f; storms.Add(new Storm { X = tx, Z = tz, Dx = (float)Math.Cos(a) * 1.6f, Dz = (float)Math.Sin(a) * 1.6f, Life = 7f }); Sfx.Play("whoosh"); msg = "허리케인 상륙!"; msgT = 1f; }
 		else if (weapon == 5) { shots.Add(new Shot { Kind = 4, Dur = 1.7f, From = new PointF(t.X, -90f), Tx = tx, Ty = ty, Tz = tz, R = 9f, Pow = 14f }); Sfx.Play("fall"); msg = "핵폭탄 투하!"; msgT = 1.2f; }
+		else if (weapon == 6) { wrecks.Add(new Wreck { X = tx, Y = Math.Max(0.6f, ty), Z = tz, Sx = cs, Sz = -sn }); Sfx.Play("whoosh"); msg = "철퇴 투입!"; msgT = 1f; }
+		else if (weapon == 7) { quakeT = 4.2f; qkT = 0f; Shake = Math.Max(Shake, 0.6f); Sfx.Play("boom"); msg = "지진 발생!"; msgT = 1.4f; }
 		else { Plane p = new Plane { X = -50f, Y = Math.Max(70f, t.Y - 170f), Vx = 330f, Dir = 1f, Tx = tx, Ty = ty, Tz = tz, Ks = new float[11], Done = new bool[11] }; planes.Add(p); Sfx.Play("whoosh"); }
 	}
 	private void Explode(float x, float y, float z, float r, float pow)
 	{
 		balls.Add(new Ball { X = x, Y = y, Z = z, R = r }); if (puffs.Count < 70) for (int i = 0; i < 3; i++) puffs.Add(new Puff { X = x + ((float)Rnd.NextDouble() - 0.5f) * r, Y = y + (float)Rnd.NextDouble() * r * 0.6f, Z = z + ((float)Rnd.NextDouble() - 0.5f) * r, Life = 1.2f + (float)Rnd.NextDouble(), R = r * 0.5f });
-		int x0 = Math.Max(0, (int)(x - r)), x1 = Math.Min(N - 1, (int)(x + r)), y0 = Math.Max(0, (int)(y - r)), y1 = Math.Min(HH - 1, (int)(y + r)), z0 = Math.Max(0, (int)(z - r)), z1 = Math.Min(N - 1, (int)(z + r)); int broke = 0;
+		int x0 = Math.Max(0, (int)((x - r) * KS)), x1 = Math.Min(NF - 1, (int)((x + r) * KS)), y0 = Math.Max(0, (int)((y - r) * KS)), y1 = Math.Min(HF - 1, (int)((y + r) * KS)), z0 = Math.Max(0, (int)((z - r) * KS)), z1 = Math.Min(NF - 1, (int)((z + r) * KS)); int broke = 0;
 		for (int a = x0; a <= x1; a++) for (int b = y0; b <= y1; b++) for (int c = z0; c <= z1; c++)
 		{
-			Blk bl = grid[a, b, c]; if (bl == null) continue; float dx = a + 0.5f - x, dy = b + 0.5f - y, dz = c + 0.5f - z, d = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz); if (d >= r) continue;
+			Blk bl = grid[a, b, c]; if (bl == null) continue; float dx = (a + 0.5f) * U - x, dy = (b + 0.5f) * U - y, dz = (c + 0.5f) * U - z, d = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz); if (d >= r) continue;
 			bl.Hp -= pow * (1f - d / r); if (bl.Hp <= 0f) { Kill(bl, 5, 1f); broke++; } else if (bl.K == 0 && bl.Fire <= 0f && r > 1.8f && burn.Count < 60 && Rnd.Next(4) == 0) { bl.Fire = 3f; burn.Add(bl); }
 		}
 		if (r >= 3.4f && cracks.Count < 24) { Crk ck = new Crk { X = x, Z = z }; for (int i = 0; i < 7; i++) { ck.A[i] = i * 0.9f + (float)Rnd.NextDouble() * 0.6f; ck.L[i] = r * (0.6f + (float)Rnd.NextDouble() * 0.8f); } cracks.Add(ck); }
@@ -238,43 +247,50 @@ internal sealed class CityHallGame : MiniGame
 	}
 	private void StormHit(Storm w)
 	{
-		float r = 3.6f; int x0 = Math.Max(0, (int)(w.X - r)), x1 = Math.Min(N - 1, (int)(w.X + r)), z0 = Math.Max(0, (int)(w.Z - r)), z1 = Math.Min(N - 1, (int)(w.Z + r)); int broke = 0;
-		for (int a = x0; a <= x1; a++) for (int c = z0; c <= z1; c++) for (int b = 0; b < HH; b++)
+		float r = 3.6f; int x0 = Math.Max(0, (int)((w.X - r) * KS)), x1 = Math.Min(NF - 1, (int)((w.X + r) * KS)), z0 = Math.Max(0, (int)((w.Z - r) * KS)), z1 = Math.Min(NF - 1, (int)((w.Z + r) * KS)); int broke = 0;
+		for (int a = x0; a <= x1; a++) for (int c = z0; c <= z1; c++) for (int b = 0; b < HF; b++)
 		{
-			Blk bl = grid[a, b, c]; if (bl == null) continue; float dx = a + 0.5f - w.X, dz = c + 0.5f - w.Z, d = (float)Math.Sqrt(dx * dx + dz * dz); if (d >= r) continue;
+			Blk bl = grid[a, b, c]; if (bl == null) continue; float dx = (a + 0.5f) * U - w.X, dz = (c + 0.5f) * U - w.Z, d = (float)Math.Sqrt(dx * dx + dz * dz); if (d >= r) continue;
 			bl.Hp -= 1.1f * (1f - d / r) + 0.25f; if (bl.Hp <= 0f) { Kill(bl, 2, 1.6f); broke++; }
 		}
 		if (broke > 0) { Shake = Math.Max(Shake, 0.18f); Collapse(); dirty = true; combo += broke > 3 ? 1 : 0; comboT = 2f; }
 	}
 	private void Kill(Blk b, int pieces, float spd)
 	{
-		grid[b.X, b.Y, b.Z] = null; all.Remove(b); int pts = b.K == 0 ? 4 : 1; if (b.K == 0) hallAlive--; Score += pts; kills++;
-		for (int i = 0; i < pieces && debs.Count < 260; i++) debs.Add(new Deb { X = b.X + 0.5f, Y = b.Y + 0.5f, Z = b.Z + 0.5f, Vx = ((float)Rnd.NextDouble() - 0.5f) * 7f * spd, Vy = 3f + (float)Rnd.NextDouble() * 6f * spd, Vz = ((float)Rnd.NextDouble() - 0.5f) * 7f * spd, Life = 1.1f + (float)Rnd.NextDouble() * 0.8f, Sz = 0.18f + (float)Rnd.NextDouble() * 0.2f, C = b.C });
-		if (b.Y <= 1 && rubs.Count < 260 && Rnd.Next(2) == 0) rubs.Add(new Rub { X = b.X + 0.5f + ((float)Rnd.NextDouble() - 0.5f) * 1.4f, Z = b.Z + 0.5f + ((float)Rnd.NextDouble() - 0.5f) * 1.4f, Sz = 0.25f + (float)Rnd.NextDouble() * 0.3f, C = b.C });
-		if (b.Win) { for (int i = 0; i < 3 && debs.Count < 260; i++) debs.Add(new Deb { X = b.X + 0.5f, Y = b.Y + 0.5f, Z = b.Z + 0.5f, Vx = ((float)Rnd.NextDouble() - 0.5f) * 6f * spd, Vy = 2f + (float)Rnd.NextDouble() * 5f * spd, Vz = ((float)Rnd.NextDouble() - 0.5f) * 6f * spd, Life = 1.3f, Sz = 0.12f, C = Color.FromArgb(190, 225, 245) }); if (glassSnd <= 0) { Sfx.Play("glass_big"); glassSnd = 6; } }
-		b.Fire = 0f; if (b.K == 4 || (b.K == 3 && Rnd.Next(7) == 0)) bq.Add(new[] { b.X + 0.5f, b.Y + 0.5f, b.Z + 0.5f, b.K == 4 ? 2.7f : 1.5f });
-		if (b.K == 3 && puffs.Count < 70) puffs.Add(new Puff { X = b.X + 0.5f, Y = b.Y + 1f, Z = b.Z + 0.5f, Life = 2.2f, R = 1.2f });
+		grid[b.X, b.Y, b.Z] = null; all.Remove(b); int pts = b.K == 0 ? 1 : 0; if (b.K == 0) hallAlive--; Score += pts; kills++; pieces = Math.Max(1, pieces / 2);
+		for (int i = 0; i < pieces && debs.Count < 260; i++) debs.Add(new Deb { X = (b.X + 0.5f) * U, Y = (b.Y + 0.5f) * U, Z = (b.Z + 0.5f) * U, Vx = ((float)Rnd.NextDouble() - 0.5f) * 7f * spd, Vy = 3f + (float)Rnd.NextDouble() * 6f * spd, Vz = ((float)Rnd.NextDouble() - 0.5f) * 7f * spd, Life = 1.1f + (float)Rnd.NextDouble() * 0.8f, Sz = 0.12f + (float)Rnd.NextDouble() * 0.12f, C = b.C });
+		if (b.Y < KS && rubs.Count < 360 && Rnd.Next(3) == 0) rubs.Add(new Rub { X = (b.X + 0.5f) * U + ((float)Rnd.NextDouble() - 0.5f) * 1.0f, Z = (b.Z + 0.5f) * U + ((float)Rnd.NextDouble() - 0.5f) * 1.0f, Sz = 0.14f + (float)Rnd.NextDouble() * 0.2f, C = b.C });
+		if (b.Win) { for (int i = 0; i < 2 && debs.Count < 260; i++) debs.Add(new Deb { X = (b.X + 0.5f) * U, Y = (b.Y + 0.5f) * U, Z = (b.Z + 0.5f) * U, Vx = ((float)Rnd.NextDouble() - 0.5f) * 6f * spd, Vy = 2f + (float)Rnd.NextDouble() * 5f * spd, Vz = ((float)Rnd.NextDouble() - 0.5f) * 6f * spd, Life = 1.3f, Sz = 0.12f, C = Color.FromArgb(190, 225, 245) }); if (glassSnd <= 0) { Sfx.Play("glass_big"); glassSnd = 6; } }
+		b.Fire = 0f; if (b.K == 4 || (b.K == 3 && Rnd.Next(7) == 0)) bq.Add(new[] { (b.X + 0.5f) * U, (b.Y + 0.5f) * U, (b.Z + 0.5f) * U, b.K == 4 ? 2.7f : 1.5f });
+		if (b.K == 3 && puffs.Count < 70) puffs.Add(new Puff { X = (b.X + 0.5f) * U, Y = (b.Y + 1f) * U, Z = (b.Z + 0.5f) * U, Life = 2.2f, R = 1.2f });
 	}
-	private readonly bool[,,] seen = new bool[N, HH, N]; private readonly Stack<int> stk = new Stack<int>();
+	private readonly bool[,,] seen = new bool[NF, HF, NF]; private readonly Stack<int> stk = new Stack<int>();
 	private void Collapse()
 	{
 		Array.Clear(seen, 0, seen.Length); stk.Clear();
-		foreach (Blk b in all) if (b.Y == 0) { seen[b.X, b.Y, b.Z] = true; stk.Push((b.X * HH + b.Y) * N + b.Z); }
-		while (stk.Count > 0) { int v = stk.Pop(); int z = v % N, y = (v / N) % HH, x = v / N / HH; for (int s = 0; s < 6; s++) { int a = x + (s == 0 ? 1 : s == 1 ? -1 : 0), b = y + (s == 2 ? 1 : s == 3 ? -1 : 0), c = z + (s == 4 ? 1 : s == 5 ? -1 : 0); if (a < 0 || b < 0 || c < 0 || a >= N || b >= HH || c >= N || seen[a, b, c] || grid[a, b, c] == null) continue; seen[a, b, c] = true; stk.Push((a * HH + b) * N + c); } }
+		foreach (Blk b in all) if (b.Y == 0) { seen[b.X, b.Y, b.Z] = true; stk.Push((b.X * HF + b.Y) * NF + b.Z); }
+		while (stk.Count > 0) { int v = stk.Pop(); int z = v % NF, y = (v / NF) % HF, x = v / NF / HF; for (int s = 0; s < 6; s++) { int a = x + (s == 0 ? 1 : s == 1 ? -1 : 0), b = y + (s == 2 ? 1 : s == 3 ? -1 : 0), c = z + (s == 4 ? 1 : s == 5 ? -1 : 0); if (a < 0 || b < 0 || c < 0 || a >= NF || b >= HF || c >= NF || seen[a, b, c] || grid[a, b, c] == null) continue; seen[a, b, c] = true; stk.Push((a * HF + b) * NF + c); } }
 		List<Blk> drop = null; foreach (Blk b in all) if (!seen[b.X, b.Y, b.Z]) { if (drop == null) drop = new List<Blk>(); drop.Add(b); }
 		if (drop == null) return;
 		foreach (Blk b in drop) { grid[b.X, b.Y, b.Z] = null; all.Remove(b); falls.Add(new Fall { B = b, Y = b.Y, Vy = 0f }); }
-		if (drop.Count > 12) { msg = "와르르 무너져요!"; msgT = 1.0f; Shake = Math.Max(Shake, 0.35f); Sfx.Play("glass_big"); }
+		if (drop.Count > 60) { msg = "와르르 무너져요!"; msgT = 1.0f; Shake = Math.Max(Shake, 0.35f); Sfx.Play("glass_big"); }
+	}
+	private void QuakeStep()
+	{
+		List<Blk> dead = null;
+		foreach (Blk b in all) { if (Rnd.Next(6) != 0) continue; b.Hp -= 0.035f + b.Y * U * 0.025f; if (b.Hp <= 0f) { if (dead == null) dead = new List<Blk>(); dead.Add(b); } }
+		if (Rnd.Next(7) == 0 && cracks.Count < 24) { Crk ck = new Crk { X = 3f + (float)Rnd.NextDouble() * 22f, Z = 3f + (float)Rnd.NextDouble() * 22f }; for (int i = 0; i < 7; i++) { ck.A[i] = i * 0.9f + (float)Rnd.NextDouble() * 0.6f; ck.L[i] = 1.2f + (float)Rnd.NextDouble() * 2.2f; } cracks.Add(ck); }
+		if (dead != null) { foreach (Blk b in dead) Kill(b, 2, 0.5f); Collapse(); dirty = true; }
 	}
 	// ── 갱신 ──────────────────────────────────────────────────
 	public override void Update(float dt, GameInput inp, double t)
 	{
 		if (dt > 0.05f) dt = 0.05f; if (msgT > 0f) msgT -= dt; if (glassSnd > 0 && Rnd.Next(3) == 0) glassSnd--; ringT += dt;
-		for (int i = 0; i < 6; i++) if (cd[i] > 0f) cd[i] -= dt; if (comboT > 0f) { comboT -= dt; if (comboT <= 0f) combo = 0; }
+		for (int i = 0; i < 8; i++) if (cd[i] > 0f) cd[i] -= dt; if (comboT > 0f) { comboT -= dt; if (comboT <= 0f) combo = 0; }
 		if (inp.Down != null) { if (inp.Down.Contains(Keys.Q) || inp.Down.Contains(Keys.Z)) yawT -= dt * 1.6f; if (inp.Down.Contains(Keys.E) || inp.Down.Contains(Keys.C)) yawT += dt * 1.6f; }
 		yaw += (yawT - yaw) * Math.Min(1f, dt * 8f);
 		if (dirty || Math.Abs(yaw - builtYaw) > 0.002f) Rebuild();
-		if (!Over && !won && phase == 0) Pick(inp.Mx, inp.My); else aimOk = false; if (popT > 0f) popT -= dt;
+		if (!Over && !won && phase == 0) { if (pickStale || inp.Mx != pmx || inp.My != pmy) { Pick(inp.Mx, inp.My); pmx = inp.Mx; pmy = inp.My; pickStale = false; } } else aimOk = false; if (popT > 0f) popT -= dt;
 		for (int i = shots.Count - 1; i >= 0; i--)
 		{
 			Shot s = shots[i]; s.T += dt; if (s.T < 0f) continue; float u = Math.Min(1f, s.T / s.Dur); PointF e = Pr(s.Tx, s.Ty, s.Tz);
@@ -292,6 +308,13 @@ internal sealed class CityHallGame : MiniGame
 			}
 			if (p.X > W + 60f) planes.RemoveAt(i);
 		}
+		for (int i = wrecks.Count - 1; i >= 0; i--)
+		{
+			Wreck w = wrecks[i]; w.T += dt; float need = 0.3f + 0.55f * w.Hit;
+			if (w.Hit < 4 && w.T >= need) { float sd = (w.Hit % 2 == 0) ? 1f : -1f; Explode(w.X + w.Sx * 2.3f * sd, w.Y + 0.4f, w.Z + w.Sz * 2.3f * sd, 2.3f, 3.6f); Shake = Math.Max(Shake, 0.45f); w.Hit++; }
+			if (w.T > 2.8f) wrecks.RemoveAt(i);
+		}
+		if (quakeT > 0f) { quakeT -= dt; Shake = Math.Max(Shake, 0.5f); qkT += dt; if (qkT >= 0.1f) { qkT = 0f; QuakeStep(); } }
 		if (nukeT > 0f) { nukeT += dt; if (nukeT > 3.2f) nukeT = 0f; }
 		bqT -= dt; if (bq.Count > 0 && bqT <= 0f) { float[] q = bq[0]; bq.RemoveAt(0); bqT = 0.13f; Explode(q[0], q[1], q[2], q[3], 1.7f); if (q[3] > 2f) { msg = "연쇄 폭발!"; msgT = 0.9f; } }
 		brT += dt; if (brT >= 0.25f)
@@ -300,7 +323,7 @@ internal sealed class CityHallGame : MiniGame
 			for (int i = burn.Count - 1; i >= 0; i--)
 			{
 				Blk bb = burn[i]; if (grid[bb.X, bb.Y, bb.Z] != bb || (bb.Fire -= 0.25f) <= 0f) { bb.Fire = 0f; burn.RemoveAt(i); continue; }
-				bb.Hp -= 0.05f; if (puffs.Count < 70 && Rnd.Next(4) == 0) puffs.Add(new Puff { X = bb.X + 0.5f, Y = bb.Y + 1f, Z = bb.Z + 0.5f, Life = 1.1f, R = 0.5f });
+				bb.Hp -= 0.05f; if (puffs.Count < 70 && Rnd.Next(4) == 0) puffs.Add(new Puff { X = (bb.X + 0.5f) * U, Y = (bb.Y + 1f) * U, Z = (bb.Z + 0.5f) * U, Life = 1.1f, R = 0.5f });
 				if (bb.Hp <= 0f) { burn.RemoveAt(i); Kill(bb, 3, 0.7f); any = true; }
 			}
 			if (any) { Collapse(); dirty = true; }
@@ -309,14 +332,14 @@ internal sealed class CityHallGame : MiniGame
 		{
 			Storm w = storms[i]; w.Age += dt; w.X = Math.Max(2f, Math.Min(N - 2f, w.X + w.Dx * dt)); w.Z = Math.Max(2f, Math.Min(N - 2f, w.Z + w.Dz * dt)); if (w.X <= 2f || w.X >= N - 2f) w.Dx = -w.Dx; if (w.Z <= 2f || w.Z >= N - 2f) w.Dz = -w.Dz; w.Tick += dt;
 			if (w.Tick >= 0.12f) { w.Tick = 0f; StormHit(w); }
-			foreach (Fall sf in falls) { float sx = sf.B.X + 0.5f - w.X, sz = sf.B.Z + 0.5f - w.Z; if (sx * sx + sz * sz < 20f) sf.Vy += 28f * dt; }
+			foreach (Fall sf in falls) { float sx = (sf.B.X + 0.5f) * U - w.X, sz = (sf.B.Z + 0.5f) * U - w.Z; if (sx * sx + sz * sz < 20f) sf.Vy += 56f * dt; }
 			foreach (Deb sd in debs) { float sx = sd.X - w.X, sz = sd.Z - w.Z; if (sx * sx + sz * sz < 30f) { sd.Vx += (-sz * 6f - sx * 3f) * dt; sd.Vz += (sx * 6f - sz * 3f) * dt; sd.Vy += 34f * dt; if (sd.Life < 0.5f) sd.Life = 0.5f; } }
 			if (w.Age >= w.Life) storms.RemoveAt(i);
 		}
 		for (int i = falls.Count - 1; i >= 0; i--)
 		{
-			Fall f = falls[i]; f.Vy -= 24f * dt; f.Y += f.Vy * dt; int top = 0; for (int y = HH - 1; y >= 0; y--) if (y < f.Y - 0.01f + 0.5f && grid[f.B.X, y, f.B.Z] != null) { top = y + 1; break; }
-			if (f.Y <= top) { for (int k = 0; k < 4 && debs.Count < 260; k++) debs.Add(new Deb { X = f.B.X + 0.5f, Y = top + 0.4f, Z = f.B.Z + 0.5f, Vx = ((float)Rnd.NextDouble() - 0.5f) * 5f, Vy = 2f + (float)Rnd.NextDouble() * 4f, Vz = ((float)Rnd.NextDouble() - 0.5f) * 5f, Life = 0.9f, Sz = 0.2f, C = f.B.C }); if (f.B.K == 0) hallAlive--; Score += f.B.K == 0 ? 6 : 2; kills++; if (puffs.Count < 70 && Rnd.Next(3) == 0) puffs.Add(new Puff { X = f.B.X + 0.5f, Y = top + 0.4f, Z = f.B.Z + 0.5f, Life = 1.9f, R = 1.4f }); if (top == 0 && rubs.Count < 260 && Rnd.Next(2) == 0) rubs.Add(new Rub { X = f.B.X + 0.5f + ((float)Rnd.NextDouble() - 0.5f) * 1.6f, Z = f.B.Z + 0.5f + ((float)Rnd.NextDouble() - 0.5f) * 1.6f, Sz = 0.25f + (float)Rnd.NextDouble() * 0.35f, C = f.B.C }); falls.RemoveAt(i); Sfx.Play("thud_soft"); }
+			Fall f = falls[i]; f.Vy -= 48f * dt; f.Y += f.Vy * dt; int top = 0; for (int y = HF - 1; y >= 0; y--) if (y < f.Y - 0.01f + 0.5f && grid[f.B.X, y, f.B.Z] != null) { top = y + 1; break; }
+			if (f.Y <= top) { for (int k = 0; k < 2 && debs.Count < 260; k++) debs.Add(new Deb { X = (f.B.X + 0.5f) * U, Y = top * U + 0.2f, Z = (f.B.Z + 0.5f) * U, Vx = ((float)Rnd.NextDouble() - 0.5f) * 5f, Vy = 2f + (float)Rnd.NextDouble() * 4f, Vz = ((float)Rnd.NextDouble() - 0.5f) * 5f, Life = 0.9f, Sz = 0.13f, C = f.B.C }); if (f.B.K == 0) hallAlive--; Score += f.B.K == 0 ? 1 : 0; kills++; if (puffs.Count < 70 && Rnd.Next(10) == 0) puffs.Add(new Puff { X = (f.B.X + 0.5f) * U, Y = top * U + 0.2f, Z = (f.B.Z + 0.5f) * U, Life = 1.9f, R = 1.4f }); if (top == 0 && rubs.Count < 360 && Rnd.Next(2) == 0) rubs.Add(new Rub { X = (f.B.X + 0.5f) * U + ((float)Rnd.NextDouble() - 0.5f) * 1.2f, Z = (f.B.Z + 0.5f) * U + ((float)Rnd.NextDouble() - 0.5f) * 1.2f, Sz = 0.14f + (float)Rnd.NextDouble() * 0.22f, C = f.B.C }); falls.RemoveAt(i); Sfx.Play("thud_soft"); }
 		}
 		for (int i = debs.Count - 1; i >= 0; i--) { Deb d = debs[i]; d.Life -= dt; d.Vy -= 18f * dt; d.X += d.Vx * dt; d.Y += d.Vy * dt; d.Z += d.Vz * dt; if (d.Y < 0.05f) { d.Y = 0.05f; d.Vy = -d.Vy * 0.3f; d.Vx *= 0.6f; d.Vz *= 0.6f; } if (d.Life <= 0f) debs.RemoveAt(i); }
 		for (int i = puffs.Count - 1; i >= 0; i--) { Puff p = puffs[i]; p.Age += dt; p.Y += dt * 0.8f; if (p.Age >= p.Life) puffs.RemoveAt(i); }
@@ -332,10 +355,10 @@ internal sealed class CityHallGame : MiniGame
 	public override void Draw(Graphics g, double t)
 	{
 		float sc = Math.Max(1f, Math.Min(2f, ImgCache.Scale(g))); if (dirty) Rebuild(); if (scene == null || sceneDirty || Math.Abs(sceneSc - sc) > 0.01f) RenderScene(sc);
-		GraphicsState st0 = g.Save(); g.InterpolationMode = InterpolationMode.Bilinear; g.PixelOffsetMode = PixelOffsetMode.Half; g.DrawImage(scene, 0, 0, W, H); g.Restore(st0);
+		GraphicsState st0 = g.Save(); g.InterpolationMode = InterpolationMode.Bilinear; g.PixelOffsetMode = PixelOffsetMode.Half; if (quakeT > 0f) g.TranslateTransform((float)Math.Sin(t * 70) * 3.2f * Math.Min(1f, quakeT), (float)Math.Cos(t * 63) * 2f * Math.Min(1f, quakeT)); g.DrawImage(scene, 0, 0, W, H); g.Restore(st0);
 		g.SmoothingMode = SmoothingMode.AntiAlias;
 		// 폭발 범위 표시
-		if (aimOk && !Over && !won) { PointF a = Pr(ax, ay, az); float r = WR[weapon] * S; using (SolidBrush b = new SolidBrush(Color.FromArgb(34, 255, 70, 50))) g.FillEllipse(b, a.X - r, a.Y - r * sinE, r * 2, r * 2 * sinE); using (Pen p = new Pen(Color.FromArgb(150 + (int)(60 * Math.Sin(ringT * 8)), 255, 90, 60), 1.6f)) g.DrawEllipse(p, a.X - r, a.Y - r * sinE, r * 2, r * 2 * sinE); }
+		if (aimOk && !Over && !won && weapon != 7) { PointF a = Pr(ax, ay, az); float r = WR[weapon] * S; using (SolidBrush b = new SolidBrush(Color.FromArgb(34, 255, 70, 50))) g.FillEllipse(b, a.X - r, a.Y - r * sinE, r * 2, r * 2 * sinE); using (Pen p = new Pen(Color.FromArgb(150 + (int)(60 * Math.Sin(ringT * 8)), 255, 90, 60), 1.6f)) g.DrawEllipse(p, a.X - r, a.Y - r * sinE, r * 2, r * 2 * sinE); }
 		// 갈라진 땅과 잔해 더미
 		if (cracks.Count > 0) using (Pen cp = new Pen(Color.FromArgb(150, 50, 40, 36), 2f)) foreach (Crk ck in cracks) for (int i = 0; i < 7; i++) { PointF c0 = Pr(ck.X, 0f, ck.Z), c1 = Pr(ck.X + (float)Math.Cos(ck.A[i]) * ck.L[i] * 0.5f + (float)Math.Sin(ck.A[i] * 3f) * 0.4f, 0f, ck.Z + (float)Math.Sin(ck.A[i]) * ck.L[i] * 0.5f), c2 = Pr(ck.X + (float)Math.Cos(ck.A[i]) * ck.L[i], 0f, ck.Z + (float)Math.Sin(ck.A[i]) * ck.L[i]); g.DrawLines(cp, new[] { c0, c1, c2 }); }
 	if (rubs.Count > 0) foreach (Rub ru in rubs) { PointF a = Pr(ru.X, 0f, ru.Z); float z = ru.Sz * S; using (SolidBrush b = new SolidBrush(Mul(ru.C, 0.8f))) g.FillRectangle(b, a.X - z / 2, a.Y - z / 3, z, z * 0.7f); }
@@ -345,7 +368,7 @@ internal sealed class CityHallGame : MiniGame
 		foreach (Deb d in debs) { PointF a = Pr(d.X, d.Y, d.Z); float z = d.Sz * S; using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(255 * Math.Min(1f, d.Life * 2f)), d.C))) g.FillRectangle(b, a.X - z / 2, a.Y - z / 2, z, z); }
 		if (burn.Count > 0) using (SolidBrush fb = new SolidBrush(Color.White)) foreach (Blk bk in burn)
 		{
-			if (grid[bk.X, bk.Y, bk.Z] != bk) continue; PointF fa = Pr(bk.X + 0.5f, bk.Y + 1f, bk.Z + 0.5f); float fl = 4f + 3f * (float)Math.Abs(Math.Sin(t * 14 + bk.X * 1.7 + bk.Z));
+			if (grid[bk.X, bk.Y, bk.Z] != bk) continue; PointF fa = Pr((bk.X + 0.5f) * U, (bk.Y + 1f) * U, (bk.Z + 0.5f) * U); float fl = 4f + 3f * (float)Math.Abs(Math.Sin(t * 14 + bk.X * 1.7 + bk.Z));
 			fb.Color = Color.FromArgb(220, 255, 110, 30); g.FillEllipse(fb, fa.X - fl * 0.6f, fa.Y - fl * 1.6f, fl * 1.2f, fl * 2f); fb.Color = Color.FromArgb(230, 255, 220, 90); g.FillEllipse(fb, fa.X - fl * 0.3f, fa.Y - fl * 1.1f, fl * 0.6f, fl * 1.1f);
 		}
 		foreach (Ball sw in balls) if (sw.R >= 2.2f) { float su = sw.Age / 0.55f; PointF sa = Pr(sw.X, 0f, sw.Z); float sr = sw.R * S * (0.6f + 2.2f * su); using (Pen sp = new Pen(Color.FromArgb((int)(150 * (1f - su)), 255, 235, 190), 2.5f)) g.DrawEllipse(sp, sa.X - sr, sa.Y - sr * sinE, sr * 2, sr * 2 * sinE); }
@@ -357,6 +380,7 @@ internal sealed class CityHallGame : MiniGame
 		}
 		foreach (Shot s in shots) { if (s.T < 0f) continue; DrawShot(g, s); }
 		foreach (Plane p in planes) DrawPlane(g, p);
+		foreach (Wreck wr in wrecks) DrawWreck(g, wr);
 		foreach (Storm w in storms) DrawStorm(g, w, t);
 		if (nukeT > 0f) DrawNuke(g);
 		Fx.Draw(g);
@@ -372,12 +396,12 @@ internal sealed class CityHallGame : MiniGame
 		DrawCrane(g);
 		// 무기 막대
 		if (phase == 1) { DrawBuildBar(g); return; }
-		for (int i = 0; i < 6; i++)
+		for (int i = 0; i < 8; i++)
 		{
-			RectangleF r = new RectangleF(6 + i * 65, 528, 61, 64); bool sel = i == weapon;
+			RectangleF r = new RectangleF(6 + i * 49, 528, 46, 64); bool sel = i == weapon;
 			using (GraphicsPath gp = Gfx.Round(r, 12)) { using (SolidBrush b = new SolidBrush(Color.FromArgb(sel ? 215 : 160, sel ? 40 : 14, sel ? 52 : 22, sel ? 90 : 46))) g.FillPath(b, gp); using (Pen p = new Pen(sel ? Color.FromArgb(255, 214, 90) : Color.FromArgb(90, 190, 215, 255), sel ? 2.2f : 1f)) g.DrawPath(p, gp); }
 			if (cd[i] > 0f) { float h = 64f * Math.Min(1f, cd[i] / CdMax[i]); using (SolidBrush b = new SolidBrush(Color.FromArgb(120, 0, 0, 0))) g.FillRectangle(b, r.X + 2, r.Bottom - h, r.Width - 4, h - 2); }
-			WIcon(g, i, r.X + 30, r.Y + 24); Txt(g, (i + 1) + " " + WName[i], 8.6f, 2, cd[i] > 0f ? Color.FromArgb(200, 200, 210) : Color.White, r.X, r.Y + 42, r.Width, 18, StringAlignment.Center);
+			WIcon(g, i, r.X + 23, r.Y + 24); Txt(g, (i + 1) + " " + WName[i], 7.4f, 2, cd[i] > 0f ? Color.FromArgb(200, 200, 210) : Color.White, r.X, r.Y + 42, r.Width, 18, StringAlignment.Center);
 		}
 		if (Pct() == 0 && PlayT < 6f && !Over) Hint(g, "구청사를 클릭해서 부숴요! 밑을 노리면 와르르", 132, 12.5f, false, 1f);
 	}
@@ -404,7 +428,20 @@ internal sealed class CityHallGame : MiniGame
 		else if (i == 2) { using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 214, 90))) for (int k = 0; k < 3; k++) g.FillEllipse(b, cx - 14 + k * 12, cy - 6 + (k % 2) * 8, 7, 7); }
 		else if (i == 4) { using (Pen p = new Pen(Color.FromArgb(200, 220, 235), 2.4f)) for (int k = 0; k < 4; k++) { float w2 = 8f + k * 5f; g.DrawArc(p, cx - w2, cy - 14 + k * 7, w2 * 2, 8, 0, 180); } }
 		else if (i == 5) { using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 170, 50))) { g.FillEllipse(b, cx - 12, cy - 16, 24, 16); g.FillRectangle(b, cx - 3, cy - 4, 6, 14); g.FillEllipse(b, cx - 10, cy + 6, 20, 6); } using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 245, 200))) g.FillEllipse(b, cx - 6, cy - 13, 12, 8); }
+		else if (i == 6) { using (Pen p = new Pen(Color.FromArgb(200, 200, 210), 2f)) g.DrawLine(p, cx - 12, cy - 18, cx - 2, cy - 2); using (SolidBrush b = new SolidBrush(Color.FromArgb(70, 74, 86))) g.FillEllipse(b, cx - 8, cy - 4, 20, 20); using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 156, 170))) g.FillEllipse(b, cx - 3, cy + 1, 7, 6); }
+		else if (i == 7) { using (Pen p = new Pen(Color.FromArgb(220, 200, 150), 2.2f)) { g.DrawLines(p, new[] { new PointF(cx - 16, cy + 4), new PointF(cx - 7, cy - 2), new PointF(cx, cy + 8), new PointF(cx + 7, cy - 4), new PointF(cx + 16, cy + 6) }); g.DrawLine(p, cx - 14, cy + 14, cx + 14, cy + 14); } }
 		else { using (SolidBrush b = new SolidBrush(Color.FromArgb(210, 216, 228))) { g.FillEllipse(b, cx - 16, cy - 4, 32, 9); g.FillPolygon(b, new[] { new PointF(cx - 2, cy), new PointF(cx + 8, cy - 10), new PointF(cx + 12, cy - 10), new PointF(cx + 6, cy) }); } using (SolidBrush b = new SolidBrush(Color.FromArgb(70, 76, 96))) { g.FillEllipse(b, cx - 3, cy + 8, 5, 7); g.FillEllipse(b, cx + 6, cy + 8, 5, 7); } }
+	}
+	private void DrawWreck(Graphics g, Wreck w)
+	{
+		float om = 2f * (float)Math.PI / 1.1f, ox = 2.3f * (float)Math.Sin(om * w.T + 0.0f), L = 9f, hy = L - (float)Math.Sqrt(Math.Max(0.1f, L * L - ox * ox));
+		float bx = w.X + w.Sx * ox, by = w.Y + 0.4f + hy, bz = w.Z + w.Sz * ox; PointF pv = Pr(w.X, w.Y + 9.4f, w.Z), bp = Pr(bx, by, bz); float fade = Math.Min(1f, Math.Min(w.T * 4f, (2.8f - w.T) * 3f));
+		using (Pen p = new Pen(Color.FromArgb((int)(220 * Math.Max(0f, fade)), 70, 70, 76), 2.4f)) g.DrawLine(p, pv, new PointF(bp.X, bp.Y - 14f));
+		float rr = 15f; int al = (int)(255 * Math.Max(0f, fade));
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(al / 3, 0, 0, 0))) g.FillEllipse(b, bp.X - rr, Pr(bx, 0f, bz).Y - 4f, rr * 2, 8f);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(al, 52, 56, 66))) g.FillEllipse(b, bp.X - rr, bp.Y - rr, rr * 2, rr * 2);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(al, 96, 102, 116))) g.FillEllipse(b, bp.X - rr * 0.7f, bp.Y - rr * 0.8f, rr * 0.9f, rr * 0.8f);
+		using (SolidBrush b = new SolidBrush(Color.FromArgb(al, 40, 42, 50))) for (int k = 0; k < 8; k++) { float an = k * 0.785f + w.T * 3f; g.FillPolygon(b, new[] { new PointF(bp.X + (float)Math.Cos(an - 0.18f) * rr, bp.Y + (float)Math.Sin(an - 0.18f) * rr), new PointF(bp.X + (float)Math.Cos(an) * (rr + 7f), bp.Y + (float)Math.Sin(an) * (rr + 7f)), new PointF(bp.X + (float)Math.Cos(an + 0.18f) * rr, bp.Y + (float)Math.Sin(an + 0.18f) * rr) }); }
 	}
 	private void DrawPlane(Graphics g, Plane p)
 	{

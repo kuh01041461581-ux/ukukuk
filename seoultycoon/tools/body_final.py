@@ -32,23 +32,9 @@ if hair.any() and os.environ.get('HAIRFIX', '0') == '1': fa[hair, :3] += (fhair 
 cutm = (fa[..., 3] > 0) & ~skin & (lum < 150) & (np.arange(H)[:, None] < int(os.environ.get('HAIRCUT', '0')))                   # 목 위쪽 짧은 머리 끝자락은 지운다(얼굴 머리가 대신 덮는다)
 fa[cutm, 3] = 0
 pass            # 목 맨 윗줄은 피부만 안쪽 줄 복사(밝은 가로선 방지)
-wedge = (fa[..., 3] > 0) & (lum < 50) & ~skin & (np.arange(H)[:, None] < 22) & (np.arange(W)[None, :] > 4) & (np.arange(W)[None, :] < W - 5); fa[wedge, 3] = 0      # 목 옆 검은 삼각 조각 제거(바깥 윤곽선은 제외)
+wedge = (fa[..., 3] > 0) & (lum < 60) & ~skin & (np.arange(H)[:, None] < 24) & (np.arange(W)[None, :] > 4) & (np.arange(W)[None, :] < W - 5)
+fa[wedge, :3] = np.clip(fhair[None, :] * (0.75 + 0.5 * (lum[wedge] / 60.0))[:, None], 0, 255)         # 원래 그림의 목 옆 머리 타래를 그대로 살리고 색만 얼굴 머리에 맞춘다
 fa[0] = fa[2]; fa[1] = fa[2]
-# 목 양옆 머리 잇기: 얼굴 바탕(fd1) 맨 아래의 목 피부 폭 밖에 있는 상체 목 피부를, 얼굴 머리색의 머리 타래로 덮어 얼굴 머리와 상체가 이어지게 한다
-nk = sk2(fd[-8:-4]); ncols = np.where(nk.any(0))[0]
-if len(ncols):
-    scr_l, scr_r = 214 + int(ncols.min()), 214 + int(ncols.max()); NL, NR_ = scr_l - (184 + BIGX), scr_r - (184 + BIGX); rngh = np.random.RandomState(3)
-    sk_top = skin.copy()
-    for r in range(0, 14):
-        t = r / 14.0; l = NL - 1 + int(round(3 * t)); rr = NR_ + 1 - int(round(3 * t))               # 아래로 갈수록 목이 조금 넓어진다
-        for x in range(W):
-            if sk_top[r, x] and x > rr + 1: fa[r, x, 3] = 0
-            elif sk_top[r, x] and (x < l or x > rr):
-                v = 0.8 + 0.35 * rngh.rand() * (1 - t); fa[r, x, :3] = np.clip(fhair * v + 8 * (1 - t), 0, 255); fa[r, x, 3] = 255
-    for r in range(0, 16):                                              # 목 안쪽·오른쪽 옆의 빈 구멍은 목 피부색으로 메운다
-        ref = fa[r, max(NL, NR_ - 4)]
-        for x in range(NL, NR_ + 4):
-            if fa[r, x, 3] == 0: fa[r, x, :3] = ref[:3]; fa[r, x, 3] = 255
 hd = Image.fromarray(np.clip(fa, 0, 255).astype(np.uint8), 'RGBA')
 raw = open(f'{mod}/fb1.d', 'rb').read(); i = raw.find(b'IEND') + 8; j = raw.find(b'BIGH'); first = raw[:i]
 b2 = io.BytesIO(); hd.save(b2, format='PNG', optimize=True)

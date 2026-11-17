@@ -8,7 +8,7 @@ out = root + '/work/pak_mod'; os.makedirs(out, exist_ok=True)
 for f in glob.glob(out + '/*.png'): os.remove(f)
 def run(tool): subprocess.run([sys.executable, '-I', f'{here}/{tool}'], check=True, stdout=subprocess.DEVNULL)
 # 1) 지형·기타(조각 규칙과 무관)
-for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_palace.py', 'make_iksan_retouch.py', 'make_iksan_minimap.py', 'make_iksan_logo.py', 'make_iksan_misc.py', 'make_iksan_secnames.py', 'make_iksan_faces.py', 'gpt_import.py', 'faces_hd.py', 'body_final.py', 'make_maryong.py'): run(tool)
+for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_palace.py', 'make_iksan_retouch.py', 'make_iksan_minimap.py', 'make_iksan_logo.py', 'make_iksan_misc.py', 'make_iksan_secnames.py', 'make_iksan_faces.py', 'gpt_import.py', 'faces_hd.py', 'body_final.py', 'female_base.py', 'horse_race.py', 'make_maryong.py'): run(tool)
 # 2) 건물: 조각 규칙 변환
 import strips as ST
 import pixel_style as PS
@@ -41,10 +41,19 @@ for k, fn in sorted(ITEMS.items()):
                 Sc.ZS = max(1.0, min(1.3 if k == 2 else (1.9 if k == 13 else (2.2 if k == 21 else 1.6)), (yc - 5) / max(1.0, yc - ys[0]))); Sc.LAST_HD = None
                 if Sc.ZS > 1.02: F = fn()
     finally: Sc.OVR = None; Sc.ZS = 1.0; Sc.FS = 1.0
-    F2 = horse(0, 0, True) if k == 9 else Sc.LAST_HD                                              # 2배 해상도판(없으면 1배 그림만)
+    F2 = None      # 새 건물도 원본과 같은 처리(저해상도 도트 → 벡터풍 2배 층)를 거치게 해 이질감을 없앤다                                              # 2배 해상도판(없으면 1배 그림만)
     if F.size != (96, Hc): Fx = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); Fx.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = Fx
     F = on_tile(F, yc)
-    if k != 9: F = PS.stylize(F)
+    if k != 9:
+        F = PS.stylize(F)
+        # 도트 티 내기: 색을 NCOL 개로 줄이고(디더 없음), 알파는 이진, 윤곽에 한 칸 어두운 선을 둔다 — 원본 건물처럼 또렷한 면 단위 색
+        import numpy as _np
+        _a = _np.asarray(F.convert('RGBA')).copy(); _al = _a[..., 3] > 127
+        _q = Image.fromarray(_a[..., :3]).quantize(colors=int(os.environ.get('NCOL', '30')), method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).convert('RGB')
+        _qa = _np.asarray(_q).copy(); _out = _np.dstack([_qa, (_al * 255).astype(_np.uint8)])
+        _edge = _al & ~(_np.roll(_al, 1, 0) & _np.roll(_al, -1, 0) & _np.roll(_al, 1, 1) & _np.roll(_al, -1, 1))
+        _out[_edge, :3] = (_out[_edge, :3] * 0.55).astype(_np.uint8)
+        F = Image.fromarray(_out, 'RGBA')
     # 애니메이션 프레임: 구성물이 실제로 움직이는 변형 그림을 우선 쓰고(승마장: 말이 울타리 안을 걷는다), 없으면 불빛 변형
     vs = [on_tile(horse(1.0, 0.5), yc)] if k == 9 else ([PS.twinkle(F, 0, 1, 23, True), PS.twinkle(F, 1, 1, 23, True)] if k in (21, 42) else [PS.twinkle(F, 0), PS.twinkle(F, 1)])
     S, rects, pos = ST.to_sheet(k, F, vs); ST.patch_yx(yx, k, rects, pos)

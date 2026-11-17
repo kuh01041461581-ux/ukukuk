@@ -369,6 +369,37 @@ class PackageSafetyTests(unittest.TestCase):
         self.assertIn(b'micro="5"', zipfile.ZipFile(io.BytesIO(out)).read("version.xml"))
 
 
+class PruneHeaderTests(unittest.TestCase):
+    def test_audit_header_is_pruned_and_consistent(self):
+        """큰 샘플에서 떼어 온 감사 양식도 안 쓰는 서식을 덜어 내고, 남은 번호가 빠짐없이 이어진다"""
+        import io
+        import re
+        import zipfile
+        from lxml import etree
+        for fid in ("audit_cover", "audit_toc", "audit_common", "audit_i01", "audit_i20", "audit_req", "policy_ref"):
+            f = registry.load_form(fid, ROOTS)
+            vals = {fl["key"]: "x" for fl in f.meta.get("fields", [])}
+            data = f.render(vals, f.meta.get("starter", "")).to_bytes()
+            z = zipfile.ZipFile(io.BytesIO(data))
+            hdr = etree.fromstring(z.read("Contents/header.xml"))
+            ids = {}
+            for tag in ("charPr", "paraPr", "borderFill", "style"):
+                ids[tag] = [e.get("id") for e in hdr.iter("{http://www.hancom.co.kr/hwpml/2011/head}" + tag)]
+            self.assertLess(len(ids["charPr"]), 200, fid)
+            self.assertEqual(ids["charPr"], [str(i) for i in range(len(ids["charPr"]))], fid)
+            self.assertEqual(ids["paraPr"], [str(i) for i in range(len(ids["paraPr"]))], fid)
+            self.assertEqual(ids["borderFill"], [str(i + 1) for i in range(len(ids["borderFill"]))], fid)
+            sec = z.read("Contents/section0.xml").decode("utf-8")
+            for attr, tag in (("charPrIDRef", "charPr"), ("paraPrIDRef", "paraPr"), ("styleIDRef", "style"), ("borderFillIDRef", "borderFill")):
+                for v in set(re.findall(r'\b%s="(\d+)"' % attr, sec)):
+                    if v != "4294967295":
+                        self.assertIn(v, ids[tag], "%s %s=%s" % (fid, attr, v))
+            # 구역 설정이 가리키는 번호가 header 에 실제로 있다
+            nums = [e.get("id") for e in hdr.iter("{http://www.hancom.co.kr/hwpml/2011/head}numbering")]
+            for v in re.findall(r'outlineShapeIDRef="(\d+)"', sec):
+                self.assertTrue(not nums or v in nums, fid)
+
+
 class BridgeTests(unittest.TestCase):
     def test_insert_once_even_if_falsy(self):
         from hwpgen.bridge import HwpBridge

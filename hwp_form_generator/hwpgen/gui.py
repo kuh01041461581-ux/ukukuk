@@ -92,6 +92,8 @@ class Output:
             br.prepare_insert(at_end)                # 앞 내용과 한 줄로 붙지 않게 새 줄에서 시작
             with_lead_blank(pkg)                     # 첫 문단이 앞 문단의 모양을 물려받지 않게 빈 받침 문단 하나
         with_tail_blank(pkg)                         # 끝에 빈 줄: 커서가 새 줄에 놓여 다음 ◦가 붙지 않는다
+        pkg.fix_secpr_refs()
+        pkg.prune_header()                           # 안 쓰는 서식을 덜어 낸 뒤 쪼갠다 — 조각마다 큰 서식표를 한글이 다시 읽지 않게
         chunks = split_chunks(pkg) if step else [pkg]
         n = len(chunks)
         i = 0
@@ -790,6 +792,39 @@ def icon(name, white=False):
     return _ICONS[key]
 
 
+_TILES = {}
+
+
+def tile_icon(name, color, size=28, bg="#ffffff"):
+    """색 바탕(모서리만 둥근 네모) 한가운데에 흰 선 그림을 얹은 이미지. 그림은 미리 잘라 한가운데로 맞춰 둔 *_g.png 를 쓴다."""
+    key = (name, color, size, bg)
+    if key in _TILES:
+        return _TILES[key]
+    img = None
+    try:
+        import base64
+        import io
+        from PIL import Image, ImageDraw
+        k = 4
+        W = size * k
+        base = Image.new("RGB", (W, W), bg)
+        mask = Image.new("L", (W, W), 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, W - 1, W - 1), radius=7 * k, fill=255)
+        base.paste(Image.new("RGB", (W, W), color), (0, 0), mask)
+        g = Image.open(os.path.join(ICON_DIR, "%s_g.png" % name)).convert("RGBA")
+        gs = int(W * 0.56)
+        g = g.resize((gs, gs), Image.LANCZOS)
+        base.paste(g, ((W - gs) // 2, (W - gs) // 2), g)
+        base = base.resize((size, size), Image.LANCZOS)
+        bio = io.BytesIO()
+        base.save(bio, "PNG")
+        img = tk.PhotoImage(data=base64.b64encode(bio.getvalue()))
+    except Exception:                                    # noqa: BLE001
+        img = None
+    _TILES[key] = img
+    return img
+
+
 def _mix(c1, c2, t):
     a = [int(c1[i:i + 2], 16) for i in (1, 3, 5)]
     b = [int(c2[i:i + 2], 16) for i in (1, 3, 5)]
@@ -1136,12 +1171,8 @@ class Btn(_Anim, tk.Canvas):
             if ic is not None:
                 d = h - 14
                 cy = h // 2 + dy
-                if self.color and not acc:                      # 양식 종류별 색 바탕(둥근 네모) + 흰 선 그림
-                    tile = aa_shape(26, 26, 7, self.color, bg="#ffffff")
-                    if tile is not None:
-                        self.create_image(x + d // 2, cy, image=tile)
-                    ic = icon(self.icon_name, white=True)
-                self.create_image(x + d // 2, cy, image=ic)
+                tile = tile_icon(self.icon_name, self.color, 28) if (self.color and not acc) else None
+                self.create_image(x + d // 2, cy, image=tile if tile is not None else ic)
                 x += d + 10
             else:
                 x = 18

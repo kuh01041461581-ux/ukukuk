@@ -72,6 +72,121 @@ class Package:
     def section(self, i=0):
         return self.xml(self.section_names()[i])
 
+    # ---- 서식 정의 가지치기 ----
+    def prune_header(self, min_char=300):
+        """header.xml 에서 본문이 쓰지 않는 글자 모양·문단 모양·테두리·스타일을 덜어내고 번호를 0부터 다시 매긴다.
+        큰 샘플(수천 개 서식)에서 떼어 온 양식도 보통 양식처럼 가볍게 만들어, 한글이 끼워 넣을 때 읽는 양과 서식 표 증가를 줄인다.
+        이미 가벼우면(글자 모양 min_char 개 이하) 그대로 둔다."""
+        if "Contents/header.xml" not in self.files and "Contents/header.xml" not in self._xml:
+            return False
+        if "Contents/header.xml" not in self._xml and self.files["Contents/header.xml"].count(b"<hh:charPr ") <= min_char:
+            return False                                     # 이미 가벼운 머리는 읽지도 않는다
+        hdr = self.header()
+        by = {}
+        for tag in ("charPr", "paraPr", "borderFill", "style"):
+            by[tag] = [e for e in hdr.iter(HH + tag)]
+        if len(by["charPr"]) <= min_char:
+            return False
+        bodies = [self.xml(n) for n in self.files if re.fullmatch(r"Contents/(section\d+|masterpage\d+)\.xml", n)]
+        for n in list(self._xml):
+            if re.fullmatch(r"Contents/(section\d+|masterpage\d+)\.xml", n) and self._xml[n] not in bodies:
+                bodies.append(self._xml[n])
+        used = {k: set() for k in by}
+        SENT = "4294967295"
+
+        def note(el):
+            for a, k in (("charPrIDRef", "charPr"), ("paraPrIDRef", "paraPr"), ("styleIDRef", "style"),
+                         ("borderFillIDRef", "borderFill"), ("prIDRef", "charPr")):
+                v = el.get(a)
+                if v is not None and v != SENT:
+                    used[k].add(v)
+        for root in bodies:
+            for el in root.iter():
+                if isinstance(el.tag, str):
+                    note(el)
+        # 번호·글머리표가 가리키는 글자 모양, 쓰는 스타일이 가리키는 모양과 다음 스타일
+        for el in hdr.iter():
+            if isinstance(el.tag, str) and el.tag in (HH + "paraHead",):
+                note(el)
+        used["style"].add("0")
+        used["charPr"].add("0")
+        used["paraPr"].add("0")
+        sty = {e.get("id"): e for e in by["style"]}
+        todo = list(used["style"])
+        while todo:
+            e = sty.get(todo.pop())
+            if e is None:
+                continue
+            for a, k in (("paraPrIDRef", "paraPr"), ("charPrIDRef", "charPr")):
+                if e.get(a) is not None:
+                    used[k].add(e.get(a))
+            nx = e.get("nextStyleIDRef")
+            if nx is not None and nx not in used["style"]:
+                used["style"].add(nx)
+                todo.append(nx)
+        # 서식끼리의 참조(글자·문단 모양 → 테두리)
+        pp = {e.get("id"): e for e in by["paraPr"]}
+        cp = {e.get("id"): e for e in by["charPr"]}
+        for i in list(used["paraPr"]):
+            for el in (pp.get(i).iter() if pp.get(i) is not None else []):
+                if isinstance(el.tag, str) and el.get("borderFillIDRef") is not None:
+                    used["borderFill"].add(el.get("borderFillIDRef"))
+        for i in list(used["charPr"]):
+            for el in (cp.get(i).iter() if cp.get(i) is not None else []):
+                if isinstance(el.tag, str) and el.get("borderFillIDRef") is not None:
+                    used["borderFill"].add(el.get("borderFillIDRef"))
+        used["borderFill"] |= {"1", "2"}
+        # 새 번호표
+        remap = {}
+        for k in by:
+            m = {}
+            for e in by[k]:
+                i = e.get("id")
+                if i in used[k]:
+                    m[i] = str(len(m))
+            remap[k] = m
+        # 테두리·배경은 번호가 1부터
+        bm = {}
+        for e in by["borderFill"]:
+            if e.get("id") in used["borderFill"]:
+                bm[e.get("id")] = str(len(bm) + 1)
+        remap["borderFill"] = bm
+        for k, lst in by.items():
+            for e in lst:
+                if e.get("id") not in remap[k]:
+                    e.getparent().remove(e)
+                else:
+                    e.set("id", remap[k][e.get("id")])
+        for tag, k in (("charProperties", "charPr"), ("paraProperties", "paraPr"), ("borderFills", "borderFill"), ("styles", "style")):
+            for e in hdr.iter(HH + tag):
+                e.set("itemCnt", str(len(remap[k])))
+        attrs = (("charPrIDRef", "charPr"), ("paraPrIDRef", "paraPr"), ("styleIDRef", "style"), ("nextStyleIDRef", "style"),
+                 ("borderFillIDRef", "borderFill"), ("prIDRef", "charPr"))
+        for root in bodies + [hdr]:
+            for el in root.iter():
+                if not isinstance(el.tag, str):
+                    continue
+                for a, k in attrs:
+                    v = el.get(a)
+                    if v is not None and v != SENT and v in remap[k]:
+                        el.set(a, remap[k][v])
+        return True
+
+    def fix_secpr_refs(self):
+        """구역 설정이 가리키는 개요 번호(outlineShapeIDRef)·메모 모양(memoShapeIDRef)이 header 에 없는 번호면 있는 것으로 맞춘다
+        (header 에 번호가 1부터인데 0 을 가리키면 한글이 문서를 손상으로 본다)"""
+        if "Contents/header.xml" not in self.files and "Contents/header.xml" not in self._xml:
+            return
+        hdr = self.header()
+        have = {"outlineShapeIDRef": [e.get("id") for e in hdr.iter(HH + "numbering")],
+                "memoShapeIDRef": [e.get("id") for e in hdr.iter(HH + "memoPr")]}
+        for n in self.section_names():
+            for sp in self.xml(n).iter(HP + "secPr"):
+                for a, ids in have.items():
+                    v = sp.get(a)
+                    if ids and v is not None and v not in ids:
+                        sp.set(a, ids[0])
+
     def fix_sec_count(self):
         """머리(header.xml)의 구역 수(secCnt)를 실제 구역 파일 수에 맞춘다 — 2구역 샘플에서 한 구역만 떼어 만든 양식이
         secCnt=2 로 남으면 한글이 '파일이 손상되었습니다'라고 한다"""
@@ -86,6 +201,8 @@ class Package:
             self.files["Contents/header.xml"] = head + tail
 
     def to_bytes(self):
+        self.fix_secpr_refs()
+        self.prune_header()
         self.fix_sec_count()
         for name, root in self._xml.items():
             self.files[name] = dump_xml(root)

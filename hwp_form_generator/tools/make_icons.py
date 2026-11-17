@@ -216,13 +216,29 @@ def badge(fn, name, white):
     d.rounded_rectangle((0.5 * K, 0.5 * K, big - 0.5 * K, big - 0.5 * K), radius=7 * K, fill=fill)
     g, gd = canvas()
     fn(gd, "#ffffff" if white else col)
-    g = g.resize((int(big * 0.64), int(big * 0.64)), Image.LANCZOS)
+    g = g.crop(g.getchannel("A").point(lambda v: 255 if v > 40 else 0).getbbox())      # 그림이 있는 부분만 잘라 한가운데에
+    k = big * 0.54 / max(g.size)
+    g = g.resize((max(1, int(g.width * k)), max(1, int(g.height * k))), Image.LANCZOS)
     im.alpha_composite(g, ((big - g.width) // 2, (big - g.height) // 2))
     return im.resize((S, S), Image.LANCZOS)
 
 
+def glyph(fn, size=64):
+    """색 바탕 없이 흰 선 그림만 — 그림이 차지한 부분만 잘라 정사각형 한가운데에 맞춘다(단추 위 색 타일에 얹는 용)"""
+    g, gd = canvas()
+    fn(gd, "#ffffff")
+    box = g.getchannel("A").point(lambda v: 255 if v > 40 else 0).getbbox()
+    g = g.crop(box)
+    side = max(g.size)
+    sq = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    sq.alpha_composite(g, ((side - g.width) // 2, (side - g.height) // 2))
+    return sq.resize((size, size), Image.LANCZOS)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
+    for name, fn in ICONS.items():
+        glyph(fn).save(os.path.join(OUT, "%s_g.png" % name))
     for name, fn in ICONS.items():
         for tag in ("b", "w"):
             badge(fn, name, tag == "w").save(os.path.join(OUT, "%s_%s.png" % (name, tag)))

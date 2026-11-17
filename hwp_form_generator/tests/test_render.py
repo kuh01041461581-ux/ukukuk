@@ -337,6 +337,10 @@ class LoosePlanTests(unittest.TestCase):
         it = its[0]
         self.assertEqual((it["title"], it["staff"], it["date"], it["time"], it["place"]), ("익산 푸드 페스티벌", "홍길동", "2026-11-20", "14:00", "중앙체육관"))
         self.assertEqual([v for k, v in it["lines"]], ["먹거리 부스", "체험"])
+        txt = "시민 문화 축제\n홍길동\n일시 11.20. 14:00\n장소 시청 대강당\n참가자 소개\n도서관 개관 기념식\n김철수\n11.21. 10:00 / 중앙도서관\n기념사\n어린이 공연\n일시: 11. 22. 15:00\n장소: 문화회관"
+        its = weekly.parse_rough_plan(txt, "과", "", "", 2026)          # 빈 줄 없이 이어 써도 제목마다 일정 하나
+        self.assertEqual([i["title"] for i in its], ["시민 문화 축제", "도서관 개관 기념식", "어린이 공연"])
+        self.assertEqual(len(weekly.extract_events(its)), 3)
         its = weekly.parse_rough_plan("가을 음악회\n11/20 14:00\n시청\n\n간담회\n일시: 11. 21. 10:00\n장소: 회의실", "", "", "", 2026)
         self.assertEqual([i["title"] for i in its], ["가을 음악회", "간담회"])
         self.assertEqual(its[0]["date"], "2026-11-20")

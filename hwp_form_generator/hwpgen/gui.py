@@ -88,9 +88,16 @@ class Output:
         # 문서 중간에 넣을 때는 한 번에 넣어 순서를 지킨다.
         at_end = empty or br.at_doc_end()
         step = app.ui.get("insert_mode", "step") == "step" and at_end
+        top = False
         if not empty:
             br.prepare_insert(at_end)                # 앞 내용과 한 줄로 붙지 않게 새 줄에서 시작
-            with_lead_blank(pkg)                     # 첫 문단이 앞 문단의 모양을 물려받지 않게 빈 받침 문단 하나
+            first = pkg.section(0).findall(HP + "p")[:1]
+            if first and first[0].get("pageBreak") == "1" and hasattr(br, "at_page_top"):
+                top = br.at_page_top()               # 이미 새 쪽 맨 위에 있으면 '쪽 나눔'을 빼서 빈 쪽이 생기지 않게
+            if top:
+                first[0].set("pageBreak", "0")
+            else:
+                with_lead_blank(pkg)                 # 첫 문단이 앞 문단의 모양을 물려받지 않게 빈 받침 문단 하나
         with_tail_blank(pkg)                         # 끝에 빈 줄: 커서가 새 줄에 놓여 다음 ◦가 붙지 않는다
         pkg.fix_secpr_refs()
         pkg.prune_header()                           # 안 쓰는 서식을 덜어 낸 뒤 쪼갠다 — 조각마다 큰 서식표를 한글이 다시 읽지 않게

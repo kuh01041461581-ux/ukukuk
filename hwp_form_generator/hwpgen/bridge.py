@@ -174,6 +174,24 @@ class HwpBridge:
         except Exception as e:                             # noqa: BLE001
             raise BridgeError("표를 만들지 못했어요: %s" % e)
 
+    def at_page_top(self):
+        """커서가 어떤 쪽의 맨 위에 있는지. '쪽 처음으로'(MovePageBegin)를 해 보고 위치가 그대로면 맨 위다(바로 원래 자리로 되돌린다).
+        앞 양식이 쪽을 꽉 채워 빈 줄이 새 쪽으로 넘어간 경우, 다음 양식의 '쪽 나눔'이 빈 쪽을 하나 더 만드는 것을 막는 데 쓴다."""
+        hwp = self._need()
+        try:
+            p0 = hwp.GetPos()
+            if not p0:
+                return False
+            ok = hwp.HAction.Run("MovePageBegin")
+            p1 = hwp.GetPos()
+            try:
+                hwp.SetPos(*p0)
+            except Exception:                              # noqa: BLE001
+                pass
+            return ok is not False and tuple(p0) == tuple(p1)
+        except Exception:                                  # noqa: BLE001
+            return False
+
     def break_page(self):
         hwp = self._need()
         try:

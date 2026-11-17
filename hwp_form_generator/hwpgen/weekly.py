@@ -736,7 +736,21 @@ def parse_loose_plan(lines, dept="", staff="", phone="", year=None):
         cur = d
         return d
 
-    for raw in lines:
+    def when_line(t):
+        t = t.strip()
+        lab = _label_of(t)
+        b = re.sub(r"^[\s◦○ㅇ▸‣\-·•*]+", "", t)
+        return bool(lab and lab[0] == "when") or bool(_DATE_LOOSE.match(b) and len(b) > 3)
+
+    def title_ahead(idx):
+        """이 줄 바로 뒤가 일시(또는 이름 한 줄 + 일시)면 이 줄은 새 제목이다 — 앞 항목에 이미 일시가 있을 때 제목을 내용으로 합치지 않게"""
+        nxt = [x.strip() for x in lines[idx + 1:idx + 6] if x.strip()][:2]
+        if nxt and when_line(nxt[0]):
+            return True
+        has_more = bool(cur and (cur.get("place") or cur["lines"]))      # 장소가 아직 없으면 날짜 다음의 짧은 줄은 장소로 본다
+        return has_more and len(nxt) > 1 and bool(_NAME_ONLY.match(nxt[0])) and when_line(nxt[1])
+
+    for idx, raw in enumerate(lines):
         ln = raw.strip()
         if not ln:
             blank_before = True
@@ -775,7 +789,11 @@ def parse_loose_plan(lines, dept="", staff="", phone="", year=None):
             blank_before = False
             continue
         body = re.sub(r"^[\s◦○ㅇ▸‣\-·•*]+", "", ln)
-        if cur is not None and _WHEN_ONLY.match(body) and _DATE_LOOSE.search(body) and "date" not in cur:      # 라벨 없이 날짜만
+        if cur is not None and "date" in cur and not when_line(ln) and title_ahead(idx):
+            new_item(body)                                    # 제목 하나에 일정 하나: 새 제목이면 앞 항목에 합치지 않고 따로 만든다
+            blank_before = False
+            continue
+        if cur is not None and (_DATE_LOOSE.match(body) and len(body) > 3 or _WHEN_ONLY.match(body) and _DATE_LOOSE.search(body)) and "date" not in cur:      # 라벨 없이 날짜만
             _fill_when(cur, body)
             if cur.get("place_from_when") and not cur.get("place"):
                 cur["place"] = cur.pop("place_from_when")

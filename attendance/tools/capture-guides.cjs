@@ -32,6 +32,7 @@ async function mark(page, items) {
   }
 }
 async function snap(page, name, items = [], opt = {}) {
+  if (opt.full) await page.addStyleTag({ content: '.bar{position:static!important}.app{padding-bottom:24px!important}' }); // 안내서용: 하단 고정 버튼이 내용을 가리지 않게 아래로 이어 붙임
   await page.waitForTimeout(opt.wait ?? 250);
   if (items.length) await mark(page, items);
   let clip = opt.clip;
@@ -79,45 +80,52 @@ async function snap(page, name, items = [], opt = {}) {
   const url1 = '/c/' + L['판소리 기초'].token, url2 = '/c/' + L['전통 목공 실습'].token, urlOther = '/c/' + L['자수 입문'].token;
 
   const br = await chromium.launch();
-  const route = async (ctx) => { if (TILE) await ctx.route('**/tile.openstreetmap.org/**', (r) => r.fulfill({ path: TILE, contentType: 'image/png' })); };
+  const route = async (ctx) => {
+    if (TILE) await ctx.route('**/tile.openstreetmap.org/**', (r) => r.fulfill({ path: TILE, contentType: 'image/png' }));
+    await ctx.route('**/nominatim.openstreetmap.org/**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify([
+      { display_name: '서울특별시청, 110, 세종대로, 소공동, 중구, 서울특별시, 04524, 대한민국', name: '서울특별시청', lat: '37.5663', lon: '126.9779', type: 'townhall', class: 'amenity' },
+      { display_name: '서울도서관, 110, 세종대로, 소공동, 중구, 서울특별시, 04524, 대한민국', name: '서울도서관', lat: '37.5668', lon: '126.9783', type: 'library', class: 'amenity' }]) }));
+  };
   const phone = async (geo = { latitude: 37.5666, longitude: 126.9781, accuracy: 15 }, extra = {}) => {
-    const c = await br.newContext({ ...devices['iPhone 13'], geolocation: geo, permissions: ['geolocation'], ...extra }); return [c, await c.newPage()];
+    const c = await br.newContext({ ...devices['iPhone 13'], timezoneId: 'Asia/Seoul', locale: 'ko-KR', geolocation: geo, permissions: ['geolocation'], ...extra }); return [c, await c.newPage()];
   };
 
   // ════════ 출석자 화면 ════════
   console.log('출석자 화면');
+  const F = { full: true, clipSel: 'body' };
   const [c1, p1] = await phone();
-  await p1.goto(B + url1); await p1.waitForSelector('[data-gid]'); await p1.waitForFunction(() => document.body.innerText.includes('위치 확인됨'));
-  await snap(p1, 'a1_first', [{ loc: p1.locator('.card').first(), n: 1 }, { loc: p1.locator('.box').first(), n: 2 }], { full: true , clipSel: 'main' });
-  await p1.click('[data-gid]:has-text("판소리보존회")'); await p1.click('.mem:has-text("김영자")'); await p1.fill('#ph', '1000');
-  await snap(p1, 'a2_filled', [{ loc: p1.locator('[data-gid].sel'), n: 1 }, { loc: p1.locator('.mem.sel'), n: 2 }, { loc: p1.locator('#ph'), n: 3 }, { loc: p1.locator('#go'), n: 4 }], { full: true , clipSel: '#body' });
-  await p1.click('#go'); await p1.waitForSelector('.big');
-  await snap(p1, 'a3_done', [{ loc: p1.locator('.big'), n: 1 }, { loc: p1.locator('.card.mut'), n: 2 }], { full: true , clipSel: 'main' });
+  await p1.goto(B + url1); await p1.waitForSelector('[data-gid]'); await p1.waitForSelector('.status.ok');
+  await snap(p1, 'a1_first', [{ loc: p1.locator('.note').first(), n: 1 }, { loc: p1.locator('#s1'), n: 2 }, { loc: p1.locator('.status.ok'), n: 3 }, { loc: p1.locator('#go'), n: 4 }], F);
+  await p1.click('[data-gid]:has-text("판소리보존회")'); await p1.waitForSelector('#s2');
+  await p1.click('[data-id]:has-text("김영자")'); await p1.waitForSelector('#ph'); await p1.fill('#ph', '1000'); await p1.dispatchEvent('#ph', 'input');
+  await snap(p1, 'a2_filled', [{ loc: p1.locator('#s1 .picked'), n: 1 }, { loc: p1.locator('#s2 .picked'), n: 2 }, { loc: p1.locator('#ph'), n: 3 }, { loc: p1.locator('#go'), n: 4 }], F);
+  await p1.click('#go'); await p1.waitForSelector('.done-card');
+  await snap(p1, 'a3_done', [{ loc: p1.locator('.okring'), n: 1 }, { loc: p1.locator('.done-card .st'), n: 2 }, { loc: p1.locator('.tag'), n: 3 }], F);
   // 다음부터: 다른 강의 링크 → 이름 선택 없이 자동 출석
-  await p1.goto(B + url2); await p1.waitForSelector('.big', { timeout: 15000 });
-  await snap(p1, 'a4_auto', [{ loc: p1.locator('.big'), n: 1 }], { full: true , clipSel: 'main' });
-  await p1.goto(B + url1); await p1.waitForSelector('.who');
-  await snap(p1, 'a4b_recognized', [{ loc: p1.locator('.who').first().locator('xpath=ancestor::div[contains(@class,"card")]'), n: 1 }, { loc: p1.locator('#go'), n: 2 }], { full: true , clipSel: 'main' });
+  await p1.goto(B + url2); await p1.waitForSelector('.done-card', { timeout: 15000 });
+  await snap(p1, 'a4_auto', [{ loc: p1.locator('.done-card'), n: 1 }], F);
+  await p1.goto(B + url1); await p1.waitForSelector('.me'); await p1.waitForTimeout(400);
+  await snap(p1, 'a4b_recognized', [{ loc: p1.locator('.me'), n: 1 }, { loc: p1.locator('#go'), n: 2 }], F);
   // 위치 권한 꺼짐
   const c5 = await br.newContext({ ...devices['iPhone 13'] }); await c5.addInitScript(() => { navigator.geolocation.getCurrentPosition = (ok, no) => setTimeout(() => no({ code: 1 }), 50); });
   const p5 = await c5.newPage(); await p5.goto(B + url1); await p5.waitForSelector('#retry');
-  await snap(p5, 'a5_denied', [{ loc: p5.locator('.box').first(), n: 1 }, { loc: p5.locator('#retry'), n: 2 }], { full: true , clipSel: '#body' });
+  await snap(p5, 'a5_denied', [{ loc: p5.locator('.status.bad'), n: 1 }, { loc: p5.locator('.help'), n: 2 }, { loc: p5.locator('#retry'), n: 3 }], { ...F, wait: 900 });
   // 교육장에서 멀리
   const [c6, p6] = await phone({ latitude: 37.60, longitude: 126.98, accuracy: 15 });
-  await p6.goto(B + url1); await p6.waitForSelector('[data-gid]'); await p6.click('[data-gid]:has-text("강릉단오제보존회")'); await p6.click('.mem:has-text("정복동")'); await p6.fill('#ph', '1111'); await p6.click('#go'); await p6.waitForSelector('.box.err');
-  await snap(p6, 'a6_far', [{ loc: p6.locator('.box.err'), n: 1 }], { full: true , clipSel: '#body' });
+  await p6.goto(B + url1); await p6.waitForSelector('[data-gid]'); await p6.click('[data-gid]:has-text("강릉단오제보존회")'); await p6.click('[data-id]:has-text("정복동")'); await p6.fill('#ph', '1111'); await p6.dispatchEvent('#ph', 'input'); await p6.click('#go'); await p6.waitForSelector('.alert');
+  await snap(p6, 'a6_far', [{ loc: p6.locator('.alert'), n: 1 }], { ...F, wait: 900 });
   // 이미 등록된 이름을 다른 휴대폰에서
-  const [c7, p7] = await phone(); await p7.goto(B + url1); await p7.waitForSelector('[data-gid]'); await p7.waitForFunction(() => document.body.innerText.includes('위치 확인됨'));
-  await p7.click('[data-gid]:has-text("판소리보존회")'); await p7.click('.mem:has-text("김영자")'); await p7.fill('#ph', '1000'); await p7.click('#go'); await p7.waitForSelector('#req');
-  await snap(p7, 'a7_other_phone', [{ loc: p7.locator('.box.err'), n: 1 }, { loc: p7.locator('#req'), n: 2 }], { full: true , clipSel: '#body' });
-  await p7.click('#req'); await p7.waitForSelector('.big'); // 관리자 승인 화면용 요청 생성
+  const [c7, p7] = await phone(); await p7.goto(B + url1); await p7.waitForSelector('[data-gid]'); await p7.waitForSelector('.status.ok');
+  await p7.click('[data-gid]:has-text("판소리보존회")'); await p7.click('[data-id]:has-text("김영자")'); await p7.fill('#ph', '1000'); await p7.dispatchEvent('#ph', 'input'); await p7.click('#go'); await p7.waitForSelector('#req');
+  await snap(p7, 'a7_other_phone', [{ loc: p7.locator('.alert'), n: 1 }, { loc: p7.locator('#req'), n: 2 }], { ...F, wait: 900 });
+  await p7.click('#req'); await p7.waitForSelector('.done-card'); // 관리자 승인 화면용 요청 생성
   // 오늘은 강의가 없는 날
-  const [c8, p8] = await phone(); await p8.goto(B + urlOther); await p8.waitForSelector('.who');
-  await snap(p8, 'a8_notToday', [{ loc: p8.locator('.card').first(), n: 1 }], { full: true , clipSel: 'main' });
+  const [c8, p8] = await phone(); await p8.goto(B + urlOther); await p8.waitForSelector('.card');
+  await snap(p8, 'a8_notToday', [{ loc: p8.locator('.card').first(), n: 1 }], F);
 
   // ════════ 관리자 PC ════════
   console.log('관리자 PC');
-  const pc = await br.newContext({ viewport: { width: 1366, height: 860 }, geolocation: { latitude: 37.5665, longitude: 126.978 }, permissions: ['geolocation'], acceptDownloads: true }); await route(pc);
+  const pc = await br.newContext({ timezoneId: 'Asia/Seoul', locale: 'ko-KR', viewport: { width: 1366, height: 860 }, geolocation: { latitude: 37.5665, longitude: 126.978 }, permissions: ['geolocation'], acceptDownloads: true }); await route(pc);
   const p = await pc.newPage(); p.on('dialog', (d) => d.accept());
   await p.goto(B + '/admin');
   await snap(p, 'p0_login', [{ loc: p.locator('#pw'), n: 1 }, { loc: p.locator('#go'), n: 2 }], { clip: { x: 380, y: 100, width: 600, height: 330 } });
@@ -126,7 +134,9 @@ async function snap(page, name, items = [], opt = {}) {
   await p.screenshot({ path: path.join(OUT, 'p1b_nav.png'), clip: { x: 0, y: 0, width: 240, height: 340 } });
   // 설정
   await p.click('nav [data-tab=set]'); await p.waitForSelector('#vmap.leaflet-container'); await p.waitForTimeout(900);
-  await snap(p, 'p2_settings', [{ loc: p.locator('#sob').locator('xpath=..'), n: 1 }, { loc: p.locator('#suc').locator('xpath=ancestor::label'), n: 2 }, { loc: p.locator('#vsearch'), n: 3 }, { loc: p.locator('#here'), n: 4 }, { loc: p.locator('#vmap'), n: 5 }, { loc: p.locator('#vr'), n: 6 }], { fit: true });
+  await p.fill('#vsearch', '세종대로 110'); await p.click('#vfind'); await p.waitForSelector('#vres .vr');
+  await snap(p, 'p2_settings', [{ loc: p.locator('#sob').locator('xpath=..'), n: 1 }, { loc: p.locator('#suc').locator('xpath=ancestor::label'), n: 2 }, { loc: p.locator('#vsearch').locator('xpath=..'), n: 3 }, { loc: p.locator('#vres'), n: 4 }, { loc: p.locator('#vmap'), n: 5 }, { loc: p.locator('[data-rad]').first().locator('xpath=..'), n: 6 }], { fit: true });
+  await p.click('#vres .vr >> nth=0'); await p.waitForTimeout(300);
   // 명부 가져오기: 예시 파일 업로드 → 미리보기
   const rows = [['단체', '이름', '전화번호'], ['판소리보존회', '홍길동', '010-1234-5678'], ['판소리보존회', '김영자', '1000'], ['전통목공회', '이순희', '010-2222-3333'], ['전통목공회', '박정남', ''], ['신규공방', '최말순', '010-4444-0123']];
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '명부');
@@ -168,7 +178,7 @@ async function snap(page, name, items = [], opt = {}) {
 
   // ════════ 관리자 휴대폰 ════════
   console.log('관리자 휴대폰');
-  const mc = await br.newContext({ ...devices['iPhone 13'] }); const m = await mc.newPage(); m.on('dialog', (d) => d.accept());
+  const mc = await br.newContext({ ...devices['iPhone 13'], timezoneId: 'Asia/Seoul', locale: 'ko-KR' }); const m = await mc.newPage(); m.on('dialog', (d) => d.accept());
   await m.goto(B + '/admin'); await m.fill('#pw', PW); await m.click('#go'); await m.waitForSelector('.only-mob .lec');
   await snap(m, 'm1_overview', [{ loc: m.locator('nav'), n: 1 }, { loc: m.locator('.only-mob .lec').first().locator('[data-shl]'), n: 2 }, { loc: m.locator('.only-mob .lec').first().locator('.gc').first(), n: 3 }]);
   await m.click('nav [data-tab=lec]'); await m.waitForSelector('#nl-name');
@@ -176,6 +186,13 @@ async function snap(page, name, items = [], opt = {}) {
   await snap(m, 'm2_lec_form', [{ loc: m.locator('#nl-name'), n: 1 }, { loc: m.locator('.seg2'), n: 2 }, { loc: m.locator('#nl-days'), n: 3 }, { loc: m.locator('#nl-startq'), n: 4 }]);
   await m.click('nav [data-tab=man]'); await m.waitForFunction(() => document.querySelectorAll('#ml option').length > 0); await m.selectOption('#ml', L['판소리 기초'].id); await m.click('#mgo'); await m.waitForSelector('#msave');
   await snap(m, 'm3_manual', [{ loc: m.locator('#ml'), n: 1 }, { loc: m.locator('.mrow').first().locator('.seg'), n: 2 }, { loc: m.locator('[data-all]').first(), n: 3 }]);
+  await m.click('nav [data-tab=lec]'); await m.waitForSelector('#nl-name');
+  await m.locator('#nl-start').locator('xpath=following-sibling::button').click(); await m.waitForSelector('.sheet:not([hidden]) .pk-grid');
+  await m.click('.sheet [data-ap="1"]'); await m.click('.sheet [data-h="2"]'); await m.click('.sheet [data-m="30"]');
+  await snap(m, 'm4_time', [{ loc: m.locator('.sheet .pk-seg'), n: 1 }, { loc: m.locator('.sheet .pk-grid').first(), n: 2 }, { loc: m.locator('.sheet .pk-grid').nth(1), n: 3 }, { loc: m.locator('.sheet-ft .pri'), n: 4 }]);
+  await m.click('.sheet [data-x2]'); await m.click('[data-mode=once]');
+  await m.locator('#nl-date').locator('xpath=following-sibling::button').click(); await m.waitForSelector('.sheet:not([hidden]) .cal');
+  await snap(m, 'm5_date', [{ loc: m.locator('.sheet .cal-hd'), n: 1 }, { loc: m.locator('.sheet .cal'), n: 2 }, { loc: m.locator('.sheet-ft'), n: 3 }]);
   await br.close();
   console.log('끝');
 })().catch((e) => { console.error(e); process.exit(1); });

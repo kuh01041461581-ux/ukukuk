@@ -69,6 +69,7 @@ internal partial class Program
 		add("설정", "업데이트 확인", "업데이트 새버전 버전 다운로드", "지금 v" + AppVersion, delegate { UpdateCheck(true); });
 		add("쉬는 시간", "인사랑 열기", "인사랑 인사 복무 연가 출장", "", delegate { OpenInsarang(); });
 		add("쉬는 시간", "손금 보기 (재미용)", "손금 손바닥 생명선 감정선 두뇌선 운세", "사진에 선을 따라 그리면 풀이해요", delegate { PalmForm.Open(); });
+		add("쉬는 시간", "관상 보기 (재미용)", "관상 얼굴 인상 삼정 운세", "얼굴 사진에 점을 찍으면 풀이해요", delegate { FaceForm.Open(); });
 		add("쉬는 시간", "오늘 뭐 먹지?", "점심 저녁 메뉴 식당 밥 맛집", "", delegate { SuggestMenu(); });
 		add("쉬는 시간", "마룡이 운세 · 사주", "운세 오늘의운세 사주 띠 별자리", "", delegate { FortuneForm.Open(); });
 		add("쉬는 시간", "마룡이 타로", "타로 카드 점 켈틱", "", delegate { TarotForm.Open(); });

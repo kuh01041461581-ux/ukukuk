@@ -1,7 +1,7 @@
 // 국가무형유산 출석체크 — 플랫폼 공통 로직 (Node 로컬 서버 / Cloudflare Worker 공용)
 // Web 표준 Request/Response만 사용합니다.
 
-const DEFAULT_SETTINGS = { openBefore: 30, lateAfter: 10, closeAfter: 30, useCode: false }; // useCode: 현장 코드도 함께 입력받기(기본 꺼짐)
+const DEFAULT_SETTINGS = { openBefore: 30, lateAfter: 10, closeAfter: 30, useCode: false, kakaoKey: '' }; // kakaoKey: 카카오(다음) 지도 JavaScript 키(선택, 관리자 화면에서만 사용) / useCode: 현장 코드도 함께 입력받기(기본 꺼짐)
 
 export function emptyDb() {
   return { groups: [], members: [], lectures: [], records: {}, sessions: {}, bindings: {}, deviceRequests: [],
@@ -151,7 +151,18 @@ function stats(from, to) {
   const keys = new Set();
   for (const v of Object.values(db.sessions)) keys.add(v.date + '|' + v.lectureId);
   for (const [d, byL] of Object.entries(db.records)) for (const lid of Object.keys(byL)) keys.add(d + '|' + lid);
-  for (const k of keys) { const [d, lid] = k.split('|'); if (d >= from && d <= to && db.lectures.some((x) => x.id === lid)) held.push({ d, lid }); }
+  const today = todayKst(), kn = kstNow(), nowMin = kn.getUTCHours() * 60 + kn.getUTCMinutes();
+  for (const k of keys) {
+    const [d, lid] = k.split('|'), L = db.lectures.find((x) => x.id === lid);
+    if (!L || d < from || d > to) continue;
+    if (d > today) continue;
+    if (d === today) { // 오늘 아직 끝나지 않은(출석 마감 전) 강의는 기록이 생기기 전까지 세지 않음
+      const [h, mi] = L.start.split(':').map(Number);
+      const any = Object.values(((db.records[d] || {})[lid]) || {}).some((g) => Object.keys((g && g.marks) || {}).length);
+      if (nowMin < h * 60 + mi + db.settings.closeAfter && !any) continue;
+    }
+    held.push({ d, lid });
+  }
   const mem = db.members.map((m) => ({ id: m.id, name: m.name, groupId: m.groupId, P: 0, L: 0, A: 0, n: 0 }));
   const byId = Object.fromEntries(mem.map((m) => [m.id, m]));
   const lec = Object.fromEntries(db.lectures.map((l) => [l.id, { id: l.id, name: l.name, weekday: l.weekday, start: l.start, held: 0, n: 0, P: 0, L: 0, A: 0 }]));
@@ -512,7 +523,8 @@ async function api(req, url, ctx) {
       }
       if (b.settings !== undefined) {
         const st = b.settings || {}, num = (x, d) => (isFinite(+x) && x !== '' && x !== null ? Math.max(0, Math.round(+x)) : d);
-        db.settings = { openBefore: num(st.openBefore, 30), lateAfter: num(st.lateAfter, 10), closeAfter: num(st.closeAfter, 30), useCode: st.useCode === true || st.useCode === 'true' };
+        db.settings = { openBefore: num(st.openBefore, 30), lateAfter: num(st.lateAfter, 10), closeAfter: num(st.closeAfter, 30), useCode: st.useCode === true || st.useCode === 'true',
+          kakaoKey: String(st.kakaoKey || '').trim().replace(/[^\w-]/g, '').slice(0, 64) };
       }
       if (b.venue !== undefined) {
         const v = b.venue || {};

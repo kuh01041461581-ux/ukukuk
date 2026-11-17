@@ -49,6 +49,39 @@ input.bad{border-color:var(--a)!important}button.big{font-size:17px;padding:13px
 .lk{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}.lk .nm{flex:1 1 120px}
 
 #vmap{height:300px}.leaflet-container{font:inherit}
+/* ── 검색 결과 · 지도 · 우편번호 창 ── */
+.grow{flex:1 1 220px;min-width:0}.inl{display:inline-flex;gap:6px;align-items:center}
+.vmap{height:340px;margin:10px 0 4px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.vres{border:1px solid var(--line);border-radius:12px;margin:8px 0;overflow:hidden;background:var(--card)}
+.vr{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:12px 14px;background:var(--card)}
+.vr:last-child{border-bottom:0}.vr:hover{background:#8881}
+.vk{flex:none;font-size:12px;border:1px solid var(--line);border-radius:10px;padding:1px 8px;color:var(--mut);margin-top:2px}
+.vt{display:grid;gap:2px;min-width:0}.vt small{display:block;white-space:normal}
+.vr-empty{padding:12px 14px;color:var(--mut)}
+.post-layer{position:fixed;inset:0;background:#0007;z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px}
+.post-box{background:var(--card);border-radius:14px;width:min(520px,100%);height:min(620px,92vh);display:flex;flex-direction:column;overflow:hidden}
+.post-hd{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+#post-body{flex:1;min-height:0}
+.note-list{margin:8px 0 10px;padding-left:20px}.note-list li{margin:4px 0}
+.qk button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+/* ── 시간·날짜 선택 창 (아래에서 올라오는 시트) ── */
+.fld{display:flex;gap:6px;align-items:stretch;width:100%}.fld input{flex:1;min-width:0}.fld .pkbtn{flex:none;padding:0 13px;font-size:19px;line-height:1}
+.sheet{position:fixed;inset:0;z-index:9000;display:flex;align-items:flex-end;justify-content:center}.sheet[hidden]{display:none}
+.sheet-bg{position:absolute;inset:0;background:#0006}
+.sheet-box{position:relative;background:var(--card);width:min(520px,100%);max-height:94vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+@media(min-width:900px){.sheet{align-items:center}.sheet-box{border-radius:18px}}
+.sheet-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.sheet-hd b{font-size:19px}
+.sheet-hd button{padding:8px 14px}
+.pk-seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}.pk-seg button{padding:12px;font-size:19px;font-weight:700}
+.pk-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-bottom:10px}.pk-grid button{padding:0;font-size:20px;min-height:54px}
+.pk-grid button.on,.pk-seg button.on,.cal button.sel{background:var(--pri);color:#fff;border-color:var(--pri)}
+.pk-lbl{font-size:13px;color:var(--mut);margin:4px 0 6px}
+.pk-prev{text-align:center;font-size:24px;font-weight:800;margin:4px 0 12px;color:var(--pri)}
+.cal-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.cal-hd b{font-size:19px}.cal-hd button{width:54px;min-height:50px;font-size:18px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:12px}.cal .dow{text-align:center;color:var(--mut);font-size:13px;padding:2px 0}.cal .sun{color:var(--a)}
+.cal button{padding:0;min-height:50px;font-size:18px}.cal .today{border-color:var(--pri);border-width:2px;font-weight:700}.cal .blank{visibility:hidden}
+.sheet-ft{display:flex;gap:8px;position:sticky;bottom:calc(-16px - env(safe-area-inset-bottom));background:var(--card);padding:10px 0 calc(6px + env(safe-area-inset-bottom));margin-top:4px;border-top:1px solid var(--line)}.sheet-ft button{flex:1;min-height:52px;font-size:17px}.sheet-ft .pri{flex:2}
+
 /* ── 로그인 ── */
 #login{max-width:380px;margin:18vh auto}
 #login input{width:100%;margin:6px 0}
@@ -142,13 +175,26 @@ button,input,select{min-height:42px}
     <div class="row">시작 <input id="sob" type="number" min="0" style="width:70px">분 전부터 출석 가능 · 시작 후 <input id="sla" type="number" min="0" style="width:70px">분까지 <b>출석</b>, 이후 <input id="scl" type="number" min="0" style="width:70px">분까지 <b>지각</b>, 그 뒤는 마감</div>
     <div class="row" style="margin-top:12px"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="suc" style="min-height:0;width:18px;height:18px"> 현장 코드(4자리)도 함께 입력받기 <span class="un">— 기본은 꺼짐. 위치만으로 출석합니다</span></label></div>
     <h3>교육 장소 (위치 인증)</h3>
-    <div class="row"><input id="vsearch" placeholder="주소·장소 검색 (예: 서울시청)" style="flex:1 1 220px"><button id="vfind">검색</button><button id="here">현재 위치로 지정</button></div>
-    <div id="vmap" style="height:320px;margin:10px 0;border:1px solid var(--line);border-radius:10px"></div>
-    <small>지도를 눌러 교육장 위치에 핀을 찍으세요. 핀은 끌어서 옮길 수 있고, 원이 출석 인정 범위입니다.</small>
-    <div class="row" style="margin-top:10px">장소명 <input id="vn" size="14"> 반경(m) <input id="vr" size="4" type="number" style="width:80px"></div>
-    <div class="row" style="margin-top:8px">위도 <input id="vlat" size="11"> 경도 <input id="vlng" size="11"> <a id="vg" target="_blank" rel="noopener"><button type="button">구글 지도에서 보기</button></a> <a id="vnv" target="_blank" rel="noopener"><button type="button">네이버 지도에서 보기</button></a></div>
-    <div class="row" style="margin-top:8px"><input id="vpaste" placeholder="구글·네이버 지도 링크 또는 좌표 붙여넣기" style="flex:1 1 260px"><button id="vpb">좌표 읽기</button></div>
-    <small>구글 지도에서 장소를 오른쪽 클릭(휴대폰은 길게 누르기)하면 맨 위에 나오는 좌표(예: 37.5665, 126.9780)를 붙여넣거나, 주소창의 링크를 붙여넣으세요. 짧은 링크(naver.me, goo.gl 등)는 좌표를 읽을 수 없습니다. <b>장소를 지정하지 않으면 링크 출석이 열리지 않습니다.</b> 참석자는 링크를 열면 위치 권한을 허용해야 하며, 이 범위 안에서만 출석됩니다. 실내는 오차가 크므로 반경 100~200m 권장.</small>
+    <div class="row"><input id="vsearch" class="grow" placeholder="주소 또는 장소 이름 (예: 서울시 중구 세종대로 110 · 서울시청)" autocomplete="off"><button id="vfind" class="pri">검색</button></div>
+    <div class="row" style="margin-top:6px"><button id="vpost" hidden>🏠 주소 찾기 (우편번호 검색)</button><button id="here">📍 현재 위치로 지정</button></div>
+    <div id="vres" class="vres" hidden></div>
+    <div id="vmap" class="vmap"></div>
+    <small id="vprov"></small>
+    <div class="row" style="margin-top:12px"><label class="inl">장소명 <input id="vn" size="16" placeholder="예: 전통문화회관"></label></div>
+    <div class="row" style="margin-top:8px"><span>출석 인정 반경</span><input id="vr" type="number" min="20" style="width:84px"><span>m</span>
+      <span class="qk" style="margin:0"><button type="button" data-rad="100">100</button><button type="button" data-rad="150">150</button><button type="button" data-rad="200">200</button><button type="button" data-rad="300">300</button></span></div>
+    <small>실내는 GPS 오차가 크므로 100~200m를 권장합니다. 지도의 원이 출석 인정 범위입니다.</small>
+    <div class="row" style="margin-top:12px"><label class="inl">위도 <input id="vlat" size="11"></label><label class="inl">경도 <input id="vlng" size="11"></label> <a id="vg" target="_blank" rel="noopener"><button type="button">구글 지도에서 보기</button></a> <a id="vnv" target="_blank" rel="noopener"><button type="button">네이버 지도에서 보기</button></a></div>
+    <div class="row" style="margin-top:8px"><input id="vpaste" class="grow" placeholder="구글·네이버 지도 링크 또는 좌표 붙여넣기"><button id="vpb">좌표 읽기</button></div>
+    <small>지도를 눌러 핀을 찍거나 핀을 끌어서 위치를 맞추세요. <b>장소를 지정하지 않으면 링크 출석이 열리지 않습니다.</b></small>
+    <details id="kakaoBox" style="margin-top:14px"><summary class="un" style="cursor:pointer"><b>카카오(다음) 지도로 바꾸기 (선택)</b> — 한국 주소·건물 검색이 더 정확합니다</summary>
+      <ol class="note-list">
+        <li><b>developers.kakao.com</b> 접속 → 로그인 → <b>내 애플리케이션 → 애플리케이션 추가</b></li>
+        <li>앱 설정에서 <b>플랫폼 → Web</b>에 이 관리자 주소를 등록 (예: <b id="kdom"></b>)</li>
+        <li>앱의 <b>JavaScript 키</b>를 복사해서 아래에 붙여넣고, 카카오맵 <b>사용 설정</b>이 꺼져 있다면 켭니다</li>
+        <li>아래에 붙여넣고 <b>[연결 시험]</b> → 위쪽 <b>[설정 저장]</b> 후 새로고침하면 카카오 지도로 바뀝니다</li></ol>
+      <div class="row"><input id="kkey" class="grow" placeholder="JavaScript 키 (영문·숫자 32자 안팎)" autocomplete="off"><button id="ktest">연결 시험</button></div>
+      <div id="kstat" class="hint"></div></details>
   </div>
   <div class="card">
     <h3 style="margin-top:0">명부 엑셀 가져오기</h3>
@@ -238,14 +284,14 @@ document.addEventListener('click',e=>{if(e.target.dataset.go)show(e.target.datas
 // ── 설정 상태 ──
 let C={groups:[],lectures:[]};
 async function cfg(){C=await api('/api/admin/config');C.lectures.forEach(l=>{l.off=l.off||[];l.targets=l.targets||[];l.startDate=l.startDate||'';l.endDate=l.endDate||''});
-  const s=C.settings||{};$('suc').checked=!!s.useCode;$('sob').value=s.openBefore??30;$('sla').value=s.lateAfter??10;$('scl').value=s.closeAfter??30;
+  const s=C.settings||{};$('suc').checked=!!s.useCode;$('kkey').value=s.kakaoKey||'';$('sob').value=s.openBefore??30;$('sla').value=s.lateAfter??10;$('scl').value=s.closeAfter??30;
   const v=C.venue||{};$('vn').value=v.name||'';$('vlat').value=v.lat??'';$('vlng').value=v.lng??'';$('vr').value=v.radius||150;draw();drawLec();if(window.syncMap&&!$('v-set').hidden)syncMap()}
 function draw(){
   $('gs').innerHTML=C.groups.map((g,i)=>`<div style="margin-bottom:12px"><div class="g"><input data-i="${i}" data-k="name" value="${esc(g.name)}" placeholder="단체명"><input data-i="${i}" data-k="pin" value="${esc(g.pin)}" placeholder="PIN"></div>
     <textarea data-i="${i}" data-k="members" placeholder="한 줄에 한 명: 이름 전화번호뒤4자리 (예: 홍길동 1234)">${esc(g.members.join('\n'))}</textarea><button data-del="g${i}">단체 삭제</button></div>`).join('')||'<p class="un">등록된 단체가 없습니다. 위의 엑셀 가져오기나 [+ 단체 추가]를 사용하세요.</p>';
 }
 $('addg').onclick=()=>{C.groups.push({name:'',pin:String(Math.floor(1000+Math.random()*9000)),members:[]});draw()};
-async function saveCfg(){try{await api('/api/admin/config',{method:'PUT',body:JSON.stringify({groups:C.groups,settings:{useCode:$('suc').checked,openBefore:$('sob').value,lateAfter:$('sla').value,closeAfter:$('scl').value},venue:{name:$('vn').value,lat:$('vlat').value,lng:$('vlng').value,radius:$('vr').value}})});await cfg();if(!$('v-set').hidden)loadLinks();alert('저장했습니다')}catch(e){alert(e.message)}}
+async function saveCfg(){try{await api('/api/admin/config',{method:'PUT',body:JSON.stringify({groups:C.groups,settings:{kakaoKey:$('kkey').value.trim(),useCode:$('suc').checked,openBefore:$('sob').value,lateAfter:$('sla').value,closeAfter:$('scl').value},venue:{name:$('vn').value,lat:$('vlat').value,lng:$('vlng').value,radius:$('vr').value}})});await cfg();if(!$('v-set').hidden)loadLinks();alert('저장했습니다')}catch(e){alert(e.message)}}
 $('saveCfg').onclick=saveCfg;
 
 // ── 시간·날짜 직접 입력 ──
@@ -515,25 +561,85 @@ async function stats(){
 }
 
 if(pw)api('/api/admin/config').then(start).catch(()=>{});
-</script><script src="/vendor/xlsx.full.min.js"></script><script src="/vendor/leaflet/leaflet.js"></script><script>// ── 교육 장소 지도 ──
+</script><script src="/vendor/xlsx.full.min.js"></script><script src="/vendor/leaflet/leaflet.js"></script><script>// ── 교육 장소: 지도(카카오/오픈스트리트맵) · 주소·장소 검색 ──
 (function(){
-  let map,marker,circle;
   const num=v=>{const n=parseFloat(v);return isFinite(n)?n:null};
   const valid=(la,ln)=>la!=null&&ln!=null&&Math.abs(la)<=90&&Math.abs(ln)<=180;
-  function ensure(){if(map)return;
-    map=L.map('vmap').setView([36.5,127.8],7);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-    map.on('click',e=>setPos(e.latlng.lat,e.latlng.lng))}
-  function setPos(la,ln,zoom){$('vlat').value=la.toFixed(6);$('vlng').value=ln.toFixed(6);draw();if(zoom)map.setView([la,ln],Math.max(map.getZoom(),17))}
-  function links(la,ln){const ok=valid(la,ln);
-    $('vg').href=ok?`https://www.google.com/maps/search/?api=1&query=${la},${ln}`:'#';
-    $('vnv').href=ok?`https://map.naver.com/p?c=17.00,${ln},${la},0,0,0,dh`:'#'}
-  function draw(){ensure();
-    const la=num($('vlat').value),ln=num($('vlng').value),r=num($('vr').value)||150;links(la,ln);
-    if(!valid(la,ln)){if(marker){map.removeLayer(marker);marker=null}if(circle){map.removeLayer(circle);circle=null}return}
-    if(!marker){marker=L.marker([la,ln],{draggable:true}).addTo(map);marker.on('dragend',()=>{const p=marker.getLatLng();setPos(p.lat,p.lng)})}else marker.setLatLng([la,ln]);
-    if(!circle)circle=L.circle([la,ln],{radius:r,color:'#2f5d50',weight:2,fillOpacity:.12}).addTo(map);else circle.setLatLng([la,ln]).setRadius(r)}
-  // 구글·네이버 지도 링크 또는 "위도, 경도" 텍스트에서 좌표 추출
+  const KR=[36.5,127.8];
+  let P=null,readyP=null;
+  // ── 공급자 ①: OpenStreetMap (키 불필요) ──
+  function osmProvider(){let map,marker,circle,pick;return{
+    name:'osm',label:'OpenStreetMap (키 없이 사용 중 · 주소 검색은 우편번호 찾기를 함께 쓰세요)',
+    init(el){map=L.map(el).setView(KR,7);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);map.on('click',e=>pick&&pick(e.latlng.lat,e.latlng.lng))},
+    onPick(cb){pick=cb},
+    mark(la,ln,r){if(!marker){marker=L.marker([la,ln],{draggable:true}).addTo(map);marker.on('dragend',()=>{const p=marker.getLatLng();pick&&pick(p.lat,p.lng)})}else marker.setLatLng([la,ln]);
+      if(!circle)circle=L.circle([la,ln],{radius:r,color:'#2f5d50',weight:2,fillOpacity:.14}).addTo(map);else circle.setLatLng([la,ln]).setRadius(r)},
+    clear(){if(marker){map.removeLayer(marker);marker=null}if(circle){map.removeLayer(circle);circle=null}},
+    view(la,ln){map.setView([la,ln],17)},resize(){map.invalidateSize()},
+    async search(q){const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=ko&countrycodes=kr&q='+encodeURIComponent(q));
+      return(await r.json()).map(x=>({title:x.name||x.display_name.split(', ')[0],sub:x.display_name,lat:+x.lat,lng:+x.lon,kind:x.type==='house'||x.class==='place'?'주소':'장소'}))}}}
+  // ── 공급자 ②: 카카오(다음) 지도 ──
+  function kakaoProvider(){const K=kakao.maps;let map,marker,circle,pick,geo,places;return{
+    name:'kakao',label:'카카오(다음) 지도 사용 중 · 주소와 장소 이름으로 검색할 수 있습니다',
+    init(el){map=new K.Map(el,{center:new K.LatLng(KR[0],KR[1]),level:12});geo=new K.services.Geocoder();places=new K.services.Places();
+      K.event.addListener(map,'click',e=>pick&&pick(e.latLng.getLat(),e.latLng.getLng()))},
+    onPick(cb){pick=cb},
+    mark(la,ln,r){const p=new K.LatLng(la,ln);
+      if(!marker){marker=new K.Marker({position:p,draggable:true,map});K.event.addListener(marker,'dragend',()=>{const q=marker.getPosition();pick&&pick(q.getLat(),q.getLng())})}else marker.setPosition(p);
+      if(!circle)circle=new K.Circle({map,center:p,radius:r,strokeWeight:2,strokeColor:'#2f5d50',strokeOpacity:.9,fillColor:'#2f5d50',fillOpacity:.14});else{circle.setPosition(p);circle.setRadius(r)}},
+    clear(){if(marker)marker.setMap(null);if(circle)circle.setMap(null);marker=circle=null},
+    view(la,ln){map.setCenter(new K.LatLng(la,ln));map.setLevel(3)},resize(){map.relayout()},
+    search(q){const OK=K.services.Status.OK;
+      const a=new Promise(res=>geo.addressSearch(q,(r,s)=>res(s===OK?r.map(x=>({title:(x.road_address||x.address||{}).address_name||x.address_name,sub:x.address&&x.road_address?x.address.address_name:'',lat:+x.y,lng:+x.x,kind:'주소'})):[])));
+      const b=new Promise(res=>places.keywordSearch(q,(r,s)=>res(s===OK?r.slice(0,6).map(x=>({title:x.place_name,sub:x.road_address_name||x.address_name,lat:+x.y,lng:+x.x,kind:'장소'})):[])));
+      return Promise.all([a,b]).then(([x,y])=>[...x,...y])},
+    test(){return new Promise(res=>geo.addressSearch('서울특별시 중구 세종대로 110',(r,s)=>res(s===K.services.Status.OK)))}}}
+  function loadKakao(key){return new Promise((ok,no)=>{
+    if(window.kakao&&kakao.maps&&kakao.maps.services)return ok();
+    const s=document.createElement('script');s.src=`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&libraries=services&autoload=false`;
+    const t=setTimeout(()=>no(new Error('시간 초과')),10000);
+    s.onload=()=>{clearTimeout(t);try{kakao.maps.load(()=>ok())}catch(e){no(e)}};s.onerror=()=>{clearTimeout(t);no(new Error('불러오지 못함'))};document.head.appendChild(s)})}
+  const say=(t,cls)=>{const e=$('vprov');e.textContent=t;e.className=cls||''};
+  // 공급자 선택: 키가 있으면 카카오, 실패하거나 키가 없으면 OpenStreetMap
+  function ready(){return readyP||(readyP=(async()=>{
+    const key=($('kkey').value||'').trim();let p=null,warn='';
+    if(key){try{await loadKakao(key);const kp=kakaoProvider();kp.init($('vmap'));if(await kp.test())p=kp;else warn='카카오 지도 연결에 실패했습니다. 키와 등록한 웹 주소, 카카오맵 사용 설정을 확인하세요. 지금은 OpenStreetMap으로 보여 드립니다.'}
+      catch(e){warn='카카오 지도를 불러오지 못했습니다('+e.message+'). 지금은 OpenStreetMap으로 보여 드립니다.'}
+      if(!p)$('vmap').innerHTML=''}
+    if(!p){p=osmProvider();p.init($('vmap'))}
+    P=p;P.onPick((la,ln)=>setPos(la,ln));$('vpost').hidden=P.name==='kakao';
+    say(warn||P.label,warn?'bad':'');return P})())}
+  // ── 좌표 반영 ──
+  function links(la,ln){const ok=valid(la,ln);$('vg').href=ok?`https://www.google.com/maps/search/?api=1&query=${la},${ln}`:'#';$('vnv').href=ok?`https://map.naver.com/p?c=17.00,${ln},${la},0,0,0,dh`:'#'}
+  function draw(){if(!P)return;const la=num($('vlat').value),ln=num($('vlng').value),r=num($('vr').value)||150;links(la,ln);
+    if(valid(la,ln))P.mark(la,ln,r);else P.clear();
+    document.querySelectorAll('[data-rad]').forEach(b=>b.classList.toggle('on',+b.dataset.rad===r))}
+  async function setPos(la,ln,zoom){await ready();$('vlat').value=la.toFixed(6);$('vlng').value=ln.toFixed(6);draw();if(zoom)P.view(la,ln)}
+  // ── 검색 결과 목록 ──
+  function showResults(list,onePick){const box=$('vres');
+    if(!list.length){box.hidden=false;box.innerHTML='<div class="vr-empty">검색 결과가 없습니다. 주소를 더 자세히 쓰거나(예: 시·구·도로명), 장소 이름으로 검색하거나, 지도를 눌러 직접 지정하세요.</div>';return}
+    box.hidden=false;box.innerHTML=list.map((r,i)=>`<button type="button" class="vr" data-vi="${i}"><span class="vk">${r.kind}</span><span class="vt"><b>${esc(r.title)}</b><small>${esc(r.sub||'')}</small></span></button>`).join('');
+    box._list=list;if(list.length===1&&onePick)choose(list[0])}
+  function choose(r){setPos(r.lat,r.lng,true);if(!$('vn').value.trim()&&r.kind==='장소')$('vn').value=r.title;$('vres').hidden=true;$('vsearch').value=r.title}
+  $('vres').addEventListener('click',e=>{const b=e.target.closest('[data-vi]');if(b)choose($('vres')._list[+b.dataset.vi])});
+  async function doSearch(){const q=$('vsearch').value.trim();if(!q)return;
+    const c=parseCoord(q);if(c){setPos(c.lat,c.lng,true);$('vres').hidden=true;return}   // 좌표·지도 링크를 붙여넣은 경우
+    const box=$('vres');box.hidden=false;box.innerHTML='<div class="vr-empty">검색 중…</div>';
+    try{await ready();showResults(await P.search(q),true)}catch{box.innerHTML='<div class="vr-empty">검색에 실패했습니다. 잠시 뒤 다시 시도하거나 지도를 눌러 지정해 주세요.</div>'}}
+  $('vfind').onclick=doSearch;$('vsearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();doSearch()}};
+  // ── 다음 우편번호 찾기 (OpenStreetMap일 때 주소를 정확히 고르기 위함, 키 불필요) ──
+  function loadPostcode(){return new Promise((ok,no)=>{if(window.daum&&daum.Postcode)return ok();const s=document.createElement('script');s.src='https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';s.onload=ok;s.onerror=()=>no(new Error('불러오지 못함'));document.head.appendChild(s)})}
+  $('vpost').onclick=async()=>{
+    try{await loadPostcode()}catch{return alert('우편번호 검색 서비스를 불러오지 못했습니다. 인터넷 연결을 확인하거나 주소를 직접 입력해 검색해 주세요.')}
+    const layer=document.createElement('div');layer.className='post-layer';layer.innerHTML='<div class="post-box"><div class="post-hd"><b>주소 찾기</b><button type="button" id="post-x">닫기</button></div><div id="post-body"></div></div>';document.body.appendChild(layer);
+    const close=()=>layer.remove();layer.querySelector('#post-x').onclick=close;layer.addEventListener('click',e=>{if(e.target===layer)close()});
+    new daum.Postcode({width:'100%',height:'100%',oncomplete:async d=>{close();
+      const road=d.roadAddress||d.address,qs=[...new Set([road,d.jibunAddress||d.autoJibunAddress,[d.sido,d.sigungu,d.roadname].filter(Boolean).join(' ')].filter(Boolean))];
+      await ready();let found=[];for(const q of qs){try{found=await P.search(q)}catch{}if(found.length)break}
+      $('vsearch').value=road;if(!$('vn').value.trim()&&d.buildingName)$('vn').value=d.buildingName;
+      if(found.length){showResults(found.slice(0,1),true);say('주소로 찾은 위치입니다. 건물 위치와 다르면 핀을 끌어서 맞춰 주세요.','')}
+      else{$('vres').hidden=false;$('vres').innerHTML='<div class="vr-empty">주소는 찾았지만 지도 좌표를 찾지 못했습니다. 지도에서 해당 건물을 찾아 눌러 주세요.</div>'}}}).embed(layer.querySelector('#post-body'))};
+  // ── 좌표·링크 붙여넣기 (구글·네이버 지도) ──
   window.parseCoord=function(t){
     t=String(t||'').trim();try{t=decodeURIComponent(t)}catch{}let m,la,ln;const N='(-?\\d{1,3}(?:\\.\\d+)?)';
     if(m=t.match(new RegExp('^\\s*'+N+'\\s*[,\\s]\\s*'+N+'\\s*$')))[la,ln]=[+m[1],+m[2]];
@@ -542,22 +648,71 @@ if(pw)api('/api/admin/config').then(start).catch(()=>{});
     else if(m=t.match(new RegExp('[?&](?:q|query|ll|destination)='+N+',\\+?'+N)))[la,ln]=[+m[1],+m[2]];
     else if(m=t.match(new RegExp('[?&]lat='+N+'.*?[?&]lng='+N))||t.match(new RegExp('[?&]lng='+N+'.*?[?&]lat='+N)))
       [la,ln]=/lat=.*lng=/.test(m[0])?[+m[1],+m[2]]:[+m[2],+m[1]];
-    else if(m=t.match(new RegExp('[?&]c='+N+','+N+','+N)))[la,ln]=[+m[3],+m[2]]; // 네이버: c=줌,경도,위도
+    else if(m=t.match(new RegExp('[?&]c='+N+','+N+','+N)))[la,ln]=[+m[3],+m[2]];
     else return null;
-    if(Math.abs(la)>90&&Math.abs(ln)<=90)[la,ln]=[ln,la];   // 순서가 뒤바뀐 경우
+    if(Math.abs(la)>90&&Math.abs(ln)<=90)[la,ln]=[ln,la];
     return valid(la,ln)?{lat:la,lng:ln}:null};
   $('vpb').onclick=()=>{const p=parseCoord($('vpaste').value);
     if(!p)return alert('좌표를 찾지 못했습니다.\n지도에서 장소를 오른쪽 클릭(휴대폰은 길게 누르기)해서 나오는 좌표(예: 37.5665, 126.9780)나 주소창의 링크를 붙여넣어 주세요. 짧은 링크(naver.me, goo.gl)는 읽을 수 없습니다.');
     setPos(p.lat,p.lng,true);$('vpaste').value=''};
   $('vpaste').onkeydown=e=>{if(e.key==='Enter')$('vpb').click()};
-  $('vfind').onclick=async()=>{const q=$('vsearch').value.trim();if(!q)return;
-    try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=ko&q='+encodeURIComponent(q));const j=await r.json();
-      if(!j.length)return alert('검색 결과가 없습니다. 지도를 직접 눌러 지정하거나, 구글·네이버 지도의 좌표를 붙여넣어 주세요.');
-      setPos(+j[0].lat,+j[0].lon,true);if(!$('vn').value)$('vn').value=q}
-    catch{alert('검색에 실패했습니다. 지도를 직접 눌러 지정해 주세요.')}};
-  $('vsearch').onkeydown=e=>{if(e.key==='Enter')$('vfind').click()};
   $('here').onclick=()=>navigator.geolocation.getCurrentPosition(p=>setPos(p.coords.latitude,p.coords.longitude,true),()=>alert('위치 권한을 허용해 주세요'),{enableHighAccuracy:true});
-  ['vlat','vlng','vr'].forEach(id=>$(id).addEventListener('input',()=>{draw();const la=num($('vlat').value),ln=num($('vlng').value);if(valid(la,ln)&&id!=='vr')map.panTo([la,ln])}));
-  window.syncMap=function(){ensure();map.invalidateSize();draw();const la=num($('vlat').value),ln=num($('vlng').value);if(valid(la,ln))map.setView([la,ln],17)};
+  document.querySelectorAll('[data-rad]').forEach(b=>b.onclick=()=>{$('vr').value=b.dataset.rad;draw()});
+  ['vlat','vlng','vr'].forEach(id=>$(id).addEventListener('input',()=>{draw();const la=num($('vlat').value),ln=num($('vlng').value);if(P&&valid(la,ln)&&id!=='vr')P.view(la,ln)}));
+  // 카카오 키 연결 시험
+  $('kdom').textContent=location.origin;
+  $('ktest').onclick=async()=>{const key=$('kkey').value.trim(),st=$('kstat');if(!key){st.textContent='키를 입력하세요';st.className='hint bad';return}
+    st.textContent='확인 중…';st.className='hint';
+    try{await loadKakao(key);const g=new kakao.maps.services.Geocoder();const ok=await new Promise(res=>g.addressSearch('서울특별시 중구 세종대로 110',(r,s)=>res(s===kakao.maps.services.Status.OK)));
+      st.textContent=ok?'✔ 연결되었습니다. 위쪽 [설정 저장] 후 새로고침하면 카카오 지도로 바뀝니다':'키는 불러왔지만 검색이 거부되었습니다. 웹 주소 등록과 카카오맵 사용 설정을 확인하세요';st.className='hint '+(ok?'ok':'bad')}
+    catch(e){st.textContent='연결 실패: '+e.message+' — 키를 다시 확인하세요';st.className='hint bad'}};
+  window.syncMap=async function(){await ready();P.resize();draw();const la=num($('vlat').value),ln=num($('vlng').value);if(valid(la,ln))P.view(la,ln)};
+})();
+</script><script>// ── 시간·날짜 선택 창 (직접 입력은 그대로, 입력 칸 옆 버튼으로 큰 버튼 선택) ──
+(function(){
+  let host=null;
+  function sheet(title,html){
+    if(!host){host=document.createElement('div');host.className='sheet';host.hidden=true;host.innerHTML='<div class="sheet-bg"></div><div class="sheet-box"><div class="sheet-hd"><b></b><button type="button" data-x>닫기</button></div><div class="sheet-body"></div></div>';document.body.appendChild(host);
+      host.querySelector('.sheet-bg').onclick=()=>host.hidden=true;host.querySelector('[data-x]').onclick=()=>host.hidden=true}
+    host.querySelector('b').textContent=title;const body=host.querySelector('.sheet-body');body.innerHTML=html;host.hidden=false;return body}
+  const close=()=>{host.hidden=true};
+  // 시간: 오전/오후 → 시 → 분(5분 단위)
+  window.openTimePicker=function(init,cb){
+    let [h,m]=(parseTime(init)||'10:00').split(':').map(Number),pm=h>=12,h12=h%12||12;
+    const out=()=>{let H=h12%12+(pm?12:0);return p2(H)+':'+p2(m)};
+    const draw=()=>{const b=sheet('시간 고르기',`<div class="pk-seg"><button type="button" data-ap="0" class="${pm?'':'on'}">오전</button><button type="button" data-ap="1" class="${pm?'on':''}">오후</button></div>
+      <div class="pk-lbl">시</div><div class="pk-grid">${Array.from({length:12},(_,i)=>i+1).map(x=>`<button type="button" data-h="${x}" class="${x===h12?'on':''}">${x}</button>`).join('')}</div>
+      <div class="pk-lbl">분</div><div class="pk-grid">${Array.from({length:12},(_,i)=>i*5).map(x=>`<button type="button" data-m="${x}" class="${x===m?'on':''}">${p2(x)}</button>`).join('')}</div>
+      <div class="pk-prev">${pm?'오후':'오전'} ${h12}:${p2(m)} <span style="font-weight:500;color:var(--mut);font-size:16px">(${out()})</span></div>
+      <div class="sheet-ft"><button type="button" data-x2>취소</button><button type="button" class="pri" data-ok>확인</button></div>`);
+      b.querySelectorAll('[data-ap]').forEach(x=>x.onclick=()=>{pm=x.dataset.ap==='1';draw()});
+      b.querySelectorAll('[data-h]').forEach(x=>x.onclick=()=>{h12=+x.dataset.h;draw()});
+      b.querySelectorAll('[data-m]').forEach(x=>x.onclick=()=>{m=+x.dataset.m;draw()});
+      b.querySelector('[data-x2]').onclick=close;b.querySelector('[data-ok]').onclick=()=>{close();cb(out())}};
+    draw()};
+  // 날짜: 달력에서 한 번 눌러 선택
+  window.openDatePicker=function(init,cb,clearable){
+    const t=today();let sel=parseDate(init)||'';let [y,mo]=(sel||t).slice(0,7).split('-').map(Number);
+    const draw=()=>{const first=new Date(Date.UTC(y,mo-1,1)).getUTCDay(),days=new Date(Date.UTC(y,mo,0)).getUTCDate();
+      let cells=['일','월','화','수','목','금','토'].map((d,i)=>`<div class="dow ${i===0?'sun':''}">${d}</div>`).join('')+Array.from({length:first},()=>'<button class="blank" type="button" tabindex="-1"></button>').join('');
+      for(let d=1;d<=days;d++){const ds=`${y}-${p2(mo)}-${p2(d)}`;cells+=`<button type="button" data-d="${ds}" class="${ds===sel?'sel':''} ${ds===t?'today':''}">${d}</button>`}
+      const b=sheet('날짜 고르기',`<div class="cal-hd"><button type="button" data-mv="-1">◀</button><b>${y}년 ${mo}월</b><button type="button" data-mv="1">▶</button></div><div class="cal">${cells}</div>
+        <div class="sheet-ft"><button type="button" data-today>오늘</button>${clearable?'<button type="button" data-clear>지우기</button>':''}</div>`);
+      b.querySelectorAll('[data-mv]').forEach(x=>x.onclick=()=>{mo+=+x.dataset.mv;if(mo<1){mo=12;y--}if(mo>12){mo=1;y++}draw()});
+      b.querySelectorAll('[data-d]').forEach(x=>x.onclick=()=>{close();cb(x.dataset.d)});
+      b.querySelector('[data-today]').onclick=()=>{close();cb(t)};const c=b.querySelector('[data-clear]');if(c)c.onclick=()=>{close();cb('')}};
+    draw()};
+  // 입력 칸 옆에 선택 버튼 붙이기
+  const fire=(inp,v)=>{inp.value=v;inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}))};
+  window.enhance=function(root){(root||document).querySelectorAll('input.tin:not([data-enh]),input.din:not([data-enh])').forEach(inp=>{
+    inp.dataset.enh='1';const isT=inp.classList.contains('tin');
+    const w=document.createElement('span');w.className='fld';inp.parentNode.insertBefore(w,inp);w.appendChild(inp);
+    const b=document.createElement('button');b.type='button';b.className='pkbtn';b.textContent=isT?'🕒':'📅';b.title=isT?'시간 고르기':'날짜 고르기';w.appendChild(b);
+    b.onclick=()=>{ if(isT){let init=inp.value;if(!parseTime(init)&&inp.id==='nl-end'){const st=parseTime($('nl-start').value);if(st)init=addMin(st,NLDUR||90)}
+        openTimePicker(init||'10:00',v=>fire(inp,v))}
+      else openDatePicker(inp.value,v=>fire(inp,v),inp.id!=='nl-date')}})};
+  // 강의 목록을 다시 그릴 때마다 선택 버튼 붙이기
+  const _dl=window.drawLec||drawLec;drawLec=function(){_dl();enhance($('ls'))};
+  enhance(document);
 })();
 </script></body></html>

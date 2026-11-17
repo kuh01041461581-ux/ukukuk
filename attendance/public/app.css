@@ -1,11 +1,11 @@
 /* 참석자 화면 스타일 — 한지(종이)·먹(글자) 바탕, 가는 선, 큰 글자, 도장(인장) 포인트.
    그라데이션·글로우·유리 효과·이모지 아이콘 없음 */
 :root{
-  --paper:#f2eee4;--card:#fffdf8;--ink:#1b1a17;--mut:#6a6559;--line:#ddd5c4;--line2:#ebe5d6;
-  --seal:#b3382c;--ok:#2b7a4b;--warn:#a96100;--bad:#b3261e;--on:#fff;
+  --paper:#f4f5f7;--card:#ffffff;--ink:#16181d;--mut:#656c78;--line:#dcdfe5;--line2:#eceef2;
+  --seal:#2f5fe0;--ok:#2b7a4b;--warn:#a96100;--bad:#b3261e;--on:#fff;
   --r:16px;--font:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
 }
-@media(prefers-color-scheme:dark){:root{--paper:#141311;--card:#1d1c19;--ink:#f2eee4;--mut:#a59f91;--line:#36332c;--line2:#2a2823;--seal:#e0705f;--ok:#62b783;--warn:#e8a949;--bad:#ef7673;--on:#141311}}
+@media(prefers-color-scheme:dark){:root{--paper:#0f1115;--card:#181b21;--ink:#f4f5f7;--mut:#98a0ac;--line:#2a2f38;--line2:#21252c;--seal:#7ea0ff;--ok:#62b783;--warn:#e8a949;--bad:#ef7673;--on:#0f1115}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--paper);color:var(--ink);font:400 20px/1.55 var(--font);letter-spacing:-.01em;font-feature-settings:"tnum"}

@@ -11,8 +11,8 @@ const CSS = `
 *{box-sizing:border-box}
 body{margin:0;background:#fff;color:#222;font-family:"Noto Sans CJK KR","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;font-size:11.5pt;line-height:1.55}
 .page{width:210mm;height:297mm;padding:13mm 14mm 14mm;position:relative;overflow:hidden;page-break-after:always;background:#fff}
-.hd{display:flex;justify-content:space-between;align-items:center;color:#5d6b66;font-size:10pt;border-bottom:1.6px solid #2f5d50;padding-bottom:3mm}
-.hd b{color:#2f5d50}
+.hd{display:flex;justify-content:space-between;align-items:center;color:#656c78;font-size:10pt;border-bottom:1.6px solid #2f5fe0;padding-bottom:3mm}
+.hd b{color:#2f5fe0}
 h1{font-size:25pt;margin:6mm 0 1mm;color:#1f3a33;line-height:1.25}
 .sub{color:#555;font-size:12.5pt;margin-bottom:5mm}
 h2{font-size:14pt;margin:5mm 0 2mm;color:#1f3a33}
@@ -23,11 +23,11 @@ h2{font-size:14pt;margin:5mm 0 2mm;color:#1f3a33}
 .phone{margin:0 auto}
 .cols{display:flex;gap:7mm}.col{flex:1;min-width:0}
 .cap{font-weight:700;color:#1f3a33;margin:0 0 2mm;font-size:11.5pt}
-.box{border:1.4px solid #2f5d50;border-radius:2.5mm;padding:3.4mm 4.2mm;margin:3mm 0}
+.box{border:1.4px solid #2f5fe0;border-radius:2.5mm;padding:3.4mm 4.2mm;margin:3mm 0}
 .box.warn{border-color:#e01b1b}.box h3{margin:0 0 1.5mm;font-size:12pt;color:#1f3a33}.box.warn h3{color:#c01515}
 .box ul{margin:0;padding-left:5mm}.box li{margin:0 0 1mm}
-.steps{display:flex;gap:4mm;margin:3mm 0 5mm}.step{flex:1;border:1.4px solid #2f5d50;border-radius:2.5mm;padding:4mm}
-.step .n{display:inline-flex;width:9mm;height:9mm;border-radius:50%;background:#2f5d50;color:#fff;font-weight:700;font-size:14pt;align-items:center;justify-content:center;margin-bottom:2mm}
+.steps{display:flex;gap:4mm;margin:3mm 0 5mm}.step{flex:1;border:1.4px solid #2f5fe0;border-radius:2.5mm;padding:4mm}
+.step .n{display:inline-flex;width:9mm;height:9mm;border-radius:50%;background:#2f5fe0;color:#fff;font-weight:700;font-size:14pt;align-items:center;justify-content:center;margin-bottom:2mm}
 .step b{display:block;font-size:12.5pt;margin-bottom:1mm}.step span{color:#444;font-size:10.8pt}
 table{border-collapse:collapse;width:100%;font-size:10.5pt}th,td{border:1px solid #c9c4b6;padding:1.6mm 2.4mm;text-align:left;vertical-align:top}th{background:#f1efe7}
 .chat{border:1px solid #c9c4b6;border-radius:3mm;background:#f6f4ef;padding:4mm;margin:3mm 0}

@@ -4,8 +4,8 @@
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <style>
 /* 한지·먹 바탕, 가는 선, 검정 주 버튼 — 그라데이션·글로우·유리 효과 없음 */
-:root{--bg:#f2eee4;--card:#fffdf8;--ink:#1b1a17;--mut:#6a6559;--pri:#1b1a17;--on-pri:#fffdf8;--p:#2b7a4b;--l:#a96100;--a:#b3261e;--line:#ddd5c4;--line2:#ebe5d6;--seal:#b3382c;--font:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
-@media(prefers-color-scheme:dark){:root{--bg:#141311;--card:#1d1c19;--ink:#f2eee4;--mut:#a59f91;--pri:#f2eee4;--on-pri:#141311;--p:#62b783;--l:#e8a949;--a:#ef7673;--line:#36332c;--line2:#2a2823;--seal:#e0705f}}
+:root{--bg:#f4f5f7;--card:#ffffff;--ink:#16181d;--mut:#656c78;--pri:#16181d;--on-pri:#ffffff;--p:#2b7a4b;--l:#a96100;--a:#b3261e;--line:#dcdfe5;--line2:#eceef2;--seal:#2f5fe0;--font:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#f4f5f7;--mut:#98a0ac;--pri:#f4f5f7;--on-pri:#0f1115;--p:#62b783;--l:#e8a949;--a:#ef7673;--line:#2a2f38;--line2:#21252c;--seal:#7ea0ff}}
 *{box-sizing:border-box}body{margin:0;font:15px/1.55 var(--font);letter-spacing:-.01em;background:var(--bg);color:var(--ink)}
 h2{font-size:25px;font-weight:800;letter-spacing:-.035em;margin:4px 0 12px}h3{margin:20px 0 8px;font-size:16px;font-weight:800;letter-spacing:-.02em}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0;overflow-x:auto}
@@ -577,7 +577,7 @@ if(pw)api('/api/admin/config').then(start).catch(()=>{});
     init(el){map=L.map(el).setView(KR,7);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);map.on('click',e=>pick&&pick(e.latlng.lat,e.latlng.lng))},
     onPick(cb){pick=cb},
     mark(la,ln,r){if(!marker){marker=L.marker([la,ln],{draggable:true}).addTo(map);marker.on('dragend',()=>{const p=marker.getLatLng();pick&&pick(p.lat,p.lng)})}else marker.setLatLng([la,ln]);
-      if(!circle)circle=L.circle([la,ln],{radius:r,color:'#2f5d50',weight:2,fillOpacity:.14}).addTo(map);else circle.setLatLng([la,ln]).setRadius(r)},
+      if(!circle)circle=L.circle([la,ln],{radius:r,color:'#2f5fe0',weight:2,fillOpacity:.14}).addTo(map);else circle.setLatLng([la,ln]).setRadius(r)},
     clear(){if(marker){map.removeLayer(marker);marker=null}if(circle){map.removeLayer(circle);circle=null}},
     view(la,ln){map.setView([la,ln],17)},resize(){map.invalidateSize()},
     async search(q){const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=ko&countrycodes=kr&q='+encodeURIComponent(q));
@@ -590,7 +590,7 @@ if(pw)api('/api/admin/config').then(start).catch(()=>{});
     onPick(cb){pick=cb},
     mark(la,ln,r){const p=new K.LatLng(la,ln);
       if(!marker){marker=new K.Marker({position:p,draggable:true,map});K.event.addListener(marker,'dragend',()=>{const q=marker.getPosition();pick&&pick(q.getLat(),q.getLng())})}else marker.setPosition(p);
-      if(!circle)circle=new K.Circle({map,center:p,radius:r,strokeWeight:2,strokeColor:'#2f5d50',strokeOpacity:.9,fillColor:'#2f5d50',fillOpacity:.14});else{circle.setPosition(p);circle.setRadius(r)}},
+      if(!circle)circle=new K.Circle({map,center:p,radius:r,strokeWeight:2,strokeColor:'#2f5fe0',strokeOpacity:.9,fillColor:'#2f5fe0',fillOpacity:.14});else{circle.setPosition(p);circle.setRadius(r)}},
     clear(){if(marker)marker.setMap(null);if(circle)circle.setMap(null);marker=circle=null},
     view(la,ln){map.setCenter(new K.LatLng(la,ln));map.setLevel(3)},resize(){map.relayout()},
     search(q){const OK=K.services.Status.OK;

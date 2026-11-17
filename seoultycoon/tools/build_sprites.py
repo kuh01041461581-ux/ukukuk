@@ -15,7 +15,9 @@ import pixel_style as PS
 from make_iksan_buildings import Sc
 import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, make_iksan_civic as CV, make_iksan_landmarks as LM, make_iksan_icons as IC, make_iksan_chunpo as CK, make_iksan_arts as AR, make_iksan_jeonsu as JS
 # 익산 고유 건물만 새 도트를 쓴다. 그 밖의 건물(소방서·경찰서·학교·아파트·버스정류장·유치원·놀이터·체육공원 등)은 원본 도트를 그대로 두고 퀄리티만 올린다(enhance_orig).
-ITEMS = {2: LM.mireuksa, 13: CV.church, 20: CV.library, 21: CK.chunpo, 19: MB.cinema, 33: HQ.baseball, 38: MO.baekje, 42: AR.arts, 26: JS.jeonsu}
+import pixel_direct as PXD
+PIXEL = {21}                                                       # 직접 도트로 찍은 건물(평면 색 + 윤곽선)
+ITEMS = {2: LM.mireuksa, 13: CV.church, 20: CV.library, 21: PXD.make_pixel_chunpo, 19: MB.cinema, 33: HQ.baseball, 38: MO.baekje, 42: AR.arts, 26: JS.jeonsu}
 # 롯데시네마·코스트코·테슬라·하림·농협은행·공설운동장·방송국·마룡이식당은 원본 도트에 간판만 고친다(make_iksan_retouch) → 아래에서 퀄리티 보정까지 받는다
 yx = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); show = []; hd_show = []
 def on_tile(F, yc, s=1):
@@ -44,7 +46,7 @@ for k, fn in sorted(ITEMS.items()):
     F2 = None      # 새 건물도 원본과 같은 처리(저해상도 도트 → 벡터풍 2배 층)를 거치게 해 이질감을 없앤다                                              # 2배 해상도판(없으면 1배 그림만)
     if F.size != (96, Hc): Fx = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); Fx.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = Fx
     F = on_tile(F, yc)
-    if k != 9:
+    if k != 9 and k not in PIXEL:
         F = PS.stylize(F)
         # 도트 티 내기: 색을 NCOL 개로 줄이고(디더 없음), 알파는 이진, 윤곽에 한 칸 어두운 선을 둔다 — 원본 건물처럼 또렷한 면 단위 색
         import numpy as _np

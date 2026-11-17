@@ -367,7 +367,39 @@ internal sealed partial class TarotForm : Form
 			DrawCard(g, backSm, new RectangleF(px, py, pw, ph), 1f); using (Pen p = new Pen(PRed, 2f)) g.DrawRectangle(p, px, py, pw, ph);
 		}
 	}
-	private sealed class Ent { public string Title, Frame, Body; public bool Red, Hi; public float H, FH; }
+	private sealed class Ent { public string Title, Frame, Body; public bool Red, Hi; public float H, FH; public List<string> FL, BL; }
+	// 글줄을 직접 나눠요: 그려지는 글꼴로 줄 바꿈 위치를 정해서, 칸 높이와 글이 항상 맞아요 (긴 풀이도 칸 밖으로 안 튀어나와요)
+	private float WrapW { get { return LW - 64f - 14f; } }
+	private static float LineH(float pt) { return (float)Math.Ceiling(Gfx.MeasureHL("가", Theme.F(pt, 0), 3000f)) + 3f; }
+	private static List<string> Wrap(string t, float pt, float w)
+	{
+		List<string> L = new List<string>(); if (string.IsNullOrEmpty(t)) return L; Font f = Theme.F(pt, 0);
+		foreach (string para in t.Split('\n'))
+		{
+			if (para.Length == 0) { L.Add(""); continue; }
+			string cur = ""; foreach (string word in para.Split(' '))
+			{
+				if (word.Length == 0) continue; string cand = cur.Length == 0 ? word : cur + " " + word;
+				if (Gfx.MeasureL(cand, f) <= w) { cur = cand; continue; }
+				if (cur.Length > 0) { L.Add(cur); cur = ""; }
+				string rest = word; while (Gfx.MeasureL(rest, f) > w && rest.Length > 1) { int k = rest.Length; while (k > 1 && Gfx.MeasureL(rest.Substring(0, k), f) > w) k--; L.Add(rest.Substring(0, k)); rest = rest.Substring(k); }
+				cur = rest;
+			}
+			if (cur.Length > 0) L.Add(cur);
+		}
+		return L;
+	}
+	private static float LinesH(List<string> L, float pt) { float lh = LineH(pt), h = 0f; foreach (string s in L) h += s.Length == 0 ? lh * 0.5f : lh; return h; }
+	private static float DrawLines(Graphics g, List<string> L, float pt, Color c, float x, float y, StringAlignment ha, float w)
+	{
+		float lh = LineH(pt); foreach (string s in L) { if (s.Length == 0) { y += lh * 0.5f; continue; } FUi.Text(g, s, FUi.F(pt, 0), c, new RectangleF(x, y, w, lh), ha, StringAlignment.Near, false); y += lh; }
+		return y;
+	}
+	private Ent MkEnt(string title, string frame, string body, bool red, bool hi)
+	{
+		float tm = textMul; Ent e = new Ent { Title = title, Frame = frame, Body = body, Red = red, Hi = hi };
+		e.FL = Wrap(frame, 8.5f * tm, WrapW); e.BL = Wrap(body, 9f * tm, WrapW); e.FH = LinesH(e.FL, 8.5f * tm); e.H = 26f * tm + e.FH + LinesH(e.BL, 9f * tm) + 10f; return e;
+	}
 	private static string Dir(Slot s) { return s.Card < 22 ? (s.Rev ? " (역방향)" : " (정방향)") : ""; }
 	private static float MH(string t, float pt, float w) { if (string.IsNullOrEmpty(t)) return 0f; return Gfx.MeasureHL(t, Theme.F(pt, 0), w) + 6f; }
 	private static float EstH(string t, float cpl) { int n = 0; foreach (string ln in t.Split('\n')) n += Math.Max(1, (int)Math.Ceiling(ln.Length / cpl)); return n * 14.5f; }
@@ -375,6 +407,7 @@ internal sealed partial class TarotForm : Form
 	private List<Ent> BuildEnts()
 	{
 		List<Ent> L = new List<Ent>(); int N = slots.Length; float tm = textMul;
+		{ string story = null; try { story = Story(); } catch (Exception ex) { Program.LogErr(ex); } if (story != null) L.Add(MkEnt("흐름으로 읽는 풀이", null, story, false, true)); }
 		for (int i = 0; i < N; i++)
 		{
 			Slot s = slots[i]; string frame = mode == 7 ? "이 달의 흐름을 비추는 카드예요." : Frames[mode][i]; string body; string title;
@@ -390,12 +423,11 @@ internal sealed partial class TarotForm : Form
 				body = VerdictText(y) + "\n" + Meaning(s.Card, s.Rev);
 			}
 			else { title = (mode >= 3 && mode != 8 ? (i + 1) + ". " : "") + posN[i] + " · " + CardName(s.Card) + Dir(s) + " · " + CardKw(s.Card); body = Body(s.Card, s.Rev, topic); }
-			Ent e = new Ent { Title = title, Frame = frame, Body = body, Red = s.Rev, Hi = (mode == 6 && i == 9) || (mode == 3 && i == 4) || (mode == 10 && i == 6) };
-			e.FH = MH(frame, 8.5f * tm, (LW - 64f)); e.H = 26f * tm + e.FH + MH(body, 9f * tm, (LW - 64f)) + 10f; L.Add(e);
+			L.Add(MkEnt(title, frame, body, s.Rev, (mode == 6 && i == 9) || (mode == 3 && i == 4) || (mode == 10 && i == 6)));
 		}
-		string syn = Synth(); if (syn != null) L.Add(new Ent { Title = "카드 조합 풀이", Body = syn, H = 26f * tm + MH(syn, 9f * tm, (LW - 64f)) + 10f });
+		string syn = Synth(); if (syn != null) L.Add(MkEnt("카드 조합 세부 포인트", null, syn, false, false));
 		string sum = Summary();
-		L.Add(new Ent { Title = "한 줄 요약", Body = sum, Hi = true, H = 26f * tm + MH(sum, 9f * tm, (LW - 64f)) + 10f });
+		L.Add(MkEnt("한 줄 요약", null, sum, false, true));
 		return L;
 	}
 	private string Summary()
@@ -426,8 +458,8 @@ internal sealed partial class TarotForm : Form
 			using (GraphicsPath gp = Gfx.Round(new RectangleF(20, y, LW - 48f, e.H), 10)) { using (SolidBrush b = new SolidBrush(e.Hi ? PSoft : PCard)) g.FillPath(b, gp); if (e.Hi) using (Pen p = new Pen(PRed, 1.2f)) g.DrawPath(p, gp); }
 			FUi.Text(g, e.Title, FUi.F(9.5f * tm, 1), e.Red || e.Hi ? PRed : PInk, new RectangleF(30, y + 3, LW - 64f, 20f * tm), StringAlignment.Near, StringAlignment.Center, false);
 			float yy = y + 24f * tm;
-			if (e.Frame != null) { float h = e.FH; FUi.Text(g, e.Frame, FUi.F(8.5f * tm, 0), PMut, new RectangleF(30, yy, LW - 64f, h + 2), StringAlignment.Near, StringAlignment.Near, true); yy += h; }
-			FUi.Text(g, e.Body, FUi.F(9f * tm, 0), PInk, new RectangleF(30, yy, LW - 64f, e.H - (yy - y) + 2), StringAlignment.Near, StringAlignment.Near, true);
+			if (e.FL != null && e.FL.Count > 0) yy = DrawLines(g, e.FL, 8.5f * tm, PMut, 30f, yy, StringAlignment.Near, LW - 64f + 10f);
+			DrawLines(g, e.BL, 9f * tm, PInk, 30f, yy, StringAlignment.Near, LW - 64f + 10f);
 			y += e.H + 6f;
 		}
 	}
@@ -437,7 +469,7 @@ internal sealed partial class TarotForm : Form
 		float k = 0.8f + 0.2f * zoomT, w = 190f * k, h = w / CAR; RectangleF r = new RectangleF((LW - w) / 2, 40f, w, h); DrawCard(g, Face(s.Card, s.Rev), r, 1f);
 		FUi.Text(g, posN[zoom] + " · " + CardName(s.Card) + Dir(s), FUi.F(11.5f, 1), Color.White, new RectangleF(20, r.Bottom + 10, 380, 24), StringAlignment.Center, StringAlignment.Center, false);
 		FUi.Text(g, "키워드 · " + CardKw(s.Card), FUi.F(9.5f, 1), Color.FromArgb(240, 214, 140), new RectangleF(20, r.Bottom + 34, 380, 20), StringAlignment.Center, StringAlignment.Center, false);
-		{ string zb = Body(s.Card, s.Rev, topic); float zp = 9.5f * textMul, avail = LH - 34f - (r.Bottom + 60f); while (zp > 7.5f && MH(zb, zp, 352f) > avail) zp -= 0.5f; FUi.Text(g, zb, FUi.F(zp, 0), Color.FromArgb(238, 232, 220), new RectangleF(34, r.Bottom + 60, 352, avail), StringAlignment.Center, StringAlignment.Near, true); }
+		{ string zb = Body(s.Card, s.Rev, topic); float zp = 9.5f * textMul, avail = LH - 34f - (r.Bottom + 60f); List<string> zl = Wrap(zb, zp, 340f); while (zp > 7.5f && LinesH(zl, zp) > avail) { zp -= 0.5f; zl = Wrap(zb, zp, 340f); } DrawLines(g, zl, zp, Color.FromArgb(238, 232, 220), 30f, r.Bottom + 60f, StringAlignment.Near, 360f); }
 		FUi.Text(g, "아무 곳이나 누르면 닫혀요", FUi.F(8.5f, 0), Color.FromArgb(180, 174, 164), new RectangleF(20, LH - 26, 380, 16), StringAlignment.Center, StringAlignment.Center, false);
 	}
 }

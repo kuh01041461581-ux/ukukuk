@@ -1086,6 +1086,7 @@ Chrome.cs
 Tarot.cs
 TarotData.cs
 TarotMinor.cs
+TarotStory.cs
 TarotFx.cs
 TarotUi.cs
 Capture.cs

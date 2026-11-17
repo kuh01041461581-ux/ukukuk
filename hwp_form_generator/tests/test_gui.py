@@ -173,6 +173,29 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(self.br.cleared[-1], False)
         self.assertIn("가을 간담회", self.br.last_text)
 
+    def test_auto_move_between_report_forms(self):
+        """보고서 양식 하나를 빈 문서에 넣고 내용을 쓴 뒤 다른 보고서 양식을 누르면 값·본문이 새 양식으로 옮겨진다(묻지 않음)"""
+        w, br = self.widget, self.br
+        w.make_report("report_event")
+        self.assertEqual(w.single_doc["fid"], "report_event")
+        br.text = ("가을 음악회\n문화관광과  ( 문화계 / 보고 : 11. 20.) / 과장 홍길동(1234), 계장 김철수(5678), 담당자 이영희(9012)\n\n"
+                   "□ 사업개요\n◦ 일시: 가\n◦ 장소: 나")
+        br.cleared = []
+        w.make_report("report_mayor")
+        self.assertEqual(br.cleared[-1], True)                  # 문서 전체를 바꿈
+        for want in ("가을 음악회", "홍길동(1234)", "이영희(9012)", "사업개요", ": 나"):
+            self.assertIn(want, br.last_text)
+        self.assertEqual(w.single_doc["fid"], "report_mayor")
+
+    def test_no_auto_move_after_other_insert(self):
+        w, br = self.widget, self.br
+        w.make_report("report_event")
+        w.single_doc = None                                     # 다른 곳에 이어 넣은 문서는 건드리지 않는다
+        br.text = "가을 음악회\n□ 개요"
+        br.cleared = []
+        w.make_report("report_mayor")
+        self.assertEqual(getattr(br, "cleared", []), [])
+
     def test_symbols(self):
         self.widget.put_symbol('○')
         self.widget.put_symbol('❶')

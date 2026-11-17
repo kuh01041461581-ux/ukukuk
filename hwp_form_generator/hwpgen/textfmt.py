@@ -190,3 +190,49 @@ def split_title(text):
             return s, "\n".join(lines[i + 1:])
         break
     return "", text
+
+
+_RE_EVENT_HEAD = re.compile(r"^(.*?)\s*\(\s*(.*?)\s*/\s*보고\s*:?\s*(.*?)\s*\)\s*/\s*과장\s*(.*?)\s*,\s*계장\s*(.*?)\s*,\s*담당자?\s*(.*)$")
+_MAYOR_LABELS = {"보고일시": "date", "담당과장": "head", "담당계장": "lead", "담당부서": "dept", "담당자": "staff"}
+
+
+def extract_report(text):
+    """보고서 양식으로 쓴 글에서 머리 표의 값(제목·부서·계·보고일·과장·계장·담당자)을 읽어 내고 나머지를 본문으로 돌려준다.
+    → (값 사전, 본문 글). 머리를 알아보지 못하면 ({}, 원래 글)."""
+    lines = (text or "").replace("\r", "").split("\n")
+    nz = [i for i, ln in enumerate(lines) if ln.strip()]
+    for pos, i in enumerate(nz[:12]):                       # 행사·사업 보고: '부서 (계 / 보고 : 날짜) / 과장 …, 계장 …, 담당자 …'
+        m = _RE_EVENT_HEAD.match(lines[i].strip())
+        if m:
+            vals = {"dept": m[1].strip(), "team": m[2].strip(), "date": m[3].strip(), "head": m[4].strip(), "lead": m[5].strip(), "staff": m[6].strip()}
+            if pos > 0:
+                vals["title"] = lines[nz[pos - 1]].strip()
+            return vals, "\n".join(lines[i + 1:]).lstrip("\n")
+    # 시장님 보고: 라벨 줄 다음 줄이 값
+    vals, i, last = {}, 0, -1
+    while i < min(len(lines), 40):
+        key = re.sub(r"\s+", "", lines[i])
+        lab = next((k for k in _MAYOR_LABELS if key.startswith(k)), None)
+        if lab:
+            rest = key[len(lab):]
+            if rest:
+                vals[_MAYOR_LABELS[lab]] = rest
+            else:
+                j = i + 1
+                while j < len(lines) and not lines[j].strip():
+                    j += 1
+                nxt = re.sub(r"\s+", "", lines[j]) if j < len(lines) else ""
+                if j < len(lines) and not any(nxt.startswith(k) for k in _MAYOR_LABELS):
+                    vals[_MAYOR_LABELS[lab]] = lines[j].strip()
+                    i = j
+            last = i
+        i += 1
+    if len(vals) >= 3 and last >= 0:
+        j = last + 1
+        while j < len(lines) and not lines[j].strip():
+            j += 1
+        if j < len(lines) and len(lines[j].strip()) <= 80 and lines[j].strip()[:1] not in "□■◦○ㅇ▸-":
+            vals["title"] = lines[j].strip()
+            j += 1
+        return vals, "\n".join(lines[j:]).lstrip("\n")
+    return {}, text

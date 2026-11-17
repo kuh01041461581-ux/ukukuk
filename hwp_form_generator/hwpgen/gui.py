@@ -88,6 +88,7 @@ class Output:
         # 문서 중간에 넣을 때는 한 번에 넣어 순서를 지킨다.
         at_end = empty or br.at_doc_end()
         step = app.ui.get("insert_mode", "step") == "step" and at_end
+        replace_partial = replace == "selection"
         top = False
         if not empty:
             br.prepare_insert(at_end)                # 앞 내용과 한 줄로 붙지 않게 새 줄에서 시작
@@ -114,6 +115,8 @@ class Output:
                     app.update()
                     time.sleep(app.ui.get("insert_delay", min(0.45, max(0.12, 3.0 / n))))
             app.say("열려 있는 문서의 커서 위치에 넣었어요")
+            # 빈 문서에 양식 하나를 넣은 상태라면 기억해 둔다 → 다른 보고서 양식을 누르면 쓴 내용을 그 양식으로 옮겨 준다
+            app.single_doc = {"fid": prefix, "key": br.doc_key() if hasattr(br, "doc_key") else None} if (empty and not replace_partial) else None
         except Exception as e:                       # noqa: BLE001
             log = write_error_log("insert %s chunk %d/%d step=%s" % (prefix, i, n, step), e)
             try:                                     # 실패한 양식 파일을 그대로 남겨 두면 원인을 정확히 볼 수 있다
@@ -2005,32 +2008,59 @@ class Widget(tk.Tk):
                 if rough.strip():
                     from . import press
                     prof0 = PR.load_profile()
-                    title0, paras = press.draft(rough, dept=prof0.get("dept", ""), tel=prof0.get("staff_ext", ""))
-                    if any(x["key"] == "title" for x in f.fields):
-                        vals["title"] = title0
-                    outline = "\n".join(paras)
+                    r0 = press.draft_full(rough, dept=prof0.get("dept", ""), tel=prof0.get("staff_ext", ""))
+                    for k0 in ("title", "sub1", "sub2"):
+                        if r0[k0] and any(x["key"] == k0 for x in f.fields):
+                            vals[k0] = r0[k0]
+                    outline = "\n".join(r0["paras"])
                     replace = "selection" if sel_used else None
             if outline and not plain and self.bridge.connected:
-                # 글을 선택해 두고 양식을 누르면 그 글이 바로 그 양식으로 바뀐다(서식 무시하고 아무렇게나 쓴 글도 됨).
-                # 선택이 없으면 평소처럼 새로 넣고, '문서 전체' 체크를 켠 때만 전체를 바꾼다.
+                # ① 글을 선택해 두고 양식을 누르면 그 글이 그 양식으로 바뀐다(서식 무시하고 쓴 글도 됨).
+                # ② 방금 이 문서에 보고서 양식 하나를 넣고 내용을 써 둔 상태에서 다른 보고서 양식을 누르면,
+                #    머리 표의 값(제목·부서·보고일·담당자)과 본문을 그대로 새 양식으로 옮긴다(물어보지 않음, 한글에서 Ctrl+Z 로 되돌림).
+                # ③ 그 밖의 경우 '문서 전체' 설정을 켠 때만, 물어본 뒤 전체를 바꾼다.
                 sel = self.bridge.get_selection_text()
-                src = sel if sel.strip() else (self.bridge.get_all_text() if self.ui.get("convert") else "")
-                if src.strip():
-                    whole = not sel.strip()
+                src, whole, moved = (sel if sel.strip() else ""), False, False
+                sd = getattr(self, "single_doc", None)
+                if not src.strip() and sd and sd.get("fid") != fid and self._same_doc(sd) and self._is_report_body(sd.get("fid")):
+                    src = self.bridge.get_all_text()
+                    whole = moved = bool(src.strip())
+                elif not src.strip() and self.ui.get("convert"):
+                    src = self.bridge.get_all_text()
+                    whole = bool(src.strip())
                     if whole and not messagebox.askyesno(
                             "서식 바꾸기", "문서 전체를 '%s' 양식으로 바꿔 넣을까요?\n(한글에서 Ctrl+Z 로 되돌릴 수 있어요)" % f.meta["name"].split(" (")[0]):
                         return
-                    title, body = T.split_title(src) if any(x["key"] == "title" for x in f.fields) else ("", src)
-                    if title:
-                        vals["title"] = title
+                if src.strip():
+                    got, body = T.extract_report(src)
+                    keys = {x["key"] for x in f.fields}
+                    for k, v in got.items():
+                        if v and k in keys:
+                            vals[k] = v
+                    if not got:
+                        title, body = T.split_title(src) if "title" in keys else ("", src)
+                        if title:
+                            vals["title"] = title
                     outline = T.normalize_outline(body)
                     replace = "all" if whole else "selection"
+                    if moved:
+                        self.say("쓴 내용을 ‘%s’ 양식으로 옮겼어요 (되돌리기: Ctrl+Z)" % f.meta["name"].split(" (")[0])
             pkg = f.render(vals, outline)
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
         PR.push_recent(self.ui, "recent_forms", fid, 5)
         self.busy(lambda: self.out.insert(pkg, f.id, replace))
+
+    def _is_report_body(self, fid):
+        """내용을 옮겨 줄 수 있는 보고서 양식(행사·사업·시장님 보고)인지"""
+        return fid in ("report_event", "report_project", "report_mayor")
+
+    def _same_doc(self, sd):
+        """기억해 둔 문서가 지금 열린 문서인지(다른 문서로 옮겨 갔다면 건드리지 않는다)"""
+        k0 = sd.get("key")
+        k1 = self.bridge.doc_key() if hasattr(self.bridge, "doc_key") else None
+        return k0 is None or k1 is None or k0 == k1
 
     def ask_rough(self, title, msg, hint=""):
         """대략 적은 글을 입력받는 작은 창 → 글(비어 있으면 ''), 닫으면 None"""

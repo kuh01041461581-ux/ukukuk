@@ -174,6 +174,13 @@ class HwpBridge:
         except Exception as e:                             # noqa: BLE001
             raise BridgeError("표를 만들지 못했어요: %s" % e)
 
+    def doc_key(self):
+        """지금 열려 있는 문서를 가리키는 값(문서가 바뀌었는지 알아보는 용). 알 수 없으면 None"""
+        try:
+            return str(self._need().XHwpDocuments.Active_XHwpDocument.DocumentID)
+        except Exception:                                  # noqa: BLE001
+            return None
+
     def at_page_top(self):
         """커서가 어떤 쪽의 맨 위에 있는지. '쪽 처음으로'(MovePageBegin)를 해 보고 위치가 그대로면 맨 위다(바로 원래 자리로 되돌린다).
         앞 양식이 쪽을 꽉 채워 빈 줄이 새 쪽으로 넘어간 경우, 다음 양식의 '쪽 나눔'이 빈 쪽을 하나 더 만드는 것을 막는 데 쓴다."""

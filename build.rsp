@@ -1087,6 +1087,7 @@ Tarot.cs
 TarotData.cs
 TarotMinor.cs
 TarotStory.cs
+Palm.cs
 TarotFx.cs
 TarotUi.cs
 Capture.cs

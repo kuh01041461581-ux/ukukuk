@@ -4,5 +4,5 @@
 [assembly: AssemblyCompany("uk")]
 [assembly: AssemblyProduct("초과근무 알리미")]
 [assembly: AssemblyCopyright("© 2026 uk. All rights reserved.")]
-[assembly: AssemblyVersion("1.4.69.0")]
-[assembly: AssemblyFileVersion("1.4.69.0")]
+[assembly: AssemblyVersion("1.4.70.0")]
+[assembly: AssemblyFileVersion("1.4.70.0")]

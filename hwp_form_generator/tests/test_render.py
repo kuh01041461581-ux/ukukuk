@@ -568,3 +568,15 @@ class ExtractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BlockToolTests(unittest.TestCase):
+    def test_tools(self):
+        from hwpgen import blocktools as BT
+        self.assertEqual(BT.comma_add("304441020원 12"), "304,441,020원 12")
+        self.assertEqual(BT.comma_del("1,234,567"), "1234567")
+        self.assertEqual(BT.money_korean("304,441,020원"), "삼억사백사십사만천이십원")
+        self.assertEqual(BT.date_fmt("2026-11-20 및"), "2026. 11. 20.(금) 및")
+        self.assertEqual(BT.join_lines("가\n나\n\n다"), "가 나\n\n다")
+        self.assertEqual(BT.number_lines("◦ 가\n- 나", "①"), "① 가\n② 나")
+        self.assertEqual(BT.strip_bullets("◦ 가\n1. 나"), "가\n나")

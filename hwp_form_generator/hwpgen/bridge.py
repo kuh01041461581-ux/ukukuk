@@ -154,6 +154,14 @@ class HwpBridge:
         except Exception:                                  # noqa: BLE001
             return False
 
+    def replace_selection(self, text):
+        """지금 선택한 글을 text 로 바꾼다(줄바꿈은 문단 나눔으로). 선택한 부분이 없으면 오류"""
+        if not self.get_selection_text().strip():
+            raise BridgeError("바꿀 글을 먼저 선택(블록)해 주세요")
+        if not self.clear_target(False):
+            raise BridgeError("선택한 글을 지우지 못했어요")
+        return self.insert_text(text.replace("\r", "").replace("\n", "\r\n"))
+
     def insert_table(self, rows, cols):
         """커서 위치에 rows × cols 표 만들기(한글 표 만들기 명령)"""
         hwp = self._need()

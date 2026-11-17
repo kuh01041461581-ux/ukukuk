@@ -13,6 +13,7 @@ import tempfile
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
+from . import blocktools as BT
 from . import bridge as B
 from . import profile as PR
 from . import registry, weekly
@@ -1845,6 +1846,76 @@ class Widget(tk.Tk):
                  anchor="w", wraplength=WIDGET_W - 40, justify="left").pack(fill="x")
         self._money_box = tk.Frame(parent, bg=C_BG)
         self._money_box.pack(fill="x")
+        self.section(parent, "선택한 글 다듬기")
+        tk.Label(parent, text="한글에서 글을 블록으로 선택하고 누르면 그 글이 바로 바뀌어요 (되돌리기: Ctrl+Z)", bg=C_BG, fg=C_SUB,
+                 font=FONT_S, anchor="w", wraplength=WIDGET_W - 40, justify="left").pack(fill="x")
+        tg = tk.Frame(parent, bg=C_BG)
+        tg.pack(fill="x", pady=(2, 0))
+        for i, (name, tip, fn) in enumerate(BT.TOOLS):
+            Btn(tg, name, lambda n=name, f=fn: self.tidy(n, f), kind="flat", h=32, tip=tip).grid(
+                row=i // 2, column=i % 2, sticky="ew", padx=2, pady=2)
+        tg.columnconfigure(0, weight=1)
+        tg.columnconfigure(1, weight=1)
+        n0 = (len(BT.TOOLS) + 1) // 2
+        Btn(tg, "앞뒤에 붙이기", self.tidy_around, kind="flat", h=32, tip="줄마다 앞·뒤에 글을 붙여요").grid(
+            row=n0, column=0, sticky="ew", padx=2, pady=2)
+        Btn(tg, "찾아 바꾸기", self.tidy_replace, kind="flat", h=32, tip="선택한 글 안에서만 찾아 바꿔요").grid(
+            row=n0, column=1, sticky="ew", padx=2, pady=2)
+
+    def tidy(self, name, fn):
+        if not self._need_hwp(name):
+            return
+        try:
+            sel = self.bridge.get_selection_text().replace("\r", "")
+            if not sel.strip():
+                self.say("바꿀 글을 먼저 선택(블록)해 주세요", ok=False)
+                return
+            new = fn(sel.rstrip("\n"))
+            if new == sel.rstrip("\n"):
+                self.say("%s: 바꿀 것이 없어요" % name)
+                return
+            self.bridge.replace_selection(new)
+            self.say("%s: 선택한 글을 바꿨어요" % name)
+        except B.BridgeError as e:
+            self.say(str(e), ok=False)
+
+    def ask_pair(self, title, labels, hints=("", "")):
+        """입력칸 둘이 있는 작은 창 → (값1, 값2) 또는 None"""
+        dlg = tk.Toplevel(self)
+        dlg.title(title)
+        dlg.configure(bg=C_BG)
+        dlg.attributes("-topmost", True)
+        dlg.geometry("+%d+%d" % (max(0, self.winfo_x() - 300), self.winfo_y() + 120))
+        ents = []
+        for lab in labels:
+            tk.Label(dlg, text=lab, bg=C_BG, fg=C_TEXT, font=FONT, anchor="w").pack(fill="x", padx=14, pady=(10, 0))
+            e = tk.Entry(dlg, width=34, font=FONT, relief="flat", highlightthickness=1, highlightbackground=C_LINE, highlightcolor=C_ACC)
+            e.pack(padx=14, ipady=5, fill="x")
+            ents.append(e)
+        res = {"v": None}
+
+        def ok():
+            res["v"] = tuple(e.get() for e in ents)
+            dlg.destroy()
+        row = tk.Frame(dlg, bg=C_BG)
+        row.pack(fill="x", padx=14, pady=12)
+        Btn(row, "바꾸기", ok, kind="accent", h=36, w=110, anchor="c").pack(side="right")
+        Btn(row, "취소", dlg.destroy, kind="flat", h=36, w=80, anchor="c").pack(side="right", padx=6)
+        ents[0].focus_set()
+        ents[-1].bind("<Return>", lambda _e: ok())
+        dlg.grab_set()
+        self.wait_window(dlg)
+        return res["v"]
+
+    def tidy_around(self):
+        r = self.ask_pair("앞뒤에 붙이기", ("줄 앞에 붙일 글", "줄 뒤에 붙일 글"))
+        if r and (r[0] or r[1]):
+            self.tidy("앞뒤에 붙이기", lambda t: BT.add_around(t, r[0], r[1]))
+
+    def tidy_replace(self):
+        r = self.ask_pair("찾아 바꾸기 (선택한 글 안에서)", ("찾을 글", "바꿀 글"))
+        if r and r[0]:
+            self.tidy("찾아 바꾸기", lambda t: BT.replace_all(t, r[0], r[1]))
 
     @staticmethod
     def money_forms(won):

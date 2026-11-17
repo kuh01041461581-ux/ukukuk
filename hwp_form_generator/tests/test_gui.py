@@ -71,6 +71,9 @@ class FakeBridge:
         self.cleared = getattr(self, "cleared", []) + [whole]
         return True
 
+    def replace_selection(self, text):
+        self.replaced = getattr(self, "replaced", []) + [text]
+
     def insert_table(self, r, c):
         self.tables = getattr(self, "tables", []) + [(r, c)]
 
@@ -195,6 +198,21 @@ class GuiTests(unittest.TestCase):
         br.cleared = []
         w.make_report("report_mayor")
         self.assertEqual(getattr(br, "cleared", []), [])
+
+    def test_tidy_selection(self):
+        w, br = self.widget, self.br
+        from hwpgen import blocktools as BT
+        br.selection = "사업비 304441020원\n2026-11-20"
+        try:
+            w.tidy("콤마 넣기", BT.comma_add)
+            w.tidy("날짜 맞추기", BT.date_fmt)
+        finally:
+            br.selection = ""
+        self.assertEqual(br.replaced[-2], "사업비 304,441,020원\n2026-11-20")
+        self.assertEqual(br.replaced[-1], "사업비 304441020원\n2026. 11. 20.(금)")
+        n = len(br.replaced)
+        w.tidy("콤마 넣기", BT.comma_add)                         # 선택이 없으면 아무것도 바꾸지 않는다
+        self.assertEqual(len(br.replaced), n)
 
     def test_symbols(self):
         self.widget.put_symbol('○')

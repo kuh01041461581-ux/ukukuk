@@ -180,13 +180,30 @@ nav button{font-weight:500}nav button.on{color:var(--seal);font-weight:650}
 }
 
 @media(prefers-color-scheme:dark){:root{--fill:#2b7fd0}}
+
+/* 사용 순서 안내 */
+.start{margin:0 0 12px;border-color:color-mix(in srgb,var(--fill) 35%,var(--line));background:color-mix(in srgb,var(--fill) 4%,var(--card))}
+.start-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:16px}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:600;background:var(--line2);color:var(--mut)}
+.pill.live{background:color-mix(in srgb,var(--p) 14%,var(--card));color:var(--p)}.pill.live:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--p)}
+.step{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line2)}.step:first-of-type{border-top:0}
+.step .st-t{flex:1;min-width:0}.step .st-t b{display:block;font-size:15px}.step small{font-size:13px}
+.sn{width:26px;height:26px;border-radius:50%;background:var(--fill);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none}
+.sn .i{width:15px;height:15px;stroke-width:2.6}.is-done .sn{background:var(--p)}.is-done .st-t b{color:var(--mut);font-weight:550}
+.flow{display:flex;align-items:stretch;gap:6px;margin:0 0 12px}
+.fl{flex:1 1 0;min-width:0;display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--card);text-align:left}
+.fl b{display:block;font-size:14px}.fl small{font-size:12.5px;line-height:1.35}.fl u{text-decoration:none;font-weight:600;color:var(--fill)}
+.btn-fl{cursor:pointer;font-weight:400}.btn-fl:hover{border-color:var(--fill)}
+.ar{align-self:center;color:var(--mut);font-size:20px}
+@media(max-width:640px){.flow{gap:6px}.fl{flex-direction:column;align-items:center;text-align:center;gap:6px;padding:10px 4px}.fl small{display:none}.fl b{font-size:13px}.ar{display:none}.step small{font-size:12.5px}.step .pri{padding:8px 12px}}
+#guide{margin-top:12px}
 </style></head><body>
 <div id="login" class="card"><h2><span class="seal">출</span>출석 관리자</h2>비밀번호<br><input id="pw" type="password" autocomplete="current-password"><button class="pri" id="go" style="width:100%">로그인</button><div id="msg" class="ab"></div></div>
 <div id="shell" hidden>
 <nav id="nav"><div class="brand"><span class="seal">출</span><span>출석 관리자<small>국가무형유산 교육</small></span></div>
   <button data-tab="ov" class="on"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>현황</span></button>
-  <button data-tab="lec"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/></svg><span>강의 개설</span></button>
-  <button data-tab="man"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/></svg><span>수동 출석</span></button>
+  <button data-tab="lec"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/></svg><span>강의 만들기</span></button>
+  <button data-tab="man"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/></svg><span>출석 수정</span></button>
   <button data-tab="stat"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-7M12 20V5M19 20v-10"/></svg><span>통계</span></button>
   <button data-tab="set"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>설정</span></button>
 </nav>
@@ -194,7 +211,7 @@ nav button{font-weight:500}nav button.on{color:var(--seal);font-weight:650}
 <section id="v-ov">
   <h2>날짜별 현황</h2>
   <div class="row"><button id="prev">◀</button><input type="date" id="date"><button id="next">▶</button><button id="reload">새로고침</button></div>
-  <small style="margin-top:8px">참석자에게는 강의별 <b>[카톡 공유]</b> 링크 또는 <b>설정 → 구성원 개인 출석 링크</b>를 보내세요. 링크를 열면 위치 권한을 요청하고, 교육장 안에서만 출석됩니다.</small>
+  <div id="guide"></div>
   <div id="ov" class="card" style="margin-top:12px"></div>
 </section>
 <section id="v-lec" hidden>
@@ -323,7 +340,7 @@ async function shareText(title,text){
   if(CAN_SHARE){try{await navigator.share({title,text});return}catch(e){if(e&&e.name==='AbortError')return}}
   copy(text,'안내문을 복사했습니다. 카톡에 붙여넣어 보내세요.')}
 function sessBtn(l){const s=l.session,uc=C.settings&&C.settings.useCode;
-  return `${s?`<span class="un">${uc?`현장코드 <b>${s.code}</b> · `:''}${s.open?'출석 진행중':'마감'}</span>`:''}
+  return `${s?`<span class="pill ${s.open?'live':''}">${s.open?'출석 진행중':'마감'}</span>${uc?`<span class="un">현장코드 <b>${s.code}</b></span>`:''}`:''}
   <button class="pri" data-shl="${l.id}">${shareLabel()}</button><button data-cp="${location.origin}/c/${l.token}">링크 복사</button>
   ${s?`<button data-tg="${l.id}" data-open="${!s.open}">${s.open?'마감':'다시 열기'}</button>`:''}${s&&uc?` <button data-nc="${l.id}">코드 재발급</button>`:''}`}
 document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)return;
@@ -336,7 +353,18 @@ document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)retur
   }catch(er){alert(er.message)}});
 const cell=g=>g.na?'<span class="un">대상 아님</span>':g.checked?`<span class="ok">출 ${g.P}</span> <span class="late">지 ${g.L}</span> <span class="ab">결 ${g.A}</span>${g.U?` <span class="un">미 ${g.U}</span>`:''}`
   +g.issues.map(i=>`<small class="${i.status==='A'?'ab':'late'}">${esc(i.name)} (${i.status==='A'?'결석':'지각'})</small>`).join(''):`<span class="un">미입력</span><small>${g.total}명</small>`;
+function guideHtml(){
+  const hasV=C.venue&&C.venue.lat!=null,nm=C.groups.reduce((n,g)=>n+g.members.filter(x=>String(x).trim()).length,0),hasL=C.lectures.length>0;
+  const st=[[hasV,'교육 장소 정하기','지도에서 장소를 찍으면, 그 안에서만 출석됩니다','set','장소 정하기'],[nm>0,'단체·구성원 명단 넣기','엑셀을 올리거나 직접 입력합니다','set','명단 넣기'],[hasL,'강의 만들기','요일·시간을 한 번만 정하면 매주 자동으로 열립니다','lec','강의 만들기']];
+  const done=st.filter(x=>x[0]).length;
+  const setup=done<3?`<div class="card start"><div class="start-h"><b>처음 한 번만 준비하세요</b><span class="pill">${done} / 3</span></div>
+    ${st.map((x,i)=>`<div class="step ${x[0]?'is-done':''}"><span class="sn">${x[0]?'<svg class="i" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>':i+1}</span><div class="st-t"><b>${x[1]}</b><small>${x[2]}</small></div>${x[0]?'<span class="un">완료</span>':`<button class="pri" data-go="${x[3]}">${x[4]}</button>`}</div>`).join('')}</div>`:'';
+  const flow=`<div class="flow"><div class="fl"><span class="sn">1</span><div><b>링크 보내기</b><small>아래 강의의 <u>카톡 공유</u>를 누르면 끝</small></div></div><span class="ar">›</span>
+    <div class="fl"><span class="sn">2</span><div><b>현황 보기</b><small>이 화면에서 실시간 확인</small></div></div><span class="ar">›</span>
+    <button class="fl btn-fl" data-go="man"><span class="sn">3</span><div><b>빠진 분 고치기</b><small>출석 수정 열기</small></div></button></div>`;
+  return setup+flow}
 async function ov(){
+  $('guide').innerHTML=guideHtml();
   const rq=await api('/api/admin/device-requests').catch(()=>[]);
   const reqHtml=rq.length?`<div class="card" style="border:1px solid var(--l);margin:0 0 10px"><b>기기 변경 요청 ${rq.length}건</b> <small style="display:inline">휴대폰을 바꾼 분이 요청했습니다. 본인이 맞는지 확인하고 승인하세요.</small>
     ${rq.map(r=>`<div class="lk"><span class="nm">${esc(r.name)} <small style="display:inline">${esc(r.group||'')}</small></span><button class="pri" data-rqa="${r.id}">승인</button><button data-rqd="${r.id}">거절</button></div>`).join('')}</div>`:'';
@@ -344,7 +372,7 @@ async function ov(){
   const wd=DAY[wdOf(d.date)];
   if(!d.lectures.length){$('ov').innerHTML=reqHtml+`<p>${d.date} (${wd}) 개설된 강의가 없습니다.<br><button data-go="lec" class="pri">강의 개설하러 가기</button></p>`;return}
   const tot={P:0,L:0,A:0,U:0};d.lectures.forEach(l=>l.groups.forEach(g=>{for(const k in tot)tot[k]+=g[k]}));
-  const warn=(C.venue&&C.venue.lat!=null)||(C.settings&&C.settings.useCode)?'':`<div class="card" style="border-left:5px solid var(--a);margin:0 0 10px"><b class="ab">교육 장소가 설정되지 않았습니다.</b> 지금은 링크로 출석할 수 없습니다. <button data-go="set" class="pri">설정에서 장소 지정</button></div>`;
+  const warn='';
   const sum=reqHtml+warn+`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p>`;
   const groups=d.lectures[0].groups;
   const pc=`<div class="only-pc"><table><tr><th style="min-width:200px">강의</th>${groups.map(g=>`<th>${esc(g.name)}</th>`).join('')}</tr>
@@ -354,7 +382,7 @@ async function ov(){
     <div class="grp">${l.groups.map(g=>`<div class="gc ${g.checked&&!g.na?'':'un2'}"><b>${esc(g.name)}</b>${g.na?'<span class="un">대상 아님</span>':g.checked?cell(g):`<span class="un">미입력 · ${g.total}명</span>`}</div>`).join('')}</div></div>`).join('')}</div>`;
   $('ov').innerHTML=sum+pc+mob;
 }
-document.addEventListener('click',e=>{if(e.target.dataset.go)show(e.target.dataset.go)});
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g)show(g.dataset.go)});
 
 // ── 설정 상태 ──
 let C={groups:[],lectures:[]};

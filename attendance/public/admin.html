@@ -2,10 +2,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>출석 관리자</title>
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="/vendor/pretendard/pretendardvariable-dynamic-subset.css">
 <style>
 /* 한지·먹 바탕, 가는 선, 검정 주 버튼 — 그라데이션·글로우·유리 효과 없음 */
-:root{--bg:#f4f5f7;--card:#ffffff;--ink:#16181d;--mut:#656c78;--pri:#16181d;--on-pri:#ffffff;--p:#2b7a4b;--l:#a96100;--a:#b3261e;--line:#dcdfe5;--line2:#eceef2;--seal:#2f5fe0;--font:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#f4f5f7;--mut:#98a0ac;--pri:#f4f5f7;--on-pri:#0f1115;--p:#62b783;--l:#e8a949;--a:#ef7673;--line:#2a2f38;--line2:#21252c;--seal:#7ea0ff}}
+:root{--bg:#f7f7f8;--card:#ffffff;--ink:#1b1f24;--mut:#6b7280;--pri:#0067c0;--on-pri:#ffffff;--p:#2b7a4b;--l:#a96100;--a:#b3261e;--line:#e3e5e8;--line2:#f0f1f3;--seal:#0067c0;--font:"Pretendard Variable","Pretendard","Segoe UI Variable Text","Segoe UI","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+@media(prefers-color-scheme:dark){:root{--bg:#161718;--card:#202123;--ink:#f7f7f8;--mut:#9aa0a8;--pri:#f7f7f8;--on-pri:#161718;--p:#62b783;--l:#e8a949;--a:#ef7673;--line:#303236;--line2:#292a2d;--seal:#4cc2ff}}
 *{box-sizing:border-box}body{margin:0;font:15px/1.55 var(--font);letter-spacing:-.01em;background:var(--bg);color:var(--ink)}
 h2{font-size:25px;font-weight:800;letter-spacing:-.035em;margin:4px 0 12px}h3{margin:20px 0 8px;font-size:16px;font-weight:800;letter-spacing:-.02em}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0;overflow-x:auto}
@@ -112,7 +113,7 @@ button,input,select{min-height:42px}
 
 /* ── 다듬기 ── */
 :root{--sh:0 1px 2px rgba(16,24,40,.06),0 1px 1px rgba(16,24,40,.04);--ring:0 0 0 3px color-mix(in srgb,var(--seal) 28%,transparent)}
-@media(prefers-color-scheme:dark){:root{--sh:none}}
+@media(prefers-color-scheme:dark){:root{--sh:none;--fill:#2b7fd0}}
 .seal{transform:none;border-radius:9px}
 .card{border-radius:18px;border-color:var(--line2);box-shadow:var(--sh);padding:18px}
 input,select,button,textarea{border:1px solid var(--line);border-radius:12px;padding:9px 12px;transition:background .15s,border-color .15s,box-shadow .15s,transform .1s}
@@ -137,6 +138,48 @@ nav{box-shadow:0 -6px 20px -12px rgba(16,24,40,.25);border-top-color:var(--line2
 nav button,nav button:hover{box-shadow:none;background:none}nav button:active{transform:none}
 nav button.on{color:var(--seal)}
 @media(min-width:900px){nav{box-shadow:none;border-right-color:var(--line2)}nav button{border-radius:12px}nav button:hover{background:var(--line2)}nav button.on,nav button.on:hover{background:color-mix(in srgb,var(--seal) 12%,var(--card));color:var(--seal)}}
+
+/* ══ 최종 스타일: Notion의 차분함 + Linear의 선명함 + Windows 11의 둥근 컨트롤 ══ */
+:root{--fill:#0067c0;--sh:none;--ring:0 0 0 2px color-mix(in srgb,var(--seal) 40%,transparent)}
+body{font-weight:400;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum","ss01";letter-spacing:-.012em}
+
+h2{font-weight:700;font-size:24px;letter-spacing:-.03em}h3{font-weight:650}
+.seal{border-radius:7px;font-weight:700;background:var(--fill);color:#fff}
+.card{border-radius:10px;box-shadow:none;border:1px solid var(--line);padding:18px}
+input,select,button,textarea{border-radius:8px;border:1px solid var(--line);padding:7px 11px;font-weight:450}
+button{font-weight:550;box-shadow:none;background:var(--card)}
+button:hover{background:var(--line2)}button:active{transform:none;background:var(--line)}
+button.pri{background:var(--fill);border-color:color-mix(in srgb,#000 12%,var(--fill));color:#fff;font-weight:600;box-shadow:none}
+button.pri:hover{background:color-mix(in srgb,#000 10%,var(--fill));opacity:1}
+input:focus,select:focus,textarea:focus{border-color:var(--seal);box-shadow:var(--ring)}
+th{font-weight:600;font-size:12.5px;letter-spacing:0;border-bottom:1px solid var(--line)}
+tr:hover td{background:color-mix(in srgb,var(--line2) 60%,transparent)}
+.seg2{background:var(--line2);border-radius:10px;padding:3px}
+.seg2 button,.seg2 button:first-child,.seg2 button:last-child{border-radius:7px;font-weight:550}
+.seg2 button.on{background:var(--card);color:var(--ink);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.06);font-weight:600}
+.lec,.lcard,.vres,.gc{border-radius:8px;border-color:var(--line)}
+.days label,.chip{border-radius:999px;box-shadow:none}
+.days label:has(input:checked){background:color-mix(in srgb,var(--seal) 10%,var(--card));border-color:var(--seal)}
+.days label:has(input:checked) span{color:var(--seal)}
+.chip{background:var(--line2);border-color:transparent}
+.box2{border-radius:8px;border-left:3px solid var(--p);background:var(--card)}
+.lcard.new{border-color:var(--seal);box-shadow:var(--ring);border-width:1px}
+.savebar{border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.12);border:1px solid var(--line)}
+/* 내비게이션: Notion 사이드바 / Windows 11 탭 */
+nav{background:var(--card);box-shadow:none;border-top:1px solid var(--line)}
+nav button,nav button:hover,nav button:active{background:none;border:0;box-shadow:none}
+nav button{font-weight:500}nav button.on{color:var(--seal);font-weight:650}
+@media(min-width:900px){
+  nav{background:color-mix(in srgb,var(--line2) 70%,var(--bg));border-right:1px solid var(--line);padding:14px 10px}
+  nav .brand{font-weight:650}
+  nav button{border-radius:6px;font-weight:500;padding:8px 10px;position:relative}
+  nav button:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+  nav button.on,nav button.on:hover{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink);font-weight:600}
+  nav button.on:before{content:"";position:absolute;left:-2px;top:9px;bottom:9px;width:3px;border-radius:2px;background:var(--seal)}
+  nav button.on .i{color:var(--seal)}
+}
+
+@media(prefers-color-scheme:dark){:root{--fill:#2b7fd0}}
 </style></head><body>
 <div id="login" class="card"><h2><span class="seal">출</span>출석 관리자</h2>비밀번호<br><input id="pw" type="password" autocomplete="current-password"><button class="pri" id="go" style="width:100%">로그인</button><div id="msg" class="ab"></div></div>
 <div id="shell" hidden>
@@ -605,7 +648,7 @@ if(pw)api('/api/admin/config').then(start).catch(()=>{});
     init(el){map=L.map(el).setView(KR,7);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);map.on('click',e=>pick&&pick(e.latlng.lat,e.latlng.lng))},
     onPick(cb){pick=cb},
     mark(la,ln,r){if(!marker){marker=L.marker([la,ln],{draggable:true}).addTo(map);marker.on('dragend',()=>{const p=marker.getLatLng();pick&&pick(p.lat,p.lng)})}else marker.setLatLng([la,ln]);
-      if(!circle)circle=L.circle([la,ln],{radius:r,color:'#2f5fe0',weight:2,fillOpacity:.14}).addTo(map);else circle.setLatLng([la,ln]).setRadius(r)},
+      if(!circle)circle=L.circle([la,ln],{radius:r,color:'#0067c0',weight:2,fillOpacity:.14}).addTo(map);else circle.setLatLng([la,ln]).setRadius(r)},
     clear(){if(marker){map.removeLayer(marker);marker=null}if(circle){map.removeLayer(circle);circle=null}},
     view(la,ln){map.setView([la,ln],17)},resize(){map.invalidateSize()},
     async search(q){const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=ko&countrycodes=kr&q='+encodeURIComponent(q));
@@ -618,7 +661,7 @@ if(pw)api('/api/admin/config').then(start).catch(()=>{});
     onPick(cb){pick=cb},
     mark(la,ln,r){const p=new K.LatLng(la,ln);
       if(!marker){marker=new K.Marker({position:p,draggable:true,map});K.event.addListener(marker,'dragend',()=>{const q=marker.getPosition();pick&&pick(q.getLat(),q.getLng())})}else marker.setPosition(p);
-      if(!circle)circle=new K.Circle({map,center:p,radius:r,strokeWeight:2,strokeColor:'#2f5fe0',strokeOpacity:.9,fillColor:'#2f5fe0',fillOpacity:.14});else{circle.setPosition(p);circle.setRadius(r)}},
+      if(!circle)circle=new K.Circle({map,center:p,radius:r,strokeWeight:2,strokeColor:'#0067c0',strokeOpacity:.9,fillColor:'#0067c0',fillOpacity:.14});else{circle.setPosition(p);circle.setRadius(r)}},
     clear(){if(marker)marker.setMap(null);if(circle)circle.setMap(null);marker=circle=null},
     view(la,ln){map.setCenter(new K.LatLng(la,ln));map.setLevel(3)},resize(){map.relayout()},
     search(q){const OK=K.services.Status.OK;

@@ -1,11 +1,11 @@
 /* 참석자 화면 스타일 — 한지(종이)·먹(글자) 바탕, 가는 선, 큰 글자, 도장(인장) 포인트.
    그라데이션·글로우·유리 효과·이모지 아이콘 없음 */
 :root{
-  --paper:#f4f5f7;--card:#ffffff;--ink:#16181d;--mut:#656c78;--line:#dcdfe5;--line2:#eceef2;
-  --seal:#2f5fe0;--ok:#2b7a4b;--warn:#a96100;--bad:#b3261e;--on:#fff;
-  --r:16px;--font:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --paper:#f7f7f8;--card:#ffffff;--ink:#1b1f24;--mut:#6b7280;--line:#e3e5e8;--line2:#f0f1f3;
+  --seal:#0067c0;--ok:#2b7a4b;--warn:#a96100;--bad:#b3261e;--on:#fff;
+  --r:16px;--font:"Pretendard Variable","Pretendard","Segoe UI Variable Text","Segoe UI","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
 }
-@media(prefers-color-scheme:dark){:root{--paper:#0f1115;--card:#181b21;--ink:#f4f5f7;--mut:#98a0ac;--line:#2a2f38;--line2:#21252c;--seal:#7ea0ff;--ok:#62b783;--warn:#e8a949;--bad:#ef7673;--on:#0f1115}}
+@media(prefers-color-scheme:dark){:root{--paper:#161718;--card:#202123;--ink:#f7f7f8;--mut:#9aa0a8;--line:#303236;--line2:#292a2d;--seal:#4cc2ff;--ok:#62b783;--warn:#e8a949;--bad:#ef7673;--on:#161718}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--paper);color:var(--ink);font:400 20px/1.55 var(--font);letter-spacing:-.01em;font-feature-settings:"tnum"}
@@ -78,7 +78,7 @@ h1{font-size:34px;line-height:1.2;font-weight:800;letter-spacing:-.035em;margin:
 .hist .ok{color:var(--ok);font-weight:800}.hist .late{color:var(--warn);font-weight:800}.hist .ab{color:var(--bad);font-weight:800}
 /* ── 다듬기: 버튼·카드·입력 ── */
 :root{--sh:0 1px 2px rgba(16,24,40,.06),0 1px 1px rgba(16,24,40,.04);--ring:0 0 0 3px color-mix(in srgb,var(--seal) 28%,transparent)}
-@media(prefers-color-scheme:dark){:root{--sh:none}}
+@media(prefers-color-scheme:dark){:root{--sh:none;--fill:#2b7fd0}}
 .seal{transform:none;border-radius:9px}
 .card{border-radius:22px;padding:22px;box-shadow:var(--sh);border-color:var(--line2)}
 .chip{border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);transition:background .15s,border-color .15s,transform .1s}
@@ -102,3 +102,39 @@ h1{font-size:34px;line-height:1.2;font-weight:800;letter-spacing:-.035em;margin:
 .avatar{border-radius:22px}
 .okring{transform:none}
 .info{border-top:0}.info div{border-bottom:1px solid var(--line2)}
+
+/* ══ 최종 스타일: Notion의 차분함 + Linear의 선명함 + Windows 11의 둥근 컨트롤 ══ */
+:root{--fill:#0067c0;--sh:none;--ring:0 0 0 2px color-mix(in srgb,var(--seal) 40%,transparent)}
+body{font-weight:400;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum","ss01";letter-spacing:-.012em}
+
+.seal{border-radius:8px;background:var(--fill);font-weight:700}
+h1{font-weight:700;letter-spacing:-.03em;font-size:32px}
+.brand{font-weight:600}
+.card{border-radius:12px;padding:20px;box-shadow:none;border:1px solid var(--line)}
+.step-h h2,.step-h .t{font-weight:650;font-size:21px}
+.num{font-weight:600;color:var(--mut)}
+.chip{border-radius:10px;border:1px solid var(--line);box-shadow:none;font-weight:600;background:var(--card)}
+.chip:active{background:var(--line2);transform:none}
+.chip.on{background:color-mix(in srgb,var(--seal) 10%,var(--card));border-color:var(--seal);color:var(--seal);box-shadow:inset 0 0 0 1px var(--seal)}
+.btn{background:var(--fill);color:#fff;border-radius:12px;min-height:64px;font-weight:650;box-shadow:none;border:1px solid color-mix(in srgb,#000 12%,var(--fill))}
+.btn:active{transform:none;filter:brightness(.92);opacity:1}
+.btn:disabled{background:var(--line2);color:var(--mut);border-color:var(--line)}
+.btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line);font-weight:600;border-radius:10px;box-shadow:none}
+.picked{border-radius:10px;background:color-mix(in srgb,var(--seal) 8%,var(--card));border:1px solid color-mix(in srgb,var(--seal) 30%,var(--line));font-weight:650}
+.picked button{color:var(--seal);text-decoration:none;font-weight:600}
+.input{border:1px solid var(--line);border-radius:10px;font-weight:650;background:var(--card)}
+.input:focus{border-color:var(--seal);box-shadow:var(--ring)}
+.status,.alert{border-radius:10px;box-shadow:none}
+.status b,.alert{font-weight:650}
+.help{border-radius:10px;box-shadow:none}.help summary{font-weight:600}
+.bar{background:var(--card);border-top:1px solid var(--line)}
+.tag{border-radius:6px;font-weight:600;background:var(--line2);border-color:transparent}
+.avatar{border-radius:14px;background:color-mix(in srgb,var(--seal) 12%,var(--card));color:var(--seal);font-weight:650}
+.me b,.done-card .nm{font-weight:700}
+.bar-meter{height:8px;border-radius:4px}.bar-meter i{background:var(--fill)}
+.info{border-top:1px solid var(--line)}.info dd{font-weight:550}
+.hist .ok,.hist .late,.hist .ab{font-weight:650}
+.done-card .st{font-weight:650}
+
+@media(prefers-color-scheme:dark){:root{--fill:#2b7fd0}}
+.chip{font-size:17px;letter-spacing:-.03em}

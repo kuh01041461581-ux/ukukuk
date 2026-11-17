@@ -1,9 +1,10 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>출석체크</title>
+<link rel="stylesheet" href="/vendor/pretendard/pretendardvariable-dynamic-subset.css">
 <style>
-:root{--bg:#f4f5f7;--card:#ffffff;--ink:#16181d;--mut:#656c78;--pri:#16181d;--on-pri:#ffffff;--p:#2b7a4b;--l:#a96100;--a:#b3261e;--line:#dcdfe5;--line2:#eceef2;--seal:#2f5fe0;--font:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#f4f5f7;--mut:#98a0ac;--pri:#f4f5f7;--on-pri:#0f1115;--p:#62b783;--l:#e8a949;--a:#ef7673;--line:#2a2f38;--line2:#21252c;--seal:#7ea0ff}}
+:root{--bg:#f7f7f8;--card:#ffffff;--ink:#1b1f24;--mut:#6b7280;--pri:#0067c0;--on-pri:#ffffff;--p:#2b7a4b;--l:#a96100;--a:#b3261e;--line:#e3e5e8;--line2:#f0f1f3;--seal:#0067c0;--font:"Pretendard Variable","Pretendard","Segoe UI Variable Text","Segoe UI","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+@media(prefers-color-scheme:dark){:root{--bg:#161718;--card:#202123;--ink:#f7f7f8;--mut:#9aa0a8;--pri:#f7f7f8;--on-pri:#161718;--p:#62b783;--l:#e8a949;--a:#ef7673;--line:#303236;--line2:#292a2d;--seal:#4cc2ff}}
 *{box-sizing:border-box}body{margin:0;font:17px/1.55 var(--font);letter-spacing:-.01em;background:var(--bg);color:var(--ink)}
 main{max-width:560px;margin:0 auto;padding:20px}h1{font-size:28px;font-weight:800;letter-spacing:-.035em;display:flex;align-items:center;gap:10px;margin:8px 0 14px}
 .seal{width:30px;height:30px;border-radius:7px;background:var(--seal);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;flex:none;transform:rotate(-4deg)}
@@ -21,6 +22,16 @@ a{color:var(--ink)}
 input,select,button{border:1px solid var(--line);border-radius:14px;min-height:50px;transition:border-color .15s,box-shadow .15s,transform .1s}
 input:focus,select:focus{border-color:var(--seal);box-shadow:0 0 0 3px color-mix(in srgb,var(--seal) 28%,transparent)}
 button{font-weight:600}button:active{transform:scale(.98)}button.pri{box-shadow:0 1px 2px rgba(16,24,40,.2),0 4px 10px -4px rgba(16,24,40,.35)}
+
+body{font-weight:400;-webkit-font-smoothing:antialiased}
+h1{font-weight:700}.seal{border-radius:8px;font-weight:700;background:var(--fill);color:#fff}
+.card{border-radius:12px;box-shadow:none;border:1px solid var(--line)}
+input,select,button{border-radius:8px;font-weight:450}
+button{font-weight:550}button.pri{background:var(--fill);border-color:var(--fill);color:#fff;box-shadow:none;font-weight:600}
+input:focus,select:focus{border-color:var(--seal);box-shadow:0 0 0 2px color-mix(in srgb,var(--seal) 40%,transparent)}
+.lec{font-weight:650}
+:root{--fill:#0067c0}
+@media(prefers-color-scheme:dark){:root{--fill:#2b7fd0}}
 </style></head><body><main>
 <h1><span class="seal">출</span>단체 대표자 출석</h1>
 <div id="login" class="card">

@@ -8,7 +8,7 @@ out = root + '/work/pak_mod'; os.makedirs(out, exist_ok=True)
 for f in glob.glob(out + '/*.png'): os.remove(f)
 def run(tool): subprocess.run([sys.executable, '-I', f'{here}/{tool}'], check=True, stdout=subprocess.DEVNULL)
 # 1) 지형·기타(조각 규칙과 무관)
-for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_palace.py', 'make_iksan_retouch.py', 'make_iksan_minimap.py', 'make_iksan_logo.py', 'make_iksan_misc.py', 'make_iksan_secnames.py', 'make_iksan_faces.py', 'gpt_import.py', 'faces_hd.py', 'body_final.py', 'female_base.py', 'horse_race.py', 'make_maryong.py'): run(tool)
+for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_palace.py', 'make_iksan_retouch.py', 'make_iksan_minimap.py', 'make_iksan_logo.py', 'make_iksan_misc.py', 'make_iksan_secnames.py', 'make_iksan_faces.py', 'gpt_import.py', 'faces_hd.py', 'body_final.py', 'horse_race.py', 'make_maryong.py'): run(tool)
 # 2) 건물: 조각 규칙 변환
 import strips as ST
 import pixel_style as PS
@@ -49,11 +49,13 @@ for k, fn in sorted(ITEMS.items()):
         # 도트 티 내기: 색을 NCOL 개로 줄이고(디더 없음), 알파는 이진, 윤곽에 한 칸 어두운 선을 둔다 — 원본 건물처럼 또렷한 면 단위 색
         import numpy as _np
         _a = _np.asarray(F.convert('RGBA')).copy(); _al = _a[..., 3] > 127
-        _q = Image.fromarray(_a[..., :3]).quantize(colors=int(os.environ.get('NCOL', '30')), method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).convert('RGB')
-        _qa = _np.asarray(_q).copy(); _out = _np.dstack([_qa, (_al * 255).astype(_np.uint8)])
+        from PIL import ImageFilter as _IF
+        _p = Image.fromarray(_a[..., :3]).quantize(colors=int(os.environ.get('NCOL', '256')), method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+        _qa = _np.asarray(_p.convert('RGB')).copy(); _out = _np.dstack([_qa, (_al * 255).astype(_np.uint8)])
         _edge = _al & ~(_np.roll(_al, 1, 0) & _np.roll(_al, -1, 0) & _np.roll(_al, 1, 1) & _np.roll(_al, -1, 1))
-        _out[_edge, :3] = (_out[_edge, :3] * 0.55).astype(_np.uint8)
+        _out[_edge, :3] = (_out[_edge, :3] * 0.62).astype(_np.uint8)
         F = Image.fromarray(_out, 'RGBA')
+        F2 = F.resize((F.width * 2, F.height * 2), Image.NEAREST)           # 2배 층도 같은 도트를 그대로 키운다(화소가 보이게)
     # 애니메이션 프레임: 구성물이 실제로 움직이는 변형 그림을 우선 쓰고(승마장: 말이 울타리 안을 걷는다), 없으면 불빛 변형
     vs = [on_tile(horse(1.0, 0.5), yc)] if k == 9 else ([PS.twinkle(F, 0, 1, 23, True), PS.twinkle(F, 1, 1, 23, True)] if k in (21, 42) else [PS.twinkle(F, 0), PS.twinkle(F, 1)])
     S, rects, pos = ST.to_sheet(k, F, vs); ST.patch_yx(yx, k, rects, pos)

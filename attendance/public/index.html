@@ -17,6 +17,10 @@ button.pri{background:var(--pri);color:var(--on-pri);border-color:var(--pri);fon
 .seg .on[data-s=P]{background:var(--p);border-color:var(--p);color:#fff}.seg .on[data-s=L]{background:var(--l);border-color:var(--l);color:#fff}.seg .on[data-s=A]{background:var(--a);border-color:var(--a);color:#fff}
 .done{color:var(--p);font-size:13px;font-weight:700}.err{color:var(--a);font-weight:700}
 a{color:var(--ink)}
+.seal{transform:none;border-radius:9px}.card{border-radius:20px;border-color:var(--line2);box-shadow:0 1px 2px rgba(16,24,40,.06);padding:20px}
+input,select,button{border:1px solid var(--line);border-radius:14px;min-height:50px;transition:border-color .15s,box-shadow .15s,transform .1s}
+input:focus,select:focus{border-color:var(--seal);box-shadow:0 0 0 3px color-mix(in srgb,var(--seal) 28%,transparent)}
+button{font-weight:600}button:active{transform:scale(.98)}button.pri{box-shadow:0 1px 2px rgba(16,24,40,.2),0 4px 10px -4px rgba(16,24,40,.35)}
 </style></head><body><main>
 <h1><span class="seal">출</span>단체 대표자 출석</h1>
 <div id="login" class="card">

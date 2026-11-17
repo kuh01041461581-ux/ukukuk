@@ -109,6 +109,34 @@ button,input,select{min-height:42px}
   .savebar{bottom:0}
   h2{font-size:22px}
 }
+
+/* ── 다듬기 ── */
+:root{--sh:0 1px 2px rgba(16,24,40,.06),0 1px 1px rgba(16,24,40,.04);--ring:0 0 0 3px color-mix(in srgb,var(--seal) 28%,transparent)}
+@media(prefers-color-scheme:dark){:root{--sh:none}}
+.seal{transform:none;border-radius:9px}
+.card{border-radius:18px;border-color:var(--line2);box-shadow:var(--sh);padding:18px}
+input,select,button,textarea{border:1px solid var(--line);border-radius:12px;padding:9px 12px;transition:background .15s,border-color .15s,box-shadow .15s,transform .1s}
+button{font-weight:600;box-shadow:var(--sh)}
+button:active{transform:scale(.97)}
+button:hover{background:var(--line2)}
+button.pri{box-shadow:0 1px 2px rgba(16,24,40,.2),0 4px 10px -4px rgba(16,24,40,.35)}
+input:focus,select:focus,textarea:focus{border-color:var(--seal);box-shadow:var(--ring)}
+button:focus-visible{outline:none;box-shadow:var(--ring)}
+.seg2{background:var(--line2);padding:4px;border-radius:14px;gap:4px}
+.seg2 button,.seg2 button:first-child,.seg2 button:last-child{border:0;border-radius:10px;background:transparent;box-shadow:none;color:var(--mut)}
+.seg2 button.on{background:var(--card);color:var(--ink);box-shadow:var(--sh)}
+.lec,.lcard,.vres{border-radius:14px;border-color:var(--line2)}
+.gc{border-radius:12px;border-color:var(--line2)}
+.days label{border-radius:999px;padding:7px 14px;box-shadow:var(--sh)}
+.chip{border-radius:999px;background:var(--line2);border-color:transparent}
+.box2{border-left-width:1px;border-radius:14px;border-color:var(--line2);background:var(--card)}
+.lcard.new{border-width:1px;border-color:var(--seal);box-shadow:var(--ring)}
+th{border-bottom:1px solid var(--line)}
+.savebar{border-radius:16px;border:1px solid var(--line2);box-shadow:0 -4px 16px -8px rgba(16,24,40,.2)}
+nav{box-shadow:0 -6px 20px -12px rgba(16,24,40,.25);border-top-color:var(--line2)}
+nav button,nav button:hover{box-shadow:none;background:none}nav button:active{transform:none}
+nav button.on{color:var(--seal)}
+@media(min-width:900px){nav{box-shadow:none;border-right-color:var(--line2)}nav button{border-radius:12px}nav button:hover{background:var(--line2)}nav button.on,nav button.on:hover{background:color-mix(in srgb,var(--seal) 12%,var(--card));color:var(--seal)}}
 </style></head><body>
 <div id="login" class="card"><h2><span class="seal">출</span>출석 관리자</h2>비밀번호<br><input id="pw" type="password" autocomplete="current-password"><button class="pri" id="go" style="width:100%">로그인</button><div id="msg" class="ab"></div></div>
 <div id="shell" hidden>

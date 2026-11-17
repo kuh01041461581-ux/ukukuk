@@ -76,3 +76,29 @@ h1{font-size:34px;line-height:1.2;font-weight:800;letter-spacing:-.035em;margin:
 .bar-meter{height:10px;border-radius:5px;background:var(--line2);overflow:hidden;margin:12px 0}.bar-meter i{display:block;height:100%;background:var(--ink)}
 .hist{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid var(--line2);font-size:18px}
 .hist .ok{color:var(--ok);font-weight:800}.hist .late{color:var(--warn);font-weight:800}.hist .ab{color:var(--bad);font-weight:800}
+/* ── 다듬기: 버튼·카드·입력 ── */
+:root{--sh:0 1px 2px rgba(16,24,40,.06),0 1px 1px rgba(16,24,40,.04);--ring:0 0 0 3px color-mix(in srgb,var(--seal) 28%,transparent)}
+@media(prefers-color-scheme:dark){:root{--sh:none}}
+.seal{transform:none;border-radius:9px}
+.card{border-radius:22px;padding:22px;box-shadow:var(--sh);border-color:var(--line2)}
+.chip{border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);transition:background .15s,border-color .15s,transform .1s}
+.chip:active{transform:scale(.97)}
+.chip.on{box-shadow:none}
+.btn{border-radius:18px;min-height:68px;box-shadow:0 1px 2px rgba(16,24,40,.18),0 6px 14px -6px rgba(16,24,40,.35);transition:transform .12s,opacity .15s}
+.btn:active{transform:scale(.985);opacity:.92}
+.btn:disabled{box-shadow:none}
+.btn.ghost{border:1px solid var(--line);background:var(--card);box-shadow:var(--sh);border-radius:16px}
+.btn:focus-visible,.chip:focus-visible,.input:focus-visible{outline:none;box-shadow:var(--ring)}
+.picked{border-left:0;border-radius:16px;background:var(--line2);padding:14px 16px}
+.input{border:1px solid var(--line);border-radius:16px;background:var(--card);min-height:84px}
+.input:focus{border-color:var(--seal);box-shadow:var(--ring);background:var(--card)}
+.status,.alert{border-left-width:1px;border-radius:16px;padding:16px;box-shadow:var(--sh)}
+.status.ok{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.status.bad,.alert{border-color:color-mix(in srgb,var(--bad) 50%,var(--line))}
+.alert{background:color-mix(in srgb,var(--bad) 7%,var(--card))}
+.help{border-radius:18px;box-shadow:var(--sh)}
+.bar{background:color-mix(in srgb,var(--paper) 96%,transparent);border-top:1px solid var(--line2)}
+.tag{border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-weight:700;background:var(--card)}
+.avatar{border-radius:22px}
+.okring{transform:none}
+.info{border-top:0}.info div{border-bottom:1px solid var(--line2)}

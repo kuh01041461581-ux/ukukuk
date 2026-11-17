@@ -3,15 +3,19 @@
 <title>출석 관리자</title>
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <style>
-:root{--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#777;--pri:#2f5d50;--p:#2e7d32;--l:#ef8f00;--a:#c62828;--line:#8884}
-@media(prefers-color-scheme:dark){:root{--bg:#171a19;--card:#222726;--ink:#eee;--mut:#9a9;--pri:#6fb59f}}
-*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
-h2{font-size:20px;margin:4px 0 10px}h3{margin:18px 0 8px;font-size:16px}
-.card{background:var(--card);border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 1px 3px #0002;overflow-x:auto}
-input,select,button,textarea{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);max-width:100%}
-button{cursor:pointer}button.pri{background:var(--pri);color:#fff;border:0;font-weight:600}
-table{border-collapse:collapse;width:100%}th,td{border:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:top}
-th{background:#8881}td.l{text-align:left}
+/* 한지·먹 바탕, 가는 선, 검정 주 버튼 — 그라데이션·글로우·유리 효과 없음 */
+:root{--bg:#f2eee4;--card:#fffdf8;--ink:#1b1a17;--mut:#6a6559;--pri:#1b1a17;--on-pri:#fffdf8;--p:#2b7a4b;--l:#a96100;--a:#b3261e;--line:#ddd5c4;--line2:#ebe5d6;--seal:#b3382c;--font:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+@media(prefers-color-scheme:dark){:root{--bg:#141311;--card:#1d1c19;--ink:#f2eee4;--mut:#a59f91;--pri:#f2eee4;--on-pri:#141311;--p:#62b783;--l:#e8a949;--a:#ef7673;--line:#36332c;--line2:#2a2823;--seal:#e0705f}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.55 var(--font);letter-spacing:-.01em;background:var(--bg);color:var(--ink)}
+h2{font-size:25px;font-weight:800;letter-spacing:-.035em;margin:4px 0 12px}h3{margin:20px 0 8px;font-size:16px;font-weight:800;letter-spacing:-.02em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0;overflow-x:auto}
+input,select,button,textarea{font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);max-width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink)}
+button{cursor:pointer}button:hover{background:var(--line2)}button.pri{background:var(--pri);color:var(--on-pri);border-color:var(--pri);font-weight:700}button.pri:hover{background:var(--pri);opacity:.9}
+.seal{width:28px;height:28px;border-radius:7px;background:var(--seal);color:var(--on-pri);display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;flex:none;transform:rotate(-4deg)}
+.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+table{border-collapse:collapse;width:100%}th,td{border:0;border-bottom:1px solid var(--line2);padding:8px 8px;text-align:center;vertical-align:top}
+th{background:transparent;color:var(--mut);font-size:13px;font-weight:700;border-bottom:1.5px solid var(--ink)}td.l{text-align:left}
 .ok{color:var(--p)}.late{color:var(--l)}.ab{color:var(--a)}.un{color:var(--mut)}
 small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
 .g{display:grid;grid-template-columns:1fr 120px;gap:6px}
@@ -29,18 +33,18 @@ small{display:block;color:var(--mut)}textarea{width:100%;min-height:90px}
 .mrow input{flex:1 1 100%}
 /* 강의 개설 */
 .seg2{display:flex}.seg2 button{flex:1;border-radius:0;padding:12px;font-size:16px}.seg2 button:first-child{border-radius:10px 0 0 10px}.seg2 button:last-child{border-radius:0 10px 10px 0;border-left:0}
-.seg2 button.on{background:var(--pri);color:#fff;border-color:var(--pri);font-weight:700}
+.seg2 button.on{background:var(--pri);color:var(--on-pri);border-color:var(--pri);font-weight:700}
 .wide{width:100%}.trow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.trow label{display:grid;gap:4px;font-size:13px;color:var(--mut);min-width:0}.trow input{font-size:17px;width:100%;min-width:0}
 .qk{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;align-items:center}.qk button{padding:8px 13px}
 .hint{color:var(--mut);font-size:13px;min-height:18px;margin-top:2px}.hint.ok{color:var(--p)}.hint.bad{color:var(--a)}
 input.bad{border-color:var(--a)!important}button.big{font-size:17px;padding:13px 22px}
-.box2{border:1px solid var(--p);border-radius:10px;padding:12px}
-.lcard.new{border-color:var(--pri);box-shadow:0 0 0 2px var(--pri)}
+.box2{border:1px solid var(--line);border-left:5px solid var(--p);border-radius:6px 12px 12px 6px;padding:12px 14px}
+.lcard.new{border-color:var(--pri);box-shadow:none;border-width:2px}
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(310px,100%),1fr));gap:10px}
 .lcard{border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:8px;background:var(--card)}
 .lcard>*{min-width:0}.lcard .nmi{font-weight:700;width:100%}.lcard select{max-width:100%}
 .days{display:flex;flex-wrap:wrap;gap:6px}.days label{border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;user-select:none}
-.days input{display:none}.days input:checked+span{font-weight:700;color:var(--pri)}.days label:has(input:checked){background:var(--pri);border-color:var(--pri)}.days label:has(input:checked) span{color:#fff}
+.days input{display:none}.days input:checked+span{font-weight:700;color:var(--pri)}.days label:has(input:checked){background:var(--pri);border-color:var(--pri)}.days label:has(input:checked) span{color:var(--on-pri)}
 .chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:14px;padding:2px 4px 2px 10px;margin:2px 4px 2px 0;font-size:13px}
 .chip button{border:0;background:none;padding:2px 6px;min-height:0;color:var(--a)}
 .savebar button{white-space:nowrap;flex:none}.savebar .un{font-size:13px;line-height:1.35}
@@ -54,7 +58,7 @@ input.bad{border-color:var(--a)!important}button.big{font-size:17px;padding:13px
 .vmap{height:340px;margin:10px 0 4px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .vres{border:1px solid var(--line);border-radius:12px;margin:8px 0;overflow:hidden;background:var(--card)}
 .vr{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:12px 14px;background:var(--card)}
-.vr:last-child{border-bottom:0}.vr:hover{background:#8881}
+.vr:last-child{border-bottom:0}.vr:hover{background:var(--line2)}
 .vk{flex:none;font-size:12px;border:1px solid var(--line);border-radius:10px;padding:1px 8px;color:var(--mut);margin-top:2px}
 .vt{display:grid;gap:2px;min-width:0}.vt small{display:block;white-space:normal}
 .vr-empty{padding:12px 14px;color:var(--mut)}
@@ -63,9 +67,9 @@ input.bad{border-color:var(--a)!important}button.big{font-size:17px;padding:13px
 .post-hd{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
 #post-body{flex:1;min-height:0}
 .note-list{margin:8px 0 10px;padding-left:20px}.note-list li{margin:4px 0}
-.qk button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.qk button.on{background:var(--pri);color:var(--on-pri);border-color:var(--pri)}
 /* ── 시간·날짜 선택 창 (아래에서 올라오는 시트) ── */
-.fld{display:flex;gap:6px;align-items:stretch;width:100%}.fld input{flex:1;min-width:0}.fld .pkbtn{flex:none;padding:0 13px;font-size:19px;line-height:1}
+.fld{display:flex;gap:6px;align-items:stretch;width:100%}.fld input{flex:1;min-width:0}.fld .pkbtn{flex:none;padding:0 12px;display:inline-flex;align-items:center}
 .sheet{position:fixed;inset:0;z-index:9000;display:flex;align-items:flex-end;justify-content:center}.sheet[hidden]{display:none}
 .sheet-bg{position:absolute;inset:0;background:#0006}
 .sheet-box{position:relative;background:var(--card);width:min(520px,100%);max-height:94vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
@@ -74,7 +78,7 @@ input.bad{border-color:var(--a)!important}button.big{font-size:17px;padding:13px
 .sheet-hd button{padding:8px 14px}
 .pk-seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}.pk-seg button{padding:12px;font-size:19px;font-weight:700}
 .pk-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-bottom:10px}.pk-grid button{padding:0;font-size:20px;min-height:54px}
-.pk-grid button.on,.pk-seg button.on,.cal button.sel{background:var(--pri);color:#fff;border-color:var(--pri)}
+.pk-grid button.on,.pk-seg button.on,.cal button.sel{background:var(--pri);color:var(--on-pri);border-color:var(--pri)}
 .pk-lbl{font-size:13px;color:var(--mut);margin:4px 0 6px}
 .pk-prev{text-align:center;font-size:24px;font-weight:800;margin:4px 0 12px;color:var(--pri)}
 .cal-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.cal-hd b{font-size:19px}.cal-hd button{width:54px;min-height:50px;font-size:18px}
@@ -83,22 +87,22 @@ input.bad{border-color:var(--a)!important}button.big{font-size:17px;padding:13px
 .sheet-ft{display:flex;gap:8px;position:sticky;bottom:calc(-16px - env(safe-area-inset-bottom));background:var(--card);padding:10px 0 calc(6px + env(safe-area-inset-bottom));margin-top:4px;border-top:1px solid var(--line)}.sheet-ft button{flex:1;min-height:52px;font-size:17px}.sheet-ft .pri{flex:2}
 
 /* ── 로그인 ── */
-#login{max-width:380px;margin:18vh auto}
+#login{max-width:380px;margin:16vh auto}#login h2{display:flex;align-items:center;gap:10px}
 #login input{width:100%;margin:6px 0}
 /* ── 휴대폰: 하단 탭 바 ── */
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);z-index:20;padding-bottom:env(safe-area-inset-bottom)}
 nav .brand{display:none}
 nav button{flex:1;border:0;border-radius:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0;font-size:11px;min-height:56px;color:var(--mut)}
-nav button .ic{font-size:20px;line-height:1}nav button.on{color:var(--pri);font-weight:700}
+nav button .i{width:22px;height:22px}nav button.on{color:var(--ink);font-weight:800}nav button.on .i{stroke-width:2.3}
 #content{padding:10px 10px 96px}
 button,input,select{min-height:42px}
 /* ── PC: 왼쪽 메뉴 + 넓은 화면 ── */
 @media(min-width:900px){
   #shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
   nav{position:sticky;top:0;height:100vh;flex-direction:column;border-top:0;border-right:1px solid var(--line);padding:18px 12px;gap:4px;align-items:stretch}
-  nav .brand{display:block;font-weight:800;font-size:18px;padding:4px 10px 16px;line-height:1.3}
-  nav button{flex:none;flex-direction:row;font-size:15px;gap:10px;padding:10px 12px;min-height:0;border-radius:8px;justify-content:flex-start;color:var(--ink)}
-  nav button.on{background:var(--pri);color:#fff}
+  nav .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;padding:4px 10px 18px;line-height:1.25;letter-spacing:-.03em}nav .brand small{font-weight:500;font-size:12px}
+  nav button{flex:none;flex-direction:row;font-size:15px;font-weight:600;gap:11px;padding:11px 13px;min-height:0;border-radius:10px;justify-content:flex-start;color:var(--ink)}nav button:hover{background:var(--line2)}
+  nav button.on{background:var(--pri);color:var(--on-pri)}nav button.on:hover{background:var(--pri)}
   #content{padding:24px 32px 40px;max-width:1280px}
   button,input,select{min-height:0}
   .only-pc{display:block}.only-mob{display:none}
@@ -106,14 +110,14 @@ button,input,select{min-height:42px}
   h2{font-size:22px}
 }
 </style></head><body>
-<div id="login" class="card"><h2>🛠 출석 관리자</h2>비밀번호<br><input id="pw" type="password" autocomplete="current-password"><button class="pri" id="go" style="width:100%">로그인</button><div id="msg" class="ab"></div></div>
+<div id="login" class="card"><h2><span class="seal">출</span>출석 관리자</h2>비밀번호<br><input id="pw" type="password" autocomplete="current-password"><button class="pri" id="go" style="width:100%">로그인</button><div id="msg" class="ab"></div></div>
 <div id="shell" hidden>
-<nav id="nav"><div class="brand">🛠 출석 관리자<small>국가무형유산 교육</small></div>
-  <button data-tab="ov" class="on"><span class="ic">📋</span><span>현황</span></button>
-  <button data-tab="lec"><span class="ic">📚</span><span>강의 개설</span></button>
-  <button data-tab="man"><span class="ic">✍️</span><span>수동 출석</span></button>
-  <button data-tab="stat"><span class="ic">📊</span><span>통계</span></button>
-  <button data-tab="set"><span class="ic">⚙️</span><span>설정</span></button>
+<nav id="nav"><div class="brand"><span class="seal">출</span><span>출석 관리자<small>국가무형유산 교육</small></span></div>
+  <button data-tab="ov" class="on"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>현황</span></button>
+  <button data-tab="lec"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/></svg><span>강의 개설</span></button>
+  <button data-tab="man"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/></svg><span>수동 출석</span></button>
+  <button data-tab="stat"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-7M12 20V5M19 20v-10"/></svg><span>통계</span></button>
+  <button data-tab="set"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>설정</span></button>
 </nav>
 <div id="content">
 <section id="v-ov">
@@ -176,7 +180,7 @@ button,input,select{min-height:42px}
     <div class="row" style="margin-top:12px"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="suc" style="min-height:0;width:18px;height:18px"> 현장 코드(4자리)도 함께 입력받기 <span class="un">— 기본은 꺼짐. 위치만으로 출석합니다</span></label></div>
     <h3>교육 장소 (위치 인증)</h3>
     <div class="row"><input id="vsearch" class="grow" placeholder="주소 또는 장소 이름 (예: 서울시 중구 세종대로 110 · 서울시청)" autocomplete="off"><button id="vfind" class="pri">검색</button></div>
-    <div class="row" style="margin-top:6px"><button id="vpost" hidden>🏠 주소 찾기 (우편번호 검색)</button><button id="here">📍 현재 위치로 지정</button></div>
+    <div class="row" style="margin-top:6px"><button id="vpost" hidden>주소 찾기 (우편번호 검색)</button><button id="here">현재 위치로 지정</button></div>
     <div id="vres" class="vres" hidden></div>
     <div id="vmap" class="vmap"></div>
     <small id="vprov"></small>
@@ -243,7 +247,7 @@ const shift=n=>{const d=new Date($('date').value+'T00:00:00Z');d.setUTCDate(d.ge
 $('date').onchange=ov;$('reload').onclick=ov;$('prev').onclick=()=>shift(-1);$('next').onclick=()=>shift(1);
 // ── 카톡 공유: 휴대폰 공유창(Web Share)을 열어 카카오톡을 고르면 바로 전송, 지원 안 하면 복사 ──
 const CAN_SHARE=typeof navigator.share==='function';
-const shareLabel=()=>CAN_SHARE?'💬 카톡 공유':'📋 카톡용 복사';
+const shareLabel=()=>CAN_SHARE?'카톡 공유':'카톡용 복사';
 async function shareText(title,text){
   if(CAN_SHARE){try{await navigator.share({title,text});return}catch(e){if(e&&e.name==='AbortError')return}}
   copy(text,'안내문을 복사했습니다. 카톡에 붙여넣어 보내세요.')}
@@ -263,13 +267,13 @@ const cell=g=>g.na?'<span class="un">대상 아님</span>':g.checked?`<span clas
   +g.issues.map(i=>`<small class="${i.status==='A'?'ab':'late'}">${esc(i.name)} (${i.status==='A'?'결석':'지각'})</small>`).join(''):`<span class="un">미입력</span><small>${g.total}명</small>`;
 async function ov(){
   const rq=await api('/api/admin/device-requests').catch(()=>[]);
-  const reqHtml=rq.length?`<div class="card" style="border:1px solid var(--l);margin:0 0 10px"><b>📱 기기 변경 요청 ${rq.length}건</b> <small style="display:inline">휴대폰을 바꾼 분이 요청했습니다. 본인이 맞는지 확인하고 승인하세요.</small>
+  const reqHtml=rq.length?`<div class="card" style="border:1px solid var(--l);margin:0 0 10px"><b>기기 변경 요청 ${rq.length}건</b> <small style="display:inline">휴대폰을 바꾼 분이 요청했습니다. 본인이 맞는지 확인하고 승인하세요.</small>
     ${rq.map(r=>`<div class="lk"><span class="nm">${esc(r.name)} <small style="display:inline">${esc(r.group||'')}</small></span><button class="pri" data-rqa="${r.id}">승인</button><button data-rqd="${r.id}">거절</button></div>`).join('')}</div>`:'';
   const d=await api('/api/admin/overview?date='+$('date').value);window.OVD=d;
   const wd=DAY[wdOf(d.date)];
   if(!d.lectures.length){$('ov').innerHTML=reqHtml+`<p>${d.date} (${wd}) 개설된 강의가 없습니다.<br><button data-go="lec" class="pri">강의 개설하러 가기</button></p>`;return}
   const tot={P:0,L:0,A:0,U:0};d.lectures.forEach(l=>l.groups.forEach(g=>{for(const k in tot)tot[k]+=g[k]}));
-  const warn=(C.venue&&C.venue.lat!=null)||(C.settings&&C.settings.useCode)?'':`<div class="card" style="border:1px solid var(--a);margin:0 0 10px"><b class="ab">⚠ 교육 장소가 설정되지 않았습니다.</b> 지금은 링크로 출석할 수 없습니다. <button data-go="set" class="pri">설정에서 장소 지정</button></div>`;
+  const warn=(C.venue&&C.venue.lat!=null)||(C.settings&&C.settings.useCode)?'':`<div class="card" style="border-left:5px solid var(--a);margin:0 0 10px"><b class="ab">교육 장소가 설정되지 않았습니다.</b> 지금은 링크로 출석할 수 없습니다. <button data-go="set" class="pri">설정에서 장소 지정</button></div>`;
   const sum=reqHtml+warn+`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p>`;
   const groups=d.lectures[0].groups;
   const pc=`<div class="only-pc"><table><tr><th style="min-width:200px">강의</th>${groups.map(g=>`<th>${esc(g.name)}</th>`).join('')}</tr>
@@ -388,7 +392,7 @@ async function addLecture(){
   if(!ok)return err('저장에 실패했습니다. 다시 시도해 주세요');
   NEWIDX=days.map((_,i)=>first+i);drawLec();
   const L=C.lectures[first];
-  $('nl-done').innerHTML=`<div class="box2">✅ <b>${esc(name)}</b> 강의를 만들었습니다 — ${NLMODE==='once'?wlabel(sd)+' 하루만':days.map(d=>DAY[d]).join('·')+'요일 매주'} ${st}~${en}
+  $('nl-done').innerHTML=`<div class="box2"><b>${esc(name)}</b> 강의를 만들었습니다 — ${NLMODE==='once'?wlabel(sd)+' 하루만':days.map(d=>DAY[d]).join('·')+'요일 매주'} ${st}~${en}
     <div class="un" style="margin-top:6px">출석은 강의 날에 자동으로 열립니다. 출석 링크를 한 번만 보내 두세요.</div>
     ${days.length===1&&L.token?`<div class="row" style="margin-top:8px"><button class="pri" data-lsh="${first}">${shareLabel()}</button><button data-lcp="${first}">링크 복사</button></div>`:'<div class="un">아래 강의 카드에서 요일별 링크를 보내세요.</div>'}</div>`;
   $('nl-name').value='';document.querySelectorAll('#nl-days input,#nl-tg input').forEach(x=>x.checked=false);
@@ -404,7 +408,7 @@ function drawLec(){
   const items=C.lectures.map((l,i)=>({l,i})).sort((a,b)=>ORDER.indexOf(+a.l.weekday)-ORDER.indexOf(+b.l.weekday)||String(a.l.start).localeCompare(b.l.start));
   $('ls').innerHTML=items.length?`<div class="lgrid">${items.map(({l,i})=>{const once=l.startDate&&l.startDate===l.endDate;return `<div class="lcard ${NEWIDX.includes(i)?'new':''}">
     <input class="nmi" data-li="${i}" data-k="name" value="${esc(l.name)}" placeholder="강의 이름">
-    <div class="row">${once?`<b>📅 ${wlabel(l.startDate)} 하루만</b>`:`<select data-li="${i}" data-k="weekday">${[...DAY].map((d,n)=>`<option value="${n}" ${l.weekday==n?'selected':''}>매주 ${d}요일</option>`).join('')}</select>`}</div>
+    <div class="row">${once?`<b>${wlabel(l.startDate)} 하루만</b>`:`<select data-li="${i}" data-k="weekday">${[...DAY].map((d,n)=>`<option value="${n}" ${l.weekday==n?'selected':''}>매주 ${d}요일</option>`).join('')}</select>`}</div>
     <div class="trow"><label>시작<input class="tin" data-li="${i}" data-k="start" value="${l.start}"></label><label>끝<input class="tin" data-li="${i}" data-k="end" value="${l.end}"></label></div>
     ${once?'':`<div class="trow"><label>기간 시작일<input class="din" data-li="${i}" data-k="startDate" value="${l.startDate||''}" placeholder="비우면 계속"></label><label>기간 종료일<input class="din" data-li="${i}" data-k="endDate" value="${l.endDate||''}" placeholder="비우면 계속"></label></div>`}
     <div>대상 단체 <small style="display:inline">(선택 안 하면 모든 단체)</small><div class="days" style="margin-top:4px">${C.groups.map(g=>`<label><input type="checkbox" data-tg="${i}|${g.id}" ${(l.targets||[]).includes(g.id)?'checked':''}><span>${esc(g.name)}</span></label>`).join('')}</div></div>
@@ -450,7 +454,7 @@ const linkUrl=t=>location.origin+'/m/'+t;
 const MSG=(url,name)=>`[출석 안내]\n${name?name+'님, ':''}본인 전용 출석 링크입니다. 휴대폰 홈 화면에 추가해 두고, 교육 시작 전후에 눌러 주세요. (위치 권한을 허용해야 합니다)\n다른 사람에게 전달하지 마세요.\n${url}`;
 async function loadLinks(){try{LK=await api('/api/admin/links')}catch(e){$('links').innerHTML=`<span class="ab">${e.message}</span>`;return}
   $('links').innerHTML=LK.map(g=>`<div style="margin-top:12px"><b>${esc(g.name)}</b> <small style="display:inline">(${g.members.length}명)</small> <button data-lkg="${g.id}">단체 목록 복사</button>
-    ${g.members.map(m=>`<div class="lk"><span class="nm">${esc(m.name)} ${m.bound?'<small style="display:inline">📱 기기 등록됨</small>':''}</span>
+    ${g.members.map(m=>`<div class="lk"><span class="nm">${esc(m.name)} ${m.bound?'<small style="display:inline">기기 등록됨</small>':''}</span>
       <button class="pri" data-lks="${m.id}">${shareLabel()}</button><button data-lkm="${m.id}">안내문 복사</button><button data-lkr="${m.id}">새 링크 발급</button>${m.bound?`<button data-lkd="${m.id}">기기 초기화</button>`:''}</div>`).join('')}</div>`).join('')||'<p class="un">구성원을 먼저 등록하세요.</p>'}
 $('lkall').onclick=()=>copy(LK.flatMap(g=>g.members.map(m=>`${g.name}\t${m.name}\t${linkUrl(m.token)}`)).join('\n'),'전체 링크 목록을 복사했습니다. 엑셀에 붙여넣으세요.');
 document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)return;
@@ -495,7 +499,7 @@ function impPrev(){
   const gs={};IMP.rows.forEach(r=>(gs[r.grp]||=[]).push(r));
   const have=Object.fromEntries(C.groups.map(g=>[g.name,g]));
   $('xprev').innerHTML=`<p><b>${IMP.rows.length}명</b> / 단체 ${Object.keys(gs).length}개 인식</p>
-  ${IMP.errs.length?`<div class="ab">${IMP.errs.map(x=>'⚠ '+x).join('<br>')}</div>`:''}
+  ${IMP.errs.length?`<div class="ab">${IMP.errs.map(x=>'· '+x).join('<br>')}</div>`:''}
   <table><tr><th>단체</th><th>인원</th><th>구분</th><th>예시</th></tr>${Object.entries(gs).map(([n,r])=>`<tr><td class="l">${n}</td><td>${r.length}</td><td>${have[n]?'기존 단체':'<b class="ok">새 단체</b>'}</td><td class="l">${r.slice(0,3).map(x=>x.name).join(', ')}${r.length>3?' …':''}</td></tr>`).join('')}</table>
   <p><label><input type="radio" name="xm" value="merge" checked> 추가·갱신 (기존 명단 유지, 전화번호 갱신)</label><br>
   <label><input type="radio" name="xm" value="replace"> 전체 교체 (파일에 없는 구성원·단체는 삭제 — 출석 기록도 사라질 수 있음)</label></p>
@@ -530,7 +534,7 @@ async function mLec(){const c=await api('/api/admin/config');const date=$('md').
   $('ml').innerHTML=ls.length?ls.map(l=>`<option value="${l.id}">${l.start} ${esc(l.name)}${(l.off||[]).includes(date)?' (휴강일)':''}</option>`).join(''):'<option value="">(이 날 개설된 강의 없음)</option>'}
 $('md').onchange=mLec;
 $('mgo').onclick=async()=>{if(!$('ml').value)return;M=await api(`/api/admin/manual?date=${$('md').value}&lectureId=${$('ml').value}`);mm={};mn={};M.groups.forEach(g=>g.members.forEach(m=>mm[m.id]=m.status));mDraw()};
-const VIA={phone:'📱본인',admin:'✍담당자',group:'👥단체대표'};
+const VIA={phone:'본인',admin:'담당자',group:'단체대표'};
 function mDraw(){
   const COL={P:'var(--p)',L:'var(--l)',A:'var(--a)'},NM={P:'출석',L:'지각',A:'결석'};
   $('mout').innerHTML=`<b>${esc(M.lecture.name)}</b> <span class="un">${M.lecture.start}~${M.lecture.end}</span>`+M.groups.map(g=>`<div style="margin:14px 0 4px"><b>${esc(g.name)}</b> <button data-all="${g.id}">전원 출석</button></div>
@@ -707,7 +711,7 @@ if(pw)api('/api/admin/config').then(start).catch(()=>{});
   window.enhance=function(root){(root||document).querySelectorAll('input.tin:not([data-enh]),input.din:not([data-enh])').forEach(inp=>{
     inp.dataset.enh='1';const isT=inp.classList.contains('tin');
     const w=document.createElement('span');w.className='fld';inp.parentNode.insertBefore(w,inp);w.appendChild(inp);
-    const b=document.createElement('button');b.type='button';b.className='pkbtn';b.textContent=isT?'🕒':'📅';b.title=isT?'시간 고르기':'날짜 고르기';w.appendChild(b);
+    const b=document.createElement('button');b.type='button';b.className='pkbtn';b.innerHTML=isT?'<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>':'<svg class="i" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>';b.title=isT?'시간 고르기':'날짜 고르기';w.appendChild(b);
     b.onclick=()=>{ if(isT){let init=inp.value;if(!parseTime(init)&&inp.id==='nl-end'){const st=parseTime($('nl-start').value);if(st)init=addMin(st,NLDUR||90)}
         openTimePicker(init||'10:00',v=>fire(inp,v))}
       else openDatePicker(inp.value,v=>fire(inp,v),inp.id!=='nl-date')}})};

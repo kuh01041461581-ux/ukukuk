@@ -6,12 +6,14 @@
 <link rel="stylesheet" href="/app.css">
 </head><body>
 <div class="app">
-  <header class="hero"><div class="brand">국가무형유산 교육 출석</div><h1 id="title">내 출석</h1><div class="meta" id="meta"></div></header>
-  <main id="body"><div class="status"><span class="dot wait"></span><div>불러오는 중…</div></div></main>
+  <header><div class="top"><span class="seal">출</span><span class="brand">국가무형유산 교육 출석</span></div><h1 id="title">내 출석</h1><dl class="info" id="meta"></dl></header>
+  <main id="body"><div class="status"><span class="spin"></span><div>불러오는 중…</div></div></main>
 </div>
 <script>
 const $=id=>document.getElementById(id);const token=location.pathname.split('/').pop();
 let dev=null;try{dev=localStorage.getItem('dev');if(!dev){dev=crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now();localStorage.setItem('dev',dev)}}catch{}
+const IC={pin:'<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',alert:'<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.4v.1"/>'};
+const ico=n=>`<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const p2=n=>String(n).padStart(2,'0'),L={P:['출석','ok'],L:['지각','late'],A:['결석','ab']};
 const HELP=`<details class="help" open><summary>위치 권한 켜는 방법</summary><ol>
@@ -21,27 +23,27 @@ const pos=()=>new Promise((ok,no)=>navigator.geolocation?navigator.geolocation.g
 let D=null;
 async function info(){
   const r=await fetch('/api/m/'+token+'?deviceId='+encodeURIComponent(dev||''));D=await r.json();
-  if(!r.ok){$('body').innerHTML=`<div class="alert"><span class="dot bad">!</span><div>${esc(D.error)}</div></div>`;return null}
-  $('title').textContent=D.name;$('meta').innerHTML=D.group?`<span class="pill">${esc(D.group)}</span>`:'';
+  if(!r.ok){$('body').innerHTML=`<div class="alert">${ico('alert')}<div>${esc(D.error)}</div></div>`;return null}
+  $('title').textContent=D.name;$('meta').innerHTML=D.group?`<div><dt>소속</dt><dd>${esc(D.group)}</dd></div>`:'';
   return D}
 function statHtml(d){
   const s=d.stats,rate=s.rate;
-  return `<div class="card"><div class="step-h" style="justify-content:space-between"><span>내 출석률</span><span style="font-size:30px;color:var(--pri)">${rate==null?'-':rate+'%'}</span></div>
+  return `<div class="card"><div class="step-h" style="justify-content:space-between;align-items:flex-end"><span class="t">내 출석률</span><span style="font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:1">${rate==null?'-':rate}<span style="font-size:20px">${rate==null?'':'%'}</span></span></div>
     <div class="bar-meter"><i style="width:${rate||0}%"></i></div>
     <div class="mut"><b class="ok" style="color:var(--ok)">출석 ${s.P}</b> · <b style="color:var(--warn)">지각 ${s.L}</b> · <b style="color:var(--bad)">결석 ${s.A}</b> (교육 ${s.held}회)</div></div>
-    ${d.history.length?`<div class="card"><div class="step-h">최근 기록</div>${d.history.map(h=>`<div class="hist"><span>${h.date.slice(5).replace('-','/')} ${esc(h.lecture)}</span><span class="${L[h.status][1]}">${L[h.status][0]}</span></div>`).join('')}</div>`:''}`}
+    ${d.history.length?`<div class="card"><div class="step-h"><span class="t">최근 기록</span></div>${d.history.map(h=>`<div class="hist"><span>${h.date.slice(5).replace('-','/')} ${esc(h.lecture)}</span><span class="${L[h.status][1]}">${L[h.status][0]}</span></div>`).join('')}</div>`:''}`}
 async function auto(){
   const box=$('res');
   if(!D.now){box.innerHTML='<div class="card"><div style="font-size:22px;font-weight:800">지금은 출석할 수 있는 강의가 없습니다</div><div class="mut" style="margin-top:6px">출석은 강의 시작 전후에만 가능합니다</div></div>';return}
   const d=new Date(D.now.date+'T00:00:00Z');
-  box.innerHTML=`<div class="card"><div class="mut">출석할 강의</div><div style="font-size:24px;font-weight:800">${esc(D.now.lecture)}</div><div class="mut">${D.now.start} 시작</div></div><div class="status" id="st"><span class="dot wait"></span><div><b>위치를 확인하고 있어요</b><span class="mut">허용 창이 보이면 [허용]을 눌러 주세요</span></div></div>`;
+  box.innerHTML=`<div class="card"><div class="mut">출석할 강의</div><div style="font-size:26px;font-weight:800;letter-spacing:-.03em">${esc(D.now.lecture)}</div><div class="mut">${D.now.start} 시작</div></div><div class="status" id="st"><span class="spin"></span><div><b>위치를 확인하고 있어요</b><span class="mut">허용 창이 보이면 [허용]을 눌러 주세요</span></div></div>`;
   let p={};
   if(D.now.venue){try{const x=await pos();p={lat:x.coords.latitude,lng:x.coords.longitude,accuracy:x.coords.accuracy}}
-    catch{box.innerHTML+=`<div class="status bad"><span class="dot bad">!</span><div><b>위치 권한이 필요합니다</b></div></div>${HELP}<button class="btn ghost" id="retry">다시 시도</button>`;$('st').remove();$('retry').onclick=auto;return}}
+    catch{box.innerHTML+=`<div class="status bad">${ico('alert')}<div><b>위치 권한이 필요합니다</b></div></div>${HELP}<button class="btn ghost" id="retry">다시 시도</button>`;$('st').remove();$('retry').onclick=auto;return}}
   const r=await fetch(`/api/m/${token}/checkin`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deviceId:dev,...p})});const j=await r.json();
-  if(!r.ok){$('st').remove();box.innerHTML+=`<div class="alert"><span class="dot bad">!</span><div>${esc(j.error)}</div></div><button class="btn ghost" id="retry">다시 시도</button>`;$('retry').onclick=auto;return}
+  if(!r.ok){$('st').remove();box.innerHTML+=`<div class="alert">${ico('alert')}<div>${esc(j.error)}</div></div><button class="btn ghost" id="retry">다시 시도</button>`;$('retry').onclick=auto;return}
   const late=j.status==='L',t=new Date();
-  box.innerHTML=`<div class="card done-card"><div class="okring ${late?'late':''}"></div><div class="nm">${esc(D.name)}님</div><div class="st ${late?'late':''}">${late?'지각 처리되었습니다':'출석되었습니다'}</div><div class="mut">${esc(j.lecture)} · ${p2(t.getHours())}:${p2(t.getMinutes())}${j.already?' (이미 출석됨)':''}</div></div>`;
+  box.innerHTML=`<div class="card done-card"><div class="okring ${late?'late':''}"><b>${late?'지각':'출석'}</b><i>${D.now.date.slice(5).replace('-','.')}</i></div><div class="nm">${esc(D.name)}님</div><div class="st ${late?'late':''}">${late?'지각 처리되었습니다':'출석되었습니다'}</div><div class="mut">${esc(j.lecture)} · ${p2(t.getHours())}:${p2(t.getMinutes())}${j.already?' (이미 출석됨)':''}</div></div>`;
   info().then(d=>{if(d)$('stat').innerHTML=statHtml(d)})}
-(async()=>{const d=await info();if(!d)return;$('body').innerHTML='<div id="res"></div><div id="stat"></div><div class="note">💡 이 화면을 <b>홈 화면에 추가</b>해 두면 아이콘 한 번으로 출석됩니다. 휴대폰을 바꾸면 담당자에게 <b>기기 초기화</b>를 요청하세요.</div>';$('stat').innerHTML=statHtml(d);auto()})();
+(async()=>{const d=await info();if(!d)return;$('body').innerHTML='<div id="res"></div><div id="stat"></div><div class="note"><b>팁</b> · 이 화면을 <b>홈 화면에 추가</b>해 두면 아이콘 한 번으로 출석됩니다. 휴대폰을 바꾸면 담당자에게 <b>기기 초기화</b>를 요청하세요.</div>';$('stat').innerHTML=statHtml(d);auto()})();
 </script></body></html>

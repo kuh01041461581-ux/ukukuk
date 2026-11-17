@@ -67,12 +67,12 @@ function fwdNums(str) {
 function utilFwd() {
   const q = UI.util.fq || '';
   const rows = [];
-  CATS.forEach(([k, nm]) => { const sec = S.util[k]; if (sec) (sec.forwards || []).forEach(f => { if (matchFwd(f, q, nm)) rows.push({ k, nm, f }); }); });
+  CATS.forEach(([k, nm]) => { const sec = S.util[k]; if (sec) (sec.forwards || []).forEach((f, i) => { if (matchFwd(f, q, nm)) rows.push({ k, nm, f, i }); }); });
   const total = sum(CATS, ([k]) => S.util[k] ? (S.util[k].forwards || []).length : 0);
   return `<div class="card" style="margin-top:0"><div class="row" style="justify-content:space-between;margin-bottom:8px"><h2 style="margin:0">다른 계에 전달할 고지서 <span class="muted" style="font-weight:400;font-size:12px">${rows.length}/${total}건 · 번호를 누르면 복사</span></h2>
-    <input type="search" data-u="fq" data-nav="fq" value="${esc(q)}" placeholder="번호·관리항목·전달처 검색 (Ctrl+F 는 전체 검색)" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface-2);width:320px"></div>
-    <div class="tbl-wrap fit fit-fwd"><table class="t"><thead><tr><th>구분</th><th>관리 항목</th><th>번호 (계약·수전·계좌)</th><th style="width:150px">전달처</th><th>비고</th></tr></thead><tbody>
-    ${rows.map(({ k, nm, f }) => `<tr><td><span class="badge" style="background:color-mix(in srgb,${CATCOLOR[k]} 18%,transparent);color:var(--text)">${nm}</span></td><td class="nolist"><b>${esc(f.name)}</b></td><td><div class="fwdnums">${fwdNums(f.numbers)}</div></td><td><span class="fwdtag lg">→ ${esc(f.to || '-')}</span></td><td class="muted">${esc(f.memo)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">찾는 항목이 없습니다</td></tr>'}
+    <input type="search" data-u="fq" data-nav="fq" value="${esc(q)}" placeholder="번호·관리항목·전달처 검색 (Ctrl+F 는 전체 검색)" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface-2);width:280px"><button class="btn sm primary noprint" data-act="addfwd">＋ 전달처 추가</button></div>
+    <div class="tbl-wrap fit fit-fwd"><table class="t"><thead><tr><th>구분</th><th>관리 항목</th><th>번호 (계약·수전·계좌)</th><th style="width:150px">전달처</th><th>비고</th><th class="noprint" style="width:60px"></th></tr></thead><tbody>
+    ${rows.map(({ k, nm, f, i }) => `<tr><td><span class="badge" style="background:color-mix(in srgb,${CATCOLOR[k]} 18%,transparent);color:var(--text)">${nm}</span></td><td class="nolist"><b>${esc(f.name)}</b></td><td><div class="fwdnums">${fwdNums(f.numbers)}</div></td><td><span class="fwdtag lg">→ ${esc(f.to || '-')}</span></td><td class="muted">${esc(f.memo)}</td><td class="noprint"><button class="btn sm" data-act="editfwd" data-k="${k}" data-i="${i}">편집</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">찾는 항목이 없습니다 — [＋ 전달처 추가]로 새로 등록하세요</td></tr>'}
     </tbody></table></div></div>`;
 }
 function renderUtil() {
@@ -198,6 +198,8 @@ PU.addEventListener('click', e => {
   else if (a === 'filter') { u.filter = b.dataset.v; renderUtil(); }
   else if (a === 'cycle') { const it = S.util[u.cat].items.find(x => x.id === b.dataset.id); cycle4(it, +b.dataset.m); save(); renderUtil(); }
   else if (a === 'additem') itemDialog(null);
+  else if (a === 'addfwd') fwdDialog(null, UI.util.cat);
+  else if (a === 'editfwd') fwdDialog(+b.dataset.i, b.dataset.k);
   else if (a === 'edititem') itemDialog(b.dataset.id);
   else if (a === 'tsv') copyText(utilTSV(S.util[u.cat]), '표를 복사했습니다 — 엑셀에 붙여넣으세요');
   else if (a === 'printu') { $$('.tab-panel').forEach(p => p.classList.toggle('printing', p.id === 'p-util')); window.print(); }
@@ -234,6 +236,33 @@ function itemDialog(id) {
         if (!it.paid) it.paid = Array(12).fill(false);
         if (!it.inactive && was) it.rcv = it.rcv.map((x, i) => x === 2 && !it.amt[i] ? 0 : x);
         if (isNew) sec.items.push(it); save(); closeDlg(); renderUtil();
+      }
+    };
+  });
+}
+
+/* 다른 계 전달처 추가·수정·삭제 */
+function fwdDialog(idx, k0) {
+  const isNew = idx == null; let k = k0 && S.util[k0] ? k0 : 'elec';
+  const cur = isNew ? { name: '', numbers: '', to: '', memo: '' } : S.util[k].forwards[idx]; if (!cur) return;
+  const tos = [...new Set(CATS.flatMap(([kk]) => (S.util[kk] ? [...(S.util[kk].forwards || []).map(f => f.to), ...S.util[kk].items.map(i => i.forward)] : [])).filter(Boolean))];
+  openDlg(`<h3>${isNew ? '전달처 추가' : '전달처 편집'}</h3><p class="sub" style="margin:0 0 8px">다른 계에서 집행하는 고지서입니다. 검색(Ctrl+F)에도 그대로 나옵니다.</p>
+    <label class="fld">요금 종류<select id="fk">${CATS.map(([kk, nm]) => `<option value="${kk}" ${kk === k ? 'selected' : ''}>${nm}</option>`).join('')}</select></label>
+    <label class="fld">관리 항목 (장소·용도)<textarea id="fn" rows="2">${esc(cur.name)}</textarea></label>
+    <label class="fld">번호 (계약·수전·계좌) — 여러 개는 <b>/</b> 로 구분<input id="fnu" value="${esc(cur.numbers)}"></label>
+    <label class="fld">전달처 (넘겨줄 계·부서)<input id="fto" list="fto-l" value="${esc(cur.to)}"><datalist id="fto-l">${tos.map(t => `<option value="${esc(t)}">`).join('')}</datalist></label>
+    <label class="fld">비고<textarea id="fme" rows="2">${esc(cur.memo)}</textarea></label>
+    <div class="row" style="justify-content:space-between;margin-top:10px"><span>${isNew ? '' : '<button class="btn danger" data-d="del">삭제</button>'}</span><span class="row"><button class="btn" data-d="cancel">취소</button><button class="btn primary" data-d="save">저장</button></span></div>`, d => {
+    d.onclick = ev => {
+      const b = ev.target.closest('[data-d]'); if (!b) return; const a = b.dataset.d;
+      if (a === 'cancel') closeDlg();
+      else if (a === 'del') { if (confirm('이 전달처를 삭제할까요?')) { S.util[k].forwards.splice(idx, 1); save(); closeDlg(); renderUtil(); } }
+      else if (a === 'save') {
+        const f = { name: $('#fn', d).value.trim(), numbers: $('#fnu', d).value.trim(), to: $('#fto', d).value.trim(), memo: $('#fme', d).value.trim() };
+        if (!f.name && !f.numbers) { toast('관리 항목이나 번호를 입력하세요'); return; }
+        const nk = $('#fk', d).value; S.util[nk].forwards = S.util[nk].forwards || [];
+        if (isNew) S.util[nk].forwards.push(f); else if (nk === k) S.util[k].forwards[idx] = f; else { S.util[k].forwards.splice(idx, 1); S.util[nk].forwards.push(f); }
+        save(); closeDlg(); renderUtil(); toast('전달처를 저장했습니다');
       }
     };
   });

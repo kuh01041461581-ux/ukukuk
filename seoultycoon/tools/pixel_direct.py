@@ -13,52 +13,105 @@ class Px:
         self.Hc, self.yc = ST.canvas(k); self.im = Image.new('RGBA', (96, self.Hc), (0, 0, 0, 0)); self.d = ImageDraw.Draw(self.im)
     def G(self, a, b, z=0.0): return (round(48 + 47 * (a - b)), round(self.yc - 24 + 24 * (a + b) - z))
     def poly(self, pts, fill, line=None):
-        P = [self.G(*p) for p in pts]; self.d.polygon(P, fill=fill, outline=line or fill)
+        if fill is None: return
+        P = [self.G(*p) for p in pts]; self.d.polygon(P, fill=fill, outline=(tuple(int(v * 0.74) for v in fill[:3]) + (255,)) if line else fill)      # 검은 윤곽선 대신 같은 색의 한 단계 어두운 톤으로 면 경계를 구분(서울타이쿤 도트 방식)
     def line(self, p, q, c): self.d.line([self.G(*p), self.G(*q)], fill=c, width=1)
     def rect_wall(self, a0, a1, b, z0, z1, fill, line=None): self.poly([(a0, b, z0), (a1, b, z0), (a1, b, z1), (a0, b, z1)], fill, line)
     def rect_side(self, a, b0, b1, z0, z1, fill, line=None): self.poly([(a, b0, z0), (a, b1, z0), (a, b1, z1), (a, b0, z1)], fill, line)
     def outline(self, c=(40, 36, 44, 255)):
         a = self.im.getchannel('A'); import numpy as np
         al = np.asarray(a) > 0; ed = al & ~(np.roll(al, 1, 0) & np.roll(al, -1, 0) & np.roll(al, 1, 1) & np.roll(al, -1, 1))
-        arr = np.asarray(self.im).copy(); arr[ed] = c; self.im = Image.fromarray(arr, 'RGBA'); self.d = ImageDraw.Draw(self.im)
+        arr = np.asarray(self.im).copy(); arr[ed, :3] = (arr[ed, :3] * 0.62).astype(np.uint8); self.im = Image.fromarray(arr, 'RGBA'); self.d = ImageDraw.Draw(self.im)
+
+def shade(c, f): return tuple(max(0, min(255, int(v * f))) for v in c[:3]) + (255,)
+
+def band_wall(p, a0, a1, b, z0, z1, base, line, n=4, k=0.07, side=False, b0=None):
+    """벽을 위(밝음)→아래(어둠) n 단계 가로띠로 칠해 입체감을 준다."""
+    for i in range(n):
+        za, zb = z0 + (z1 - z0) * i / n, z0 + (z1 - z0) * (i + 1) / n; c = shade(base, 1.0 + k * (n / 2 - i - 0.5) * 2)
+        if side: p.rect_side(a0, b0, b, za, zb, c, c)
+        else: p.rect_wall(a0, a1, b, za, zb, c, c)
+    if side: p.rect_side(a0, b0, b, z0, z1, None or base, line) if False else None
+
+def tile_roof(p, pts_rows, c1, c2):
+    """지붕 경사 줄마다 두 톤을 번갈아 찍어 마름모 기와 느낌을 낸다."""
+    for (pa, pb, ci) in pts_rows:
+        xa, ya = p.G(*pa); xb, yb = p.G(*pb); n = max(abs(xb - xa), 1)
+        for i in range(0, n + 1):
+            t = i / n; x = round(xa + (xb - xa) * t); y = round(ya + (yb - ya) * t)
+            if 0 <= x < 96 and 0 <= y < p.Hc and p.im.getpixel((x, y))[3]: p.im.putpixel((x, y), c1 if (i + ci) % 2 == 0 else c2)
 
 def make_pixel_chunpo():
     p = Px(21)
-    GROUND = hx('c9c3b0'); GROUNDD = hx('a39d8a'); INK = hx('3a3440')
-    CREAM = (hx('f2e6a8'), hx('d9c885'), hx('b3a15f')); MINT = (hx('86d8b8'), hx('4eb08e'))
-    SL = (hx('7a9a94'), hx('55766f'), hx('3c5651')); BLUE = (hx('4a98e0'), hx('2a6cb4'), hx('1c4c88'))
-    A0, A1, B0, B1, H = 0.10, 0.90, 0.20, 0.56, 14
-    # 바닥(승강장 포함)
-    p.poly([(0.02, 0.02, 0), (0.98, 0.02, 0), (0.98, 0.98, 0), (0.02, 0.98, 0)], GROUND, GROUNDD)
-    p.poly([(0.06, 0.70, 0), (0.94, 0.70, 0), (0.94, 0.82, 0), (0.06, 0.82, 0)], hx('e4dfce'), GROUNDD)          # 승강장
-    p.line((0.06, 0.90, 0), (0.94, 0.90, 0), hx('6e6a60')); p.line((0.06, 0.95, 0), (0.94, 0.95, 0), hx('6e6a60'))      # 선로
-    for i in range(1, 12): t = 0.06 + 0.88 * i / 12; p.line((t, 0.88, 0), (t, 0.97, 0), hx('8a6a4a'))
-    # 본채 벽: 왼쪽(밝음) + 오른쪽(어두움)
-    p.rect_wall(A0, A1, B1, 0, H, CREAM[0], INK); p.rect_side(A1, B0, B1, 0, H, CREAM[1], INK)
-    p.rect_wall(A0, A1, B1, 0, 3, MINT[0], INK); p.rect_side(A1, B0, B1, 0, 3, MINT[1], INK)                      # 아래 민트 띠
-    # 문·창(앞벽)
-    p.rect_wall(0.22, 0.34, B1, 3, 11, BLUE[0], INK); p.line((0.28, B1, 3), (0.28, B1, 11), INK)                  # 쌍여닫이 문
-    p.rect_wall(0.40, 0.46, B1, 3, 10, BLUE[1], INK)
-    for a in (0.62, 0.74): p.rect_wall(a, a + 0.07, B1, 4, 11, hx('bfe0f8'), BLUE[2]); p.line((a + 0.035, B1, 4), (a + 0.035, B1, 11), BLUE[2])
-    p.rect_side(A1, 0.30, 0.46, 4, 10, hx('9cc8ec'), BLUE[2])
-    # 지붕: 앞 경사(밝음) + 오른쪽 경사(어두움), 기와 줄무늬
+    INK = hx('8a8070'); GROUND = hx('cfc9b6'); GROUNDD = hx('a8a290')
+    CREAM = hx('f3e7ab'); MINT = hx('86d8b8'); MINTD = hx('3e9c7c')
+    SL = hx('7c9c96'); SLD = hx('566f6a'); SLL = hx('a4c2ba')
+    BLU = hx('3f8fe0'); BLUD = hx('1f5aa4'); GLASS = hx('bfe3fa')
+    A0, A1, B0, B1, H = 0.10, 0.88, 0.20, 0.56, 14
+    # 바닥·잔디·그림자
+    p.poly([(0.02, 0.02, 0), (0.98, 0.02, 0), (0.98, 0.98, 0), (0.02, 0.98, 0)], hx('9cc27a'), hx('6f9a54'))
+    p.poly([(0.04, 0.60, 0), (0.96, 0.60, 0), (0.96, 0.84, 0), (0.04, 0.84, 0)], GROUND, GROUNDD)                      # 승강장
+    for i in range(1, 8): t = 0.04 + 0.92 * i / 8; p.line((t, 0.60, 0), (t, 0.84, 0), shade(GROUND, 0.93))                 # 박석 줄
+    p.line((0.04, 0.82, 0), (0.96, 0.82, 0), hx('f0d24a'))                                                                  # 안전선
+    p.poly([(0.04, 0.88, 0), (0.96, 0.88, 0), (0.96, 0.98, 0), (0.04, 0.98, 0)], hx('7a746a'), GROUNDD)                    # 선로 자갈
+    for r in (0.90, 0.96): p.line((0.04, r, 0), (0.96, r, 0), hx('d0d4de'))
+    for i in range(1, 14): t = 0.04 + 0.92 * i / 14; p.line((t, 0.89, 0), (t, 0.97, 0), hx('5a3f2a'))
+    p.poly([(0.92, 0.18, 0), (1.0, 0.18, 0), (1.0, 0.60, 0), (0.92, 0.60, 0)], shade(hx('9cc27a'), 0.8), None)               # 건물 그림자(오른쪽 땅)
+    # 본채 벽(밝은 앞벽 / 어두운 옆벽) + 석고 질감
+    band_wall(p, A0, A1, B1, 0, H, CREAM, INK, n=5); p.rect_wall(A0, A1, B1, 0, H, None, INK) if False else None
+    for i in range(5):
+        za, zb = H * i / 5, H * (i + 1) / 5; p.rect_side(A1, B0, B1, za, zb, shade(CREAM, 0.80 - 0.015 * (2 - i)), shade(CREAM, 0.8))
+    for (x0, x1, y0, y1) in ((0, 1, 0, 1),): pass
+    p.line((A0, B1, 0), (A0, B1, H), INK); p.line((A1, B1, 0), (A1, B1, H), INK); p.line((A1, B0, 0), (A1, B0, H), INK)
+    p.rect_wall(A0, A1, B1, 0, 3, MINT, INK); p.rect_side(A1, B0, B1, 0, 3, MINTD, INK)                                   # 아랫단 민트 띠
+    for t in (0.12, 0.30, 0.44, 0.58, 0.70, 0.82):                                                                          # 벽 석고 얼룩 점
+        p.d.point(p.G(A0 + (A1 - A0) * t, B1, 8 + (t * 7 % 4)), fill=shade(CREAM, 0.9))
+    # 문·창(앞벽) — 문틀·유리 반사·창살
+    def window(a, w, z0, z1):
+        p.rect_wall(a, a + w, B1, z0, z1, GLASS, BLUD)
+        p.line((a + w / 2, B1, z0), (a + w / 2, B1, z1), BLUD); p.line((a, B1, (z0 + z1) / 2), (a + w, B1, (z0 + z1) / 2), BLUD)
+        p.d.point(p.G(a + w * 0.2, B1, z1 - 1), fill=hx('ffffff')); p.d.point(p.G(a + w * 0.7, B1, z0 + 1), fill=hx('e8f6ff'))
+    p.rect_wall(0.20, 0.34, B1, 3, 11, BLU, INK); p.line((0.27, B1, 3), (0.27, B1, 11), INK); p.rect_wall(0.205, 0.265, B1, 8, 10, GLASS, None); p.rect_wall(0.275, 0.335, B1, 8, 10, GLASS, None)
+    p.d.point(p.G(0.255, B1, 6), fill=hx('f0d24a')); p.d.point(p.G(0.285, B1, 6), fill=hx('f0d24a'))                          # 손잡이
+    window(0.38, 0.06, 4, 11)
+    window(0.64, 0.07, 4, 11); window(0.74, 0.07, 4, 11)
+    # 옆벽 창
+    p.rect_side(A1, 0.28, 0.44, 4, 10, shade(GLASS, 0.85), BLUD); p.line((A1, 0.36, 4), (A1, 0.36, 10), BLUD)
+    # 왼쪽 긴 차양(베란다): 얇은 지붕 + 민트 기둥
+    p.poly([(0.04, B1 + 0.10, 10.5), (0.34, B1 + 0.10, 10.5), (0.34, B1 - 0.01, 12), (0.04, B1 - 0.01, 12)], SL, INK)
+    for a in (0.06, 0.19, 0.32): p.line((a, B1 + 0.09, 0), (a, B1 + 0.09, 10), MINTD); p.line((a + 0.006, B1 + 0.09, 0), (a + 0.006, B1 + 0.09, 10), MINT)
+    # 지붕(앞 경사 밝음 / 옆 경사 어두움) + 마름모 기와 + 용마루
     R = 7; o = 0.04; bm = (B0 + B1) / 2
-    p.poly([(A0 - o, B1 + o, H), (A1 + o, B1 + o, H), (A1 - 0.06, bm, H + R), (A0 + 0.06, bm, H + R)], SL[0], INK)
-    p.poly([(A1 + o, B0 - o, H), (A1 + o, B1 + o, H), (A1 - 0.06, bm, H + R)], SL[1], INK)
-    for i in range(1, 5):
-        t = i / 5; z = H + R * t; b = (B1 + o) + (bm - B1 - o) * t
-        p.line((A0 - o + (0.06 + o) * t, b, z), (A1 + o - (0.06 + o) * t, b, z), SL[2])
-    p.line((A0 + 0.06, bm, H + R), (A1 - 0.06, bm, H + R), hx('b8d4cc'))                                          # 용마루
-    # 앞 박공 현관(지붕에 이어지는 작은 삼각 지붕)
-    p.rect_wall(0.44, 0.64, B1 + 0.04, 0, H - 1, CREAM[0], INK)
-    p.poly([(0.42, B1 + 0.04, H - 1), (0.66, B1 + 0.04, H - 1), (0.54, B1 + 0.04, H + 5)], hx('fffdf0'), INK)
-    p.poly([(0.42, B1 + 0.04, H - 1), (0.54, B1 + 0.04, H + 5), (0.54, bm, H + R - 1)], SL[0], INK)
-    p.rect_wall(0.50, 0.58, B1 + 0.04, 4, 10, BLUE[0], INK)
-    p.rect_side(0.64, B1 - 0.02, B1 + 0.04, 0, H - 1, CREAM[1], INK)
-    # 오른쪽 부속채(벽돌색)
-    p.rect_wall(0.88, 0.99, 0.22, 0, 6, hx('c07a5a'), INK); p.rect_side(0.99, 0.22, 0.44, 0, 6, hx('8e4e38'), INK)
-    p.poly([(0.88, 0.44, 6), (0.99, 0.44, 6), (0.99, 0.22, 6), (0.88, 0.22, 6)], BLUE[0], INK)
-    p.outline()
+    p.poly([(A0 - o, B1 + o, H), (A1 + o, B1 + o, H), (A1 - 0.06, bm, H + R), (A0 + 0.06, bm, H + R)], SL, INK)
+    p.poly([(A1 + o, B0 - o, H), (A1 + o, B1 + o, H), (A1 - 0.06, bm, H + R)], SLD, INK)
+    rows = []
+    for i in range(1, 7):
+        t = i / 7; z = H + R * t; b = (B1 + o) + (bm - B1 - o) * t; rows.append(((A0 - o + (0.06 + o) * t, b, z), (A1 + o - (0.06 + o) * t, b, z), i))
+    tile_roof(p, rows, SLL, SLD)
+    for (pa, pb, ci) in rows: p.line(pa, pb, shade(SL, 0.8))
+    p.line((A0 + 0.06, bm, H + R), (A1 - 0.06, bm, H + R), hx('d4e8e0'))
+    for i in range(1, 5):                                                                                                    # 옆 경사 기와 줄
+        t = i / 5; za, zb = H + R * t, H + R * t
+        p.line((A1 + o - (o + 0.06) * t, B0 - o + (bm - B0 + o) * t, za), (A1 + o - (o + 0.06) * t, B1 + o - (B1 + o - bm) * t, zb), shade(SLD, 0.8))
+    p.line((A0 - o, B1 + o, H), (A1 + o, B1 + o, H), MINT)                                                                  # 처마 민트 선
+    # 앞 박공 현관: 흰 박공 면 + 지붕 이음 + 현판 + 문
+    GA0, GA1, GB = 0.44, 0.66, B1 + 0.05
+    p.rect_wall(GA0, GA1, GB, 0, H - 1, shade(CREAM, 1.03), INK); p.rect_side(GA1, B1 - 0.02, GB, 0, H - 1, shade(CREAM, 0.8), INK)
+    p.poly([(GA0 - 0.02, GB, H - 1), (GA1 + 0.02, GB, H - 1), ((GA0 + GA1) / 2, GB, H + 6)], hx('fffdf2'), INK)
+    p.poly([((GA0 + GA1) / 2, GB, H + 6), (GA1 + 0.02, GB, H - 1), (GA1 + 0.02, B1 - 0.02, H - 1)], SLD, INK)
+    p.poly([(GA0 - 0.02, GB, H - 1), ((GA0 + GA1) / 2, GB, H + 6), ((GA0 + GA1) / 2, bm, H + R - 1)], SL, INK)
+    p.line((GA0 - 0.02, GB, H - 1), ((GA0 + GA1) / 2, GB, H + 6), MINT); p.line((GA1 + 0.02, GB, H - 1), ((GA0 + GA1) / 2, GB, H + 6), MINT)
+    p.rect_wall(0.50, 0.60, GB, 11, 13, hx('e8d8a8'), hx('3a6a5c'))                                                           # 현판
+    p.rect_wall(0.50, 0.60, GB, 2, 10, BLU, INK); p.line((0.55, GB, 2), (0.55, GB, 10), INK); p.rect_wall(0.505, 0.545, GB, 7, 9, GLASS, None); p.rect_wall(0.555, 0.595, GB, 7, 9, GLASS, None)
+    # 오른쪽 부속채(벽돌 + 파란 지붕) + 울타리 말뚝 + 나무
+    p.rect_wall(0.88, 0.99, 0.22, 0, 6, hx('c47a5a'), INK); p.rect_side(0.99, 0.22, 0.46, 0, 6, hx('8c4c36'), INK)
+    p.poly([(0.86, 0.48, 6.5), (1.0, 0.48, 6.5), (1.0, 0.20, 6.5), (0.86, 0.20, 6.5)], BLU, INK); p.line((0.86, 0.34, 6.5), (1.0, 0.34, 6.5), BLUD)
+    for i in range(0, 8): p.rect_wall(0.06 + 0.1 * i, 0.075 + 0.1 * i, 0.66, 0, 3, hx('a8743c'), hx('6a4a22'))
+    def tree(a, b, r=1.0):
+        x, y = p.G(a, b, 0); p.d.rectangle([x - 1, y - 6, x, y], fill=hx('6a4a2a'))
+        p.d.ellipse([x - 5, y - 13, x + 4, y - 4], fill=hx('4a8c3a'), outline=hx('2f5e28')); p.d.ellipse([x - 3, y - 12, x + 1, y - 8], fill=hx('7ab85a'))
+    tree(0.03, 0.40); tree(0.97, 0.78)
+    p.outline(INK)
     return p.im
 
 if __name__ == '__main__':

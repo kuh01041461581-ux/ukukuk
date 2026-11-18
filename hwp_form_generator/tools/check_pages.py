@@ -74,7 +74,7 @@ SEQUENCES = {
 }
 
 
-FACTOR = float(sys.argv[1]) if len(sys.argv) > 1 else 1.0      # 0.92 처럼 줄이면 본문 영역이 작은(여백 큰) 문서에서의 위험을 본다
+FACTOR = 1.0      # 0.92 처럼 줄이면 본문 영역이 작은(여백 큰) 문서에서의 위험을 본다
 
 
 def main():
@@ -108,4 +108,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        FACTOR = float(sys.argv[1])
     main()

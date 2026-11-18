@@ -23,3 +23,34 @@ def blank_like(name):
     if ext == ".bmp":
         return _BMP
     return _PNG
+
+
+def shrink(data, name, max_w=1200, min_bytes=60000):
+    """큰 그림을 가볍게: 가로 max_w 이하로 줄이고 PNG 는 256색(투명 유지), JPG 는 품질 82, BMP 는 256색. 더 작아질 때만 바꾼다.
+    (양식은 그림 자리 크기를 따로 가지고 있어 그림의 픽셀 수가 줄어도 모양은 그대로다)"""
+    if len(data) < min_bytes:
+        return data
+    import io
+    from PIL import Image
+    ext = os.path.splitext(name)[1].lower()
+    try:
+        im = Image.open(io.BytesIO(data))
+        im.load()
+    except Exception:                                  # noqa: BLE001
+        return data
+    if im.width > max_w:
+        im = im.resize((max_w, max(1, round(im.height * max_w / im.width))), Image.LANCZOS)
+    out = io.BytesIO()
+    if ext in (".jpg", ".jpeg"):
+        im.convert("RGB").save(out, "JPEG", quality=82, optimize=True)
+    elif ext == ".bmp":
+        im.convert("RGB").quantize(256, dither=Image.FLOYDSTEINBERG).save(out, "BMP")
+    else:
+        rgba = im.convert("RGBA")
+        if rgba.getchannel("A").getextrema()[0] == 255:
+            q = rgba.convert("RGB").quantize(256, method=Image.MEDIANCUT, dither=Image.FLOYDSTEINBERG)
+        else:
+            q = rgba.quantize(256, method=Image.FASTOCTREE, dither=Image.FLOYDSTEINBERG)
+        q.save(out, "PNG", optimize=True)
+    res = out.getvalue()
+    return res if len(res) < len(data) else data

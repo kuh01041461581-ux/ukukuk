@@ -299,6 +299,8 @@ def sanitize_package(pkg, keep_sections=("Contents/section0.xml",), extra_roots=
             stem = os.path.splitext(os.path.basename(n))[0]
             if stem not in used:
                 pkg.files[n] = tinyimg.blank_like(n)
+            else:
+                pkg.files[n] = tinyimg.shrink(pkg.files[n], n)          # 쓰는 큰 그림은 줄여서(프로그램 용량)
     return pkg
 
 

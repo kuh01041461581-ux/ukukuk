@@ -638,10 +638,14 @@ internal partial class Program
 	private static readonly string[][] BreakTx = {
 		new[] { "스트레칭", "일어나서 목과 어깨를 쭉 풀어요" }, new[] { "물 마시기", "물 한 잔 천천히 마셔요" }, new[] { "스트레칭", "허리 펴고 어깨를 돌려요" },
 		new[] { "물 · 손목", "물 마시고 손목을 돌려요" }, new[] { "걷기", "잠깐 걸으며 다리를 펴요" }, new[] { "눈 쉬기", "먼 곳 보며 물 한 모금" } };
+	// 정각 건강 알림의 '10분 뒤' : 그 시각이 되면 같은 알림을 한 번 더 보여 줘요
+	private static DateTime breakSnoozeAt; private static string[] breakSnoozeTx;
+	internal static void SnoozeBreak(string[] brk) { breakSnoozeTx = brk; breakSnoozeAt = DateTime.Now.AddMinutes(10); }
 	private static void BreakTick(DateTime now)
 	{
 		try
 		{
+			if (breakSnoozeTx != null && now >= breakSnoozeAt && !ToastActive) { string[] bt = breakSnoozeTx; breakSnoozeTx = null; if (!DndActive) ShowBreakToast(bt); return; }
 			if (!breakOn || now.Minute != 0 || now.Second > 20 || now.Hour < 9 || now.Hour > 21 || IsOffDay(now)) return;
 			DateTime h = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0); if (breakAt == h) return;
 			if (DndActive) { breakAt = h; return; }

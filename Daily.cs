@@ -18,7 +18,9 @@ internal static class Arcade
 	public static float Speed { get { int d = Diff; return d == 0 ? 0.8f : (d == 2 ? 1.25f : 1f); } }
 
 	private static string DayPath { get { return Path.Combine(Program.DataDir, "daily_challenge.txt"); } }
-	private static string dDate = "", dKey = ""; private static bool dDone, dLoaded;
+	private static string dDate = "", dKey = "", lastDone = ""; private static int streak; private static bool dDone, dLoaded;
+	// 연속 성공 일수 (어제도 성공했으면 이어져요. 주말·휴일에 쉬어도 끊기지 않게 최근 성공일에서 4일 안이면 이어 줘요)
+	public static int Streak { get { Load(); return streak; } }
 	private static int BestOf(string key)
 	{
 		int best = 0;
@@ -28,7 +30,7 @@ internal static class Arcade
 	private static void Load()
 	{
 		string today = DateTime.Now.ToString("yyyyMMdd");
-		if (!dLoaded) { dLoaded = true; try { if (File.Exists(DayPath)) { string[] a = File.ReadAllText(DayPath).Trim().Split('|'); if (a.Length >= 3) { dDate = a[0]; dKey = a[1]; dDone = a[2] == "1"; } } } catch { } }
+		if (!dLoaded) { dLoaded = true; try { if (File.Exists(DayPath)) { string[] a = File.ReadAllText(DayPath).Trim().Split('|'); if (a.Length >= 3) { dDate = a[0]; dKey = a[1]; dDone = a[2] == "1"; } if (a.Length >= 5) { int.TryParse(a[3], out streak); lastDone = a[4]; } } } catch { } }
 		if (dDate != today || dKey.Length == 0)
 		{
 			List<KeyValuePair<string, string>> cat = MaryongGame.Catalog(); dDate = today; dDone = false; dKey = "";
@@ -36,7 +38,7 @@ internal static class Arcade
 			Save();
 		}
 	}
-	private static void Save() { try { Directory.CreateDirectory(Program.DataDir); File.WriteAllText(DayPath, dDate + "|" + dKey + "|" + (dDone ? "1" : "0")); } catch { } }
+	private static void Save() { try { Directory.CreateDirectory(Program.DataDir); File.WriteAllText(DayPath, dDate + "|" + dKey + "|" + (dDone ? "1" : "0") + "|" + streak + "|" + lastDone); } catch { } }
 	// 오늘의 도전: 게임 이름 · 목표 점수 · 달성 여부
 	public static bool Today(out string key, out string name, out int goal, out bool done)
 	{
@@ -49,7 +51,9 @@ internal static class Arcade
 	public static bool Check(string key, int score)
 	{
 		string k, n; int goal; bool done; if (!Today(out k, out n, out goal, out done)) return false;
-		if (done || key != k || score < goal || score <= 0) return false;
-		dDone = true; Save(); try { Bond.Daily("daily"); Bond.Add(3); } catch { } return true;
+		if (done || key != k || score < goal || score <= 0 || Diff < 1) return false;   // 쉬움 난이도로는 도전 성공이 되지 않아요
+		DateTime ld; bool cont = DateTime.TryParseExact(lastDone, "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out ld) && (DateTime.Now.Date - ld.Date).TotalDays <= 4;
+		streak = cont ? streak + 1 : 1; lastDone = DateTime.Now.ToString("yyyyMMdd");
+		dDone = true; Save(); try { Bond.Daily("daily"); Bond.Add(streak >= 5 ? 5 : 3); } catch { } return true;
 	}
 }

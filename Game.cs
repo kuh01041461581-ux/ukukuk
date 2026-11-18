@@ -1573,7 +1573,7 @@ internal sealed class MaryongGame : Form
 	private void Finish()
 	{
 		state = 3; board = LoadBoard(g.Key);
-		try { if (Arcade.Check(g.Key, g.Score)) { Sfx.Play("fanfare"); Confetti.Fire(Bounds); Bubble.Say("오늘의 도전 성공! 호감도가 올랐어요", 3.5); } } catch { }
+		try { if (Arcade.Check(g.Key, g.Score)) { Sfx.Play("fanfare"); Confetti.Fire(Bounds); Bubble.Say("오늘의 도전 성공!" + (Arcade.Streak >= 2 ? " " + Arcade.Streak + "번 연속!" : "") + " 호감도가 올랐어요", 3.5); } } catch { }
 		if (Arcade.Diff != 1) { prevBest = board.Count > 0 ? board[0].Value : 0; newRecord = false; thisKey = ""; Sfx.Play("over"); return; }   // 쉬움·어려움은 기록에 올리지 않아요
 		int bst = board.Count > 0 ? board[0].Value : 0; prevBest = bst; thisKey = "";
 		newRecord = g.Score > bst && g.Score > 0;
@@ -1691,7 +1691,7 @@ internal sealed class MaryongGame : Form
 		using (GraphicsPath sp = Gfx.Round(sr, sh2 / 2f)) { using (LinearGradientBrush lb = new LinearGradientBrush(sr, Color.FromArgb(255, 255, 220, 110), Color.FromArgb(255, 255, 170, 60), 90f)) gr.FillPath(lb, sp); }
 		MiniGame.Txt(gr, "화면을 눌러 시작", 14f, 2, Color.FromArgb(255, 60, 38, 8), sr.X, sr.Y, sr.Width, sr.Height, StringAlignment.Center);
 		float ny = sy + sh2 + 8f; string dk, dn; int dg; bool dd;
-		try { if (Arcade.Today(out dk, out dn, out dg, out dd) && dk == g.Key) { MiniGame.Txt(gr, dd ? "★ 오늘의 도전 완료!" : "★ 오늘의 도전 · " + dg + "점 이상", 10.5f, 1, Color.FromArgb(255, 255, 226, 120), 0, ny, MiniGame.W, 18, StringAlignment.Center); ny += 20f; } } catch { }
+		try { if (Arcade.Today(out dk, out dn, out dg, out dd) && dk == g.Key) { MiniGame.Txt(gr, dd ? "★ 오늘의 도전 완료!" : (Arcade.Diff == 0 ? "★ 오늘의 도전 · 보통 이상에서 " + dg + "점" : "★ 오늘의 도전 · " + dg + "점 이상"), 10.5f, 1, Color.FromArgb(255, 255, 226, 120), 0, ny, MiniGame.W, 18, StringAlignment.Center); ny += 20f; } } catch { }
 		if (Arcade.Diff != 1) MiniGame.Txt(gr, "난이도 " + Arcade.DiffNames[Arcade.Diff] + " · 기록은 보통에서만 올라가요", 9.5f, 0, Color.FromArgb(200, 190, 215, 255), 0, ny, MiniGame.W, 18, StringAlignment.Center);
 	}
 	// 결과·이름 입력·일시정지 화면이 함께 쓰는 둥근 카드

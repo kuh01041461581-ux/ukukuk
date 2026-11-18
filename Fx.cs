@@ -279,6 +279,7 @@ internal sealed class Confetti : Form
 		}
 		long t0 = Stopwatch.GetTimestamp(); Draw(); double cost = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
 		drawCost = drawCost <= 0 ? cost : drawCost * 0.6 + 0.4 * cost;
+		if (drawCost > 0.016) { bigAA = false; if (ps.Count > 24) for (int i = ps.Count - 1; i >= 0; i -= 2) ps.RemoveAt(i); drawCost *= 0.7; }   // 그래도 무거우면 계단 현상 방지를 끄고 조각을 절반으로 줄여요
 		nextAt = t + Math.Min(0.05, Math.Max(0.0, drawCost * 2.0 - 0.012));   // 한 번 그리는 데 8ms 넘게 걸리면 그만큼 쉬어요 (최대 20fps)
 	}
 
@@ -288,8 +289,10 @@ internal sealed class Confetti : Form
 		Graphics g = sg; g.Clear(Color.Transparent); g.SmoothingMode = bigAA ? SmoothingMode.AntiAlias : SmoothingMode.None;
 		double t = sw.Elapsed.TotalSeconds;
 		float shrink = t < Life - 0.7 ? 1f : (float)Math.Max(0.0, (Life - t) / 0.7);
+		int cw = bw, ch = bh;
 		foreach (P p in ps)
 		{
+			if (p.X < -40f || p.Y < -40f || p.X > cw + 40f || p.Y > ch + 40f) continue;   // 화면 밖 조각은 그리지 않아요
 			float flip = (float)Math.Abs(Math.Cos(p.Ph));            // 팔랑이는 느낌
 			float w = p.S * shrink, h = p.S * 0.55f * Math.Max(0.15f, flip) * shrink;
 			if (w < 1f) continue;

@@ -853,15 +853,23 @@ internal partial class Program
 			cd.Controls.Add(dSeg);
 			Card cc = card(pAr, 184, 92);
 			Lbl(cc, "오늘의 도전", 11f, 1, Theme.Ink, 18, 12, 200, 22);
-			string dk, dn; int dg; bool dd;
-			string dtxt = Arcade.Today(out dk, out dn, out dg, out dd) ? (dd ? "★ " + dn + " · 오늘 도전 완료! 내일 또 만나요" : dn + " · " + dg + "점 이상 달성하기") : "오늘은 도전이 없어요";
-			Lbl(cc, dtxt, 10f, 0, Theme.Sub, 18, 36, 360, 20);
-			if (dk != null && dk.Length > 0 && !dd)
+			TLabel dl = Lbl(cc, "", 10f, 0, Theme.Sub, 18, 36, 380, 20);
+			TLabel dl2 = Lbl(cc, "", 9f, 0, Theme.Muted, 18, 62, 400, 18);
+			string dKey = ""; TButton goB = new TButton("도전하기", BK.Primary); goB.Pt = 9.5f; goB.Location = new Point(Zs(CW - 18 - 100), Zs(26)); goB.Size = new Size(Zs(100), Zs(36));
+			goB.Click += delegate { if (dKey.Length > 0) MaryongGame.OpenGame(dKey); }; cc.Controls.Add(goB);
+			// 설정창은 미리 만들어 두므로, 이 페이지가 보일 때마다 오늘 날짜 기준으로 다시 채워요
+			Action dRefresh = delegate
 			{
-				string kk = dk; TButton goB = new TButton("도전하기", BK.Primary); goB.Pt = 9.5f; goB.Location = new Point(Zs(CW - 18 - 100), Zs(26)); goB.Size = new Size(Zs(100), Zs(36));
-				goB.Click += delegate { MaryongGame.OpenGame(kk); }; cc.Controls.Add(goB);
-			}
-			Lbl(cc, "못 해도 괜찮아요 · 성공하면 호감도가 올라요", 9f, 0, Theme.Muted, 18, 62, 420, 18);
+				try
+				{
+					string dk, dn; int dg; bool dd; bool ok = Arcade.Today(out dk, out dn, out dg, out dd); int stk = Arcade.Streak;
+					dKey = ok ? dk : ""; dl.Text = !ok ? "오늘은 도전이 없어요" : (dd ? "★ " + dn + " · 오늘 도전 완료! 내일 또 만나요" : dn + " · " + dg + "점 이상 달성하기 (보통 이상)");
+					dl2.Text = (stk >= 2 ? "연속 " + stk + "번 성공 중 · " : "") + "못 해도 괜찮아요 · 성공하면 호감도가 올라요";
+					goB.Visible = ok && !dd;
+				}
+				catch { }
+			};
+			dRefresh(); pAr.VisibleChanged += delegate { if (pAr.Visible) dRefresh(); };
 			List<KeyValuePair<string, string>> cat = MaryongGame.Catalog();
 			int rows = (cat.Count + 2) / 3; Card cg = card(pAr, 284, 282);
 			Panel glHost = new Panel(); glHost.BackColor = cg.BackColor; glHost.AutoScroll = true; glHost.AutoScrollMinSize = new Size(0, Zs(rows * 34 + 4)); glHost.Location = new Point(Zs(8), Zs(40)); glHost.Size = new Size(Zs(CW - 16), Zs(234)); cg.Controls.Add(glHost);

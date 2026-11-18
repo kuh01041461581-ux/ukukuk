@@ -8,6 +8,7 @@ from scipy import ndimage as ndi
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); gp = root + '/work/gpt/whole.png'; mod = root + '/st2android/mod'; src = root + '/work/st2'
 if not os.path.exists(gp): print('whole.png 없음 — 건너뜀'); sys.exit(0)
 K = 2
+FACE_W = float(os.environ.get('FACE_W', '50'))                                            # 여자 통머리: 얼굴 살색 폭을 표정 조각 폭(HD 48)에 가깝게 맞춘다(머리카락은 그 밖으로 나온다)
 im = Image.open(gp).convert('RGB'); a = np.asarray(im).astype(int); bg = np.median(a[:8, :8].reshape(-1, 3), axis=0)
 mask = ndi.binary_closing(np.abs(a - bg).sum(2) > 60, iterations=1)
 def rows_of(m):
@@ -53,12 +54,12 @@ def place(head, k):
     a2 = np.asarray(head).astype(int); sk = skinmask(a2); ys = np.where(sk.any(1))[0]; h = head.height
     r0, r1 = int(ys.min() + (ys.max() - ys.min()) * 0.30), int(ys.min() + (ys.max() - ys.min()) * 0.60)           # 눈~코 높이대 피부 폭 = 얼굴 폭
     widths = [(np.where(sk[r])[0].max() - np.where(sk[r])[0].min()) for r in range(r0, r1) if sk[r].any()]; fw = max(widths) if widths else head.width * 0.6
-    f = ((62 if k in (3, 4, 5, 9, 10, 11, 12, 13, 14) else 56) / head.width); big = head.resize((max(1, int(head.width * f)), max(1, int(head.height * f))), Image.LANCZOS)
+    f = (FACE_W / fw) if k in (3, 4, 5, 9, 10, 11, 12, 13, 14) else (56 / head.width); big = head.resize((max(1, int(head.width * f)), max(1, int(head.height * f))), Image.LANCZOS)
     chin = int(ys.max() * f); cols = np.where(sk[(ys.min() + ys.max()) // 2])[0]; cx = int(cols.mean() * f)
     # 목: 턱 아래에 피부색 목을 붙여 상체와 이어지게 한다
     sa = np.asarray(big).astype(int); skb = skinmask(sa); ysb = np.where(skb.any(1))[0]; ch = int(ysb.max())
     rows = [r for r in range(max(0, ch - 8), ch - 2) if skb[r].any()]; col = np.median(sa[rows][skb[rows]][:, :3], axis=0).astype(int) if rows else np.array([235, 180, 130])
-    NH = 6 if k in (3, 4, 5, 9, 10, 11, 12, 13, 14) else 0; canvas = Image.new('RGBA', (big.width, big.height + NH), (0, 0, 0, 0)); nw = int(big.width * 0.26); ncx = int(np.where(skb[ch - 6])[0].mean()) if skb[ch - 6].any() else big.width // 2
+    NH = 0; canvas = Image.new('RGBA', (big.width, big.height + NH), (0, 0, 0, 0)); nw = int(big.width * 0.26); ncx = int(np.where(skb[ch - 6])[0].mean()) if skb[ch - 6].any() else big.width // 2
     neck = Image.new('RGBA', canvas.size, (0, 0, 0, 0)); from PIL import ImageDraw; dn = ImageDraw.Draw(neck); dn.rectangle([ncx - nw // 2, ch - 8, ncx + nw // 2, ch + NH + 3], fill=tuple(int(v * 0.93) for v in col) + (255,))
     if NH: canvas.alpha_composite(neck); canvas.alpha_composite(big, (0, 0)); big = canvas
     return big, (24 * K // 2 - cx), (26 * K - chin + (7 if k in (3, 4, 5, 9, 10, 11, 12, 13, 14) else 1))

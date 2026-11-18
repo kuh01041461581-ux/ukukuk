@@ -6,10 +6,10 @@ import numpy as np
 from PIL import Image, ImageFilter
 from scipy import ndimage as ndi
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); gp = root + '/work/gpt'
-base = Image.open(gp + '/fhead.png').convert('RGB'); sheet = Image.open(gp + '/faces18.png').convert('RGB')
+base = Image.open(gp + '/fhead.png').convert('RGB'); sheet = Image.open(gp + '/faces_final.png').convert('RGB')
 BL, BR, BM = (640, 428), (1010, 434), (805, 775)                                      # 기본 머리의 왼눈·오른눈·입 중심(px)
 def faces(row):
-    a = np.asarray(sheet).astype(int); y0, y1 = (104, 380) if row == 0 else (462, 740); sub = a[y0:y1]
+    a = np.asarray(sheet).astype(int); y0, y1 = (84, 340) if row == 0 else (448, 720); sub = a[y0:y1]
     m = (sub[..., 0] > 150) & (sub[..., 0] - sub[..., 2] > 40)                          # 살색(파란 배경 제외)
     m = ndi.binary_opening(m, iterations=2); out = []; cols = m.sum(0) > 20; s = None
     for x, v in enumerate(list(cols) + [False]):

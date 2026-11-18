@@ -844,6 +844,8 @@ class ReportForm:
             if b[0] == "kv2":
                 run.append(i)
                 continue
+            if b[0] == "item3" and run:         # ▸ 줄 사이의 '-' 세부 줄은 묶음을 끊지 않는다(참석자 - … 다음 ▸주요내용도 ':' 를 맞춘다)
+                continue
             if run:
                 w = max(self._vw(T.pad_label(blocks[j][1])) for j in run)
                 widths.update({j: w for j in run})

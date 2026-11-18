@@ -314,7 +314,7 @@ class NewFormsTests(unittest.TestCase):
         txt = ptext(pkg.section(0))
         self.assertIn("▸일시/장소 : 2026. 11. 11.(수) / 센터", txt.replace("일시/장소", "일시/장소"))
         self.assertIn("-(익산시) 담당", txt.replace(" ", "", 0).replace("- (익산시)", "-(익산시)"))
-        self.assertIn("▸주요내용", txt)
+        self.assertIn("▸ 주요내용 : 설계 협의", txt)                 # '-' 세부 줄 뒤에도 ':' 위치를 앞 ▸ 줄과 맞춘다
 
     def test_privacy_new_forms(self):
         import zipfile

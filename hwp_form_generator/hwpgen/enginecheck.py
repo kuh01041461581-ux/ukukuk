@@ -147,11 +147,27 @@ def compare(src, got, limit=40):
 
 
 # ------------------------------------------------------------------ 전체 검증
+def _weekly_sample(fid):
+    """주간 양식은 입력 사전으로 만든다 — 일정이 여러 줄로 늘어나는 대표 예로 검증"""
+    items = [{"title": "행사 %d" % i, "dept": "문화유산과", "staff": "홍길동", "phone": "5708", "date": "2026-11-%02d" % (9 + i), "time": "10:00",
+              "place": "시청", "lines": [("주최", "익산시"), ("내용", "내용 %d" % i)]} for i in range(3)]
+    if fid == "weekly_cover":
+        return {"start": "2026-11-09"}
+    if fid == "weekly_plan":
+        return {"org": "문화교육국", "items": items}
+    evs = [{"date": "2026-11-10", "time": "%02d:00" % (9 + k), "title": "일정%d" % k, "place": "장소", "dept": "과", "attend": "", "note": ""} for k in range(4)]
+    return {"org": "문화교육국", "start": "2026-11-09", "events": evs + [{"date": "2026-11-14", "time": "13:00", "title": "토요 일정", "place": "공원", "dept": "과"}]}
+
+
 def check_form(br, form, tmp_path):
     """양식 하나 검증 → (통과 여부, 다른 곳 목록)"""
     from .package import Package
-    vals = {x["key"]: ("{{%s}}" % x["key"]) for x in getattr(form, "fields", [])}
-    pkg = form.render(vals, form.meta.get("starter", ""))
+    fid = getattr(form, "id", "") or form.meta.get("id", "")
+    if fid.startswith("weekly"):
+        pkg = form.render(_weekly_sample(fid))
+    else:
+        vals = {x["key"]: ("{{%s}}" % x["key"]) for x in getattr(form, "fields", [])}
+        pkg = form.render(vals, form.meta.get("starter", ""))
     src, imgs = R.extract(pkg)
     br.scratch_build(src, imgs, src.get("page"), tmp_path)
     got, _ = R.extract(Package.load(tmp_path))
@@ -169,8 +185,6 @@ def run_all(br, form_ids, tmp_dir, progress=None):
             progress(i, len(form_ids), fid)
         try:
             form = registry.load_form(fid)
-            if fid.startswith("weekly"):
-                continue
             ok, diffs = check_form(br, form, os.path.join(tmp_dir, "enginecheck_%s.hwpx" % fid))
         except Exception as e:                             # noqa: BLE001
             ok, diffs = False, ["검증 중 오류: %s" % e]

@@ -62,7 +62,7 @@ class Output:
     def __init__(self, app):
         self.app = app
 
-    def insert(self, pkg, prefix, replace=None):
+    def insert(self, pkg, prefix, replace=None, engine_id=None):
         """열려 있는 한글 문서의 커서 위치에 서식째 넣는다(새 문서는 만들지 않음).
         - 샘플의 쪽 설정(secPr)은 빼서 문서 중간에서 쪽·여백이 바뀌지 않게 한다. 빈 문서일 때만 샘플 용지·여백을 적용.
         - 기본은 문단 단위로 차례대로 넣어 '입력되는' 느낌을 준다(더보기에서 '한 번에'로 바꿀 수 있음)."""
@@ -114,7 +114,7 @@ class Output:
         mode = app.ui.get("build", "auto")
         if mode == "auto":                           # 검증을 통과한(원본과 같은 결과가 확인된) 양식만 명령으로, 나머지는 양식 파일로
             from . import enginecheck
-            mode = "commands" if enginecheck.is_ok(prefix) else "file"
+            mode = "commands" if enginecheck.is_ok(engine_id or prefix) else "file"
         if mode == "commands":                       # 파일을 끼우지 않고 한글 명령으로 직접 만든다(참고 프로그램 방식)
             try:
                 self._insert_commands(pkg, empty or top, page if keep_section else None)
@@ -2419,7 +2419,7 @@ class Widget(tk.Tk):
                     if rough_items:
                         replace = "selection"
                         pkg = registry.load_form("weekly_plan").render({"org": org, "items": rough_items})
-                        self.busy(lambda: self.out.insert(pkg, "주간업무계획", replace))
+                        self.busy(lambda: self.out.insert(pkg, "주간업무계획", replace, engine_id="weekly_plan"))
                         return
                 items = data["items"] or [{"title": "(행사·업무명)", "dept": prof.get("dept", ""), "staff": prof.get("staff_name", ""),
                                            "phone": prof.get("staff_ext", ""),
@@ -2437,7 +2437,8 @@ class Widget(tk.Tk):
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
-        self.busy(lambda: self.out.insert(pkg, {"cover": "주간업무계획표지"}.get(which) or (weekly.plan_file_name(monday) if which == "plan" else weekly.schedule_file_name(org, monday))))
+        self.busy(lambda: self.out.insert(pkg, {"cover": "주간업무계획표지"}.get(which) or (weekly.plan_file_name(monday) if which == "plan" else weekly.schedule_file_name(org, monday)),
+                                              engine_id={"cover": "weekly_cover", "plan": "weekly_plan"}.get(which, "weekly_schedule")))
 
     def busy(self, fn):
         self.config(cursor="watch")
@@ -2601,7 +2602,7 @@ class Widget(tk.Tk):
         if not self._need_hwp("엔진 검증"):
             return
         from . import enginecheck, registry as R2
-        ids = [fid for fid, _f, meta in R2.list_forms() if not fid.startswith("weekly")]
+        ids = [fid for fid, _f, meta in R2.list_forms()]
         if not messagebox.askyesno("엔진 검증", "양식 %d개를 새 문서에서 한글 명령으로 만들어 원본과 비교해요.\n"
                                    "문서가 잠깐씩 열렸다 닫히고 몇 분 걸려요(지금 열어 둔 문서는 그대로예요).\n계속할까요?" % len(ids)):
             return

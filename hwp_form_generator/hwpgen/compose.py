@@ -18,6 +18,10 @@ SHAPES = [
     ("꽉 찬 네모 흰숫자", "SHAPE_REVERSAL_RECTANGLE", 4),
     ("원 안 숫자", "SHAPE_CIRCLE", 1),
     ("꽉 찬 원 흰숫자", "SHAPE_REVERSAL_CIRCLE", 2),
+    ("삼각형 안 숫자", "SHAPE_TRIANGLE", 5),
+    ("꽉 찬 삼각형 흰숫자", "SHAPE_REVERSAL_TRIANGLE", 6),
+    ("마름모 안 숫자", "SHAPE_RHOMBUS", 7),
+    ("꽉 찬 마름모 흰숫자", "SHAPE_REVERSAL_RHOMBUS", 8),
 ]
 
 

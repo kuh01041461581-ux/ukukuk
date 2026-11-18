@@ -43,9 +43,15 @@ def comps(img_path, thr, minh):
         h = sl[0].stop - sl[0].start; w = sl[1].stop - sl[1].start
         if h >= minh and w >= minh: out.append((sl[1].start, sl[0].start, sl[1].stop, sl[0].stop))
     return im, bg, sorted(out, key=lambda b: (b[1] // 250, b[0]))
+if os.path.exists(gp + '/faces_final.png'):                      # 사용자가 확정한 18표정 시트(여자: 3·4·5·9~14번): 한 장에서 순서대로
+    IA, bgA, cA = comps(gp + '/faces_final.png', 60, 120); USE_FINAL = len(cA) == 18
+    if USE_FINAL:
+        for i in range(18): n += apply(f'ff{i}', noblue(cut(IA, (cA[i][0] - 2, max(0, cA[i][1] - 2), cA[i][2] + 2, cA[i][3] + 2), bgA, 60)))
+    else: print('faces_final 얼굴 수', len(cA), '— 건너뜀')
+else: USE_FINAL = False
 if os.path.exists(gp + '/faceA.png'):
     IA, bgA, cA = comps(gp + '/faceA.png', 60, 120); IB, bgB, cB = comps(gp + '/faceB.png', 60, 120)
-    for i in range(18):
+    for i in ([] if USE_FINAL else range(18)):
         if i in (9, 10, 11): im_, bg_, box = IB, bgB, (cB[i - 1][0], 456, cB[i - 1][2], cB[i - 1][3])                           # 9·10·11번은 세 번째 그림에서(그 그림의 둘째 줄은 8번이 앞줄에 합쳐져 한 칸씩 당겨진다)
         else: im_, bg_, box = IA, bgA, cA[i]
         n += apply(f'ff{i}', noblue(cut(im_, (box[0] - 2, max(0, box[1] - 2), box[2] + 2, box[3] + 2), bg_, 60)))

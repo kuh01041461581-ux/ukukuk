@@ -68,18 +68,17 @@ def b19():                                                                   # �
     for cx in range(31, 63):
         for cy in range(0, 30):
             if get(cx, cy) in INK: put(cx, cy, CR)
-    G = G3['L'], G3['O'], G3['T'], G3['T'], G3['E']; x0, y0 = 37, 27                    # 왼쪽 글자 아래 기준선(조립 좌표), 오른쪽으로 갈수록 0.5씩 올라간다
-    COL = (2, 1, 1); ROW = (2, 1, 2, 1, 2); x = x0
-    for g in G:
-        cxo = x
-        for c in range(3):
-            for w in range(COL[c]):
-                xx = cxo + sum(COL[:c]) + w; base = y0 - int(round((xx - x0) * 0.5)); yy = base
-                for r in reversed(range(5)):
-                    for h in range(ROW[r]):
-                        yy -= 1
-                        if g[r * 3 + c] == '1': put(xx, yy, (219, 0, 36, 255))
-        x += 5
+    F = {'L': ('1000', '1000', '1000', '1000', '1000', '1000', '1111'), 'O': ('0110', '1001', '1001', '1001', '1001', '1001', '0110'),
+         'T': ('1111', '0110', '0110', '0110', '0110', '0110', '0110'), 'E': ('1111', '1000', '1000', '1110', '1000', '1000', '1111')}
+    x0, y0 = 37, 27                                                                       # 왼쪽 글자 아래 기준선(조립 좌표), 오른쪽으로 갈수록 0.5씩 올라간다
+    for pas, col in ((1, (150, 0, 30, 255)), (0, (235, 20, 50, 255))):                    # 먼저 어두운 그림자(오른쪽 1칸), 그 위에 밝은 빨강 글자
+        x = x0
+        for ch in 'LOTTE':
+            for r, row in enumerate(F[ch]):
+                for c, v in enumerate(row):
+                    if v == '1':
+                        xx = x + c + pas; put(xx, y0 - int(round((xx - pas - x0) * 0.5)) - (6 - r) - 1, col)
+            x += 5
     return im
 def b9():                                                                    # 카트라이더 → 승마(HORSE)
     im = Image.open('/tmp/pk/b9.d').convert('RGBA')

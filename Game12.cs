@@ -27,7 +27,7 @@ internal sealed class GolfGame : MiniGame
 	public override string Name { get { return "마룡이 골프"; } }
 	public override string Key { get { return "golf"; } }
 	public override string Desc { get { return "바람을 읽고 3홀을 돌아요"; } }
-	public override string Help { get { return "① 클럽을 고르면 최대 거리가 정해져요 (아래 ◀ ▶ 또는 1~7 키 · 드라이버 230m ~ 샌드 웨지 55m)\n② 마우스로 방향만 잡고 클릭 (점선 끝 = 이 클럽으로 꽉 쳤을 때 떨어지는 곳 · 바람 보정!)\n③ 마룡이가 나와서 스윙해요: 힘 게이지가 오르내려요 → 원하는 거리에서 클릭 (노란 눈금 = 핀까지 거리)\n④ 정확도 바 한가운데에서 클릭하면 똑바로! → 홀 화면으로 돌아와 공이 날아가요\n호수·OB는 벌타 +1 · 벙커·러프는 거리가 줄어요\n그린에서는 퍼터: 방향은 마우스, 세기는 게이지 · 초록 화살표는 그린의 경사예요\n파 기준 타수가 적을수록 점수가 높아요"; } }
+	public override string Help { get { return "① 클럽 선택 (◀ ▶ 또는 1~7 키) → ② 마우스로 방향을 잡고 클릭\n③ 힘 게이지가 원하는 거리에서 클릭 → ④ 정확도 바 가운데에서 클릭!\n호수·OB는 벌타 +1 · 그린에서는 퍼터 (초록 화살표 = 경사)\n파 기준 타수가 적을수록 고득점"; } }
 	public override string RightText { get { return (hole + 1) + "/3홀 · " + strokes + "타"; } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{

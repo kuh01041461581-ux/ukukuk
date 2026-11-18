@@ -22,7 +22,7 @@ internal sealed class MatchPuzzleGame : MiniGame
 	public override string Name { get { return "마룡이 퍼즐"; } }
 	public override string Key { get { return "puzzle"; } }
 	public override string Desc { get { return "같은 마룡이 3개를 맞춰 터뜨려요"; } }
-	public override string Help { get { return "마룡이를 눌러 고른 뒤 옆 칸을 누르거나, 끌어서 자리를 바꿔요\n같은 마룡이 3개 이상이 한 줄로 모이면 터져요\n4개 한 줄: 가로/세로 드릴 (한 줄 전부 제거)\nL자 모양: 폭탄 (3×3 제거) · T자·十자 모양: 십자 드릴 (가로+세로)\n5개 이상: 무지개 (같은 종류 전부 제거)\n특수 블록은 옆 칸과 바꾸면 바로 터져요 · 특수끼리 바꾸면 합체 폭발!\n무지개 + 특수 = 같은 종류가 모두 그 특수로 변신\n3연쇄 이상이면 보너스 특수 블록(폭탄·X 드릴)이 나와요\n스테이지마다 목표가 달라요: 점수 · 특정 마룡이 모으기 · 젤리 없애기\n5스테이지부터 얼음 블록(옆에서 두 번), 6스테이지부터 돌 블록, 9스테이지부터 철 블록(폭탄·드릴로만 두 번 쳐서 깨요)이 나와요. 굳은 블록은 못 움직이고, 옆에서 줄이 터지면 깨져요 (금이 간 블록은 두 번)\n4스테이지부터 자물쇠 칸이 나와요: 못 움직이지만 줄에 끼면 풀려요 (겹자물쇠는 두 번)\n아래 아이템(망치·섞기·폭탄)은 클리어할 때마다 하나씩 얻어요\n정해진 횟수 안에 목표를 이루면 다음 스테이지!"; } }
+	public override string Help { get { return "마룡이를 눌러 옆 칸과 바꾸거나 끌어서 자리를 바꿔요\n같은 마룡이 3개 이상을 한 줄로 모으면 터져요 (4개·L·T·5개는 특수 블록!)\n특수 블록은 옆 칸과 바꾸면 바로 터지고, 특수끼리 바꾸면 합체 폭발\n정해진 횟수 안에 스테이지 목표를 이루면 다음 스테이지!"; } }
 	public override string RightText { get { return "스테이지 " + stage + " · " + moves + "번"; } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{

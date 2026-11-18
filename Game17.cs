@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -14,7 +14,7 @@ internal sealed class SoliGame : MiniGame
 	public override string Name { get { return "마룡이 발라트로"; } }
 	public override string Key { get { return "soli"; } }
 	public override string Desc { get { return "발라트로식 포커 · 족보로 목표 점수 넘기기"; } }
-	public override string Help { get { return "손패 카드를 위쪽 [내는 판]으로 끌어 올려요 (눌러도 올라가요 · 최대 5장) → [내기]로 포커 족보 점수!\n점수 = (족보 칩 + 카드 칩) × 배수 · 족보: 하이카드 < 원페어 < 투페어 < 트리플 < 스트레이트 < 플러시 < 풀하우스 < 포카드 < 스트레이트 플러시 < 로열 플러시\n필요 없는 카드는 아래 [쓰레기통]으로 끌어 넣고 쓰레기통을 누르면 버리고 새 카드를 받아요 (한 번에 5장까지)\n판·쓰레기통의 카드를 누르면 원래 자리로 돌아가요 · [모두 내리기]로 한꺼번에\n판마다 내기 4번 · 버리기 3번 안에 목표 점수를 넘기면 다음 판 + 부적 하나"; } }
+	public override string Help { get { return "손패를 위 [내는 판]으로 끌어 올려요 (최대 5장) → [내기]로 포커 족보 점수!\n필요 없는 카드는 [쓰레기통]으로 끌어 버리고 새 카드를 받아요\n판마다 내기 4번 · 버리기 3번 안에 목표 점수를 넘기면 다음 판 + 부적"; } }
 	public override string RightText { get { return "판 " + (round + 1); } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{

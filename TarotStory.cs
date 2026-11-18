@@ -8,6 +8,12 @@ internal sealed partial class TarotForm
 	private static string FS(string t) { if (string.IsNullOrEmpty(t)) return ""; int i = t.IndexOf('.'); return i > 0 ? t.Substring(0, i + 1) : t; }
 	private string Cd(int i) { Slot s = slots[i]; return "'" + CardName(s.Card) + (s.Rev && s.Card < 22 ? "(역)" : "") + "' 카드(" + CardKw(s.Card) + ")"; }
 	private string CdS(int i) { Slot s = slots[i]; return "'" + CardName(s.Card) + (s.Rev && s.Card < 22 ? "(역)" : "") + "'"; }
+	private string Intro(int i, int k, int g)
+	{
+		string c = CdS(i) + " 카드", kw = CardKw(slots[i].Card), p = posN[i]; int v = (i + g) % 3;
+		if (k == 0) return v == 0 ? p + " 자리에는 " + c + "가 놓였어요." : (v == 1 ? p + " 자리를 차지한 " + c + "는 '" + kw + "'의 기운이에요." : p + " 자리에서는 " + c + "가 중심에 서요. 키워드는 '" + kw + "'예요.");
+		return v == 0 ? "여기에 " + p + " 자리의 " + c + "가 더해져요." : (v == 1 ? "곁에는 " + p + " 자리의 " + c + "가 있어요." : "그리고 " + p + " 자리의 " + c + "는 '" + kw + "' 쪽의 이야기예요.");
+	}
 	private string Say(int i) { Slot s = slots[i]; return FS(Meaning(s.Card, s.Rev)); }
 	private int Sc(int i) { return YesScore(slots[i].Card, slots[i].Rev); }
 	private static readonly int[][] ElPairIdx = { new[] { 0, 3 }, new[] { 0, 1 }, new[] { 0, 2 }, new[] { 1, 3 }, new[] { 1, 2 }, new[] { 2, 3 } };
@@ -46,12 +52,12 @@ internal sealed partial class TarotForm
 		int[][] G; string[] lead;
 		switch (mode)
 		{
-			case 6: G = new[] { new[] { 0, 1 }, new[] { 2, 3 }, new[] { 4, 5 }, new[] { 6, 7 }, new[] { 8 }, new[] { 9 } }; lead = new[] { "먼저 지금 놓인 장면의 중심부터 볼게요.", "그 장면이 어디서 왔는지 뿌리를 따라가 보면,", "이제 시선을 앞쪽으로 옮겨 볼게요.", "한편 이 일을 대하는 나와 주변을 보면,", "마음 깊은 곳에서는,", "그래서 이 이야기가 닿는 결론은," }; break;
-			case 1: G = new[] { new[] { 0 }, new[] { 1 }, new[] { 2 } }; lead = new[] { "이야기의 출발점부터 볼게요.", "그 위에 지금의 장면이 겹쳐요.", "그리고 이 흐름이 향하는 곳은," }; break;
-			case 2: G = new[] { new[] { 0, 1 }, new[] { 2 } }; lead = new[] { "먼저 두 사람의 마음부터 볼게요.", "그래서 앞으로의 흐름은," }; break;
-			case 3: G = new[] { new[] { 0, 1 }, new[] { 2 }, new[] { 3, 4 } }; lead = new[] { "지금의 상황과 그 앞을 막는 것부터 볼게요.", "이 국면을 푸는 열쇠는,", "그러면 곧 이어질 장면과 결과는," }; break;
-			case 9: G = new[] { new[] { 0, 2 }, new[] { 1 }, new[] { 3, 4 } }; lead = new[] { "먼저 나와 상대의 모습부터 볼게요.", "두 사람 사이에 흐르는 기운은,", "함께 풀어 갈 숙제와 가꾸는 방법은," }; break;
-			case 10: G = new[] { new[] { 0, 1 }, new[] { 2, 3, 4 }, new[] { 5, 6 } }; lead = new[] { "지나온 길과 지금의 자리부터 볼게요.", "눈에 보이지 않는 영향과 걸림돌, 주변의 환경은,", "그래서 취할 행동과 가능한 결과는," }; break;
+			case 6: G = new[] { new[] { 0, 1 }, new[] { 2, 3 }, new[] { 4, 5 }, new[] { 6, 7 }, new[] { 8 }, new[] { 9 } }; lead = new[] { "먼저 지금 놓인 장면의 중심부터 볼게요.", "그 장면이 어디서 왔는지 뿌리를 따라가 볼게요.", "이제 시선을 앞쪽으로 옮겨 볼게요.", "한편 이 일을 대하는 나와 주변의 모습이에요.", "마음 깊은 곳의 목소리도 들어 볼게요.", "그래서 이 이야기가 닿는 결론이에요." }; break;
+			case 1: G = new[] { new[] { 0 }, new[] { 1 }, new[] { 2 } }; lead = new[] { "이야기의 출발점부터 볼게요.", "그 위에 지금의 장면이 겹쳐요.", "그리고 이 흐름이 향하는 곳을 볼게요." }; break;
+			case 2: G = new[] { new[] { 0, 1 }, new[] { 2 } }; lead = new[] { "먼저 두 사람의 마음부터 볼게요.", "그래서 앞으로의 흐름을 이어서 볼게요." }; break;
+			case 3: G = new[] { new[] { 0, 1 }, new[] { 2 }, new[] { 3, 4 } }; lead = new[] { "지금의 상황과 그 앞을 막는 것부터 볼게요.", "이 국면을 푸는 열쇠를 찾아볼게요.", "그러면 곧 이어질 장면과 결과를 볼게요." }; break;
+			case 9: G = new[] { new[] { 0, 2 }, new[] { 1 }, new[] { 3, 4 } }; lead = new[] { "먼저 나와 상대의 모습부터 볼게요.", "두 사람 사이에 흐르는 기운을 볼게요.", "함께 풀어 갈 숙제와 가꾸는 방법을 볼게요." }; break;
+			case 10: G = new[] { new[] { 0, 1 }, new[] { 2, 3, 4 }, new[] { 5, 6 } }; lead = new[] { "지나온 길과 지금의 자리부터 볼게요.", "눈에 보이지 않는 영향과 걸림돌, 주변 환경을 볼게요.", "그래서 취할 행동과 가능한 결과를 볼게요." }; break;
 			default: { G = new int[N][]; lead = new string[N]; for (int i = 0; i < N; i++) { G[i] = new[] { i }; lead[i] = i == 0 ? "먼저 처음 카드부터 볼게요." : (i == N - 1 ? "마지막으로 이야기가 향하는 곳이에요." : "이어서,"); } } break;
 		}
 		StringBuilder sb = new StringBuilder();
@@ -62,15 +68,16 @@ internal sealed partial class TarotForm
 			for (int k = 0; k < ix.Length; k++)
 			{
 				int i = ix[k];
-				if (k == 0) sb.Append(posN[i]).Append("에 ").Append(Cd(i)).Append("가 나왔어요. "); else sb.Append("여기에 ").Append(posN[i]).Append("의 ").Append(Cd(i)).Append("가 겹쳐요. ");
+				sb.Append(Intro(i, k, g)).Append(' ');
 				sb.Append(Say(i)).Append(' ');
 				if (k + 1 < ix.Length) { }
 			}
-			if (ix.Length >= 2) sb.Append("이 카드들을 이어 보면, ").Append(PairText(ix[0], ix[ix.Length - 1])).Append(' ');
+			if (ix.Length >= 2) sb.Append(new[] { "두 카드를 함께 읽으면, ", "이 둘이 만나면, ", "겹쳐 보면, " }[g % 3]).Append(PairText(ix[0], ix[ix.Length - 1])).Append(' ');
 			if (g + 1 < G.Length)
 			{
 				int a = ix[ix.Length - 1], b = G[g + 1][0]; int d = sc[b] - sc[a];
-				sb.Append(d >= 2 ? "이 장면은 한결 밝은 쪽으로 이어져요." : (d == 1 ? "이 흐름은 점차 나아지는 쪽으로 기울어요." : (d == 0 ? "이 흐름은 비슷한 결로 이어져요." : (d == -1 ? "이 흐름은 조금씩 무게가 실리는 쪽으로 이어져요." : "여기서 분위기가 한 번 크게 바뀌며 시험이 와요."))));
+				string[][] TR = { new[] { "여기서 분위기가 한 번 크게 바뀌며 시험이 와요.", "흐름이 크게 꺾이며 시험의 구간으로 들어가요.", "이 지점에서 분위기가 확 달라져요." }, new[] { "조금씩 무게가 실리는 쪽으로 이어져요.", "살짝 긴장이 더해지는 쪽으로 넘어가요.", "다음 장면에서는 조금 더 신중해야 해요." }, new[] { "비슷한 결로 이어져요.", "분위기는 그대로 이어져요.", "" }, new[] { "흐름이 조금씩 나아지는 쪽으로 기울어요.", "점점 숨통이 트이는 쪽으로 이어져요.", "한 걸음씩 나아지는 방향이에요." }, new[] { "이 장면은 한결 밝은 쪽으로 이어져요.", "여기서 분위기가 눈에 띄게 밝아져요.", "이야기가 한결 가벼워지는 쪽으로 넘어가요." } };
+				sb.Append(TR[Math.Max(-2, Math.Min(2, d)) + 2][g % 3]);
 			}
 			sb.Append("\n\n");
 		}

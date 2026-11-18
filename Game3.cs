@@ -25,7 +25,7 @@ internal sealed class BasketGame : MiniGame
 	public override string Name { get { return "농구 슛"; } }
 	public override string Key { get { return "hoop"; } }
 	public override string Desc { get { return "각도와 힘을 맞춰 슛!"; } }
-	public override string Help { get { return "마우스 위치(또는 ← →)로 던질 각도를 정해요\n꾹 누르면 힘 게이지가 차올라요 → 원하는 힘에서 놓으면 슛! (▼ 표시는 지난 슛의 힘)\n백보드에 맞고 들어가는 뱅크슛은 +1점 · 지난 슛이 날아간 길이 점선으로 남아요\n5골부터 골대가 위아래로 움직여요\n왼쪽 자리(3점 거리)는 +1점 · 림에 안 닿고 쏙 들어가면 3점\n점수가 오르면 바람이 불어 공이 옆으로 밀려요 (위에 화살표 · 초록 구간도 바람에 맞게 옮겨져요) · 잘할수록 초록 구간이 좁아져요\n45초 승부 · 종료 직전에 던진 공은 끝까지 날아가요(버저비터!)"; } }
+	public override string Help { get { return "마우스 위치(또는 ← →)로 각도를 정하고, 꾹 눌렀다 원하는 힘에서 놓으면 슛!\n백보드에 맞고 들어가면 뱅크슛 +1 · 3점 거리 +1 · 림에 안 닿고 쏙 들어가면 3점\n점수가 오르면 골대가 움직이고 바람이 불어요 (위 화살표)\n45초 승부 · 종료 직전에 던진 공도 끝까지 인정(버저비터!)"; } }
 	public override string RightText { get { return Math.Ceiling(left) + "초"; } }
 	public override void Reset() { buzz = false; left = 60; made = 0; angD = 72f; lastPw = -1f; lastPath.Clear(); curPath.Clear(); hoopBob = 0f; streak = 0; Score = 0; Over = false; aiming = false; charging = false; wasHold = false; time = 0; hoopC = HoopX; hy = HoopY; pop = ""; popT = 0; lastSpot = -1; ResetBall(); resetT = 0.3f; }
 	public override void Icon(Graphics g, float cx2, float cy2)

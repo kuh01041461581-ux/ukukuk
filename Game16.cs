@@ -33,7 +33,7 @@ internal sealed class CityHallGame : MiniGame
 	public override string Name { get { return "시청 철거 대작전"; } }
 	public override string Key { get { return "hall"; } }
 	public override string Desc { get { return "구청사를 부수고 신청사를 지어요"; } }
-	public override string Help { get { return "① 철거: 클릭하면 고른 무기로 발사해요 · 1~8(아래 버튼)로 무기 바꾸기 · A/D 또는 ◀▶ 버튼으로 화면 돌리기\n건물 아랫부분을 부수면 위쪽이 통째로 무너져요 · 구청사를 88% 이상 부수면 ② 건설 시작!\n② 건설: 마구 클릭하면 신청사가 한 층씩 올라가요 (지상 10층) · 60초 안에 준공하면 보너스\n※ 철퇴는 큰 쇠공이 좌우로 흔들리며 벽을 때려요 · 지진은 건물 전체를 흔들어 약한 곳부터 무너뜨려요\n※ 회색 기둥(철근콘크리트)은 단단해요 · 유리창이 깨지면 파편이 튀어요\n※ 빨간 통은 폭발해서 주변까지 부숴요 · 폭발 근처 건물에 불이 붙어 점점 타요 · 허리케인은 블록을 빨아올려요\n※ 블록으로 만든 약식 모형이에요 (구청사 4층 · 신청사 지상 10층, 외관은 약식이에요)"; } }
+	public override string Help { get { return "① 철거: 클릭으로 발사 · 1~8(아래 버튼)로 무기 바꾸기 · A/D 또는 ◀▶로 화면 돌리기\n건물 아래를 부수면 위쪽이 통째로 무너져요 · 88% 이상 부수면 ② 건설!\n② 건설: 마구 클릭하면 신청사가 한 층씩 올라가요 (10층) · 60초 안에 준공하면 보너스\n※ 회색 기둥은 단단해요 · 빨간 통은 폭발해서 주변까지 불타요"; } }
 	public override string RightText { get { return phase == 0 ? Pct() + "%" : buildStep + "/10층"; } }
 	private int Pct() { return hallTotal <= 0 ? 0 : (int)Math.Round(100.0 * (hallTotal - hallAlive) / hallTotal); }
 	public override void Icon(Graphics g, float cx, float cy)

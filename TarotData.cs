@@ -180,12 +180,10 @@ internal sealed partial class TarotForm
 			int ca = sc[i] >= 1 ? 0 : (sc[i] <= -1 ? 2 : 1), cb = sc[i + 1] >= 1 ? 0 : (sc[i + 1] <= -1 ? 2 : 1); string el = "";
 			if (slots[i].Card >= 22 && slots[i + 1].Card >= 22) { int xa = (slots[i].Card - 22) / 14, xb = (slots[i + 1].Card - 22) / 14; if (xa == xb) el = " 같은 계열이라 이 이야기가 한 가지 주제로 깊어져요."; else for (int k = 0; k < 6; k++) if ((pc[k][0] == xa && pc[k][1] == xb) || (pc[k][0] == xb && pc[k][1] == xa)) el = " " + ElPair[k]; }
 			for (int p = 0; p < PairMaj.Length; p++) if ((PairMaj[p][0] == slots[i].Card && PairMaj[p][1] == slots[i + 1].Card) || (PairMaj[p][1] == slots[i].Card && PairMaj[p][0] == slots[i + 1].Card)) { S.Add("● " + posN[i] + " '" + CardName(slots[i].Card) + "' + " + posN[i + 1] + " '" + CardName(slots[i + 1].Card) + "' → " + PairTx[p].Substring(PairTx[p].IndexOf(". ") + 2)); goto nextPair; }
-			S.Add("● " + posN[i] + " '" + CardName(slots[i].Card) + (slots[i].Rev ? "(역)" : "") + "'(" + CardKw(slots[i].Card) + ") 뒤에 " + posN[i + 1] + " '" + CardName(slots[i + 1].Card) + (slots[i + 1].Rev ? "(역)" : "") + "'(" + CardKw(slots[i + 1].Card) + ") 카드가 이어져요 → " + Trans[ca * 3 + cb] + el + (slots[i].Card < 22 && slots[i + 1].Card < 22 ? " 둘 다 메이저라 인생의 큰 주제예요." : (slots[i].Card >= 22 && slots[i + 1].Card >= 22 ? " 둘 다 마이너라 일시적인 상황이니 노력으로 바꿀 수 있어요." : " 메이저는 '왜'를, 마이너는 '어떻게'를 보여 줘요.")));
+			S.Add("● " + posN[i] + " '" + CardName(slots[i].Card) + (slots[i].Rev ? "(역)" : "") + "'(" + CardKw(slots[i].Card) + ") 뒤에 " + posN[i + 1] + " '" + CardName(slots[i + 1].Card) + (slots[i + 1].Rev ? "(역)" : "") + "'(" + CardKw(slots[i + 1].Card) + ") 카드가 이어져요 → " + Trans[ca * 3 + cb] + el + (slots[i].Card < 22 && slots[i + 1].Card < 22 ? " 둘 다 메이저라 인생의 큰 주제예요." : (slots[i].Card >= 22 && slots[i + 1].Card >= 22 ? " 둘 다 마이너라 일시적인 상황이니 노력으로 바꿀 수 있어요." : "")));
 			nextPair:;
 		}
 		double av = 0; for (int i = 0; i < N; i++) av += sc[i]; av /= N;
-		S.Add("● 종합 결론: " + Verd[topic * 3 + (av >= 0.6 ? 0 : (av <= -0.4 ? 2 : 1))]);
-		string ak = Act(slots[best].Card); S.Add("● 핵심 열쇠 카드 '" + CardName(slots[best].Card) + "' → " + ak.Substring(ak.IndexOf('·') + 2));
 		int nr = 0, nc = 0; for (int i = 0; i < N; i++) { if (slots[i].Rev) nr++; if (slots[i].Card >= 22 && (slots[i].Card - 22) % 14 >= 10) nc++; }
 		if (N >= 3 && nr == 0) S.Add("● 방향: 모두 정방향이라 기운이 밖으로 시원하게 흘러요. 겉으로 드러나는 일이에요."); else if (N >= 3 && nr == N) S.Add("● 방향: 모두 역방향이라 막힌 기운이거나 겉으로 드러나지 않은 내면의 이야기예요. 속마음부터 돌보세요.");
 		if (nc >= 2) S.Add("● 궁정 카드 " + nc + "장: 이번 이야기에는 여러 사람이 등장해요. 각자의 성숙도(시종·기사·여왕·왕)에 따라 힘의 균형이 달라져요.");

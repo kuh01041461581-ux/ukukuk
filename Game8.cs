@@ -144,7 +144,7 @@ internal sealed class SurvivalGame : MiniGame
 	public override string Name { get { return "마룡이 서바이벌"; } }
 	public override string Key { get { return "surv"; } }
 	public override string Desc { get { return "모든 게임을 해낸 당신에게!"; } }
-	public override string Help { get { return "방향키·WASD (또는 마우스를 누른 채 끌기)로 움직여요 · 공격은 자동!\n먼저 근무지(민원대·의회·사무실·현장·재해복구·축제현장)를 골라요\n민원을 잡으면 경험치 구슬 → 레벨업 → 능력 3개 중 하나 선택(1·2·3 키도 돼요) · 무기는 최대 6개·능력은 최대 5개까지만 가질 수 있어요 · 무기와 능력을 5레벨까지 키워 짝을 맞추면 '진화' (한 칸만 차지해요, 무기끼리 진화하는 히든도 있어요)\n맞거나 잡으면 스트레스가 올라요 → 100%가 되면 스페이스/클릭으로 '퇴근 선언'(화면 정리!), 죽을 때도 한 번 살려줘요\n보스를 잡으면 상자가 나와요 (능력 1~3개, 3개면 대박!) · 월말 결산(경험치 2배)·점심시간(회복)·유물을 챙기고, 5분을 버티면 클리어!"; } }
+	public override string Help { get { return "방향키·WASD(또는 마우스 끌기)로 움직여요 · 공격은 자동!\n근무지를 고르고, 민원을 잡아 경험치 구슬 → 레벨업 때 능력 선택\n스트레스 100%가 되면 스페이스/클릭으로 '퇴근 선언'(화면 정리!)\n5분을 버티면 클리어!"; } }
 	public override string RightText { get { int s = (int)el; return (s / 60) + ":" + (s % 60).ToString("00"); } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{

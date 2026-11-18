@@ -1,4 +1,4 @@
-	using System;
+﻿	using System;
 	using System.Collections.Generic;
 	using System.Drawing;
 	using System.Drawing.Drawing2D;
@@ -34,7 +34,7 @@
 		public override string Name { get { return "마룡이 랜덤타워디펜스"; } }
 		public override string Key { get { return "rtd"; } }
 		public override string Desc { get { return "랜덤 소환 · 합쳐서 더 강하게!"; } }
-		public override string Help { get { return "빈 칸(4구역 × 4칸 = 16칸)을 누르면 코인으로 타워가 랜덤 소환돼요\n타워 위치는 바꿀 수 없어요! 아래 아이템으로만 이동·교환·리롤할 수 있어요 (웨이브 보상으로 획득)\n같은 종류·같은 등급 타워를 차례로 누르면 합쳐져서 한 등급 위의 랜덤 타워가 돼요\n아래 종류별 버튼으로 강화하면 이펙트와 능력이 점점 화려해져요\n웨이브마다 변수가 생겨요 (질주·튼튼·황금 습격·단비·안개) · 힐러·분열 적도 조심!\n적은 왼쪽 위에서 출발해 모든 길을 돌아 다시 왼쪽 위로 돌아와요 · 40마리가 넘으면 패배 · 20웨이브를 지키면 난이도가 올라가며 계속돼요 · 보스는 분열·돌진·방패·치유 패턴이 있어요\n2배속 버튼 또는 F 키 · Space 로 바로 시작"; } }
+		public override string Help { get { return "빈 칸을 누르면 코인으로 타워가 랜덤 소환돼요\n같은 종류·같은 등급 타워를 차례로 누르면 한 등급 위 타워로 합쳐져요\n위치 변경·리롤은 아래 아이템으로만! (웨이브 보상)\n적이 40마리를 넘으면 패배 · F 키 = 2배속 · Space 로 바로 시작"; } }
 		public override string RightText { get { return (Rd > 0 ? "Lv" + (Rd + 1) + " " : "") + "웨이브 " + Math.Max(1, Ww); } }
 		public override void Icon(Graphics g, float cx, float cy)
 		{

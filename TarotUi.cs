@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -58,6 +58,8 @@ internal sealed partial class TarotForm
 		finally { exporting = false; cmp = scmp; }
 		return b;
 	}
+	private RectangleF NewBtn { get { return new RectangleF(14f, ReadTop - 32f, 112f, 26f); } }
+	private void BackToStart() { st = St.Idle; ResetSlots(); entsCache = null; readKey = null; sbDrag = false; Sfx.Play("tick"); Wake(); Invalidate(); }
 	private RectangleF TsBtn(int i) { return new RectangleF(LW - 136f + i * 40f, ReadTop - 30f, 36f, 22f); }
 	private RectangleF SbTrack { get { float top = ReadTop; return new RectangleF(LW - 14f, top + 2f, 10f, LH - 8f - top - 2f); } }
 	private RectangleF SbThumb
@@ -93,6 +95,8 @@ internal sealed partial class TarotForm
 			using (GraphicsPath gp = Gfx.Round(tk, wv / 2f)) using (SolidBrush b = new SolidBrush(Color.FromArgb(40, PLine))) g.FillPath(b, gp);
 			using (GraphicsPath gp = Gfx.Round(tb, wv / 2f)) using (SolidBrush b = new SolidBrush(Color.FromArgb(sbHover || sbDrag ? 200 : 120, PRed))) g.FillPath(b, gp);
 		}
+		// 다른 타로 보기 (조작부를 원래 크기로 되돌려요)
+		{ RectangleF nb = NewBtn; using (GraphicsPath gp = Gfx.Round(nb, 13)) { using (SolidBrush b = new SolidBrush(PRed)) g.FillPath(b, gp); } FUi.Text(g, "↩ 다른 타로 보기", FUi.F(8.6f, 1), Color.White, nb, StringAlignment.Center, StringAlignment.Center, false); }
 		// 글자 크기
 		FUi.Text(g, "글자", FUi.F(8.5f, 1), PMut, new RectangleF(LW - 180f, ReadTop - 30f, 40f, 22f), StringAlignment.Far, StringAlignment.Center, false);
 		string[] tl = { "가", "가+", "가++" };
@@ -102,6 +106,7 @@ internal sealed partial class TarotForm
 	private bool UiDown(float x, float y)
 	{
 		if (st != St.Read || zoom >= 0 || spOpen || hist) return false;
+		if (NewBtn.Contains(x, y)) { BackToStart(); return true; }
 		for (int i = 0; i < 3; i++) if (TsBtn(i).Contains(x, y)) { SetTextMul(TextSteps[i]); return true; }
 		RectangleF tr = SbTrack; tr.Inflate(6f, 0f);
 		if (ReadMax() > 0f && tr.Contains(x, y))
@@ -115,7 +120,7 @@ internal sealed partial class TarotForm
 	{
 		if (sbDrag) { ScrollToThumb(y); return true; }
 		bool hv = st == St.Read && ReadMax() > 0f && x > LW - 22f && y > ReadTop; if (hv != sbHover) { sbHover = hv; Invalidate(); }
-		uiHand = false; if (st == St.Read) { for (int i = 0; i < 3; i++) if (TsBtn(i).Contains(x, y)) uiHand = true; if (hv) uiHand = true; }
+		uiHand = false; if (st == St.Read) { if (NewBtn.Contains(x, y)) uiHand = true; for (int i = 0; i < 3; i++) if (TsBtn(i).Contains(x, y)) uiHand = true; if (hv) uiHand = true; }
 		return false;
 	}
 	private bool UiUp() { if (!sbDrag) return false; sbDrag = false; Invalidate(); return true; }

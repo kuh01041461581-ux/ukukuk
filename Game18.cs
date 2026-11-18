@@ -14,7 +14,7 @@ internal sealed class KartGame : MiniGame
 	public override string Name { get { return "마룡이 카트"; } }
 	public override string Key { get { return "kart"; } }
 	public override string Desc { get { return "코스 9개 · 부스트·점프 발판 · CPU 5대와 3바퀴"; } }
-	public override string Help { get { return "먼저 코스를 골라요 (마을·사막·빙하·숲·외계·중세·요정·일본·청사)\n←→ (또는 마우스 좌우)로 핸들 · 가속은 자동, ↓ 브레이크 · 노란 화살표 발판은 부스트, 줄무늬 발판은 점프\n커브에서 스페이스·Shift(또는 마우스를 누른 채)로 드리프트 → 게이지를 모아 놓으면 부스터!\n아이템 상자: 부스터 · 바나나(뒤에 놓기) · 물풍선(앞차 맞히기) — Z·X·Ctrl 또는 아이템 칸 클릭으로 사용\n길 밖 잔디는 느려져요 · 3바퀴를 먼저 돌면 1등! · 갈고리 U턴 두 번 · S자 · 긴 내리막 커브 · 계단 커브 — 드리프트로 부스터를 모아요\nCPU 5대도 아이템을 써요 (물풍선 조심!)"; } }
+	public override string Help { get { return "먼저 코스를 골라요\n←→(또는 마우스)로 핸들 · 가속은 자동 · ↓ 브레이크\n커브에서 스페이스/Shift로 드리프트 → 게이지를 모아 부스터!\n아이템은 Z·X·Ctrl(또는 칸 클릭) · 3바퀴를 먼저 돌면 1등!"; } }
 	public override string RightText { get { return lap < Laps ? (lap + 1) + "/" + Laps + "바퀴" : "완주"; } }
 	public override void Icon(Graphics g, float cx, float cy) { DrawKart(g, cx, cy + 16, 34f, Color.FromArgb(40, 170, 150), true, 0f, 0f, "ms_kart_me0"); }
 

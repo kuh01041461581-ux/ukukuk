@@ -285,7 +285,7 @@ internal sealed class RhythmGame : MiniGame
 	public override string Name { get { return "리듬 도장"; } }
 	public override string Key { get { return "rhythm"; } }
 	public override string Desc { get { return "반주에 맞춰 도장을 찍어요 (누른 음이 선율)"; } }
-	public override string Help { get { return "위에서 떨어지는 도장이 아래 동그라미에 닿을 때 누르세요 (맞히면 그 음이 연주돼요 · 클래식 5곡이 돌아가며 나와요)\n← ↓ → 키(또는 A S D)나 해당 줄을 클릭 · 정확할수록 고득점\n노란 긴 막대는 끝까지 꾹 누르고 · 노란 테두리 ×3은 세 번 연타 · 이어진 두 도장은 동시에(거의 같이) 누르세요\n연속으로 맞히면 보너스! · 약 40초\n검은 폭탄(×)은 누르지 마세요 (누르면 감점) · 금빛 노트는 +8점 · 할수록 점점 빨라져요\n놓치면 위쪽 에너지가 줄어요 · 다 떨어지면 탈락 (맞히면 조금씩 다시 차요)"; } }
+	public override string Help { get { return "도장이 아래 동그라미에 닿을 때 ← ↓ →(또는 A S D)나 해당 줄을 클릭 · 정확할수록 고득점\n노란 긴 막대는 꾹 · ×3 테두리는 세 번 연타 · 이어진 두 도장은 동시에\n검은 폭탄(×)은 누르지 마세요 · 금빛 노트 +8점\n놓치면 에너지가 줄고, 다 떨어지면 탈락 · 약 40초"; } }
 	public override string RightText { get { return combo >= 2 ? combo + "연속" : ""; } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{
@@ -637,7 +637,7 @@ internal sealed class FlapGame : MiniGame
 	public override string Name { get { return "마룡이 날기"; } }
 	public override string Key { get { return "flap"; } }
 	public override string Desc { get { return "탄막을 뚫고 보스를 쓰러뜨려요"; } }
-	public override string Help { get { return "마우스(또는 방향키·WASD)로 마룡이를 움직여요 · 미사일은 자동 발사!\n적의 빨강·분홍 탄환만 피하세요 (몸통 판정은 가운데 흰 점뿐)\n맞을 때 필살기가 남아 있으면 자동으로 발동해 막아 줘요\n클릭(스페이스) = 필살기: 탄환을 지우고 화면 전체에 큰 피해 (남은 개수만큼)\n아이템: P 미사일 강화 · A 애드온(보조 포대 최대 2) · S 이동 속도 · B 필살기 +1 · ★ 점수\n일정 시간마다 보스가 나타나요 · 보스를 잡으면 아이템이 우수수!\n필살기를 쓰면 마룡이가 종이비행기에 올라타요 (5초 · 닿는 적은 부서지고 탄은 막아요)"; } }
+	public override string Help { get { return "마우스(또는 방향키·WASD)로 움직여요 · 미사일은 자동 발사!\n적의 빨강·분홍 탄환만 피하세요 (몸통 판정은 가운데 흰 점뿐)\n클릭(스페이스) = 필살기: 탄환을 지우고 큰 피해 (맞을 때 자동 발동도 해요)\n아이템 P 강화 · A 보조포대 · S 속도 · B 필살기 · ★ 점수 · 보스를 잡으면 아이템 우수수!"; } }
 	public override string RightText { get { return "필살기 " + bombs; } }
 	public override void Icon(Graphics g, float cx, float cy)
 	{

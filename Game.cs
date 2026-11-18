@@ -640,7 +640,7 @@ internal sealed class BatGame : MiniGame
 	public override string Name { get { return "야구공 치기"; } }
 	public override string Key { get { return "bat"; } }
 	public override string Desc { get { return "타이밍을 맞춰 시원하게!"; } }
-	public override string Help { get { return "마우스를 위아래로 움직이면 방망이 높이(점선)가 따라와요 → 공 높이(노란 십자)에 맞춰요\n공이 노란 '문'을 지나는 순간 클릭(스페이스)해서 휘둘러요 (초록 링이 줄어들다 공에 딱 닫히는 순간이 치는 때 · 늘 늦게 누르면 저절로 조금 앞당겨 줘요)\n마우스 커서가 곧 방망이 중심(빨간 띠)이에요 → 점선 원 안으로 공이 지나가면 맞아요 (공이 지나갈 자리는 노란 십자)\n빠르면 왼쪽(당겨 치기) · 늦으면 오른쪽(밀어 치기)\n커브·포크볼·슬라이더 같은 변화구도 와요 (공 위에 구질 이름이 떠요)\n너무 빠르거나 늦으면 파울 · 10구 승부 · 홈런은 100점"; } }
+	public override string Help { get { return "마우스를 위아래로 움직여 방망이 높이(점선)를 공 높이(노란 십자)에 맞춰요\n공이 노란 '문'을 지날 때 클릭(스페이스)해서 휘둘러요\n빠르면 왼쪽 · 늦으면 오른쪽으로 날아가고, 너무 빠르거나 늦으면 파울\n변화구도 와요 · 10구 승부 · 홈런은 100점"; } }
 	public override string RightText { get { return Math.Min(idx + 1, Pitches) + " / " + Pitches + "구"; } }
 	public override void Reset() { idx = 0; phase = 0; wait = 0.9; Score = 0; Over = false; res = ""; resT = 0; swinging = false; hit = false; bfOn = false; flKind = -1; hint = ""; fl.Clear(); trail.Clear(); fwT = -1f; wallT = -1f; wallFx = 0f; wallDone = false; }
 	public override void Icon(Graphics g, float cx, float cy)

@@ -1,0 +1,38 @@
+{
+  "id": "ref_std",
+  "name": "참고자료 (표준: 참 고 상자 + □ ◦ ▸)",
+  "audience": "간부회의",
+  "kind": "report",
+  "note": "'참 고 ○' 제목 상자 + □ 제목 · ◦ 항목 · ▸ 세부 본문(표가 아닌 글 참고자료용)",
+  "fields": [
+    {
+      "key": "no",
+      "label": "참고 번호",
+      "default": "1"
+    }
+  ],
+  "has_body": true,
+  "style": {
+    "heading_prefix": "□ ",
+    "heading_pad2": false,
+    "item1_prefix": "  ◦",
+    "kv": {
+      "fmt": "colon",
+      "bullet": "103",
+      "label": "103",
+      "gap": "103",
+      "value": "95",
+      "by_label": {
+        "신문태고15.5": "95"
+      }
+    },
+    "item2_cps": [
+      "96",
+      "95"
+    ],
+    "item2_prefix": "    ▸",
+    "item2_sep": ""
+  },
+  "starter": "□ \n◦ \n▸\n\n□ \n◦ \n▸",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

@@ -183,6 +183,15 @@ def build_extra(paths):
                  "blank": "이름 내선 / 휴대폰"},
             ], note="현안 제목 + 사업명 + 계장·담당자 줄 + 개요 상자(사업기간·장소·사업비·운영횟수·사업내용·수행단체) + 프로그램 표 + □ 지난주 실적 + □ 금 후 계 획",
             starter=ISSUE_STARTER, slice_=(0, 48), drop=list(range(6, 37)), fix=_card_box_fix)
+        out["meeting_issue"] = report.register_report(           # 현안업무 보고: 상단 3×3 국 이름 상자 + 제목 상자 + 본문(□ 지난주 실적·금 후 계 획)
+            pr, os.path.join(F, "meeting_issue"), "meeting_issue", "간부회의 현안업무 보고", "간부회의", [
+                {"key": "org", "label": "국 이름", "sample": ts0[0], "profile": "org"},
+                {"key": "no", "label": "현안업무 번호", "sample": no_t0, "repl": "현안업무({{no}})",
+                 "default": _re.search(r"\d+", no_t0).group(0)},
+                {"key": "title", "label": "현안 제목", "sample": ts0[k0 + 1], "default": ts0[k0 + 1]},
+                {"key": "dept", "label": "부서(과)", "sample": ts0[k0 + 2], "repl": "({{dept}})", "profile": "dept"},
+            ], note="상단 국 이름 상자 + 현안업무(번호) 제목 상자 + □ 지난주 실적 + □ 금 후 계 획 + ◦ ▸ - 단계",
+            starter=ISSUE_STARTER, slice_=(0, 48), drop=list(range(2, 37)))
     if "audit_item" in paths:
         ai = paths["audit_item"]
         a0 = _flat_texts_para(ai, 0, 6)
@@ -484,6 +493,14 @@ def build_queries(paths):
                     "□ 필 요 성 \nㅇ \n\n□ 추진상황 및 계획\nㅇ ",
             slice_=(35, 68), body_from_text="□ 사업개요", body_tail=2, blank_tables={"37": 1}, fix=_people_table_fix)
     return out
+
+
+def _ref_std_fix(section):
+    """참고자료(표준): 맨 끝의 '참 고' 상자를 맨 앞으로 옮기고, 견본 본문의 글은 비운다(틀·글자 모양만 쓴다)"""
+    ps = section.findall(HP + "p")
+    box = ps[-1]
+    section.remove(box)
+    section.insert(list(section).index(ps[0]), box)
 
 
 def _card_box_fix(section):
@@ -825,6 +842,11 @@ def build_more(paths):
             ip, os.path.join(F, "issue_ref"), "issue_ref", "참고 쪽 (쟁점·민원)", "간부회의", [
                 {"key": "no", "label": "참고 번호", "sample": " 000", "repl": " {{no}}", "default": "1"},
             ], note="'참 고 ○' 제목 상자 — 뒤에 참고 내용을 붙입니다", allow_no_body=True, frame_only=True, slice_=(31, 32))
+        out["ref_std"] = report.register_report(
+            ip, os.path.join(F, "ref_std"), "ref_std", "참고자료 (표준: 참 고 상자 + □ ◦ ▸)", "간부회의", [
+                {"key": "no", "label": "참고 번호", "sample": " 000", "repl": " {{no}}", "default": "1"},
+            ], note="'참 고 ○' 제목 상자 + □ 제목 · ◦ 항목 · ▸ 세부 본문(표가 아닌 글 참고자료용)",
+            starter="□ \n◦ \n▸\n\n□ \n◦ \n▸", slice_=(26, 32), fix=_ref_std_fix, body_from_text="□ 금")
     if "carry" in paths:
         out["carry_item"] = report.register_report(
             paths["carry"], os.path.join(F, "carry_item"), "carry_item", "명시이월 사업현황", "이월 조서", [

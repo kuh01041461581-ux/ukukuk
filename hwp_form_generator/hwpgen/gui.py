@@ -1585,12 +1585,12 @@ class Widget(tk.Tk):
                     "국가예산 신규사업": "nat"}
     GROUP_ORDER = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "참고자료(백데이터)", "보도자료", "국회단계 서면질의서",
                    "국회단계 정책질의서", "국회단계 질의서", "행정사무감사", "감사자료 항목", "이월 조서", "국가예산 신규사업"]
-    FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card", "issue_list", "issue_card", "issue_ref",
+    FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card", "issue_list", "issue_card", "issue_ref", "ref_std",
                   "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
                   "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item",
                   "policy_ref", "audit_cover", "audit_toc", "audit_common", "audit_divider", "carry_item", "carry_acc", "nbud_main", "nbud_ref1", "nbud_ref2"]
     FORM_ICONS = {"report_event": "event", "report_project": "project", "report_mayor": "mayor",
-                  "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project", "issue_list": "plan", "issue_card": "event", "issue_ref": "clip",
+                  "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project", "issue_list": "plan", "issue_card": "event", "issue_ref": "clip", "ref_std": "clip",
                   "audit_cover": "cover", "audit_toc": "plan", "audit_common": "plan", "audit_divider": "cover", "audit_req": "project", "carry_item": "project", "carry_acc": "project",
                   "nbud_main": "nation", "nbud_ref1": "table", "nbud_ref2": "doc",
                   "budget_cover": "cover", "budget_project": "project", "budget_ref_cover": "cover",

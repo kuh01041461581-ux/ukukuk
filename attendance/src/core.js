@@ -1,7 +1,7 @@
 // 국가무형유산 출석체크 — 플랫폼 공통 로직 (Node 로컬 서버 / Cloudflare Worker 공용)
 // Web 표준 Request/Response만 사용합니다.
 
-const DEFAULT_SETTINGS = { openBefore: 30, lateAfter: 10, closeAfter: 30, useCode: false, kakaoKey: '' }; // kakaoKey: 카카오(다음) 지도 JavaScript 키(선택, 관리자 화면에서만 사용) / useCode: 현장 코드도 함께 입력받기(기본 꺼짐)
+const DEFAULT_SETTINGS = { openBefore: 30, lateAfter: 10, closeAfter: 30, useCode: false, kakaoKey: 'a1e32e809202e84389f8a7913da38fe1' }; // kakaoKey: 카카오(다음) 지도 JavaScript 키(선택, 관리자 화면에서만 사용) / useCode: 현장 코드도 함께 입력받기(기본 꺼짐)
 
 export function emptyDb() {
   return { groups: [], members: [], lectures: [], records: {}, sessions: {}, bindings: {}, deviceRequests: [],
@@ -32,6 +32,7 @@ export function normalizeDb(db) {
   const base = emptyDb();
   for (const k of Object.keys(base)) if (db[k] === undefined) { db[k] = base[k]; changed = true; }
   db.settings = { ...DEFAULT_SETTINGS, ...db.settings };
+  if (!db.settings.kakaoKey) db.settings.kakaoKey = DEFAULT_SETTINGS.kakaoKey; // 비어 있으면 기본 카카오 지도 키 사용
   for (const m of db.members) if (!m.qr) { m.qr = newQr(); changed = true; }
   for (const l of db.lectures) if (!l.token) { l.token = newQr(); changed = true; }
   return changed;

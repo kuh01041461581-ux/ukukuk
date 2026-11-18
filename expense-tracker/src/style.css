@@ -984,3 +984,12 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
   .reptblcard{break-inside:auto!important}.reptbl tr{break-inside:avoid}.reptbl thead{display:table-header-group}
   .reptbl{width:100%}
 }
+
+
+/* 보고서: 직전 대비 · 사유 메모 · 추이 */
+.dlt{margin-left:6px;font-size:11px;font-weight:700;padding:0 5px;border-radius:4px}.dlt.up{background:var(--good-soft);color:var(--good)}.dlt.dn{background:var(--bad-soft);color:var(--bad)}
+.rnote{margin-top:4px}.rnote .rni{width:100%;box-sizing:border-box;text-align:left;border-color:var(--edge-dark)}.rpn{display:none;font-size:12px;line-height:1.4}
+.trend{width:100%;max-height:200px}
+@media print{.rnote .rni{display:none}.rnote .rpn{display:block}}
+
+.trend{max-height:150px}

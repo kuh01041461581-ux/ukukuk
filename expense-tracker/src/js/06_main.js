@@ -11,6 +11,9 @@ function renderSettings() {
   <div class="card"><h2>보여줄 화면</h2><p class="sub" style="margin:0 0 8px">기본은 <b>일상경비·공공요금</b>입니다. 켜면 <b>통계목별 조회 엑셀</b>에 있는 모든 사업(인건비·사업비 포함)의 예산·집행·잔액을 사업별로 볼 수 있는 <b>전체 사업 진척</b> 탭이 추가됩니다.</p>
     <label class="row" style="gap:8px;margin-bottom:6px"><input type="checkbox" id="s-helper" ${S.opt && S.opt.helper ? 'checked' : ''}> <b>공익요원 모드</b> <span class="muted">(이 PC는 [고지서 분류]만 보이고 시작 화면도 그 탭 — 끄려면 [설정·백업]에서 해제)</span></label>
     <label class="row" style="gap:8px"><input type="checkbox" id="s-biz" ${S.opt && S.opt.biz ? 'checked' : ''}> <b>과 전체 예산</b> 탭 표시 (전체 사업 진척 · 과 요약 보고서) ${S.biz ? `<span class="muted">(불러온 자료: ${esc(S.biz.file)} · ${S.biz.entries.length}건)</span>` : '<span class="muted">(통계목별 조회 엑셀을 불러오면 채워집니다)</span>'}</label></div>
+  <div class="card"><h2>경고 기준 <span class="muted" style="font-weight:400;font-size:12px">과 요약 보고서의 주의 표시</span></h2><div class="row" style="gap:18px;flex-wrap:wrap">
+    <label class="fld" style="margin:0">「집행 저조」: 집행률이 연 경과율보다<input type="number" id="s-thrlow" min="1" max="90" value="${(S.opt && S.opt.thrLow) || 20}" style="width:80px"> %p 이상 낮을 때</label>
+    <label class="fld" style="margin:0">「잔액 소진 임박」: 집행률이<input type="number" id="s-thrhot" min="50" max="100" value="${(S.opt && S.opt.thrHot) || 95}" style="width:80px"> % 이상일 때</label></div></div>
   <div class="card"><h2>부서(과)</h2><p class="sub" style="margin:0 0 8px">다른 과 자료(예산서·통계목별 조회)를 불러오면 부서명을 자동으로 알아봅니다. 지금 장부와 다른 과면 새 장부로 시작할지 물어보고, 이전 장부는 자동으로 따로 복사해 둡니다.</p><label class="fld" style="max-width:280px;margin:0">부서명<input id="s-dept" value="${esc(S.dept || '')}" placeholder="예: 문화유산과"></label></div>
   <div class="card"><h2>기준일 · 연도</h2>
     <div class="row"><label class="fld" style="margin:0">연도<input type="number" id="s-year" value="${S.year}" style="width:100px"></label>
@@ -41,7 +44,7 @@ $('#p-settings').addEventListener('click', e => {
     S.utilBudget = { elec: null, water: null, tel: null }; UI.util.month = null; save(); init(); toast(`${y}년 장부를 시작했습니다`);
   }
 });
-$('#p-settings').addEventListener('change', e => { if (e.target.id === 's-helper') { S.opt = S.opt || {}; S.opt.helper = e.target.checked; save(); init(); UI.tab = S.opt.helper ? 'sort' : 'settings'; showTab(UI.tab); toast(S.opt.helper ? '공익요원 모드를 켰습니다' : '공익요원 모드를 껐습니다'); return; } if (e.target.id === 's-biz') { S.opt = S.opt || {}; S.opt.biz = e.target.checked; save(); init(); UI.tab = 'settings'; showTab('settings'); toast(S.opt.biz ? '과 전체 예산 탭(전체 사업 진척 · 요약 보고서)을 켰습니다' : '과 전체 예산 탭을 껐습니다'); } if (e.target.id === 's-dept') { S.dept = e.target.value.trim(); save(); updateTitle(); } });
+$('#p-settings').addEventListener('change', e => { if (e.target.id === 's-thrlow' || e.target.id === 's-thrhot') { S.opt = S.opt || {}; const v = Math.round(+e.target.value); if (v > 0) { S.opt[e.target.id === 's-thrlow' ? 'thrLow' : 'thrHot'] = v; save(); toast('경고 기준을 저장했습니다'); } return; } if (e.target.id === 's-helper') { S.opt = S.opt || {}; S.opt.helper = e.target.checked; save(); init(); UI.tab = S.opt.helper ? 'sort' : 'settings'; showTab(UI.tab); toast(S.opt.helper ? '공익요원 모드를 켰습니다' : '공익요원 모드를 껐습니다'); return; } if (e.target.id === 's-biz') { S.opt = S.opt || {}; S.opt.biz = e.target.checked; save(); init(); UI.tab = 'settings'; showTab('settings'); toast(S.opt.biz ? '과 전체 예산 탭(전체 사업 진척 · 요약 보고서)을 켰습니다' : '과 전체 예산 탭을 껐습니다'); } if (e.target.id === 's-dept') { S.dept = e.target.value.trim(); save(); updateTitle(); } });
 
 /* 숫자 칸을 떠날 때 콤마 형식 복원 */
 document.addEventListener('focusout', e => { const t = e.target; if (t.matches && t.matches('input.cellin[inputmode="numeric"]')) { const v = parseNum(t.value); if (v != null && !isNaN(v)) t.value = won(v); } });
@@ -61,7 +64,7 @@ function updateTitle() { const t = `${S.year} ${S.dept ? S.dept + ' ' : ''}일�
 function renderTabBar() { $('#tabs').innerHTML = tabList().map(([k, n]) => `<button role="tab" data-t="${k}" aria-selected="${k === UI.tab}">${n}</button>`).join(''); }
 function init() {
   for (const k in S.util) ensurePaid(S.util[k]);
-  S.tx = S.tx || []; S.opt = S.opt || {}; if ((UI.tab === 'biz' || UI.tab === 'report') && !S.opt.biz) UI.tab = 'daily'; if (S.opt.helper && !['sort', 'guide', 'settings'].includes(UI.tab)) UI.tab = 'sort'; updateTitle();
+  S.tx = S.tx || []; S.opt = S.opt || {}; if (S.biz && !(S.hist || []).some(h => h.asOf === S.biz.asOf)) pushHist(S.biz); if ((UI.tab === 'biz' || UI.tab === 'report') && !S.opt.biz) UI.tab = 'daily'; if (S.opt.helper && !['sort', 'guide', 'settings'].includes(UI.tab)) UI.tab = 'sort'; updateTitle();
   { const sv = $('#sv'); if (sv && S.updatedAt) { const u = new Date(S.updatedAt); sv.textContent = '데이터 기준 ' + (u.getMonth() + 1) + '/' + u.getDate() + ' ' + String(u.getHours()).padStart(2, '0') + ':' + String(u.getMinutes()).padStart(2, '0'); } }
   $('#asof').value = S.asOf; updateBackupChip();
   renderTabBar();

@@ -314,6 +314,22 @@ class GuiTests(unittest.TestCase):
             ai.generate_press = orig
             w.ui["ai_key"] = ""
 
+    def test_auto_mode_uses_engine_only_for_verified_forms(self):
+        from hwpgen import enginecheck
+        w, br = self.widget, self.br
+        enginecheck.save_status({"report_event": {"ok": True}})
+        self.assertEqual(w.ui.get("build", "auto"), "auto")
+        br.rp = []
+        n_files = len(br.inserted)
+        w.make_report("report_event")                       # 검증 통과 → 명령으로
+        self.assertIn("table", br.rp)
+        self.assertEqual(len(br.inserted), n_files)
+        br.rp = []
+        w.make_report("report_project")                     # 검증 안 함 → 양식 파일
+        self.assertEqual(br.rp, [])
+        self.assertGreater(len(br.inserted), n_files)
+        enginecheck.save_status({})
+
     def test_symbols(self):
         self.widget.put_symbol('○')
         self.widget.put_symbol('❶')

@@ -111,7 +111,10 @@ class Output:
             elif not starts_new_page(pkg):
                 with_lead_blank(pkg)                 # 첫 문단이 앞 문단의 모양을 물려받지 않게 빈 받침 문단 하나
                                                      # (쪽 나눔으로 시작하는 양식은 새 쪽에서 시작하므로 받침 문단이 필요 없고, 앞 쪽이 꽉 찼을 때 빈 쪽이 되기도 한다)
-        mode = app.ui.get("build", "file")
+        mode = app.ui.get("build", "auto")
+        if mode == "auto":                           # 검증을 통과한(원본과 같은 결과가 확인된) 양식만 명령으로, 나머지는 양식 파일로
+            from . import enginecheck
+            mode = "commands" if enginecheck.is_ok(prefix) else "file"
         if mode == "commands":                       # 파일을 끼우지 않고 한글 명령으로 직접 만든다(참고 프로그램 방식)
             try:
                 self._insert_commands(pkg, empty or top, page if keep_section else None)
@@ -2230,11 +2233,15 @@ class Widget(tk.Tk):
         ke.pack(fill="x", ipady=5, pady=(4, 0))
         ke.bind("<KeyRelease>", lambda e: self.ui.__setitem__("ai_key", self._ai_key.get().strip()))
         self.section(parent, "만드는 방식")
-        self._build_var = tk.StringVar(value=self.ui.get("build", "file"))
-        for val, txt in (("file", "양식 파일 끼워넣기 (기본, 모양이 똑같음)"), ("commands", "한글 명령으로 직접 만들기 (실험, 파일 손상 없음)")):
+        self._build_var = tk.StringVar(value=self.ui.get("build", "auto"))
+        for val, txt in (("auto", "자동 (검증을 통과한 양식만 명령으로, 나머지는 양식 파일 끼워넣기)"), ("file", "항상 양식 파일 끼워넣기 (모양이 똑같음)"),
+                         ("commands", "항상 한글 명령으로 직접 만들기 (실험)")):
             tk.Radiobutton(parent, text=txt, variable=self._build_var, value=val, bg=C_BG, font=FONT_S, anchor="w",
                            fg=C_TEXT, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0, wraplength=WIDGET_W - 40,
                            justify="left", command=lambda: self.ui.__setitem__("build", self._build_var.get())).pack(fill="x")
+        Btn(parent, "엔진 검증 (모든 양식)", self.run_engine_check, icon_name="calc",
+            tip="새 문서에서 모든 양식을 명령으로 만들어 원본과 비교해요. 같게 나온 양식만 '자동'에서 명령으로 만들어요").pack(fill="x", pady=(6, 2))
+        Btn(parent, "검증 결과 보기", self.open_engine_report, kind="flat", icon_name="doc").pack(fill="x", pady=2)
         self.section(parent, "창 투명도")
         row = tk.Frame(parent, bg=C_BG)
         row.pack(fill="x")
@@ -2589,6 +2596,42 @@ class Widget(tk.Tk):
         ok = self.bridge.connected
         self.chip.config(text=("●  한글에 연결됨" if ok else "●  한글 연결 안 됨 — 눌러서 연결"),
                          fg=C_OK if ok else C_BAD)
+
+    def run_engine_check(self):
+        if not self._need_hwp("엔진 검증"):
+            return
+        from . import enginecheck, registry as R2
+        ids = [fid for fid, _f, meta in R2.list_forms() if not fid.startswith("weekly")]
+        if not messagebox.askyesno("엔진 검증", "양식 %d개를 새 문서에서 한글 명령으로 만들어 원본과 비교해요.\n"
+                                   "문서가 잠깐씩 열렸다 닫히고 몇 분 걸려요(지금 열어 둔 문서는 그대로예요).\n계속할까요?" % len(ids)):
+            return
+
+        def prog(i, n, fid):
+            self.say("엔진 검증 %d/%d  %s" % (i, n, fid))
+            self.update()
+        self.config(cursor="watch")
+        try:
+            res = enginecheck.run_all(self.bridge, ids, tempfile.gettempdir(), prog)
+        except Exception as e:                           # noqa: BLE001
+            write_error_log("engine_check", e)
+            messagebox.showerror("엔진 검증", str(e))
+            return
+        finally:
+            self.config(cursor="")
+        ok = sum(1 for v in res.values() if v[0])
+        self.say("엔진 검증 끝: 통과 %d / 다름 %d" % (ok, len(res) - ok))
+        if messagebox.askyesno("엔진 검증", "통과 %d개 / 원본과 다름 %d개\n\n통과한 양식은 '자동'에서 명령으로, 나머지는 양식 파일로 만들어요.\n"
+                               "어긋난 곳 목록을 열어 볼까요?" % (ok, len(res) - ok)):
+            self.open_engine_report()
+
+    def open_engine_report(self):
+        p = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "HwpFormGenerator", "engine_check.txt")
+        if os.path.exists(p) and hasattr(os, "startfile"):
+            os.startfile(p)
+        elif os.path.exists(p):
+            messagebox.showinfo("엔진 검증", p)
+        else:
+            messagebox.showinfo("엔진 검증", "아직 검증한 기록이 없어요")
 
     def open_log_dir(self):
         d = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "HwpFormGenerator")

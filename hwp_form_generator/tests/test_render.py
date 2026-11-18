@@ -827,3 +827,35 @@ class PageCheckTests(unittest.TestCase):
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
         import check_pages as C
         self.assertEqual(C.main(), 0)
+
+
+class EngineCheckTests(unittest.TestCase):
+    def test_check_pass_fail_and_status(self):
+        """엔진 결과가 원본과 같으면 통과·다르면 실패로 기록하고, 통과한 양식만 '자동'에서 명령으로 만든다"""
+        import tempfile
+        os.environ["APPDATA"] = tempfile.mkdtemp()
+        from hwpgen import enginecheck
+
+        class Fake:
+            payload = b""
+
+            def scratch_build(self, src, imgs, page, out):
+                with open(out, "wb") as f:
+                    f.write(self.payload)
+        f = registry.load_form("audit_i05", ROOTS)
+        vals = {x["key"]: "{{%s}}" % x["key"] for x in f.fields}
+        same = f.render(vals, f.meta.get("starter", "")).to_bytes()
+        br = Fake()
+        td = tempfile.mkdtemp()
+        br.payload = same
+        ok, diffs = enginecheck.check_form(br, f, os.path.join(td, "a.hwpx"))
+        self.assertTrue(ok, diffs)
+        other = registry.load_form("audit_i06", ROOTS)
+        br.payload = other.render({x["key"]: "{{%s}}" % x["key"] for x in other.fields}, other.meta.get("starter", "")).to_bytes()
+        ok2, diffs2 = enginecheck.check_form(br, f, os.path.join(td, "b.hwpx"))
+        self.assertFalse(ok2)
+        self.assertTrue(diffs2)
+        enginecheck.save_status({"audit_i05": {"ok": True}, "audit_i06": {"ok": False}})
+        self.assertTrue(enginecheck.is_ok("audit_i05"))
+        self.assertFalse(enginecheck.is_ok("audit_i06"))
+        self.assertFalse(enginecheck.is_ok("never_checked"))

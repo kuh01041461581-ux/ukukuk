@@ -432,6 +432,48 @@ class HwpBridge:
         hwp.InsertPicture(path, 1, 3, 0, 0, 0)
         hwp.HAction.Run("ParagraphShapeAlignCenter")
 
+    # ------------------------------------------------------------------ 엔진 검증용
+    def save_hwpx(self, path):
+        """지금 문서를 hwpx 로 저장(참고 프로그램의 FileSaveAs_S 방식, 안 되면 SaveAs)"""
+        hwp = self._need()
+        path = os.path.abspath(path)
+        try:
+            act = hwp.CreateAction("FileSaveAs_S")
+            st = act.CreateSet()
+            act.GetDefault(st)
+            st.SetItem("FileName", path)
+            st.SetItem("Format", "HWPX")
+            if act.Execute(st) is not False and os.path.exists(path):
+                return True
+        except Exception:                                  # noqa: BLE001
+            pass
+        try:
+            hwp.SaveAs(path, "HWPX", "")
+            return os.path.exists(path)
+        except Exception as e:                             # noqa: BLE001
+            raise BridgeError("hwpx 로 저장하지 못했어요: %s" % e)
+
+    def scratch_build(self, recipe_, images, page, out_path):
+        """새 문서를 열어 레시피를 명령으로 만들고 out_path(hwpx)로 저장한 뒤 그 문서를 닫는다 — 지금 열어 둔 문서는 건드리지 않는다"""
+        from .recipe import Player
+        hwp = self._need()
+        hwp.HAction.Run("FileNew")
+        try:
+            if page:
+                self.apply_page_setup(page)
+            Player(self, recipe_, images or {}, fresh=True, first_page=True).run()
+            if not self.save_hwpx(out_path):
+                raise BridgeError("검증용 파일을 저장하지 못했어요")
+        finally:
+            try:
+                hwp.Clear(1)                               # 저장 여부를 묻지 않고 비운 뒤 닫는다
+            except Exception:                              # noqa: BLE001
+                pass
+            try:
+                hwp.HAction.Run("FileClose")
+            except Exception:                              # noqa: BLE001
+                pass
+
     def insert_table(self, rows, cols):
         """커서 위치에 rows × cols 표 만들기(한글 표 만들기 명령)"""
         hwp = self._need()

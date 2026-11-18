@@ -859,3 +859,23 @@ class EngineCheckTests(unittest.TestCase):
         self.assertTrue(enginecheck.is_ok("audit_i05"))
         self.assertFalse(enginecheck.is_ok("audit_i06"))
         self.assertFalse(enginecheck.is_ok("never_checked"))
+
+
+class FrameFillTests(unittest.TestCase):
+    def test_fill_frame_by_labels_and_headings(self):
+        """틀만 있는 양식에 이미 쓴 글을 같은 항목·제목 자리에 옮긴다(이름이 조금 달라도: 사업규모→사 업 량, 그간 추진사항→그간 추진경과)"""
+        from hwpgen import framefill
+        src = ("미륵사지 정비\n□ 사업개요\n◦ 사업규모 : 익산 미륵사지 정비\n◦ 사업기간 : 2025. 1. ~ 2027. 2.\n"
+               "□ 이월액 : 921,865,570원\n◦ 담당부서 : 문화유산과\n□ 그간 추진사항\n◦ 데크탐방로 조성\n◦ 발굴조사 추진\n□ 이월사유\n◦ 준공시기 미도래")
+        f = registry.load_form("carry_acc", ROOTS)
+        pkg = f.render({"title": "미륵사지 정비"}, "")
+        self.assertGreaterEqual(framefill.fill_frame(pkg, src), 6)
+        txt = ptext(pkg.section(0))
+        for s in ("사 업 량 : 익산 미륵사지 정비", "사업기간 : 2025. 1. ~ 2027. 2.", "이 월 액 : 921,865,570원", "담당부서문화유산과",
+                  "데크탐방로 조성", "발굴조사 추진", "준공시기 미도래"):
+            self.assertIn(s, txt)
+        self.assertEqual(txt.count("921,865,570원"), 2)          # 상자 칸 + □ 이 월 액 줄(금액 표 머리에는 넣지 않음)
+
+    def test_event_report_uses_event_name_label(self):
+        f = registry.load_form("report_event", ROOTS)
+        self.assertIn("행 사 명", ptext(f.render({x["key"]: "x" for x in f.fields}, f.meta["starter"]).section(0)))

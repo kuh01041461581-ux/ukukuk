@@ -330,6 +330,20 @@ class GuiTests(unittest.TestCase):
         self.assertGreater(len(br.inserted), n_files)
         enginecheck.save_status({})
 
+    def test_convert_selection_into_frame_form(self):
+        """틀만 있는 양식(사고이월)도 글을 선택하고 누르면 항목 칸에 옮겨 넣는다"""
+        w, br = self.widget, self.br
+        br.selection = "미륵사지 정비\n□ 사업개요\n◦ 사업기간 : 2025. 1. ~ 2027. 2.\n□ 이월사유\n◦ 준공시기 미도래"
+        br.cleared = []
+        try:
+            w.make_report("carry_acc")
+        finally:
+            br.selection = ""
+        self.assertEqual(br.cleared[-1], False)                  # 선택한 글만 바꿈
+        self.assertIn("2025. 1. ~ 2027. 2.", br.last_text)
+        self.assertIn("준공시기 미도래", br.last_text)
+        self.assertIn("미륵사지 정비", br.last_text)
+
     def test_symbols(self):
         self.widget.put_symbol('○')
         self.widget.put_symbol('❶')

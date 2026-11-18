@@ -2346,7 +2346,21 @@ class Widget(tk.Tk):
                     replace = "all" if whole else "selection"
                     if moved:
                         self.say("쓴 내용을 ‘%s’ 양식으로 옮겼어요 (되돌리기: Ctrl+Z)" % f.meta["name"].split(" (")[0])
+            fill_src = ""
+            if not plain and not f.meta.get("has_body", True) and self.bridge.connected:
+                # 틀만 있는 양식(이월 조서·국가예산 신규사업 등): 글을 선택하고 누르면 같은 항목 칸·제목 아래에 값을 채워 넣는다
+                sel_f = self.bridge.get_selection_text()
+                if sel_f.strip():
+                    fill_src, replace = sel_f, "selection"
+                    if any(x["key"] == "title" for x in f.fields):
+                        t0, _rest = T.split_title(sel_f)
+                        if t0:
+                            vals["title"] = t0
             pkg = f.render(vals, outline)
+            if fill_src:
+                from . import framefill
+                filled = framefill.fill_frame(pkg, fill_src)
+                self.say("선택한 글을 '%s' 양식 칸 %d곳에 옮겼어요 (되돌리기: Ctrl+Z)" % (f.meta["name"].split(" (")[0], filled))
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return

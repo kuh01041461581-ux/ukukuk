@@ -91,6 +91,9 @@ class Output:
             br.apply_page_setup(page)                # 되면 이쪽으로도 한 번 더 맞춰 둔다(안 돼도 괜찮음)
         else:
             strip_section_props(pkg)                 # 이미 내용이 있는 문서의 쪽 설정은 건드리지 않는다
+        from .package import trim_trailing_blanks, trim_leading_pagebreak_blanks
+        trim_trailing_blanks(pkg)                    # 끝의 빈 문단은 빼서 쪽이 넘치지 않게(빈 쪽 방지)
+        trim_leading_pagebreak_blanks(pkg)           # '빈 문단 + 쪽 나눔'으로 시작하는 양식의 빈 쪽 방지
         # 차례대로 입력은 커서가 문서 맨 끝일 때(빈 문서 포함)만: 매번 끝에 붙여 순서가 절대 뒤집히지 않게 한다.
         # 문서 중간에 넣을 때는 한 번에 넣어 순서를 지킨다.
         at_end = empty or br.at_doc_end()
@@ -1230,8 +1233,24 @@ class Btn(_Anim, tk.Canvas):
                 x += d + 10
             else:
                 x = 18
-            self.create_text(x, h // 2 + dy, text=self.text, anchor="w", fill=fg, font=self.fnt or FONT_BTN)
-            if not acc and self.kind != "flat" or self.kind == "flat":
+            fnt = self.fnt or FONT_BTN
+            try:
+                import tkinter.font as tkf
+                tw = tkf.Font(font=fnt).measure(self.text)
+            except Exception:                                  # noqa: BLE001
+                tw = len(self.text) * 13
+            room = w - x - 12
+            label = self.text
+            arrow = tw + 34 <= w - x                           # 글자와 화살표가 같이 들어갈 때만 화살표를 그린다(좁은 칸에서 겹쳐 깨져 보이던 것)
+            if tw > room:                                      # 글자가 칸보다 길면 …로 줄인다
+                try:
+                    while len(label) > 1 and tkf.Font(font=fnt).measure(label + "…") > room:
+                        label = label[:-1]
+                    label += "…"
+                except Exception:                              # noqa: BLE001
+                    pass
+            self.create_text(x, h // 2 + dy, text=label, anchor="w", fill=fg, font=fnt)
+            if arrow:
                 # 올리면 오른쪽에서 슬며시 나타나는 화살표
                 self.create_text(w - 18 - (1 - t) * 8, h // 2 + dy, text="›", anchor="e",
                                  fill=_mix(C_CARD if self.kind == "card" else C_BG, C_ACC, t), font=(FONT[0], 14, "bold"))
@@ -1323,10 +1342,11 @@ class GlassHeader(tk.Canvas):
     """윈도우 11 · 리니어 · 노션 느낌의 머리: 오로라 배경 위에 유리 알약 타일을 얹고, 제목줄과 한 덩어리로 이어진다.
     타일은 마우스를 올리면 부드럽게 밝아지고, 선택된 타일은 포인트 그라데이션으로 채워진다."""
 
-    FULL_H, MIN_H = 100, 56
+    FULL_H, MIN_H = 134, 56
     PAD = 8
     PRIMARY = ("report", "week", "budget", "assembly", "audit")
-    OVERFLOW = ("press", "nat", "tools", "sym", "more")
+    SECOND = ("press", "nat")                  # 둘째 줄: 보도·국가예산(국비) — 그 밖에 도구·기호·설정은 '⋯' 메뉴
+    OVERFLOW = ("tools", "sym", "more")
 
     def __init__(self, master, tabs, icons, labels, on_pick, buttons, on_chip):
         W = WIDGET_W
@@ -1379,25 +1399,27 @@ class GlassHeader(tk.Canvas):
     def _build_tiles(self):
         """한 줄짜리 글자 알약 탭: 자주 쓰는 5개 + '⋯'(나머지는 작은 메뉴로) — 아이콘 없이 단정하게"""
         names = {k: n for n, k in self.tabs}
-        items = [(k, names[k]) for k in self.PRIMARY] + [("__more", "⋯")]
+        rows = (([(k, names[k]) for k in self.PRIMARY]),
+                ([(k, names[k]) for k in self.SECOND] + [("__more", "⋯")]))
         tw, th, gap = 38, 30, 4
-        x0 = (self.W - (len(items) * tw + (len(items) - 1) * gap)) // 2
-        y0 = 58
-        for idx, (key, name) in enumerate(items):
-            x, y = x0 + idx * (tw + gap), y0
-            tag = "tile_" + key
-            st = {"x": x, "y": y, "w": tw, "h": th, "t": 0.0, "target": 0.0, "tag": tag, "name": name}
-            self.tiles[key] = st
-            st["img"] = self.create_image(x - self.PAD, y - self.PAD, anchor="nw", tags=(tag,))
-            st["txt"] = self.create_text(x + tw // 2, y + th // 2, text=name, tags=(tag,), font=(FONT[0], 10))
-            self.tag_bind(tag, "<Enter>", lambda e, k=key: self._hover(k, 1.0))
-            self.tag_bind(tag, "<Leave>", lambda e, k=key: self._hover(k, 0.0))
-            self.tag_bind(tag, "<ButtonPress-1>", lambda e, k=key: self._press(k, True))
-            self.tag_bind(tag, "<ButtonRelease-1>", lambda e, k=key: self._release(k, e))
-            self._paint(key)
+        x0 = (self.W - (len(rows[0]) * tw + (len(rows[0]) - 1) * gap)) // 2
+        for r, items in enumerate(rows):
+            y = 58 + r * (th + 6)
+            for idx, (key, name) in enumerate(items):
+                x = x0 + idx * (tw + gap)
+                tag = "tile_" + key
+                st = {"x": x, "y": y, "w": tw, "h": th, "t": 0.0, "target": 0.0, "tag": tag, "name": name}
+                self.tiles[key] = st
+                st["img"] = self.create_image(x - self.PAD, y - self.PAD, anchor="nw", tags=(tag,))
+                st["txt"] = self.create_text(x + tw // 2, y + th // 2, text=name, tags=(tag,), font=(FONT[0], 10))
+                self.tag_bind(tag, "<Enter>", lambda e, k=key: self._hover(k, 1.0))
+                self.tag_bind(tag, "<Leave>", lambda e, k=key: self._hover(k, 0.0))
+                self.tag_bind(tag, "<ButtonPress-1>", lambda e, k=key: self._press(k, True))
+                self.tag_bind(tag, "<ButtonRelease-1>", lambda e, k=key: self._release(k, e))
+                self._paint(key)
 
     def _open_more(self):
-        """'⋯' 메뉴: 보도자료·국가예산·도구·기호·설정"""
+        """'⋯' 메뉴: 도구·기호·설정"""
         if getattr(self, "_menu", None):
             self._close_more()
             return
@@ -1566,10 +1588,10 @@ class Widget(tk.Tk):
     FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card", "issue_list", "issue_card", "issue_ref",
                   "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
                   "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item",
-                  "policy_ref", "audit_cover", "audit_toc", "audit_common", "audit_divider", "carry_item", "nbud_main", "nbud_ref1", "nbud_ref2"]
+                  "policy_ref", "audit_cover", "audit_toc", "audit_common", "audit_divider", "carry_item", "carry_acc", "nbud_main", "nbud_ref1", "nbud_ref2"]
     FORM_ICONS = {"report_event": "event", "report_project": "project", "report_mayor": "mayor",
                   "meeting_cover": "cover", "meeting_issue": "event", "meeting_card": "project", "issue_list": "plan", "issue_card": "event", "issue_ref": "clip",
-                  "audit_cover": "cover", "audit_toc": "plan", "audit_common": "plan", "audit_divider": "cover", "audit_req": "project", "carry_item": "project",
+                  "audit_cover": "cover", "audit_toc": "plan", "audit_common": "plan", "audit_divider": "cover", "audit_req": "project", "carry_item": "project", "carry_acc": "project",
                   "nbud_main": "nation", "nbud_ref1": "table", "nbud_ref2": "doc",
                   "budget_cover": "cover", "budget_project": "project", "budget_ref_cover": "cover",
                   "budget_ref_detail": "project", "budget_ref_return": "plan"}
@@ -1875,7 +1897,7 @@ class Widget(tk.Tk):
         grid.pack(fill="x")
         phrases = ["붙임 ", "끝.", "※ ", "(단위 : 천원)", "(단위 : 원)", "<참고>", "(참고)", "해당없음", "- 이하 여백 -", "추진실적", "향후계획", "기대효과"]
         for i, ph in enumerate(phrases):
-            Btn(grid, ph.strip() or ph, lambda p=ph: self.put_text(p), kind="flat", h=32, icon_name="text").grid(
+            Btn(grid, ph.strip() or ph, lambda p=ph: self.put_text(p), kind="flat", h=32).grid(
                 row=i // 2, column=i % 2, sticky="ew", padx=2, pady=2)
         grid.columnconfigure(0, weight=1)
         grid.columnconfigure(1, weight=1)
@@ -2180,6 +2202,14 @@ class Widget(tk.Tk):
             tk.Radiobutton(parent, text=txt, variable=self._mode_var, value=val, bg=C_BG, font=FONT, anchor="w",
                            fg=C_TEXT, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0,
                            command=lambda: self.ui.__setitem__("insert_mode", self._mode_var.get())).pack(fill="x")
+        self.section(parent, "AI 작성 (보도자료)")
+        tk.Label(parent, text="Anthropic API 키를 넣으면 보도자료를 프롬프트처럼 적어서 AI가 써 줘요. 인터넷이 필요하고, 적은 글은 AI 서버로 전송돼요. 키는 이 PC 설정 파일에만 저장돼요.",
+                 bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w", wraplength=WIDGET_W - 40, justify="left").pack(fill="x", padx=4)
+        self._ai_key = tk.StringVar(value=self.ui.get("ai_key", ""))
+        ke = tk.Entry(parent, textvariable=self._ai_key, show="•", font=FONT, relief="flat", highlightthickness=1,
+                      highlightbackground=C_LINE, highlightcolor=C_ACC)
+        ke.pack(fill="x", ipady=5, pady=(4, 0))
+        ke.bind("<KeyRelease>", lambda e: self.ui.__setitem__("ai_key", self._ai_key.get().strip()))
         self.section(parent, "만드는 방식")
         self._build_var = tk.StringVar(value=self.ui.get("build", "file"))
         for val, txt in (("file", "양식 파일 끼워넣기 (기본, 모양이 똑같음)"), ("commands", "한글 명령으로 직접 만들기 (실험, 파일 손상 없음)")):
@@ -2227,14 +2257,33 @@ class Widget(tk.Tk):
                     sel = self.bridge.get_selection_text()
                     if sel.strip():
                         rough, sel_used = sel, True
+                use_ai = bool(self.ui.get("ai_key"))
                 if not rough:
-                    rough = self.ask_rough("보도자료 초안", "제목, 일시·장소·주최·대상·내용을 대략 적으면 보도자료 문단으로 정리해 드려요.\n"
-                                           "(비워 두면 틀만 넣어요)", "예)\n익산 푸드 페스티벌\n일시: 2026. 11. 20.(금) 14:00\n장소: 중앙체육관\n"
-                                           "주최: 익산시\n대상: 시민 누구나\n내용: 먹거리 부스 운영\n내용: 체험 행사") or ""
+                    if use_ai:
+                        rough = self.ask_rough("보도자료 작성 (AI)", "만들고 싶은 보도자료를 프롬프트처럼 자유롭게 적어 주세요.\n"
+                                               "(행사명·일시·장소·대상·내용·강조할 점 등. 적은 글은 AI 서버로 전송돼요)",
+                                               "예)\n11월 20일 금요일 오후 2시 중앙체육관에서 열리는 익산 푸드 페스티벌 보도자료. 시민 누구나 참여,\n"
+                                               "먹거리 부스 30개와 체험행사, 지역 가수 공연. 담당 문화관광과") or ""
+                    else:
+                        rough = self.ask_rough("보도자료 초안", "제목, 일시·장소·주최·대상·내용을 대략 적으면 보도자료 문단으로 정리해 드려요.\n"
+                                               "(비워 두면 틀만 넣어요. AI로 쓰려면 더보기에서 API 키를 넣으세요)",
+                                               "예)\n익산 푸드 페스티벌\n일시: 2026. 11. 20.(금) 14:00\n장소: 중앙체육관\n"
+                                               "주최: 익산시\n대상: 시민 누구나\n내용: 먹거리 부스 운영\n내용: 체험 행사") or ""
                 if rough.strip():
                     from . import press
                     prof0 = PR.load_profile()
-                    r0 = press.draft_full(rough, dept=prof0.get("dept", ""), tel=prof0.get("staff_ext", ""))
+                    r0 = None
+                    if use_ai:
+                        from . import ai
+                        try:
+                            self.say("AI가 보도자료를 쓰는 중…")
+                            self.update()
+                            r0 = ai.generate_press(rough, prof0.get("org", "") or "익산시", prof0.get("dept", ""), prof0.get("staff_ext", ""),
+                                                   self.ui.get("ai_key", ""), self.ui.get("ai_model") or None)
+                        except ai.AIError as e:
+                            messagebox.showwarning("AI 작성", "%s\n\n기본 초안(규칙 방식)으로 대신 만들어요." % e)
+                    if r0 is None:
+                        r0 = press.draft_full(rough, dept=prof0.get("dept", ""), tel=prof0.get("staff_ext", ""))
                     for k0 in ("title", "sub1", "sub2"):
                         if r0[k0] and any(x["key"] == k0 for x in f.fields):
                             vals[k0] = r0[k0]

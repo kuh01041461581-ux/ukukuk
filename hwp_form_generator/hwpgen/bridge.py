@@ -515,20 +515,35 @@ class HwpBridge:
             return False
 
     def apply_page_setup(self, d):
-        """용지 크기·여백(HWPUNIT)을 지금 문서에 적용. 안 되면 조용히 넘어간다."""
+        """용지 크기·여백(HWPUNIT)을 지금 문서에 적용. 항목마다 따로 지정해서, 일부(용지 크기 등)가 안 먹어도 여백은 적용되게 한다
+        (참고 프로그램의 PageSetup 방식: HSecDef.PageDef 여백 + ApplyTo=3). 하나라도 적용하면 True"""
         hwp = self._need()
         try:
             ps = hwp.HParameterSet.HSecDef
             hwp.HAction.GetDefault("PageSetup", ps.HSet)
             pd = ps.PageDef
-            pd.PaperWidth, pd.PaperHeight = d["width"], d["height"]
+        except Exception:                                  # noqa: BLE001
+            return False
+        n = 0
+        for attr, key in (("LeftMargin", "left"), ("RightMargin", "right"), ("TopMargin", "top"), ("BottomMargin", "bottom"),
+                          ("HeaderLen", "header"), ("FooterLen", "footer"), ("GutterLen", "gutter"),
+                          ("PaperWidth", "width"), ("PaperHeight", "height")):
+            try:
+                setattr(pd, attr, int(d[key]))
+                n += 1
+            except Exception:                              # noqa: BLE001
+                pass
+        try:
             pd.Landscape = 1 if d.get("landscape") else 0
-            pd.LeftMargin, pd.RightMargin = d["left"], d["right"]
-            pd.TopMargin, pd.BottomMargin = d["top"], d["bottom"]
-            pd.HeaderLen, pd.FooterLen, pd.GutterLen = d["header"], d["footer"], d["gutter"]
-            ps.HSet.SetItem("ApplyClass", 24)
-            ps.HSet.SetItem("ApplyTo", 3)                 # 문서 전체
-            return bool(hwp.HAction.Execute("PageSetup", ps.HSet))
+        except Exception:                                  # noqa: BLE001
+            pass
+        for k, v in (("ApplyClass", 24), ("ApplyTo", 3)):
+            try:
+                ps.HSet.SetItem(k, v)
+            except Exception:                              # noqa: BLE001
+                pass
+        try:
+            return bool(hwp.HAction.Execute("PageSetup", ps.HSet)) and n > 0
         except Exception:                                  # noqa: BLE001
             return False
 
@@ -553,24 +568,51 @@ class HwpBridge:
             raise BridgeError("기호를 넣지 못했어요: %s" % e)
 
     def compose_chars(self, text, shape_no, char_size=-3):
-        """한글 명령(ComposeChars)으로 글자 겹치기를 직접 넣는다 (hwpx 끼워 넣기가 안 될 때)."""
+        """글자 겹치기(네모·원 안의 글자). 참고 프로그램과 같은 방식: 글자를 먼저 입력해 그 글자를 블록으로 잡고
+        ComposeChars(CircleType=모양, CheckCompose=0)를 실행한다. 이 방식이 안 되면 예전 방식들을 차례로 시도한다."""
         hwp = self._need()
         errs = []
-        for use_hset in (True, False):
+        try:                                               # 1) 입력 → 방금 쓴 글자 블록 → 겹치기 (참고 프로그램 방식)
+            self.insert_text(text)
+            for _ in range(len(text)):
+                hwp.HAction.Run("MoveSelLeft")
+            act = hwp.CreateAction("ComposeChars")
+            st = act.CreateSet()
+            act.GetDefault(st)
+            st.SetItem("CircleType", shape_no)
+            st.SetItem("CheckCompose", 0)
+            if act.Execute(st) is not False:
+                try:
+                    hwp.HAction.Run("MoveRight")           # 블록을 풀고 겹친 글자 뒤로
+                except Exception:                          # noqa: BLE001
+                    pass
+                return True
+            errs.append("ComposeChars 가 거절했어요")
+            try:                                           # 되지 않았다면 입력해 둔 글자를 지운다
+                hwp.HAction.Run("Delete")
+            except Exception:                              # noqa: BLE001
+                pass
+        except Exception as e:                             # noqa: BLE001
+            errs.append(str(e))
+            try:
+                hwp.HAction.Run("Cancel")
+            except Exception:                              # noqa: BLE001
+                pass
+        for use_hset in (True, False):                     # 2) 예전 방식: 글자·크기를 직접 지정
             try:
                 if use_hset:
                     ps = hwp.HParameterSet.HChCompose
                     hwp.HAction.GetDefault("ComposeChars", ps.HSet)
                     ps.Chars = text
                     ps.CharSize = char_size
-                    ps.CheckBorder = shape_no
+                    ps.CircleType = shape_no
                     return bool(hwp.HAction.Execute("ComposeChars", ps.HSet))
                 act = hwp.CreateAction("ComposeChars")
                 st = act.CreateSet()
                 act.GetDefault(st)
                 st.SetItem("Chars", text)
                 st.SetItem("CharSize", char_size)
-                st.SetItem("CheckBorder", shape_no)
+                st.SetItem("CircleType", shape_no)
                 return bool(act.Execute(st))
             except Exception as e:                         # noqa: BLE001
                 errs.append(str(e))

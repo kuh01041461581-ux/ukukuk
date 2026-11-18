@@ -481,6 +481,52 @@ def split_chunks(pkg):
     return out
 
 
+_OBJ_TAGS = ("tbl", "pic", "rect", "ellipse", "container", "line", "polygon", "curve", "arc", "equation", "ole", "textart", "video", "chart")
+
+
+def _is_blank_para(p):
+    """글자도 표·그림·도형도 없는 빈 문단(구역 설정·단 설정 같은 숨은 설정은 있어도 빈 것으로 본다)"""
+    if "".join(t.text or "" for t in p.iter(HP + "t")).strip():
+        return False
+    return not any(True for _ in (e for t in _OBJ_TAGS for e in p.iter(HP + t)))
+
+
+def trim_trailing_blanks(pkg):
+    """끝에 이어 붙은 빈 문단을 없앤다 — 쪽을 꽉 채운 양식 뒤의 빈 줄이 새 쪽으로 넘어가 '빈 쪽'이 생기는 것을 막는다."""
+    sec = pkg.section(0)
+    ps = sec.findall(HP + "p")
+    n = 0
+    while len(ps) > 1 and _is_blank_para(ps[-1]) and not list(ps[-1].iter(HP + "secPr")):
+        sec.remove(ps.pop())
+        n += 1
+    return n
+
+
+def trim_leading_pagebreak_blanks(pkg):
+    """맨 앞의 빈 문단들 중 '쪽 나눔'을 가진 빈 문단까지를 없애고, 쪽 나눔은 그 다음 문단으로 옮긴다.
+    (빈 문단 + 쪽 나눔으로 시작하는 양식이 빈 쪽을 하나 만드는 것을 막는다. 제목 위 여백용 빈 줄은 그대로 둔다)"""
+    sec = pkg.section(0)
+    ps = sec.findall(HP + "p")
+    idx = None
+    for i, p in enumerate(ps[:4]):
+        if not _is_blank_para(p) or list(p.iter(HP + "secPr")):
+            break
+        if p.get("pageBreak") == "1":
+            idx = i
+            break
+    if idx is None or idx + 1 >= len(ps):
+        return 0
+    for p in ps[:idx + 1]:
+        sec.remove(p)
+    ps[idx + 1].set("pageBreak", "1")
+    return idx + 1
+
+
+def ends_with_table(pkg):
+    ps = pkg.section(0).findall(HP + "p")
+    return bool(ps) and bool(list(ps[-1].iter(HP + "tbl")))
+
+
 def with_lead_blank(pkg):
     """내용이 있는 문서에 이어 넣을 때: 앞 문단과 한 줄로 붙지 않게 맨 앞에 빈 문단을 하나 둔다(받침)"""
     sec = pkg.section(0)
@@ -501,6 +547,8 @@ def with_tail_blank(pkg):
         return pkg
     last = ps[-1]
     if "".join(t.text or "" for t in last.iter(HP + "t")).strip() == "" and not list(last.iter(HP + "tbl")):
+        return pkg
+    if list(last.iter(HP + "tbl")):          # 표로 끝나는 양식(표지·카드 등)은 쪽을 꽉 채우는 일이 많아, 빈 줄이 새 쪽으로 넘어가 빈 쪽이 되므로 붙이지 않는다
         return pkg
     blank = _empty_like_para(last)
     blank.set("pageBreak", "0")

@@ -286,6 +286,34 @@ class GuiTests(unittest.TestCase):
             br.insert_file = orig
         self.assertIn("table", br.rp)
 
+    def test_press_ai_with_fallback(self):
+        """API 키가 있으면 AI 로 쓰고, AI 가 실패하면 규칙 방식 초안으로 대신한다"""
+        from hwpgen import ai
+        w, br = self.widget, self.br
+        w.ask_rough = lambda *a, **k: "익산 음악회 보도자료 써줘"
+        w.ui["ai_key"] = "sk-test"
+        orig = ai.generate_press
+        try:
+            ai.generate_press = lambda *a, **k: {"title": "AI 제목", "sub1": "", "sub2": "", "paras": ["AI가 쓴 본문 문단"]}
+            w.make_report("press_release")
+            self.assertIn("AI가 쓴 본문 문단", br.last_text)
+            self.assertIn("AI 제목", br.last_text)
+
+            def boom(*a, **k):
+                raise ai.AIError("인터넷 없음")
+            ai.generate_press = boom
+            import tkinter.messagebox as mb
+            old = mb.showwarning
+            mb.showwarning = lambda *a, **k: None
+            try:
+                w.make_report("press_release")
+            finally:
+                mb.showwarning = old
+            self.assertIn("익산 음악회", br.last_text)
+        finally:
+            ai.generate_press = orig
+            w.ui["ai_key"] = ""
+
     def test_symbols(self):
         self.widget.put_symbol('○')
         self.widget.put_symbol('❶')

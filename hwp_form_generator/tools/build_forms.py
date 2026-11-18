@@ -831,6 +831,12 @@ def build_more(paths):
                 {"key": "title", "label": "사업명", "sample": "{{title}}", "default": "(사업명)"},
             ], note="명시이월 사업현황 한 건: 담당부서 상자 + 사업명 + □ 사업개요 + □ 이 월 액(표) + □ 예산편성시점 + □ 그간 추진경과 + □ 이월사유",
             allow_no_body=True, frame_only=True, slice_=(0, 22), fix=_carry_fix)
+    if "carry2" in paths:
+        out["carry_acc"] = report.register_report(
+            paths["carry2"], os.path.join(F, "carry_acc"), "carry_acc", "사고이월 사업현황", "이월 조서", [
+                {"key": "title", "label": "사업명", "sample": "{{title}}", "default": "(사업명)"},
+            ], note="사고이월 사업현황 한 건: 담당부서 상자 + 사업명 + □ 사업개요 + □ 이 월 액(표) + □ 예산편성시점 + □ 그간 추진경과 + □ 이월사유",
+            allow_no_body=True, frame_only=True, slice_=(0, 25), fix=_carry_fix)
     if "nbud" in paths:
         pth = paths["nbud"]
         out["nbud_main"] = report.register_report(
@@ -856,8 +862,8 @@ if __name__ == "__main__":
         sys.exit(1)
     res = build(*pos) if pos else {}
     if extra:
-        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "nbud", "issue", "audit2")}))
-        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "nbud", "issue", "audit2")}))
+        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "carry2", "nbud", "issue", "audit2")}))
+        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "carry2", "nbud", "issue", "audit2")}))
         res.update(build_queries({k: v for k, v in extra.items() if k in ("written", "policy")}))
     for k, v in res.items():
         print(k, "→", {a: b for a, b in v.items() if a != "style"})

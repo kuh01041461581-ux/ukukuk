@@ -320,7 +320,7 @@ class NewFormsTests(unittest.TestCase):
                "이용범", "박미자", "홀로그램", "안지훈", "김건우", "강태환", "이시온", "859-5", "류재현", "최나은", "박갑수", "정경석", "농림축산식품부", "식품박물관", "나바위", "왕궁리", "미륵사", "솜리", "휴게소", "로컬푸드", "가축분뇨", "동산동", "어양동", "전주영", "김형남", "정서윤", "함열", "아이행복")
         for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_toc", "audit_common", "audit_divider", "audit_i01", "audit_i03", "audit_i06", "audit_i23", "audit_i34", "audit_req",
                                     "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
-                    "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref", "carry_item", "nbud_main", "nbud_ref1", "nbud_ref2", "issue_list", "issue_card", "issue_ref"):
+                    "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref", "carry_item", "carry_acc", "nbud_main", "nbud_ref1", "nbud_ref2", "issue_list", "issue_card", "issue_ref"):
             d = os.path.join(FORMS, fid)
             blob = zipfile.ZipFile(os.path.join(d, "template.hwpx")).read("Contents/section0.xml").decode("utf-8")
             blob += open(os.path.join(d, "protos.xml"), encoding="utf-8").read() + open(os.path.join(d, "form.json"), encoding="utf-8").read()
@@ -499,6 +499,56 @@ class BridgeTests(unittest.TestCase):
         it = b.hwp.st.items
         self.assertEqual((it["SpacingHangul"], it["SpacingLatin"], it["Height"], it["TextColor"]), (-5, -5, 1500, (255, 0, 0)))
         self.assertEqual(b.get_selection_text(), "가나다\r\n라")
+
+    def test_compose_chars_reference_way(self):
+        """글자 겹치기: 글자 입력 → 그만큼 블록 → ComposeChars(CircleType, CheckCompose=0) (참고 프로그램 방식)"""
+        from hwpgen.bridge import HwpBridge
+
+        class St:
+            def __init__(s):
+                s.items = {}
+
+            def SetItem(s, k, v):
+                s.items[k] = v
+
+        log = []
+
+        class Act:
+            def CreateSet(s):
+                s.st = St()
+                return s.st
+
+            def GetDefault(s, st):
+                pass
+
+            def Execute(s, st):
+                log.append(("compose", dict(st.items)))
+                return True
+
+        class HAct:
+            def Run(s, n):
+                log.append(("run", n))
+                return True
+
+        class FakeHwp:
+            Version = "1"
+            HAction = HAct()
+
+            def CreateAction(s, name):
+                if name == "InsertText":
+                    class T(Act):
+                        def Execute(s2, st):
+                            log.append(("text", st.items.get("Text")))
+                            return True
+                    return T()
+                return Act()
+
+        b = HwpBridge()
+        b.hwp = FakeHwp()
+        self.assertTrue(b.compose_chars("12", 3))
+        self.assertEqual(log[0], ("text", "12"))
+        self.assertEqual([x for x in log if x[0] == "run"][:2], [("run", "MoveSelLeft")] * 2)
+        self.assertIn(("compose", {"CircleType": 3, "CheckCompose": 0}), log)
 
     def test_strip_and_chunks(self):
         from hwpgen.package import strip_section_props, split_chunks, page_setup_of
@@ -706,3 +756,31 @@ class ScheduleNameTests(unittest.TestCase):
         from hwpgen import weekly
         self.assertEqual(weekly.schedule_file_name("문화교육국", datetime.date(2026, 11, 23)), "2. 문화교육국 주간 주요일정(2026.11.23.~11.29.)")
         self.assertEqual(weekly.schedule_file_name("문화교육국", datetime.date(2026, 12, 28)), "2. 문화교육국 주간 주요일정(2026.12.28.~2027.1.3.)")
+
+
+class AITests(unittest.TestCase):
+    def test_generate_press_parses_json(self):
+        import io
+        import json
+        from hwpgen import ai
+
+        class Resp(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+        seen = {}
+
+        def opener(req, timeout=0):
+            seen["h"] = dict(req.header_items())
+            seen["b"] = json.loads(req.data.decode("utf-8"))
+            txt = '```json\n{"title":"푸드 페스티벌","sub1":"– 11월 20일 –","sub2":"","paragraphs":["익산시는 …","이번 행사는 …"]}\n```'
+            return Resp(json.dumps({"content": [{"type": "text", "text": txt}]}).encode("utf-8"))
+        r = ai.generate_press("푸드 페스티벌 보도자료", "익산시", "문화관광과", "5792", "sk-test", opener=opener)
+        self.assertEqual(r["title"], "푸드 페스티벌")
+        self.assertEqual(len(r["paras"]), 2)
+        self.assertEqual(seen["h"]["X-api-key"], "sk-test")
+        self.assertIn("푸드 페스티벌 보도자료", seen["b"]["messages"][0]["content"])
+        with self.assertRaises(ai.AIError):
+            ai.generate_press("x", "", "", "", "")

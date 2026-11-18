@@ -166,7 +166,7 @@ def main():
     chip = w.head.bbox(w.head.chip.item)
     b_status = (chip[0] - 3, chip[1] - 2, chip[2] + 3, chip[3] + 2)
     tiles = w.head.tiles
-    b_tabs = (tiles["report"]["x"] - 3, tiles["report"]["y"] - 3, tiles["__more"]["x"] + tiles["__more"]["w"] + 3, tiles["report"]["y"] + tiles["report"]["h"] + 3)
+    b_tabs = (tiles["report"]["x"] - 3, tiles["report"]["y"] - 3, tiles["audit"]["x"] + tiles["audit"]["w"] + 3, tiles["__more"]["y"] + tiles["__more"]["h"] + 3)
     ev = find(w.body, "행사 보고")
     b_event = rel(ev, w) if ev else (10, 190, 240, 232)
     sec1 = find(w.body, "문화교육국 보고")

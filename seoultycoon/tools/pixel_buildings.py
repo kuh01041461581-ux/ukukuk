@@ -216,41 +216,41 @@ def library():
 
 # ---------------------------------------------------------------- 나바위성당 (b13)
 def church():
-    """나바위성당(사진 기준): 붉은 벽돌 + 회색 벽돌 모서리띠의 높은 종탑(뾰족한 짙은 회갈색 첨탑·둥근 시계창·아치창) + 긴 한옥식 회랑 본당(붉은 벽돌 벽, 갈색 목조 기둥 열, 회색 기와 이중 처마). 마당은 마른 잔디와 자갈길."""
-    p = Px(13); p.zs = 1.6; ground(p, 'cdb272', [(0.04, 0.96, 0.78, 0.98, 'd8c8a0'), (0.52, 0.80, 0.62, 1.0, 'd8c8a0')])
+    """나바위성당(사진 기준): 넓은 한옥식 본당(붉은 벽돌 벽 + 목조 기둥 열 + 회색 기와 이중 처마)의 정면 가운데에 서양식 벽돌 종탑이 튀어나온다 — 첨탑 좌우로 한옥 본당이 드러난다.
+    종탑 출입구는 우하단(오른쪽 면)을 향하고, 시계(둥근 창)는 두 면 모두 면 중앙에 있다. 마당은 잔디 + 자갈길."""
+    p = Px(13); p.zs = 1.6; ground(p, '8cc46c', [(0.60, 1.0, 0.50, 0.64, 'd8c8a0'), (0.04, 0.96, 0.84, 0.97, 'cfc8b0')])
     BR = hx('cc6e56'); BRL = hx('dc826a'); GR = hx('8a847a'); WOOD = hx('9a4a30'); ROOF = (hx('5c5c68'), hx('484854')); SPIRE = (hx('564a44'), hx('3a302c'))
-    # 긴 본당: 낮은 회색 석재 기단 + 붉은 벽돌 벽
-    box(p, 0.06, 0.74, 0.20, 0.50, 0, 3, GR, tex='checker'); box(p, 0.06, 0.74, 0.20, 0.50, 3, 10, BR, tex='checker')
-    for i in range(7):                                                                                                         # 벽돌 줄(밝은 가로줄)
-        p.line((0.06, 0.50, 3.6 + i), (0.74, 0.50, 3.6 + i), shade(BRL, 0.96) if i % 2 == 0 else shade(BR, 0.9))
-    for a in [0.10 + 0.64 * i / 9 for i in range(10)]:                                                                          # 목조 기둥 열(회랑) + 창
-        p.rect_wall(a, a + 0.014, 0.50, 0, 9, WOOD, None); p.rect_wall(a + 0.014, a + 0.024, 0.50, 0, 9, shade(WOOD, 0.62), None)
-        p.rect_wall(a + 0.03, a + 0.06, 0.50, 3.5, 8, hx('6a8aa8'), None); p.line((a + 0.045, 0.50, 3.5), (a + 0.045, 0.50, 8), hx('e8e0c8'))
-    p.rect_wall(0.06, 0.74, 0.50, 9, 10, shade(WOOD, 0.8), None)                                                                # 처마 보
-    # 이중 처마 기와 지붕(아래 차양 + 위 지붕), 회색 체크 디더
-    hip_roof(p, 0.04, 0.76, 0.18, 0.52, 10, 2, ROOF[0], ROOF[1], over=0.05, inset=0.04)
-    hip_roof(p, 0.10, 0.70, 0.24, 0.44, 12, 6, ROOF[0], ROOF[1], over=0.03, inset=0.10)
-    p.poly([(0.10, 0.44, 12), (0.70, 0.44, 12), (0.70, 0.44, 13.2), (0.10, 0.44, 13.2)], shade(WOOD, 0.9), None)
-    p.rect_wall(0.38, 0.46, 0.44, 12.6, 16, hx('a24a3a'), None)                                                               # 지붕 위 붉은 박공 장식
-    # 종탑: 붉은 벽돌 몸체 + 회색 모서리 띠 + 시계창 + 아치창
-    box(p, 0.76, 0.96, 0.46, 0.72, 0, 22, BR, tex='checker')
-    for (a, bb) in ((0.76, 0.72), (0.945, 0.72)): p.rect_wall(a, a + 0.015, bb, 0, 22, GR, None)
-    p.rect_side(0.96, 0.46, 0.72, 0, 22, shade(GR, 0.7), None) if False else None
-    p.rect_wall(0.76, 0.96, 0.72, 0, 3, GR, None)
-    for z in (9, 15): p.line((0.76, 0.72, z), (0.96, 0.72, z), hx('d8d0c0'))                                                    # 석재 띠
-    x, y = p.G(0.86, 0.72, 12); p.d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=hx('f4f0e4')); p.d.point((x, y), fill=hx('5a5a66')); p.d.point((x + 1, y - 1), fill=hx('5a5a66'))   # 둥근 시계창
-    for a in (0.80, 0.88): p.rect_wall(a, a + 0.04, 0.72, 16.5, 21, hx('3a3236'), None); p.rect_wall(a + 0.012, a + 0.028, 0.72, 17, 20, hx('c8b8a0'), None)     # 높은 아치창
-    # 출입구는 우하단(오른쪽 면, a 방향)을 향한다: 아치 문 + 석재 아치틀 + 계단 / 시계(둥근 창)는 사방 면에 있다
-    p.rect_side(0.96, 0.52, 0.66, 0, 7, hx('3a2a22'), None); p.poly([(0.96, 0.50, 7), (0.96, 0.68, 7), (0.96, 0.59, 10.5)], shade(GR, 0.75), None)
-    p.rect_side(0.96, 0.55, 0.63, 0, 5, hx('5a3a28'), None); p.line((0.96, 0.59, 0), (0.96, 0.59, 5), hx('8a6a40'))
-    for i in range(3): box(p, 0.96 + 0.012 * (i + 1), 0.97 + 0.012 * (i + 1), 0.50, 0.68, 0, 1.6 - 0.5 * i, hx('c8c0b0'))
-    x, y = p.G(0.96, 0.59, 14.5); p.d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=hx('f4f0e4')); p.d.point((x, y), fill=hx('5a5a66')); p.d.point((x - 1, y - 1), fill=hx('5a5a66'))    # 오른쪽 면 시계
-    for b in (0.52, 0.62): p.rect_side(0.96, b, b + 0.04, 17.5, 21, hx('3a3236'), None)
-    # 첨탑: 뾰족 4각 지붕(짙은 회갈색, 두 톤 체크) + 십자가
-    ap = (0.86, 0.59, 40)
-    checker(p, [(0.75, 0.73, 22), (0.97, 0.73, 22), ap], SPIRE[0], shade(SPIRE[0], 0.88), 0); checker(p, [(0.97, 0.73, 22), (0.97, 0.45, 22), ap], SPIRE[1], shade(SPIRE[1], 0.88), 1)
-    p.line(ap, (0.86, 0.59, 44), hx('3a302c')); p.line((0.845, 0.59, 42.5), (0.875, 0.59, 42.5), hx('3a302c'))
-    shadow_poly(p, [(0.96, 0.44, 0), (1.0, 0.44, 0), (1.0, 0.80, 0), (0.96, 0.72, 0)], 0.78)
+    HA0, HA1, HB0, HB1 = 0.04, 0.96, 0.16, 0.44                                                                                 # 본당
+    box(p, HA0, HA1, HB0, HB1, 0, 3, GR, tex='checker'); box(p, HA0, HA1, HB0, HB1, 3, 10, BR, tex='checker')
+    for i in range(7): p.line((HA0, HB1, 3.6 + i), (HA1, HB1, 3.6 + i), shade(BRL, 0.96) if i % 2 == 0 else shade(BR, 0.9))
+    cols = [0.07 + 0.31 * i / 5 for i in range(6)] + [0.64 + 0.30 * i / 5 for i in range(6)]                                    # 목조 기둥 열: 종탑 좌우에만 보인다
+    for a in cols:
+        p.rect_wall(a, a + 0.014, HB1, 0, 9, WOOD, None); p.rect_wall(a + 0.014, a + 0.024, HB1, 0, 9, shade(WOOD, 0.62), None)
+        p.rect_wall(a + 0.03, a + 0.052, HB1, 3.5, 8, hx('6a8aa8'), None)
+    p.rect_wall(HA0, HA1, HB1, 9, 10, shade(WOOD, 0.8), None)
+    hip_roof(p, HA0 - 0.02, HA1 + 0.02, HB0 - 0.02, HB1 + 0.02, 10, 2, ROOF[0], ROOF[1], over=0.04, inset=0.04)               # 지붕은 한 벌: 아래 차양 + 위 지붕, 같은 회색 기와
+    hip_roof(p, 0.12, 0.88, 0.22, 0.38, 12, 6, ROOF[0], ROOF[1], over=0.03, inset=0.10)
+    p.poly([(0.12, 0.38, 12), (0.88, 0.38, 12), (0.88, 0.38, 13.2), (0.12, 0.38, 13.2)], shade(WOOD, 0.9), None)
+    # 종탑(정면 가운데, 본당보다 앞으로 튀어나옴)
+    TA0, TA1, TB0, TB1 = 0.44, 0.58, 0.44, 0.62
+    box(p, TA0, TA1, TB0, TB1, 0, 16, BR, tex='checker')
+    for (a, bb) in ((TA0, TB1), (TA1 - 0.015, TB1)): p.rect_wall(a, a + 0.015, bb, 0, 16, GR, None)                              # 왼쪽 앞 면 모서리 회색 띠
+    for b in (TB0, TB1 - 0.014): p.rect_side(TA1, b, b + 0.014, 0, 16, shade(GR, 0.7), None)                                   # 오른쪽 면 모서리 띠
+    p.rect_wall(TA0, TA1, TB1, 0, 3, GR, None); p.rect_side(TA1, TB0, TB1, 0, 3, shade(GR, 0.7), None)
+    for z in (8, 12): p.line((TA0, TB1, z), (TA1, TB1, z), hx('d8d0c0')); p.line((TA1, TB0, z), (TA1, TB1, z), hx('b0a898'))
+    cb = (TB0 + TB1) / 2; ca = (TA0 + TA1) / 2
+    def clock(x, y):
+        p.d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=hx('f4f0e4')); p.d.ellipse([x - 3, y - 3, x + 3, y + 3], outline=hx('8a847a')); p.d.point((x, y), fill=hx('5a5a66')); p.d.point((x, y - 1), fill=hx('5a5a66')); p.d.point((x + 1, y), fill=hx('5a5a66'))
+    clock(*p.G(ca, TB1, 9.5)); clock(*p.G(TA1, cb, 9.5))                                                                          # 두 면 모두 면 중앙의 둥근 시계창
+    for a in (ca - 0.05, ca + 0.01): p.rect_wall(a, a + 0.04, TB1, 12, 15, hx('3a3236'), None); p.rect_wall(a + 0.012, a + 0.028, TB1, 12.4, 14.6, hx('c8b8a0'), None)
+    for b in (cb - 0.05, cb + 0.01): p.rect_side(TA1, b, b + 0.04, 12, 15, hx('2a2428'), None); p.rect_side(TA1, b + 0.012, b + 0.028, 12.4, 14.6, hx('8a7e72'), None)
+    p.rect_side(TA1, cb - 0.06, cb + 0.06, 0, 5.5, hx('3a2a22'), None); p.poly([(TA1, cb - 0.075, 5.5), (TA1, cb + 0.075, 5.5), (TA1, cb, 8)], shade(GR, 0.75), None)   # 우하단 출입구(아치)
+    p.rect_side(TA1, cb - 0.035, cb + 0.035, 0, 4, hx('5a3a28'), None); p.line((TA1, cb, 0), (TA1, cb, 4), hx('8a6a40'))
+    for i in range(3): box(p, TA1 + 0.012 * (i + 1), TA1 + 0.012 * (i + 2), cb - 0.09, cb + 0.09, 0, 1.6 - 0.5 * i, hx('c8c0b0'))
+    ap = (ca, cb, 29)                                                                                                           # 뾰족 첨탑 + 십자가
+    checker(p, [(TA0 - 0.01, TB1 + 0.01, 16), (TA1 + 0.01, TB1 + 0.01, 16), ap], SPIRE[0], shade(SPIRE[0], 0.88), 0); checker(p, [(TA1 + 0.01, TB1 + 0.01, 16), (TA1 + 0.01, TB0 - 0.01, 16), ap], SPIRE[1], shade(SPIRE[1], 0.88), 1)
+    p.line(ap, (ca, cb, 32), hx('3a302c')); p.line((ca - 0.015, cb, 31), (ca + 0.015, cb, 31), hx('3a302c'))
+    shadow_poly(p, [(0.96, 0.16, 0), (1.0, 0.16, 0), (1.0, 0.50, 0), (0.96, 0.44, 0)], 0.78)
     return finish(p)
 
 # ---------------------------------------------------------------- 익산 통합 전수관 (b26)

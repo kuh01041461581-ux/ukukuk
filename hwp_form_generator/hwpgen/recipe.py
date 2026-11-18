@@ -148,7 +148,7 @@ def _para(pkg, st, p, images, in_cell):
                 img = ch.find(".//" + HC + "img")
                 href = st.bin.get(img.get("binaryItemIDRef")) if img is not None else None
                 sz = ch.find(HP + "sz")
-                if href and href in pkg.files and not in_cell:
+                if href and href in pkg.files:                 # 표 칸 안의 그림(로고 등)도 그 칸에 넣는다
                     name = os.path.basename(href)
                     images[name] = pkg.files[href]
                     steps.append({"k": "pic", "img": name, "para": ps, "pb": pb,
@@ -203,6 +203,25 @@ def _table(pkg, st, tbl, images):
             "rowh": [rowh.get(i, 0) or 1000 for i in range(rows)], "cells": cells}
 
 
+def unsupported_parts(pkg):
+    """명령으로는 원본과 똑같이 만들 수 없는 부분(도형·글상자, 떠 있는 그림, 바탕쪽, 머리말·꼬리말, 쪽 번호) 목록"""
+    out = []
+    sec = pkg.section(0)
+    shapes = [e for t in ("rect", "ellipse", "container", "line", "polygon", "curve", "arc", "textart") for e in sec.iter(HP + t)]
+    if shapes:
+        out.append("도형·글상자 %d개" % len(shapes))
+    floating = [pc for pc in sec.iter(HP + "pic") if (pc.find(HP + "pos") is not None and pc.find(HP + "pos").get("treatAsChar") != "1")]
+    if floating:
+        out.append("글자처럼 취급하지 않는(떠 있는) 그림 %d개" % len(floating))
+    if any(re.fullmatch(r"Contents/masterpage\d+\.xml", n) for n in pkg.files):
+        out.append("바탕쪽")
+    if list(sec.iter(HP + "header")) or list(sec.iter(HP + "footer")):
+        out.append("머리말·꼬리말")
+    if list(sec.iter(HP + "pageNum")) or list(sec.iter(HP + "pageNumCtrl")):
+        out.append("쪽 번호")
+    return out
+
+
 def extract(pkg):
     """양식 묶음 → (레시피, {그림이름: 바이트})"""
     st = _Styles(pkg)
@@ -215,7 +234,7 @@ def extract(pkg):
         page = P.page_setup_of(pkg)
     except Exception:                                       # noqa: BLE001
         page = None
-    return {"v": 1, "page": page, "steps": steps}, images
+    return {"v": 1, "page": page, "steps": steps, "unsupported": unsupported_parts(pkg)}, images
 
 
 # ===================================================================== 재생 엔진
@@ -291,6 +310,10 @@ class Player:
     def _pic(self, s):
         self._begin(s)
         self._para(s.get("para"))
+        self._pic_here(s)
+        self.fresh = False
+
+    def _pic_here(self, s):
         path = os.path.join(tempfile.gettempdir(), "hwpform_%s" % s["img"])
         with open(path, "wb") as f:
             f.write(self.images.get(s["img"], b""))
@@ -301,7 +324,6 @@ class Player:
                 os.remove(path)
             except OSError:
                 pass
-        self.fresh = False
 
     def _table(self, s):
         br = self.br
@@ -320,6 +342,9 @@ class Player:
                     self._ps = None
                 first = False
                 self._para(p.get("para"))
+                if p.get("k") == "pic":
+                    self._pic_here(p)
+                    continue
                 for r in p.get("runs", []):
                     self._char(r.get("cs"))
                     if r.get("text"):

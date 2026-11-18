@@ -109,6 +109,9 @@ def _cmp_tbl(a, b, where, out):
             out.append("%s 테두리 있음/없음이 달라요" % w)
         if (x.get("va") or "TOP") != (y.get("va") or "TOP"):
             out.append("%s 세로 맞춤: %s → %s" % (w, x.get("va"), y.get("va")))
+        npa, npb = sum(1 for p in x["paras"] if p.get("k") == "pic"), sum(1 for p in y["paras"] if p.get("k") == "pic")
+        if npa != npb:
+            out.append("%s 그림 수: %d → %d" % (w, npa, npb))
         pa = [p for p in x["paras"] if _t("".join(r.get("text", "") for r in p.get("runs", [])))]
         pb = [p for p in y["paras"] if _t("".join(r.get("text", "") for r in p.get("runs", [])))]
         if len(pa) != len(pb):
@@ -119,13 +122,15 @@ def _cmp_tbl(a, b, where, out):
 
 def compare(src, got, limit=40):
     """원본 레시피 src 와 한글이 만든 got 을 비교 → 다른 곳 목록(비어 있으면 같음)"""
-    out = []
+    out = ["명령으로 똑같이 만들 수 없는 부분이 있어 양식 파일로 만들어요: %s" % ", ".join(src["unsupported"])] if src.get("unsupported") else []
 
     def seq(rc):
         items = []
         for s in rc.get("steps", []):
             if s["k"] == "tbl":
                 items.append(("tbl", s))
+            elif s["k"] == "pic":
+                items.append(("pic", s))
             elif s["k"] == "p" and _t("".join(r.get("text", "") for r in s.get("runs", []))):
                 items.append(("p", s))
         return items
@@ -136,6 +141,10 @@ def compare(src, got, limit=40):
         where = "%d번째" % i
         if ka != kb:
             out.append("%s 종류가 달라요: %s → %s" % (where, ka, kb))
+            continue
+        if ka == "pic":
+            if not (_near(x.get("w"), y.get("w"), max(200, (x.get("w") or 0) * 0.05)) and _near(x.get("h"), y.get("h"), max(200, (x.get("h") or 0) * 0.05))):
+                out.append("%s 그림 크기: %sx%s → %sx%s" % (where, x.get("w"), x.get("h"), y.get("w"), y.get("h")))
             continue
         (_cmp_tbl if ka == "tbl" else _cmp_para)(x, y, where, out)
         if len(out) >= limit:
@@ -169,6 +178,8 @@ def check_form(br, form, tmp_path):
         vals = {x["key"]: ("{{%s}}" % x["key"]) for x in getattr(form, "fields", [])}
         pkg = form.render(vals, form.meta.get("starter", ""))
     src, imgs = R.extract(pkg)
+    if src.get("unsupported"):                         # 도형·바탕쪽 등이 있으면 만들어 볼 필요 없이 양식 파일 방식
+        return False, compare(src, src)
     br.scratch_build(src, imgs, src.get("page"), tmp_path)
     got, _ = R.extract(Package.load(tmp_path))
     diffs = compare(src, got)

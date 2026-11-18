@@ -122,14 +122,15 @@ function parseBudgetDoc(lines) {
 }
 
 /* 공공운영비 산출내역에서 전기·상하수도·통신 예산 추정 */
-function utilBudgetFromBudget(doc, biz = '문화유적지 보존관리') {
+function utilBudgetFromBudget(doc, biz) {
+  // 공공운영비(20102)의 산출내역에서 전기·상하수도·통신 항목을 합산. biz 를 주면 그 사업만, 없으면 모든 사업(다른 과 포함)
   const out = { elec: 0, water: 0, tel: 0, found: false };
-  const e = doc.entries.find(x => normName(x.biz) === normName(biz) && x.code === '20102'); if (!e) return out;
-  out.found = true;
-  for (const d of e.leaves) {
-    if (/전기요금/.test(d.text)) out.elec += d.amount;
-    else if (/상하수도/.test(d.text)) out.water += d.amount;
-    else if (/통신요금|인터넷\s*사용료/.test(d.text)) out.tel += d.amount;
+  if (!biz && doc.entries.some(x => x.code === '20102' && normName(x.biz) === normName('문화유적지 보존관리'))) biz = '문화유적지 보존관리';   // 기존 장부와 같은 결과를 내기 위한 호환 처리
+  const es = doc.entries.filter(x => x.code === '20102' && (!biz || normName(x.biz) === normName(biz))); if (!es.length) return out;
+  for (const e of es) for (const d of e.leaves || []) {
+    if (/전기요금/.test(d.text)) { out.elec += d.amount; out.found = true; }
+    else if (/상하수도/.test(d.text)) { out.water += d.amount; out.found = true; }
+    else if (/통신요금|인터넷\s*사용료/.test(d.text)) { out.tel += d.amount; out.found = true; }
   }
   return out;
 }

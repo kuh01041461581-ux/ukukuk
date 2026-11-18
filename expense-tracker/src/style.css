@@ -930,3 +930,23 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
   .card{padding-top:10px;padding-bottom:10px}
 }
 @media (max-height:800px) and (min-width:1101px){ .now-r{max-height:calc(100vh - 248px);overflow:auto;padding-right:2px} .now-r .alerts{margin-top:8px!important} }
+
+
+/* 월별 처리 현황 히트맵 */
+.hm{display:flex;flex-direction:column;gap:4px}
+.hmrow{display:grid;grid-template-columns:130px repeat(12,minmax(0,1fr));gap:4px;align-items:center}
+.hmhead span{text-align:center;font-size:12px;color:var(--text-2)} .hmhead .cur{font-weight:800;color:var(--text)}
+.hmlab{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px}.hmlab i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.hmc{border:0;border-radius:8px;padding:10px 2px;font:600 12px/1.2 inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--text)}
+.hmc b{font-size:14px}.hmc:hover{outline:2px solid var(--accent,#2a78d6)}
+.hmc.ok,.hmk.ok{background:var(--good-soft);color:var(--good)} .hmc.unp,.hmk.unp{background:var(--warn-soft);color:var(--warn)}
+.hmc.miss,.hmk.miss{background:var(--bad-soft);color:var(--bad)} .hmc.wait,.hmk.wait,.hmc.none{background:var(--track,#eef0f4);color:var(--text-2)}
+.hmk{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;margin-right:6px}
+@media(max-width:1100px){.hmrow{grid-template-columns:90px repeat(12,minmax(0,1fr))}}
+/* 전체 사업 진척 요약 */
+.bizviz{align-items:start;display:grid;grid-template-columns:minmax(340px,1fr) minmax(0,1.4fr);gap:12px;margin-top:12px}
+.hb{display:grid;grid-template-columns:minmax(120px,38%) 1fr 110px;gap:8px;align-items:center;padding:4px 2px;cursor:pointer;border-radius:6px}
+.hb:hover{background:var(--track,#f3f5f9)}.hbn{font-size:13px;font-weight:600;line-height:1.25}
+.hbt{height:12px;background:var(--track,#e8ebf1);border-radius:0 6px 6px 0;overflow:hidden}.hbt i{display:block;height:100%;background:var(--accent,#2a78d6);border-radius:0 4px 4px 0}
+.hbv{text-align:right;font-size:14px}
+@media(max-width:1100px){.bizviz{grid-template-columns:1fr}}

@@ -41,7 +41,7 @@ function utilControls(sec) {
 }
 function utilStat() {
   const u = UI.util; const grand = sum(CATS, ([k]) => S.util[k] ? catTotal(S.util[k]) : 0);
-  let h = `<div class="cat-cards" style="margin-top:0">`;
+  let h = procHeatmap() + `<div class="cat-cards" style="margin-top:12px">`;
   for (const [k, nm] of CATS) {
     const s = S.util[k]; if (!s) continue; const tot = catTotal(s), bud = S.utilBudget[k];
     h += `<div class="cat-card" style="--c:${CATCOLOR[k]}"><div class="row" style="justify-content:space-between"><b>${nm}</b><span class="muted">${s.items.filter(i => !i.inactive).length}곳</span></div>
@@ -199,6 +199,7 @@ PU.addEventListener('click', e => {
   else if (a === 'filter') { u.filter = b.dataset.v; renderUtil(); }
   else if (a === 'cycle') { const it = S.util[u.cat].items.find(x => x.id === b.dataset.id); cycle4(it, +b.dataset.m); save(); renderUtil(); }
   else if (a === 'additem') itemDialog(null);
+  else if (a === 'hm') { const u = UI.util; u.cat = b.dataset.k; u.sub = 'pay'; u.month = +b.dataset.m; u.filter = 'all'; UI._noKeep = true; renderUtil(); }
   else if (a === 'addfwd') fwdDialog(null, UI.util.cat);
   else if (a === 'editfwd') fwdDialog(+b.dataset.i, b.dataset.k);
   else if (a === 'edititem') itemDialog(b.dataset.id);

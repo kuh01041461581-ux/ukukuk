@@ -18,7 +18,7 @@ function findMonth(h) { return FIND.month === 'auto' ? defaultMonth(h.sec) : +FI
 
 function findRows() {
   const q = FIND.q.trim();
-  if (!q) return vdLogHTML() + '<div class="empty">계약번호·납부번호·장소·계좌 일부를 입력하세요. 예) <b>2392</b> · <b>숭림사</b> · <b>790183</b> · <b>함벽정 전기</b></div>';
+  if (!q) return vdLogHTML() + '<div class="empty">계약번호·납부번호·장소·계좌 일부를 입력하세요. 예) 번호 일부 · 장소 이름 일부 · 계좌 앞자리</div>';
   const hits = findHits(q); const card = verdictCard(q); if (!hits.length) return card + '<div class="empty">찾는 항목이 없습니다</div>';
   const list = hits.slice(0, 40);
   return card + list.map((h, idx) => {
@@ -48,7 +48,7 @@ function openFind() {
   openDlg(`<div class="findwrap"><div class="row" style="gap:8px;margin-bottom:8px"><h3 style="margin:0;flex:1">빠르게 찾기 <span class="muted" style="font-weight:400;font-size:12px">모든 요금 종류 · 일상경비</span></h3>
       <label class="muted" style="font-size:12px">확인할 월 <select id="fmon" class="fsel"><option value="auto">자동(처리 필요한 달)</option>${MON.map((x, i) => `<option value="${i}">${x}분</option>`).join('')}</select></label>
       <button class="btn sm" data-fo="close" aria-label="닫기">✕</button></div>
-    <input id="fq" type="search" class="fq" placeholder="계약번호 · 납부번호 · 계좌 · 장소 · 전달처 (예: 2392, 숭림사, 790183)" autocomplete="off" value="${esc(FIND.q)}">
+    <input id="fq" type="search" class="fq" placeholder="계약번호 · 납부번호 · 계좌 · 장소 · 전달처 (번호 일부, 장소 이름 일부…)" autocomplete="off" value="${esc(FIND.q)}">
     <div class="hint" id="fhint" style="margin:6px 2px 8px"></div>
     <div id="fres" class="fres"></div></div>`, d => {
     $('#fmon', d).value = FIND.month; FIND.open = true; d.classList.add('findbox'); d.onclose = () => { d.classList.remove('findbox'); FIND.open = false; if (UI.tab === 'util') renderUtil(); else if (UI.tab === 'daily') renderDaily(); };

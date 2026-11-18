@@ -27,6 +27,7 @@ function renderBiz() {
     return h;
   }).join('');
   P.innerHTML = `<div class="kpis"><div class="kpi bigrem"><div class="k">선택 사업 남은 예산</div><div class="v ${T.remain < 0 ? 'neg' : ''}">${won(T.remain)}<small>원</small></div><div class="s">예산 ${won(T.budget)}원 · 집행 ${won(T.paid)}원 · 집행률 <b>${pct1(T.rate)}</b></div></div></div>
+  ${bizVizHTML(rows, T)}
   <div class="card" style="margin-top:12px"><div class="row noprint" style="gap:10px;flex-wrap:wrap;margin-bottom:8px">
     <input id="b-q" class="cellin" style="text-align:left;width:220px" placeholder="사업명·목 검색" value="${esc(UI.biz.q)}">
     <select id="b-code" class="cellin" style="width:auto">${'<option value="">모든 통계목</option>' + codes.map(([c, n]) => `<option value="${c}" ${UI.biz.code === c ? 'selected' : ''}>${esc(c + ' ' + n)}</option>`).join('')}</select>

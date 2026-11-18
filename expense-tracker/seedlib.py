@@ -27,6 +27,8 @@ DAILY_MAP = {
     ("여비", "국내여비"): ("국가유산 운영", "20201"),
 }
 GROUPS = ["사무관리비", "공공운영비", "업무추진비", "여비"]
+# 위 매핑에 없는 사업(다른 과 등)은 구분별 기본 편성목 코드로 읽음
+GROUP_CODE = {"사무관리비": "20101", "공공운영비": "20102", "업무추진비": "20303", "여비": "20201"}
 # 엑셀 비고에 '예정'이라고 적힌 금액만 지급예정으로 옮김(나머지는 비고 글로 보존)
 SEED_SCHEDULED = {
     ("사무관리비", "문화유적지 보존관리"): [("남중마트 청소용품(미납분 처리 예정)", 600000)],
@@ -62,8 +64,20 @@ def parse_daily(path, sheet=None):
     if ws is None:
         raise ValueError("일상경비 표('사무관리비' 탭)를 찾지 못했습니다.")
     lines, group, seq = [], None, 0
+    # 열 위치: 머리글(사업명·총예산액·지출액·비고)로 찾고, 못 찾으면 기본 위치(B·C·E·H)
+    cB, cBud, cSp, cNote = 2, 3, 5, 8
+    for hr in range(1, 8):
+        heads = {c: txt(ws.cell(hr, c).value) for c in range(1, min(ws.max_column, 20) + 1)}
+        lab = [c for c, t in heads.items() if "사업명" in t or t.replace(" ", "") == "사업"]
+        bud = [c for c, t in heads.items() if "총예산" in t or t.replace(" ", "") in ("예산액", "예산")]
+        spn = [c for c, t in heads.items() if t.replace(" ", "") in ("지출액", "집행액", "지출")]
+        nte = [c for c, t in heads.items() if "비고" in t]
+        if lab and bud and spn:
+            cB, cBud, cSp = lab[0], bud[0], spn[0]
+            cNote = nte[0] if nte else cNote
+            break
     for r in range(4, ws.max_row + 1):
-        a, b = ws.cell(r, 1).value, ws.cell(r, 2).value
+        a, b = ws.cell(r, 1).value, ws.cell(r, cB).value
         if isinstance(a, str) and a.strip() in GROUPS:
             group = a.strip()
             continue
@@ -72,18 +86,19 @@ def parse_daily(path, sheet=None):
         label = txt(b)
         key = (group, label)
         if key not in DAILY_MAP:
-            print("  [경고] 매핑 없는 행:", key, file=sys.stderr)
-            biz, code = label, ""
+            biz, code = label, GROUP_CODE.get(group, "")
+            if group == "업무추진비" and "부서" in label:
+                code = "20304"
         else:
             biz, code = DAILY_MAP[key]
-        note = txt(ws.cell(r, 8).value)
-        extra = ws.cell(r, 9).value
+        note = txt(ws.cell(r, cNote).value)
+        extra = ws.cell(r, cNote + 1).value if cNote == 8 else None
         if extra not in (None, ""):
             note += (" / " if note else "") + ("엑셀 I열 메모: " + (f"{extra:,}" if isinstance(extra, (int, float)) else txt(extra)))
         seq += 1
         lines.append({
             "id": f"L{seq}", "group": group, "label": label, "biz": biz, "code": code,
-            "budget": num(ws.cell(r, 3).value) or 0, "spent": num(ws.cell(r, 5).value) or 0,
+            "budget": num(ws.cell(r, cBud).value) or 0, "spent": num(ws.cell(r, cSp).value) or 0,
             "note": note,
             "scheduled": [{"id": f"S{seq}_{i}", "text": t, "amount": amt}
                           for i, (t, amt) in enumerate(SEED_SCHEDULED.get(key, []))],

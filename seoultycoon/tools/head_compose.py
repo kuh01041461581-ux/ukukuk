@@ -38,7 +38,7 @@ def sim(src, dst):                                                              
 def compose(n):
     fs = faces(n // 9)
     if n % 9 >= len(fs): raise SystemExit(f'얼굴 {len(fs)}개만 찾음')
-    b = fs[n % 9]; L = landmarks(b); s, th = sim(L, (BL, BR, BM)); W, H = base.size
+    b = fs[n % 9]; L = landmarks(b); s, th = sim(L, (BL, BR, BM)); th = 0.0; W, H = base.size
     mid = ((L[0][0] + L[1][0]) / 2, (L[0][1] + L[1][1]) / 2); bmid = ((BL[0] + BR[0]) / 2, (BL[1] + BR[1]) / 2)
     cs, sn = np.cos(th) / s, np.sin(th) / s                                             # 출력→입력 역변환
     M = (cs, sn, mid[0] - cs * bmid[0] - sn * bmid[1], -sn, cs, mid[1] + sn * bmid[0] - cs * bmid[1])
@@ -47,11 +47,18 @@ def compose(n):
     yy, xx = np.mgrid[0:H, 0:W]; cx, cy = (BL[0] + BR[0]) / 2, 650
     mk = (((xx - cx) / 235.0) ** 2 + ((yy - cy) / 380.0) ** 2) < 1.0; # 눈썹~턱 위 타원(위쪽은 흐리게 이어짐), 머리카락·귀·턱 가장자리는 기본 머리 유지
     valid = ndi.binary_erosion(ndi.binary_fill_holes(ndi.binary_closing((ew[..., 0] > 150) & (ew[..., 0] - ew[..., 2] > 40), iterations=6)), iterations=30); mk &= valid
+    bsk = (bw[..., 0] > 190) & (bw[..., 1] > 120) & (bw[..., 2] > 70) & (bw[..., 0] > bw[..., 2] + 40); bsk = ndi.binary_erosion(ndi.binary_fill_holes(ndi.binary_closing(bsk, iterations=4)), iterations=26); mk &= bsk     # 기본 머리의 얼굴 살색 안쪽에서만 합성(머리카락·귀로 번지지 않게)
     mk = ndi.gaussian_filter(mk.astype(float), 36)[..., None]
     sk = lambda im, c, r=22: np.median(im[c[1] - r:c[1] + r, c[0] - r:c[0] + r].reshape(-1, 3), axis=0)   # 볼 부분 평균색으로 피부톤 맞춤
     bt = (sk(bw, (680, 560)) + sk(bw, (950, 560))) / 2; et = (sk(ew, (680, 560)) + sk(ew, (950, 560))) / 2
     ew2 = np.clip(ew + (bt - et), 0, 255)
-    out = bw * (1 - mk) + ew2 * mk; return Image.fromarray(out.astype(np.uint8))
+    out = bw * (1 - mk) + ew2 * mk; im = Image.fromarray(out.astype(np.uint8))
+    from PIL import ImageDraw                                                           # 원본 그림은 머리 꼭대기가 잘려 있어, 윗 모서리를 둥글게 깎아 둥근 머리 모양으로 만든다
+    bgc = tuple(int(v) for v in bw[2, 2]); m = Image.new('L', (W, H), 255); d = ImageDraw.Draw(m); R = 230; xl, xr = 236, 1232
+    for (cx0, sgn) in ((xl, 1), (xr, -1)):
+        d.rectangle([cx0 - (0 if sgn > 0 else R), 0, cx0 + (R if sgn > 0 else 0), R], fill=0); d.ellipse([cx0 + (0 if sgn > 0 else -2 * R), 0, cx0 + (2 * R if sgn > 0 else 0), 2 * R], fill=255)
+    d.rectangle([0, 0, xl - 1, R], fill=0); d.rectangle([xr + 1, 0, W, R], fill=0)
+    out2 = Image.composite(im, Image.new('RGB', (W, H), bgc), m); return out2
 if __name__ == '__main__':
     os.makedirs(gp + '/heads', exist_ok=True)
     for n in [int(a) for a in sys.argv[1:]] or [3, 4, 5, 9, 10, 11, 12, 13, 14]: compose(n).save(f'{gp}/heads/h{n}.png'); print('h', n)

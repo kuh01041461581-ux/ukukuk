@@ -698,3 +698,11 @@ class RecipeTests(unittest.TestCase):
         # 표 뒤 새 줄은 문단 나눔(BreakPara)으로 시작
         after = br.log[names.index("rp_table_leave") + 1]
         self.assertEqual(after, ("run_action", "BreakPara"))
+
+
+class ScheduleNameTests(unittest.TestCase):
+    def test_file_name(self):
+        import datetime
+        from hwpgen import weekly
+        self.assertEqual(weekly.schedule_file_name("문화교육국", datetime.date(2026, 11, 23)), "2. 문화교육국 주간 주요일정(2026.11.23.~11.29.)")
+        self.assertEqual(weekly.schedule_file_name("문화교육국", datetime.date(2026, 12, 28)), "2. 문화교육국 주간 주요일정(2026.12.28.~2027.1.3.)")

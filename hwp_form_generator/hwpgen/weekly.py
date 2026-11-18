@@ -890,3 +890,11 @@ def parse_rough_plan(text, dept="", staff="", phone="", year=None):
     if strict and sum(1 for it in strict if it.get("date") or it.get("place")) * 2 >= len(strict):
         return strict
     return parse_loose_plan(lines, dept, staff, phone, year)
+
+
+def schedule_file_name(org, monday):
+    """저장 파일 이름: '2. 문화교육국 주간 주요일정(2026.11.23.~11.29.)' — 뒤의 날짜만 그 주(월~일) 날짜로 바뀐다"""
+    end = monday + datetime.timedelta(days=6)
+    a = "%d.%d.%d." % (monday.year, monday.month, monday.day)
+    b = ("%d.%d.%d." % (end.year, end.month, end.day)) if end.year != monday.year else "%d.%d." % (end.month, end.day)
+    return "2. %s 주간 주요일정(%s~%s)" % (org, a, b)

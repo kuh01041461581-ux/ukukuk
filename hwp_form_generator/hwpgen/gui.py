@@ -549,7 +549,7 @@ class WeeklyTab(ttk.Frame):
                 evs = weekly.extract_events(items)
                 evs = [e for e in evs if self.monday <= T.parse_date(e["date"]) <= self.monday + datetime.timedelta(days=6)]
                 docs.append((f.render({"org": org, "start": self.monday.isoformat(), "events": evs}),
-                             "주간주요일정_%s" % self.monday.strftime("%m%d")))
+                             weekly.schedule_file_name(org, self.monday)))
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
@@ -2357,7 +2357,7 @@ class Widget(tk.Tk):
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
-        self.busy(lambda: self.out.insert(pkg, {"cover": "주간업무계획표지", "plan": "주간업무계획"}.get(which, "주간주요일정")))
+        self.busy(lambda: self.out.insert(pkg, {"cover": "주간업무계획표지", "plan": "주간업무계획"}.get(which) or weekly.schedule_file_name(org, monday)))
 
     def busy(self, fn):
         self.config(cursor="watch")

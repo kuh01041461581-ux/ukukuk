@@ -106,6 +106,16 @@ class Output:
                 first[0].set("pageBreak", "0")
             else:
                 with_lead_blank(pkg)                 # 첫 문단이 앞 문단의 모양을 물려받지 않게 빈 받침 문단 하나
+        mode = app.ui.get("build", "file")
+        if mode == "commands":                       # 파일을 끼우지 않고 한글 명령으로 직접 만든다(참고 프로그램 방식)
+            try:
+                self._insert_commands(pkg, empty or top, page if keep_section else None)
+                app.say("한글 명령으로 직접 만들었어요")
+                app.single_doc = {"fid": prefix, "key": br.doc_key() if hasattr(br, "doc_key") else None} if (empty and replace != "selection") else None
+            except Exception as e:                   # noqa: BLE001
+                log = write_error_log("commands %s" % prefix, e)
+                messagebox.showerror("한글에 넣기", "명령으로 만들다 멈췄어요.\n%s\n\n오류 기록: %s" % (e, log))
+            return
         with_tail_blank(pkg)                         # 끝에 빈 줄: 커서가 새 줄에 놓여 다음 ◦가 붙지 않는다
         pkg.fix_secpr_refs()
         pkg.prune_header()                           # 안 쓰는 서식을 덜어 낸 뒤 쪼갠다 — 조각마다 큰 서식표를 한글이 다시 읽지 않게
@@ -126,6 +136,13 @@ class Output:
             app.single_doc = {"fid": prefix, "key": br.doc_key() if hasattr(br, "doc_key") else None} if (empty and not replace_partial) else None
         except Exception as e:                       # noqa: BLE001
             log = write_error_log("insert %s chunk %d/%d step=%s" % (prefix, i, n, step), e)
+            if i <= 1:                               # 첫 조각부터 안 들어가면(파일 손상 등) 한글 명령으로 직접 만들어 본다
+                try:
+                    self._insert_commands(pkg, empty or top, page if keep_section else None)
+                    app.say("파일 끼워넣기가 안 돼서 한글 명령으로 직접 만들었어요")
+                    return
+                except Exception as e3:              # noqa: BLE001
+                    write_error_log("commands-fallback %s" % prefix, e3)
             try:                                     # 실패한 양식 파일을 그대로 남겨 두면 원인을 정확히 볼 수 있다
                 d = os.path.dirname(log) if log else tempfile.gettempdir()
                 pkg.save(os.path.join(d, "failed_%s.hwpx" % prefix))
@@ -139,6 +156,20 @@ class Output:
                 except Exception as e2:              # noqa: BLE001
                     write_error_log("open_new %s" % prefix, e2)
                     messagebox.showerror("한글에서 열기", str(e2))
+
+    def _insert_commands(self, pkg, at_top, page):
+        """양식 묶음 → 만드는 순서(레시피) → 한글 명령으로 재생"""
+        from . import recipe
+        app, br = self.app, self.app.bridge
+        rc, imgs = recipe.extract(pkg)
+        if page:
+            br.apply_page_setup(page)
+
+        def prog(i, n):
+            if i % 3 == 0 or i == n:
+                app.say("명령으로 만드는 중… %d/%d" % (i, n))
+                app.update()
+        recipe.Player(br, rc, imgs, fresh=True, first_page=bool(at_top), progress=prog).run()
 
     def _insert_chunk(self, ch, prefix, br, keep_section):
         path = ch.save(tmp_hwpx(prefix))
@@ -2149,6 +2180,12 @@ class Widget(tk.Tk):
             tk.Radiobutton(parent, text=txt, variable=self._mode_var, value=val, bg=C_BG, font=FONT, anchor="w",
                            fg=C_TEXT, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0,
                            command=lambda: self.ui.__setitem__("insert_mode", self._mode_var.get())).pack(fill="x")
+        self.section(parent, "만드는 방식")
+        self._build_var = tk.StringVar(value=self.ui.get("build", "file"))
+        for val, txt in (("file", "양식 파일 끼워넣기 (기본, 모양이 똑같음)"), ("commands", "한글 명령으로 직접 만들기 (실험, 파일 손상 없음)")):
+            tk.Radiobutton(parent, text=txt, variable=self._build_var, value=val, bg=C_BG, font=FONT_S, anchor="w",
+                           fg=C_TEXT, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0, wraplength=WIDGET_W - 40,
+                           justify="left", command=lambda: self.ui.__setitem__("build", self._build_var.get())).pack(fill="x")
         self.section(parent, "창 투명도")
         row = tk.Frame(parent, bg=C_BG)
         row.pack(fill="x")

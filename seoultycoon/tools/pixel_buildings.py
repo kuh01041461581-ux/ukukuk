@@ -258,9 +258,16 @@ def church():
     p.rect_wall(TA0, TA1, TB1, 0, 3, GR, None); p.rect_side(TA1, TB0, TB1, 0, 3, shade(GR, 0.7), None)
     for z in (8, 12): p.line((TA0, TB1, z), (TA1, TB1, z), hx('d8d0c0')); p.line((TA1, TB0, z), (TA1, TB1, z), hx('b0a898'))
     cb = (TB0 + TB1) / 2; ca = (TA0 + TA1) / 2
-    def clock(x, y):
-        p.d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=hx('f4f0e4')); p.d.ellipse([x - 3, y - 3, x + 3, y + 3], outline=hx('8a847a')); p.d.point((x, y), fill=hx('5a5a66')); p.d.point((x, y - 1), fill=hx('5a5a66')); p.d.point((x + 1, y), fill=hx('5a5a66'))
-    clock(*p.G(ca, TB1, 9.5)); clock(*p.G(TA1, cb, 9.5))                                                                          # 두 면 모두 면 중앙의 둥근 시계창
+    import math
+    def clock(face, c, zc, ra=0.047, rz=2.6):
+        """시계창: 벽면(아이소 평행사변형 면) 위의 원이므로 면 좌표(a 또는 b, z)로 원을 그려 투영 — 면 방향에 맞게 기울어진 타원이 된다."""
+        P = (lambda u, z: p.G(u, TB1, z)) if face == 'L' else (lambda u, z: p.G(TA1, u, z))
+        ring = [P(c + ra * math.cos(t * math.pi / 18), zc + rz * math.sin(t * math.pi / 18)) for t in range(36)]
+        inner = [P(c + (ra - 0.011) * math.cos(t * math.pi / 18), zc + (rz - 0.9) * math.sin(t * math.pi / 18)) for t in range(36)]
+        p.d.polygon(ring, fill=hx('5a5460')); p.d.polygon(inner, fill=hx('f4f0e4'))
+        o = P(c, zc); p.d.line([o, P(c, zc + rz * 0.6)], fill=hx('4a4a56')); p.d.line([o, P(c + ra * 0.55, zc)], fill=hx('4a4a56'))
+        for t in (0, 9, 18, 27): q = P(c + (ra - 0.016) * math.cos(t * math.pi / 18), zc + (rz - 1.1) * math.sin(t * math.pi / 18)); p.d.point(q, fill=hx('8a847a'))
+    clock('L', ca, 8.2); clock('R', cb, 8.2)
     for a in (ca - 0.05, ca + 0.01): p.rect_wall(a, a + 0.04, TB1, 12, 15, hx('3a3236'), None); p.rect_wall(a + 0.012, a + 0.028, TB1, 12.4, 14.6, hx('c8b8a0'), None)
     for b in (cb - 0.05, cb + 0.01): p.rect_side(TA1, b, b + 0.04, 12, 15, hx('2a2428'), None); p.rect_side(TA1, b + 0.012, b + 0.028, 12.4, 14.6, hx('8a7e72'), None)
     p.rect_side(TA1, cb - 0.06, cb + 0.06, 0, 5.5, hx('3a2a22'), None); p.poly([(TA1, cb - 0.075, 5.5), (TA1, cb + 0.075, 5.5), (TA1, cb, 8)], shade(GR, 0.75), None)   # 우하단 출입구(아치)

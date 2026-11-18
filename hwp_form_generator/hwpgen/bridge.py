@@ -74,6 +74,14 @@ class HwpBridge:
         self.hwp = hwp
         return True
 
+    @property
+    def hwp_version(self):
+        """연결된 한글 버전 글자(예: 10.0.0.xxxx) — 검증 기록에 남겨 버전별 차이를 알 수 있게"""
+        try:
+            return str(self.hwp.Version)
+        except Exception:                                  # noqa: BLE001
+            return ""
+
     def _need(self):
         if not self.connected:
             raise BridgeError("한글에 연결되어 있지 않아요")

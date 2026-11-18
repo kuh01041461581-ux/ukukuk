@@ -163,7 +163,7 @@ def run_all(br, form_ids, tmp_dir, progress=None):
     """여러 양식 검증 → 결과를 engine_status.json / engine_check.txt 에 저장하고 {양식: (통과, 목록)} 를 돌려준다"""
     from . import registry
     results, status = {}, load_status()
-    lines = ["엔진 검증 %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), ""]
+    lines = ["엔진 검증 %s  (한글 %s)" % (datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), getattr(br, "hwp_version", "") or "버전 모름"), ""]
     for i, fid in enumerate(form_ids, 1):
         if progress:
             progress(i, len(form_ids), fid)

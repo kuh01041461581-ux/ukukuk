@@ -57,13 +57,6 @@ internal class TrayToast : AlertForm
 		if (brk != null) { sky.Caption = "정각 건강 알림"; a.Text = n.Hour + "시 정각"; b.Text = brk[0]; b.Fore = Theme.Accent; b.SetFont(15f, 2); c.Text = brk[1]; d.Text = "누르면 닫혀요"; d.Fore = Theme.Muted; d.SetFont(10f, 0); bar.Visible = false; }
 		wp.Click += delegate { Hide2(); };
 		foreach (Control k in wp.Controls) k.Click += delegate { Hide2(); };
-		if (brk != null)
-		{
-			// 회의 중이면 '10분 뒤'로 미뤄요
-			d.Text = "누르면 닫혀요"; d.Size = new Size(Z(180), Z(24));
-			TButton sn = new TButton("10분 뒤에", BK.Outline); sn.Pt = 9.5f; sn.BackColor = Theme.Bg; sn.Location = new Point(Z(212), Z(180)); sn.Size = new Size(Z(100), Z(30));
-			string[] bk = brk; sn.Click += delegate { Program.SnoozeBreak(bk); try { Bubble.Say("10분 뒤에 다시 알려 드릴게요", 2.2); } catch { } Hide2(); }; wp.Controls.Add(sn); sn.BringToFront();
-		}
 
 		Rectangle wa = Screen.PrimaryScreen.WorkingArea;
 		baseTop = wa.Bottom - Height - Z(14);

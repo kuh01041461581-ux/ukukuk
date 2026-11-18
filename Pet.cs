@@ -57,12 +57,6 @@ internal sealed class PetWin : Form
 		}
 		catch { tired = 0; }
 	}
-	// 눈 쉬기 (20-20-20): 켜 두면 20분마다 말풍선으로만 조용히 알려요. 기본은 꺼져 있어요
-	private static bool eyeOn = LoadEye(); private double nextEye = 20 * 60;
-	private static string EyePath { get { return System.IO.Path.Combine(Program.DataDir, "eye_rest.txt"); } }
-	private static bool LoadEye() { try { return System.IO.File.Exists(EyePath) && System.IO.File.ReadAllText(EyePath).Trim() == "1"; } catch { return false; } }
-	private static void SaveEye(bool on) { eyeOn = on; try { System.IO.Directory.CreateDirectory(Program.DataDir); System.IO.File.WriteAllText(EyePath, on ? "1" : "0"); } catch { } }
-	private static readonly string[] EyeL = { "20초만 창밖이나 먼 곳을 봐요", "눈 쉬는 시간! 먼 곳을 20초 바라봐요", "화면에서 눈을 떼고 깜빡깜빡~" };
 	private double nextWater = 50 * 60, nextStretch = 70 * 60; private bool lunchDone; private int lunchDay = -1; private string lunchMenu; private float lunchT;
 	private static readonly string[] Menus = { "김치찌개", "된장찌개", "순두부찌개", "제육볶음", "비빔밥", "칼국수", "냉면", "국밥", "돈까스", "쌀국수", "초밥", "부대찌개", "짜장면", "샐러드", "샌드위치", "백반", "설렁탕", "카레", "라멘", "떡볶이" };
 	private static readonly string[] WaterL = { "물 한 잔 마셔요!", "목 마르지 않으세요? 물 한 잔!", "물 마실 시간이에요~" };
@@ -126,8 +120,6 @@ internal sealed class PetWin : Form
 		m.Items.Add(sz);
 		ToolStripMenuItem ro = new ToolStripMenuItem("돌아다니기 (화면 전체)") { CheckOnClick = true, Checked = Program.petRoam }; ro.CheckedChanged += delegate { Program.petRoam = ro.Checked; if (!ro.Checked) homeX = wa.Left + wa.Width * 0.14f; Say(ro.Checked ? "여기저기 돌아다녀 볼게요!" : "이 근처에 있을게요", 2f); };
 		m.Items.Add(ro);
-		ToolStripMenuItem eye = new ToolStripMenuItem("눈 쉬기 알림 (20분마다 말풍선)") { CheckOnClick = true, Checked = eyeOn }; eye.CheckedChanged += delegate { SaveEye(eye.Checked); nextEye = T + 1200; Say(eye.Checked ? "20분마다 눈 쉬자고 말해 줄게요" : "눈 쉬기 알림을 껐어요", 2f); };
-		m.Items.Add(eye);
 		ToolStripMenuItem bz = new ToolStripMenuItem("말풍선 크기"); string[] bn = { "아주 작게", "작게", "보통", "크게", "아주 크게" };
 		for (int i = 0; i < 5; i++) { int k = i; bz.DropDownItems.Add(bn[i], null, delegate { Program.bubbleSize = k; Say("이 크기는 어때요?", 2f); }); }
 		m.Items.Add(bz); m.Items.Add(new ToolStripSeparator()); m.Items.Add("펫 끄기", null, delegate { Close(); });
@@ -347,7 +339,6 @@ internal sealed class PetWin : Form
 		{
 			lunchDone = true; lunchMenu = Menus[new Random(n.DayOfYear * 31 + n.Year).Next(Menus.Length)]; lunchT = 25f; Say("점심은 " + lunchMenu + " 어때요? 눌러 보세요!", 8f); Burst(0, 0, false); Sfx.Play("ok"); return;
 		}
-		if (eyeOn && T > nextEye && st == St.Idle) { nextEye = T + 1200; Say(EyeL[R.Next(EyeL.Length)], 6f); return; }
 		TiredCalc(); if (tired >= 2 && T > nextTired && st == St.Idle) { nextTired = T + 5400 - tired * 600; Say(TiredL[R.Next(TiredL.Length)], 6f); Go(St.Sit, 0f); return; }
 		if (T > nextWater) { nextWater = T + 3000; Say(WaterL[R.Next(WaterL.Length)], 6f); Go(St.Water, 0f); }
 		else if (T > nextStretch) { nextStretch = T + 4200; Say(StretchL[R.Next(StretchL.Length)], 6.5f); Go(St.Stretch, 0f); }

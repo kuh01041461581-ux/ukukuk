@@ -645,14 +645,44 @@ def _fill_when(it, value):
         it["when_note"] = note.group(0).strip()
 
 
+_ATTEND_LABELS = ("참석", "참석자", "참가", "주최", "주관", "비고", "내용", "주요내용", "대상", "초청")
+_NOT_COME = re.compile(r"국장[님]?\s*(?:은|는|께서)?\s*(?:불참|참석\s*불가|참석\s*않)")
+
+
+def _attendance(it, default=""):
+    """참석자·비고 같은 줄에 '국장님'이 있으면 국장님 칸을 '참석'으로, '시장·부시장'이 있으면 비고에 '시장, 부시장 참석'을 적는다.
+    이미 사용자가 칸에 적어 둔 값(attend/note)이 있으면 그것을 그대로 둔다."""
+    attend, note = it.get("attend", default), it.get("note", "")
+    texts = [str(v) for lab, v in it.get("lines", []) if any(k in str(lab).replace(" ", "") for k in _ATTEND_LABELS)]
+    texts.append(it.get("extra", "") or "")
+    blob = " ".join(texts)
+    if not attend and re.search(r"국장", blob):
+        attend = "불참" if _NOT_COME.search(blob) else "참석"
+    if not note:
+        names = []
+        if re.search(r"부시장", blob):
+            names.append("부시장")
+        if re.search(r"(?<!부)시장(?!\s*(?:점검|조사|상인|정비|개설))", re.sub(r"부시장", "", blob)):
+            names.insert(0, "시장")
+        if names:
+            note = ", ".join(names) + " 참석"
+    return attend, note
+
+
+def _norm_time(t):
+    m = re.match(r"^\s*(\d{1,2}):(\d{2})", t or "")
+    return "%02d:%s" % (int(m[1]), m[2]) if m else ""
+
+
 def extract_events(items, attend_default=""):
     """계획 항목 → 주요일정 표 행 (날짜 있는 것만)"""
     ev = []
     for it in items:
         if not it.get("date"):
             continue
+        attend, note = _attendance(it, attend_default)
         base = {"title": it.get("title", ""), "place": it.get("place", ""), "dept": it.get("dept", ""),
-                "attend": it.get("attend", attend_default), "note": it.get("note", ""), "important": bool(it.get("important"))}
+                "attend": attend, "note": note, "important": bool(it.get("important"))}
         days = [it["date"]]
         try:                                             # 여러 날 행사는 날마다 해당 요일 칸에 넣는다(시각은 첫날만)
             d0 = T.parse_date(it["date"])
@@ -662,7 +692,8 @@ def extract_events(items, attend_default=""):
         except Exception:                                # noqa: BLE001
             pass
         for k, dd in enumerate(days):
-            ev.append(dict(base, date=dd, time=it.get("time", "") if k == 0 else ""))
+            ev.append(dict(base, date=dd, time=_norm_time(it.get("time", "")) if k == 0 else ""))
+    ev.sort(key=lambda e: (e["date"], e["time"] or "99:99"))          # 날짜 → 시간 순서(시각 없는 일정은 그날 맨 뒤)
     return ev
 
 

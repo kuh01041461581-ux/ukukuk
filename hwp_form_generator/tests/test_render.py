@@ -752,6 +752,19 @@ class RecipeTests(unittest.TestCase):
         self.assertEqual(after, ("run_action", "BreakPara"))
 
 
+class ScheduleOrderTests(unittest.TestCase):
+    def test_time_order_and_director_attendance(self):
+        from hwpgen import weekly
+        items = [{"title": "B", "date": "2026-11-10", "time": "14:00", "lines": [("참석", "국장님, 부시장 및 시민")]},
+                 {"title": "A", "date": "2026-11-10", "time": "9:30", "lines": [("주최", "시장 · 국장 참석")]},
+                 {"title": "C", "date": "2026-11-10", "lines": [("내용", "재래시장 점검")]},
+                 {"title": "D", "date": "2026-11-10", "time": "10:00", "lines": [("참석", "국장님 불참")]}]
+        ev = weekly.extract_events(items)
+        self.assertEqual([e["title"] for e in ev], ["A", "D", "B", "C"])             # 시간순, 시각 없는 것은 맨 뒤
+        self.assertEqual([(e["attend"], e["note"]) for e in ev],
+                         [("참석", "시장 참석"), ("불참", ""), ("참석", "부시장 참석"), ("", "")])
+
+
 class ScheduleRangeTests(unittest.TestCase):
     def test_multi_day_event_goes_on_each_weekday(self):
         from hwpgen import weekly

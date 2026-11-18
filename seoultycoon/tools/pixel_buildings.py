@@ -215,24 +215,43 @@ def library():
     return finish(p)
 
 # ---------------------------------------------------------------- 나바위성당 (b13)
+def lawn(p):
+    """잔디 질감: 연/진 초록 잎덩이 점무늬 + 풀포기 + 작은 들꽃(고정 난수)."""
+    import random; r = random.Random(13)
+    class _D:                                                                                                                   # 풀색 바닥 위에만 찍는다(자갈길은 보존)
+        def point(self, xy, fill):
+            px = p.im.getpixel(xy) if 0 <= xy[0] < 96 and 0 <= xy[1] < p.Hc else None
+            if px and px[3] and px[1] > px[0] + 25: p.d.point(xy, fill=fill)
+    D = _D()
+    tones = [hx('b4e08a'), hx('a2d478'), hx('7cb85a'), hx('68a44a'), hx('589040')]
+    for _ in range(520):
+        a, b = r.uniform(0.02, 0.98), r.uniform(0.02, 0.98); x, y = p.G(a, b, 0); x, y = int(x), int(y)
+        t = r.random()
+        if t < 0.45: D.point((x, y), fill=tones[0]); D.point((x + 1, y), fill=tones[1])
+        elif t < 0.8: D.point((x, y), fill=tones[3]); D.point((x, y - 1), fill=tones[2]); D.point((x + 1, y), fill=tones[4])
+        else: D.point((x, y), fill=tones[2]); D.point((x - 1, y), fill=tones[3])
+    for _ in range(26):
+        a, b = r.uniform(0.04, 0.96), r.uniform(0.04, 0.96); x, y = p.G(a, b, 0); D.point((int(x), int(y)), fill=r.choice([hx('fff4a0'), hx('ffffff'), hx('ffb0c0')]))
+
 def church():
     """나바위성당(사진 기준): 넓은 한옥식 본당(붉은 벽돌 벽 + 목조 기둥 열 + 회색 기와 이중 처마)의 정면 가운데에 서양식 벽돌 종탑이 튀어나온다 — 첨탑 좌우로 한옥 본당이 드러난다.
     종탑 출입구는 우하단(오른쪽 면)을 향하고, 시계(둥근 창)는 두 면 모두 면 중앙에 있다. 마당은 잔디 + 자갈길."""
-    p = Px(13); p.zs = 1.6; ground(p, '8cc46c', [(0.94, 1.0, 0.10, 0.50, 'd8c8a0'), (0.60, 1.0, 0.52, 0.66, 'cfc8b0'), (0.04, 0.60, 0.84, 0.97, 'cfc8b0')])
+    p = Px(13); p.zs = 1.6; ground(p, '8cc46c', [(0.96, 1.0, 0.10, 0.44, 'd8c8a0'), (0.60, 1.0, 0.52, 0.66, 'cfc8b0'), (0.04, 0.60, 0.84, 0.97, 'cfc8b0')])
+    lawn(p)
     BR = hx('cc6e56'); BRL = hx('dc826a'); GR = hx('8a847a'); WOOD = hx('9a4a30'); ROOF = (hx('5c5c68'), hx('484854')); SPIRE = (hx('564a44'), hx('3a302c'))
-    HA0, HA1, HB0, HB1 = 0.04, 0.84, 0.16, 0.44                                                                                 # 본당
+    HA0, HA1, HB0, HB1 = 0.04, 0.80, 0.06, 0.50                                                                                 # 본당
     box(p, HA0, HA1, HB0, HB1, 0, 3, GR, tex='checker'); box(p, HA0, HA1, HB0, HB1, 3, 10, BR, tex='checker')
     for i in range(7): p.line((HA0, HB1, 3.6 + i), (HA1, HB1, 3.6 + i), shade(BRL, 0.96) if i % 2 == 0 else shade(BR, 0.9))
-    cols = [0.07 + 0.70 * i / 11 for i in range(12)]                                    # 목조 기둥 열: 종탑 좌우에만 보인다
+    cols = [0.07 + 0.68 * i / 11 for i in range(12)]                                    # 목조 기둥 열: 종탑 좌우에만 보인다
     for a in cols:
         p.rect_wall(a, a + 0.014, HB1, 0, 9, WOOD, None); p.rect_wall(a + 0.014, a + 0.024, HB1, 0, 9, shade(WOOD, 0.62), None)
         p.rect_wall(a + 0.03, a + 0.052, HB1, 3.5, 8, hx('6a8aa8'), None)
     p.rect_wall(HA0, HA1, HB1, 9, 10, shade(WOOD, 0.8), None)
     hip_roof(p, HA0 - 0.02, HA1 + 0.02, HB0 - 0.02, HB1 + 0.02, 10, 2, ROOF[0], ROOF[1], over=0.04, inset=0.04)               # 지붕은 한 벌: 아래 차양 + 위 지붕, 같은 회색 기와
-    hip_roof(p, 0.12, 0.78, 0.22, 0.38, 12, 6, ROOF[0], ROOF[1], over=0.03, inset=0.10)
-    p.poly([(0.12, 0.38, 12), (0.78, 0.38, 12), (0.78, 0.38, 13.2), (0.12, 0.38, 13.2)], shade(WOOD, 0.9), None)
+    hip_roof(p, 0.12, 0.76, 0.18, 0.38, 12, 6, ROOF[0], ROOF[1], over=0.03, inset=0.10)
+    p.poly([(0.12, 0.38, 12), (0.76, 0.38, 12), (0.76, 0.38, 13.2), (0.12, 0.38, 13.2)], shade(WOOD, 0.9), None)
     # 종탑(정면 가운데, 본당보다 앞으로 튀어나옴)
-    TA0, TA1, TB0, TB1 = 0.78, 0.94, 0.17, 0.43
+    TA0, TA1, TB0, TB1 = 0.76, 0.96, 0.17, 0.37
     box(p, TA0, TA1, TB0, TB1, 0, 16, BR, tex='checker')
     for (a, bb) in ((TA0, TB1), (TA1 - 0.015, TB1)): p.rect_wall(a, a + 0.015, bb, 0, 16, GR, None)                              # 왼쪽 앞 면 모서리 회색 띠
     for b in (TB0, TB1 - 0.014): p.rect_side(TA1, b, b + 0.014, 0, 16, shade(GR, 0.7), None)                                   # 오른쪽 면 모서리 띠

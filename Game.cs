@@ -1414,6 +1414,7 @@ internal sealed class MaryongGame : Form
 			// 히든 게임: 다른 게임을 모두 한 번씩 해보면 열려요
 			playedN = games.Count(m => best[m.Key] > 0); totalN = games.Length;
 			MiniGame hid = new SurvivalGame(); hid.Mascot = Program.OutfitImage(hid.Costume) ?? mas; hid.Reset(); best[hid.Key] = LoadBoard(hid.Key).Select(k => k.Value).DefaultIfEmpty(0).Max();
+			try { Timer wt = new Timer { Interval = 1200 }; wt.Tick += delegate { wt.Stop(); wt.Dispose(); try { new CityHallGame().Warm(); } catch { } }; wt.Start(); } catch { }
 			MiniGame hid2 = new CityHallGame(); hid2.Mascot = Program.OutfitImage(hid2.Costume) ?? mas; hid2.Reset(); best[hid2.Key] = LoadBoard(hid2.Key).Select(k => k.Value).DefaultIfEmpty(0).Max();
 			if (playedN >= totalN || best[hid.Key] > 0 || best[hid2.Key] > 0) { List<MiniGame> l2 = new List<MiniGame>(games); l2.Add(hid); l2.Add(hid2); games = l2.ToArray(); hiddenOpen = true; }
 		}

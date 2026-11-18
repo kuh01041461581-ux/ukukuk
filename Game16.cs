@@ -153,6 +153,8 @@ internal sealed class CityHallGame : MiniGame
 		vis.Sort((a, c) => a.Dp.CompareTo(c.Dp)); dirty = false; sceneDirty = true; pickStale = true;
 	}
 	private static Color Mul(Color c, float f, int a = 255) { return Color.FromArgb(a, Math.Min(255, (int)(c.R * f)), Math.Min(255, (int)(c.G * f)), Math.Min(255, (int)(c.B * f))); }
+	// 처음 열 때 끊기지 않게, 앱이 한가할 때 장면 만들기를 한 번 미리 돌려 둬요 (임시 인스턴스라 실제 게임과 겹치지 않아요)
+	public void Warm() { try { Reset(); using (Bitmap bm = new Bitmap((int)W, (int)H)) using (Graphics g = Graphics.FromImage(bm)) Draw(g, 0.0); if (scene != null) { scene.Dispose(); scene = null; } } catch { } }
 	private void RenderScene(float sc)
 	{
 		if (scene == null || Math.Abs(sceneSc - sc) > 0.01f) { if (scene != null) scene.Dispose(); scene = new Bitmap((int)Math.Ceiling(W * sc), (int)Math.Ceiling(H * sc), System.Drawing.Imaging.PixelFormat.Format32bppPArgb); sceneSc = sc; }

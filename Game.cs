@@ -1376,6 +1376,25 @@ internal sealed class MaryongGame : Form
 	// 홈 화면을 잠시 열어 두면 한 번만 먼저 말을 걸어요
 	public static void InviteOnce() { if (invited) return; invited = true; Invite("잠깐 쉬어 갈까요? 저랑 게임 한 판 해요! (눌러 보세요)"); }
 	// 코드를 입력해서 들어온 경우만 처음부터 게임 메뉴를 보여줘요. 그냥 들어오면 기록이 남는 판을 3번 마칠 때까지 무작위 게임이 이어져요
+	private static readonly Func<MiniGame>[] Makers = { () => new KartGame(), () => new VolleyGame(), () => new SoliGame(), () => new CatchGame(), () => new JumpGame(), () => new BatGame(), () => new StressGame(), () => new SuikaGame(), () => new TowerGame(), () => new TimeGame(), () => new MemoryGame(), () => new Game2048(), () => new TypeGame(), () => new BasketGame(), () => new BowlGame(), () => new SlingGame(), () => new MoleGame(), () => new ShellGame(), () => new MicroGame(), () => new OfficeGame(), () => new ArcheryGame(), () => new ClimbGame(), () => new IceGame(), () => new CurlGame(), () => new RhythmGame(), () => new GolfGame(), () => new JumpRopeGame(), () => new RandomTdGame(), () => new MatchPuzzleGame(), () => new RunGame(), () => new FlapGame(), () => new FreeKickGame(), () => new CoverGame() };
+	private static List<KeyValuePair<string, string>> catalog;
+	// 설정창 '오락실' 페이지가 쓰는 게임 목록 (이름 · 키)
+	internal static List<KeyValuePair<string, string>> Catalog()
+	{
+		if (catalog == null) { catalog = new List<KeyValuePair<string, string>>(); foreach (Func<MiniGame> f in Makers) { try { MiniGame m = f(); catalog.Add(new KeyValuePair<string, string>(m.Key, m.Name)); } catch { } } }
+		return catalog;
+	}
+	// 설정창에서 게임을 바로 열어요 (설명 화면부터)
+	public static void OpenGame(string key)
+	{
+		codeEntry = true; Open(); codeEntry = false;
+		try
+		{
+			if (cur == null || cur.IsDisposed || cur.state == 2 || cur.state == 4) return; cur.gated = false;
+			for (int i = 0; i < cur.games.Length; i++) if (cur.games[i].Key == key) { cur.g = cur.games[i]; cur.g.Reset(); cur.WarmLater(); cur.state = 1; cur.page = i / PerPage; Sfx.Play("ui_open"); cur.Invalidate(); break; }
+		}
+		catch (Exception ex) { Program.LogErr(ex); }
+	}
 	private static bool codeEntry, runsLoaded; private static int runs; private bool gated;
 	private static string RunsPath { get { return Path.Combine(Program.DataDir, "arcade_runs.txt"); } }
 	private static int Runs { get { if (!runsLoaded) { runsLoaded = true; try { int.TryParse(File.ReadAllText(RunsPath).Trim(), out runs); } catch { } } return runs; } }
@@ -1401,7 +1420,7 @@ internal sealed class MaryongGame : Form
 		catch { }
 		Image mas = Program.BaseMascotImage();
 		List<MiniGame> gl = new List<MiniGame>();
-		Func<MiniGame>[] mk = { () => new KartGame(), () => new VolleyGame(), () => new SoliGame(), () => new CatchGame(), () => new JumpGame(), () => new BatGame(), () => new StressGame(), () => new SuikaGame(), () => new TowerGame(), () => new TimeGame(), () => new MemoryGame(), () => new Game2048(), () => new TypeGame(), () => new BasketGame(), () => new BowlGame(), () => new SlingGame(), () => new MoleGame(), () => new ShellGame(), () => new MicroGame(), () => new OfficeGame(), () => new ArcheryGame(), () => new ClimbGame(), () => new IceGame(), () => new CurlGame(), () => new RhythmGame(), () => new GolfGame(), () => new JumpRopeGame(), () => new RandomTdGame(), () => new MatchPuzzleGame(), () => new RunGame(), () => new FlapGame(), () => new FreeKickGame(), () => new CoverGame() };
+		Func<MiniGame>[] mk = Makers;
 		foreach (Func<MiniGame> f in mk)
 		{
 			try { MiniGame m = f(); m.Mascot = (m.Costume != null ? Program.OutfitImage(m.Costume) : null) ?? mas; m.Reset(); gl.Add(m); } catch (Exception ex) { Program.LogErr(ex); }
@@ -1554,6 +1573,8 @@ internal sealed class MaryongGame : Form
 	private void Finish()
 	{
 		state = 3; board = LoadBoard(g.Key);
+		try { if (Arcade.Check(g.Key, g.Score)) { Sfx.Play("fanfare"); Confetti.Fire(Bounds); Bubble.Say("오늘의 도전 성공! 호감도가 올랐어요", 3.5); } } catch { }
+		if (Arcade.Diff != 1) { prevBest = board.Count > 0 ? board[0].Value : 0; newRecord = false; thisKey = ""; Sfx.Play("over"); return; }   // 쉬움·어려움은 기록에 올리지 않아요
 		int bst = board.Count > 0 ? board[0].Value : 0; prevBest = bst; thisKey = "";
 		newRecord = g.Score > bst && g.Score > 0;
 		// 5위 안에 들면 옛 오락실처럼 이름을 직접 적어요
@@ -1615,7 +1636,7 @@ internal sealed class MaryongGame : Form
 				g.Typed = tb.Text; if (g.ClearTyped) { RebuildTb(); g.ClearTyped = false; g.Typed = ""; }
 			}
 			if (stopT > 0f) stopT -= dt;   // 강한 충격이 있으면 0.07초 정도 멈칫해서 타격감을 줘요
-			else { g.PlayT += dt; float sb = g.Shake; g.Update(dt, inp, tt); if (!g.NoLimit && g.PlayT >= 60f && !g.Over) g.Over = true; g.Fx.Update(dt); inp.MouseMoved = false; stopCd -= dt; if (g.Shake - sb > 0.2f && !g.Over && stopCd <= 0f) { stopT = 0.04f; stopCd = 0.7f; } }
+			else { g.PlayT += dt; float sb = g.Shake; g.Update(dt * Arcade.Speed, inp, tt); if (!g.NoLimit && g.PlayT >= 60f && !g.Over) g.Over = true; g.Fx.Update(dt); inp.MouseMoved = false; stopCd -= dt; if (g.Shake - sb > 0.2f && !g.Over && stopCd <= 0f) { stopT = 0.04f; stopCd = 0.7f; } }
 			if (g.Score != lastScore) { int dl = g.Score - lastScore; if (dl > 0) hudBump = 1f; if (floats.Count > 0 && floats[floats.Count - 1][0] < 0.18f && Math.Sign(floats[floats.Count - 1][1]) == Math.Sign(dl)) floats[floats.Count - 1][1] += dl; else { floats.Add(new float[] { 0f, dl }); if (floats.Count > 4) floats.RemoveAt(0); } lastScore = g.Score; } if (g.Over) { finT = 1.25f; Sfx.Play("whoosh"); }
 		}
 		if (tb.Visible && state != 4 && !(state == 2 && g != null && g.NeedsInput)) tb.Visible = false;
@@ -1669,6 +1690,9 @@ internal sealed class MaryongGame : Form
 		float pulse = 1f + 0.035f * (float)Math.Sin(tt * 4); float sw = 190f * pulse, sh2 = 44f * pulse, sy = by + 48f; RectangleF sr = new RectangleF((MiniGame.W - sw) / 2f, sy, sw, sh2);
 		using (GraphicsPath sp = Gfx.Round(sr, sh2 / 2f)) { using (LinearGradientBrush lb = new LinearGradientBrush(sr, Color.FromArgb(255, 255, 220, 110), Color.FromArgb(255, 255, 170, 60), 90f)) gr.FillPath(lb, sp); }
 		MiniGame.Txt(gr, "화면을 눌러 시작", 14f, 2, Color.FromArgb(255, 60, 38, 8), sr.X, sr.Y, sr.Width, sr.Height, StringAlignment.Center);
+		float ny = sy + sh2 + 8f; string dk, dn; int dg; bool dd;
+		try { if (Arcade.Today(out dk, out dn, out dg, out dd) && dk == g.Key) { MiniGame.Txt(gr, dd ? "★ 오늘의 도전 완료!" : "★ 오늘의 도전 · " + dg + "점 이상", 10.5f, 1, Color.FromArgb(255, 255, 226, 120), 0, ny, MiniGame.W, 18, StringAlignment.Center); ny += 20f; } } catch { }
+		if (Arcade.Diff != 1) MiniGame.Txt(gr, "난이도 " + Arcade.DiffNames[Arcade.Diff] + " · 기록은 보통에서만 올라가요", 9.5f, 0, Color.FromArgb(200, 190, 215, 255), 0, ny, MiniGame.W, 18, StringAlignment.Center);
 	}
 	// 결과·이름 입력·일시정지 화면이 함께 쓰는 둥근 카드
 	private static void Card(Graphics gr, RectangleF card)

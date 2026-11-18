@@ -1089,6 +1089,7 @@ TarotMinor.cs
 TarotStory.cs
 Palm.cs
 Face.cs
+Daily.cs
 TarotFx.cs
 TarotUi.cs
 Capture.cs

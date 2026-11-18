@@ -44,6 +44,19 @@ internal sealed class PetWin : Form
 	// 입력
 	private bool down, dragged; private Point downAt; private Point grab; private DateTime lastClick = DateTime.MinValue; private float lastSfx;
 	// 한마디 조언: 물·스트레칭·점심 추천 (일하는 시간에만, 방해 금지·전체화면 중엔 안 해요)
+	// 초과근무 상태 → 표정: 0 여유 · 1 살짝 피곤(80%↑) · 2 땀 뻘뻘(90%↑) · 3 한도 초과/오늘 8시간↑ (1분에 한 번만 계산)
+	private int tired; private double tiredAt = -999, nextTired = 40 * 60;
+	private static readonly string[] TiredL = { "오늘도 고생 많았어요… 조금만 쉬어요", "초과근무가 쌓였어요. 물 한 잔 어때요?", "무리하지 말아요, 몸이 먼저예요", "한도가 가까워요… 같이 힘내요" };
+	private void TiredCalc()
+	{
+		if (T - tiredAt < 60) return; tiredAt = T;
+		try
+		{
+			DateTime n = DateTime.Now; var all = Records.All().ToList(); int mon = all.Count(r => r.Date.Year == n.Year && r.Date.Month == n.Month), today = all.Count(r => r.Date.Date == n.Date), lim = Math.Max(1, Program.MonthlyLimit);
+			tired = (mon >= lim || today >= 8) ? 3 : (mon >= lim * 0.9 ? 2 : (mon >= lim * 0.8 ? 1 : 0));
+		}
+		catch { tired = 0; }
+	}
 	private double nextWater = 50 * 60, nextStretch = 70 * 60; private bool lunchDone; private int lunchDay = -1; private string lunchMenu; private float lunchT;
 	private static readonly string[] Menus = { "김치찌개", "된장찌개", "순두부찌개", "제육볶음", "비빔밥", "칼국수", "냉면", "국밥", "돈까스", "쌀국수", "초밥", "부대찌개", "짜장면", "샐러드", "샌드위치", "백반", "설렁탕", "카레", "라멘", "떡볶이" };
 	private static readonly string[] WaterL = { "물 한 잔 마셔요!", "목 마르지 않으세요? 물 한 잔!", "물 마실 시간이에요~" };
@@ -326,6 +339,7 @@ internal sealed class PetWin : Form
 		{
 			lunchDone = true; lunchMenu = Menus[new Random(n.DayOfYear * 31 + n.Year).Next(Menus.Length)]; lunchT = 25f; Say("점심은 " + lunchMenu + " 어때요? 눌러 보세요!", 8f); Burst(0, 0, false); Sfx.Play("ok"); return;
 		}
+		TiredCalc(); if (tired >= 2 && T > nextTired && st == St.Idle) { nextTired = T + 5400 - tired * 600; Say(TiredL[R.Next(TiredL.Length)], 6f); Go(St.Sit, 0f); return; }
 		if (T > nextWater) { nextWater = T + 3000; Say(WaterL[R.Next(WaterL.Length)], 6f); Go(St.Water, 0f); }
 		else if (T > nextStretch) { nextStretch = T + 4200; Say(StretchL[R.Next(StretchL.Length)], 6.5f); Go(St.Stretch, 0f); }
 	}
@@ -717,6 +731,16 @@ internal sealed class PetWin : Form
 		GraphicsState gs = g.Save(); g.TranslateTransform((float)Math.Round(x), (float)Math.Round(y + yo + bob)); g.ScaleTransform(sx2, sy2); rot = (float)Math.Round(rot * 2f) / 2f;
 		Spr.Frame(g, n, 0f, 0f, S, rot, flip);
 		g.Restore(gs);
+		if (tired > 0 && (st == St.Idle || st == St.Walk || st == St.Sit || st == St.Happy || st == St.Wave || st == St.Yawn || st == St.Water || st == St.Stretch))
+		{
+			float k = (float)((T * 0.7) % 1.0), dx = (face >= 0 ? 1 : -1) * 30f * S, hx = x + dx, hy0 = y - 108f * S + k * 16f * S; int al = (int)(210 * (1f - k * k));
+			for (int d = 0; d < (tired >= 3 ? 2 : 1); d++)
+			{
+				float xx = hx - d * dx * 0.55f, yy = hy0 + d * 8f * S, r = (tired >= 2 ? 5.5f : 4f) * S;
+				using (GraphicsPath gp = new GraphicsPath()) { gp.AddPolygon(new PointF[] { new PointF(xx, yy - r * 1.7f), new PointF(xx + r * 0.85f, yy - r * 0.3f), new PointF(xx - r * 0.85f, yy - r * 0.3f) }); gp.AddEllipse(xx - r, yy - r * 0.6f, r * 2f, r * 2f);
+					using (SolidBrush b = new SolidBrush(Color.FromArgb(al, 120, 190, 255))) g.FillPath(b, gp); using (Pen p = new Pen(Color.FromArgb(al, 60, 120, 200), 1f)) g.DrawPath(p, gp); }
+			}
+		}
 		if (st == St.Dizzy) { float hy = y - 94f * S; for (int i = 0; i < 3; i++) { double an = stT * 7.5 + i * 2.0944; float sx0 = x + (float)Math.Cos(an) * 36f * S, sy0 = hy + (float)Math.Sin(an) * 9f * S; DrawFxSpr(g, "ms_pet_toy_star", sx0, sy0, (13f + (float)Math.Sin(an) * 2f) * S, 1f, (float)(stT * 160.0)); } }
 	}
 	private static void DrawFxSpr(Graphics g, string n, float x, float y, float w, float a, float rot)

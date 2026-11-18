@@ -1716,7 +1716,7 @@ internal class CountdownBar : Ctl
 // ─────────────────────────────────────────────────────────────
 //  사이드바 메뉴
 // ─────────────────────────────────────────────────────────────
-internal enum NavIcon { Home, Bell, Calendar, Clock, Gear, Phone, Flag, Doc, Won, Help }
+internal enum NavIcon { Home, Bell, Calendar, Clock, Gear, Phone, Flag, Doc, Won, Help, Game }
 
 
 // 포인트 색 고르는 동그라미들 (왼쪽 아래)
@@ -1815,6 +1815,11 @@ internal class NavItem : Ctl
 					g.DrawEllipse(p, cx - s * 0.45f, cy - s * 0.45f, s * 0.9f, s * 0.9f);
 					for (int k = 0; k < 8; k++) { double an = k * Math.PI / 4; g.DrawLine(p, cx + (float)Math.Cos(an) * s * 0.78f, cy + (float)Math.Sin(an) * s * 0.78f, cx + (float)Math.Cos(an) * s * 1.05f, cy + (float)Math.Sin(an) * s * 1.05f); }
 					g.DrawEllipse(p, cx - s * 0.78f, cy - s * 0.78f, s * 1.56f, s * 1.56f);
+					break;
+				case NavIcon.Game:
+					using (GraphicsPath gp2 = Gfx.Round(new RectangleF(cx - s * 1.1f, cy - s * 0.65f, s * 2.2f, s * 1.3f), s * 0.6f)) g.DrawPath(p, gp2);
+					g.DrawLine(p, cx - s * 0.62f, cy - s * 0.2f, cx - s * 0.62f, cy + s * 0.3f); g.DrawLine(p, cx - s * 0.87f, cy + s * 0.05f, cx - s * 0.37f, cy + s * 0.05f);
+					g.DrawEllipse(p, cx + s * 0.38f, cy - s * 0.12f, s * 0.2f, s * 0.2f); g.DrawEllipse(p, cx + s * 0.64f, cy + s * 0.08f, s * 0.2f, s * 0.2f);
 					break;
 				case NavIcon.Help:
 					g.DrawEllipse(p, cx - s, cy - s, s * 2, s * 2);

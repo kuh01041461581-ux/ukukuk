@@ -269,14 +269,14 @@ internal partial class Program
 		side.Controls.Add(mp);
 		Lbl(side, "초과근무 알리미", 11.5f, 2, Theme.Ink, 62, 19, 134, 22);
 		Lbl(side, "마룡이와 함께", 9.5f, 0, Theme.Sub, 62, 40, 134, 18);
-		string[] navNames = { "홈", "기록", "알림", "휴대폰", "업무", "설정", "사용법" };
-		int[][] navGroup = { new int[] { 0 }, new int[] { 2 }, new int[] { 1, 3 }, new int[] { 5 }, new int[] { 7, 10, 6, 8 }, new int[] { 4 }, new int[] { 9 } };   // 메뉴 하나에 모이는 페이지들
-		string[][] subNames = { null, null, new string[] { "알림 시간", "휴일" }, null, new string[] { "공문 도우미", "금액·합계", "기한", "수당" }, null, null };
+		string[] navNames = { "홈", "기록", "알림", "휴대폰", "업무", "설정", "사용법", "오락실" };
+		int[][] navGroup = { new int[] { 0 }, new int[] { 2 }, new int[] { 1, 3 }, new int[] { 5 }, new int[] { 7, 10, 6, 8 }, new int[] { 4 }, new int[] { 9 }, new int[] { 11 } };   // 메뉴 하나에 모이는 페이지들
+		string[][] subNames = { null, null, new string[] { "알림 시간", "휴일" }, null, new string[] { "공문 도우미", "금액·합계", "기한", "수당" }, null, null, null };
 		Func<int, int> grpOf = delegate(int pg) { for (int q = 0; q < navGroup.Length; q++) if (Array.IndexOf(navGroup[q], pg) >= 0) return q; return 0; };
-		int[] lastSub = { 0, 2, 1, 5, 7, 4, 9 };
-		NavIcon[] navIcons = { NavIcon.Home, NavIcon.Clock, NavIcon.Bell, NavIcon.Phone, NavIcon.Doc, NavIcon.Gear, NavIcon.Help };
-		NavItem[] nav = new NavItem[7];
-		for (int i = 0; i < 7; i++)
+		int[] lastSub = { 0, 2, 1, 5, 7, 4, 9, 11 };
+		NavIcon[] navIcons = { NavIcon.Home, NavIcon.Clock, NavIcon.Bell, NavIcon.Phone, NavIcon.Doc, NavIcon.Gear, NavIcon.Help, NavIcon.Game };
+		NavItem[] nav = new NavItem[8];
+		for (int i = 0; i < 8; i++)
 		{
 			nav[i] = new NavItem(navNames[i], navIcons[i]);
 			nav[i].Location = new Point(Zs(10), Zs(84 + i * 40)); nav[i].Size = new Size(Zs(SIDE - 20), Zs(38));
@@ -334,8 +334,8 @@ internal partial class Program
 
 		// ── 페이지 ──
 		BM("사이드바·상단바");
-		Panel[] pages = new Panel[11];
-		for (int i = 0; i < 11; i++)
+		Panel[] pages = new Panel[12];
+		for (int i = 0; i < 12; i++)
 		{
 			pages[i] = new WashPanel(); pages[i].BackColor = Theme.Page;
 			pages[i].Location = new Point(Zs(SIDE), Zs(TOP)); pages[i].Size = new Size(Zs(PW), Zs(PH));
@@ -842,6 +842,37 @@ internal partial class Program
 
 		// ── 하단 바 ──
 		// ═════ 사용법 ═════ (처음 쓰는 분도 순서대로 따라 하면 되게)
+		Panel pAr = pages[11];
+		head(pAr, "오락실", "쉬는 시간에 가볍게 한 판! 난이도와 오늘의 도전을 정해요");
+		{
+			Card cd = card(pAr, 78, 92);
+			Lbl(cd, "난이도", 11f, 1, Theme.Ink, 18, 12, 200, 22);
+			Lbl(cd, "쉬움은 느리게, 어려움은 빠르게 · 기록은 '보통'에서만 올라가요", 9f, 0, Theme.Sub, 18, 34, 420, 18);
+			TSeg dSeg = new TSeg(Arcade.DiffNames); dSeg.BackColor = Theme.Bg; dSeg.SnapIndex(Arcade.Diff); dSeg.Location = new Point(Zs(18), Zs(54));
+			dSeg.Changed += delegate { Arcade.Diff = dSeg.Index; };
+			cd.Controls.Add(dSeg);
+			Card cc = card(pAr, 184, 92);
+			Lbl(cc, "오늘의 도전", 11f, 1, Theme.Ink, 18, 12, 200, 22);
+			string dk, dn; int dg; bool dd;
+			string dtxt = Arcade.Today(out dk, out dn, out dg, out dd) ? (dd ? "★ " + dn + " · 오늘 도전 완료! 내일 또 만나요" : dn + " · " + dg + "점 이상 달성하기") : "오늘은 도전이 없어요";
+			Lbl(cc, dtxt, 10f, 0, Theme.Sub, 18, 36, 360, 20);
+			if (dk != null && dk.Length > 0 && !dd)
+			{
+				string kk = dk; TButton goB = new TButton("도전하기", BK.Primary); goB.Pt = 9.5f; goB.Location = new Point(Zs(CW - 18 - 100), Zs(26)); goB.Size = new Size(Zs(100), Zs(36));
+				goB.Click += delegate { MaryongGame.OpenGame(kk); }; cc.Controls.Add(goB);
+			}
+			Lbl(cc, "못 해도 괜찮아요 · 성공하면 호감도가 올라요", 9f, 0, Theme.Muted, 18, 62, 420, 18);
+			List<KeyValuePair<string, string>> cat = MaryongGame.Catalog();
+			int rows = (cat.Count + 2) / 3; Card cg = card(pAr, 284, 282);
+			Panel glHost = new Panel(); glHost.BackColor = cg.BackColor; glHost.AutoScroll = true; glHost.AutoScrollMinSize = new Size(0, Zs(rows * 34 + 4)); glHost.Location = new Point(Zs(8), Zs(40)); glHost.Size = new Size(Zs(CW - 16), Zs(234)); cg.Controls.Add(glHost);
+			Lbl(cg, "게임 고르기 (눌러서 바로 시작 · 아래로 스크롤)", 11f, 1, Theme.Ink, 18, 12, 360, 22);
+			for (int q = 0; q < cat.Count; q++)
+			{
+				string key = cat[q].Key; TButton b = new TButton(cat[q].Value, BK.Soft); b.Pt = 9f; b.BackColor = Theme.Bg;
+				int bw = 134; b.Pt = 8.5f; b.Location = new Point(Zs(10 + (q % 3) * (bw + 6)), Zs((q / 3) * 34)); b.Size = new Size(Zs(bw), Zs(30));
+				b.Click += delegate { MaryongGame.OpenGame(key); }; glHost.Controls.Add(b);
+			}
+		}
 		Panel pGu = pages[9];
 		head(pGu, "사용법", "처음이라면 위에서부터 차례로 읽어 보세요");
 		string[][] gs = {
@@ -892,7 +923,7 @@ internal partial class Program
 		tCard.Tag = "frac"; rCard.Tag = "frac"; rPrev.Tag = "right"; rMonth.Tag = "right"; rNext.Tag = "right";
 		for (int q = 0; q < hb.Length; q++) hb[q].Tag = "frac";
 		BM("쪽 10개 만들기");
-		for (int q = 0; q < 11; q++) Fluid.Attach(pages[q]);
+		for (int q = 0; q < 12; q++) Fluid.Attach(pages[q]);
 		// 카드 밖에 직접 놓인 것들은 '바탕색'으로 (카드는 흰색으로 떠 보이게)
 		Action<Control> toPage = null;
 		toPage = delegate(Control pc)
@@ -904,16 +935,16 @@ internal partial class Program
 				if (c is Panel) toPage(c);
 			}
 		};
-		for (int q = 0; q < 11; q++) toPage(pages[q]);
+		for (int q = 0; q < 12; q++) toPage(pages[q]);
 		toPage(foot);
 		BM("색 정리");
-		f.Controls.AddRange(new Control[] { side, top, pages[0], pages[1], pages[2], pages[3], pages[4], pages[5], pages[6], pages[7], pages[8], pages[9], pages[10], foot });
+		f.Controls.AddRange(new Control[] { side, top, pages[0], pages[1], pages[2], pages[3], pages[4], pages[5], pages[6], pages[7], pages[8], pages[9], pages[10], pages[11], foot });
 
 		BM("폼에 붙이기");
 		// ── 반응형 배치 ──
 		Action pillNow = null;
 		ToolTip navTip = new ToolTip(); navTip.Active = false;
-		for (int i = 0; i < 7; i++) navTip.SetToolTip(nav[i], navNames[i]);
+		for (int i = 0; i < 8; i++) navTip.SetToolTip(nav[i], navNames[i]);
 		Action relayout = delegate
 		{
 			int W = f.ClientSize.Width, H = f.ClientSize.Height;
@@ -924,7 +955,7 @@ internal partial class Program
 			mp.Left = Zs(16);
 			foreach (Control sc in side.Controls) if (sc is TLabel && sc.Left == Zs(62)) sc.Width = sw - Zs(62) - Zs(4);
 			thSeg.Width = sw - Zs(24); thSeg.Visible = true; thDot.Visible = false;
-			for (int i = 0; i < 7; i++)
+			for (int i = 0; i < 8; i++)
 			{
 				nav[i].Compact = false; navTip.Active = false;
 				nav[i].SetBounds(Zs(10), Zs(84 + i * 40), sw - Zs(20), Zs(38));
@@ -933,7 +964,7 @@ internal partial class Program
 			top.SetBounds(sw, 0, avail, Zs(TOP));
 			{ int wb = Zs(36), gp = Zs(4), ty = (Zs(TOP) - bClose.Height) / 2; bClose.SetBounds(avail - Zs(10) - wb, ty, wb, bClose.Height); bMax.SetBounds(bClose.Left - gp - wb, ty, wb, bClose.Height); bMin.SetBounds(bMax.Left - gp - wb, ty, wb, bClose.Height); }
 			bMax.Restore = f.WindowState == FormWindowState.Maximized;
-			for (int i = 0; i < 11; i++) pages[i].SetBounds(sw + px0, Zs(TOP), pw, H - Zs(TOP) - Zs(FOOT));
+			for (int i = 0; i < 12; i++) pages[i].SetBounds(sw + px0, Zs(TOP), pw, H - Zs(TOP) - Zs(FOOT));
 			foot.SetBounds(sw, H - Zs(FOOT), avail, Zs(FOOT));
 			int cr = px0 + pw - Zs(PX);
 			closeB.Left = cr - closeB.Width; saveBtn.Left = closeB.Left - Zs(8) - saveBtn.Width;
@@ -1008,7 +1039,7 @@ internal partial class Program
 		bool skipUpd = false;
 		Action<int> swap = delegate(int idx)
 		{
-			for (int i = 0; i < 11; i++) pages[i].Visible = i == idx;
+			for (int i = 0; i < 12; i++) pages[i].Visible = i == idx;
 			saveBtn.Visible = false;
 			if (!dirty && !invalid) { foot1.Fore = Theme.Sub; foot1.Text = footDefault; }
 			if (idx == 0 && !skipUpd) sky.Restart();   // 전환 중에는 덮개 아래라 안 보이니, 끝난 뒤에 시작해요
@@ -1027,7 +1058,7 @@ internal partial class Program
 			if (!animate)
 			{
 				{ int gi = grpOf(idx); pillY.Snap(nav[gi].Top); }
-				for (int i = 0; i < 7; i++) nav[i].SnapSelected(i == grpOf(idx));
+				for (int i = 0; i < 8; i++) nav[i].SnapSelected(i == grpOf(idx));
 				swap(idx); return;
 			}
 			// 부드러운 전환: 앱 창 안에서 옛 화면 사진을 먼저 덮고 → 뒤에서 쪽을 바꿔 새 화면을 그려 둔 뒤 → 새 화면을 미끄러지듯 겹쳐 보여요 (별도 창이 없어서 번쩍이지 않아요)
@@ -1039,7 +1070,7 @@ internal partial class Program
 				Bitmap oldB = takeShot(sr); BM(oldB != null ? "캐시사진" : "사진없음"); if (oldB == null) oldB = Grab.Screen(sr); BM("옛사진준비");
 				th.Cover(pr, oldB); BM("덮개표시");
 					{ int gi = grpOf(idx); pillY.Set(nav[gi].Top); }   // 메뉴 알약·선택 표시는 무거운 일(새 화면 그리기) 전에 먼저 움직여서 누르자마자 반응이 보여요
-					for (int i = 0; i < 7; i++) nav[i].SetSelected(i == grpOf(idx)); BM("알약·메뉴시작");
+					for (int i = 0; i < 8; i++) nav[i].SetSelected(i == grpOf(idx)); BM("알약·메뉴시작");
 				int seq = ++goSeq;
 				f.BeginInvoke((MethodInvoker)delegate
 				{
@@ -1061,7 +1092,7 @@ internal partial class Program
 		};
 			// 메뉴는 마우스를 누르는 순간 바로 바뀌어요 (손을 뗄 때까지 기다리지 않아서 반응이 빨라요). 키보드로 누르면 Click 이 처리해요
 			bool navDown = false;
-			for (int i = 0; i < 7; i++) { int gk = i; nav[i].MouseDown += delegate(object o, MouseEventArgs me) { if (me.Button == MouseButtons.Left) { navDown = true; go(lastSub[gk]); } }; nav[i].Click += delegate { if (navDown) { navDown = false; return; } go(lastSub[gk]); }; }
+			for (int i = 0; i < 8; i++) { int gk = i; nav[i].MouseDown += delegate(object o, MouseEventArgs me) { if (me.Button == MouseButtons.Left) { navDown = true; go(lastSub[gk]); } }; nav[i].Click += delegate { if (navDown) { navDown = false; return; } go(lastSub[gk]); }; }
 		settingsGo = go;
 		settingsSub = delegate(int from, int to)
 		{
@@ -1072,7 +1103,7 @@ internal partial class Program
 			foreach (Control c in pages[to].Controls) { TSeg sg = c as TSeg; if (sg != null && "right".Equals(sg.Tag)) { int ni = sg.Index; int oi = 0; int[] gp2 = navGroup[grpOf(to)]; oi = Array.IndexOf(gp2, from); sg.SnapIndex(oi < 0 ? ni : oi); swap(to); sg.Slide(ni); } }
 			foreach (Control c in pages[from].Controls) { TSeg sg = c as TSeg; if (sg != null && "right".Equals(sg.Tag)) sg.SnapIndex(Array.IndexOf(navGroup[grpOf(from)], from)); }   // 떠나는 쪽의 알약은 제자리로 (나중에 돌아와도 어긋나지 않게)
 		};
-		Action<int> goQuick = delegate(int idx) { if (th != null) th.Release(); curPage = idx; lastSub[grpOf(idx)] = idx; { int gi = grpOf(idx); pillY.Snap(nav[gi].Top); } for (int i = 0; i < 7; i++) nav[i].SnapSelected(i == grpOf(idx)); swap(idx); };
+		Action<int> goQuick = delegate(int idx) { if (th != null) th.Release(); curPage = idx; lastSub[grpOf(idx)] = idx; { int gi = grpOf(idx); pillY.Snap(nav[gi].Top); } for (int i = 0; i < 8; i++) nav[i].SnapSelected(i == grpOf(idx)); swap(idx); };
 			// 화면 색 전환도 같은 방식: 옛 화면 사진을 덮고 → 색을 갈아 끼운 새 화면을 그려 두고 → 서서히 겹쳐요
 			Func<Bitmap> renderForm = delegate
 			{
@@ -1116,7 +1147,7 @@ internal partial class Program
 		// 창이 뜬 뒤 한가할 때 다른 쪽의 화면 부품(창 핸들)을 미리 만들어 둬요 → 처음 그 쪽으로 갈 때 멈칫하지 않아요
 		f.Shown += delegate
 		{
-			Queue<int> pre = new Queue<int>(); for (int i = 0; i < 11; i++) if (i != curPage) pre.Enqueue(i);
+			Queue<int> pre = new Queue<int>(); for (int i = 0; i < 12; i++) if (i != curPage) pre.Enqueue(i);
 			System.Windows.Forms.Timer pt = new System.Windows.Forms.Timer(); pt.Interval = 90;
 			pt.Tick += delegate
 			{

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -168,8 +168,8 @@ internal sealed class Confetti : Form
 	private readonly List<P> ps = new List<P>();
 	private readonly Stopwatch sw = new Stopwatch();
 	private readonly FrameTimer tm = new FrameTimer();
-	private double last;
-	private const double Life = 2.7;
+	private double last, nextAt, drawCost; private bool bigAA = true;   // nextAt: 이 시각 전에는 다시 그리지 않아요 (그리는 데 오래 걸리는 PC는 프레임을 건너뛰어 UI 가 막히지 않게)
+	private const double Life = 2.4;
 	private static Confetti spare;   // 한 번 만든 창은 숨겨 두고 다시 써요 (창을 새로 만드는 게 느린 PC가 있어서요)
 	private static readonly Color[] Pal = { Color.FromArgb(0, 166, 148), Color.FromArgb(255, 193, 59), Color.FromArgb(255, 99, 125), Color.FromArgb(86, 156, 255), Color.FromArgb(150, 110, 255), Color.FromArgb(56, 200, 120), Color.FromArgb(255, 140, 60) };
 	private SolidBrush[] brushes;
@@ -229,7 +229,7 @@ internal sealed class Confetti : Form
 		for (int side = 0; side < 2; side++)
 		{
 			float ox = (side == 0 ? pop.Left + Dpi.Z(30) : pop.Right - Dpi.Z(30)) - r.Left, oy = pop.Bottom - Dpi.Z(40) - r.Top;
-			for (int i = 0; i < 70; i++)
+			for (int i = 0; i < 55; i++)
 			{
 				double an = (side == 0 ? -65 : -115) * Math.PI / 180.0 + (rnd.NextDouble() - 0.5) * 0.9;
 				double sp = (620 + rnd.NextDouble() * 760) * sc;
@@ -238,7 +238,8 @@ internal sealed class Confetti : Form
 		}
 		Bounds = r;
 		EnsureSurface();
-		sw.Restart(); last = 0; Draw();
+		sw.Restart(); last = 0; nextAt = 0; drawCost = 0; bigAA = (long)r.Width * r.Height < 2200000L;   // 창이 아주 크면 계단 현상 방지(안티앨리어싱)를 꺼서 그리기 비용을 줄여요
+		Draw();
 		if (!Visible) Show();
 		tm.Start();
 	}
@@ -267,21 +268,24 @@ internal sealed class Confetti : Form
 	private void Step()
 	{
 		if (IsDisposed) { tm.Stop(); return; }
-		double t = sw.Elapsed.TotalSeconds; float dt = (float)Math.Min(0.05, t - last); last = t;
-		if (t > Life) { tm.Stop(); Visible = false; return; }
+		double t = sw.Elapsed.TotalSeconds; if (t > Life) { tm.Stop(); Visible = false; return; }
+		if (t < nextAt) return;
+		float dt = (float)Math.Min(0.09, t - last); last = t;
 		float sc = Dpi.Scale, g = 1500f * sc;
 		foreach (P p in ps)
 		{
 			p.Vy += g * dt; float drag = (float)Math.Exp(-1.7 * dt); p.Vx *= drag; p.Vy *= (float)Math.Exp(-0.9 * dt);
 			p.X += p.Vx * dt; p.Y += p.Vy * dt; p.R += p.Vr * dt; p.Ph += p.Vp * dt;
 		}
-		Draw();
+		long t0 = Stopwatch.GetTimestamp(); Draw(); double cost = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
+		drawCost = drawCost <= 0 ? cost : drawCost * 0.6 + 0.4 * cost;
+		nextAt = t + Math.Min(0.05, Math.Max(0.0, drawCost * 2.0 - 0.012));   // 한 번 그리는 데 8ms 넘게 걸리면 그만큼 쉬어요 (최대 20fps)
 	}
 
 	private void Draw()
 	{
 		if (sg == null || memDC == IntPtr.Zero || !IsHandleCreated) return;
-		Graphics g = sg; g.Clear(Color.Transparent);
+		Graphics g = sg; g.Clear(Color.Transparent); g.SmoothingMode = bigAA ? SmoothingMode.AntiAlias : SmoothingMode.None;
 		double t = sw.Elapsed.TotalSeconds;
 		float shrink = t < Life - 0.7 ? 1f : (float)Math.Max(0.0, (Life - t) / 0.7);
 		foreach (P p in ps)

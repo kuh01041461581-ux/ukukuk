@@ -132,9 +132,9 @@ function dailyNow(T, el, diff, alerts) {
   const nAl = UI.alertsAll ? 99 : 3;
   return `<div class="now">
     <div class="now-l"><div class="tbl-wrap fit fit-now"><table class="t nowt"><thead><tr><th>사업명</th><th>남은 잔액</th><th>예산</th><th>지출</th><th>집행률</th></tr></thead><tbody>${rows}
-      <tr class="tot"><td>전체 합계</td><td class="num remv">${won(T.remain)}</td><td class="num sm">${won(T.budget)}</td><td class="num sm">${won(T.spent)}</td><td class="pcol">${pct1(T.rate)}</td></tr></tbody></table></div></div>
+      <tr class="tot"><td>전체 합계${hiddenNote()}</td><td class="num remv">${won(T.remain)}</td><td class="num sm">${won(T.budget)}</td><td class="num sm">${won(T.spent)}</td><td class="pcol">${pct1(T.rate)}</td></tr></tbody></table></div></div>
     <div class="now-r">
-      <div class="kpi bigrem"><div class="k">전체 남은 예산 (잔액)</div><div class="v ${T.remain < 0 ? 'neg' : ''}">${won(T.remain)}<small>원</small></div>
+      <div class="kpi bigrem"><div class="k">전체 남은 예산 (잔액)${hiddenNote()}</div><div class="v ${T.remain < 0 ? 'neg' : ''}">${won(T.remain)}<small>원</small></div>
         <div class="s">지급예정 ${won(T.sch)}원 반영 후 <b>${won(T.remainAfter)}원</b> · 집행률 <b>${pct1(T.rate)}</b> <span class="pace ${diff < -10 ? 'slow' : diff > 5 ? 'fast' : 'ok'}">경과율 ${pct1(el)} 대비 ${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%p</span></div></div>
       ${donutCard(T)}
       <div class="card alerts" style="margin-top:12px"><h2>지금 확인할 것 <span class="muted" style="font-weight:400;font-size:12px">${alerts.length ? alerts.length + '건' : ''}</span></h2>
@@ -344,3 +344,5 @@ function listDialog() {
     };
   });
 }
+
+function hiddenNote() { const n = S.lines.filter(l => l.hidden).length; return n ? ` <span class="badge gray" data-tip="목록 편집에서 숨긴 항목은 합계에서 빠집니다">숨김 ${n}개 제외</span>` : ''; }

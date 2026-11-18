@@ -9,6 +9,7 @@ function renderSettings() {
     <div class="row"><button class="btn" data-act="xl-daily">엑셀 파일 선택 (일상경비·공공요금)</button><button class="btn" data-act="datadir">데이터 폴더 열기</button></div>
     <p class="muted" style="margin:8px 0 0">데이터는 자동으로 <b>내 PC의 일상경비관리 폴더(AppData)</b>에 저장되고, 하루 한 번 자동 백업(30일)됩니다.</p></div>` : ''}
   <div class="card"><h2>보여줄 화면</h2><p class="sub" style="margin:0 0 8px">기본은 <b>일상경비·공공요금</b>입니다. 켜면 <b>통계목별 조회 엑셀</b>에 있는 모든 사업(인건비·사업비 포함)의 예산·집행·잔액을 사업별로 볼 수 있는 <b>전체 사업 진척</b> 탭이 추가됩니다.</p>
+    <label class="row" style="gap:8px;margin-bottom:6px"><input type="checkbox" id="s-helper" ${S.opt && S.opt.helper ? 'checked' : ''}> <b>공익요원 모드</b> <span class="muted">(이 PC는 [고지서 분류]만 보이고 시작 화면도 그 탭 — 끄려면 [설정·백업]에서 해제)</span></label>
     <label class="row" style="gap:8px"><input type="checkbox" id="s-biz" ${S.opt && S.opt.biz ? 'checked' : ''}> <b>전체 사업 진척</b> 탭 표시 ${S.biz ? `<span class="muted">(불러온 자료: ${esc(S.biz.file)} · ${S.biz.entries.length}건)</span>` : '<span class="muted">(통계목별 조회 엑셀을 불러오면 채워집니다)</span>'}</label></div>
   <div class="card"><h2>부서(과)</h2><p class="sub" style="margin:0 0 8px">다른 과 자료(예산서·통계목별 조회)를 불러오면 부서명을 자동으로 알아봅니다. 지금 장부와 다른 과면 새 장부로 시작할지 물어보고, 이전 장부는 자동으로 따로 복사해 둡니다.</p><label class="fld" style="max-width:280px;margin:0">부서명<input id="s-dept" value="${esc(S.dept || '')}" placeholder="예: 문화유산과"></label></div>
   <div class="card"><h2>기준일 · 연도</h2>
@@ -28,7 +29,7 @@ $('#p-settings').addEventListener('click', e => {
   else if (a === 'backup') { S.lastBackup = new Date().toISOString(); save(); download(`일상경비_공공요금_백업_${today()}.json`, JSON.stringify(S, null, 1)); renderSettings(); updateBackupChip(); }
   else if (a === 'restore') {
     const p = $('#pick'); p.accept = '.json,application/json'; p.value = '';
-    p.onchange = async () => { try { const d = JSON.parse(await p.files[0].text()); if (!d.lines || !d.util) throw 0; if (confirm('현재 내용을 백업 파일로 바꿉니다. 계속할까요?')) { S = d; save(); init(); toast('불러왔습니다'); } } catch (er) { toast('올바른 백업 파일이 아닙니다'); } };
+    p.onchange = async () => { try { const d = JSON.parse(await p.files[0].text()); if (!d.lines || !d.util) throw 0; if (confirm('현재 내용을 백업 파일로 바꿉니다. 계속할까요?')) { await safetyBackup('복원전'); S = d; save(); init(); toast('불러왔습니다'); } } catch (er) { toast('올바른 백업 파일이 아닙니다'); } };
     p.click();
   } else if (a === 'reset') {
     if (confirm('처음 상태로 되돌릴까요? 입력한 내용이 모두 사라집니다.') && confirm('정말 되돌릴까요? (백업을 먼저 저장했는지 확인하세요)')) { S = window.__SEED__ ? deepCopy(window.__SEED__) : emptyState(); save(); init(); toast('처음 상태로 되돌렸습니다'); }
@@ -40,12 +41,12 @@ $('#p-settings').addEventListener('click', e => {
     S.utilBudget = { elec: null, water: null, tel: null }; UI.util.month = null; save(); init(); toast(`${y}년 장부를 시작했습니다`);
   }
 });
-$('#p-settings').addEventListener('change', e => { if (e.target.id === 's-biz') { S.opt = S.opt || {}; S.opt.biz = e.target.checked; save(); init(); UI.tab = 'settings'; showTab('settings'); toast(S.opt.biz ? '전체 사업 진척 탭을 켰습니다' : '전체 사업 진척 탭을 껐습니다'); } if (e.target.id === 's-dept') { S.dept = e.target.value.trim(); save(); updateTitle(); } });
+$('#p-settings').addEventListener('change', e => { if (e.target.id === 's-helper') { S.opt = S.opt || {}; S.opt.helper = e.target.checked; save(); init(); UI.tab = S.opt.helper ? 'sort' : 'settings'; showTab(UI.tab); toast(S.opt.helper ? '공익요원 모드를 켰습니다' : '공익요원 모드를 껐습니다'); return; } if (e.target.id === 's-biz') { S.opt = S.opt || {}; S.opt.biz = e.target.checked; save(); init(); UI.tab = 'settings'; showTab('settings'); toast(S.opt.biz ? '전체 사업 진척 탭을 켰습니다' : '전체 사업 진척 탭을 껐습니다'); } if (e.target.id === 's-dept') { S.dept = e.target.value.trim(); save(); updateTitle(); } });
 
 /* 숫자 칸을 떠날 때 콤마 형식 복원 */
 document.addEventListener('focusout', e => { const t = e.target; if (t.matches && t.matches('input.cellin[inputmode="numeric"]')) { const v = parseNum(t.value); if (v != null && !isNaN(v)) t.value = won(v); } });
 
-function tabList() { const t = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황'], ['sort', '고지서 분류']]; if (S.opt && S.opt.biz) t.push(['biz', '전체 사업 진척']); t.push(['import', '파일 불러오기'], ['guide', '사용법'], ['settings', '설정·백업']); return t; }
+function tabList() { if (S.opt && S.opt.helper) return [['sort', '고지서 분류'], ['guide', '사용법'], ['settings', '설정·백업']]; const t = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황'], ['sort', '고지서 분류']]; if (S.opt && S.opt.biz) t.push(['biz', '전체 사업 진척']); t.push(['import', '파일 불러오기'], ['guide', '사용법'], ['settings', '설정·백업']); return t; }
 const TABS_ALL = ['daily', 'util', 'sort', 'biz', 'import', 'guide', 'settings'];
 const RENDER = { daily: renderDaily, util: renderUtil, sort: renderSort, biz: renderBiz, import: renderImport, guide: renderGuide, settings: renderSettings };
 function showTab(t) {
@@ -59,7 +60,8 @@ function updateBackupChip() {
 function updateTitle() { const t = `${S.year} ${S.dept ? S.dept + ' ' : ''}일상경비·공공요금 관리`; $('#ttl').textContent = t; document.title = t; }
 function init() {
   for (const k in S.util) ensurePaid(S.util[k]);
-  S.tx = S.tx || []; S.opt = S.opt || {}; if (UI.tab === 'biz' && !S.opt.biz) UI.tab = 'daily'; updateTitle();
+  S.tx = S.tx || []; S.opt = S.opt || {}; if (UI.tab === 'biz' && !S.opt.biz) UI.tab = 'daily'; if (S.opt.helper && !['sort', 'guide', 'settings'].includes(UI.tab)) UI.tab = 'sort'; updateTitle();
+  { const sv = $('#sv'); if (sv && S.updatedAt) { const u = new Date(S.updatedAt); sv.textContent = '데이터 기준 ' + (u.getMonth() + 1) + '/' + u.getDate() + ' ' + String(u.getHours()).padStart(2, '0') + ':' + String(u.getMinutes()).padStart(2, '0'); } }
   $('#asof').value = S.asOf; updateBackupChip();
   $('#tabs').innerHTML = tabList().map(([k, n]) => `<button role="tab" data-t="${k}" aria-selected="${k === UI.tab}">${n}</button>`).join('');
   UI.util.month = null; UI.imp = null; showTab(UI.tab);

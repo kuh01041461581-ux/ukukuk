@@ -9,8 +9,9 @@ function findHits(q) {
   }
   for (const [k, nm] of CATS) { const sec = S.util[k]; if (sec) (sec.forwards || []).forEach(f => { if (matchFwd(f, q, nm)) out.push({ kind: 'fwd', k, nm, f }); }); }
   const terms = String(q || '').split(/\s+/).map(normQ).filter(Boolean);
-  for (const l of visLines()) { const hay = normQ([l.label, l.biz, l.group, l.note].join(' ')); if (terms.length && terms.every(t => hay.includes(t))) out.push({ kind: 'line', l }); }
-  if (terms.length) { let n = 0; for (const t of (S.tx || [])) { if (n >= 15) break; const l = txLineOf(t); const hay = normQ([t.memo, t.vendor, t.biz, t.name, l ? l.label : '', String(t.amt)].join(' ')); if (terms.every(x => hay.includes(x))) { out.push({ kind: 'tx', t, l }); n++; } } }
+  const helper = !!(S.opt && S.opt.helper);
+  if (!helper) for (const l of visLines()) { const hay = normQ([l.label, l.biz, l.group, l.note].join(' ')); if (terms.length && terms.every(t => hay.includes(t))) out.push({ kind: 'line', l }); }
+  if (terms.length && !helper) { let n = 0; for (const t of (S.tx || [])) { if (n >= 15) break; const l = txLineOf(t); const hay = normQ([t.memo, t.vendor, t.biz, t.name, l ? l.label : '', String(t.amt)].join(' ')); if (terms.every(x => hay.includes(x))) { out.push({ kind: 'tx', t, l }); n++; } } }
   return out;
 }
 function findMonth(h) { return FIND.month === 'auto' ? defaultMonth(h.sec) : +FIND.month; }
@@ -48,7 +49,7 @@ function openFind() {
       <label class="muted" style="font-size:12px">확인할 월 <select id="fmon" class="fsel"><option value="auto">자동(처리 필요한 달)</option>${MON.map((x, i) => `<option value="${i}">${x}분</option>`).join('')}</select></label>
       <button class="btn sm" data-fo="close" aria-label="닫기">✕</button></div>
     <input id="fq" type="search" class="fq" placeholder="계약번호 · 납부번호 · 계좌 · 장소 · 전달처 (예: 2392, 숭림사, 790183)" autocomplete="off" value="${esc(FIND.q)}">
-    <div class="row" style="gap:8px;margin:6px 0 8px"><div class="pills" role="group" aria-label="Enter 동작"><button class="pill sm" data-fo="mode" data-v="rcv" aria-pressed="${findMode() === 'rcv'}">고지서 받기 (Enter=수령 체크)</button><button class="pill sm" data-fo="mode" data-v="amt" aria-pressed="${findMode() === 'amt'}">금액 입력 (Enter=금액 칸)</button></div><span class="hint" id="fhint" style="margin:0"></span></div>
+    <div class="hint" id="fhint" style="margin:6px 2px 8px"></div>
     <div id="fres" class="fres"></div></div>`, d => {
     $('#fmon', d).value = FIND.month; FIND.open = true; d.classList.add('findbox'); d.onclose = () => { d.classList.remove('findbox'); FIND.open = false; if (UI.tab === 'util') renderUtil(); else if (UI.tab === 'daily') renderDaily(); };
     redrawFind('search');
@@ -88,6 +89,8 @@ $('#dlg').addEventListener('click', e => {
   if (a === 'close') { closeDlg(); return; }
   if (a === 'mode') { S.opt = S.opt || {}; S.opt.findMode = b.dataset.v; save(); redrawFind('search'); return; }
   if (a === 'vact') { verdictAct(); return; }
+  if (a === 'undo') { undoLog(+b.dataset.i); return; }
+  if (a === 'vmonth') { setFindMonth(b.dataset.v); return; }
   if (a === 'addfwd') { const q = FIND.q; closeDlg(); UI.util.cat = UI.util.cat || 'elec'; UI.util.sub = 'fwd'; showTab('util'); fwdDialog(null, UI.util.cat); setTimeout(() => { const n = $('#fnu'); if (n && /\d/.test(q)) n.value = q; }, 50); return; }
   if (a === 'additem') { const q = FIND.q; closeDlg(); UI.util.sub = 'pay'; showTab('util'); itemDialog(null); setTimeout(() => { const n = $('#n2'); if (n && /\d/.test(q)) n.value = q; }, 50); return; }
   if (a === 'line') { closeDlg(); showTab('daily'); const el = document.querySelector(`input[data-f=spent][data-id="${b.dataset.id}"]`); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); const tr = el.closest('tr'); tr && tr.classList.add('flash'); setTimeout(() => tr && tr.classList.remove('flash'), 1800); } return; }
@@ -97,14 +100,14 @@ $('#dlg').addEventListener('click', e => {
 });
 
 /* ===== 판정 카드: 고지서 번호를 치면 "우리 계 직접 지급 / 다른 계 전달 / 목록에 없음"을 크게 보여 줌 ===== */
-function findMode() { return (S.opt && S.opt.findMode) || 'rcv'; }
+function findMode() { return 'amt'; }
 function vdOf(h) { if (h.kind === 'fwd') return { v: 'fwd', to: h.f.to || '-' }; return h.it.forward ? { v: 'fwd', to: h.it.forward } : { v: 'own' }; }
 function vdBadge(it) { return it.forward ? `<span class="vd fwd">→ ${esc(it.forward)} 전달</span>` : '<span class="vd own">우리 계</span>'; }
 function vdHits(q) { return findHits(q).filter(h => h.kind === 'util' || h.kind === 'fwd'); }
 function vdMonth(h) { return h.kind === 'util' ? findMonth(h) : (FIND.month === 'auto' ? defaultMonth(S.util[h.k]) : +FIND.month); }
 function fwdKey(h, m) { if (h.kind === 'fwd') { if (!h.f.id) h.f.id = uid('F'); return h.k + '|' + h.f.id + '|' + m; } return h.k + '|' + h.it.id + '|' + m; }
 function vdLabel(h) { const d = vdOf(h); return d.v === 'own' ? '수령 체크' : (h.kind === 'util' ? '수령 + 전달함' : '전달함'); }
-function verdictCard(q) {
+function verdictCard(q, key) {
   if (!q.trim()) return '';
   const hs = vdHits(q);
   if (!hs.length) return `<div class="verdict none"><div class="vt">목록에 없음</div><div class="vs">새 납부처일 수 있습니다. 번호를 다시 확인하거나 아래 버튼으로 등록하세요.</div><div class="row" style="margin-top:8px"><button class="btn" data-fo="addfwd">다른 계 전달처로 추가</button><button class="btn" data-fo="additem">우리 계 항목으로 추가</button></div></div>`;
@@ -120,26 +123,44 @@ function verdictCard(q) {
     if (d.v === 'fwd' && st >= 1 && !(S.fwdDone && S.fwdDone[fwdKey(h, m)])) done = false;
   } else { name = String(h.f.name).replace(/\n/g, ' '); nums = `<div class="fwdnums">${fwdNums(h.f.numbers)}</div>`; done = !!(S.fwdDone && S.fwdDone[fwdKey(h, m)]); state = done ? '전달 처리됨' : '아직 전달 처리 안 됨'; }
   const title = d.v === 'own' ? '우리 계 직접 지급' : `→ ${esc(d.to)} 전달`;
-  return `<div class="verdict ${d.v}"><div class="vt">${title}</div>
-    <div class="vs"><span class="badge" style="background:color-mix(in srgb,${CATCOLOR[h.k]} 18%,transparent);color:var(--text)">${h.nm}</span> <b>${esc(name)}</b> · <b>${MON[m]}분</b> · ${state}</div>${nums}
-    <div class="row" style="margin-top:10px">${done ? '<span class="vdone">✓ 처리 완료</span>' : `<button class="btn primary vbtn" data-fo="vact">${vdLabel(h)} <kbd>Enter</kbd></button>`}</div></div>`;
+  let warn = '';
+  if (FIND.month === 'auto' && !done) {   // 다른 항목은 더 뒤 달까지 진행됐는데 이 항목만 앞선 달로 잡히는 경우 경고
+    const sec = S.util[h.k]; const last = sec ? Math.max(-1, ...sec.items.map(lastFilledOf)) : -1;
+    if (last > m) warn = `<div class="vwarn">⚠ <b>${MON[m]}분</b>으로 처리됩니다. 이 종류는 다른 항목이 ${MON[last]}분까지 진행돼 있습니다. 지금 받은 고지서가 ${MON[last]}분이면 <button class="btn sm" data-fo="vmonth" data-v="${last}">${MON[last]}분으로 바꾸기</button></div>`;
+  }
+  return `<div class="verdict ${d.v}"><div class="vtrow"><div class="vt">${title}</div><div class="vmonth" data-tip="이 월로 처리됩니다. 다르면 위쪽 '확인할 월'을 바꾸세요">${MON[m]}분</div></div>
+    <div class="vs"><span class="badge" style="background:color-mix(in srgb,${CATCOLOR[h.k]} 18%,transparent);color:var(--text)">${h.nm}</span> <b>${esc(name)}</b> · ${state}</div>${nums}${warn}
+    <div class="row" style="margin-top:10px">${done ? '<span class="vdone">✓ 처리 완료</span>' : `<button class="btn primary vbtn" data-fo="vact">${vdLabel(h)}${key ? ' <kbd>Enter</kbd>' : ''}</button>`}</div></div>`;
+}
+function setFindMonth(v) {
+  FIND.month = String(v); const a = $('#smon'); if (a) a.value = FIND.month; const b = $('#fmon'); if (b) b.value = FIND.month;
+  if ($('#fq')) redrawFind(); if (UI.tab === 'sort' && typeof redrawSort === 'function') { redrawSort(); const i = $('#sq'); if (i) i.focus(); }
+}
+function undoLog(i) {
+  const x = (FIND.log || [])[i]; if (!x) return;
+  if (x.kind === 'util') { const it = (S.util[x.k] ? S.util[x.k].items : []).find(y => y.id === x.id); if (it && x.prevRcv != null) setRcv(it, x.m, x.prevRcv); }
+  if (x.key && !x.hadKey && S.fwdDone) delete S.fwdDone[x.key];
+  FIND.log.splice(i, 1); save(); toast('되돌렸습니다');
+  if ($('#fq')) redrawFind(); if (UI.tab === 'sort' && typeof redrawSort === 'function') redrawSort();
 }
 function verdictAct() {
   const q = FIND.q.trim(); if (!q) return; const hs = vdHits(q);
   if (hs.length !== 1) { toast(hs.length ? `${hs.length}건이 일치합니다 — 번호를 더 입력하세요` : '목록에 없는 번호입니다'); return; }
   const h = hs[0], d = vdOf(h), m = vdMonth(h); S.fwdDone = S.fwdDone || {};
+  const prevRcv = h.kind === 'util' ? h.it.rcv[m] : null, fkey = d.v === 'fwd' ? fwdKey(h, m) : null, hadKey = !!(fkey && S.fwdDone[fkey]);
   if (h.kind === 'util') {
     const st = stateOf(h.it, m);
     if (st === 2) { toast('이 달은 청구 없음으로 표시돼 있습니다'); return; }
+    if (st >= 1 && (d.v === 'own' || S.fwdDone[fkey])) { toast(`이미 처리된 고지서입니다 (${MON[m]}분)`); return; }
     if (st === 0) setRcv(h.it, m, 1);
-  }
+  } else if (S.fwdDone[fkey]) { toast(`이미 전달 처리된 고지서입니다 (${MON[m]}분)`); return; }
   if (d.v === 'fwd') S.fwdDone[fwdKey(h, m)] = true;
   const name = String(h.kind === 'util' ? h.it.name : h.f.name).replace(/\n/g, ' ');
-  FIND.log = FIND.log || []; FIND.log.unshift({ t: new Date(), name, v: d.v, to: d.to, nm: h.nm, m }); FIND.log = FIND.log.slice(0, 8);
+  FIND.log = FIND.log || []; FIND.log.unshift({ t: new Date(), name, v: d.v, to: d.to, nm: h.nm, m, kind: h.kind, k: h.k, id: h.kind === 'util' ? h.it.id : null, prevRcv, key: fkey, hadKey }); FIND.log = FIND.log.slice(0, 8);
   save(); FIND.q = '';
   if ($('#fq')) { $('#fq').value = ''; redrawFind('search'); } else sortAfterAct();
 }
 function vdLogHTML() {
   const L = FIND.log || []; if (!L.length) return '';
-  return `<div class="vlog"><div class="muted" style="font-size:12px;margin:4px 2px">방금 처리한 것 (이번 창에서)</div>${L.map(x => `<div class="vl ${x.v}"><b>${x.v === 'own' ? '우리 계' : '→ ' + esc(x.to) + ' 전달'}</b> <span>${x.nm} · ${esc(x.name)} · ${MON[x.m]}분</span><em>${String(x.t.getHours()).padStart(2, '0')}:${String(x.t.getMinutes()).padStart(2, '0')}</em></div>`).join('')}</div>`;
+  return `<div class="vlog"><div class="muted" style="font-size:12px;margin:4px 2px">방금 처리한 것 (이번 창에서)</div>${L.map((x, i) => `<div class="vl ${x.v}"><b>${x.v === 'own' ? '우리 계' : '→ ' + esc(x.to) + ' 전달'}</b> <span>${x.nm} · ${esc(x.name)} · ${MON[x.m]}분</span><em>${String(x.t.getHours()).padStart(2, '0')}:${String(x.t.getMinutes()).padStart(2, '0')}</em><button class="btn sm" data-fo="undo" data-i="${i}">되돌리기</button></div>`).join('')}</div>`;
 }

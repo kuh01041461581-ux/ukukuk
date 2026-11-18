@@ -56,9 +56,9 @@ def find_daily_sheet(wb):
     return None
 
 
-def parse_daily(path):
+def parse_daily(path, sheet=None):
     wb = openpyxl.load_workbook(path, data_only=False)
-    ws = find_daily_sheet(wb)
+    ws = wb[sheet] if sheet and sheet in wb.sheetnames else find_daily_sheet(wb)
     if ws is None:
         raise ValueError("일상경비 표('사무관리비' 탭)를 찾지 못했습니다.")
     lines, group, seq = [], None, 0
@@ -125,13 +125,15 @@ def months_of(ws, r):
     return out
 
 
-def parse_util(path, year=2026):
+def parse_util(path, year=2026, sheet=None, prev=None):
+    """sheet: 읽을 탭 이름(없으면 연도 이름 탭), prev: 전년도 비교 탭 이름('' 이면 비교 안 함, None 이면 전년도 이름 탭)"""
     wb = openpyxl.load_workbook(path)
-    ys = str(year)
+    ys = sheet or str(year)
     if ys not in wb.sheetnames:
         raise ValueError(f"엑셀에 '{ys}' 탭이 없습니다. (탭 이름: {', '.join(wb.sheetnames[:8])})")
     ws = wb[ys]
-    w25 = wb[str(year - 1)] if str(year - 1) in wb.sheetnames else None
+    pn = prev if prev is not None else str(year - 1)
+    w25 = wb[pn] if pn and pn in wb.sheetnames and pn != ys else None
     b26 = find_blocks(ws)
     b25 = find_blocks(w25) if w25 is not None else {}
     if not b26:
@@ -257,12 +259,12 @@ def parse_util(path, year=2026):
 
 
 
-def parse_ledger_xlsx(wb):
+def parse_ledger_xlsx(wb, sheet=None):
     """통계목별 조회 엑셀(e-호조 내려받기)에서 실집행액을 읽습니다. 없으면 None.
     실집행액 = '집행누계액'. 이월(명시·사고) 행은 제외하고 '당해예산'만 읽습니다."""
     need = {"세부사업": None, "통계목": None, "예산구분": None, "예산현액": None,
             "원인행위누계액": None, "결의누계액": None, "지급누계액": None, "집행누계액": None}
-    for ws in wb.worksheets:
+    for ws in ([wb[sheet]] if sheet and sheet in wb.sheetnames else wb.worksheets):
         cols = dict(need)
         head_rows = []
         for r in (1, 2, 3):
@@ -389,3 +391,35 @@ def export_payform(tpl_bytes, rows):
     out = io.BytesIO()
     wb.save(out)
     return out.getvalue()
+
+
+def inspect_workbook(path, year=2026):
+    """엑셀의 탭마다 어떤 자료로 읽을 수 있는지 알아봅니다 (공공요금·일상경비·통계목별 조회)."""
+    wb = openpyxl.load_workbook(path)
+    sheets = []
+    for ws in wb.worksheets:
+        kinds = []
+        try:
+            if find_blocks(ws):
+                kinds.append("util")
+        except Exception:  # noqa
+            pass
+        a1 = ws["A1"].value
+        if ws.title == "사무관리비" or (isinstance(a1, str) and "집행현황" in a1):
+            kinds.append("daily")
+        try:
+            heads = [str(ws.cell(r, c).value or "").strip() for r in (1, 2, 3) for c in range(1, min(ws.max_column, 60) + 1)]
+            if "집행누계액" in heads and "세부사업" in heads:
+                kinds.append("ledger")
+        except Exception:  # noqa
+            pass
+        sheets.append({"name": ws.title, "kinds": kinds})
+    names = [x["name"] for x in sheets]
+    def has(n, k):
+        return any(x["name"] == n and k in x["kinds"] for x in sheets)
+    def first(k):
+        return next((x["name"] for x in sheets if k in x["kinds"]), "")
+    ys = str(year)
+    util = ys if has(ys, "util") else first("util")
+    prev = str(year - 1) if str(year - 1) in names and has(str(year - 1), "util") and str(year - 1) != util else ""
+    return {"sheets": sheets, "default": {"util": util, "prev": prev, "daily": first("daily"), "ledger": first("ledger")}}

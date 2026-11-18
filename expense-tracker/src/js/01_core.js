@@ -64,6 +64,7 @@ function loadState() {
 function today() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 let saveTimer = null;
 function save() {
+  S.updatedAt = new Date().toISOString();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const ok = () => { const n = new Date(); $('#sv').textContent = '자동 저장됨 ' + String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0'); };

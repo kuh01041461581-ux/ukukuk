@@ -141,7 +141,7 @@ class Api:
             self._log("save_text fallback", e)
             return {"ok": False, "error": str(e)}
 
-    def import_xlsx_data(self, name, b64, year=2026, mode="auto"):
+    def import_xlsx_data(self, name, b64, year=2026, mode="auto", opts=None):
         """화면에서 읽어 보낸 엑셀 파일(base64)을 풀어 일상경비/공공요금을 자동으로 구분해 읽습니다."""
         tmp = None
         try:
@@ -149,7 +149,7 @@ class Api:
             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
                 f.write(data)
                 tmp = f.name
-            return self.read_workbook(tmp, int(year), mode)
+            return self.read_workbook(tmp, int(year), mode, opts)
         except Exception as e:  # noqa
             self._log("import_xlsx_data", e)
             return {"error": f"엑셀 파일을 읽지 못했습니다 ({name}).\n{e}"}
@@ -161,7 +161,7 @@ class Api:
                     pass
 
     @staticmethod
-    def read_workbook(path, year=2026, mode="auto"):
+    def read_workbook(path, year=2026, mode="auto", opts=None):
         import openpyxl
         import seedlib
         wb = openpyxl.load_workbook(path)
@@ -169,6 +169,30 @@ class Api:
         if mode == "form":
             return {"form": seedlib.extract_form_rows(wb)}
         out, errs = {}, []
+        if opts:   # 사용자가 탭을 직접 지정한 경우: 지정한 탭만 읽습니다
+            if opts.get("ledger"):
+                try:
+                    led = seedlib.parse_ledger_xlsx(wb, opts["ledger"])
+                    if led:
+                        return {"ledger": led}
+                    errs.append("'%s' 탭에서 통계목별 조회 표를 찾지 못했습니다." % opts["ledger"])
+                except Exception as e:  # noqa
+                    errs.append(str(e))
+            if opts.get("daily"):
+                try:
+                    lines, memo, asof = seedlib.parse_daily(path, opts["daily"])
+                    if lines:
+                        out.update({"lines": lines, "memo": memo, "asOf": asof})
+                except Exception as e:  # noqa
+                    errs.append(str(e))
+            if opts.get("util"):
+                try:
+                    out["util"] = seedlib.parse_util(path, year, opts["util"], opts.get("prev") or "")
+                except Exception as e:  # noqa
+                    errs.append(str(e))
+            if not out:
+                return {"error": "선택한 탭에서 읽을 자료를 찾지 못했습니다.\n" + "\n".join(errs)}
+            return out
         try:
             led = seedlib.parse_ledger_xlsx(wb)
         except Exception as e:  # noqa
@@ -203,9 +227,30 @@ class Api:
     def _log(self, where, err):
         log(f"{where}: {err!r}")
 
+    def inspect_xlsx(self, name, b64, year=2026):
+        """엑셀의 탭 목록과 탭별로 읽을 수 있는 자료 종류를 돌려줍니다 (읽을 탭 고르기 창용)."""
+        tmp = None
+        try:
+            import seedlib
+            data = base64.b64decode(b64)
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+                f.write(data)
+                tmp = f.name
+            return seedlib.inspect_workbook(tmp, int(year))
+        except Exception as e:  # noqa
+            self._log("inspect_xlsx", e)
+            return {"error": str(e)}
+        finally:
+            if tmp:
+                try:
+                    os.unlink(tmp)
+                except Exception:  # noqa
+                    pass
+
     def export_payform(self, tpl_b64, rows, name):
         """등록해 둔 거래처입력 양식으로 지급 폼 엑셀을 만들어 '내보내기' 폴더에 저장하고 폴더를 엽니다."""
         try:
+            import seedlib
             data = seedlib.export_payform(base64.b64decode(tpl_b64), rows)
             d = self._root / "내보내기"
             d.mkdir(exist_ok=True)
@@ -247,11 +292,11 @@ class Api:
 
 
 # ---------------------------------------------------------------- 브라우저 모드 (작은 로컬 서버)
-HTTP_METHODS = {"load_state", "save_state", "import_xlsx_data", "snapshot", "open_data_dir", "ping", "export_payform"}
+HTTP_METHODS = {"load_state", "save_state", "import_xlsx_data", "snapshot", "open_data_dir", "ping", "export_payform", "inspect_xlsx"}
 SHIM = """window.__HTTP__=true;window.__TOKEN__=%s;
 (function(){var call=function(n,a){return fetch('/api/'+n,{method:'POST',headers:{'X-Token':window.__TOKEN__,'Content-Type':'application/json'},body:JSON.stringify(a)}).then(function(r){return r.json();});};
 window.pywebview={api:{load_state:function(){return call('load_state',[]);},save_state:function(t){return call('save_state',[t]);},
-import_xlsx_data:function(n,b,y,m){return call('import_xlsx_data',[n,b,y,m]);},snapshot:function(l){return call('snapshot',[l]);},export_payform:function(t,r,n){return call('export_payform',[t,r,n]);},
+import_xlsx_data:function(n,b,y,m,o){return call('import_xlsx_data',[n,b,y,m,o]);},inspect_xlsx:function(n,b,y){return call('inspect_xlsx',[n,b,y]);},snapshot:function(l){return call('snapshot',[l]);},export_payform:function(t,r,n){return call('export_payform',[t,r,n]);},
 open_data_dir:function(){return call('open_data_dir',[]);},ping:function(){return call('ping',[]);}}};
 setInterval(function(){window.pywebview.api.ping().catch(function(){});},4000);})();"""
 
@@ -358,6 +403,38 @@ def prepare_ui(prof: Path) -> Path:
     return ui
 
 
+def _selftest_xlsx(api):
+    """엑셀 기능(탭 검사·지급 폼 만들기)이 실제 Api 를 통해 동작하는지 가짜 파일로 점검"""
+    import io
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "거래처입력"
+    for i, h in enumerate(["거래처명\n(필수)", "공급가액\n(필수)", "계좌번호"], 1):
+        ws.cell(1, i, h)
+    ws.cell(2, 1, "x")
+    buf = io.BytesIO()
+    wb.save(buf)
+    tpl = base64.b64encode(buf.getvalue()).decode()
+    api._root = Path(tempfile.mkdtemp())
+    r = api.export_payform(tpl, [{"거래처명": "가상", "공급가액": 100, "계좌번호": "000"}], "t.xlsx")
+    if not (r.get("ok") and Path(r["path"]).exists()):
+        log(f"점검: 지급 폼 만들기 실패 {r}")
+        return False
+    wb2 = openpyxl.Workbook()
+    w = wb2.active
+    w.title = "2026"
+    w.cell(1, 1, "2026년 문화유산 전기요금")
+    wb2.create_sheet("메모")
+    buf2 = io.BytesIO()
+    wb2.save(buf2)
+    ins = api.inspect_xlsx("t", base64.b64encode(buf2.getvalue()).decode(), 2026)
+    if ins.get("error") or ins.get("default", {}).get("util") != "2026":
+        log(f"점검: 탭 검사 실패 {ins}")
+        return False
+    return True
+
+
 def run_window(api, prof: Path, ui: Path, selftest=False):
     import webview
     win = webview.create_window("일상경비·공공요금 관리", url=ui.as_uri(), js_api=api, width=1480, height=940, min_size=(1000, 650), background_color="#f3f4f6")
@@ -409,6 +486,11 @@ def main():
         tok = html.split("window.__TOKEN__=")[1].split(";")[0].strip('"')
         req = urllib.request.Request(url + "api/ping", data=b"[]", headers={"X-Token": tok, "Content-Type": "application/json"})
         ok = ok and json.loads(urllib.request.urlopen(req, timeout=15).read()).get("ok") is True
+        try:
+            ok = ok and _selftest_xlsx(api)
+        except Exception as e:  # noqa
+            log(f"점검(엑셀 기능) 오류: {e!r}")
+            ok = False
         log(f"점검(서버): {'통과' if ok else '실패'}")
         sys.exit(0 if ok else 1)
     if "--browser" in argv:

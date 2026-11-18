@@ -15,9 +15,9 @@ import pixel_style as PS
 from make_iksan_buildings import Sc
 import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, make_iksan_civic as CV, make_iksan_landmarks as LM, make_iksan_icons as IC, make_iksan_chunpo as CK, make_iksan_arts as AR, make_iksan_jeonsu as JS
 # 익산 고유 건물만 새 도트를 쓴다. 그 밖의 건물(소방서·경찰서·학교·아파트·버스정류장·유치원·놀이터·체육공원 등)은 원본 도트를 그대로 두고 퀄리티만 올린다(enhance_orig).
-import pixel_direct as PXD
-PIXEL = {21}                                                       # 직접 도트로 찍은 건물(평면 색 + 윤곽선)
-ITEMS = {2: LM.mireuksa, 13: CV.church, 20: CV.library, 21: PXD.make_pixel_chunpo, 19: MB.cinema, 33: HQ.baseball, 38: MO.baekje, 42: AR.arts, 26: JS.jeonsu}
+import pixel_direct as PXD, pixel_buildings as PB
+PIXEL = {21, 2, 38, 42, 33, 19, 20, 13, 26}                                                       # 직접 도트로 찍은 건물(평면 색 + 윤곽선)
+ITEMS = {2: PB.mireuksa, 13: PB.church, 20: PB.library, 21: PXD.make_pixel_chunpo, 19: PB.cinema, 33: PB.baseball, 38: PB.baekje, 42: PB.arts, 26: PB.jeonsu}
 # 롯데시네마·코스트코·테슬라·하림·농협은행·공설운동장·방송국·마룡이식당은 원본 도트에 간판만 고친다(make_iksan_retouch) → 아래에서 퀄리티 보정까지 받는다
 yx = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); show = []; hd_show = []
 def on_tile(F, yc, s=1):

@@ -75,7 +75,9 @@ TCOL = {'A': hx('6db601'), 'B': hx('a2e601'), 'C': hx('67db00'), 'D': hx('009200
 def tree(p, a, b, scale=1.0):
     """시장저택(b17) 나무 구조를 옮긴 템플릿: 왼쪽 위 밝은 군집, 오른쪽 아래 어두운 군집, 두 톤 디더 경계. 줄기 갈색 2열 + 오른쪽으로 번지는 그림자."""
     x, y = p.G(a, b, 0); d = p.d
-    d.ellipse([x - 3, y - 2, x + 9, y + 2], fill=hx('3e6a22'))
+    for yy in range(y - 2, y + 3):                                                                    # 그림자는 바닥 색을 어둡게(색을 새로 칠하지 않는다)
+        for xx in range(x - 3, x + 10):
+            if ((xx - (x + 3)) / 6.5) ** 2 + ((yy - y) / 2.6) ** 2 <= 1 and 0 <= xx < 96 and 0 <= yy < p.Hc and p.im.getpixel((xx, yy))[3]: p.im.putpixel((xx, yy), shade(p.im.getpixel((xx, yy)), 0.72))
     d.rectangle([x - 1, y - 4, x, y], fill=hx('b64900')); d.rectangle([x + 1, y - 4, x + 1, y], fill=hx('7a4a14')); d.point((x - 1, y - 2), fill=hx('feb500'))
     ox, oy = x - 6, y - 4 - len(TREE)
     for j, row in enumerate(TREE):
@@ -115,6 +117,21 @@ def make_pixel_chunpo():
     sidepts = [(A1, B0, 0), (A1, B1, 0), (A1, B1, H), (A1, B0, H)]
     stripes(p, sidepts, hx('d9a85c'), hx('c79552'), 2, bands=[(yt, yt + 6, hx('e0b068'), hx('cf9c56')), (yt + 6, yt + 30, hx('c98f4e'), hx('b27c44'))])
     for (x0, x1, y0, y1) in ((0, 1, 0, 1),): pass
+    import random as _r
+    rr_ = _r.Random(4); wm = mask_of(p, wallpts)
+    for _ in range(46):                                                                                                        # 석고 얼룩: 3x2 화소 패치를 밝게/어둡게
+        x = rr_.randint(0, 95); y = rr_.randint(0, p.Hc - 1)
+        if wm.getpixel((x, y)):
+            f = rr_.choice((0.93, 0.96, 1.04))
+            for dx, dy in ((0, 0), (1, 0), (2, 0), (0, 1), (1, 1)):
+                if 0 <= x + dx < 96 and 0 <= y + dy < p.Hc and wm.getpixel((x + dx, y + dy)): p.im.putpixel((x + dx, y + dy), shade(p.im.getpixel((x + dx, y + dy)), f))
+    for a_ in (A0 + 0.005, 0.36, 0.49, 0.61, 0.73, 0.855):                                                                  # 벽기둥(밝은 왼쪽 면 + 어두운 오른쪽 면)
+        p.rect_wall(a_, a_ + 0.012, B1, 0, H, hx('fff6c8'), None); p.rect_wall(a_ + 0.012, a_ + 0.022, B1, 0, H, hx('c9b070'), None)
+    p.rect_wall(A0, A1, B1, 3, 4, hx('c8b274'), None); p.rect_wall(A0, A1, B1, 4, 4.6, hx('fffbd0'), None)                    # 걸레받이 + 윗선
+    p.rect_wall(A0, A1, B1, H - 1.5, H, hx('b8a468'), None)                                                                   # 코니스(처마 아래 띠)
+    for a_ in (0.12, 0.30):                                                                                                    # 베란다 지붕이 벽에 드리우는 그림자
+        pass
+    p.rect_wall(A0, 0.36, B1, 5, 11, shade(hx('f3e7ab'), 0.82), None) if False else None
     p.line((A0, B1, 0), (A0, B1, H), INK); p.line((A1, B1, 0), (A1, B1, H), INK); p.line((A1, B0, 0), (A1, B0, H), INK)
     p.rect_wall(A0, A1, B1, 0, 3, MINT, INK); p.rect_side(A1, B0, B1, 0, 3, MINTD, INK)                                   # 아랫단 민트 띠
     # 문·창(앞벽) — 문틀·유리 반사·창살
@@ -173,7 +190,7 @@ def make_pixel_chunpo():
     p.line((0.86, 0.50, 6), (1.0, 0.50, 6), hx('2c4a70')); p.line((0.86, 0.34, 9), (1.0, 0.34, 9), hx('cfe2f4'))
     p.poly([(0.88, 0.50, 0), (0.99, 0.50, 0), (1.0, 0.56, 0), (0.88, 0.56, 0)], hx('7a9a60'), None)                                                    # 처마 아래 땅 그림자
     for i in range(0, 8): p.rect_wall(0.06 + 0.1 * i, 0.075 + 0.1 * i, 0.66, 0, 3, hx('a8743c'), hx('6a4a22'))
-    tree(p, 0.04, 0.54, 0.62); tree(p, 0.94, 0.10, 0.62)
+    tree(p, 0.94, 0.10, 0.62); tree(p, 0.985, 0.72, 0.55)
     p.outline(INK)
     return p.im
 

@@ -197,8 +197,15 @@ nav button{font-weight:500}nav button.on{color:var(--seal);font-weight:650}
 .ar{align-self:center;color:var(--mut);font-size:20px}
 @media(max-width:640px){.flow{gap:6px}.fl{flex-direction:column;align-items:center;text-align:center;gap:6px;padding:10px 4px}.fl small{display:none}.fl b{font-size:13px}.ar{display:none}.step small{font-size:12.5px}.step .pri{padding:8px 12px}}
 #guide{margin-top:12px}
+
+[hidden]{display:none!important}
+#login{max-width:380px;margin:14vh auto 0;padding:28px 24px;display:grid;gap:12px;text-align:left}
+#login h2{display:flex;align-items:center;gap:10px;margin:0 0 6px;font-size:22px}
+#login input{width:100%;min-height:46px;font-size:16px}
+#login button{min-height:46px;font-size:16px}
+body:has(#login:not([hidden])){background:var(--bg)}
 </style></head><body>
-<div id="login" class="card"><h2><span class="seal">출</span>출석 관리자</h2>비밀번호<br><input id="pw" type="password" autocomplete="current-password"><button class="pri" id="go" style="width:100%">로그인</button><div id="msg" class="ab"></div></div>
+<div id="login" class="card"><h2><span class="seal">출</span>출석 관리자</h2><label for="pw" class="un">비밀번호</label><input id="pw" type="password" autocomplete="current-password" placeholder="관리자 비밀번호"><button class="pri" id="go" style="width:100%">로그인</button><div id="msg" class="ab"></div></div>
 <div id="shell" hidden>
 <nav id="nav"><div class="brand"><span class="seal">출</span><span>출석 관리자<small>국가무형유산 교육</small></span></div>
   <button data-tab="ov" class="on"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>현황</span></button>

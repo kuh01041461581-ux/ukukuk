@@ -1,7 +1,7 @@
 // 국가무형유산 출석체크 — 플랫폼 공통 로직 (Node 로컬 서버 / Cloudflare Worker 공용)
 // Web 표준 Request/Response만 사용합니다.
 
-const DEFAULT_SETTINGS = { openBefore: 30, lateAfter: 10, closeAfter: 30, useCode: false, kakaoKey: 'a1e32e809202e84389f8a7913da38fe1' }; // kakaoKey: 카카오(다음) 지도 JavaScript 키(선택, 관리자 화면에서만 사용) / useCode: 현장 코드도 함께 입력받기(기본 꺼짐)
+const DEFAULT_SETTINGS = { openBefore: 30, lateAfter: 10, closeAfter: 30, useCode: false, kakaoKey: '98e9337e1fcfe2a748b760581782a406' }; // kakaoKey: 카카오(다음) 지도 JavaScript 키(선택, 관리자 화면에서만 사용) / useCode: 현장 코드도 함께 입력받기(기본 꺼짐)
 
 export function emptyDb() {
   return { groups: [], members: [], lectures: [], records: {}, sessions: {}, bindings: {}, deviceRequests: [],

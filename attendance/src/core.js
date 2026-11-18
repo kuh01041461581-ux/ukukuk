@@ -32,7 +32,8 @@ export function normalizeDb(db) {
   const base = emptyDb();
   for (const k of Object.keys(base)) if (db[k] === undefined) { db[k] = base[k]; changed = true; }
   db.settings = { ...DEFAULT_SETTINGS, ...db.settings };
-  if (!db.settings.kakaoKey) db.settings.kakaoKey = DEFAULT_SETTINGS.kakaoKey; // 비어 있으면 기본 카카오 지도 키 사용
+  // 비어 있거나, 예전에 잘못 넣었던 키(지도용이 아닌 키)면 기본 카카오 JavaScript 키로 바꿉니다
+  if (!db.settings.kakaoKey || /^a1e32e80[0-9a-f]{24}$/.test(db.settings.kakaoKey)) db.settings.kakaoKey = DEFAULT_SETTINGS.kakaoKey;
   for (const m of db.members) if (!m.qr) { m.qr = newQr(); changed = true; }
   for (const l of db.lectures) if (!l.token) { l.token = newQr(); changed = true; }
   return changed;

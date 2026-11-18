@@ -1,0 +1,20 @@
+# Cloudflare 자동 배포(Workers Builds)용 설정 — 저장소 맨 위에서 배포해도 attendance 폴더를 쓰도록 합니다.
+# attendance/wrangler.toml 과 같은 내용이어야 합니다 (이름·Durable Object 설정이 다르면 데이터가 분리됩니다).
+name = "heritage-attendance"
+main = "attendance/src/worker.js"
+compatibility_date = "2025-09-01"
+
+[assets]
+directory = "./attendance/public"
+binding = "ASSETS"
+run_worker_first = true
+html_handling = "none"
+not_found_handling = "none"
+
+[[durable_objects.bindings]]
+name = "ATTENDANCE"
+class_name = "AttendanceDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AttendanceDO"]

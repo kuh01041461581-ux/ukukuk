@@ -289,7 +289,7 @@ body:has(#login:not([hidden])){background:var(--bg)}
     <details id="kakaoBox" style="margin-top:14px"><summary class="un" style="cursor:pointer"><b>카카오(다음) 지도로 바꾸기 (선택)</b> — 한국 주소·건물 검색이 더 정확합니다</summary>
       <ol class="note-list">
         <li><b>developers.kakao.com</b> 접속 → 로그인 → <b>내 애플리케이션 → 애플리케이션 추가</b></li>
-        <li>앱 설정에서 <b>플랫폼 → Web</b>에 이 관리자 주소를 등록 (예: <b id="kdom"></b>)</li>
+        <li><b>앱 → 플랫폼 키 → JavaScript 키</b>의 <b>JavaScript SDK 도메인</b>에 이 주소를 등록 (예: <b id="kdom"></b>)</li>
         <li>앱의 <b>JavaScript 키</b>를 복사해서 아래에 붙여넣고, 카카오맵 <b>사용 설정</b>이 꺼져 있다면 켭니다</li>
         <li>아래에 붙여넣고 <b>[연결 시험]</b> → 위쪽 <b>[설정 저장]</b> 후 새로고침하면 카카오 지도로 바뀝니다</li></ol>
       <div class="row"><input id="kkey" class="grow" placeholder="JavaScript 키 (영문·숫자 32자 안팎)" autocomplete="off"><button id="ktest">연결 시험</button></div>

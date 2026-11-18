@@ -37,6 +37,14 @@ for (y0, y1) in rows_of(mask)[:2]:
         o = sub.convert('RGBA'); o.putalpha(al)
         arr = np.asarray(o).copy(); arr[(arr[..., 2].astype(int) > arr[..., 0].astype(int) + 25), 3] = 0
         o = Image.fromarray(arr, 'RGBA'); heads.append(o.crop(o.getbbox()))
+FEM = (3, 4, 5, 9, 10, 11, 12, 13, 14)                                                  # 여자 시장 표정 칸. 머리는 방법 3(head_compose.py)으로 만든 합성 통머리를 쓴다
+for k in FEM:
+    hp = f'{root}/work/gpt/heads/h{k}.png'
+    if os.path.exists(hp) and k < len(heads):
+        hi = Image.open(hp).convert('RGB'); ha = np.asarray(hi).astype(int); hb = np.median(ha[:6, :6].reshape(-1, 3), axis=0); hm = ndi.binary_closing(np.abs(ha - hb).sum(2) > 60, iterations=1)
+        lab, nn = ndi.label(hm); sz = ndi.sum(hm, lab, range(1, nn + 1)); hm = ndi.binary_fill_holes(lab == (1 + int(np.argmax(sz))))
+        al = Image.fromarray((hm * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.7)).point(lambda v: 255 if v > 150 else (0 if v < 70 else int((v - 70) * 255 / 80)))
+        o = hi.convert('RGBA'); o.putalpha(al); arr = np.asarray(o).copy(); arr[(arr[..., 2].astype(int) > arr[..., 0].astype(int) + 25), 3] = 0; o = Image.fromarray(arr, 'RGBA'); heads[k] = o.crop(o.getbbox())
 print('통머리', len(heads))
 if os.environ.get('DBG'):
     bgi = Image.new('RGB', heads[0].size, (40, 160, 40)); bgi.paste(heads[0], (0, 0), heads[0]); bgi.save('/tmp/claude-0/prev/h0raw.png')
@@ -56,11 +64,12 @@ def place(head, k):
     return big, (24 * K // 2 - cx), (26 * K - chin + (7 if k in (3, 4, 5, 9, 10, 11, 12, 13, 14) else 1))
 n = 0
 for k, head in enumerate(heads[:18]):
+    if k not in FEM: continue
     big, bx, by = place(head, k); p = f'{mod}/ff{k}.d'; raw = open(p if os.path.exists(p) else f'{src}/ff{k}.d', 'rb').read()
     i = raw.find(b'IEND') + 8; j = raw.find(b'BIGH'); raw = raw[:j] if j > 0 else raw
     b = io.BytesIO(); big.save(b, format='PNG', optimize=True)
     open(p, 'wb').write(raw + b'BIGH' + int(bx).to_bytes(2, 'big', signed=True) + int(by).to_bytes(2, 'big', signed=True) + b.getvalue()); n += 1
-for nm in ['fd0', 'fd1', 'fd2'] + [f'fh{i}' for i in range(7)]:
+for nm in ['fd1', 'fh1']:
     p = f'{mod}/{nm}.d'; raw = open(p if os.path.exists(p) else f'{src}/{nm}.d', 'rb').read()
     if not raw.endswith(b'SKIP'): open(p, 'wb').write(raw + b'SKIP')
 print('통머리 적용', n, '장')

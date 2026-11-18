@@ -753,6 +753,12 @@ class RecipeTests(unittest.TestCase):
 
 
 class ScheduleNameTests(unittest.TestCase):
+    def test_plan_name(self):
+        import datetime
+        from hwpgen import weekly
+        self.assertEqual(weekly.plan_file_name(datetime.date(2026, 11, 23)), "주간업무계획 (2026. 11. 23.~ 11. 29.)")
+        self.assertEqual(weekly.plan_file_name(datetime.date(2026, 12, 28)), "주간업무계획 (2026. 12. 28.~ 2027. 1. 3.)")
+
     def test_file_name(self):
         import datetime
         from hwpgen import weekly
@@ -786,3 +792,12 @@ class AITests(unittest.TestCase):
         self.assertIn("푸드 페스티벌 보도자료", seen["b"]["messages"][0]["content"])
         with self.assertRaises(ai.AIError):
             ai.generate_press("x", "", "", "", "")
+
+
+class PageCheckTests(unittest.TestCase):
+    def test_no_blank_pages_in_sequences(self):
+        """양식을 이어 넣을 때(감사·정책질의·간부회의 …) 어림 계산으로 빈 쪽이 없다(tools/check_pages.py)"""
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
+        import check_pages as C
+        self.assertEqual(C.main(), 0)

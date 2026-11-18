@@ -91,7 +91,8 @@ class Output:
             br.apply_page_setup(page)                # 되면 이쪽으로도 한 번 더 맞춰 둔다(안 돼도 괜찮음)
         else:
             strip_section_props(pkg)                 # 이미 내용이 있는 문서의 쪽 설정은 건드리지 않는다
-        from .package import trim_trailing_blanks, trim_leading_pagebreak_blanks
+        from .package import trim_trailing_blanks, trim_leading_pagebreak_blanks, big_tables_own_page, starts_new_page
+        big_tables_own_page(pkg)                     # 쪽만 한 큰 표는 새 쪽에서(사이의 빈 줄만 다음 쪽에 남는 빈 쪽 방지)
         trim_trailing_blanks(pkg)                    # 끝의 빈 문단은 빼서 쪽이 넘치지 않게(빈 쪽 방지)
         trim_leading_pagebreak_blanks(pkg)           # '빈 문단 + 쪽 나눔'으로 시작하는 양식의 빈 쪽 방지
         # 차례대로 입력은 커서가 문서 맨 끝일 때(빈 문서 포함)만: 매번 끝에 붙여 순서가 절대 뒤집히지 않게 한다.
@@ -107,8 +108,9 @@ class Output:
                 top = br.at_page_top()               # 이미 새 쪽 맨 위에 있으면 '쪽 나눔'을 빼서 빈 쪽이 생기지 않게
             if top:
                 first[0].set("pageBreak", "0")
-            else:
+            elif not starts_new_page(pkg):
                 with_lead_blank(pkg)                 # 첫 문단이 앞 문단의 모양을 물려받지 않게 빈 받침 문단 하나
+                                                     # (쪽 나눔으로 시작하는 양식은 새 쪽에서 시작하므로 받침 문단이 필요 없고, 앞 쪽이 꽉 찼을 때 빈 쪽이 되기도 한다)
         mode = app.ui.get("build", "file")
         if mode == "commands":                       # 파일을 끼우지 않고 한글 명령으로 직접 만든다(참고 프로그램 방식)
             try:
@@ -119,7 +121,13 @@ class Output:
                 log = write_error_log("commands %s" % prefix, e)
                 messagebox.showerror("한글에 넣기", "명령으로 만들다 멈췄어요.\n%s\n\n오류 기록: %s" % (e, log))
             return
-        with_tail_blank(pkg)                         # 끝에 빈 줄: 커서가 새 줄에 놓여 다음 ◦가 붙지 않는다
+        from .pagecheck import estimate_height, DEFAULT_BODY
+        try:
+            full = estimate_height(pkg) >= 0.88 * DEFAULT_BODY[0]
+        except Exception:                            # noqa: BLE001
+            full = False
+        if not full:                                 # 쪽을 거의 채우는 양식 뒤의 빈 줄은 새 쪽으로 넘어가 빈 쪽이 되므로 붙이지 않는다
+            with_tail_blank(pkg)                     # 끝에 빈 줄: 커서가 새 줄에 놓여 다음 ◦가 붙지 않는다
         pkg.fix_secpr_refs()
         pkg.prune_header()                           # 안 쓰는 서식을 덜어 낸 뒤 쪼갠다 — 조각마다 큰 서식표를 한글이 다시 읽지 않게
         chunks = split_chunks(pkg) if step else [pkg]
@@ -546,7 +554,7 @@ class WeeklyTab(ttk.Frame):
             docs = []
             if which in ("plan", "both"):
                 f = registry.load_form("weekly_plan")
-                docs.append((f.render({"org": org, "items": [i for i in items]}), "주간업무계획_%s" % self.monday.strftime("%m%d")))
+                docs.append((f.render({"org": org, "items": [i for i in items]}), weekly.plan_file_name(self.monday)))
             if which in ("schedule", "both"):
                 f = registry.load_form("weekly_schedule")
                 evs = weekly.extract_events(items)
@@ -2406,7 +2414,7 @@ class Widget(tk.Tk):
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
-        self.busy(lambda: self.out.insert(pkg, {"cover": "주간업무계획표지", "plan": "주간업무계획"}.get(which) or weekly.schedule_file_name(org, monday)))
+        self.busy(lambda: self.out.insert(pkg, {"cover": "주간업무계획표지"}.get(which) or (weekly.plan_file_name(monday) if which == "plan" else weekly.schedule_file_name(org, monday))))
 
     def busy(self, fn):
         self.config(cursor="watch")

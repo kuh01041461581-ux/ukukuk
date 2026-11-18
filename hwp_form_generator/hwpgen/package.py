@@ -527,6 +527,51 @@ def ends_with_table(pkg):
     return bool(ps) and bool(list(ps[-1].iter(HP + "tbl")))
 
 
+def big_tables_own_page(pkg, min_h=52000):
+    """쪽 한 장에 가까운 큰 표 바로 앞의 빈 문단들을 없애고 그 표를 새 쪽에서 시작하게 한다.
+    (앞 표가 쪽을 거의 채우면 빈 문단만 다음 쪽에 남고, 큰 표가 그 아래 못 들어가 또 다음 쪽으로 밀려 '빈 쪽'이 생긴다)"""
+    sec = pkg.section(0)
+    ps = sec.findall(HP + "p")
+    n = 0
+    for i, p in enumerate(ps):
+        if i == 0 or p.get("pageBreak") == "1":
+            continue
+        tall = 0
+        for t in p.iter(HP + "tbl"):
+            sz = t.find(HP + "sz")
+            if sz is not None:
+                tall = max(tall, int(sz.get("height", "0")))
+        if tall < min_h:
+            continue
+        j = i - 1
+        blanks = []
+        while j >= 0 and _is_blank_para(ps[j]) and not list(ps[j].iter(HP + "secPr")):
+            blanks.append(ps[j])
+            j -= 1
+        if j < 0:                                  # 앞에 내용이 없으면(맨 앞) 그대로
+            continue
+        for b in blanks:
+            sec.remove(b)
+        p.set("pageBreak", "1")
+        n += 1
+    return n
+
+
+def starts_new_page(pkg, min_h=52000):
+    """첫 문단이 '쪽 나눔'을 가졌거나 쪽 한 장에 가까운 큰 표로 시작하면 True — 이런 양식은 어차피 새 쪽에서 시작하므로
+    앞에 받침 빈 줄을 붙이지 않는다(붙이면 앞 쪽이 꽉 찼을 때 빈 줄만 있는 쪽이 생긴다)"""
+    ps = pkg.section(0).findall(HP + "p")
+    if not ps:
+        return False
+    if ps[0].get("pageBreak") == "1":
+        return True
+    for t in ps[0].iter(HP + "tbl"):
+        sz = t.find(HP + "sz")
+        if sz is not None and int(sz.get("height", "0")) >= min_h:
+            return True
+    return False
+
+
 def with_lead_blank(pkg):
     """내용이 있는 문서에 이어 넣을 때: 앞 문단과 한 줄로 붙지 않게 맨 앞에 빈 문단을 하나 둔다(받침)"""
     sec = pkg.section(0)

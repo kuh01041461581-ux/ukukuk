@@ -403,6 +403,19 @@ class HwpBridge:
             hwp.HAction.Execute("TablePropertyDialog", ps.HSet)
         except Exception:                                  # noqa: BLE001
             pass
+        try:                                               # 칸 안 여백(참고 프로그램의 '셀여백지정' 방식)
+            mg = c.get("margin")
+            if mg:
+                ps = hwp.HParameterSet.HShapeObject
+                hwp.HAction.GetDefault("TablePropertyDialog", ps.HSet)
+                ps.HSet.SetItem("ShapeType", 3)
+                ps.HSet.SetItem("ShapeCellSize", 0)
+                ps.ShapeTableCell.HasMargin = 1
+                ps.ShapeTableCell.MarginLeft, ps.ShapeTableCell.MarginRight = int(mg[0]), int(mg[1])
+                ps.ShapeTableCell.MarginTop, ps.ShapeTableCell.MarginBottom = int(mg[2]), int(mg[3])
+                hwp.HAction.Execute("TablePropertyDialog", ps.HSet)
+        except Exception:                                  # noqa: BLE001
+            pass
         try:
             hwp.HAction.Run("Cancel")
         except Exception:                                  # noqa: BLE001

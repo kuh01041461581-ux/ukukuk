@@ -898,3 +898,11 @@ def schedule_file_name(org, monday):
     a = "%d.%d.%d." % (monday.year, monday.month, monday.day)
     b = ("%d.%d.%d." % (end.year, end.month, end.day)) if end.year != monday.year else "%d.%d." % (end.month, end.day)
     return "2. %s 주간 주요일정(%s~%s)" % (org, a, b)
+
+
+def plan_file_name(monday):
+    """저장 파일 이름: '주간업무계획 (2026. 11. 23.~ 11. 29.)' — 그 주(월~일) 날짜. 해가 넘어가면 끝 날짜에도 연도"""
+    end = monday + datetime.timedelta(days=6)
+    a = "%d. %d. %d." % (monday.year, monday.month, monday.day)
+    b = ("%d. %d. %d." % (end.year, end.month, end.day)) if end.year != monday.year else "%d. %d." % (end.month, end.day)
+    return "주간업무계획 (%s~ %s)" % (a, b)

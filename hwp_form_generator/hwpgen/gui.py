@@ -50,6 +50,12 @@ def write_error_log(what, exc):
         return ""
 
 
+OFFICIAL_BODY = ("수신  (수신처)\r\n(경유)\r\n제목  (제목)\r\n\r\n1. 관련: (관련 근거)\r\n\r\n2. (본문 내용)\r\n\r\n"
+                 "  가. (세부 내용)\r\n\r\n  나. (세부 내용)\r\n\r\n3. 붙임: 1부.  끝.")
+OFFICIAL_REPLY = ("수신  (수신처)\r\n(경유)\r\n제목  (제목) 회신\r\n\r\n1. (문서번호, 날짜)와 관련입니다.\r\n\r\n"
+                  "2. 위 호와 관련하여 아래와 같이 회신합니다.\r\n\r\n  가. (회신 내용)\r\n\r\n  나. (회신 내용)\r\n\r\n3. 붙임: 1부.  끝.")
+
+
 class Output:
     """만든 문서를 어디로 보낼지: 한글에 끼우기 / 새 문서로 열기 / 파일 저장"""
 
@@ -1846,6 +1852,49 @@ class Widget(tk.Tk):
                  anchor="w", wraplength=WIDGET_W - 40, justify="left").pack(fill="x")
         self._money_box = tk.Frame(parent, bg=C_BG)
         self._money_box.pack(fill="x")
+        self.section(parent, "글자 모양")
+        self.cmd_grid(parent, (
+            ("자간 좁게", lambda: self.cmd("자간 좁게", "CharShapeSpacingDecrease")),
+            ("자간 넓게", lambda: self.cmd("자간 넓게", "CharShapeSpacingIncrease")),
+            ("자간·장평 기본", lambda: self.char_fmt("자간·장평 기본", Spacing=0, Ratio=100)),
+            ("글자 크게", lambda: self.cmd("글자 크게", "CharShapeHeightIncrease")),
+            ("글자 작게", lambda: self.cmd("글자 작게", "CharShapeHeightDecrease")),
+            ("굵게", lambda: self.cmd("굵게", "CharShapeBold")),
+            ("빨간 글자", lambda: self.char_fmt("빨간 글자", TextColor=(255, 0, 0))),
+            ("파란 글자", lambda: self.char_fmt("파란 글자", TextColor=(0, 0, 255))),
+            ("검은 글자", lambda: self.char_fmt("검은 글자", TextColor=(0, 0, 0))),
+        ))
+        self.section(parent, "이동")
+        self.cmd_grid(parent, (
+            ("문서 처음", lambda: self.cmd("문서 처음", "MoveDocBegin")),
+            ("문서 끝", lambda: self.cmd("문서 끝", "MoveDocEnd")),
+            ("위로 5줄", lambda: self.cmd("위로 5줄", *(["MoveUp"] * 5), many=True)),
+            ("아래로 5줄", lambda: self.cmd("아래로 5줄", *(["MoveDown"] * 5), many=True)),
+        ))
+        self.section(parent, "쪽 번호")
+        self.cmd_grid(parent, (
+            ("가운데 아래", lambda: self.pagenum("가운데 아래", 5)),
+            ("오른쪽 아래", lambda: self.pagenum("오른쪽 아래", 6)),
+            ("가운데 위", lambda: self.pagenum("가운데 위", 2)),
+            ("쪽 번호 없애기", lambda: self.pagenum("쪽 번호 없애기", 0)),
+        ))
+        self.section(parent, "표 다듬기 (표 안에 커서·블록)")
+        self.cmd_grid(parent, (
+            ("블록 합계", lambda: self.cmd("블록 합계", "TableFormulaSumAuto")),
+            ("블록 평균", lambda: self.cmd("블록 평균", "TableFormulaAvgAuto")),
+            ("블록 곱", lambda: self.cmd("블록 곱", "TableFormulaProAuto")),
+            ("셀 합치기", lambda: self.cmd("셀 합치기", "TableMergeCell")),
+            ("셀 나누기", lambda: self.cmd("셀 나누기", "TableSplitCell")),
+            ("너비 같게", lambda: self.cmd("너비 같게", "TableDistributeCellWidth", "TableEqualCellWidth")),
+            ("높이 같게", lambda: self.cmd("높이 같게", "TableDistributeCellHeight", "TableEqualCellHeight")),
+            ("아래에 줄 추가", lambda: self.cmd("아래에 줄 추가", "TableAppendRow")),
+            ("가운데 정렬", lambda: self.cmd("셀 가운데 정렬", "TableCellAlignCenterCenter")),
+        ))
+        self.section(parent, "공문 틀")
+        self.cmd_grid(parent, (
+            ("공문 본문 틀", lambda: self.put_text(OFFICIAL_BODY)),
+            ("회신 공문 틀", lambda: self.put_text(OFFICIAL_REPLY)),
+        ))
         self.section(parent, "선택한 글 다듬기")
         tk.Label(parent, text="한글에서 글을 블록으로 선택하고 누르면 그 글이 바로 바뀌어요 (되돌리기: Ctrl+Z)", bg=C_BG, fg=C_SUB,
                  font=FONT_S, anchor="w", wraplength=WIDGET_W - 40, justify="left").pack(fill="x")
@@ -1861,6 +1910,46 @@ class Widget(tk.Tk):
             row=n0, column=0, sticky="ew", padx=2, pady=2)
         Btn(tg, "찾아 바꾸기", self.tidy_replace, kind="flat", h=32, tip="선택한 글 안에서만 찾아 바꿔요").grid(
             row=n0, column=1, sticky="ew", padx=2, pady=2)
+
+    def cmd_grid(self, parent, items):
+        g = tk.Frame(parent, bg=C_BG)
+        g.pack(fill="x", pady=(2, 0))
+        for i, (name, fn) in enumerate(items):
+            Btn(g, name, fn, kind="flat", h=32).grid(row=i // 2, column=i % 2, sticky="ew", padx=2, pady=2)
+        g.columnconfigure(0, weight=1)
+        g.columnconfigure(1, weight=1)
+
+    def cmd(self, name, *actions, many=False):
+        """한글 명령 실행(되는 이름 하나) — many=True 면 같은 명령을 모두 차례로"""
+        if not self._need_hwp(name):
+            return
+        try:
+            if many:
+                for a in actions:
+                    self.bridge.run_action(a)
+            else:
+                self.bridge.run_action(*actions)
+            self.say("%s" % name)
+        except B.BridgeError as e:
+            self.say(str(e), ok=False)
+
+    def char_fmt(self, name, **kw):
+        if not self._need_hwp(name):
+            return
+        try:
+            self.bridge.char_shape(**kw)
+            self.say("%s: 글자 모양을 바꿨어요" % name)
+        except B.BridgeError as e:
+            self.say(str(e), ok=False)
+
+    def pagenum(self, name, pos):
+        if not self._need_hwp("쪽 번호"):
+            return
+        try:
+            self.bridge.page_number(pos)
+            self.say("쪽 번호: %s" % name)
+        except B.BridgeError as e:
+            self.say(str(e), ok=False)
 
     def tidy(self, name, fn):
         if not self._need_hwp(name):

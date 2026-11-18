@@ -162,6 +162,51 @@ class HwpBridge:
             raise BridgeError("선택한 글을 지우지 못했어요")
         return self.insert_text(text.replace("\r", "").replace("\n", "\r\n"))
 
+    def run_action(self, *names):
+        """한글 명령을 이름으로 실행 — 이름 후보를 차례로 시도해 처음 되는 것을 쓴다. 하나도 안 되면 오류(어떤 명령이었는지 알림)"""
+        hwp = self._need()
+        last = None
+        for nm in names:
+            try:
+                if hwp.HAction.Run(nm) is not False:
+                    return nm
+            except Exception as e:                         # noqa: BLE001
+                last = e
+        raise BridgeError("이 한글 버전에서는 안 되는 명령이에요 (%s)%s" % ("/".join(names), (": %s" % last) if last else ""))
+
+    def char_shape(self, **kw):
+        """선택한(또는 커서 자리의) 글자 모양 바꾸기. Spacing(자간 %), Ratio(장평 %), Height(1/100 pt), TextColor((r,g,b))"""
+        hwp = self._need()
+        try:
+            ps = hwp.HParameterSet.HCharShape
+            hwp.HAction.GetDefault("CharShape", ps.HSet)
+            for k, v in kw.items():
+                if k == "TextColor":
+                    v = hwp.RGBColor(*v)
+                setattr(ps, k, v)
+            if hwp.HAction.Execute("CharShape", ps.HSet) is False:
+                raise BridgeError("글자 모양을 바꾸지 못했어요")
+            return True
+        except BridgeError:
+            raise
+        except Exception as e:                             # noqa: BLE001
+            raise BridgeError("글자 모양을 바꾸지 못했어요: %s" % e)
+
+    def page_number(self, pos=5):
+        """쪽 번호 넣기. pos: 1 왼쪽 위 · 2 가운데 위 · 3 오른쪽 위 · 4 왼쪽 아래 · 5 가운데 아래 · 6 오른쪽 아래, 0 없음"""
+        hwp = self._need()
+        try:
+            ps = hwp.HParameterSet.HPageNumPos
+            hwp.HAction.GetDefault("PageNumPos", ps.HSet)
+            ps.DrawPos = pos
+            if hwp.HAction.Execute("PageNumPos", ps.HSet) is False:
+                raise BridgeError("쪽 번호를 넣지 못했어요")
+            return True
+        except BridgeError:
+            raise
+        except Exception as e:                             # noqa: BLE001
+            raise BridgeError("쪽 번호를 넣지 못했어요: %s" % e)
+
     def insert_table(self, rows, cols):
         """커서 위치에 rows × cols 표 만들기(한글 표 만들기 명령)"""
         hwp = self._need()

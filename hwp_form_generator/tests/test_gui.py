@@ -71,6 +71,16 @@ class FakeBridge:
         self.cleared = getattr(self, "cleared", []) + [whole]
         return True
 
+    def run_action(self, *names):
+        self.actions = getattr(self, "actions", []) + [names]
+        return names[0]
+
+    def char_shape(self, **kw):
+        self.shapes = getattr(self, "shapes", []) + [kw]
+
+    def page_number(self, pos=5):
+        self.pagenums = getattr(self, "pagenums", []) + [pos]
+
     def replace_selection(self, text):
         self.replaced = getattr(self, "replaced", []) + [text]
 
@@ -213,6 +223,16 @@ class GuiTests(unittest.TestCase):
         n = len(br.replaced)
         w.tidy("콤마 넣기", BT.comma_add)                         # 선택이 없으면 아무것도 바꾸지 않는다
         self.assertEqual(len(br.replaced), n)
+
+    def test_hwp_commands(self):
+        w, br = self.widget, self.br
+        w.cmd("자간 좁게", "CharShapeSpacingDecrease")
+        w.cmd("위로 5줄", *(["MoveUp"] * 5), many=True)
+        w.char_fmt("빨간 글자", TextColor=(255, 0, 0))
+        w.pagenum("가운데 아래", 5)
+        self.assertEqual(br.actions[-6:], [("CharShapeSpacingDecrease",)] + [("MoveUp",)] * 5)
+        self.assertEqual(br.shapes[-1], {"TextColor": (255, 0, 0)})
+        self.assertEqual(br.pagenums[-1], 5)
 
     def test_symbols(self):
         self.widget.put_symbol('○')

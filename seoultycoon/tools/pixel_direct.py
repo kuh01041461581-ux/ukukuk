@@ -158,7 +158,7 @@ def make_pixel_chunpo():
     p.rect_wall(0.88, 0.99, 0.22, 0, 6, hx('c47a5a'), INK); p.rect_side(0.99, 0.22, 0.46, 0, 6, hx('8c4c36'), INK)
     p.poly([(0.86, 0.48, 6.5), (1.0, 0.48, 6.5), (1.0, 0.20, 6.5), (0.86, 0.20, 6.5)], BLU, INK); p.line((0.86, 0.34, 6.5), (1.0, 0.34, 6.5), BLUD)
     for i in range(0, 8): p.rect_wall(0.06 + 0.1 * i, 0.075 + 0.1 * i, 0.66, 0, 3, hx('a8743c'), hx('6a4a22'))
-    tree(p, 0.02, 0.46, 0.62); tree(p, 0.97, 0.84, 0.62)
+    tree(p, 0.10, 0.96, 0.62); tree(p, 0.97, 0.84, 0.62)
     p.outline(INK)
     return p.im
 

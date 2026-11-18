@@ -106,7 +106,7 @@ function numLines(sec, it, big) {
   return `<div class="numline">${it.carrier ? `<span class="badge gray">${esc(it.carrier)}</span>` : ''}${c(sec.no1Label, it.no1)}${c(sec.no2Label, it.no2)}</div>`;
 }
 function itemCell(sec, it, big) {
-  return `<div class="nolist itname"><b>${esc(it.name)}</b>${it.forward ? `<span class="fwdtag">→ ${esc(it.forward)} 전달</span>` : ''}</div>${numLines(sec, it, big)}
+  return `<div class="nolist itname"><b>${esc(it.name)}</b>${vdBadge(it)}</div>${numLines(sec, it, big)}
     ${it.inactive ? '<span class="badge gray">미사용/사용자 납부</span>' : ''}
     ${it.memo ? `<span class="hint">${esc(it.memo)}</span>` : ''}`;
 }

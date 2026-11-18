@@ -872,3 +872,18 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
 .guide p{margin:6px 0;line-height:1.7}
 .caret{display:inline-block;width:14px;color:var(--text-2)}
 #p-biz tr.sub td{background:var(--track,#f3f5f9)}
+
+
+/* 판정 카드 / 색 배지: 우리 계(초록) · 다른 계 전달(주황) */
+.vd{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+.vd.own{background:var(--good-soft);color:var(--good)} .vd.fwd{background:var(--warn-soft);color:var(--warn)}
+.verdict{border:2px solid var(--edge-dark,#cfd6e0);border-radius:12px;padding:14px 18px;margin-bottom:10px;background:#fff}
+.verdict .vt{font-size:30px;font-weight:800;line-height:1.2}
+.verdict .vs{margin:6px 0 8px;font-size:14px}
+.verdict.own{border-color:var(--good);background:var(--good-soft)} .verdict.own .vt{color:var(--good)}
+.verdict.fwd{border-color:var(--warn);background:var(--warn-soft)} .verdict.fwd .vt{color:var(--warn)}
+.verdict.none,.verdict.multi{background:var(--track,#f3f5f9)} .verdict.none .vt,.verdict.multi .vt{color:var(--text-2)}
+.verdict .vbtn{font-size:16px;padding:8px 18px} .verdict kbd{font:700 12px sans-serif;border:1px solid currentColor;border-radius:4px;padding:0 5px;margin-left:6px;opacity:.85}
+.verdict .vdone{font-weight:800;font-size:16px;color:var(--good)}
+.vlog .vl{display:flex;gap:10px;align-items:center;padding:5px 10px;border-left:5px solid var(--edge-dark,#ccc);margin:3px 0;background:var(--track,#f3f5f9);border-radius:6px;font-size:13px}
+.vlog .vl.own{border-left-color:var(--good)} .vlog .vl.fwd{border-left-color:var(--warn)} .vlog .vl em{margin-left:auto;color:var(--text-2);font-style:normal}

@@ -645,24 +645,26 @@ def _fill_when(it, value):
         it["when_note"] = note.group(0).strip()
 
 
-_ATTEND_LABELS = ("참석", "참석자", "참가", "주최", "주관", "비고", "내용", "주요내용", "대상", "초청")
-_NOT_COME = re.compile(r"국장[님]?\s*(?:은|는|께서)?\s*(?:불참|참석\s*불가|참석\s*않)")
+_ATTEND_LABELS = ("참석", "참석자", "참가", "참가자", "초청", "대상")
 
 
 def _attendance(it, default=""):
-    """참석자·비고 같은 줄에 '국장님'이 있으면 국장님 칸을 '참석'으로, '시장·부시장'이 있으면 비고에 '시장, 부시장 참석'을 적는다.
-    이미 사용자가 칸에 적어 둔 값(attend/note)이 있으면 그것을 그대로 둔다."""
+    """참석자 줄에 '국장님'이 있으면 국장님 칸에 '참석', '시장님·부시장님'이 있으면 비고에 '시장, 부시장 참석'을 적는다.
+    불참은 일정·주간업무에 적히지 않으므로 다루지 않는다(없으면 빈칸). 사용자가 칸에 직접 적어 둔 값은 그대로 둔다."""
     attend, note = it.get("attend", default), it.get("note", "")
-    texts = [str(v) for lab, v in it.get("lines", []) if any(k in str(lab).replace(" ", "") for k in _ATTEND_LABELS)]
-    texts.append(it.get("extra", "") or "")
-    blob = " ".join(texts)
+    pairs = [(str(l), str(v)) for l, v in it.get("lines", [])]
+    for ln in (it.get("extra", "") or "").split("\n"):             # 일정 입력 창의 '기타' 칸은 '라벨: 값' 줄들
+        if ":" in ln:
+            l, v = ln.split(":", 1)
+            pairs.append((l, v))
+    blob = " ".join(v for l, v in pairs if any(k in l.replace(" ", "") for k in _ATTEND_LABELS))
     if not attend and re.search(r"국장", blob):
-        attend = "불참" if _NOT_COME.search(blob) else "참석"
+        attend = "참석"
     if not note:
         names = []
         if re.search(r"부시장", blob):
             names.append("부시장")
-        if re.search(r"(?<!부)시장(?!\s*(?:점검|조사|상인|정비|개설))", re.sub(r"부시장", "", blob)):
+        if re.search(r"시장", re.sub(r"부시장", "", blob)):
             names.insert(0, "시장")
         if names:
             note = ", ".join(names) + " 참석"

@@ -755,14 +755,14 @@ class RecipeTests(unittest.TestCase):
 class ScheduleOrderTests(unittest.TestCase):
     def test_time_order_and_director_attendance(self):
         from hwpgen import weekly
-        items = [{"title": "B", "date": "2026-11-10", "time": "14:00", "lines": [("참석", "국장님, 부시장 및 시민")]},
-                 {"title": "A", "date": "2026-11-10", "time": "9:30", "lines": [("주최", "시장 · 국장 참석")]},
-                 {"title": "C", "date": "2026-11-10", "lines": [("내용", "재래시장 점검")]},
-                 {"title": "D", "date": "2026-11-10", "time": "10:00", "lines": [("참석", "국장님 불참")]}]
+        items = [{"title": "B", "date": "2026-11-10", "time": "14:00", "lines": [("참석", "국장님, 부시장님 및 시민")]},
+                 {"title": "A", "date": "2026-11-10", "time": "9:30", "lines": [("참석", "시장님, 국장")]},
+                 {"title": "C", "date": "2026-11-10", "lines": [("내용", "재래시장 점검"), ("주최", "시장 주최")]},
+                 {"title": "D", "date": "2026-11-10", "time": "10:00", "extra": "참석 : 시민 100명"}]
         ev = weekly.extract_events(items)
         self.assertEqual([e["title"] for e in ev], ["A", "D", "B", "C"])             # 시간순, 시각 없는 것은 맨 뒤
         self.assertEqual([(e["attend"], e["note"]) for e in ev],
-                         [("참석", "시장 참석"), ("불참", ""), ("참석", "부시장 참석"), ("", "")])
+                         [("참석", "시장 참석"), ("", ""), ("참석", "부시장 참석"), ("", "")])    # 참석자 줄만 본다, 불참은 다루지 않음
 
 
 class ScheduleRangeTests(unittest.TestCase):

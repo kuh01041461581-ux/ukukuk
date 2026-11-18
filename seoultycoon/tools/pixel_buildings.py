@@ -47,6 +47,31 @@ def hip_roof(p, a0, a1, b0, b1, z, rise, c1, c2, over=0.04, inset=0.07):
     checker(p, side, shade(c1, 0.62), shade(c2, 0.62), 1)
     p.line((a0 + inset, bm, z + rise), (a1 - inset, bm, z + rise), shade(c1, 1.4)); p.line((a0 - o, b1 + o, z), (a1 + o, b1 + o, z), shade(c2, 0.7))
 
+def hanok_roof(p, a0, a1, b0, b1, z, rise, c1, c2, wood, o=0.07, inset=0.09):
+    """한옥 팔작지붕: 앞 경사(기와골 줄 + 두 톤 체크) + 옆 경사 + 용마루(밝은 띠·치미) + 처마(서까래 면·들린 추녀 끝)."""
+    bm = (b0 + b1) / 2; zr = z + rise; ra0, ra1 = a0 + inset, a1 - inset
+    ry = p.G(a0, bm, zr)[1]
+    front = [(a0 - o, b1 + o, z), (a1 + o, b1 + o, z), (ra1, bm, zr), (ra0, bm, zr)]
+    checker(p, front, c1, c2, 0, bands=[(ry - 2, ry + 3, shade(c1, 1.2), shade(c2, 1.2)), (ry + 3, ry + 9, shade(c1, 1.05), shade(c2, 1.05)), (ry + 9, ry + 40, shade(c1, 0.84), shade(c2, 0.84))])
+    side = [(a1 + o, b0 - o, z), (a1 + o, b1 + o, z), (ra1, bm, zr)]
+    checker(p, side, shade(c1, 0.6), shade(c2, 0.6), 1)
+    n = int((a1 - a0 + 2 * o) / 0.034)                                                                                         # 기와골: 처마에서 용마루로 올라가는 골(어둡게)과 기왓등(밝게)
+    for k in range(n + 1):
+        a = a0 - o + (a1 - a0 + 2 * o) * k / n; ar = min(max(a, ra0), ra1)
+        p.line((a, b1 + o, z), (ar, bm, zr), shade(c2, 0.62)); p.line((a + 0.012, b1 + o, z), (ar + 0.004, bm, zr), shade(c1, 1.14))
+    for k in range(5):                                                                                                         # 기와 줄(가로 단)
+        f = (k + 1) / 6.0
+        p.line((a0 - o + (ra0 - a0 + o) * f, b1 + o - (b1 + o - bm) * f, z + rise * f), (a1 + o - (a1 + o - ra1) * f, b1 + o - (b1 + o - bm) * f, z + rise * f), shade(c2, 0.74))
+    for a in (a0 - o + 0.03, a1 + o - 0.05):                                                                                   # 내림마루(옆 경사 모서리)
+        pass
+    p.line((a1 + o, b1 + o, z), (ra1, bm, zr), hx('9a9aa6')); p.line((a1 + o, b1 + o, z - 0.4), (ra1, bm, zr - 0.4), shade(c2, 0.55))
+    p.line((a0 - o, b1 + o, z), (ra0, bm, zr), hx('9a9aa6'))
+    for dz in (0, 0.7, 1.4): p.line((ra0, bm, zr + dz), (ra1, bm, zr + dz), hx('b6b6c2') if dz else hx('8a8a98'))              # 용마루: 두툼한 밝은 띠
+    for aa in (ra0, ra1): p.rect_wall(aa - 0.02, aa + 0.02, bm, zr, zr + 2.4, hx('7a7a88'), None)                              # 치미(끝 장식)
+    p.poly([(a0 - o, b1 + o, z), (a1 + o, b1 + o, z), (a1 + o, b1 + o, z - 1.3), (a0 - o, b1 + o, z - 1.3)], shade(wood, 0.62), None)   # 처마 밑(서까래·부연)
+    for k in range(int((a1 - a0 + 2 * o) / 0.03)): p.d.point(p.G(a0 - o + 0.015 + k * 0.03, b1 + o, z - 0.8), fill=hx('e8dcc0'))
+    for a, sg in ((a0 - o, -1), (a1 + o, 1)): x, y = p.G(a, b1 + o, z); p.d.point((x + sg, y - 1), fill=c1); p.d.point((x + sg * 2, y - 2), fill=shade(c2, 0.8))  # 추녀 끝 살짝 들림
+
 def pagoda(p, ca, cb, base_w, tiers, h0, color=(0.82, 0.8, 0.74)):
     """석탑: 계단식 기단 + 각 층 몸돌(줄무늬) + 지붕돌(넓은 얇은 판, 아래 그림자)."""
     g = hx('d8d4c6'); g = tuple(int(v * 255) for v in color) + (255,)
@@ -247,9 +272,7 @@ def church():
         p.rect_wall(a, a + 0.014, HB1, 0, 9, WOOD, None); p.rect_wall(a + 0.014, a + 0.024, HB1, 0, 9, shade(WOOD, 0.62), None)
         p.rect_wall(a + 0.03, a + 0.052, HB1, 3.5, 8, hx('6a8aa8'), None)
     p.rect_wall(HA0, HA1, HB1, 9, 10, shade(WOOD, 0.8), None)
-    hip_roof(p, HA0 - 0.02, HA1 + 0.02, HB0 - 0.02, HB1 + 0.02, 10, 2, ROOF[0], ROOF[1], over=0.04, inset=0.04)               # 지붕은 한 벌: 아래 차양 + 위 지붕, 같은 회색 기와
-    hip_roof(p, 0.12, 0.76, 0.18, 0.38, 12, 6, ROOF[0], ROOF[1], over=0.03, inset=0.10)
-    p.poly([(0.12, 0.38, 12), (0.76, 0.38, 12), (0.76, 0.38, 13.2), (0.12, 0.38, 13.2)], shade(WOOD, 0.9), None)
+    hanok_roof(p, HA0, HA1, HB0, HB1, 10, 9, ROOF[0], ROOF[1], WOOD)
     # 종탑(정면 가운데, 본당보다 앞으로 튀어나옴)
     TA0, TA1, TB0, TB1 = 0.76, 0.96, 0.17, 0.37
     box(p, TA0, TA1, TB0, TB1, 0, 16, BR, tex='checker')

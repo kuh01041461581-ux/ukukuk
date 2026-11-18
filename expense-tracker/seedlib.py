@@ -3,6 +3,8 @@
 """
 import argparse, json, re, sys
 from pathlib import Path
+import copy
+import re
 import openpyxl
 
 
@@ -348,3 +350,42 @@ def extract_form_rows(wb, limit=4000):
                 if len(rows) >= limit:
                     return rows
     return rows
+
+
+def _hkey(h):
+    """머리글 첫 단어 ('거래처명\n(100자리이하)' -> '거래처명')"""
+    return re.split(r"[\s(]", str(h or "").strip())[0]
+
+
+def export_payform(tpl_bytes, rows):
+    """사용자가 올렸던 거래처입력 폼(양식)을 그대로 두고 데이터 행만 새로 채워 xlsx 바이트로 돌려줍니다.
+    rows: [{'거래처명':..., '계좌번호':..., '공급가액': 숫자, ...}] (키는 머리글 첫 단어)"""
+    import io
+    wb = openpyxl.load_workbook(io.BytesIO(tpl_bytes))
+    ws = None
+    for w in wb.worksheets:
+        heads = [_hkey(w.cell(1, c).value) for c in range(1, min(w.max_column, 40) + 1)]
+        if "거래처명" in heads and "공급가액" in heads:
+            ws = w
+            break
+    if ws is None:
+        raise ValueError("양식에서 '거래처명'·'공급가액' 머리글을 찾지 못했습니다.")
+    cols = {_hkey(ws.cell(1, c).value): c for c in range(1, min(ws.max_column, 40) + 1) if ws.cell(1, c).value}
+    styles = {c: copy.copy(ws.cell(2, c)._style) for c in cols.values()}
+    height = ws.row_dimensions[2].height
+    if ws.max_row >= 2:
+        ws.delete_rows(2, ws.max_row)
+    for i, row in enumerate(rows):
+        r = 2 + i
+        for key, c in cols.items():
+            cell = ws.cell(r, c)
+            if c in styles:
+                cell._style = copy.copy(styles[c])
+            v = row.get(key)
+            if v is not None and v != "":
+                cell.value = v
+        if height:
+            ws.row_dimensions[r].height = height
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()

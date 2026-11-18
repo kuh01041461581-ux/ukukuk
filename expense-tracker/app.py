@@ -9,6 +9,7 @@
   ExpenseManager.exe --selftest-gui  창을 실제로 띄워 화면이 연결되는지 점검 후 종료 (빌드 점검용)
 """
 import base64
+import re
 import datetime
 import json
 import os
@@ -202,6 +203,25 @@ class Api:
     def _log(self, where, err):
         log(f"{where}: {err!r}")
 
+    def export_payform(self, tpl_b64, rows, name):
+        """등록해 둔 거래처입력 양식으로 지급 폼 엑셀을 만들어 '내보내기' 폴더에 저장하고 폴더를 엽니다."""
+        try:
+            data = seedlib.export_payform(base64.b64decode(tpl_b64), rows)
+            d = self._root / "내보내기"
+            d.mkdir(exist_ok=True)
+            safe = re.sub(r'[\\/:*?"<>|]', "_", name)
+            path = d / safe
+            path.write_bytes(data)
+            if sys.platform.startswith("win"):
+                try:
+                    os.startfile(str(d))  # type: ignore[attr-defined]
+                except Exception:  # noqa
+                    pass
+            return {"ok": True, "path": str(path)}
+        except Exception as e:  # noqa
+            self._log("export_payform", e)
+            return {"ok": False, "error": str(e)}
+
     def snapshot(self, label="전환전"):
         """부서(과)를 바꾸기 전 등에 현재 데이터를 backups 폴더에 따로 복사해 둡니다."""
         try:
@@ -227,11 +247,11 @@ class Api:
 
 
 # ---------------------------------------------------------------- 브라우저 모드 (작은 로컬 서버)
-HTTP_METHODS = {"load_state", "save_state", "import_xlsx_data", "snapshot", "open_data_dir", "ping"}
+HTTP_METHODS = {"load_state", "save_state", "import_xlsx_data", "snapshot", "open_data_dir", "ping", "export_payform"}
 SHIM = """window.__HTTP__=true;window.__TOKEN__=%s;
 (function(){var call=function(n,a){return fetch('/api/'+n,{method:'POST',headers:{'X-Token':window.__TOKEN__,'Content-Type':'application/json'},body:JSON.stringify(a)}).then(function(r){return r.json();});};
 window.pywebview={api:{load_state:function(){return call('load_state',[]);},save_state:function(t){return call('save_state',[t]);},
-import_xlsx_data:function(n,b,y,m){return call('import_xlsx_data',[n,b,y,m]);},snapshot:function(l){return call('snapshot',[l]);},
+import_xlsx_data:function(n,b,y,m){return call('import_xlsx_data',[n,b,y,m]);},snapshot:function(l){return call('snapshot',[l]);},export_payform:function(t,r,n){return call('export_payform',[t,r,n]);},
 open_data_dir:function(){return call('open_data_dir',[]);},ping:function(){return call('ping',[]);}}};
 setInterval(function(){window.pywebview.api.ping().catch(function(){});},4000);})();"""
 

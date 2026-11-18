@@ -83,7 +83,7 @@ function renderUtil() {
   const SUBS = [['pay', '납부 확인'], ['stat', '현황 · 그래프'], ['year', '연간 표'], ['fwd', '전달처 안내']];
   let h = `<div class="row noprint subbar"><div class="pills subtabs" role="tablist">${SUBS.map(([k, n]) => `<button class="pill" role="tab" aria-pressed="${u.sub === k}" data-act="usub" data-v="${k}">${n}</button>`).join('')}</div>
     <span class="spacer"></span><button class="btn sm" data-act="find" data-tip="모든 요금 종류에서 번호·장소로 찾기">찾기 Ctrl+F</button>
-    <button class="btn sm primary" data-act="payform" data-tip="스캔 후 만든 지출 폼 엑셀을 올리면 기록에서 찾아 납부 완료로 바꿉니다">지출 폼 엑셀로 납부 처리</button>
+    <button class="btn sm primary" data-act="exportform" data-tip="수령 체크한 고지서를 내 거래처입력 엑셀 양식 그대로 출력합니다">지급 폼 만들기</button><button class="btn sm primary" data-act="payform" data-tip="스캔 후 만든 지출 폼 엑셀을 올리면 기록에서 찾아 납부 완료로 바꿉니다">지출 폼 엑셀로 납부 처리</button>
     ${u.sub === 'pay' || u.sub === 'year' ? '<button class="btn sm" data-act="additem">＋ 항목</button><button class="btn sm" data-act="tsv">표 복사</button><button class="btn sm" data-act="printu">인쇄</button>' : ''}</div>`;
   if (u.sub === 'pay') h += `<div class="row chiprow">${utilCatChips(u)}${utilControls(sec)}</div><div class="card payc"><div id="u-body">${monthView(sec, m, dm)}</div></div>`;
   else if (u.sub === 'year') h += `<div class="row chiprow">${utilCatChips(u)}${utilControls(sec)}</div><div class="card payc"><div id="u-body">${yearView(sec, dm)}</div></div>`;
@@ -191,6 +191,7 @@ PU.addEventListener('click', e => {
   if (a === 'series-all') { CATS.forEach(([k]) => UI.util.series[k] = true); renderUtil(); return; }
   if (a === 'find') { openFind(); return; }
   if (a === 'payform') { pickFiles('.xlsx,.xlsm', 'form'); return; }
+  if (a === 'exportform') { openExportForm(); return; }
   if (a === 'usub') { u.sub = b.dataset.v; renderUtil(); window.scrollTo(0, 0); return; }
   if (a === 'todo') { u.cat = b.dataset.cat; u.sub = 'pay'; u.filter = 'todo'; u.q = ''; u.month = defaultMonth(S.util[u.cat]); renderUtil(); return; }
   if (a === 'cat') { u.cat = b.dataset.v; u.month = null; renderUtil(); }

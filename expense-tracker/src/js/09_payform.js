@@ -85,8 +85,14 @@ function pfMatch(formRows) {
   return { matched, unmatched };
 }
 
-function openPayForm(rows, file) {
-  const { matched, unmatched } = pfMatch(rows); PF.rows = matched; PF.unmatched = unmatched; PF.file = file;
+function openPayForm(rows, file, b64) {
+  const { matched, unmatched } = pfMatch(rows); PF.rows = matched; PF.unmatched = unmatched; PF.file = file; PF.b64 = b64 || null;
+  if (UI._learnOnly) {   // 지급 폼 양식 등록: 납부 처리 없이 양식·거래처 정보만 저장
+    UI._learnOnly = false;
+    if (!b64 || !isTplForm(rows)) { alert('거래처입력 양식(거래처명·공급가액 열이 있는 엑셀)이 아닙니다.'); return; }
+    const n = pfLearn(matched, b64); S.formTpl = b64; save();
+    toast(`양식을 등록했습니다 (거래처 정보 ${n}건 기억)`); openExportForm(); return;
+  }
   drawPayForm();
 }
 function pfRowHTML(x, i) {
@@ -128,6 +134,7 @@ $('#dlg').addEventListener('click', e => {
   if (b.dataset.pfa === 'close') { closeDlg(); return; }
   if (b.dataset.pfa === 'apply') {
     let n = 0; PF.rows.filter(x => x.on).forEach(x => { if (x.amount) setAmt(x.it, x.month, x.amount); setRcv(x.it, x.month, 1); setPaid(x.it, x.month, true); n++; });
+    pfLearn(PF.rows.filter(x => x.on), PF.b64);
     save(); closeDlg(); if (UI.tab === 'util') renderUtil(); else if (UI.tab === 'daily') renderDaily(); toast(`${n}건을 납부 완료로 처리했습니다`);
   }
 });

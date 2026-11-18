@@ -18,7 +18,7 @@ async function handleFiles(files, intent) {
   const isTx = f => intent === 'tx' || (intent !== 'form' && looksLikeTx(f.form));
   const txs = forms.filter(isTx), pays = forms.filter(f => !isTx(f));
   if (txs.length) openTxImport(txs.flatMap(f => f.form.map(r => ({ ...r, file: f.file }))), txs.map(f => f.file).join(', '));
-  else if (pays.length) openPayForm(pays.flatMap(f => f.form.map(r => ({ ...r, file: f.file }))), pays.map(f => f.file).join(', '));
+  else if (pays.length) { const tp = pays.find(f => isTplForm(f.form)); openPayForm(pays.flatMap(f => f.form.map(r => ({ ...r, file: f.file }))), pays.map(f => f.file).join(', '), tp && tp.b64); }
   if (pdfs.length) {
     showTab('import');
     for (const f of pdfs) await handlePdf(f);     // 여러 PDF는 종류별로 각각 미리보기에 쌓임
@@ -32,9 +32,10 @@ async function importExcelFile(file, intent) {
   if (!IS_EXE) { toast('엑셀 읽기는 exe 프로그램에서만 됩니다'); return; }
   try {
     toast('엑셀을 읽는 중… ' + file.name);
-    const r = await api().import_xlsx_data(file.name, await fileToBase64(file), S.year, (intent === 'form' || intent === 'tx') ? 'form' : 'auto');
+    const b64 = await fileToBase64(file);
+    const r = await api().import_xlsx_data(file.name, b64, S.year, (intent === 'form' || intent === 'tx') ? 'form' : 'auto');
     if (r.error) { alert(r.error); return; }
-    if (r.form) return { form: r.form, file: file.name };
+    if (r.form) return { form: r.form, file: file.name, b64 };
     if (r.ledger) {
       const d = new Date(file.lastModified || Date.now());
       const asOf = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');

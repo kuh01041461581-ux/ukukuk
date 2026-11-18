@@ -41,6 +41,49 @@ def tile_roof(p, pts_rows, c1, c2):
             t = i / n; x = round(xa + (xb - xa) * t); y = round(ya + (yb - ya) * t)
             if 0 <= x < 96 and 0 <= y < p.Hc and p.im.getpixel((x, y))[3]: p.im.putpixel((x, y), c1 if (i + ci) % 2 == 0 else c2)
 
+def mask_of(p, pts):
+    m = Image.new('L', (96, p.Hc), 0); ImageDraw.Draw(m).polygon([p.G(*q) for q in pts], fill=255, outline=255); return m
+
+def checker(p, pts, c1, c2, phase=0, bands=None):
+    """다각형 안을 두 톤 체크 디더로 채운다. bands=[(y0,y1,c1,c2)...] 이면 높이대마다 색쌍을 바꿔 부드러운 그라데이션을 만든다."""
+    m = mask_of(p, pts); W, H = m.size
+    for y in range(H):
+        for x in range(W):
+            if m.getpixel((x, y)):
+                a, b = c1, c2
+                if bands:
+                    for (y0, y1, ca, cb) in bands:
+                        if y0 <= y < y1: a, b = ca, cb
+                p.im.putpixel((x, y), a if (x + y + phase) % 2 == 0 else b)
+
+def stripes(p, pts, c1, c2, w=2, bands=None):
+    """다각형 안을 세로 줄무늬 두 톤(열 폭 w)으로 채운다(원본 벽·커튼월 질감)."""
+    m = mask_of(p, pts); W, H = m.size
+    for y in range(H):
+        for x in range(W):
+            if m.getpixel((x, y)):
+                a, b = c1, c2
+                if bands:
+                    for (y0, y1, ca, cb) in bands:
+                        if y0 <= y < y1: a, b = ca, cb
+                p.im.putpixel((x, y), a if (x // w) % 2 == 0 else b)
+
+GREENS = [hx('a2e601'), hx('67db00'), hx('6db601'), hx('499201'), hx('009200'), hx('006d00'), hx('004900')]
+def tree(p, a, b, scale=1.0):
+    """b17 나무 구조: 잎덩이 여러 개가 겹친 울퉁불퉁한 덩어리. 덩이마다 왼쪽 위 하이라이트, 오른쪽 아래·틈 어두운 초록, 짧은 갈색 줄기와 오른쪽으로 번지는 그림자."""
+    x, y = p.G(a, b, 0); d = p.d
+    d.ellipse([x - 1, y - 1, x + 7, y + 2], fill=hx('3e6a22'))                                    # 접지 그림자(오른쪽 아래로)
+    d.rectangle([x - 1, y - 5, x, y], fill=hx('b64900')); d.point((x, y - 4), fill=hx('feb500')); d.point((x, y - 2), fill=hx('feb500')); d.rectangle([x + 1, y - 5, x + 1, y], fill=hx('7a4a14'))
+    blobs = [(-3, -9, 4), (3, -9, 4), (0, -13, 4.2), (-4, -6, 3.2), (4, -6, 3.2), (0, -8, 3.6)]
+    for (dx, dy, r) in blobs:                                                                  # 뒤→앞
+        r = r * scale; cx, cy = x + dx, y + dy
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=GREENS[3])
+        d.ellipse([cx - r + 0.5, cy - r + 0.5, cx + r - 1.5, cy + r - 1.5], fill=GREENS[2])
+        d.ellipse([cx - r * 0.7, cy - r * 0.8, cx + r * 0.2, cy + r * 0.1], fill=GREENS[1])
+        d.point((round(cx - r * 0.45), round(cy - r * 0.55)), fill=GREENS[0]); d.point((round(cx - r * 0.2), round(cy - r * 0.6)), fill=GREENS[0]); d.point((round(cx - r * 0.55), round(cy - r * 0.2)), fill=GREENS[0])
+        d.arc([cx - r, cy - r, cx + r, cy + r], 330, 150, fill=GREENS[4]); d.arc([cx - r + 1, cy - r + 1, cx + r - 1, cy + r - 1], 20, 110, fill=GREENS[5])
+        d.point((round(cx + r * 0.5), round(cy + r * 0.6)), fill=GREENS[6])
+
 def make_pixel_chunpo():
     p = Px(21)
     INK = hx('8a8070'); GROUND = hx('cfc9b6'); GROUNDD = hx('a8a290')
@@ -58,14 +101,13 @@ def make_pixel_chunpo():
     for i in range(1, 14): t = 0.04 + 0.92 * i / 14; p.line((t, 0.89, 0), (t, 0.97, 0), hx('5a3f2a'))
     p.poly([(0.92, 0.18, 0), (1.0, 0.18, 0), (1.0, 0.60, 0), (0.92, 0.60, 0)], shade(hx('9cc27a'), 0.8), None)               # 건물 그림자(오른쪽 땅)
     # 본채 벽(밝은 앞벽 / 어두운 옆벽) + 석고 질감
-    band_wall(p, A0, A1, B1, 0, H, CREAM, INK, n=5); p.rect_wall(A0, A1, B1, 0, H, None, INK) if False else None
-    for i in range(5):
-        za, zb = H * i / 5, H * (i + 1) / 5; p.rect_side(A1, B0, B1, za, zb, shade(CREAM, 0.80 - 0.015 * (2 - i)), shade(CREAM, 0.8))
+    wallpts = [(A0, B1, 0), (A1, B1, 0), (A1, B1, H), (A0, B1, H)]; yt = p.G(A0, B1, H)[1]
+    stripes(p, wallpts, hx('fffbc4'), hx('f6e9a8'), 2, bands=[(yt, yt + 4, hx('fffbc4'), hx('f6ec ae'.replace(' ', ''))), (yt + 4, yt + 8, hx('f6e9a8'), hx('e8d78c')), (yt + 8, yt + 30, hx('e8d78c'), hx('d6c076'))])
+    sidepts = [(A1, B0, 0), (A1, B1, 0), (A1, B1, H), (A1, B0, H)]
+    stripes(p, sidepts, hx('d9a85c'), hx('c79552'), 2, bands=[(yt, yt + 6, hx('e0b068'), hx('cf9c56')), (yt + 6, yt + 30, hx('c98f4e'), hx('b27c44'))])
     for (x0, x1, y0, y1) in ((0, 1, 0, 1),): pass
     p.line((A0, B1, 0), (A0, B1, H), INK); p.line((A1, B1, 0), (A1, B1, H), INK); p.line((A1, B0, 0), (A1, B0, H), INK)
     p.rect_wall(A0, A1, B1, 0, 3, MINT, INK); p.rect_side(A1, B0, B1, 0, 3, MINTD, INK)                                   # 아랫단 민트 띠
-    for t in (0.12, 0.30, 0.44, 0.58, 0.70, 0.82):                                                                          # 벽 석고 얼룩 점
-        p.d.point(p.G(A0 + (A1 - A0) * t, B1, 8 + (t * 7 % 4)), fill=shade(CREAM, 0.9))
     # 문·창(앞벽) — 문틀·유리 반사·창살
     def window(a, w, z0, z1):
         p.rect_wall(a, a + w, B1, z0, z1, GLASS, BLUD)
@@ -82,13 +124,11 @@ def make_pixel_chunpo():
     for a in (0.06, 0.19, 0.32): p.line((a, B1 + 0.09, 0), (a, B1 + 0.09, 10), MINTD); p.line((a + 0.006, B1 + 0.09, 0), (a + 0.006, B1 + 0.09, 10), MINT)
     # 지붕(앞 경사 밝음 / 옆 경사 어두움) + 마름모 기와 + 용마루
     R = 7; o = 0.04; bm = (B0 + B1) / 2
-    p.poly([(A0 - o, B1 + o, H), (A1 + o, B1 + o, H), (A1 - 0.06, bm, H + R), (A0 + 0.06, bm, H + R)], SL, INK)
-    p.poly([(A1 + o, B0 - o, H), (A1 + o, B1 + o, H), (A1 - 0.06, bm, H + R)], SLD, INK)
-    rows = []
-    for i in range(1, 7):
-        t = i / 7; z = H + R * t; b = (B1 + o) + (bm - B1 - o) * t; rows.append(((A0 - o + (0.06 + o) * t, b, z), (A1 + o - (0.06 + o) * t, b, z), i))
-    tile_roof(p, rows, SLL, SLD)
-    for (pa, pb, ci) in rows: p.line(pa, pb, shade(SL, 0.8))
+    front = [(A0 - o, B1 + o, H), (A1 + o, B1 + o, H), (A1 - 0.06, bm, H + R), (A0 + 0.06, bm, H + R)]; ry = p.G(A0, bm, H + R)[1]
+    checker(p, front, hx('6cb496'), hx('4f9a80'), 0, bands=[(ry - 2, ry + 3, hx('9adcbc'), hx('78c0a2')), (ry + 3, ry + 7, hx('78c0a2'), hx('5ca88c')), (ry + 7, ry + 12, hx('5ca88c'), hx('46907a')), (ry + 12, ry + 40, hx('46907a'), hx('367a66'))])
+    side_r = [(A1 + o, B0 - o, H), (A1 + o, B1 + o, H), (A1 - 0.06, bm, H + R)]
+    checker(p, side_r, hx('3a7e68'), hx('2d6a58'), 1, bands=[(ry - 2, ry + 8, hx('467e72'), hx('366a60')), (ry + 8, ry + 40, hx('366a60'), hx('2a5650'))])
+    p.line((A0 - o, B1 + o, H), (A1 + o, B1 + o, H), hx('3a5450')); p.line((A1 + o, B0 - o, H), (A1 + o, B1 + o, H), hx('2f4744'))
     p.line((A0 + 0.06, bm, H + R), (A1 - 0.06, bm, H + R), hx('d4e8e0'))
     for i in range(1, 5):                                                                                                    # 옆 경사 기와 줄
         t = i / 5; za, zb = H + R * t, H + R * t
@@ -107,10 +147,7 @@ def make_pixel_chunpo():
     p.rect_wall(0.88, 0.99, 0.22, 0, 6, hx('c47a5a'), INK); p.rect_side(0.99, 0.22, 0.46, 0, 6, hx('8c4c36'), INK)
     p.poly([(0.86, 0.48, 6.5), (1.0, 0.48, 6.5), (1.0, 0.20, 6.5), (0.86, 0.20, 6.5)], BLU, INK); p.line((0.86, 0.34, 6.5), (1.0, 0.34, 6.5), BLUD)
     for i in range(0, 8): p.rect_wall(0.06 + 0.1 * i, 0.075 + 0.1 * i, 0.66, 0, 3, hx('a8743c'), hx('6a4a22'))
-    def tree(a, b, r=1.0):
-        x, y = p.G(a, b, 0); p.d.rectangle([x - 1, y - 6, x, y], fill=hx('6a4a2a'))
-        p.d.ellipse([x - 5, y - 13, x + 4, y - 4], fill=hx('4a8c3a'), outline=hx('2f5e28')); p.d.ellipse([x - 3, y - 12, x + 1, y - 8], fill=hx('7ab85a'))
-    tree(0.03, 0.40); tree(0.97, 0.78)
+    tree(p, 0.02, 0.46, 0.62); tree(p, 0.97, 0.84, 0.62)
     p.outline(INK)
     return p.im
 

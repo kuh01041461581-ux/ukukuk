@@ -11,7 +11,8 @@ def hx(h): return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
 class Px:
     def __init__(self, k):
         self.Hc, self.yc = ST.canvas(k); self.im = Image.new('RGBA', (96, self.Hc), (0, 0, 0, 0)); self.d = ImageDraw.Draw(self.im)
-    def G(self, a, b, z=0.0): return (round(48 + 47 * (a - b)), round(self.yc - 24 + 24 * (a + b) - z))
+    zs = 1.0                                                                                                                   # 높이 배율(캔버스가 높은 건물용)
+    def G(self, a, b, z=0.0): return (round(48 + 47 * (a - b)), round(self.yc - 24 + 24 * (a + b) - z * self.zs))
     def poly(self, pts, fill, line=None):
         if fill is None: return
         P = [self.G(*p) for p in pts]; self.d.polygon(P, fill=fill, outline=(tuple(int(v * 0.74) for v in fill[:3]) + (255,)) if line else fill)      # 검은 윤곽선 대신 같은 색의 한 단계 어두운 톤으로 면 경계를 구분(서울타이쿤 도트 방식)

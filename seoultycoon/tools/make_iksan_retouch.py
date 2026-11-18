@@ -49,10 +49,12 @@ def b15():                                                                   # �
     im = R.Comp(15).S.copy() if False else Image.open('/tmp/pk/b15.d').convert('RGBA')
     erase(im, (36, 1, 63, 19), lambda r, g, b: b == 171 and g >= 219)
     text(im, 38, 3, 'TESLA', (255, 255, 171), 0.27); text(im, 38, 11, 'MOTORS', (255, 219, 171), 0.27); return im
-def b19():                                                                   # 메가박스 → 롯데시네마
-    im = Image.open('/tmp/pk/b19.d').convert('RGBA')
-    erase(im, (26, 0, 58, 13), lambda r, g, b: b == 171 and r >= 146 and g >= 146 or (r, g, b) in ((0, 36, 171), (36, 36, 85)) and False)
-    text(im, 28, 2, 'LOTTE', (255, 255, 171), 0.3, gap=0, sx=2, sy=1); return im
+def b19():                                                                   # 메가박스 → 롯데시네마(원본 건물 그대로, 간판 글자만 교체)
+    im = Image.open('/tmp/pk/b19.d').convert('RGBA'); px = im.load(); CR = (219, 219, 171)
+    for y in range(0, 12):                                                   # 간판판의 글자(진한 파랑 계열)를 판 바탕색으로 덮는다
+        for x in range(30, 58):
+            if px[x, y][3] and px[x, y][:3] in ((0, 73, 171), (36, 36, 85), (0, 36, 171), (0, 0, 85), (0, 109, 171), (36, 36, 171), (0, 73, 146), (0, 109, 255)): px[x, y] = CR + (255,)
+    text(im, 37, 4, 'LOTTE', (219, 0, 36), -0.12, gap=1, sx=1, sy=1); return im
 def b9():                                                                    # 카트라이더 → 승마(HORSE)
     im = Image.open('/tmp/pk/b9.d').convert('RGBA')
     erase(im, (38, 0, 86, 34), lambda r, g, b: (r, g, b) in ((255, 219, 0), (109, 73, 0), (73, 181, 0), (36, 73, 0), (255, 182, 0), (182, 109, 0), (73, 182, 1), (36, 109, 0)))
@@ -115,7 +117,7 @@ def b48():                                                                  # �
     return im
 
 if __name__ == '__main__':
-    R.ensure_pk(); items = {'b32': b32, 'b45': b45, 'b8': b8, 'b3': b3, 'b15': b15, 'b44': b44, 'b12': b12, 'b48': b48}; ims = {}
+    R.ensure_pk(); items = {'b19': b19, 'b32': b32, 'b45': b45, 'b8': b8, 'b3': b3, 'b15': b15, 'b44': b44, 'b12': b12, 'b48': b48}; ims = {}
     for n, fn in items.items(): ims[n] = fn(); ims[n].save(f'{out}/{n}.png')
     if len(sys.argv) > 1:
         W = sum(i.width * 5 + 10 for i in ims.values()); H = max(i.height * 5 for i in ims.values()); w = Image.new('RGBA', (W, H), (60, 60, 70, 255)); x = 0

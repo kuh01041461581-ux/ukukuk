@@ -8,7 +8,7 @@ out = root + '/work/pak_mod'; os.makedirs(out, exist_ok=True)
 for f in glob.glob(out + '/*.png'): os.remove(f)
 def run(tool): subprocess.run([sys.executable, '-I', f'{here}/{tool}'], check=True, stdout=subprocess.DEVNULL)
 # 1) 지형·기타(조각 규칙과 무관)
-for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_palace.py', 'make_iksan_retouch.py', 'make_iksan_minimap.py', 'make_iksan_logo.py', 'make_iksan_misc.py', 'make_iksan_secnames.py', 'make_iksan_faces.py', 'gpt_import.py', 'faces_hd.py', 'body_final.py', 'whole_heads.py', 'horse_race.py', 'make_maryong.py'): run(tool)
+for tool in ('make_iksan_cityhall.py', 'make_iksan_quarry3d.py', 'make_iksan_palace.py', 'make_iksan_retouch.py', 'make_iksan_minimap.py', 'make_iksan_logo.py', 'make_iksan_misc.py', 'make_iksan_secnames.py', 'make_iksan_faces.py', 'gpt_import.py', 'faces_hd.py', 'body_final.py', 'horse_race.py', 'make_maryong.py'): run(tool)
 # 2) 건물: 조각 규칙 변환
 import strips as ST
 import pixel_style as PS
@@ -17,7 +17,10 @@ import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, m
 # 익산 고유 건물만 새 도트를 쓴다. 그 밖의 건물(소방서·경찰서·학교·아파트·버스정류장·유치원·놀이터·체육공원 등)은 원본 도트를 그대로 두고 퀄리티만 올린다(enhance_orig).
 import pixel_direct as PXD, pixel_buildings as PB
 PIXEL = {21, 2, 38, 42, 33, 20, 13, 26}                                                       # 직접 도트로 찍은 건물(평면 색 + 윤곽선)
-ITEMS = {2: PB.mireuksa, 13: PB.church, 20: PB.library, 21: PXD.make_pixel_chunpo, 33: PB.baseball, 38: PB.baekje, 42: PB.arts, 26: PB.jeonsu}
+import dotify as DT
+def old_mireuksa(): return DT.dotify(DT.tint(DT.untree(LM.mireuksa()), (0.78, 0.76, 0.72)), 24)                    # 옛 모양(층층 탑 + 남은 벽돌 더미) 그대로, 질감만 도트·회색 화강암
+def old_baekje(): return DT.dotify(DT.tint(DT.untree(MO.baekje()), (1.0, 0.80, 0.52)), 26)                         # 왕궁리: 옛 모양 그대로, 황갈색 석재
+ITEMS = {2: old_mireuksa, 13: PB.church, 20: PB.library, 21: PXD.make_pixel_chunpo, 33: PB.baseball, 38: old_baekje, 42: PB.arts, 26: PB.jeonsu}
 # 롯데시네마·코스트코·테슬라·하림·농협은행·공설운동장·방송국·마룡이식당은 원본 도트에 간판만 고친다(make_iksan_retouch) → 아래에서 퀄리티 보정까지 받는다
 yx = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); show = []; hd_show = []
 def on_tile(F, yc, s=1):

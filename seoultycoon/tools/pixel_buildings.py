@@ -218,21 +218,21 @@ def library():
 def church():
     """나바위성당(사진 기준): 넓은 한옥식 본당(붉은 벽돌 벽 + 목조 기둥 열 + 회색 기와 이중 처마)의 정면 가운데에 서양식 벽돌 종탑이 튀어나온다 — 첨탑 좌우로 한옥 본당이 드러난다.
     종탑 출입구는 우하단(오른쪽 면)을 향하고, 시계(둥근 창)는 두 면 모두 면 중앙에 있다. 마당은 잔디 + 자갈길."""
-    p = Px(13); p.zs = 1.6; ground(p, '8cc46c', [(0.60, 1.0, 0.50, 0.64, 'd8c8a0'), (0.04, 0.96, 0.84, 0.97, 'cfc8b0')])
+    p = Px(13); p.zs = 1.6; ground(p, '8cc46c', [(0.94, 1.0, 0.10, 0.50, 'd8c8a0'), (0.60, 1.0, 0.52, 0.66, 'cfc8b0'), (0.04, 0.60, 0.84, 0.97, 'cfc8b0')])
     BR = hx('cc6e56'); BRL = hx('dc826a'); GR = hx('8a847a'); WOOD = hx('9a4a30'); ROOF = (hx('5c5c68'), hx('484854')); SPIRE = (hx('564a44'), hx('3a302c'))
-    HA0, HA1, HB0, HB1 = 0.04, 0.96, 0.16, 0.44                                                                                 # 본당
+    HA0, HA1, HB0, HB1 = 0.04, 0.84, 0.16, 0.44                                                                                 # 본당
     box(p, HA0, HA1, HB0, HB1, 0, 3, GR, tex='checker'); box(p, HA0, HA1, HB0, HB1, 3, 10, BR, tex='checker')
     for i in range(7): p.line((HA0, HB1, 3.6 + i), (HA1, HB1, 3.6 + i), shade(BRL, 0.96) if i % 2 == 0 else shade(BR, 0.9))
-    cols = [0.07 + 0.31 * i / 5 for i in range(6)] + [0.64 + 0.30 * i / 5 for i in range(6)]                                    # 목조 기둥 열: 종탑 좌우에만 보인다
+    cols = [0.07 + 0.70 * i / 11 for i in range(12)]                                    # 목조 기둥 열: 종탑 좌우에만 보인다
     for a in cols:
         p.rect_wall(a, a + 0.014, HB1, 0, 9, WOOD, None); p.rect_wall(a + 0.014, a + 0.024, HB1, 0, 9, shade(WOOD, 0.62), None)
         p.rect_wall(a + 0.03, a + 0.052, HB1, 3.5, 8, hx('6a8aa8'), None)
     p.rect_wall(HA0, HA1, HB1, 9, 10, shade(WOOD, 0.8), None)
     hip_roof(p, HA0 - 0.02, HA1 + 0.02, HB0 - 0.02, HB1 + 0.02, 10, 2, ROOF[0], ROOF[1], over=0.04, inset=0.04)               # 지붕은 한 벌: 아래 차양 + 위 지붕, 같은 회색 기와
-    hip_roof(p, 0.12, 0.88, 0.22, 0.38, 12, 6, ROOF[0], ROOF[1], over=0.03, inset=0.10)
-    p.poly([(0.12, 0.38, 12), (0.88, 0.38, 12), (0.88, 0.38, 13.2), (0.12, 0.38, 13.2)], shade(WOOD, 0.9), None)
+    hip_roof(p, 0.12, 0.78, 0.22, 0.38, 12, 6, ROOF[0], ROOF[1], over=0.03, inset=0.10)
+    p.poly([(0.12, 0.38, 12), (0.78, 0.38, 12), (0.78, 0.38, 13.2), (0.12, 0.38, 13.2)], shade(WOOD, 0.9), None)
     # 종탑(정면 가운데, 본당보다 앞으로 튀어나옴)
-    TA0, TA1, TB0, TB1 = 0.44, 0.58, 0.44, 0.62
+    TA0, TA1, TB0, TB1 = 0.78, 0.94, 0.17, 0.43
     box(p, TA0, TA1, TB0, TB1, 0, 16, BR, tex='checker')
     for (a, bb) in ((TA0, TB1), (TA1 - 0.015, TB1)): p.rect_wall(a, a + 0.015, bb, 0, 16, GR, None)                              # 왼쪽 앞 면 모서리 회색 띠
     for b in (TB0, TB1 - 0.014): p.rect_side(TA1, b, b + 0.014, 0, 16, shade(GR, 0.7), None)                                   # 오른쪽 면 모서리 띠
@@ -250,7 +250,7 @@ def church():
     ap = (ca, cb, 29)                                                                                                           # 뾰족 첨탑 + 십자가
     checker(p, [(TA0 - 0.01, TB1 + 0.01, 16), (TA1 + 0.01, TB1 + 0.01, 16), ap], SPIRE[0], shade(SPIRE[0], 0.88), 0); checker(p, [(TA1 + 0.01, TB1 + 0.01, 16), (TA1 + 0.01, TB0 - 0.01, 16), ap], SPIRE[1], shade(SPIRE[1], 0.88), 1)
     p.line(ap, (ca, cb, 32), hx('3a302c')); p.line((ca - 0.015, cb, 31), (ca + 0.015, cb, 31), hx('3a302c'))
-    shadow_poly(p, [(0.96, 0.16, 0), (1.0, 0.16, 0), (1.0, 0.50, 0), (0.96, 0.44, 0)], 0.78)
+    shadow_poly(p, [(0.94, 0.10, 0), (1.0, 0.10, 0), (1.0, 0.50, 0), (0.94, 0.44, 0)], 0.78)
     return finish(p)
 
 # ---------------------------------------------------------------- 익산 통합 전수관 (b26)

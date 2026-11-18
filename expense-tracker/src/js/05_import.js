@@ -43,7 +43,7 @@ function renderImport(keepStatus) {
   const P = $('#p-import'); const imp = UI.imp || {}; const prev = keepStatus ? ($('#imp-status') || {}).textContent : '';
   let h = `<div class="card"><h2>파일 불러오기 (PDF · 엑셀)</h2>
     <p class="sub" style="margin:0 0 10px">합본예산서(PDF), 통계목별 조회 엑셀(실집행액), 일상경비·공공요금 엑셀을 올리면 자동으로 종류를 알아보고 채워 줍니다. 여러 파일을 한꺼번에 끌어 놓아도 됩니다. 파일은 이 컴퓨터 안에서만 읽으며 어디로도 전송되지 않습니다.</p>
-    <ul class="help" style="margin:0 0 12px;padding-left:18px"><li><b>합본예산서</b>(세출예산사업명세서) → <b>총예산액</b>과 공공요금 연 예산 자동 입력</li><li><b>통계목별 조회 엑셀</b>(e-호조 내려받기) → <b>실집행액</b>(지출액)과 원인행위·결의액 자동 입력</li></ul>
+    <div class="note-box" style="margin:0 0 10px">통계목별 조회는 <b>「실집행액」 체크 후, 표시 위의 파란색 아이콘 버튼</b>으로 내려받으세요. 아래쪽 [출력] 버튼으로 받으면 실집행액이 없고 결의액만 나옵니다. (자세한 설명: [사용법] 탭)</div><ul class="help" style="margin:0 0 12px;padding-left:18px"><li><b>합본예산서</b>(세출예산사업명세서) → <b>총예산액</b>과 공공요금 연 예산 자동 입력</li><li><b>통계목별 조회 엑셀</b>(e-호조 내려받기) → <b>실집행액</b>(지출액)과 원인행위·결의액 자동 입력</li></ul>
     <div class="drop" id="drop"><div style="font-size:15px;font-weight:600">PDF·엑셀 파일을 이 창 아무 곳에나 끌어 놓거나</div><div style="margin:8px 0"><button class="btn primary" data-act="pick">파일 선택 (탐색기 열기)</button></div><div id="imp-status" class="muted">${esc(prev || '')}</div></div></div>`;
   if (imp.budget) h += budgetPreview(imp.budget);
   if (imp.ledger) h += ledgerPreview(imp.ledger);

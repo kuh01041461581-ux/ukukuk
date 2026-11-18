@@ -47,7 +47,9 @@ async function importExcelFile(file, intent) {
       const d = new Date(file.lastModified || Date.now());
       const asOf = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       if (!(await checkDept(r.ledger.dept))) return;
-      S.biz = { asOf, file: file.name, entries: r.ledger.entries }; save();   // 전체 사업 진척용(설정에서 켜면 보임)
+      S.biz = { asOf, file: file.name, entries: r.ledger.entries }; S.opt = S.opt || {};
+      if (S.opt.biz === undefined) { S.opt.biz = true; renderTabBar(); toast('과 전체 예산 탭(전체 사업 진척 · 과 요약 보고서)을 추가했습니다 — 설정에서 끌 수 있습니다'); }
+      save();   // 전체 사업 진척용(설정에서 켜면 보임)
       if (!S.lines.length) {   // 새 장부: 일상경비 항목을 자동으로 만든다
         const made = linesFromEntries(r.ledger.entries, asOf);
         if (made.length) { S.lines = made; S.asOf = asOf; $('#asof').value = asOf; save(); UI.dsub = 'now'; showTab('daily'); toast(`${S.dept || ''} 일상경비 ${made.length}개 항목을 만들었습니다 — 안 쓰는 항목은 숨겨 주세요`); setTimeout(listDialog, 300); return; }

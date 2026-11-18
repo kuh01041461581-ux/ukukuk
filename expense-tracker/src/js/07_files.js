@@ -42,7 +42,7 @@ async function importExcelFile(file, intent) {
       S.biz = { asOf, file: file.name, entries: r.ledger.entries }; save();   // 전체 사업 진척용(설정에서 켜면 보임)
       if (!S.lines.length) {   // 새 장부: 일상경비 항목을 자동으로 만든다
         const made = linesFromEntries(r.ledger.entries, asOf);
-        if (made.length) { S.lines = made; S.asOf = asOf; $('#asof').value = asOf; save(); UI.dsub = 'now'; showTab('daily'); toast(`${S.dept || ''} 일상경비 ${made.length}개 항목을 만들었습니다 (예산·실집행액 포함)`); return; }
+        if (made.length) { S.lines = made; S.asOf = asOf; $('#asof').value = asOf; save(); UI.dsub = 'now'; showTab('daily'); toast(`${S.dept || ''} 일상경비 ${made.length}개 항목을 만들었습니다 — 안 쓰는 항목은 숨겨 주세요`); setTimeout(listDialog, 300); return; }
       }
       UI.imp = UI.imp || {}; UI.imp.ledger = { kind: 'ledger', entries: r.ledger.entries, asOf, file: file.name, src: 'xlsx', skipped: r.ledger.skipped };
       showTab('import'); toast('통계목별 조회 엑셀(실집행액)을 읽었습니다 — 아래에서 적용할 항목을 확인하세요'); return;

@@ -9,7 +9,7 @@ function findHits(q) {
   }
   for (const [k, nm] of CATS) { const sec = S.util[k]; if (sec) (sec.forwards || []).forEach(f => { if (matchFwd(f, q, nm)) out.push({ kind: 'fwd', k, nm, f }); }); }
   const terms = String(q || '').split(/\s+/).map(normQ).filter(Boolean);
-  for (const l of S.lines) { const hay = normQ([l.label, l.biz, l.group, l.note].join(' ')); if (terms.length && terms.every(t => hay.includes(t))) out.push({ kind: 'line', l }); }
+  for (const l of visLines()) { const hay = normQ([l.label, l.biz, l.group, l.note].join(' ')); if (terms.length && terms.every(t => hay.includes(t))) out.push({ kind: 'line', l }); }
   if (terms.length) { let n = 0; for (const t of (S.tx || [])) { if (n >= 15) break; const l = txLineOf(t); const hay = normQ([t.memo, t.vendor, t.biz, t.name, l ? l.label : '', String(t.amt)].join(' ')); if (terms.every(x => hay.includes(x))) { out.push({ kind: 'tx', t, l }); n++; } } }
   return out;
 }

@@ -124,8 +124,8 @@ function dailyTxTab() {
   const total = sum(list, t => t.amt), baseTotal = sum(base, t => t.amt);
   const months = Array(12).fill(0); base.forEach(t => { months[+t.d.slice(5, 7) - 1] += t.amt; });
   const used = months.filter(v => v > 0).length, peak = months.indexOf(Math.max(...months));
-  const groups = [...new Set(S.lines.map(l => l.group))];
-  const lines = S.lines.filter(l => u.group === 'all' || l.group === u.group);
+  const groups = [...new Set(visLines().map(l => l.group))];
+  const lines = visLines().filter(l => u.group === 'all' || l.group === u.group);
   // 사용처 순위: 거래처가 있으면 거래처, 없으면 적요 앞부분
   const agg = new Map(); list.forEach(t => { const k = (t.vendor || t.memo || '(내용 없음)').slice(0, 22); agg.set(k, (agg.get(k) || 0) + t.amt); });
   const top = [...agg.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8), topMax = top.length ? top[0][1] : 1;

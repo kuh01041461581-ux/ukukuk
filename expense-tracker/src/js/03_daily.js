@@ -32,7 +32,7 @@ function statusBadges(l) {
 /* 지금 확인할 것: 중요도 순 */
 function dailyAlerts() {
   const el = elapsed(), out = [];
-  for (const l of S.lines) {
+  for (const l of visLines()) {
     if (!(l.budget > 0)) continue; const c = calc(l); const remAfter = c.remainAfter, sch = c.sch;
     if (l.spent + sch > l.budget) out.push({ sev: 3, tag: '초과', title: l.label + ' (' + l.group + ')', detail: `예정까지 반영하면 <b class="neg">${won(l.spent + sch - l.budget)}원 초과</b> · 예산 ${won(l.budget)}원`, act: 'goline', id: l.id, w: l.spent + sch - l.budget });
     else if (remAfter / l.budget <= 0.05) out.push({ sev: 2, tag: '거의 소진', title: l.label + ' (' + l.group + ')', detail: `잔액 <b>${won(remAfter)}원</b> (${pct1(pct(remAfter, l.budget))}) — 집행률 ${pct1(c.rateAll)}`, act: 'goline', id: l.id, w: 1e9 - remAfter });
@@ -68,7 +68,7 @@ function goNote(id) {
 /* 용도(비고) 탭: 어디에 쓰는 돈인지 + 잔액 */
 function dailyNoteTab() {
   const rows = GROUPS.map(g => {
-    const Ls = S.lines.filter(l => l.group === g); if (!Ls.length) return '';
+    const Ls = visLines().filter(l => l.group === g); if (!Ls.length) return '';
     return `<tr class="grp"><td colspan="3">${g}</td></tr>` + Ls.map(l => { const c = calc(l);
       return `<tr class="clk ${remCls(l)}" data-act="gonote" data-id="${l.id}"><td class="nm2"><b>${esc(l.label)}</b>${(l.group === '업무추진비' || l.group === '여비') ? `<span class="hint">${esc(l.biz)}</span>` : ''}</td>
         <td class="num"><span class="remv2 ${c.remain < 0 ? 'neg' : ''}">${won(c.remain)}</span><span class="hint">예산 ${won(l.budget)} · 지출 ${won(l.spent)}</span></td>
@@ -104,12 +104,12 @@ function donutData(mode, T) {
     return { items: [{ name: '지출', v: T.spent, color: 'var(--accent)' }, { name: '지급예정', v: T.sch, color: 'var(--sched)' }, { name: '남은 잔액', v: c, color: '#9aa3b2' }], top: pct1(T.rate), sub: '집행률', total: T.budget };
   }
   if (mode === 'biz') {
-    const rows = S.lines.filter(l => l.spent > 0).map(l => ({ name: l.label, v: l.spent })).sort((a, b) => b.v - a.v);
+    const rows = visLines().filter(l => l.spent > 0).map(l => ({ name: l.label, v: l.spent })).sort((a, b) => b.v - a.v);
     const top = rows.slice(0, 6), rest = sum(rows.slice(6), x => x.v);
     const items = top.map((x, i) => ({ ...x, color: DONUT_COLORS[i] })); if (rest > 0) items.push({ name: '기타 ' + (rows.length - 6) + '개', v: rest, color: '#9aa3b2' });
     return { items, top: won(T.spent / 1e6 | 0) + '백만', sub: '지출 합계', total: T.spent };
   }
-  const items = GROUPS.map((g, i) => ({ name: g, v: sum(S.lines.filter(l => l.group === g), l => l.spent), color: DONUT_COLORS[i] })).filter(x => x.v > 0);
+  const items = GROUPS.map((g, i) => ({ name: g, v: sum(visLines().filter(l => l.group === g), l => l.spent), color: DONUT_COLORS[i] })).filter(x => x.v > 0);
   return { items, top: won(T.spent / 1e6 | 0) + '백만', sub: '지출 합계', total: T.spent };
 }
 function donutCard(T) {
@@ -125,7 +125,7 @@ function donutCard(T) {
 function remCls(l) { const c = calc(l); if (l.budget <= 0) return ''; if (c.remainAfter < 0) return 'rem-bad'; if (c.remainAfter / l.budget <= 0.05) return 'rem-low'; return ''; }
 function dailyNow(T, el, diff, alerts) {
   const rows = GROUPS.map(g => {
-    const Ls = S.lines.filter(l => l.group === g); if (!Ls.length) return ''; const gt = groupTotals(Ls);
+    const Ls = visLines().filter(l => l.group === g); if (!Ls.length) return ''; const gt = groupTotals(Ls);
     return `<tr class="grp"><td>${g}</td><td class="num remv ${gt.remain < 0 ? 'neg' : ''}">${won(gt.remain)}</td><td class="num sm">${won(gt.budget)}</td><td class="num sm">${won(gt.spent)}</td><td class="pcol">${pct1(gt.rate)}</td></tr>` +
       Ls.map(l => { const c = calc(l); return `<tr class="clk ${remCls(l)}" data-act="goline" data-id="${l.id}"><td class="nm2">${esc(l.label)}${statusBadges(l)}${c.sch ? `<span class="hint">예정 ${won(c.sch)} → 예정 반영 잔액 ${won(c.remainAfter)}</span>` : ''}</td><td class="num remv">${won(c.remain)}</td><td class="num sm">${won(l.budget)}</td><td class="num sm">${won(l.spent)}</td><td class="pcol"><div class="rate">${barHTML(l.spent, c.sch, l.budget)}<b>${pct1(c.rate)}</b></div></td></tr>`; }).join('');
   }).join('');
@@ -144,7 +144,7 @@ function dailyNow(T, el, diff, alerts) {
 
 /* 그래프 탭 */
 function dailyChartTab(T, el) {
-  const byG = g => S.lines.filter(l => l.group === g);
+  const byG = g => visLines().filter(l => l.group === g);
   let h = `<div class="gcards" style="margin-top:0">${GROUPS.map(g => {
     const Ls = byG(g); if (!Ls.length) return ''; const gt = groupTotals(Ls); const gd = gt.rate - el;
     return `<div class="kpi gcard"><div class="row" style="justify-content:space-between"><b>${g}</b><span class="pace ${gd < -10 ? 'slow' : gd > 5 ? 'fast' : 'ok'}" data-tip="기준일 경과율(${pct1(el)})과의 차이">${gd >= 0 ? '▲' : '▼'} ${Math.abs(gd).toFixed(0)}%p</span></div>
@@ -164,20 +164,21 @@ function dailyChartTab(T, el) {
       h += `<div class="chart-group"><span>${g}</span><span class="muted">지출 ${won(gt.spent)} / 예산 ${won(gt.budget)}원 · <b>${pct1(gt.rate)}</b></span></div>` + Ls.map(l => chartRow(l, false)).join(''); }
   } else {
     const key = UI.dailySort === 'low' ? l => calc(l).rateAll : l => calc(l).remainAfter;
-    h += [...S.lines].sort((x, y) => key(x) - key(y)).map(l => chartRow(l, true)).join('');
+    h += [...visLines()].sort((x, y) => key(x) - key(y)).map(l => chartRow(l, true)).join('');
   }
   return h + '</div>';
 }
 function renderDaily() {
   const P = $('#p-daily'); const snap = scrollSnap(P);
   if (!S.lines.length) { P.innerHTML = welcomeHTML(); return; }
-  const T = groupTotals(S.lines), el = elapsed(), diff = T.rate - el;
+  if (!visLines().length) { P.innerHTML = `<div class="card"><div class="empty">모든 항목이 숨겨져 있습니다.<br><br><button class="btn primary" data-act="editlist">목록 편집</button></div></div>`; return; }
+  const T = groupTotals(visLines()), el = elapsed(), diff = T.rate - el;
   UI.dailySort = UI.dailySort || 'group'; UI.dsub = UI.dsub || 'now'; UI.alertsAll = !!UI.alertsAll;
   const SUBS = [['now', '현황 · 잔액'], ['note', '용도(비고)'], ['tx', '지출 내역'], ['chart', '그래프'], ['table', '입력 표']];
   let h = `<div class="row noprint subbar">
     <div class="pills subtabs" role="tablist">${SUBS.map(([k, n]) => `<button class="pill" role="tab" aria-pressed="${UI.dsub === k}" data-act="dsub" data-v="${k}">${n}</button>`).join('')}</div>
     <span class="spacer"></span><span class="muted">${esc(S.year)}년 · ${esc(S.asOf)} 기준</span>
-    <button class="btn sm" data-act="addline">＋ 행 추가</button><button class="btn sm" data-act="copytsv" data-tip="엑셀·한글에 붙여넣을 수 있게 표를 복사합니다">표 복사</button><button class="btn sm" data-act="print">인쇄</button>
+    <button class="btn sm" data-act="editlist" data-tip="안 쓰는 항목은 숨기고 보고 싶은 것만 고릅니다">목록 편집${S.lines.some(l => l.hidden) ? ` <span class="badge gray">숨김 ${S.lines.filter(l => l.hidden).length}</span>` : ''}</button><button class="btn sm" data-act="addline">＋ 행 추가</button><button class="btn sm" data-act="copytsv" data-tip="엑셀·한글에 붙여넣을 수 있게 표를 복사합니다">표 복사</button><button class="btn sm" data-act="print">인쇄</button>
   </div>`;
   if (UI.dsub === 'now') h += dailyNow(T, el, diff, dailyAlerts());
   else if (UI.dsub === 'note') h += dailyNoteTab();
@@ -188,7 +189,7 @@ function renderDaily() {
 }
 
 function dailyTable() {
-  const all = S.lines, T = groupTotals(all), byG = g => all.filter(l => l.group === g);
+  const all = visLines(), T = groupTotals(all), byG = g => all.filter(l => l.group === g);
   let h = `<div class="card" id="daily-table">
     <h2>${esc(S.year)} 일상경비 집행현황 <span class="muted" style="font-weight:400;font-size:12px">${esc(S.asOf)} 기준 · 지출액·예산·비고 칸을 눌러 바로 수정 (Enter = 다음 칸)</span></h2>
     <div class="tbl-wrap fit fit-d"><table class="t">
@@ -239,6 +240,7 @@ $('#p-daily').addEventListener('click', e => {
   if (a === 'sch') schDialog(b.dataset.id);
   else if (a === 'editline') lineDialog(b.dataset.id);
   else if (a === 'addline') lineDialog(null);
+  else if (a === 'editlist') listDialog();
   else if (a === 'pickany') pickFiles('.xlsx,.xlsm,.pdf');
   else if (a === 'dsub') { UI.dsub = b.dataset.v; UI._noKeep = true; renderDaily(); window.scrollTo(0, 0); }
   else if (a === 'donut') { UI.donut = b.dataset.v; UI._noKeep = true; renderDaily(); }
@@ -254,11 +256,11 @@ $('#p-daily').addEventListener('click', e => {
 function dailyTSV() {
   const rows = [['구분', '연번', '사업명', '총예산액', '분기별', '지출액', '지급예정', '잔액', '집행률', '비고']];
   for (const g of GROUPS) {
-    const L = S.lines.filter(l => l.group === g); if (!L.length) continue; const gt = groupTotals(L);
+    const L = visLines().filter(l => l.group === g); if (!L.length) continue; const gt = groupTotals(L);
     rows.push([g, '', '', gt.budget, Math.round(gt.budget / 4), gt.spent, gt.sch, gt.remain, pct1(gt.rate), '']);
     L.forEach((l, i) => { const c = calc(l); rows.push([g, i + 1, l.label, l.budget, Math.round(l.budget / 4), l.spent, c.sch, c.remain, pct1(c.rate), l.note.replace(/\s+/g, ' ')]); });
   }
-  const T = groupTotals(S.lines); rows.push(['합계', '', '', T.budget, Math.round(T.budget / 4), T.spent, T.sch, T.remain, pct1(T.rate), '']);
+  const T = groupTotals(visLines()); rows.push(['합계', '', '', T.budget, Math.round(T.budget / 4), T.spent, T.sch, T.remain, pct1(T.rate), '']);
   return rows.map(r => r.join('\t')).join('\n');
 }
 
@@ -311,6 +313,34 @@ function lineDialog(id) {
         S.lines.sort((a, b) => GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group));  // 안정 정렬: 구분별로 모음
         save(); closeDlg(); renderDaily();
       }
+    };
+  });
+}
+
+/* 목록 편집: 불러온 항목 중 볼 것만 고르기 (숨겨도 자료는 남아 있고, 다시 불러오면 값은 계속 갱신됨) */
+function visLines() { return S.lines.filter(l => !l.hidden); }
+function listDialog() {
+  const rowsHTML = (q) => GROUPS.map(g => {
+    const Ls = S.lines.filter(l => l.group === g && (!q || normQ([l.label, l.biz, l.code].join(' ')).includes(q))); if (!Ls.length) return '';
+    return `<tr class="grp"><td colspan="4"><b>${g}</b> <span class="muted">${Ls.length}개</span></td></tr>` + Ls.map(l => `<tr><td><input type="checkbox" data-h="${l.id}" ${l.hidden ? '' : 'checked'} aria-label="${esc(l.label)} 표시"></td><td class="nm2">${esc(l.label)}<span class="hint">${esc(l.code)}${l.biz && l.biz !== l.label ? ' · ' + esc(l.biz) : ''}</span></td><td class="num sm">${won(l.budget)}</td><td class="num sm">${won(l.spent)}</td></tr>`).join('');
+  }).join('') || '<tr><td colspan="4" class="empty">없음</td></tr>';
+  openDlg(`<h3>보고 싶은 항목만 고르기</h3><p class="sub" style="margin:0 0 8px">체크한 항목만 화면·합계·그래프에 나옵니다. 숨긴 항목의 자료는 지워지지 않고, 나중에 다시 체크하면 돌아옵니다.</p>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><input id="lq" class="cellin" style="text-align:left;width:200px" placeholder="사업명 검색"><button class="btn sm" data-d="all">전체 표시</button><button class="btn sm" data-d="none">전체 숨김</button><button class="btn sm" data-d="zero" data-tip="예산도 지출도 0원인 항목을 숨깁니다">예산·지출 0원 숨김</button></div>
+    <div class="tbl-wrap" style="max-height:52vh;overflow:auto"><table class="t"><thead><tr><th>표시</th><th>사업명</th><th>예산</th><th>지출</th></tr></thead><tbody id="lbody">${rowsHTML('')}</tbody></table></div>
+    <div class="row" style="justify-content:space-between;margin-top:10px"><span class="muted" id="lcnt"></span><span class="row"><button class="btn" data-d="cancel">취소</button><button class="btn primary" data-d="save">적용</button></span></div>`, d => {
+    const pend = {}; S.lines.forEach(l => pend[l.id] = !!l.hidden);
+    const cnt = () => { const n = S.lines.filter(l => !pend[l.id]).length; $('#lcnt', d).textContent = `표시 ${n} / 전체 ${S.lines.length}`; };
+    const redraw = () => { $('#lbody', d).innerHTML = rowsHTML(normQ($('#lq', d).value)); $$('[data-h]', d).forEach(c => { c.checked = !pend[c.dataset.h]; }); cnt(); };
+    cnt();
+    $('#lq', d).oninput = redraw;
+    d.onchange = e => { const c = e.target.closest('[data-h]'); if (c) { pend[c.dataset.h] = !c.checked; cnt(); } };
+    d.onclick = ev => {
+      const b = ev.target.closest('[data-d]'); if (!b) return; const k = b.dataset.d;
+      if (k === 'cancel') closeDlg();
+      else if (k === 'all') { S.lines.forEach(l => { pend[l.id] = false; }); redraw(); }
+      else if (k === 'none') { S.lines.forEach(l => { pend[l.id] = true; }); redraw(); }
+      else if (k === 'zero') { S.lines.forEach(l => { if (!(l.budget > 0) && !(l.spent > 0)) pend[l.id] = true; }); redraw(); }
+      else if (k === 'save') { S.lines.forEach(l => { if (pend[l.id]) l.hidden = true; else delete l.hidden; }); save(); closeDlg(); renderDaily(); toast(`표시 ${S.lines.filter(l => !l.hidden).length}개 / 숨김 ${S.lines.filter(l => l.hidden).length}개`); }
     };
   });
 }

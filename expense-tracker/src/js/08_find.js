@@ -136,7 +136,8 @@ function verdictAct() {
   if (d.v === 'fwd') S.fwdDone[fwdKey(h, m)] = true;
   const name = String(h.kind === 'util' ? h.it.name : h.f.name).replace(/\n/g, ' ');
   FIND.log = FIND.log || []; FIND.log.unshift({ t: new Date(), name, v: d.v, to: d.to, nm: h.nm, m }); FIND.log = FIND.log.slice(0, 8);
-  save(); FIND.q = ''; const i = $('#fq'); if (i) i.value = ''; redrawFind('search');
+  save(); FIND.q = '';
+  if ($('#fq')) { $('#fq').value = ''; redrawFind('search'); } else sortAfterAct();
 }
 function vdLogHTML() {
   const L = FIND.log || []; if (!L.length) return '';

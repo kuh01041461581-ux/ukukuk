@@ -45,9 +45,9 @@ $('#p-settings').addEventListener('change', e => { if (e.target.id === 's-biz') 
 /* 숫자 칸을 떠날 때 콤마 형식 복원 */
 document.addEventListener('focusout', e => { const t = e.target; if (t.matches && t.matches('input.cellin[inputmode="numeric"]')) { const v = parseNum(t.value); if (v != null && !isNaN(v)) t.value = won(v); } });
 
-function tabList() { const t = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황']]; if (S.opt && S.opt.biz) t.push(['biz', '전체 사업 진척']); t.push(['import', '파일 불러오기'], ['guide', '사용법'], ['settings', '설정·백업']); return t; }
-const TABS_ALL = ['daily', 'util', 'biz', 'import', 'guide', 'settings'];
-const RENDER = { daily: renderDaily, util: renderUtil, biz: renderBiz, import: renderImport, guide: renderGuide, settings: renderSettings };
+function tabList() { const t = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황'], ['sort', '고지서 분류']]; if (S.opt && S.opt.biz) t.push(['biz', '전체 사업 진척']); t.push(['import', '파일 불러오기'], ['guide', '사용법'], ['settings', '설정·백업']); return t; }
+const TABS_ALL = ['daily', 'util', 'sort', 'biz', 'import', 'guide', 'settings'];
+const RENDER = { daily: renderDaily, util: renderUtil, sort: renderSort, biz: renderBiz, import: renderImport, guide: renderGuide, settings: renderSettings };
 function showTab(t) {
   UI._noKeep = true; UI.tab = t; $$('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));
   TABS_ALL.forEach(k => { $('#p-' + k).hidden = k !== t; }); RENDER[t](); UI._noKeep = false; window.scrollTo(0, 0);

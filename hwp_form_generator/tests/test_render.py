@@ -570,6 +570,17 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class NumberedPlanTests(unittest.TestCase):
+    def test_numbered_titles_with_combined_labels(self):
+        from hwpgen import weekly
+        txt = ("1 가을 음악회 (문화유산과 홍길동 1234)\n◦ 일시 : 2026. 11. 20.(금) 14:00\n◦ 장소 : 시청 대강당\n"
+               "2. 간담회\n◦ 일시/장소 : 11. 21.(토) 10:00 / 회의실\n"
+               "③ 개관식\n◦ 일시·장소: 2026. 11. 22. 15:00 중앙도서관")
+        its = weekly.parse_plan_lines(txt.split("\n"), 2026)
+        self.assertEqual([(i["title"], i["date"], i["place"]) for i in its],
+                         [("가을 음악회", "2026-11-20", "시청 대강당"), ("간담회", "2026-11-21", "회의실"), ("개관식", "2026-11-22", "중앙도서관")])
+
+
 class BlockToolTests(unittest.TestCase):
     def test_tools(self):
         from hwpgen import blocktools as BT

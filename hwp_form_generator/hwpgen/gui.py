@@ -453,14 +453,16 @@ class WeeklyTab(ttk.Frame):
         secs = weekly.split_org_sections(lines, orgs)
         key = self.org().replace(" ", "")
         src = lines if key not in secs else secs[key]          # 국 이름표가 없으면 전체를 우리 국 글로 본다
-        items = weekly.parse_plan_lines(src)
-        weak = not items or sum(1 for i in items if i.get("date") or i.get("place")) * 2 < len(items)
-        if weak:                                               # 엄격한 서식이 아니면 '제목 기준'으로 일시·장소·주최·내용을 붙여 읽는다
-            loose = weekly.parse_loose_plan(src, getattr(self, "dept", "") or "", "", "", self.monday.year)
-            if loose:
-                items = loose
+        year = self.monday.year
+        items = weekly.parse_plan_lines(src, year)
+        loose = weekly.parse_loose_plan(src, getattr(self, "dept", "") or "", "", "", year)
+
+        def score(its):
+            return (sum(1 for i in its if i.get("date")), sum(1 for i in its if i.get("place")), len(its))
+        if score(loose) > score(items):                        # 번호 기호 서식이 아니면 '제목 기준'으로 일시·장소·주최·내용을 붙여 읽는다
+            items = loose
         if not items:
-            messagebox.showinfo("가져오기", "일정 제목을 찾지 못했어요. 제목 줄 아래에 일시·장소·내용을 적어 주세요")
+            messagebox.showinfo("가져오기", "일정 제목을 찾지 못했어요. 제목 줄 앞에 1 · 2 · ① 같은 번호 기호를 달고, 아래 줄에 일시·장소를 적어 주세요")
             return
         have = {(i.get("date"), i.get("title")) for i in self.data["items"]}
         added = 0
@@ -473,6 +475,10 @@ class WeeklyTab(ttk.Frame):
         self.save()
         self.refresh()
         self.app.say("%d개 가져왔어요 (이미 있던 %d개는 건너뜀)" % (added, len(items) - added))
+        nodate = [i["title"] for i in items if not i.get("date")]
+        if nodate:                                             # 일시를 못 읽은 항목은 주간 주요일정 표에 들어가지 못한다 — 알려 준다
+            messagebox.showinfo("가져오기", "일시를 읽지 못한 일정 %d개가 있어요.\n(주요일정 표에는 일시가 있어야 들어가요. 목록에서 날짜를 적어 주세요)\n\n%s" % (
+                len(nodate), "\n".join("· " + t for t in nodate[:8])))
 
     def import_open(self):
         try:

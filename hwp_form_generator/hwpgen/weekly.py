@@ -545,29 +545,52 @@ def split_org_sections(lines, orgs):
     return out
 
 
-def parse_plan_lines(lines):
-    """주간업무계획 글 줄 → 항목 목록 (title, dept, staff, phone, date, time, end_time, place, lines)"""
+def _apply_label(cur, kind, val, raw_label=None):
+    if kind == "when" and "date" not in cur:
+        _fill_when(cur, val)
+    elif kind == "whenplace":
+        if "date" not in cur:
+            _fill_when(cur, val)
+        if cur.get("place_from_when") and not cur.get("place"):
+            cur["place"] = cur.pop("place_from_when")
+        elif "/" not in val and not cur.get("place"):
+            rest = _DATE_LOOSE.sub("", _TIME_RE.sub("", val), count=1).strip(" /,~-·()")
+            cur["place"] = rest if rest and "date" in cur else cur.get("place", "")
+    elif kind == "place" and not cur.get("place"):
+        cur["place"] = val
+    elif kind == "staff":
+        cur["staff"] = val
+    else:
+        name = {"when": "일시", "place": "장소", "host": "주최", "attend": "참석", "note": "비고", "content": "내용"}.get(kind, raw_label or "내용")
+        cur["lines"].append((name, val))
+
+
+def parse_plan_lines(lines, year=None):
+    """주간업무계획 글 줄 → 항목 목록 (title, dept, staff, phone, date, time, end_time, place, lines).
+    제목 줄(1 · 1. · ① · ❶ 등 번호 기호로 시작) 아래의 일시·장소·'일시/장소'·주최·내용 줄을 그 제목에 붙인다."""
+    if year:
+        _YEAR[0] = year
     items = []
     cur = None
     for ln in lines:
         if not ln.strip():
             continue
-        m = _HEAD_RE.match(ln)
-        if m and not ln.lstrip().startswith(tuple(T.BULLETS)):
-            who = m.group(2).split()
-            cur = {"title": m.group(1).strip(), "dept": who[0] if who else "",
-                   "staff": who[1] if len(who) > 1 else "", "phone": who[2] if len(who) > 2 else "", "lines": []}
+        h = _head(ln)
+        if h:
+            who = h[1].split()
+            cur = {"title": h[0].strip(), "dept": who[0] if who else "", "staff": who[1] if len(who) > 1 else "",
+                   "phone": who[2] if len(who) > 2 else "", "lines": []}
             items.append(cur)
             continue
+        if cur is None:
+            continue
+        lab = _label_of(ln)
+        if lab:
+            _apply_label(cur, lab[0], lab[1])
+            continue
         k = _KV_RE.match(ln)
-        if k and cur is not None:
-            label, value = re.sub(r"\s", "", k.group(1)), k.group(2).strip()
-            if label == "일시" and "date" not in cur:
-                _fill_when(cur, value)
-            elif label == "장소" and not cur.get("place"):
-                cur["place"] = value
-            else:
-                cur["lines"].append((label, value))
+        if k:
+            cur["lines"].append((re.sub(r"\s", "", k.group(1)), k.group(2).strip()))
     for it in items:
         if not it.get("place"):
             it["place"] = it.pop("place_from_when", "")
@@ -704,15 +727,52 @@ _WHEN_ONLY = re.compile(r"^[\d\s.\-/~∼～:()월화수목금토일년시분오�
 _NAME_ONLY = re.compile(r"^[가-힣]{2,4}$")
 
 
+_COMBINED = {"일시장소": "whenplace", "시간장소": "whenplace", "일정장소": "whenplace", "일시및장소": "whenplace", "일시장소등": "whenplace",
+             "일자장소": "whenplace", "기간장소": "whenplace", "장소일시": "whenplace"}
+
+
 def _label_of(line):
-    """'일시 …' / '일 시 : …' / '◦ 장소: …' → (표준이름, 값). 라벨이 아니면 None"""
+    """'일시 …' / '일 시 : …' / '◦ 장소: …' / '일시/장소 : …' / '일시·장소 …' → (표준이름, 값). 라벨이 아니면 None
+    표준이름: when · place · whenplace(일시와 장소가 한 줄) · host · attend · content · staff · title · note"""
     s = re.sub(r"^(\s*[◦○ㅇ▸‣\-·•*]\s*)", "", line)
-    m = re.match(r"^([가-힣]{1,4}(?:\s[가-힣])?)(?=[\s:：]|$)\s*[:：]?\s*(.*)$", s)
+    m = re.match(r"^([가-힣](?:[\s·ㆍ/,]*(?:및\s*)?[가-힣]){0,7}?)\s*[:：]\s*(.*)$", s) or \
+        re.match(r"^([가-힣]{1,4}(?:\s[가-힣])?|[가-힣]{2}[·ㆍ/][가-힣]{2})(?=[\s:：]|$)\s*[:：]?\s*(.*)$", s)
     if m:
-        key = re.sub(r"\s+", "", m.group(1))
+        key = re.sub(r"[\s·ㆍ/,]|및", "", m.group(1))
+        if key in _COMBINED:
+            return "whenplace", m.group(2).strip()
         if key in _LABEL_MAP:
             return _LABEL_MAP[key], m.group(2).strip()
     return None
+
+
+_BULLET_START = tuple(T.BULLETS) + ("◦", "○", "ㅇ", "▸", "‣", "-", "·", "•", "*", "※", "ㆍ")
+_HEAD_NUM = re.compile(r"^\s*(?:(?:%s)|\(?\d{1,2}[.)]?)\s*(.+?)\s*$" % _SYM)
+
+
+def _head(line):
+    """일정 제목 줄인지: '1 제목', '1. 제목', '(1) 제목', '① 제목', 한글 글꼴 원숫자(❶) 제목 … 끝의 (부서 이름 내선)은 담당 정보.
+    → (제목, 담당정보) 또는 None. 글머리(◦ - 등)로 시작하거나 라벨·날짜 줄이면 제목이 아니다."""
+    if not line.strip() or line.lstrip().startswith(_BULLET_START):
+        return None
+    m = _HEAD_NUM.match(line)
+    if not m:
+        return None
+    body = m.group(1)
+    sym = re.match(r"^\s*(?:%s)" % _SYM, line) is not None
+    if not sym:
+        # 숫자만 있는 머리는 '1 제목' 꼴(숫자 뒤 공백/점)이어야 하고, 날짜·시각·라벨 줄은 제외
+        if not re.match(r"^\s*\(?\d{1,2}(?:[.)]\s*|\s+)\S", line) or re.match(r"^\s*\d{1,2}\.\s*\d{1,2}\.", line):
+            return None
+        if _DATE_LOOSE.match(body) or re.match(r"^\d{1,2}:\d{2}", body) or _label_of(body):
+            return None
+    who = ""
+    pm = re.match(r"^(.+?)\s*\(([^()]*)\)\s*$", body)
+    if pm:
+        body, who = pm.group(1).strip(), pm.group(2).strip()
+    if not body or _label_of(body) and not sym:
+        return None
+    return body, who
 
 
 def parse_loose_plan(lines, dept="", staff="", phone="", year=None):
@@ -755,9 +815,9 @@ def parse_loose_plan(lines, dept="", staff="", phone="", year=None):
         if not ln:
             blank_before = True
             continue
-        hm = _HEAD_RE.match(raw) if not ln.startswith(tuple(T.BULLETS)) else None
+        hm = _head(raw)
         if hm:
-            new_item(hm.group(1), hm.group(2))
+            new_item(hm[0], hm[1])
             blank_before = False
             continue
         lab = _label_of(raw)
@@ -774,6 +834,8 @@ def parse_loose_plan(lines, dept="", staff="", phone="", year=None):
                 _fill_when(cur, val)
                 if cur.get("place_from_when") and not cur.get("place"):
                     cur["place"] = cur.pop("place_from_when")
+            elif kind == "whenplace":
+                _apply_label(cur, kind, val)
             elif kind == "place" and not cur.get("place"):
                 cur["place"] = val
             elif kind == "staff":

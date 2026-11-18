@@ -206,7 +206,7 @@ class RenderTests(unittest.TestCase):
         sec = pkg.section(0)
         txt = ptext(sec)
         self.assertIn("문화교육국 주간 주요일정", txt)
-        self.assertIn("2026. 11. 9.(월) ~ 11. 15.(일)", txt)
+        self.assertNotIn("【", txt)                              # 표 뒤에 붙는 기간 글은 넣지 않는다
         self.assertIn("• 개막식", txt)
         big = [t for t in sec.iter(HP + "tbl") if t.get("colCnt") == "7"][0]
         # 헤더 1 + 월3 + 화3 + 수6(일정 6개) + 목3 + 금3 + 토3 + 일3 + 푸터 1

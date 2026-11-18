@@ -441,7 +441,10 @@ class WeeklyScheduleForm:
         period = "%s ~ %s" % (T.fmt_date_long(start), T.fmt_date_short(end))
         for t in sec.iter(HP + "t"):
             if t.text and "{{" in t.text:
-                t.text = t.text.replace("{{org}}", data.get("org", "")).replace("{{period}}", period)
+                if "{{period}}" in t.text:                   # 표 뒤에 붙는 '【날짜 ~ 날짜】' 글은 넣지 않는다(일정 뒤에 11. 15.처럼 나오던 것)
+                    t.text = ""
+                else:
+                    t.text = t.text.replace("{{org}}", data.get("org", ""))
         big = next(t for t in sec.iter(HP + "tbl") if t.find(HP + "tr") is not None and t.find(HP + "tr").get("mark") == "ROWS")
         big.remove(big.find(HP + "tr"))
         by_date = collections.defaultdict(list)

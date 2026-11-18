@@ -454,6 +454,10 @@ class WeeklyScheduleForm:
         row_h = int(self.meta.get("row_height", 2400))
         rows = [clone(self.header)]
         total_h = int(self.header.find(HP + "tc").find(HP + "cellSz").get("height", "1700"))
+        # 일정이 많아 줄이 늘면 한 쪽에 들어가도록 줄 높이를 줄인다(최소 1700). 일정이 적으면 원래 높이
+        n_rows = sum(max(min_rows, len(by_date.get(start + datetime.timedelta(days=i), []))) for i in range(7))
+        foot_h = int(self.footer.find(HP + "tc").find(HP + "cellSz").get("height", "0"))
+        row_h = max(1700, min(row_h, (66000 - total_h - foot_h) // max(1, n_rows)))
         for di in range(7):
             day = start + datetime.timedelta(days=di)
             wd = T.WEEKDAYS[di]
@@ -620,6 +624,15 @@ def _fill_when(it, value):
     it["date"] = "%04d-%02d-%02d" % (year, int(m[2]), int(m[3]))
     rest = value[m.end():]
     head, _, tail = rest.partition("/")
+    # 기간(2026. 11. 14.(토) ~ 11. 16.(월))이면 끝 날짜도 읽는다 — '*' 뒤 주석(전시기간 …)은 제외
+    core = head.split("*")[0]
+    rm = re.search(r"[~∼～-]\s*(?:(\d{4})\s*[.\-/년]\s*)?(\d{1,2})\s*[.\-/월]\s*(\d{1,2})", core)
+    if rm:
+        try:
+            ey = int(rm[1]) if rm[1] else year
+            it["end_date"] = "%04d-%02d-%02d" % (ey, int(rm[2]), int(rm[3]))
+        except ValueError:
+            pass
     times = _TIME_RE.findall(head)
     if times:
         it["time"] = "%02d:%s" % (int(times[0][0]), times[0][1])
@@ -638,10 +651,18 @@ def extract_events(items, attend_default=""):
     for it in items:
         if not it.get("date"):
             continue
-        ev.append({"date": it["date"], "time": it.get("time", ""), "title": it.get("title", ""),
-                   "place": it.get("place", ""), "dept": it.get("dept", ""),
-                   "attend": it.get("attend", attend_default), "note": it.get("note", ""),
-                   "important": bool(it.get("important"))})
+        base = {"title": it.get("title", ""), "place": it.get("place", ""), "dept": it.get("dept", ""),
+                "attend": it.get("attend", attend_default), "note": it.get("note", ""), "important": bool(it.get("important"))}
+        days = [it["date"]]
+        try:                                             # 여러 날 행사는 날마다 해당 요일 칸에 넣는다(시각은 첫날만)
+            d0 = T.parse_date(it["date"])
+            d1 = T.parse_date(it["end_date"]) if it.get("end_date") else d0
+            if 0 < (d1 - d0).days <= 14:
+                days = [(d0 + datetime.timedelta(days=i)).isoformat() for i in range((d1 - d0).days + 1)]
+        except Exception:                                # noqa: BLE001
+            pass
+        for k, dd in enumerate(days):
+            ev.append(dict(base, date=dd, time=it.get("time", "") if k == 0 else ""))
     return ev
 
 

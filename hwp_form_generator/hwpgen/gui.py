@@ -506,10 +506,10 @@ class WeeklyTab(ttk.Frame):
         if not items:
             messagebox.showinfo("가져오기", "일정 제목을 찾지 못했어요. 제목 줄 앞에 1 · 2 · ① 같은 번호 기호를 달고, 아래 줄에 일시·장소를 적어 주세요")
             return
-        have = {(i.get("date"), i.get("title")) for i in self.data["items"]}
+        have = {(i.get("date"), i.get("time"), i.get("title")) for i in self.data["items"]}
         added = 0
         for it in items:
-            if (it.get("date"), it.get("title")) in have:
+            if (it.get("date"), it.get("time"), it.get("title")) in have:
                 continue
             it["extra"] = "\n".join("%s: %s" % (l, v) for l, v in it.pop("lines", []))
             self.data["items"].append(it)
@@ -557,8 +557,19 @@ class WeeklyTab(ttk.Frame):
                 docs.append((f.render({"org": org, "items": [i for i in items]}), weekly.plan_file_name(self.monday)))
             if which in ("schedule", "both"):
                 f = registry.load_form("weekly_schedule")
-                evs = weekly.extract_events(items)
-                evs = [e for e in evs if self.monday <= T.parse_date(e["date"]) <= self.monday + datetime.timedelta(days=6)]
+                evs_all = weekly.extract_events(items)
+                end_w = self.monday + datetime.timedelta(days=6)
+                evs = [e for e in evs_all if self.monday <= T.parse_date(e["date"]) <= end_w]
+                out_w = [e for e in evs_all if e not in evs]
+                nodate = [i.get("title", "") for i in items if not i.get("date")]
+                if out_w or nodate:                      # 표에 못 들어가는 일정은 말없이 빼지 않고 알려 준다
+                    msg = []
+                    if out_w:
+                        msg.append("선택한 주(%s ~ %s) 밖의 일정 %d개: %s" % (self.monday.strftime("%m.%d."), end_w.strftime("%m.%d."), len(out_w),
+                                                                                  ", ".join("%s %s" % (e["date"][5:].replace("-", "."), e["title"]) for e in out_w[:5])))
+                    if nodate:
+                        msg.append("일시가 없는 일정 %d개: %s" % (len(nodate), ", ".join(nodate[:5])))
+                    messagebox.showinfo("주요일정에서 빠진 일정", "\n\n".join(msg) + "\n\n(주를 바꾸거나 날짜를 적으면 들어가요)")
                 docs.append((f.render({"org": org, "start": self.monday.isoformat(), "events": evs}),
                              weekly.schedule_file_name(org, self.monday)))
         except Exception as e:                           # noqa: BLE001
@@ -2409,7 +2420,12 @@ class Widget(tk.Tk):
                 pkg = registry.load_form("weekly_plan").render({"org": org, "items": items})
             else:
                 end = monday + datetime.timedelta(days=6)
-                evs = [e for e in weekly.extract_events(data["items"]) if monday <= T.parse_date(e["date"]) <= end]
+                allev = weekly.extract_events(data["items"])
+                evs = [e for e in allev if monday <= T.parse_date(e["date"]) <= end]
+                skipped = len(allev) - len(evs) + sum(1 for i in data["items"] if not i.get("date"))
+                if skipped:
+                    messagebox.showinfo("주요일정에서 빠진 일정", "이 주(%s ~ %s)에 들어가지 못한 일정이 %d개 있어요.\n(날짜가 다른 주이거나 일시가 없는 일정)" % (
+                        monday.strftime("%m.%d."), end.strftime("%m.%d."), skipped))
                 pkg = registry.load_form("weekly_schedule").render({"org": org, "start": monday.isoformat(), "events": evs})
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))

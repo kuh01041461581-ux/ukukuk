@@ -752,6 +752,19 @@ class RecipeTests(unittest.TestCase):
         self.assertEqual(after, ("run_action", "BreakPara"))
 
 
+class ScheduleRangeTests(unittest.TestCase):
+    def test_multi_day_event_goes_on_each_weekday(self):
+        from hwpgen import weekly
+        weekly._YEAR[0] = 2026
+        it = {"title": "체험전", "lines": []}
+        weekly._fill_when(it, "2026. 11. 14.(토) 13:00 ~ 11. 16.(월) / 공원")
+        evs = weekly.extract_events([it])
+        self.assertEqual([(e["date"], e["time"]) for e in evs], [("2026-11-14", "13:00"), ("2026-11-15", ""), ("2026-11-16", "")])
+        it2 = {"title": "전시", "lines": []}
+        weekly._fill_when(it2, "2026. 11. 9.(월) 10:00   *전시기간 : 2026. 11. 10. ~ 2027. 2. 9")
+        self.assertEqual(len(weekly.extract_events([it2])), 1)           # '*' 뒤 주석 기간은 여러 날로 펴지 않는다
+
+
 class ScheduleNameTests(unittest.TestCase):
     def test_plan_name(self):
         import datetime

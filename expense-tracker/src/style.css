@@ -993,3 +993,7 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
 @media print{.rnote .rni{display:none}.rnote .rpn{display:block}}
 
 .trend{max-height:150px}
+
+.fit-pay{max-height:calc(100vh - 440px)}
+.fit-year{max-height:calc(100vh - 515px)}
+@media (max-height:800px){.fit-year{max-height:calc(100vh - 540px)}}

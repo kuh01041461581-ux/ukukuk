@@ -35,8 +35,8 @@ function dailyAlerts() {
   for (const l of visLines()) {
     if (!(l.budget > 0)) continue; const c = calc(l); const remAfter = c.remainAfter, sch = c.sch;
     if (l.spent + sch > l.budget) out.push({ sev: 3, tag: '초과', title: l.label + ' (' + l.group + ')', detail: `예정까지 반영하면 <b class="neg">${won(l.spent + sch - l.budget)}원 초과</b> · 예산 ${won(l.budget)}원`, act: 'goline', id: l.id, w: l.spent + sch - l.budget });
-    else if (remAfter / l.budget <= 0.05) out.push({ sev: 2, tag: '거의 소진', title: l.label + ' (' + l.group + ')', detail: `잔액 <b>${won(remAfter)}원</b> (${pct1(pct(remAfter, l.budget))}) — 집행률 ${pct1(c.rateAll)}`, act: 'goline', id: l.id, w: 1e9 - remAfter });
-    else if (el - c.rateAll > 20) out.push({ sev: 1, tag: '집행 저조', title: l.label + ' (' + l.group + ')', detail: `집행률 ${pct1(c.rateAll)} · 경과율 ${pct1(el)} — 잔액 <b>${won(remAfter)}원</b> 불용 우려`, act: 'goline', id: l.id, w: remAfter });
+    else if (remAfter / l.budget <= (100 - thr().hot) / 100) out.push({ sev: 2, tag: '거의 소진', title: l.label + ' (' + l.group + ')', detail: `잔액 <b>${won(remAfter)}원</b> (${pct1(pct(remAfter, l.budget))}) — 집행률 ${pct1(c.rateAll)}`, act: 'goline', id: l.id, w: 1e9 - remAfter });
+    else if (el - c.rateAll > thr().low) out.push({ sev: 1, tag: '집행 저조', title: l.label + ' (' + l.group + ')', detail: `집행률 ${pct1(c.rateAll)} · 경과율 ${pct1(el)} — 잔액 <b>${won(remAfter)}원</b> 불용 우려`, act: 'goline', id: l.id, w: remAfter });
     if (sch > 0) out.push({ sev: 1, tag: '지급예정', title: l.label + ' (' + l.group + ')', detail: `<b>${won(sch)}원</b> — ${esc((l.scheduled || []).map(x => x.text).filter(Boolean).join(', ') || '내용 미입력')}`, act: 'goline', id: l.id, w: sch });
   }
   for (const t of todoSummary()) {
@@ -87,7 +87,10 @@ function welcomeHTML() {
 }
 /* 현황 탭: 잔액을 숫자로 한눈에 */
 /* ===== 원그래프(도넛): 집행 내역 구성 + 퍼센트 ===== */
-const DONUT_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#6250d6', '#e87ba4', '#e34948'];
+const DONUT_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#6250d6', '#e87ba4', '#e34948']
+const DONUT_DARK = ['#3987e5', '#d95926', '#199e70', '#c98500', '#9085e9', '#d55181', '#e66767'];
+function isDarkUI() { const t = document.documentElement.dataset.theme; return t === 'dark' || (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); }
+function dcol(i) { return (isDarkUI() ? DONUT_DARK : DONUT_COLORS)[i]; };
 function donutSVG(items, centerTop, centerSub) {
   const total = sum(items, x => x.v) || 1, R = 62, C = 2 * Math.PI * R; let off = 0;
   const segs = items.filter(x => x.v > 0).map(x => {
@@ -106,10 +109,10 @@ function donutData(mode, T) {
   if (mode === 'biz') {
     const rows = visLines().filter(l => l.spent > 0).map(l => ({ name: l.label, v: l.spent })).sort((a, b) => b.v - a.v);
     const top = rows.slice(0, 6), rest = sum(rows.slice(6), x => x.v);
-    const items = top.map((x, i) => ({ ...x, color: DONUT_COLORS[i] })); if (rest > 0) items.push({ name: '기타 ' + (rows.length - 6) + '개', v: rest, color: '#9aa3b2' });
+    const items = top.map((x, i) => ({ ...x, color: dcol(i) })); if (rest > 0) items.push({ name: '기타 ' + (rows.length - 6) + '개', v: rest, color: '#9aa3b2' });
     return { items, top: won(T.spent / 1e6 | 0) + '백만', sub: '지출 합계', total: T.spent };
   }
-  const items = GROUPS.map((g, i) => ({ name: g, v: sum(visLines().filter(l => l.group === g), l => l.spent), color: DONUT_COLORS[i] })).filter(x => x.v > 0);
+  const items = GROUPS.map((g, i) => ({ name: g, v: sum(visLines().filter(l => l.group === g), l => l.spent), color: dcol(i) })).filter(x => x.v > 0);
   return { items, top: won(T.spent / 1e6 | 0) + '백만', sub: '지출 합계', total: T.spent };
 }
 function donutCard(T) {

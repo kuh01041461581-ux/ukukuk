@@ -75,7 +75,7 @@ $('#tabs').addEventListener('click', e => { const b = e.target.closest('button[d
 $('#asof').addEventListener('change', e => { if (e.target.value) { S.asOf = e.target.value; save(); RENDER[UI.tab](); } });
 $('#theme').addEventListener('click', () => {
   const r = document.documentElement; const cur = r.dataset.theme || 'auto'; const nx = cur === 'auto' ? 'dark' : cur === 'dark' ? 'light' : 'auto';
-  if (nx === 'auto') delete r.dataset.theme; else r.dataset.theme = nx; try { localStorage.setItem('ilsang-theme', nx); } catch (e) { } toast('화면: ' + { auto: '자동', dark: '어둡게', light: '밝게' }[nx]);
+  if (nx === 'auto') delete r.dataset.theme; else r.dataset.theme = nx; try { localStorage.setItem('ilsang-theme', nx); } catch (e) { } UI._noKeep = false; RENDER[UI.tab](); toast('화면: ' + { auto: '자동', dark: '어둡게', light: '밝게' }[nx]);
 });
 try { const th = localStorage.getItem('ilsang-theme'); if (th && th !== 'auto') document.documentElement.dataset.theme = th; } catch (e) { }
 window.addEventListener('beforeprint', () => { if (!$$('.tab-panel.printing').length) $('#p-' + UI.tab).classList.add('printing'); });

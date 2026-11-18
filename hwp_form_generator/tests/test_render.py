@@ -442,6 +442,64 @@ class BridgeTests(unittest.TestCase):
         ps = b.hwp.HParameterSet.HInsertFile
         self.assertEqual((ps.KeepSection, ps.KeepCharshape, ps.KeepParashape, ps.KeepStyle), (0, 1, 1, 1))
 
+    def test_char_shape_items_and_scan(self):
+        """글자 모양은 참고 프로그램과 같은 항목 이름(언어별 SpacingHangul·RatioHangul·Height·TextColor)으로 지정, 선택 글은 훑기로도 읽는다"""
+        from hwpgen.bridge import HwpBridge
+
+        class St:
+            def __init__(s):
+                s.items = {}
+
+            def SetItem(s, k, v):
+                s.items[k] = v
+
+        class Act:
+            def __init__(s, o):
+                s.o = o
+
+            def CreateSet(s):
+                s.o.st = St()
+                return s.o.st
+
+            def GetDefault(s, st):
+                pass
+
+            def Execute(s, st):
+                return True
+
+        class FakeHwp:
+            Version = "1"
+
+            def __init__(s):
+                s.chunks = [(2, "가나"), (3, "다"), (1, "라")]
+
+            def CreateAction(s, name):
+                s.name = name
+                return Act(s)
+
+            def RGBColor(s, r, g, b):
+                return (r, g, b)
+
+            def GetTextFile(s, *a):
+                return ""
+
+            def InitScan(s, a, b):
+                pass
+
+            def GetText(s):
+                return s.chunks.pop(0) if s.chunks else (0, "")
+
+            def ReleaseScan(s):
+                pass
+
+        b = HwpBridge()
+        b.hwp = FakeHwp()
+        b.char_shape(Spacing=-5, Height=15, TextColor=(255, 0, 0))
+        self.assertEqual(b.hwp.name, "CharShape")
+        it = b.hwp.st.items
+        self.assertEqual((it["SpacingHangul"], it["SpacingLatin"], it["Height"], it["TextColor"]), (-5, -5, 1500, (255, 0, 0)))
+        self.assertEqual(b.get_selection_text(), "가나다\r\n라")
+
     def test_strip_and_chunks(self):
         from hwpgen.package import strip_section_props, split_chunks, page_setup_of
         f = registry.load_form("report_event", ROOTS)

@@ -78,6 +78,12 @@ class FakeBridge:
     def char_shape(self, **kw):
         self.shapes = getattr(self, "shapes", []) + [kw]
 
+    def split_cell(self, r, c):
+        self.splits = getattr(self, "splits", []) + [(r, c)]
+
+    def cell_fill(self, r, g, b):
+        self.fills = getattr(self, "fills", []) + [(r, g, b)]
+
     def page_number(self, pos=5):
         self.pagenums = getattr(self, "pagenums", []) + [pos]
 

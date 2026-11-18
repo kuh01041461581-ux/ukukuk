@@ -97,6 +97,15 @@ class HwpBridge:
                 return True
         except Exception as e:                             # noqa: BLE001
             err = e
+        try:                                               # 참고 프로그램이 쓰는 방식: 동작 만들기 → 항목 하나(FileName)만 지정
+            act = hwp.CreateAction("InsertFile")
+            st = act.CreateSet()
+            act.GetDefault(st)
+            st.SetItem("FileName", path)
+            if act.Execute(st):
+                return True
+        except Exception as e:                             # noqa: BLE001
+            err = e
         try:                                               # 위가 안 될 때만 한 번: 옛 방식 Insert (오류 없으면 성공으로 본다)
             hwp.Insert(path, "HWPX", "")
             return True
@@ -131,9 +140,33 @@ class HwpBridge:
         hwp = self._need()
         try:
             t = hwp.GetTextFile("TEXT", "saveblock")
-            return t or ""
+            if t:
+                return t
+        except Exception:                                  # noqa: BLE001
+            pass
+        return self._scan_selection()
+
+    def _scan_selection(self):
+        """선택한 글을 한글의 '훑기'(InitScan/GetText)로 읽는다 — 참고 프로그램이 쓰는 방식. 상태 0·1 이면 끝, 2 이어짐, 3 문단 끝"""
+        hwp = self._need()
+        parts = []
+        try:
+            hwp.InitScan(1, 255)
+            for _ in range(5000):
+                r = hwp.GetText()
+                st, tx = (r[0], r[1]) if isinstance(r, (tuple, list)) and len(r) >= 2 else (0, "")
+                if tx:
+                    parts.append(tx + ("\r\n" if st == 3 else ""))
+                if st in (0, 1):
+                    break
         except Exception:                                  # noqa: BLE001
             return ""
+        finally:
+            try:
+                hwp.ReleaseScan()
+            except Exception:                              # noqa: BLE001
+                pass
+        return "".join(parts)
 
     def get_all_text(self):
         """문서 전체 글자(줄바꿈 유지)"""
@@ -174,23 +207,74 @@ class HwpBridge:
                 last = e
         raise BridgeError("이 한글 버전에서는 안 되는 명령이에요 (%s)%s" % ("/".join(names), (": %s" % last) if last else ""))
 
+    _LANGS = ("Hangul", "Latin", "Hanja", "Japanese", "Other", "Symbol", "User")
+
     def char_shape(self, **kw):
-        """선택한(또는 커서 자리의) 글자 모양 바꾸기. Spacing(자간 %), Ratio(장평 %), Height(1/100 pt), TextColor((r,g,b))"""
+        """선택한(또는 커서 자리의) 글자 모양 바꾸기 — 참고 프로그램과 같은 방식(동작 만들기 → 항목 지정 → 실행).
+        Spacing(자간 %), Ratio(장평 %), Height(pt), TextColor((r,g,b)), Font(글꼴 이름)"""
         hwp = self._need()
         try:
-            ps = hwp.HParameterSet.HCharShape
-            hwp.HAction.GetDefault("CharShape", ps.HSet)
+            act = hwp.CreateAction("CharShape")
+            st = act.CreateSet()
+            act.GetDefault(st)
             for k, v in kw.items():
-                if k == "TextColor":
-                    v = hwp.RGBColor(*v)
-                setattr(ps, k, v)
-            if hwp.HAction.Execute("CharShape", ps.HSet) is False:
+                if k == "Spacing":
+                    for lg in self._LANGS:
+                        st.SetItem("Spacing" + lg, v)
+                elif k == "Ratio":
+                    for lg in self._LANGS:
+                        st.SetItem("Ratio" + lg, v)
+                elif k == "Height":
+                    st.SetItem("Height", int(v * 100))
+                elif k == "TextColor":
+                    st.SetItem("TextColor", hwp.RGBColor(*v))
+                elif k == "Font":
+                    for lg in self._LANGS:
+                        st.SetItem("FaceName" + lg, v)
+                        st.SetItem("FontType" + lg, 1)
+                else:
+                    st.SetItem(k, v)
+            if act.Execute(st) is False:
                 raise BridgeError("글자 모양을 바꾸지 못했어요")
             return True
         except BridgeError:
             raise
         except Exception as e:                             # noqa: BLE001
             raise BridgeError("글자 모양을 바꾸지 못했어요: %s" % e)
+
+    def cell_fill(self, r, g, b):
+        """블록으로 잡은 표 칸의 배경색(참고 프로그램과 같은 CellFill 방식)"""
+        hwp = self._need()
+        try:
+            ps = hwp.HParameterSet.HCellBorderFill
+            hwp.HAction.GetDefault("CellFill", ps.HSet)
+            ps.FillAttr.type = hwp.BrushType("NullBrush|WinBrush")
+            ps.FillAttr.WinBrushFaceColor = hwp.RGBColor(r, g, b)
+            ps.FillAttr.WinBrushHatchColor = hwp.RGBColor(r, g, b)
+            ps.FillAttr.WinBrushFaceStyle = hwp.HatchStyle("None")
+            ps.FillAttr.WindowsBrush = 1
+            if hwp.HAction.Execute("CellFill", ps.HSet) is False:
+                raise BridgeError("칸 배경색을 바꾸지 못했어요")
+            return True
+        except BridgeError:
+            raise
+        except Exception as e:                             # noqa: BLE001
+            raise BridgeError("칸 배경색을 바꾸지 못했어요: %s" % e)
+
+    def split_cell(self, rows, cols):
+        """표 칸 나누기(대화상자 없이 줄·칸 수를 직접 지정)"""
+        hwp = self._need()
+        try:
+            ps = hwp.HParameterSet.HTableSplitCell
+            hwp.HAction.GetDefault("TableSplitCell", ps.HSet)
+            ps.Rows, ps.Cols = int(rows), int(cols)
+            if hwp.HAction.Execute("TableSplitCell", ps.HSet) is False:
+                raise BridgeError("칸을 나누지 못했어요")
+            return True
+        except BridgeError:
+            raise
+        except Exception as e:                             # noqa: BLE001
+            raise BridgeError("칸을 나누지 못했어요: %s" % e)
 
     def page_number(self, pos=5):
         """쪽 번호 넣기. pos: 1 왼쪽 위 · 2 가운데 위 · 3 오른쪽 위 · 4 왼쪽 아래 · 5 가운데 아래 · 6 오른쪽 아래, 0 없음"""

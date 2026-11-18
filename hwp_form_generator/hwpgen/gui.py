@@ -1883,6 +1883,8 @@ class Widget(tk.Tk):
             ("오른쪽 아래", lambda: self.pagenum("오른쪽 아래", 6)),
             ("가운데 위", lambda: self.pagenum("가운데 위", 2)),
             ("쪽 번호 없애기", lambda: self.pagenum("쪽 번호 없애기", 0)),
+            ("현재 쪽 번호 넣기", lambda: self.cmd("현재 쪽 번호", "InsertCpNo")),
+            ("전체 쪽수 넣기", lambda: self.cmd("전체 쪽수", "InsertTpNo")),
         ))
         self.section(parent, "표 다듬기 (표 안에 커서·블록)")
         self.cmd_grid(parent, (
@@ -1890,7 +1892,10 @@ class Widget(tk.Tk):
             ("블록 평균", lambda: self.cmd("블록 평균", "TableFormulaAvgAuto")),
             ("블록 곱", lambda: self.cmd("블록 곱", "TableFormulaProAuto")),
             ("셀 합치기", lambda: self.cmd("셀 합치기", "TableMergeCell")),
-            ("셀 나누기", lambda: self.cmd("셀 나누기", "TableSplitCell")),
+            ("셀 좌우 둘로", lambda: self.split("셀 좌우 둘로", 1, 2)),
+            ("셀 위아래 둘로", lambda: self.split("셀 위아래 둘로", 2, 1)),
+            ("셀 회색 바탕", lambda: self.fill("셀 회색 바탕", 217, 217, 217)),
+            ("셀 하늘색 바탕", lambda: self.fill("셀 하늘색 바탕", 221, 235, 247)),
             ("너비 같게", lambda: self.cmd("너비 같게", "TableDistributeCellWidth", "TableEqualCellWidth")),
             ("높이 같게", lambda: self.cmd("높이 같게", "TableDistributeCellHeight", "TableEqualCellHeight")),
             ("아래에 줄 추가", lambda: self.cmd("아래에 줄 추가", "TableAppendRow")),
@@ -1945,6 +1950,24 @@ class Widget(tk.Tk):
         try:
             self.bridge.char_shape(**kw)
             self.say("%s: 글자 모양을 바꿨어요" % name)
+        except B.BridgeError as e:
+            self.say(str(e), ok=False)
+
+    def split(self, name, rows, cols):
+        if not self._need_hwp(name):
+            return
+        try:
+            self.bridge.split_cell(rows, cols)
+            self.say(name)
+        except B.BridgeError as e:
+            self.say(str(e), ok=False)
+
+    def fill(self, name, r, g, b):
+        if not self._need_hwp(name):
+            return
+        try:
+            self.bridge.cell_fill(r, g, b)
+            self.say(name)
         except B.BridgeError as e:
             self.say(str(e), ok=False)
 

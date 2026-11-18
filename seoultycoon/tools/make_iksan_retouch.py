@@ -50,11 +50,37 @@ def b15():                                                                   # �
     erase(im, (36, 1, 63, 19), lambda r, g, b: b == 171 and g >= 219)
     text(im, 38, 3, 'TESLA', (255, 255, 171), 0.27); text(im, 38, 11, 'MOTORS', (255, 219, 171), 0.27); return im
 def b19():                                                                   # 메가박스 → 롯데시네마(원본 건물 그대로, 간판 글자만 교체)
-    im = Image.open('/tmp/pk/b19.d').convert('RGBA'); px = im.load(); CR = (219, 219, 171)
-    for y in range(0, 12):                                                   # 간판판의 글자(진한 파랑 계열)를 판 바탕색으로 덮는다
-        for x in range(30, 58):
-            if px[x, y][3] and px[x, y][:3] in ((0, 73, 171), (36, 36, 85), (0, 36, 171), (0, 0, 85), (0, 109, 171), (36, 36, 171), (0, 73, 146), (0, 109, 255)): px[x, y] = CR + (255,)
-    text(im, 37, 4, 'LOTTE', (219, 0, 36), -0.12, gap=1, sx=1, sy=1); return im
+    """간판판이 오른쪽 위로 기울어진(기울기 -0.5) 면이라, 조립된 화면 좌표에서 글자를 그린 뒤 조각 시트로 되돌려 쓴다 → 글자도 같은 대각선."""
+    import yx_table as Y
+    T, _ = Y.load(root + '/st2android/mod/yx.d'); t = T[19]; fr = t['frames'][-1]; rs = t['rects']
+    im = Image.open('/tmp/pk/b19.d').convert('RGBA'); px = im.load(); CR = (219, 219, 171, 255); back = {}
+    for p, x, y in fr:
+        rx, ry, rw, rh = rs[p]
+        if rw * rh > 1:
+            for j in range(rh):
+                for i in range(rw): back[(x + i, y + j)] = (rx + i, ry + j)
+    def put(cx, cy, c):
+        q = back.get((cx, cy))
+        if q: px[q[0], q[1]] = c
+    def get(cx, cy):
+        q = back.get((cx, cy)); return px[q[0], q[1]][:3] if q else None
+    INK = ((0, 73, 171), (36, 36, 85), (0, 36, 171), (0, 0, 85), (0, 109, 171), (36, 36, 171), (0, 73, 146), (0, 109, 255), (0, 36, 85))
+    for cx in range(31, 63):
+        for cy in range(0, 30):
+            if get(cx, cy) in INK: put(cx, cy, CR)
+    G = G3['L'], G3['O'], G3['T'], G3['T'], G3['E']; x0, y0 = 37, 27                    # 왼쪽 글자 아래 기준선(조립 좌표), 오른쪽으로 갈수록 0.5씩 올라간다
+    COL = (2, 1, 1); ROW = (2, 1, 2, 1, 2); x = x0
+    for g in G:
+        cxo = x
+        for c in range(3):
+            for w in range(COL[c]):
+                xx = cxo + sum(COL[:c]) + w; base = y0 - int(round((xx - x0) * 0.5)); yy = base
+                for r in reversed(range(5)):
+                    for h in range(ROW[r]):
+                        yy -= 1
+                        if g[r * 3 + c] == '1': put(xx, yy, (219, 0, 36, 255))
+        x += 5
+    return im
 def b9():                                                                    # 카트라이더 → 승마(HORSE)
     im = Image.open('/tmp/pk/b9.d').convert('RGBA')
     erase(im, (38, 0, 86, 34), lambda r, g, b: (r, g, b) in ((255, 219, 0), (109, 73, 0), (73, 181, 0), (36, 73, 0), (255, 182, 0), (182, 109, 0), (73, 182, 1), (36, 109, 0)))

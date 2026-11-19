@@ -80,11 +80,32 @@ if SPREAD:
     src = X - P - np.sign(X - c0) * SPREAD * t; x0 = np.floor(src).astype(int); fr = src - x0; ok = (x0 >= 0) & (x0 + 1 < ow)
     for c in range(4): o2[:, ok, c] = out[:, x0[ok], c] * (1 - fr[ok]) + out[:, x0[ok] + 1, c] * fr[ok]
     out = o2; PADX += P
+NECKW = float(os.environ.get('NECK_W', '1.5'))                                     # 목을 굵게: 턱 아래 줄의 목(살색) 폭을 목 중심에서 NECKW 배로(옆 머리카락 위를 덮는다)
+_fsk = (out[..., 3] > 200) & (out[..., 0] > 200) & (out[..., 1] > 150) & (out[..., 0] > out[..., 2] + 40); FACE_SKIN = np.median(out[_fsk][:, :3], axis=0) if _fsk.any() else np.array([245., 200., 160.])
+if NECKW > 1.0:
+    oh = out.shape[0]; chy = int(round((960 - BB[1]) * f)) - 2
+    for y in range(chy + 3, oh):
+        r = out[y]; skr = (r[:, 3] > 120) & (r[:, 0] > 120) & (r[:, 0] > r[:, 1]) & (r[:, 1] > r[:, 2]) & (r[:, 0] > r[:, 2] + 30) & (r[:, :3].mean(1) > 110); xs_ = np.where(skr)[0]
+        if len(xs_) < 3: continue
+        # 목 중심 근처의 연속 구간만(어깨 쪽 살 제외)
+        cxn = int(round(ccx + PADX)); seg = xs_[np.abs(xs_ - cxn) < out.shape[1] * 0.25]
+        if len(seg) < 3: continue
+        L, R = seg.min(), seg.max(); half = (R - L) / 2.0; cm = (L + R) / 2.0; t = min(1.0, (y - chy - 2) / 5.0)
+        nh = half * (1 + (NECKW - 1) * t); xs2 = np.arange(int(np.floor(cm - nh)), int(np.ceil(cm + nh)) + 1)
+        xs2 = xs2[(xs2 >= 0) & (xs2 < out.shape[1])]; src = cm + (xs2 - cm) / (nh / max(half, 0.5)); s0 = np.clip(np.round(src).astype(int), L, R)
+        newr = r.copy(); newr[xs2] = r[s0]
+        newr[xs2, :3] = newr[xs2, :3] * 0.45 + FACE_SKIN * 0.55 * (0.92 + 0.08 * t)             # 턱 밑 그늘을 얼굴 살색 쪽으로 밝혀 상체 살색과 이어지게
+        out[y] = newr
 BOT = int(os.environ.get('BASE_BOTTOM_CUT', '1')) * 2
 if BOT: out = out[:-BOT]                                                              # 베이스 그림 맨 아래 1줄(저해상도) 잘라 냄 — 목 끝의 경계 줄
-_nb = 8; _h = out.shape[0]; _skn = (out[..., 0] > 180) & (out[..., 0] > out[..., 2] + 40)
-for _i in range(_nb):                                                                # 목(살색) 아래쪽은 상반신 목과 이어지게 서서히 투명
-    _y = _h - 1 - _i; out[_y, :, 3] = np.where(_skn[_y], out[_y, :, 3] * ((_i + 1) / (_nb + 1)), out[_y, :, 3])
+EXT = int(os.environ.get('NECK_EXT', '8'))                                         # 목을 아래로 EXT 줄 늘려 상체 윗부분(어두운 목 그늘·머리끝)을 덮는다, 마지막 5줄만 서서히 투명
+_last = out[-1].copy(); _sk1 = (_last[:, 3] > 120) & (_last[:, 0] > 120) & (_last[:, 0] > _last[:, 2] + 30) & (_last[:, :3].mean(1) > 110)
+_ext = np.zeros((EXT, out.shape[1], 4))
+for _i in range(EXT):
+    _ext[_i] = np.where(_sk1[:, None], _last, 0); _a = 1.0 - _i / float(EXT); _ext[_i, :, 3] *= _a ** 0.8
+    _xs = np.where(_sk1)[0]
+    if len(_xs): _sd = np.minimum(np.arange(out.shape[1]) - _xs.min(), _xs.max() - np.arange(out.shape[1])); _ext[_i, :, 3] *= np.clip((_sd + 1) / 3.0, 0, 1)   # 목 양옆도 부드럽게
+out = np.concatenate([out, _ext], axis=0)
 big = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), 'RGBA')
 bx = round(FF_DX + cx_ff - ccx - PADX); by = round(FF_DY + ey_ff - ey_b * f)
 buf = io.BytesIO(); big.save(buf, format='PNG', optimize=True)
@@ -141,3 +162,16 @@ def fit_ff(name):
     open(p, 'wb').write(b1.getvalue() + b2.getvalue() + raw[e2:])
 for i in FEM: fit_ff(f'ff{i}')
 print('여자 시장 고정 베이스', big.size, '오프셋', bx, by, '표정 눈높이', ey_ff, '얼굴폭', fw_ff)
+
+# 상체(fb1) 목 중심을 얼굴 중심에 맞춘다: 상체 조각은 화면 x=92(HD 184), 표정 조각은 116(HD 232). 앱(드레스)·PC(양복) 어느 상체든 같은 규칙.
+p = f'{mod}/fb1.d'; raw = open(p, 'rb').read(); j = raw.find(b'BIGH')
+if j > 0 and os.environ.get('ALIGN_BODY', '0') == '1':
+    oby = int.from_bytes(raw[j + 6:j + 8], 'big', signed=True); bimg = np.asarray(Image.open(io.BytesIO(raw[j + 8:])).convert('RGBA')).astype(int)
+    rows = bimg[4:14]; skn = (rows[..., 3] > 150) & (rows[..., 0] > 150) & (rows[..., 0] > rows[..., 2] + 30) & (rows[..., :3].mean(2) > 120)
+    cols = np.where(skn.sum(0) > 3)[0]
+    if len(cols):
+        mid = bimg.shape[1] / 2.0; cols = cols[np.abs(cols - mid) < bimg.shape[1] * 0.3]
+        ncx = (cols.min() + cols.max()) / 2.0 if len(cols) else mid
+        face_cx = 232 + cx_ff; nbx = int(round(face_cx - 184 - ncx))
+        open(p, 'wb').write(raw[:j + 4] + int(nbx).to_bytes(2, 'big', signed=True) + int(oby).to_bytes(2, 'big', signed=True) + raw[j + 8:])
+        print('상체 목 중심 맞춤: bx', nbx, '(목 중심', ncx, ')')

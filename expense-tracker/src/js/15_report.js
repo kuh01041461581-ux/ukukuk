@@ -101,10 +101,11 @@ function renderReport() {
   if (UI.rep.view === 'easy') { P.innerHTML = `<div class="rep" id="rep-doc">${head}${renderEasy(D)}</div>`; return; }
   P.innerHTML = `<div class="rep" id="rep-doc">${head}
     <div class="repks">${kpi('예산현액', won(T.budget) + '<small>원</small>', '과 전체')}${kpi('집행액', won(T.paid) + '<small>원</small>', `집행률 <b>${pct1(T.rate)}</b><br>원인행위 포함 ${pct1(T.rateAll)}`)}${kpi('남은 예산 (잔액)', won(T.remain) + '<small>원</small>', `<span class="${diff < -10 ? 'neg' : ''}">경과율 ${pct1(el)} 대비 ${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%p</span>${dprev}`, 'main')}${kpi('계약·결의 후 미집행', won(T.gap) + '<small>원</small>', '원인행위 − 집행액')}</div>
+    ${UI.rep.view === 'sum' ? reconNotice() : ''}
     <div class="repsum card"><h2>요약</h2><ul>${repSummaryText(D)}</ul></div>
     ${repTrend()}
     <div class="legend rep-legend"><span><i class="lg1"></i>집행액</span><span><i class="lg2"></i>계약·결의 후 미집행</span><span><i class="lg3"></i>남은 예산</span><span>┆ 연 경과율 ${pct1(el)}</span></div>
-    ${full ? `<div class="card"><h2>성질별 (통계목 대분류) <span class="muted" style="font-weight:400;font-size:12px">통계목 코드 첫 자리 기준</span></h2>${nats.map(n => repBarRow(n.name, n, true)).join('')}</div>
+    ${full ? `${reconCardHTML(T)}<div class="card"><h2>성질별 (통계목 대분류) <span class="muted" style="font-weight:400;font-size:12px">통계목 코드 첫 자리 기준</span></h2>${nats.map(n => repBarRow(n.name, n, true)).join('')}</div>
     <div class="card reptblcard"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">사업별 집행 현황 <span class="muted" style="font-weight:400;font-size:12px">${repSorted(D.rows).length}개 사업</span></h2>
       <div class="row noprint"><div class="pills" role="group" aria-label="정렬">${[['budget', '예산 큰 순'], ['rate', '집행률 낮은 순'], ['remain', '잔액 큰 순'], ['name', '사업명순']].map(([k, n]) => `<button class="pill sm" aria-pressed="${UI.rep.sort === k}" data-act="repsort" data-v="${k}">${n}</button>`).join('')}</div>
       <label class="row" style="gap:5px"><input type="checkbox" id="rep-flag" ${UI.rep.flagOnly ? 'checked' : ''}> 주의 사업만</label></div></div>${repTable(repSorted(D.rows), T)}</div>
@@ -117,6 +118,8 @@ function renderReport() {
 $('#p-report').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
   if (a === 'repsort') { UI.rep.sort = b.dataset.v; renderReport(); }
+  else if (a === 'reconfix') { const n = reconApply([b.dataset.id]); toast(n ? 'e-호조 값으로 맞췄습니다' : '이미 같습니다'); UI._noKeep = true; renderReport(); }
+  else if (a === 'reconfixall') { const rc = reconcile(); if (rc && confirm(`${rc.diffs.length}곳의 일상경비 지출을 e-호조 값으로 바꿉니다. 계속할까요?`)) { const n = reconApply(); toast(`${n}곳을 e-호조 값으로 맞췄습니다`); UI._noKeep = true; renderReport(); } }
   else if (a === 'repeasyall') { UI.rep.easyAll = !UI.rep.easyAll; UI._noKeep = true; renderReport(); }
   else if (a === 'repview') { UI.rep.view = b.dataset.v; UI._noKeep = true; renderReport(); window.scrollTo(0, 0); }
   else if (a === 'repprint') { $$('.tab-panel').forEach(p => p.classList.toggle('printing', p.id === 'p-report')); window.print(); }

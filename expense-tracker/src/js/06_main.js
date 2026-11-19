@@ -70,6 +70,7 @@ function init() {
   renderTabBar();
   UI.util.month = null; UI.imp = null; showTab(UI.tab);
   const bt = $('#boot'); if (bt) bt.remove();
+  setTimeout(() => { try { maybeOnboard(); } catch (e) { } }, 350);
 }
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) showTab(b.dataset.t); });
 $('#asof').addEventListener('change', e => { if (e.target.value) { S.asOf = e.target.value; save(); RENDER[UI.tab](); } });

@@ -62,7 +62,7 @@ class Output:
     def __init__(self, app):
         self.app = app
 
-    def insert(self, pkg, prefix, replace=None, engine_id=None):
+    def insert(self, pkg, prefix, replace=None):
         """열려 있는 한글 문서의 커서 위치에 서식째 넣는다(새 문서는 만들지 않음).
         - 샘플의 쪽 설정(secPr)은 빼서 문서 중간에서 쪽·여백이 바뀌지 않게 한다. 빈 문서일 때만 샘플 용지·여백을 적용.
         - 기본은 문단 단위로 차례대로 넣어 '입력되는' 느낌을 준다(더보기에서 '한 번에'로 바꿀 수 있음)."""
@@ -111,19 +111,6 @@ class Output:
             elif not starts_new_page(pkg):
                 with_lead_blank(pkg)                 # 첫 문단이 앞 문단의 모양을 물려받지 않게 빈 받침 문단 하나
                                                      # (쪽 나눔으로 시작하는 양식은 새 쪽에서 시작하므로 받침 문단이 필요 없고, 앞 쪽이 꽉 찼을 때 빈 쪽이 되기도 한다)
-        mode = app.ui.get("build", "auto")
-        if mode == "auto":                           # 검증을 통과한(원본과 같은 결과가 확인된) 양식만 명령으로, 나머지는 양식 파일로
-            from . import enginecheck
-            mode = "commands" if enginecheck.is_ok(engine_id or prefix) else "file"
-        if mode == "commands":                       # 파일을 끼우지 않고 한글 명령으로 직접 만든다(참고 프로그램 방식)
-            try:
-                self._insert_commands(pkg, empty or top, page if keep_section else None)
-                app.say("한글 명령으로 직접 만들었어요")
-                app.single_doc = {"fid": prefix, "key": br.doc_key() if hasattr(br, "doc_key") else None} if (empty and replace != "selection") else None
-            except Exception as e:                   # noqa: BLE001
-                log = write_error_log("commands %s" % prefix, e)
-                messagebox.showerror("한글에 넣기", "명령으로 만들다 멈췄어요.\n%s\n\n오류 기록: %s" % (e, log))
-            return
         from .pagecheck import estimate_height, DEFAULT_BODY
         try:
             full = estimate_height(pkg) >= 0.88 * DEFAULT_BODY[0]
@@ -150,13 +137,6 @@ class Output:
             app.single_doc = {"fid": prefix, "key": br.doc_key() if hasattr(br, "doc_key") else None} if (empty and not replace_partial) else None
         except Exception as e:                       # noqa: BLE001
             log = write_error_log("insert %s chunk %d/%d step=%s" % (prefix, i, n, step), e)
-            if i <= 1:                               # 첫 조각부터 안 들어가면(파일 손상 등) 한글 명령으로 직접 만들어 본다
-                try:
-                    self._insert_commands(pkg, empty or top, page if keep_section else None)
-                    app.say("파일 끼워넣기가 안 돼서 한글 명령으로 직접 만들었어요")
-                    return
-                except Exception as e3:              # noqa: BLE001
-                    write_error_log("commands-fallback %s" % prefix, e3)
             try:                                     # 실패한 양식 파일을 그대로 남겨 두면 원인을 정확히 볼 수 있다
                 d = os.path.dirname(log) if log else tempfile.gettempdir()
                 pkg.save(os.path.join(d, "failed_%s.hwpx" % prefix))
@@ -170,20 +150,6 @@ class Output:
                 except Exception as e2:              # noqa: BLE001
                     write_error_log("open_new %s" % prefix, e2)
                     messagebox.showerror("한글에서 열기", str(e2))
-
-    def _insert_commands(self, pkg, at_top, page):
-        """양식 묶음 → 만드는 순서(레시피) → 한글 명령으로 재생"""
-        from . import recipe
-        app, br = self.app, self.app.bridge
-        rc, imgs = recipe.extract(pkg)
-        if page:
-            br.apply_page_setup(page)
-
-        def prog(i, n):
-            if i % 3 == 0 or i == n:
-                app.say("명령으로 만드는 중… %d/%d" % (i, n))
-                app.update()
-        recipe.Player(br, rc, imgs, fresh=True, first_page=bool(at_top), progress=prog).run()
 
     def _insert_chunk(self, ch, prefix, br, keep_section):
         path = ch.save(tmp_hwpx(prefix))
@@ -2232,16 +2198,6 @@ class Widget(tk.Tk):
                       highlightbackground=C_LINE, highlightcolor=C_ACC)
         ke.pack(fill="x", ipady=5, pady=(4, 0))
         ke.bind("<KeyRelease>", lambda e: self.ui.__setitem__("ai_key", self._ai_key.get().strip()))
-        self.section(parent, "만드는 방식")
-        self._build_var = tk.StringVar(value=self.ui.get("build", "auto"))
-        for val, txt in (("auto", "자동 (검증을 통과한 양식만 명령으로, 나머지는 양식 파일 끼워넣기)"), ("file", "항상 양식 파일 끼워넣기 (모양이 똑같음)"),
-                         ("commands", "항상 한글 명령으로 직접 만들기 (실험)")):
-            tk.Radiobutton(parent, text=txt, variable=self._build_var, value=val, bg=C_BG, font=FONT_S, anchor="w",
-                           fg=C_TEXT, activebackground=C_BG, selectcolor=C_CARD, highlightthickness=0, wraplength=WIDGET_W - 40,
-                           justify="left", command=lambda: self.ui.__setitem__("build", self._build_var.get())).pack(fill="x")
-        Btn(parent, "엔진 검증 (모든 양식)", self.run_engine_check, icon_name="calc",
-            tip="새 문서에서 모든 양식을 명령으로 만들어 원본과 비교해요. 같게 나온 양식만 '자동'에서 명령으로 만들어요").pack(fill="x", pady=(6, 2))
-        Btn(parent, "검증 결과 보기", self.open_engine_report, kind="flat", icon_name="doc").pack(fill="x", pady=2)
         self.section(parent, "창 투명도")
         row = tk.Frame(parent, bg=C_BG)
         row.pack(fill="x")
@@ -2433,7 +2389,7 @@ class Widget(tk.Tk):
                     if rough_items:
                         replace = "selection"
                         pkg = registry.load_form("weekly_plan").render({"org": org, "items": rough_items})
-                        self.busy(lambda: self.out.insert(pkg, "주간업무계획", replace, engine_id="weekly_plan"))
+                        self.busy(lambda: self.out.insert(pkg, "주간업무계획", replace))
                         return
                 items = data["items"] or [{"title": "(행사·업무명)", "dept": prof.get("dept", ""), "staff": prof.get("staff_name", ""),
                                            "phone": prof.get("staff_ext", ""),
@@ -2451,8 +2407,7 @@ class Widget(tk.Tk):
         except Exception as e:                           # noqa: BLE001
             messagebox.showerror("만들 수 없어요", str(e))
             return
-        self.busy(lambda: self.out.insert(pkg, {"cover": "주간업무계획표지"}.get(which) or (weekly.plan_file_name(monday) if which == "plan" else weekly.schedule_file_name(org, monday)),
-                                              engine_id={"cover": "weekly_cover", "plan": "weekly_plan"}.get(which, "weekly_schedule")))
+        self.busy(lambda: self.out.insert(pkg, {"cover": "주간업무계획표지"}.get(which) or (weekly.plan_file_name(monday) if which == "plan" else weekly.schedule_file_name(org, monday))))
 
     def busy(self, fn):
         self.config(cursor="watch")
@@ -2611,42 +2566,6 @@ class Widget(tk.Tk):
         ok = self.bridge.connected
         self.chip.config(text=("●  한글에 연결됨" if ok else "●  한글 연결 안 됨 — 눌러서 연결"),
                          fg=C_OK if ok else C_BAD)
-
-    def run_engine_check(self):
-        if not self._need_hwp("엔진 검증"):
-            return
-        from . import enginecheck, registry as R2
-        ids = [fid for fid, _f, meta in R2.list_forms()]
-        if not messagebox.askyesno("엔진 검증", "양식 %d개를 새 문서에서 한글 명령으로 만들어 원본과 비교해요.\n"
-                                   "문서가 잠깐씩 열렸다 닫히고 몇 분 걸려요(지금 열어 둔 문서는 그대로예요).\n계속할까요?" % len(ids)):
-            return
-
-        def prog(i, n, fid):
-            self.say("엔진 검증 %d/%d  %s" % (i, n, fid))
-            self.update()
-        self.config(cursor="watch")
-        try:
-            res = enginecheck.run_all(self.bridge, ids, tempfile.gettempdir(), prog)
-        except Exception as e:                           # noqa: BLE001
-            write_error_log("engine_check", e)
-            messagebox.showerror("엔진 검증", str(e))
-            return
-        finally:
-            self.config(cursor="")
-        ok = sum(1 for v in res.values() if v[0])
-        self.say("엔진 검증 끝: 통과 %d / 다름 %d" % (ok, len(res) - ok))
-        if messagebox.askyesno("엔진 검증", "통과 %d개 / 원본과 다름 %d개\n\n통과한 양식은 '자동'에서 명령으로, 나머지는 양식 파일로 만들어요.\n"
-                               "어긋난 곳 목록을 열어 볼까요?" % (ok, len(res) - ok)):
-            self.open_engine_report()
-
-    def open_engine_report(self):
-        p = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "HwpFormGenerator", "engine_check.txt")
-        if os.path.exists(p) and hasattr(os, "startfile"):
-            os.startfile(p)
-        elif os.path.exists(p):
-            messagebox.showinfo("엔진 검증", p)
-        else:
-            messagebox.showinfo("엔진 검증", "아직 검증한 기록이 없어요")
 
     def open_log_dir(self):
         d = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "HwpFormGenerator")

@@ -6,10 +6,10 @@ import sys
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
-from hwpgen import package as P, recipe, registry  # noqa: E402
+from hwpgen import package as P, registry  # noqa: E402
 from hwpgen.package import HP, Package  # noqa: E402
 
-from hwpgen.pagecheck import DEFAULT_BODY, PAGE_H, body_area, para_height  # noqa: E402,F401
+from hwpgen.pagecheck import DEFAULT_BODY, PAGE_H, Styles, body_area, para_height  # noqa: E402,F401
 
 
 def is_blank(p):
@@ -44,7 +44,7 @@ def prepared(fid, first):
     else:
         vals = {x["key"]: "값" for x in f.fields}
         pkg = f.render(vals, f.meta.get("starter", ""))
-    st = recipe._Styles(pkg)
+    st = Styles(pkg)
     area = body_area(pkg) if first else DEFAULT_BODY
     if not first:
         P.strip_section_props(pkg)

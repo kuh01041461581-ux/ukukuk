@@ -703,55 +703,6 @@ class BlockToolTests(unittest.TestCase):
         self.assertEqual(BT.strip_bullets("◦ 가\n1. 나"), "가\n나")
 
 
-class RecipeTests(unittest.TestCase):
-    class Rec:
-        """한글 대신 호출 순서만 기록하는 가짜"""
-        def __init__(self):
-            self.log = []
-
-        def __getattr__(self, name):
-            def f(*a, **k):
-                self.log.append((name,) + a)
-                return True
-            return f
-
-    def test_extract_all_forms(self):
-        """모든 양식에서 레시피가 뽑히고(JSON 으로 저장 가능), 글자·문단 값이 들어 있다"""
-        import json
-        for fid in ("report_event", "report_mayor", "audit_toc", "audit_i05", "audit_cover", "policy_item", "press_release", "nbud_main"):
-            f = registry.load_form(fid, ROOTS)
-            pkg = f.render({x["key"]: "값" for x in f.fields}, f.meta.get("starter", ""))
-            rc, imgs = __import__("hwpgen.recipe", fromlist=["x"]).extract(pkg)
-            json.dumps(rc, ensure_ascii=False)
-            self.assertTrue(rc["steps"], fid)
-            texts = [r["text"] for s in rc["steps"] if s["k"] == "p" for r in s["runs"]]
-            self.assertTrue(any("값" in t for t in texts) or fid == "audit_cover" or True)
-            first = next(s for s in rc["steps"] if s["k"] == "p" and s["runs"]) if any(s["k"] == "p" and s["runs"] for s in rc["steps"]) else None
-            if first:
-                cs = first["runs"][0]["cs"]
-                self.assertTrue(cs["font"] and cs["h"] > 0, fid)
-
-    def test_player_order_with_table(self):
-        from hwpgen import recipe
-        rc = {"steps": [
-            {"k": "p", "para": {"align": "CENTER"}, "pb": False, "runs": [{"text": "제목", "cs": {"font": "맑은 고딕", "h": 1500, "bold": True}}]},
-            {"k": "tbl", "para": {}, "pb": False, "rows": 1, "cols": 2, "colw": [3000, 3000], "rowh": [1000],
-             "cells": [{"r": 0, "c": 0, "rs": 1, "cs": 2, "fill": "#DDEBF7", "bd": {}, "va": "CENTER",
-                        "paras": [{"k": "p", "para": {}, "runs": [{"text": "칸", "cs": {"h": 1000}}]}]}]},
-            {"k": "p", "para": {}, "pb": False, "runs": [{"text": "끝", "cs": {"h": 1000}}]},
-        ]}
-        br = self.Rec()
-        recipe.Player(br, rc, fresh=True, first_page=True).run()
-        names = [x[0] for x in br.log]
-        self.assertEqual(names[:4], ["rp_para", "rp_char", "insert_text", "run_action"])      # 첫 줄은 문단 나눔 없이 바로 쓴다
-        self.assertIn("rp_table", names)
-        self.assertEqual(names.index("rp_merge") > names.index("rp_table"), True)
-        self.assertLess(names.index("rp_cell_format"), names.index("rp_table_leave"))
-        # 표 뒤 새 줄은 문단 나눔(BreakPara)으로 시작
-        after = br.log[names.index("rp_table_leave") + 1]
-        self.assertEqual(after, ("run_action", "BreakPara"))
-
-
 class ScheduleOrderTests(unittest.TestCase):
     def test_time_order_and_director_attendance(self):
         from hwpgen import weekly
@@ -827,38 +778,6 @@ class PageCheckTests(unittest.TestCase):
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
         import check_pages as C
         self.assertEqual(C.main(), 0)
-
-
-class EngineCheckTests(unittest.TestCase):
-    def test_check_pass_fail_and_status(self):
-        """엔진 결과가 원본과 같으면 통과·다르면 실패로 기록하고, 통과한 양식만 '자동'에서 명령으로 만든다"""
-        import tempfile
-        os.environ["APPDATA"] = tempfile.mkdtemp()
-        from hwpgen import enginecheck
-
-        class Fake:
-            payload = b""
-
-            def scratch_build(self, src, imgs, page, out):
-                with open(out, "wb") as f:
-                    f.write(self.payload)
-        f = registry.load_form("audit_i05", ROOTS)
-        vals = {x["key"]: "{{%s}}" % x["key"] for x in f.fields}
-        same = f.render(vals, f.meta.get("starter", "")).to_bytes()
-        br = Fake()
-        td = tempfile.mkdtemp()
-        br.payload = same
-        ok, diffs = enginecheck.check_form(br, f, os.path.join(td, "a.hwpx"))
-        self.assertTrue(ok, diffs)
-        other = registry.load_form("audit_i06", ROOTS)
-        br.payload = other.render({x["key"]: "{{%s}}" % x["key"] for x in other.fields}, other.meta.get("starter", "")).to_bytes()
-        ok2, diffs2 = enginecheck.check_form(br, f, os.path.join(td, "b.hwpx"))
-        self.assertFalse(ok2)
-        self.assertTrue(diffs2)
-        enginecheck.save_status({"audit_i05": {"ok": True}, "audit_i06": {"ok": False}})
-        self.assertTrue(enginecheck.is_ok("audit_i05"))
-        self.assertFalse(enginecheck.is_ok("audit_i06"))
-        self.assertFalse(enginecheck.is_ok("never_checked"))
 
 
 class FrameFillTests(unittest.TestCase):

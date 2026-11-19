@@ -2,8 +2,79 @@
 """양식의 쪽 높이를 글자·표 크기로 어림한다(한글 없이). 쪽을 거의 채우는 양식 뒤에 빈 줄을 붙여 빈 쪽이 생기는 것을 막는 데 쓴다."""
 import math
 
+import re
+
 from . import package as P
-from .package import HP
+from .package import HH, HP
+
+HC = "{http://www.hancom.co.kr/hwpml/2011/core}"
+
+def _hex(c):
+    c = (c or "").strip()
+    return c if re.fullmatch(r"#[0-9a-fA-F]{6}", c) else None
+
+
+def _mm(w):
+    m = re.match(r"([\d.]+)", w or "")
+    return float(m.group(1)) if m else 0.1
+
+
+class Styles:
+    def __init__(self, pkg):
+        h = pkg.header()
+        self.fonts = {}
+        for ff in h.iter(HH + "fontface"):
+            if ff.get("lang") == "HANGUL":
+                for f in ff.findall(HH + "font"):
+                    self.fonts[f.get("id")] = f.get("face")
+        self.char = {}
+        for cp in h.iter(HH + "charPr"):
+            fr, ra, sp = (cp.find(HH + t) for t in ("fontRef", "ratio", "spacing"))
+            ul = cp.find(HH + "underline")
+            self.char[cp.get("id")] = {
+                "font": self.fonts.get(fr.get("hangul")) if fr is not None else None,
+                "h": int(cp.get("height", "1000")),
+                "bold": cp.find(HH + "bold") is not None, "italic": cp.find(HH + "italic") is not None,
+                "ul": ul is not None and ul.get("type", "NONE") not in ("NONE", ""),
+                "color": _hex(cp.get("textColor")) or "#000000",
+                "ratio": int(ra.get("hangul", "100")) if ra is not None else 100,
+                "spacing": int(sp.get("hangul", "0")) if sp is not None else 0,
+            }
+        self.para = {}
+        for pp in h.iter(HH + "paraPr"):
+            al = pp.find(HH + "align")
+            mg = next(pp.iter(HH + "margin"), None)
+            ls = next(pp.iter(HH + "lineSpacing"), None)
+
+            def mv(tag):
+                e = mg.find(HC + tag) if mg is not None else None
+                return int(e.get("value", "0")) if e is not None else 0
+            self.para[pp.get("id")] = {
+                "align": al.get("horizontal", "JUSTIFY") if al is not None else "JUSTIFY",
+                "left": mv("left"), "right": mv("right"), "indent": mv("intent"), "prev": mv("prev"), "next": mv("next"),
+                "ls": int(ls.get("value", "160")) if (ls is not None and ls.get("type") == "PERCENT") else 160,
+            }
+        self.bf = {}
+        for b in h.iter(HH + "borderFill"):
+            d = {}
+            for k, tag in (("l", "leftBorder"), ("r", "rightBorder"), ("t", "topBorder"), ("b", "bottomBorder")):
+                e = b.find(HH + tag)
+                d[k] = [e.get("type", "NONE"), _mm(e.get("width"))] if e is not None else ["NONE", 0.1]
+            fill = None
+            wb = next(b.iter(HC + "winBrush"), None)
+            if wb is not None:
+                fill = _hex(wb.get("faceColor"))
+            self.bf[b.get("id")] = {"bd": d, "fill": fill}
+        self.bin = {}
+        hpf = pkg.files.get("Contents/content.hpf")
+        if hpf:
+            root = P.parse_xml(hpf)
+            for it in root.iter(P.OPF + "item"):
+                if it.get("href", "").startswith("BinData/"):
+                    self.bin[it.get("id")] = it.get("href")
+
+
+
 
 PAGE_H = 84188
 # 한글 기본 용지(위 20·아래 15·머리말/꼬리말 10mm), 좌우 30mm 일 때의 본문 영역 / 샘플 자체 여백
@@ -46,6 +117,5 @@ def para_height(p, st, width):
 
 def estimate_height(pkg):
     """양식 본문 전체 높이(HWPUNIT) 어림값"""
-    from . import recipe
-    st = recipe._Styles(pkg)
+    st = Styles(pkg)
     return sum(para_height(p, st, DEFAULT_BODY[1]) for p in pkg.section(0).findall(HP + "p"))

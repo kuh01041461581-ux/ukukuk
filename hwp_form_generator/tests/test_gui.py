@@ -71,27 +71,6 @@ class FakeBridge:
         self.cleared = getattr(self, "cleared", []) + [whole]
         return True
 
-    def rp_char(self, cs):
-        self.rp = getattr(self, "rp", []) + ["char"]
-
-    def rp_para(self, ps):
-        self.rp = getattr(self, "rp", []) + ["para"]
-
-    def rp_table(self, *a):
-        self.rp = getattr(self, "rp", []) + ["table"]
-
-    def rp_merge(self, *a):
-        self.rp = getattr(self, "rp", []) + ["merge"]
-
-    def rp_cell_format(self, c):
-        self.rp = getattr(self, "rp", []) + ["cell"]
-
-    def rp_table_leave(self):
-        self.rp = getattr(self, "rp", []) + ["leave"]
-
-    def rp_picture(self, path):
-        self.rp = getattr(self, "rp", []) + ["pic"]
-
     def run_action(self, *names):
         self.actions = getattr(self, "actions", []) + [names]
         return names[0]
@@ -261,31 +240,6 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(br.shapes[-1], {"TextColor": (255, 0, 0)})
         self.assertEqual(br.pagenums[-1], 5)
 
-    def test_build_by_commands(self):
-        """'한글 명령으로 직접 만들기'를 고르면 파일을 끼우지 않고 명령으로 만든다. 파일 끼워넣기가 첫 조각부터 실패해도 명령으로 만든다"""
-        w, br = self.widget, self.br
-        n_files = len(br.inserted)
-        w.ui["build"] = "commands"
-        try:
-            w.make_report("report_event")
-        finally:
-            w.ui["build"] = "file"
-        self.assertEqual(len(br.inserted), n_files)
-        self.assertIn("table", br.rp)
-        self.assertIn("leave", br.rp)
-        # 실패 → 대체
-        br.rp.clear()
-        orig = br.insert_file
-
-        def boom(*a, **k):
-            raise RuntimeError("손상된 파일")
-        br.insert_file = boom
-        try:
-            w.make_report("report_event")
-        finally:
-            br.insert_file = orig
-        self.assertIn("table", br.rp)
-
     def test_press_ai_with_fallback(self):
         """API 키가 있으면 AI 로 쓰고, AI 가 실패하면 규칙 방식 초안으로 대신한다"""
         from hwpgen import ai
@@ -313,22 +267,6 @@ class GuiTests(unittest.TestCase):
         finally:
             ai.generate_press = orig
             w.ui["ai_key"] = ""
-
-    def test_auto_mode_uses_engine_only_for_verified_forms(self):
-        from hwpgen import enginecheck
-        w, br = self.widget, self.br
-        enginecheck.save_status({"report_event": {"ok": True}})
-        self.assertEqual(w.ui.get("build", "auto"), "auto")
-        br.rp = []
-        n_files = len(br.inserted)
-        w.make_report("report_event")                       # 검증 통과 → 명령으로
-        self.assertIn("table", br.rp)
-        self.assertEqual(len(br.inserted), n_files)
-        br.rp = []
-        w.make_report("report_project")                     # 검증 안 함 → 양식 파일
-        self.assertEqual(br.rp, [])
-        self.assertGreater(len(br.inserted), n_files)
-        enginecheck.save_status({})
 
     def test_convert_selection_into_frame_form(self):
         """틀만 있는 양식(사고이월)도 글을 선택하고 누르면 항목 칸에 옮겨 넣는다"""

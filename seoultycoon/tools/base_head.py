@@ -51,10 +51,12 @@ rgba = Image.fromarray(np.dstack([a.astype(np.uint8), al]), 'RGBA'); BB = rgba.g
 b = np.asarray(rgba).astype(int); skb = skin(b); ey_b = eyes(b, skb); xs = np.where(skb[ey_b + int(rgba.height * 0.04)])[0]
 cx_b = (xs.min() + xs.max()) / 2; fw_b = xs.max() - xs.min() + 1
 # 크기: 표정 조각의 눈~턱 길이(HD) = 베이스 그림의 눈(431)~턱(960) 길이. 위치: 두 눈 가운데(825,431)를 표정 조각의 두 눈 가운데에 맞춘다(원본 좌표, 이목구비를 지우기 전 측정)
-ch_ff = np.median([np.where(skin(hd_of(f'ff{i}')).any(1))[0].max() for i in FEM]); f = (ch_ff - ey_ff) / (960 - 431) * float(os.environ.get('BASE_SCALE', '1.0'))
+CUT = int(os.environ.get('FF_CUT', '1')); ch_ff = np.median([np.where(skin(hd_of(f'ff{i}')).any(1))[0].max() for i in FEM]) - 2 * CUT;   # 아래 CUT 줄을 잘라 낸 턱 끝에 베이스 턱을 붙인다
+f = (ch_ff - ey_ff) / (960 - 431) * float(os.environ.get('BASE_SCALE', '1.0'))
 cx_ff = (el[0] + er[0]) / 2; ey_ff = (el[1] + er[1]) / 2; cx_b = 825 - BB[0]; ey_b = 431 - BB[1]
-big = rgba.resize((max(1, round(rgba.width * f)), max(1, round(rgba.height * f))), Image.LANCZOS)
-bx = round(FF_DX + cx_ff - cx_b * f); by = round(FF_DY + ey_ff - ey_b * f)
+WX = float(os.environ.get('HAIR_WX', '1.05'))                                     # 머리를 좌우로만 살짝 넓힌다
+big = rgba.resize((max(1, round(rgba.width * f * WX)), max(1, round(rgba.height * f))), Image.LANCZOS)
+bx = round(FF_DX + cx_ff - cx_b * f * WX); by = round(FF_DY + ey_ff - ey_b * f)
 buf = io.BytesIO(); big.save(buf, format='PNG', optimize=True)
 p = f'{mod}/fd1.d'; raw = open(p, 'rb').read(); j = raw.find(b'BIGH'); raw = raw[:j] if j > 0 else raw
 if raw.endswith(b'SKIP'): raw = raw[:-4]
@@ -68,7 +70,7 @@ def fit_ff(name):
     lo = np.asarray(Image.open(io.BytesIO(raw[:e1])).convert('RGBA')).astype(float); hd = np.asarray(Image.open(io.BytesIO(raw[e1:e2])).convert('RGBA')).astype(float)
     def fit(a, k):
         a = a.copy(); a[a.shape[0] - CUT * (2 // k):, :, 3] = 0                       # 표정 조각 맨 아래 CUT 줄(저해상도 기준) 제거 — 턱이 베이스 턱선에 맞도록
-        _t = 6 // k; _dk = a[:_t, :, :3].mean(2) < 90; a[:_t, :, 3] = np.where(_dk, 0, a[:_t, :, 3])        # 이마 맨 위 모서리의 어두운 점(머리카락 찌꺼기) 제거
+        _t = 6 // k; _dk = (a[:_t, :, :3].mean(2) < 90) | (a[:_t, :, 2] > a[:_t, :, 0] - 5); _t2 = 12 // k; a[:_t2, :, 3] = np.where(a[:_t2, :, 2] > a[:_t2, :, 0] - 5, 0, a[:_t2, :, 3]); a[:_t, :, 3] = np.where(_dk, 0, a[:_t, :, 3])        # 이마 맨 위 모서리의 어두운 점(머리카락 찌꺼기) 제거
         h, w = a.shape[:2]; under = np.zeros((h, w, 4))
         for y in range(h):                                                   # 이 조각 화소 아래에 깔리는 베이스 색 (표정 조각 위치 = 베이스 기준 FF_DX,FF_DY 에서 bx,by 를 뺀 자리)
             for x in range(w):
@@ -80,8 +82,9 @@ def fit_ff(name):
         if both.sum() > 10:
             wgt = ndi.gaussian_filter(both.astype(float), sig) + 1e-3
             diff = np.dstack([ndi.gaussian_filter(np.where(both, under[..., c] - a[..., c], 0), sig) for c in range(3)]) / wgt[..., None]
-            diff = np.clip(diff, -60, 60); a = a.copy(); a[..., :3] = np.clip(a[..., :3] + diff * sk[..., None] * 0.85, 0, 255)
-        dist = ndi.distance_transform_edt(a[..., 3] > 30); R = 7.0 / k                # 바깥 윤곽에서 R 화소 안쪽까지 서서히 불투명
+            diff = np.clip(diff, -60, 60); a = a.copy(); edge_w = np.clip(1.0 - ndi.distance_transform_edt(a[..., 3] > 30) / (14.0 / k), 0, 1)[..., None]   # 가장자리로 갈수록 베이스 색에 완전히 맞춘다
+            a[..., :3] = np.clip(a[..., :3] + diff * sk[..., None] * (0.75 + 0.25 * edge_w), 0, 255)
+        dist = ndi.distance_transform_edt(a[..., 3] > 30); R = 11.0 / k                # 바깥 윤곽에서 R 화소 안쪽까지 서서히 불투명
         fade = np.clip(dist / R, 0, 1) ** 1.2
         h_ = a.shape[0]; top = np.clip((np.arange(h_)[:, None] - 1.0 / k) / (12.0 / k), 0, 1) ** 1.5   # 이마 쪽은 더 길게(12화소) 흐려 위 경계 띠를 없앤다
         fade = np.minimum(fade, np.broadcast_to(top, fade.shape))

@@ -1049,3 +1049,14 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
 .sorttip{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;padding:10px 16px;border-radius:12px;background:var(--track,#f3f5f9);border:1px solid var(--edge-dark,#cfd6e0);font-size:15px}
 .sorttip .st3{display:flex;gap:22px;flex-wrap:wrap;align-items:center}.sorttip .gc{color:var(--good)}.sorttip .oc{color:var(--warn)}
 @media print{.recon-note,.sorttip{display:none}}
+
+
+/* 쉬운 보기: 상단을 작게, 요약 타일 */
+.ez-hero{padding:14px 22px;border-width:2px;border-radius:14px}
+.ez-q{font-size:14px}.ez-big{font-size:34px;margin:0 0 2px}.ez-line{font-size:17px;margin-bottom:10px}.ez-line b{font-size:20px}
+.ezbar.big{height:28px;border-radius:14px}.ez-scale{margin-top:6px;height:18px;font-size:12px}.ez-now{font-size:13px}
+.ez-verdict{margin-top:8px;gap:12px}.ezs.lg{font-size:17px;padding:4px 14px}.ez-why{font-size:15px}
+.ez-tiles{display:flex;gap:10px;flex-wrap:wrap}
+.ez-tile{flex:1 1 150px;display:flex;flex-direction:column;gap:2px;padding:10px 16px;border-radius:12px;background:#fff;border:1px solid var(--edge-dark,#cfd6e0)}
+.ez-tile span{font-size:13px;color:var(--text-2)}.ez-tile b{font-size:22px}.ez-tile.w{border-color:var(--warn);background:var(--warn-soft)}.ez-tile.w b{color:var(--warn)}.ez-tile.b{border-color:var(--bad);background:var(--bad-soft)}.ez-tile.b b{color:var(--bad)}
+@media print{.ez-big{font-size:28px}.ez-tile b{font-size:15px}.ez-tile{padding:6px 10px}.ez-tile,.ez-tile.w,.ez-tile.b{print-color-adjust:exact;-webkit-print-color-adjust:exact}}

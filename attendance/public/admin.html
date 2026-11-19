@@ -2,6 +2,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>출석 관리자</title>
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+<link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="icon" href="/icon.svg" type="image/svg+xml"><meta name="theme-color" content="#0067c0"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="출석관리">
 <link rel="stylesheet" href="/vendor/pretendard/pretendardvariable-dynamic-subset.css">
 <style>
 /* 한지·먹 바탕, 가는 선, 검정 주 버튼 — 그라데이션·글로우·유리 효과 없음 */
@@ -266,6 +267,12 @@ body:has(#login:not([hidden])){background:var(--bg)}
     <small>실시된 교육(출석 링크를 만들었거나 출석 기록이 있는 강의) 기준 · 출석률 = (출석+지각) ÷ 전체</small>
     <div id="sout" style="margin-top:12px"></div>
   </div>
+  <div class="card"><h3 style="margin-top:0">출석부 인쇄 · PDF 저장</h3>
+    <div class="row"><select id="rg"></select><button id="rprint" class="pri">출석부 열기</button></div>
+    <small>위의 기간으로 단체별 출석부(○출석 △지각 ×결석)를 만듭니다. 열린 창에서 <b>인쇄</b>를 누르고 프린터 대신 <b>PDF로 저장</b>을 고르면 파일로 보관됩니다.</small></div>
+  <div class="card"><h3 style="margin-top:0">확인이 필요한 기록</h3>
+    <small>대리 출석이 의심될 때 점검하세요. 위치 오차가 크거나 교육장 경계에서 출석했거나, 같은 휴대폰으로 여러 명이 출석한 기록입니다. (위의 기간 기준)</small>
+    <div id="flags" style="margin-top:8px"></div></div>
 </section>
 <section id="v-set" hidden>
   <h2>설정</h2>
@@ -312,6 +319,12 @@ body:has(#login:not([hidden])){background:var(--bg)}
     <div id="links"></div>
   </div>
   <div class="savebar"><button class="pri" id="saveCfg">설정 저장</button><span class="un">단체·구성원·시간·장소 변경 후 저장을 눌러야 반영됩니다 (강의는 자동 저장)</span></div>
+  <div class="card"><h3 style="margin-top:0">데이터 보관 (백업·복원)</h3>
+    <div class="row"><button id="bkdl" class="pri">전체 백업 내려받기</button><label class="un" style="display:inline-flex;gap:6px;align-items:center">파일로 복원 <input type="file" id="bkfile" accept=".json,application/json"></label></div>
+    <small>명단·강의·설정·출석 기록 전체가 파일 하나로 저장됩니다. 한 달에 한 번쯤 받아 두세요. 복원하면 현재 데이터가 파일의 내용으로 바뀝니다.</small>
+    <h3>자동 백업 (명단·강의·설정, 최근 14일)</h3>
+    <small>서버가 매일 한 번 자동으로 보관합니다. 실수로 단체나 명단을 지웠을 때 날짜를 골라 되돌릴 수 있습니다. 출석 기록은 그대로 유지됩니다.</small>
+    <div id="bklist" style="margin-top:8px" class="row"></div></div>
 </section>
 </div></div>
 <script>
@@ -331,7 +344,7 @@ const TABS=['ov','lec','man','stat','set'];
 function show(tab){TABS.forEach(t=>{$('v-'+t).hidden=t!==tab});
   document.querySelectorAll('nav [data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   try{sessionStorage.setItem('tab',tab)}catch{}
-  if(tab==='ov')ov();if(tab==='stat')stats();if(tab==='man')mInit();if(tab==='lec')drawLec();if(tab==='set'){draw();loadLinks();if(window.syncMap)setTimeout(syncMap,60)}
+  if(tab==='ov')ov();if(tab==='stat')stats();if(tab==='man')mInit();if(tab==='lec')drawLec();if(tab==='set'){draw();loadLinks();loadBackups();if(window.syncMap)setTimeout(syncMap,60)}
   window.scrollTo(0,0)}
 document.querySelectorAll('nav [data-tab]').forEach(b=>b.onclick=()=>show(b.dataset.tab));
 function start(){$('login').hidden=true;$('shell').hidden=false;$('date').value=$('date').value||today();$('sf').value=today().slice(0,8)+'01';$('st').value=today();
@@ -373,14 +386,14 @@ function guideHtml(){
 async function ov(){
   $('guide').innerHTML=guideHtml();
   const rq=await api('/api/admin/device-requests').catch(()=>[]);
-  const reqHtml=rq.length?`<div class="card" style="border:1px solid var(--l);margin:0 0 10px"><b>기기 변경 요청 ${rq.length}건</b> <small style="display:inline">휴대폰을 바꾼 분이 요청했습니다. 본인이 맞는지 확인하고 승인하세요.</small>
+  const reqHtml=rq.length?`<div class="card" style="border:1px solid var(--l);margin:0 0 10px"><b>기기 변경 요청 ${rq.length}건</b>${rq.length>1?' <button class="pri" data-rqall="1">모두 승인</button>':''} <small style="display:inline">휴대폰을 바꾼 분이 요청했습니다. 본인이 맞는지 확인하고 승인하세요.</small>
     ${rq.map(r=>`<div class="lk"><span class="nm">${esc(r.name)} <small style="display:inline">${esc(r.group||'')}</small></span><button class="pri" data-rqa="${r.id}">승인</button><button data-rqd="${r.id}">거절</button></div>`).join('')}</div>`:'';
   const d=await api('/api/admin/overview?date='+$('date').value);window.OVD=d;
   const wd=DAY[wdOf(d.date)];
   if(!d.lectures.length){$('ov').innerHTML=reqHtml+`<p>${d.date} (${wd}) 개설된 강의가 없습니다.<br><button data-go="lec" class="pri">강의 개설하러 가기</button></p>`;return}
   const tot={P:0,L:0,A:0,U:0};d.lectures.forEach(l=>l.groups.forEach(g=>{for(const k in tot)tot[k]+=g[k]}));
   const warn='';
-  const sum=reqHtml+warn+`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p>`;
+  const sum=reqHtml+warn+`<p><b>${d.date} (${wd})</b> — 강의 ${d.lectures.length}개 · <span class="ok">출석 ${tot.P}</span> · <span class="late">지각 ${tot.L}</span> · <span class="ab">결석 ${tot.A}</span> · <span class="un">미입력 ${tot.U}</span></p><div class="row" style="margin-bottom:10px"><button data-allshare="1">이날 강의 안내문 한 번에 ${shareLabel()}</button></div>`;
   const groups=d.lectures[0].groups;
   const pc=`<div class="only-pc"><table><tr><th style="min-width:200px">강의</th>${groups.map(g=>`<th>${esc(g.name)}</th>`).join('')}</tr>
     ${d.lectures.map(l=>`<tr><td class="l"><b>${esc(l.name)}</b> <span class="un">${l.start}~${l.end}</span><div class="tools" style="margin-top:6px">${sessBtn(l)}</div></td>${l.groups.map(g=>`<td>${cell(g)}</td>`).join('')}</tr>`).join('')}</table></div>`;
@@ -567,6 +580,9 @@ document.addEventListener('click',async e=>{const d=e.target.dataset;if(!d)retur
   if(d.lkg){const g=LK.find(x=>x.id===d.lkg);copy(g.members.map(m=>`${m.name}\t${linkUrl(m.token)}`).join('\n'),g.name+' 링크 목록을 복사했습니다.')}
   if(d.lkm){const m=LK.flatMap(g=>g.members).find(x=>x.id===d.lkm);copy(MSG(linkUrl(m.token),m.name),m.name+'님께 보낼 안내문을 복사했습니다. 카톡에 붙여넣으세요.')}
   if(d.lks){const m=LK.flatMap(g=>g.members).find(x=>x.id===d.lks);shareText('출석 링크',MSG(linkUrl(m.token),m.name))}
+  if(d.allshare){const ls=window.OVD?.lectures||[];if(ls.length)shareText('출석 안내',ls.map(lecShare).join('\n\n──────\n\n'))}
+  if(d.rqall){if(!confirm('요청한 분들을 모두 승인할까요? 본인이 맞는지 확인한 뒤에 눌러 주세요.'))return;
+    try{for(const r of await api('/api/admin/device-requests'))await api('/api/admin/device-requests',{method:'POST',body:JSON.stringify({id:r.id,approve:true})});ov()}catch(er){alert(er.message)}}
   if(d.shl){const l=(window.OVD?.lectures||[]).find(x=>x.id===d.shl);if(l)shareText('출석 안내',lecShare(l))}
   if(d.rqa||d.rqd){try{await api('/api/admin/device-requests',{method:'POST',body:JSON.stringify({id:d.rqa||d.rqd,approve:!!d.rqa})});ov()}catch(er){alert(er.message)}}
   if(d.lkd&&confirm('이 구성원의 등록된 휴대폰을 초기화할까요? 다음 출석 때 새 휴대폰으로 다시 등록해야 합니다.')){try{await api('/api/admin/reset-device',{method:'POST',body:JSON.stringify({memberId:d.lkd})});loadLinks()}catch(er){alert(er.message)}}
@@ -660,6 +676,9 @@ $('sgo').onclick=stats;
 $('csv').onclick=async()=>{const r=await fetch(`/api/admin/export?from=${$('sf').value}&to=${$('st').value}`,{headers:H()});
   const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`attendance_${$('sf').value}_${$('st').value}.csv`;a.click()};
 async function stats(){
+  $('rg').innerHTML=C.groups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');
+  api(`/api/admin/flags?from=${$('sf').value||'0000-00-00'}&to=${$('st').value||'9999-99-99'}`).then(f=>{
+    $('flags').innerHTML=f.length?`<table><tr><th>날짜</th><th>강의</th><th>이름</th><th>사유</th></tr>${f.slice(0,200).map(x=>`<tr><td>${x.date.slice(5)}</td><td class="l">${esc(x.lecture)}</td><td class="l">${esc(x.name)} <small style="display:inline">${esc(x.group)}</small></td><td class="l late">${x.flags.map(esc).join('<br>')}</td></tr>`).join('')}</table>${f.length>200?'<small>최근 200건만 표시</small>':''}`:'<span class="ok">확인이 필요한 기록이 없습니다.</span>'}).catch(()=>{});
   if(!$('sf').value){const t=today();$('sf').value=t.slice(0,8)+'01';$('st').value=t}
   const d=await api(`/api/admin/stats?from=${$('sf').value}&to=${$('st').value}`);
   const bar=r=>r==null?'<span class="un">-</span>':`<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:70px;height:10px;background:#8883;border-radius:5px;overflow:hidden"><i style="display:block;height:100%;width:${r}%;background:${r>=80?'var(--p)':r>=60?'var(--l)':'var(--a)'}"></i></div><b>${r}%</b></div>`;
@@ -670,6 +689,38 @@ async function stats(){
   <h3>구성원별 (출석률 낮은 순)</h3><table><tr><th>이름</th><th>단체</th><th>출석</th><th>지각</th><th>결석</th><th style="min-width:160px">출석률</th></tr>${d.members.slice().sort((a,b)=>(a.rate??101)-(b.rate??101)).map(m=>`<tr><td class="l">${m.name}</td><td>${gm[m.groupId]||''}</td><td class="ok">${m.P}</td><td class="late">${m.L}</td><td class="ab">${m.A}</td><td>${bar(m.rate)}</td></tr>`).join('')}</table>`;
 }
 
+// ── 출석부 인쇄 ──
+$('rprint').onclick=async()=>{
+  const w=window.open('','_blank');if(!w){alert('팝업이 막혀 있습니다. 주소창의 팝업 허용을 누른 뒤 다시 눌러 주세요.');return}
+  try{const r=await api(`/api/admin/report?from=${$('sf').value||'0000-00-00'}&to=${$('st').value||'9999-99-99'}&groupId=${$('rg').value}`);
+    const sym={P:'○',L:'△',A:'×'},wide=r.cols.length>10;
+    const th=r.cols.map(c=>`<th><div>${+c.date.slice(5,7)}/${+c.date.slice(8)}(${c.wd})</div><small>${esc(c.lecture)}<br>${c.start}</small></th>`).join('');
+    const rows=r.rows.map((m,i)=>`<tr><td>${i+1}</td><td class="n">${esc(m.name)}</td>${m.marks.map(x=>`<td class="s ${x}">${sym[x]}</td>`).join('')}<td>${m.P}</td><td>${m.L}</td><td>${m.A}</td><td>${m.rate==null?'-':m.rate+'%'}</td></tr>`).join('');
+    w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(r.group.name)} 출석부</title><style>
+    @page{size:A4 ${wide?'landscape':'portrait'};margin:14mm}*{box-sizing:border-box}
+    body{font:12px/1.5 "Pretendard Variable","Malgun Gothic","Noto Sans KR",sans-serif;color:#111;margin:0;padding:16px}
+    h1{font-size:20px;margin:0 0 4px}.meta{color:#555;margin-bottom:12px}
+    table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:5px 4px;text-align:center}th{background:#f1f1f1;font-weight:600}th small{font-weight:400;color:#555;font-size:10px}
+    td.n{text-align:left;white-space:nowrap}td.s{font-size:14px}td.A{color:#b3261e}td.L{color:#a96100}
+    .sign{display:flex;justify-content:flex-end;gap:40px;margin-top:24px}.sign div{border-top:1px solid #111;width:160px;text-align:center;padding-top:4px}
+    .bar{margin-bottom:12px}button{font:inherit;padding:8px 16px;border:1px solid #888;border-radius:6px;background:#fff;cursor:pointer}@media print{.bar{display:none}body{padding:0}}
+    </style></head><body><div class="bar"><button onclick="print()">인쇄 / PDF로 저장</button></div>
+    <h1>${esc(r.group.name)} 교육 출석부</h1><div class="meta">기간 ${r.from==='0000-00-00'?'처음':r.from} ~ ${r.to==='9999-99-99'?'현재':r.to} · 실시 ${r.cols.length}회${r.venue?` · 장소 ${esc(r.venue)}`:''} · ○ 출석 △ 지각 × 결석</div>
+    ${r.cols.length?`<table><tr><th>번호</th><th>이름</th>${th}<th>출석</th><th>지각</th><th>결석</th><th>출석률</th></tr>${rows}</table>`:'<p>이 기간에 실시된 교육이 없습니다.</p>'}
+    <div class="sign"><div>담당자</div><div>확인</div></div></body></html>`);w.document.close()}
+  catch(e){w.close();alert(e.message)}};
+// ── 백업 · 복원 ──
+async function loadBackups(){try{const l=await api('/api/admin/backups');
+  $('bklist').innerHTML=l.length?l.map(d=>`<button data-rsd="${d}">${d} 로 되돌리기</button>`).join(''):'<span class="un">아직 자동 백업이 없습니다. (배포 서버에서 매일 한 번 만들어집니다)</span>'}catch{}}
+$('bkdl').onclick=async()=>{const r=await fetch('/api/admin/backup',{headers:H()});if(!r.ok){alert('내려받기에 실패했습니다');return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`attendance-backup-${today()}.json`;document.body.appendChild(a);a.click();a.remove()};
+$('bkfile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  let data;try{data=JSON.parse(await f.text())}catch{alert('백업 파일을 읽을 수 없습니다');return}
+  if(!confirm('현재 데이터가 이 파일의 내용으로 바뀝니다. 복원할까요?\n(먼저 [전체 백업 내려받기]로 지금 상태를 저장해 두는 것을 권합니다)'))return;
+  try{const r=await api('/api/admin/restore',{method:'POST',body:JSON.stringify({data})});alert(`복원했습니다 (단체 ${r.groups}, 구성원 ${r.members}, 강의 ${r.lectures})`);await cfg();draw();ov()}catch(er){alert(er.message)}};
+document.addEventListener('click',async e=>{const d=e.target.dataset&&e.target.dataset.rsd;if(!d)return;
+  if(!confirm(`${d} 상태의 명단·강의·설정으로 되돌립니다. 그 뒤에 바꾼 내용은 사라집니다. 계속할까요?`))return;
+  try{await api('/api/admin/restore',{method:'POST',body:JSON.stringify({date:d})});alert('되돌렸습니다');await cfg();draw();ov()}catch(er){alert(er.message)}});
 if(pw)api('/api/admin/config').then(start).catch(()=>{});
 </script><script src="/vendor/xlsx.full.min.js"></script><script src="/vendor/leaflet/leaflet.js"></script><script>// ── 교육 장소: 지도(카카오/오픈스트리트맵) · 주소·장소 검색 ──
 (function(){

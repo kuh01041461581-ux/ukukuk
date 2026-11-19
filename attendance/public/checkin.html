@@ -110,4 +110,4 @@ async function reqChange(){
   const r=await fetch(`/api/s/${token}/device-request`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deviceId:dev,memberId:errBox&&errBox.memberId||sel,phone4:PH})});const j=await r.json();
   setBar('');$('body').innerHTML=r.ok?`<div class="card done-card"><div class="okring"><b>요청</b><i>접수</i></div><div class="nm">요청했습니다</div><div class="mut" style="margin-top:8px">담당자가 확인하고 승인하면<br>이 링크를 다시 열어 주세요.</div></div>`:`<div class="alert">${ico('alert')}<div>${esc(j.error)}</div></div>`}
 load();
-</script></body></html>
+</script><script src="/fs.js"></script></body></html>

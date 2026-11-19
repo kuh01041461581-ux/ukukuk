@@ -46,4 +46,4 @@ async function auto(){
   box.innerHTML=`<div class="card done-card"><div class="okring ${late?'late':''}"><b>${late?'지각':'출석'}</b><i>${D.now.date.slice(5).replace('-','.')}</i></div><div class="nm">${esc(D.name)}님</div><div class="st ${late?'late':''}">${late?'지각 처리되었습니다':'출석되었습니다'}</div><div class="mut">${esc(j.lecture)} · ${p2(t.getHours())}:${p2(t.getMinutes())}${j.already?' (이미 출석됨)':''}</div></div>`;
   info().then(d=>{if(d)$('stat').innerHTML=statHtml(d)})}
 (async()=>{const d=await info();if(!d)return;$('body').innerHTML='<div id="res"></div><div id="stat"></div><div class="note"><b>팁</b> · 이 화면을 <b>홈 화면에 추가</b>해 두면 아이콘 한 번으로 출석됩니다. 휴대폰을 바꾸면 담당자에게 <b>기기 초기화</b>를 요청하세요.</div>';$('stat').innerHTML=statHtml(d);auto()})();
-</script></body></html>
+</script><script src="/fs.js"></script></body></html>

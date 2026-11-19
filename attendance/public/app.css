@@ -138,3 +138,8 @@ h1{font-weight:700;letter-spacing:-.03em;font-size:32px}
 
 @media(prefers-color-scheme:dark){:root{--fill:#2b7fd0}}
 .chip{font-size:17px;letter-spacing:-.03em}
+/* 글자 크기 조절 */
+.fsz{margin-left:auto;display:flex;gap:6px}
+.fsz button{min-width:46px;height:38px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:600 16px var(--font);display:inline-flex;align-items:center;justify-content:center;gap:1px;padding:0 8px}
+.fsz button small{font-size:13px}.fsz button:disabled{opacity:.35}
+.brand{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

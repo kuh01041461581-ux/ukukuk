@@ -43,7 +43,7 @@ export function normalizeDb(db) {
  * @param {{db: object, persist: (db: object, dates: string[]) => void, adminPassword?: string}} opts
  * @returns {{ handle: (req: Request) => Promise<Response|null> }}  /api/* 가 아니면 null
  */
-export function createCore({ db, persist, adminPassword }) {
+export function createCore({ db, persist, adminPassword, backups }) {
   const dirty = new Set();
   function save() { const d = [...dirty]; dirty.clear(); persist(db, d); }
   if (normalizeDb(db)) save();
@@ -148,7 +148,7 @@ const memberOfDevice = (dev) => { // 이 휴대폰에 등록된 구성원 (한 �
 const memberByQr = (q) => { const t = String(q || '').trim().split('/').pop().split('?')[0]; return db.members.find((m) => m.qr === t); };
 
 // ---- 출석률 통계 ----
-function stats(from, to) {
+function heldList(from, to) {
   const held = []; // 실시된 교육 = 링크를 만들었거나 출석 기록이 있는 (날짜, 강의)
   const keys = new Set();
   for (const v of Object.values(db.sessions)) keys.add(v.date + '|' + v.lectureId);
@@ -165,6 +165,10 @@ function stats(from, to) {
     }
     held.push({ d, lid });
   }
+  return held;
+}
+function stats(from, to) {
+  const held = heldList(from, to);
   const mem = db.members.map((m) => ({ id: m.id, name: m.name, groupId: m.groupId, P: 0, L: 0, A: 0, n: 0 }));
   const byId = Object.fromEntries(mem.map((m) => [m.id, m]));
   const lec = Object.fromEntries(db.lectures.map((l) => [l.id, { id: l.id, name: l.name, weekday: l.weekday, start: l.start, held: 0, n: 0, P: 0, L: 0, A: 0 }]));
@@ -190,6 +194,55 @@ function stats(from, to) {
     members: mem.map((m) => ({ ...m, held: m.n, rate: rate(m, m.n) })),
     lectures: Object.values(lec).filter((x) => x.held).map((x) => ({ ...x, rate: rate(x, x.n) })),
   };
+}
+
+// ---- 확인이 필요한 출석 기록 (대리 출석 점검용) ----
+function flags(from, to) {
+  const out = [], R = db.venue.radius || 150;
+  for (const date of Object.keys(db.records).sort().reverse()) {
+    if (date < from || date > to) continue;
+    for (const [lid, byG] of Object.entries(db.records[date])) {
+      const l = db.lectures.find((x) => x.id === lid); if (!l) continue;
+      for (const [gid, rec] of Object.entries(byG)) {
+        const g = db.groups.find((x) => x.id === gid); if (!g) continue;
+        for (const [mid, mt] of Object.entries(rec.meta || {})) {
+          if (!mt || mt.via === 'admin') continue;
+          const m = db.members.find((x) => x.id === mid); if (!m) continue;
+          const f = [];
+          if (mt.acc > 100) f.push(`위치 오차가 큼 (±${mt.acc}m)`);
+          if (mt.dist != null && R && mt.dist > R * 0.85) f.push(`교육장 경계 근처 (${mt.dist}m / 허용 ${R}m)`);
+          if (f.length && mt.reg) f.push('처음 등록하면서 출석');
+          if (f.length) out.push({ date, lecture: l.name, group: g.name, name: m.name, status: rec.marks[mid], at: mt.at, flags: f });
+        }
+      }
+    }
+  }
+  // 같은 휴대폰에서 같은 강의에 두 명 이상 출석한 경우 (등록 규칙 위반 징후)
+  const seen = {};
+  for (const date of Object.keys(db.records)) for (const [lid, byG] of Object.entries(db.records[date])) for (const rec of Object.values(byG))
+    for (const [mid, mt] of Object.entries(rec.meta || {})) if (mt && mt.device) (seen[date + '|' + lid + '|' + mt.device] ||= []).push(mid);
+  for (const [k, ids] of Object.entries(seen)) if (ids.length > 1 && k.split('|')[0] >= from && k.split('|')[0] <= to) {
+    const [date, lid] = k.split('|'), l = db.lectures.find((x) => x.id === lid);
+    for (const mid of ids) { const m = db.members.find((x) => x.id === mid), g = m && db.groups.find((x) => x.id === m.groupId);
+      if (m) out.push({ date, lecture: l ? l.name : '', group: g ? g.name : '', name: m.name, status: '', at: '', flags: [`같은 휴대폰에서 ${ids.length}명이 출석`] }); }
+  }
+  return out;
+}
+
+// ---- 출석부 (인쇄용): 단체 한 곳의 기간 내 실시된 강의 × 구성원 ----
+function report(from, to, groupId) {
+  const g = db.groups.find((x) => x.id === groupId); if (!g) return null;
+  const cols = heldList(from, to).map((h) => ({ ...h, L: db.lectures.find((x) => x.id === h.lid) }))
+    .filter((c) => c.L && (targeted(c.L, g.id) || Object.keys((((db.records[c.d] || {})[c.lid] || {})[g.id] || {}).marks || {}).length))
+    .sort((a, b) => (a.d + a.L.start).localeCompare(b.d + b.L.start));
+  const ms = db.members.filter((x) => x.groupId === g.id);
+  const rows = ms.map((m) => {
+    const marks = cols.map((c) => ((((db.records[c.d] || {})[c.lid] || {})[g.id] || {}).marks || {})[m.id] || 'A');
+    const P = marks.filter((x) => x === 'P').length, Lt = marks.filter((x) => x === 'L').length, A = marks.filter((x) => x === 'A').length;
+    return { name: m.name, marks, P, L: Lt, A, rate: cols.length ? Math.round(((P + Lt) / cols.length) * 1000) / 10 : null };
+  });
+  return { from, to, group: { id: g.id, name: g.name }, venue: db.venue.name || '',
+    cols: cols.map((c) => ({ date: c.d, wd: '일월화수목금토'[wd(c.d)], lecture: c.L.name, start: c.L.start, end: c.L.end })), rows };
 }
 
 const pinBlocked = (req, groupId) => blocked('pin:' + groupId + ':' + ip(req));
@@ -306,9 +359,9 @@ async function api(req, url, ctx) {
     }
     // ② 현장 코드(선택) · 위치
     if (db.settings.useCode && String(b.code || '') !== se.code) return json(403, { error: '현장 코드가 맞지 않습니다' });
-    const v = db.venue; let d = null;
+    const v = db.venue; let d = null, acc = 0;
     if (v.lat != null) {
-      const lat = +b.lat, lng = +b.lng, acc = +b.accuracy || 0;
+      const lat = +b.lat, lng = +b.lng; acc = +b.accuracy || 0;
       if (!isFinite(lat) || !isFinite(lng)) return json(403, { error: '위치 정보가 필요합니다. 위치 권한을 허용해 주세요' });
       if (acc > 300) return json(403, { error: `위치가 부정확합니다(±${Math.round(acc)}m). 실외/창가에서 다시 시도해 주세요` });
       d = dist(lat, lng, v.lat, v.lng);
@@ -320,7 +373,7 @@ async function api(req, url, ctx) {
     rec.meta ||= {};
     if (rec.marks[mem.id] && rec.meta[mem.id]) { if (registering) save(); return json(200, { ok: true, already: true, status: rec.marks[mem.id], name: mem.name, registered: registering }); }
     rec.marks[mem.id] = w.status;
-    rec.meta[mem.id] = { at: new Date().toISOString(), device: dev, dist: d == null ? null : Math.round(d), self: true };
+    rec.meta[mem.id] = { at: new Date().toISOString(), device: dev, dist: d == null ? null : Math.round(d), acc: Math.round(acc), reg: registering, self: true };
     rec.at = rec.meta[mem.id].at;
     dirty.add(se.date);
     save();
@@ -359,9 +412,9 @@ async function api(req, url, ctx) {
   if ((mm = p.match(/^\/api\/m\/([\w-]+)\/checkin$/)) && m === 'POST') {
     const mem = memberByQr(mm[1]); if (!mem) return json(404, { error: '유효하지 않은 링크입니다' });
     const now = currentLecture(mem.groupId); if (!now) return json(403, { error: `지금은 출석 가능한 강의가 없습니다 (시작 ${db.settings.openBefore}분 전 ~ ${db.settings.closeAfter}분 후)` });
-    const b = await body(req), v = db.venue; let d = null;
+    const b = await body(req), v = db.venue; let d = null, acc = 0;
     if (v.lat != null) {
-      const lat = +b.lat, lng = +b.lng, acc = +b.accuracy || 0;
+      const lat = +b.lat, lng = +b.lng; acc = +b.accuracy || 0;
       if (!isFinite(lat) || !isFinite(lng)) return json(403, { error: '위치 정보가 필요합니다. 위치 권한을 허용해 주세요' });
       if (acc > 300) return json(403, { error: `위치가 부정확합니다(±${Math.round(acc)}m). 다시 시도해 주세요` });
       d = dist(lat, lng, v.lat, v.lng);
@@ -374,7 +427,7 @@ async function api(req, url, ctx) {
     if (db.bindings[mem.id] && dev && db.bindings[mem.id] !== dev)
       return json(403, { error: '이 휴대폰은 등록된 기기가 아닙니다. 휴대폰을 바꾸셨다면 담당자에게 기기 초기화를 요청하세요' });
     if (dev) db.bindings[mem.id] = dev;
-    const r = mark(now.date, now.lecture, mem, now.window.status, { via: 'phone', dist: d == null ? null : Math.round(d), device: dev });
+    const r = mark(now.date, now.lecture, mem, now.window.status, { via: 'phone', dist: d == null ? null : Math.round(d), acc: Math.round(acc), device: dev });
     return json(200, { ok: true, lecture: now.lecture.name, ...r });
   }
 
@@ -411,6 +464,33 @@ async function api(req, url, ctx) {
     if (p === '/api/admin/overview' && m === 'GET') {
       const date = q.get('date'); if (!dateOk(date)) return json(400, { error: '날짜 오류' });
       return json(200, { date, lectures: overview(date) });
+    }
+    if (p === '/api/admin/flags' && m === 'GET') return json(200, flags(q.get('from') || '0000-00-00', q.get('to') || '9999-99-99'));
+    if (p === '/api/admin/report' && m === 'GET') {
+      const r = report(q.get('from') || '0000-00-00', q.get('to') || '9999-99-99', q.get('groupId'));
+      return r ? json(200, r) : json(404, { error: '단체를 찾을 수 없습니다' });
+    }
+    if (p === '/api/admin/backup' && m === 'GET') { // 전체 데이터(명단·강의·출석 기록) 내려받기
+      return new Response(JSON.stringify({ version: 1, at: new Date().toISOString(), data: db }), { status: 200,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="attendance-backup-${todayKst()}.json"`, 'Cache-Control': 'no-store' } });
+    }
+    if (p === '/api/admin/backups' && m === 'GET') return json(200, backups ? await backups.list() : []);
+    if (p === '/api/admin/restore' && m === 'POST') {
+      const b = await body(req);
+      let src, full = false;
+      if (b.date) { if (!backups) return json(400, { error: '자동 백업을 쓸 수 없습니다' }); src = await backups.get(String(b.date)); if (!src) return json(404, { error: '해당 날짜 백업이 없습니다' }); }
+      else { src = b.data && b.data.data ? b.data.data : b.data; full = true; }
+      if (!src || !Array.isArray(src.groups) || !Array.isArray(src.members) || !Array.isArray(src.lectures)) return json(400, { error: '백업 파일 형식이 올바르지 않습니다' });
+      const keep = ['groups', 'members', 'lectures', 'venue', 'settings', 'bindings', 'deviceRequests'];
+      for (const k of keep) if (src[k] !== undefined) db[k] = src[k];
+      if (full) {
+        const old = Object.keys(db.records);
+        db.records = src.records && typeof src.records === 'object' ? src.records : {};
+        db.sessions = src.sessions && typeof src.sessions === 'object' ? src.sessions : {};
+        for (const d of [...old, ...Object.keys(db.records)]) dirty.add(d);
+      }
+      normalizeDb(db); save();
+      return json(200, { ok: true, groups: db.groups.length, members: db.members.length, lectures: db.lectures.length });
     }
     if (p === '/api/admin/export' && m === 'GET') {
       return new Response(csv(q.get('from') || '0000-00-00', q.get('to') || '9999-99-99'), { status: 200,
@@ -553,5 +633,6 @@ async function api(req, url, ctx) {
     }
     catch (e) { return json(500, { error: String((e && e.message) || e) }); }
   }
-  return { handle, tick };
+  const snapshot = () => JSON.parse(JSON.stringify({ groups: db.groups, members: db.members, lectures: db.lectures, venue: db.venue, settings: db.settings, bindings: db.bindings, deviceRequests: db.deviceRequests }));
+  return { handle, tick, snapshot };
 }

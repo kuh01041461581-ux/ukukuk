@@ -57,7 +57,7 @@ CUT = int(os.environ.get('FF_CUT', '0')); ch_ff = np.median([np.where(skin(hd_of
 f = (ch_ff - ey_ff) / (960 - 431) * float(os.environ.get('BASE_SCALE', '1.0'))
 cx_ff = (el[0] + er[0]) / 2; ey_ff = (el[1] + er[1]) / 2; cx_b = 825 - BB[0]; ey_b = 431 - BB[1]
 big = rgba.resize((max(1, round(rgba.width * f)), max(1, round(rgba.height * f))), Image.LANCZOS)
-WX = float(os.environ.get('HAIR_WX', '1.06')); PADX = int(np.ceil(big.width * (WX - 1) / 2)) + 1
+WX = float(os.environ.get('HAIR_WX', '1.0')); PADX = int(np.ceil(big.width * (WX - 1) / 2)) + 1
 G = np.asarray(big).astype(float); gh, gw = G.shape[:2]; out = np.zeros((gh, gw + 2 * PADX, 4)); ccx = cx_b * f
 eyb = ey_b * f; mob = (775 - BB[1]) * f                                               # 눈 높이까지는 WX, 입 높이에서 1.0
 for y in range(gh):
@@ -65,11 +65,26 @@ for y in range(gh):
     xs = (np.arange(gw + 2 * PADX) - PADX - ccx) / sx + ccx; x0 = np.floor(xs).astype(int); fr = xs - x0
     ok = (x0 >= 0) & (x0 + 1 < gw)
     for c in range(4): out[y, ok, c] = G[y, x0[ok], c] * (1 - fr[ok]) + G[y, x0[ok] + 1, c] * fr[ok]
-CUTB = int(os.environ.get('BASE_CUT', '1')) * 2; chb = int(round((960 - BB[1]) * f))
+CUTB = int(os.environ.get('BASE_CHIN_CUT', '0')) * 2; chb = int(round((960 - BB[1]) * f))
 if CUTB: out = np.concatenate([out[:chb - CUTB], out[chb:]], axis=0)                 # 베이스 얼굴 턱 바로 위 CUTB 줄 삭제 → 턱이 1줄 올라간다
 _rgb = out[..., :3]; _l = _rgb.mean(2); _med = np.dstack([ndi.median_filter(_rgb[..., c], size=7) for c in range(3)]); _ml = _med.mean(2)
 _sk = (out[..., 3] > 200) & (_med[..., 0] > 190) & (_med[..., 0] > _med[..., 2] + 40); _spot = _sk & ((_l < _ml - 18) | ((_rgb[..., 0] - _rgb[..., 2] < 70) & (_rgb[..., 0] > 140)))      # 회색 띤 화소(귀 안쪽 선 등)도 살색으로
 out[..., :3] = np.where(_spot[..., None], _med, _rgb)                                  # 얼굴 살색 안의 작은 어두운 점(지우고 남은 눈썹 끝 등) 제거
+SPREAD = float(os.environ.get('HAIR_SPREAD', '4'))                                 # 머리카락만 좌우로 벌린다: 얼굴 가운데(반폭 HW0)는 그대로, 그 바깥은 SPREAD 칸 바깥으로 — 모든 줄에 같은 매끈한 변환(줄무늬 없음)
+if SPREAD:
+    oh, ow = out.shape[:2]; P = int(np.ceil(SPREAD)) + 1; Wn = ow + 2 * P; o2 = np.zeros((oh, Wn, 4)); c0 = ccx + PADX + P
+    HW0 = fw_ff * 0.70; RAMP = 3.0
+    _fs = (out[..., 3] > 200) & (((out[..., 0] > 185) & (out[..., 1] > 120) & (out[..., 0] > out[..., 2] + 40)) | ((out[..., 2] > out[..., 0] + 30) & (out[..., 2] > 140)))   # 얼굴·귀 살색 + 귀걸이(밝은 푸른색)
+    _cols = np.where(_fs[int(oh * 0.2):int(oh * 0.85)].sum(0) > 2)[0]; Lb, Rb = _cols.min() + P - 4, _cols.max() + P + 4             # 이 둘레 바깥만 머리카락
+    X = np.arange(Wn).astype(float); d = np.where(X < c0, (c0 - X) - (c0 - Lb), (X - c0) - (Rb - c0)); t = np.clip((d + 1.0) / RAMP, 0, 1); t = t * t * (3 - 2 * t)
+    src = X - P - np.sign(X - c0) * SPREAD * t; x0 = np.floor(src).astype(int); fr = src - x0; ok = (x0 >= 0) & (x0 + 1 < ow)
+    for c in range(4): o2[:, ok, c] = out[:, x0[ok], c] * (1 - fr[ok]) + out[:, x0[ok] + 1, c] * fr[ok]
+    out = o2; PADX += P
+BOT = int(os.environ.get('BASE_BOTTOM_CUT', '1')) * 2
+if BOT: out = out[:-BOT]                                                              # 베이스 그림 맨 아래 1줄(저해상도) 잘라 냄 — 목 끝의 경계 줄
+_nb = 8; _h = out.shape[0]; _skn = (out[..., 0] > 180) & (out[..., 0] > out[..., 2] + 40)
+for _i in range(_nb):                                                                # 목(살색) 아래쪽은 상반신 목과 이어지게 서서히 투명
+    _y = _h - 1 - _i; out[_y, :, 3] = np.where(_skn[_y], out[_y, :, 3] * ((_i + 1) / (_nb + 1)), out[_y, :, 3])
 big = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), 'RGBA')
 bx = round(FF_DX + cx_ff - ccx - PADX); by = round(FF_DY + ey_ff - ey_b * f)
 buf = io.BytesIO(); big.save(buf, format='PNG', optimize=True)
@@ -101,8 +116,11 @@ def fit_ff(name):
             a[..., :3] = np.clip(a[..., :3] + diff * sk[..., None] * (0.75 + 0.25 * edge_w), 0, 255)
         _d0 = ndi.distance_transform_edt(np.pad(a[..., 3] > 30, 1))[1:-1, 1:-1]; _lum = a[..., :3].mean(2); _med = np.median(_lum[sk]) if sk.any() else 200
         _cont = (_d0 < 15.0 / k) & ((_lum < _med * 0.9) | (a[..., 0] - a[..., 2] < 70)) & ub & (a[..., 3] > 30)            # 표정 조각 바깥 윤곽선(어두운 얼굴선)이 베이스 살색 위에 남으면 베이스 색으로 바꾼다
+        _ebw = np.clip(1.0 - (np.abs(np.arange(a.shape[0])[:, None] - ey_ff * k / 2.0) - 4.0 * k / 2.0) / (4.0 * k / 2.0), 0, 1); _ebw = np.broadcast_to(_ebw, _cont.shape)   # 눈 줄 보호 가중치(위아래로 서서히)
+        _eyeband = _ebw > 0.5
+        _cont = _cont & ~_eyeband
         a[..., :3] = np.where(_cont[..., None], under[..., :3], a[..., :3])
-        _gry = (_d0 < 15.0 / k) & (a[..., 0] - a[..., 2] < 70) & (_lum > 100) & ~ub; a[..., 3] = np.where(_gry, 0, a[..., 3])   # 베이스 살색 밖의 회색 테두리(시트 배경 번짐)는 지운다
+        _gry = (_d0 < 15.0 / k) & (a[..., 0] - a[..., 2] < 70) & (_lum > 100) & ~ub & ~_eyeband; a[..., 3] = np.where(_gry, 0, a[..., 3])   # 베이스 살색 밖의 회색 테두리(시트 배경 번짐)는 지운다
         dist = ndi.distance_transform_edt(np.pad(a[..., 3] > 30, 1))[1:-1, 1:-1]; R = 11.0 / k          # 그림 경계도 바깥으로 본다(맨 끝 열이 안 흐려져 세로선이 남던 문제)                # 바깥 윤곽에서 R 화소 안쪽까지 서서히 불투명
         fade = np.clip(dist / R, 0, 1) ** 1.2
         h_ = a.shape[0]; top = np.clip((np.arange(h_)[:, None] - 1.0 / k) / (12.0 / k), 0, 1) ** 1.5   # 이마 쪽은 더 길게(12화소) 흐려 위 경계 띠를 없앤다
@@ -112,9 +130,11 @@ def fit_ff(name):
         top = eyk - 15.0 * k / 2.0; bot = hh - 1.0; cyo = (top + bot) / 2 + (bot - top) * 0.08; ryo = (bot - top) / 2 + (bot - top) * 0.08; rxo = ww / 2.0 + 1.0
         rr = (np.abs((xx - (ww - 1) / 2.0) / rxo) ** 3.5 + np.abs((yy - cyo) / ryo) ** 3.5) ** (1 / 3.5)          # 표정 조각을 사각형이 아닌 타원으로: 눈썹 위부터 턱까지, 바깥 띠는 서서히 투명
         oval = np.clip((1.0 - rr) / 0.16, 0, 1) ** 1.2
+        _side = np.clip((np.minimum(xx, ww - 1 - xx) + 0.5) / (3.0 * k / 2.0), 0, 1)          # 좌우 끝 몇 화소는 여전히 흐림
+        oval = oval * (1 - _ebw) + np.maximum(oval, _side) * _ebw                                  # 눈 줄은 거의 끝까지 살린다(눈꼬리 화장)
         a[..., 3] = a[..., 3] * np.where(yy < eyk + 2 * k / 2.0, oval, np.maximum(oval, (yy >= eyk).astype(float) * fade))
         inside = ndi.binary_dilation(ub, iterations=1); soft_in = ndi.gaussian_filter(inside.astype(float), 0.8 / k + 0.3)
-        a[..., 3] = a[..., 3] * np.where(ubs, fade, 1.0) * np.clip(soft_in * 1.6 - 0.3, 0, 1)   # 얼굴 라인은 베이스 턱선을 따른다: 베이스 살색 밖(머리카락·배경)으로 나간 표정 조각은 잘라 낸다
+        a[..., 3] = a[..., 3] * (np.where(ubs, fade, 1.0) * (1 - _ebw) + np.where(ubs, np.maximum(fade, _side), 1.0) * _ebw) * np.clip(soft_in * 1.6 - 0.3, 0, 1)   # 얼굴 라인은 베이스 턱선을 따른다: 베이스 살색 밖(머리카락·배경)으로 나간 표정 조각은 잘라 낸다
         return a
     lo2, hd2 = fit(lo, 1), fit(hd, 2); b1, b2 = io.BytesIO(), io.BytesIO()
     Image.fromarray(lo2.astype(np.uint8), 'RGBA').save(b1, format='PNG'); Image.fromarray(hd2.astype(np.uint8), 'RGBA').save(b2, format='PNG')

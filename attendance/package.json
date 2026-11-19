@@ -1,0 +1,15 @@
+{
+  "name": "heritage-attendance",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "국가무형유산 단체 출석체크",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

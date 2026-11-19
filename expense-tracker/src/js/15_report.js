@@ -1,6 +1,6 @@
 /* ===== 과 요약 보고서: 과장·국장 보고용 / 행정사무감사 자료용 (통계목별 조회 엑셀 기준) =====
    기본은 [요약] 한 화면(핵심 숫자 + 요약 문장 + 주의 사업만). 자세히 보려면 [상세]. */
-UI.rep = { sort: 'budget', flagOnly: false, view: 'sum' };
+UI.rep = { sort: 'budget', flagOnly: false, view: 'easy', easyAll: false };
 const NATURE = { '1': '인건비', '2': '물건비 (운영비·여비·업무추진비 등)', '3': '이전지출 (보조금 등)', '4': '자산취득 (시설비 등)' };
 const natureOf = code => NATURE[String(code || '')[0]] || `기타 (통계목 ${String(code || '?')[0]}번대)`;
 const thr = () => ({ low: +(S.opt && S.opt.thrLow) || 20, hot: +(S.opt && S.opt.thrHot) || 95 });
@@ -96,9 +96,10 @@ function renderReport() {
   const flagged = D.rows.filter(r => r.flags.length).sort((a, b) => b.budget - a.budget);
   const dailyT = S.lines.length ? groupTotals(visLines()) : null; const ts = todoSummary();
   const dprev = D.prev && T.dlt != null ? `<br>직전 자료(${esc(D.prev.asOf)}) 대비 ${T.dlt >= 0 ? '+' : '−'}${Math.abs(T.dlt).toFixed(1)}%p` : '';
-  P.innerHTML = `<div class="rep" id="rep-doc">
-    <div class="rep-head"><div><h1>${esc(S.year)}년 ${esc(S.dept || '')} 예산 집행 현황</h1><div class="muted">기준일 ${esc(S.asOf)} · 자료: ${esc(D.B.file)} (통계목별 조회 · 집행액=집행누계액)</div></div>
-      <div class="row noprint"><div class="pills" role="group" aria-label="보기"><button class="pill sm" aria-pressed="${!full}" data-act="repview" data-v="sum">요약</button><button class="pill sm" aria-pressed="${full}" data-act="repview" data-v="full">상세</button></div><button class="btn sm" data-act="reptsv" data-tip="사업별 표를 엑셀·한글에 붙여넣을 수 있게 복사합니다">사업별 표 복사</button><button class="btn primary sm" data-act="repprint">인쇄 / PDF 저장</button></div></div>
+  const head = `<div class="rep-head"><div><h1>${esc(S.year)}년 ${esc(S.dept || '')} 예산 집행 현황</h1><div class="muted">기준일 ${esc(S.asOf)} · 자료: ${esc(D.B.file)} (통계목별 조회 · 집행액=집행누계액)</div></div>
+      <div class="row noprint"><div class="pills" role="group" aria-label="보기">${[['easy', '쉬운 보기'], ['sum', '요약'], ['full', '상세']].map(([k, n]) => `<button class="pill sm" aria-pressed="${UI.rep.view === k}" data-act="repview" data-v="${k}">${n}</button>`).join('')}</div><button class="btn sm" data-act="reptsv" data-tip="사업별 표를 엑셀·한글에 붙여넣을 수 있게 복사합니다">사업별 표 복사</button><button class="btn primary sm" data-act="repprint">인쇄 / PDF 저장</button></div></div>`;
+  if (UI.rep.view === 'easy') { P.innerHTML = `<div class="rep" id="rep-doc">${head}${renderEasy(D)}</div>`; return; }
+  P.innerHTML = `<div class="rep" id="rep-doc">${head}
     <div class="repks">${kpi('예산현액', won(T.budget) + '<small>원</small>', '과 전체')}${kpi('집행액', won(T.paid) + '<small>원</small>', `집행률 <b>${pct1(T.rate)}</b><br>원인행위 포함 ${pct1(T.rateAll)}`)}${kpi('남은 예산 (잔액)', won(T.remain) + '<small>원</small>', `<span class="${diff < -10 ? 'neg' : ''}">경과율 ${pct1(el)} 대비 ${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%p</span>${dprev}`, 'main')}${kpi('계약·결의 후 미집행', won(T.gap) + '<small>원</small>', '원인행위 − 집행액')}</div>
     <div class="repsum card"><h2>요약</h2><ul>${repSummaryText(D)}</ul></div>
     ${repTrend()}
@@ -116,6 +117,7 @@ function renderReport() {
 $('#p-report').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
   if (a === 'repsort') { UI.rep.sort = b.dataset.v; renderReport(); }
+  else if (a === 'repeasyall') { UI.rep.easyAll = !UI.rep.easyAll; UI._noKeep = true; renderReport(); }
   else if (a === 'repview') { UI.rep.view = b.dataset.v; UI._noKeep = true; renderReport(); window.scrollTo(0, 0); }
   else if (a === 'repprint') { $$('.tab-panel').forEach(p => p.classList.toggle('printing', p.id === 'p-report')); window.print(); }
   else if (a === 'reppick') pickFiles('.xlsx,.xlsm');

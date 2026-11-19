@@ -4,8 +4,9 @@ import os, io
 import numpy as np
 from PIL import Image
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); mod = root + '/st2android/mod'
-def feather(a, ramp):
+def feather(a, ramp, top=()):
     a = a.copy(); h, w = a.shape[:2]; n = len(ramp)
+    for i, r in enumerate(top): a[i, :, 3] = (a[i, :, 3] * r).astype(np.uint8)          # 위(이마) 가장자리도 흐려 베이스 이마와 이어지게
     for i, r in enumerate(ramp):
         a[:, i, 3] = (a[:, i, 3] * r).astype(np.uint8); a[:, w - 1 - i, 3] = (a[:, w - 1 - i, 3] * r).astype(np.uint8)
     return a
@@ -13,6 +14,6 @@ for i in (3, 4, 5, 9, 10, 11, 12, 13, 14):
     p = f'{mod}/ff{i}.d'; raw = open(p, 'rb').read(); e1 = raw.find(b'IEND') + 8; e2 = raw.find(b'IEND', e1) + 8
     lo = np.asarray(Image.open(io.BytesIO(raw[:e1])).convert('RGBA')); hd = np.asarray(Image.open(io.BytesIO(raw[e1:e2])).convert('RGBA'))
     b1, b2 = io.BytesIO(), io.BytesIO()
-    Image.fromarray(feather(lo, (0.55,)), 'RGBA').save(b1, format='PNG'); Image.fromarray(feather(hd, (0.2, 0.45, 0.7, 0.88)), 'RGBA').save(b2, format='PNG')
+    Image.fromarray(feather(lo, (0.55,), (0.3, 0.7)), 'RGBA').save(b1, format='PNG'); Image.fromarray(feather(hd, (0.2, 0.45, 0.7, 0.88), (0.0, 0.1, 0.25, 0.45, 0.65, 0.82, 0.93)), 'RGBA').save(b2, format='PNG')
     open(p, 'wb').write(b1.getvalue() + b2.getvalue() + raw[e2:])
 print('여자 표정 가장자리 흐림')

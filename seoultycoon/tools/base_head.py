@@ -37,7 +37,7 @@ im = Image.open(gp).convert('RGB'); a = np.asarray(im).astype(int)
 _H, _W = a.shape[:2]; _yy, _xx = np.mgrid[0:_H, 0:_W]; _reg = (((_xx - 825) / 310.0) ** 2 + ((_yy - 580) / 400.0) ** 2) < 1.0
 _sk0 = (a[..., 0] > 190) & (a[..., 1] > 130) & (a[..., 2] > 80) & (a[..., 0] > a[..., 2] + 40)
 _lab, _n = ndi.label(ndi.binary_closing(_sk0, iterations=3)); _face = _lab == 1 + int(np.argmax(ndi.sum(_sk0, _lab, range(1, _n + 1))))
-_reg = _reg & ndi.binary_erosion(ndi.binary_fill_holes(ndi.binary_closing(_face, iterations=25)), iterations=6)   # 얼굴 살색 덩어리 안쪽만(머리카락·귀는 손대지 않음)
+_reg = _reg & ndi.binary_dilation(ndi.binary_fill_holes(ndi.binary_closing(_face, iterations=25)), iterations=3)   # 얼굴 살색 덩어리 안쪽만(머리카락·귀는 손대지 않음)
 _lum = a.mean(2); _good = _reg & _sk0 & (_lum > 178) & ~((a[..., 0] - a[..., 1] > 90))
 _w = ndi.gaussian_filter(_good.astype(float), 40); _fill = np.dstack([ndi.gaussian_filter(np.where(_good, a[..., c], 0).astype(float), 40) for c in range(3)]) / np.maximum(_w, 1e-3)[..., None]
 _soft = ndi.gaussian_filter(_reg.astype(float), 6)[..., None]; a = (a * (1 - _soft) + _fill * _soft).astype(int); im = Image.fromarray(a.astype(np.uint8))
@@ -51,10 +51,10 @@ rgba = Image.fromarray(np.dstack([a.astype(np.uint8), al]), 'RGBA'); BB = rgba.g
 b = np.asarray(rgba).astype(int); skb = skin(b); ey_b = eyes(b, skb); xs = np.where(skb[ey_b + int(rgba.height * 0.04)])[0]
 cx_b = (xs.min() + xs.max()) / 2; fw_b = xs.max() - xs.min() + 1
 # 크기: 표정 조각의 눈~턱 길이(HD) = 베이스 그림의 눈(431)~턱(960) 길이. 위치: 두 눈 가운데(825,431)를 표정 조각의 두 눈 가운데에 맞춘다(원본 좌표, 이목구비를 지우기 전 측정)
-CUT = int(os.environ.get('FF_CUT', '1')); ch_ff = np.median([np.where(skin(hd_of(f'ff{i}')).any(1))[0].max() for i in FEM]) - 2 * CUT;   # 아래 CUT 줄을 잘라 낸 턱 끝에 베이스 턱을 붙인다
+CUT = int(os.environ.get('FF_CUT', '0')); ch_ff = np.median([np.where(skin(hd_of(f'ff{i}')).any(1))[0].max() for i in FEM]) - 2 * CUT;   # 아래 CUT 줄을 잘라 낸 턱 끝에 베이스 턱을 붙인다
 f = (ch_ff - ey_ff) / (960 - 431) * float(os.environ.get('BASE_SCALE', '1.0'))
 cx_ff = (el[0] + er[0]) / 2; ey_ff = (el[1] + er[1]) / 2; cx_b = 825 - BB[0]; ey_b = 431 - BB[1]
-WX = float(os.environ.get('HAIR_WX', '1.05'))                                     # 머리를 좌우로만 살짝 넓힌다
+WX = float(os.environ.get('HAIR_WX', '1.0'))                                     # 머리를 좌우로만 살짝 넓힌다
 big = rgba.resize((max(1, round(rgba.width * f * WX)), max(1, round(rgba.height * f))), Image.LANCZOS)
 bx = round(FF_DX + cx_ff - cx_b * f * WX); by = round(FF_DY + ey_ff - ey_b * f)
 buf = io.BytesIO(); big.save(buf, format='PNG', optimize=True)
@@ -89,6 +89,11 @@ def fit_ff(name):
         h_ = a.shape[0]; top = np.clip((np.arange(h_)[:, None] - 1.0 / k) / (12.0 / k), 0, 1) ** 1.5   # 이마 쪽은 더 길게(12화소) 흐려 위 경계 띠를 없앤다
         fade = np.minimum(fade, np.broadcast_to(top, fade.shape))
         ubs = ndi.binary_erosion(ub, iterations=1)                                     # 아래가 머리카락(베이스 살색 아님)인 곳은 흐리지 않는다 — 흐리면 머리카락이 비쳐 턱에 검은 얼룩이 생긴다
+        hh, ww = a.shape[:2]; yy, xx = np.mgrid[0:hh, 0:ww].astype(float); eyk = ey_ff * k / 2.0
+        top = eyk - 10.0 * k / 2.0; bot = hh - 1.0; cyo = (top + bot) / 2 + (bot - top) * 0.08; ryo = (bot - top) / 2 + (bot - top) * 0.08; rxo = ww / 2.0 + 1.0
+        rr = (np.abs((xx - (ww - 1) / 2.0) / rxo) ** 3.5 + np.abs((yy - cyo) / ryo) ** 3.5) ** (1 / 3.5)          # 표정 조각을 사각형이 아닌 타원으로: 눈썹 위부터 턱까지, 바깥 띠는 서서히 투명
+        oval = np.clip((1.0 - rr) / 0.16, 0, 1) ** 1.2
+        a[..., 3] = a[..., 3] * np.where(yy < eyk + 2 * k / 2.0, oval, np.maximum(oval, (yy >= eyk).astype(float) * fade))
         inside = ndi.binary_dilation(ub, iterations=1); soft_in = ndi.gaussian_filter(inside.astype(float), 0.8 / k + 0.3)
         a[..., 3] = a[..., 3] * np.where(ubs, fade, 1.0) * np.clip(soft_in * 1.6 - 0.3, 0, 1)   # 얼굴 라인은 베이스 턱선을 따른다: 베이스 살색 밖(머리카락·배경)으로 나간 표정 조각은 잘라 낸다
         return a

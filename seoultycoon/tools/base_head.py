@@ -100,7 +100,7 @@ def fit_ff(name):
             diff = np.clip(diff, -60, 60); a = a.copy(); edge_w = np.clip(1.0 - ndi.distance_transform_edt(a[..., 3] > 30) / (14.0 / k), 0, 1)[..., None]   # 가장자리로 갈수록 베이스 색에 완전히 맞춘다
             a[..., :3] = np.clip(a[..., :3] + diff * sk[..., None] * (0.75 + 0.25 * edge_w), 0, 255)
         _d0 = ndi.distance_transform_edt(a[..., 3] > 30); _lum = a[..., :3].mean(2); _med = np.median(_lum[sk]) if sk.any() else 200
-        _cont = (_d0 < 10.0 / k) & ((_lum < _med * 0.9) | (a[..., 0] - a[..., 2] < 45)) & ub & (a[..., 3] > 30)            # 표정 조각 바깥 윤곽선(어두운 얼굴선)이 베이스 살색 위에 남으면 베이스 색으로 바꾼다
+        _cont = (_d0 < 15.0 / k) & ((_lum < _med * 0.9) | (a[..., 0] - a[..., 2] < 70)) & ub & (a[..., 3] > 30)            # 표정 조각 바깥 윤곽선(어두운 얼굴선)이 베이스 살색 위에 남으면 베이스 색으로 바꾼다
         a[..., :3] = np.where(_cont[..., None], under[..., :3], a[..., :3])
         dist = ndi.distance_transform_edt(a[..., 3] > 30); R = 11.0 / k                # 바깥 윤곽에서 R 화소 안쪽까지 서서히 불투명
         fade = np.clip(dist / R, 0, 1) ** 1.2

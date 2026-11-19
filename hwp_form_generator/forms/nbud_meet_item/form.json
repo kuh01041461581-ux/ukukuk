@@ -1,0 +1,44 @@
+{
+  "id": "nbud_meet_item",
+  "name": "당면업무 국가예산 (사업별 방문 결과)",
+  "audience": "간부회의",
+  "kind": "report",
+  "note": "□ 사업명 + ◦ 방문일자 · ◦ 방문자 · ◦ 활동결과(▸ 의원실 면담자 · ▸ 주요내용) + ◦ 금후계획",
+  "fields": [
+    {
+      "key": "title",
+      "label": "사업명",
+      "default": "(사업명)"
+    }
+  ],
+  "has_body": true,
+  "style": {
+    "heading_prefix": "",
+    "heading_pad2": false,
+    "item1_prefix": "  ◦",
+    "kv": {
+      "fmt": "colon",
+      "bullet": "144",
+      "label": "145",
+      "gap": "145",
+      "value": "144",
+      "by_label": {
+        "방문일자": "144",
+        "방문자": "144",
+        "금후계획": "146"
+      }
+    },
+    "item1_cps": [
+      "144",
+      "144"
+    ],
+    "item2_cps": [
+      "144",
+      "144"
+    ],
+    "item2_prefix": "    ▸",
+    "item2_sep": ""
+  },
+  "starter": "◦ 방문일자: \n◦ 방 문 자: \n◦ 활동결과\n▸(○○ 의원실) 면담자: \n▸(○○ 의원실) 면담자: \n▸주요내용: \n◦ 금후계획: ",
+  "body_hint": "□ 제목 / ◦ 일시: … / - 세부 / | 표 | 칸 |"
+}

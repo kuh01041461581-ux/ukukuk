@@ -399,7 +399,7 @@ def _trim_leading_blank(section):
 
 def register_report(sample_path, out_dir, form_id, name, audience, fields, kind="report", note="", starter="",
                     slice_=None, drop=None, section_index=0, allow_no_body=False, blank_tables=None, fix=None,
-                    body_from=None, plain_body=False, body_from_text=None, body_tail=0, frame_only=False, trim_lead_off=False):
+                    body_from=None, plain_body=False, body_from_text=None, body_tail=0, frame_only=False, trim_lead_off=False, no_h1=False):
     """샘플 hwpx → 양식 폴더(form.json, template.hwpx, protos.xml).
 
     fields: [{"key","label","sample"(샘플에 들어 있던 글자),"repl"(선택: 바꿀 글자, {{키}} 포함),
@@ -496,8 +496,10 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
             protos["para"] = _empty_like(plain[0])
             lead = re.match(r"^\s*", own_text(plain[0])).group(0)
             style["body_mode"], style["para_prefix"] = "plain", lead
-        elif "h1" not in protos:
+        elif "h1" not in protos and not no_h1:
             raise ValueError("□ 제목 줄 모양을 찾지 못했어요")
+        if "h1" not in protos and no_h1:                  # □ 제목 줄이 없는 양식(제목은 틀 문단): 아래 단계 견본으로 대신
+            protos["h1"] = clone(protos.get("item1") or protos["blank"])
 
         # 2) 표 견본
         from .package import HH

@@ -325,7 +325,7 @@ class NewFormsTests(unittest.TestCase):
                "이용범", "박미자", "홀로그램", "안지훈", "김건우", "강태환", "이시온", "859-5", "류재현", "최나은", "박갑수", "정경석", "농림축산식품부", "식품박물관", "나바위", "왕궁리", "미륵사", "솜리", "휴게소", "로컬푸드", "가축분뇨", "동산동", "어양동", "전주영", "김형남", "정서윤", "함열", "아이행복")
         for fid in self.VALUES and ("meeting_cover", "meeting_issue", "meeting_card", "audit_cover", "audit_toc", "audit_common", "audit_divider", "audit_i01", "audit_i03", "audit_i06", "audit_i23", "audit_i34", "audit_req",
                                     "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",
-                    "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref", "carry_item", "carry_acc", "nbud_main", "nbud_ref1", "nbud_ref2", "issue_list", "issue_card", "issue_ref", "ref_std"):
+                    "written_cover", "written_list", "written_item", "policy_cover", "policy_list", "policy_item", "policy_ref", "carry_item", "carry_acc", "nbud_main", "nbud_ref1", "nbud_ref2", "issue_list", "issue_card", "issue_ref", "ref_std", "nbud_meet_list", "nbud_meet_item"):
             d = os.path.join(FORMS, fid)
             blob = zipfile.ZipFile(os.path.join(d, "template.hwpx")).read("Contents/section0.xml").decode("utf-8")
             blob += open(os.path.join(d, "protos.xml"), encoding="utf-8").read() + open(os.path.join(d, "form.json"), encoding="utf-8").read()

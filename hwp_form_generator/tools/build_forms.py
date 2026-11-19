@@ -874,6 +874,23 @@ def build_more(paths):
                 {"key": "dept", "label": "부서(과)", "sample": mt[k + 2], "repl": "({{dept}})", "profile": "dept"},
             ], note="현안업무(번호) 제목 상자 + □ 추 진 방 향 3칸 표(고정) + □ 지난주 실적 + □ 금 후 계 획 + ▪ ◦ ▸ - 단계",
             starter=ISSUE_STARTER, slice_=(12, 56), body_from_text="□ 지난주", fix=_direction_table_fix)
+    if "nbm" in paths:                                             # 간부회의 당면업무(국가예산 국회단계 확보): 사업 목록 + 사업별 방문 결과
+        np_ = paths["nbm"]
+        nt = _flat_texts_para(np_, 35, 36)
+        kk = next(i for i, t in enumerate(nt) if re.fullmatch(r"당면업무\(\d+\)", t.strip()))
+        out["nbud_meet_list"] = report.register_report(
+            np_, os.path.join(F, "nbud_meet_list"), "nbud_meet_list", "당면업무 국가예산 (사업 목록)", "간부회의", [
+                {"key": "no", "label": "당면업무 번호", "sample": nt[kk], "repl": "당면업무({{no}})", "default": re.search(r"\d+", nt[kk]).group(0)},
+                {"key": "title", "label": "당면업무 제목", "sample": nt[kk + 1], "default": nt[kk + 1].strip()},
+                {"key": "scope", "label": "소관 (괄호 안)", "sample": nt[kk + 2], "repl": "({{scope}})", "default": nt[kk + 2].strip("()")},
+            ], note="당면업무(번호) 제목 상자 + □ 사 업 목 록 + 목록 표(연번·부처·부서명·사업명·사업기간·총사업비·국비·국가예산 요구/정부안/심의액·비고)",
+            allow_no_body=True, frame_only=True, slice_=(35, 38), blank_tables={"37": 2})
+        out["nbud_meet_item"] = report.register_report(
+            np_, os.path.join(F, "nbud_meet_item"), "nbud_meet_item", "당면업무 국가예산 (사업별 방문 결과)", "간부회의", [
+                {"key": "title", "label": "사업명", "sample": "미륵사지 미디어아트", "default": "(사업명)"},
+            ], note="□ 사업명 + ◦ 방문일자 · ◦ 방문자 · ◦ 활동결과(▸ 의원실 면담자 · ▸ 주요내용) + ◦ 금후계획",
+            starter="◦ 방문일자: \n◦ 방 문 자: \n◦ 활동결과\n▸(○○ 의원실) 면담자: \n▸(○○ 의원실) 면담자: \n▸주요내용: \n◦ 금후계획: ",
+            slice_=(38, 48), body_from_text="◦ 방문", no_h1=True)
     if "carry2" in paths:
         out["carry_acc"] = report.register_report(
             paths["carry2"], os.path.join(F, "carry_acc"), "carry_acc", "사고이월 사업현황", "이월 조서", [
@@ -905,8 +922,8 @@ if __name__ == "__main__":
         sys.exit(1)
     res = build(*pos) if pos else {}
     if extra:
-        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "carry2", "nbud", "issue", "audit2", "mi")}))
-        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "carry2", "nbud", "issue", "audit2", "mi")}))
+        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "carry2", "nbud", "issue", "audit2", "mi", "nbm")}))
+        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "carry2", "nbud", "issue", "audit2", "mi", "nbm")}))
         res.update(build_queries({k: v for k, v in extra.items() if k in ("written", "policy")}))
     for k, v in res.items():
         print(k, "→", {a: b for a, b in v.items() if a != "style"})

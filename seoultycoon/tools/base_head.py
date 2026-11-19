@@ -51,7 +51,7 @@ rgba = Image.fromarray(np.dstack([a.astype(np.uint8), al]), 'RGBA'); BB = rgba.g
 b = np.asarray(rgba).astype(int); skb = skin(b); ey_b = eyes(b, skb); xs = np.where(skb[ey_b + int(rgba.height * 0.04)])[0]
 cx_b = (xs.min() + xs.max()) / 2; fw_b = xs.max() - xs.min() + 1
 # 크기: 표정 조각의 눈~턱 길이(HD) = 베이스 그림의 눈(431)~턱(960) 길이. 위치: 두 눈 가운데(825,431)를 표정 조각의 두 눈 가운데에 맞춘다(원본 좌표, 이목구비를 지우기 전 측정)
-ch_ff = np.median([np.where(skin(hd_of(f'ff{i}')).any(1))[0].max() for i in FEM]); f = (ch_ff - ey_ff) / (960 - 431) * float(os.environ.get('BASE_SCALE', '0.93'))
+ch_ff = np.median([np.where(skin(hd_of(f'ff{i}')).any(1))[0].max() for i in FEM]); f = (ch_ff - ey_ff) / (960 - 431) * float(os.environ.get('BASE_SCALE', '1.0'))
 cx_ff = (el[0] + er[0]) / 2; ey_ff = (el[1] + er[1]) / 2; cx_b = 825 - BB[0]; ey_b = 431 - BB[1]
 big = rgba.resize((max(1, round(rgba.width * f)), max(1, round(rgba.height * f))), Image.LANCZOS)
 bx = round(FF_DX + cx_ff - cx_b * f); by = round(FF_DY + ey_ff - ey_b * f)
@@ -62,11 +62,13 @@ open(p, 'wb').write(raw + b'BIGH' + int(bx).to_bytes(2, 'big', signed=True) + in
 p = f'{mod}/fh1.d'; raw = open(p, 'rb').read()
 if not raw.endswith(b'SKIP'): open(p, 'wb').write(raw + b'SKIP')
 # 표정 조각을 베이스에 맞춘다: (1) 살색 톤을 아래 베이스의 같은 자리 색으로 저주파 보정(이마·볼 톤 연결) (2) 바깥 윤곽에서 안쪽으로 거리 기반 알파 흐림(얼굴 라인 이음새 제거)
-B = np.asarray(big).astype(float); BW, BH = big.size
+B = np.asarray(big).astype(float); BW, BH = big.size; CUT = int(os.environ.get('FF_CUT', '1'))
 def fit_ff(name):
     p = f'{mod}/{name}.d'; raw = open(p, 'rb').read(); e1 = raw.find(b'IEND') + 8; e2 = raw.find(b'IEND', e1) + 8
     lo = np.asarray(Image.open(io.BytesIO(raw[:e1])).convert('RGBA')).astype(float); hd = np.asarray(Image.open(io.BytesIO(raw[e1:e2])).convert('RGBA')).astype(float)
     def fit(a, k):
+        a = a.copy(); a[a.shape[0] - CUT * (2 // k):, :, 3] = 0                       # 표정 조각 맨 아래 CUT 줄(저해상도 기준) 제거 — 턱이 베이스 턱선에 맞도록
+        _t = 6 // k; _dk = a[:_t, :, :3].mean(2) < 90; a[:_t, :, 3] = np.where(_dk, 0, a[:_t, :, 3])        # 이마 맨 위 모서리의 어두운 점(머리카락 찌꺼기) 제거
         h, w = a.shape[:2]; under = np.zeros((h, w, 4))
         for y in range(h):                                                   # 이 조각 화소 아래에 깔리는 베이스 색 (표정 조각 위치 = 베이스 기준 FF_DX,FF_DY 에서 bx,by 를 뺀 자리)
             for x in range(w):

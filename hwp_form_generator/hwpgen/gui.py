@@ -82,15 +82,14 @@ class Output:
             br.clear_target(replace == "all")
         page = page_setup_of(pkg)
         empty = br.is_empty_doc()
-        keep_section = bool(empty and page)          # 빈 문서에 첫 양식을 넣을 때만 샘플의 쪽 설정(용지·여백)을 가져온다
+        keep_section = False                         # 파일의 구역 설정(secPr)은 가져오지 않는다 — 가져오면 한글이 구역을 나눠 맨 앞에 빈 쪽 한 장이 생긴다
         if empty:                                    # 빈 문서의 첫 양식은 첫 쪽에서 바로 시작(맨 앞 '쪽 나눔' 때문에 한 쪽이 비지 않게)
             for p0 in pkg.section(0).findall(HP + "p")[:2]:
                 if p0.get("pageBreak") == "1":
                     p0.set("pageBreak", "0")
-        if keep_section:
-            br.apply_page_setup(page)                # 되면 이쪽으로도 한 번 더 맞춰 둔다(안 돼도 괜찮음)
-        else:
-            strip_section_props(pkg)                 # 이미 내용이 있는 문서의 쪽 설정은 건드리지 않는다
+        if empty and page and not br.apply_page_setup(page):   # 쪽 여백은 한글의 쪽 설정 명령으로 맞춘다(구역을 나누지 않고)
+            app.say("쪽 여백을 맞추지 못했어요 — 한글 파일 > 편집 용지에서 확인해 주세요", ok=False)
+        strip_section_props(pkg)                     # 이미 내용이 있는 문서의 쪽 설정도 건드리지 않는다
         from .package import trim_trailing_blanks, trim_leading_pagebreak_blanks, big_tables_own_page, starts_new_page
         big_tables_own_page(pkg)                     # 쪽만 한 큰 표는 새 쪽에서(사이의 빈 줄만 다음 쪽에 남는 빈 쪽 방지)
         trim_trailing_blanks(pkg)                    # 끝의 빈 문단은 빼서 쪽이 넘치지 않게(빈 쪽 방지)

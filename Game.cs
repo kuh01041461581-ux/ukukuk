@@ -1376,7 +1376,7 @@ internal sealed class MaryongGame : Form
 	// 홈 화면을 잠시 열어 두면 한 번만 먼저 말을 걸어요
 	public static void InviteOnce() { if (invited) return; invited = true; Invite("잠깐 쉬어 갈까요? 저랑 게임 한 판 해요! (눌러 보세요)"); }
 	// 코드를 입력해서 들어온 경우만 처음부터 게임 메뉴를 보여줘요. 그냥 들어오면 기록이 남는 판을 3번 마칠 때까지 무작위 게임이 이어져요
-	private static readonly Func<MiniGame>[] Makers = { () => new KartGame(), () => new VolleyGame(), () => new SoliGame(), () => new CatchGame(), () => new JumpGame(), () => new BatGame(), () => new StressGame(), () => new SuikaGame(), () => new TowerGame(), () => new TimeGame(), () => new MemoryGame(), () => new Game2048(), () => new TypeGame(), () => new BasketGame(), () => new BowlGame(), () => new SlingGame(), () => new MoleGame(), () => new ShellGame(), () => new MicroGame(), () => new OfficeGame(), () => new ArcheryGame(), () => new ClimbGame(), () => new IceGame(), () => new CurlGame(), () => new RhythmGame(), () => new GolfGame(), () => new JumpRopeGame(), () => new RandomTdGame(), () => new MatchPuzzleGame(), () => new RunGame(), () => new FlapGame(), () => new FreeKickGame(), () => new CoverGame() };
+	private static readonly Func<MiniGame>[] Makers = { () => new KartGame(), () => new VolleyGame(), () => new SoliGame(), () => new CatchGame(), () => new JumpGame(), () => new BatGame(), () => new StressGame(), () => new SuikaGame(), () => new TowerGame(), () => new TimeGame(), () => new MemoryGame(), () => new Game2048(), () => new TypeGame(), () => new BasketGame(), () => new BowlGame(), () => new SlingGame(), () => new MoleGame(), () => new ShellGame(), () => new MicroGame(), () => new OfficeGame(), () => new ArcheryGame(), () => new ClimbGame(), () => new IceGame(), () => new CurlGame(), () => new RhythmGame(), () => new GolfGame(), () => new JumpRopeGame(), () => new RandomTdGame(), () => new MatchPuzzleGame(), () => new RunGame(), () => new FlapGame(), () => new FreeKickGame(), () => new CoverGame(), () => new SurvivalGame() };
 	private static List<KeyValuePair<string, string>> catalog;
 	// 설정창 '오락실' 페이지가 쓰는 게임 목록 (이름 · 키)
 	internal static List<KeyValuePair<string, string>> Catalog()
@@ -1399,7 +1399,7 @@ internal sealed class MaryongGame : Form
 	private static string RunsPath { get { return Path.Combine(Program.DataDir, "arcade_runs.txt"); } }
 	private static int Runs { get { if (!runsLoaded) { runsLoaded = true; try { int.TryParse(File.ReadAllText(RunsPath).Trim(), out runs); } catch { } } return runs; } }
 	private static void AddRun() { int n = Runs + 1; runs = n; try { Directory.CreateDirectory(Program.DataDir); File.WriteAllText(RunsPath, n.ToString()); } catch { } }
-	public static void OpenMenu() { codeEntry = true; Open(); codeEntry = false; if (cur != null && !cur.IsDisposed) { cur.gated = false; cur.state = 0; cur.page = 0; } }
+	public static void OpenMenu() { codeEntry = true; Open(); codeEntry = false; if (cur != null && !cur.IsDisposed && cur.state != 2 && cur.state != 4) { cur.gated = false; cur.state = 0; cur.page = 0; cur.Invalidate(); } }
 	public static void Open()
 	{
 		try { if (cur != null && !cur.IsDisposed) { cur.WindowState = FormWindowState.Normal; cur.Activate(); return; } cur = new MaryongGame(); cur.Show(); cur.Activate(); }
@@ -1432,10 +1432,9 @@ internal sealed class MaryongGame : Form
 		{
 			// 히든 게임: 다른 게임을 모두 한 번씩 해보면 열려요
 			playedN = games.Count(m => best[m.Key] > 0); totalN = games.Length;
-			MiniGame hid = new SurvivalGame(); hid.Mascot = Program.OutfitImage(hid.Costume) ?? mas; hid.Reset(); best[hid.Key] = LoadBoard(hid.Key).Select(k => k.Value).DefaultIfEmpty(0).Max();
 			try { Timer wt = new Timer { Interval = 1200 }; wt.Tick += delegate { wt.Stop(); wt.Dispose(); try { new CityHallGame().Warm(); } catch { } }; wt.Start(); } catch { }
 			MiniGame hid2 = new CityHallGame(); hid2.Mascot = Program.OutfitImage(hid2.Costume) ?? mas; hid2.Reset(); best[hid2.Key] = LoadBoard(hid2.Key).Select(k => k.Value).DefaultIfEmpty(0).Max();
-			if (playedN >= totalN || best[hid.Key] > 0 || best[hid2.Key] > 0) { List<MiniGame> l2 = new List<MiniGame>(games); l2.Add(hid); l2.Add(hid2); games = l2.ToArray(); hiddenOpen = true; }
+			if (playedN >= totalN || best[hid2.Key] > 0) { List<MiniGame> l2 = new List<MiniGame>(games); l2.Add(hid2); games = l2.ToArray(); hiddenOpen = true; }
 		}
 		catch (Exception ex) { Program.LogErr(ex); }
 		FormBorderStyle = FormBorderStyle.Sizable; MaximizeBox = true; MinimizeBox = true; Text = "마룡이 오락실"; ShowInTaskbar = true; StartPosition = FormStartPosition.CenterScreen;
@@ -1932,7 +1931,7 @@ internal sealed class MaryongGame : Form
 				if (!has && (m.Key == "soli" || m.Key == "kart")) { RectangleF nb = new RectangleF(r.X + r.Width / 2f - 21f, r.Y + 12, 42, 18); using (GraphicsPath np = Gfx.Round(nb, 9)) using (SolidBrush nbb = new SolidBrush(Color.FromArgb(235, 255, 86, 110))) gr.FillPath(nbb, np); MiniGame.Txt(gr, "NEW", 8.5f, 2, Color.White, nb.X, nb.Y, nb.Width, nb.Height, StringAlignment.Center); }
 				MiniGame.Txt(gr, has ? "★ 최고 " + best[m.Key] + "점" : "아직 기록 없음", 10f, has ? 2 : 0, has ? Color.FromArgb(255, 214, 90) : Color.FromArgb(170, 255, 255, 255), r.X, r.Y + 102, r.Width, 22, StringAlignment.Center);
 			}
-			if (!hiddenOpen) MiniGame.Txt(gr, "? 비밀 게임 2종 : 모든 게임을 한 번씩 해보면 열려요 (" + playedN + " / " + totalN + ")", 9.5f, 1, Color.FromArgb(190, 255, 226, 140), 0, 502, MiniGame.W, 20, StringAlignment.Center);
+			if (!hiddenOpen) MiniGame.Txt(gr, "? 비밀 게임 1종 : 모든 게임을 한 번씩 해보면 열려요 (" + playedN + " / " + totalN + ")", 9.5f, 1, Color.FromArgb(190, 255, 226, 140), 0, 502, MiniGame.W, 20, StringAlignment.Center);
 			if (Pages > 1) { Btn(gr, PrevBtn, "◀ 이전", false); Btn(gr, NextBtn, "다음 ▶", false); MiniGame.Txt(gr, (page + 1) + " / " + Pages, 11f, 1, Color.FromArgb(200, 255, 255, 255), 0, 528, MiniGame.W, 34, StringAlignment.Center); }
 			MiniGame.Txt(gr, "Esc : 닫기  ·  M : 소리", 9.5f, 0, Color.FromArgb(130, 255, 255, 255), 0, MiniGame.H - 28, MiniGame.W, 20, StringAlignment.Center);
 			{ bool rh = RankBtn.Contains(inp.Mx, inp.My); Panel(gr, RankBtn, Color.FromArgb(rh ? 90 : 55, 255, 214, 90), 15); if (Spr.Get("ms_ui_cup") != null) Spr.Draw(gr, "ms_ui_cup", 32f, 54f + (rh ? -1f : 0f), 24f, 26f, rh ? (float)Math.Sin(tt * 10) * 6f : 0f); else { gr.FillPolygon(Brushes.Gold, new PointF[] { new PointF(24, 49), new PointF(40, 49), new PointF(38, 59), new PointF(26, 59) }); gr.FillRectangle(Brushes.Gold, 30, 59, 4, 4); gr.FillRectangle(Brushes.Gold, 26, 63, 12, 2); } MiniGame.Txt(gr, "랭킹", 10.5f, 2, Color.FromArgb(255, 236, 170), 44, 40, 50, 30, StringAlignment.Near); }

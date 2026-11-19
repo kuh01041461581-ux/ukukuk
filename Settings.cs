@@ -870,16 +870,12 @@ internal partial class Program
 				catch { }
 			};
 			dRefresh(); pAr.VisibleChanged += delegate { if (pAr.Visible) dRefresh(); };
-			List<KeyValuePair<string, string>> cat = MaryongGame.Catalog();
-			int rows = (cat.Count + 2) / 3; Card cg = card(pAr, 284, 282);
-			Panel glHost = new Panel(); glHost.BackColor = cg.BackColor; glHost.AutoScroll = true; glHost.AutoScrollMinSize = new Size(0, Zs(rows * 34 + 4)); glHost.Location = new Point(Zs(8), Zs(40)); glHost.Size = new Size(Zs(CW - 16), Zs(234)); cg.Controls.Add(glHost);
-			Lbl(cg, "게임 고르기 (눌러서 바로 시작 · 아래로 스크롤)", 11f, 1, Theme.Ink, 18, 12, 360, 22);
-			for (int q = 0; q < cat.Count; q++)
-			{
-				string key = cat[q].Key; TButton b = new TButton(cat[q].Value, BK.Soft); b.Pt = 9f; b.BackColor = Theme.Bg;
-				int bw = 134; b.Pt = 8.5f; b.Location = new Point(Zs(10 + (q % 3) * (bw + 6)), Zs((q / 3) * 34)); b.Size = new Size(Zs(bw), Zs(30));
-				b.Click += delegate { MaryongGame.OpenGame(key); }; glHost.Controls.Add(b);
-			}
+			Card cg = card(pAr, 284, 92);
+			Lbl(cg, "오락실 열기", 11f, 1, Theme.Ink, 18, 12, 360, 22);
+			Lbl(cg, "게임 목록 화면이 바로 열려요 (명령 입력으로 들어갈 때와 같아요)", 9f, 0, Theme.Sub, 18, 36, CW - 36 - 130, 18);
+			TButton openAr = new TButton("오락실 열기", BK.Primary); openAr.Pt = 9.5f; openAr.Location = new Point(Zs(CW - 18 - 110), Zs(26)); openAr.Size = new Size(Zs(110), Zs(36));
+			openAr.Click += delegate { MaryongGame.OpenMenu(); }; cg.Controls.Add(openAr);
+			Lbl(cg, "비밀 게임은 모든 게임을 한 번씩 해보면 열려요", 9f, 0, Theme.Muted, 18, 62, 400, 18);
 		}
 		Panel pGu = pages[9];
 		head(pGu, "사용법", "처음이라면 위에서부터 차례로 읽어 보세요");

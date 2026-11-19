@@ -10,7 +10,7 @@ function renderSettings() {
     <p class="muted" style="margin:8px 0 0">데이터는 자동으로 <b>내 PC의 일상경비관리 폴더(AppData)</b>에 저장되고, 하루 한 번 자동 백업(30일)됩니다.</p></div>` : ''}
   <div class="card"><h2>보여줄 화면</h2><p class="sub" style="margin:0 0 8px">기본은 <b>일상경비·공공요금</b>입니다. 켜면 <b>통계목별 조회 엑셀</b>에 있는 모든 사업(인건비·사업비 포함)의 예산·집행·잔액을 사업별로 볼 수 있는 <b>전체 사업 진척</b> 탭이 추가됩니다.</p>
     <label class="row" style="gap:8px;margin-bottom:6px"><input type="checkbox" id="s-helper" ${S.opt && S.opt.helper ? 'checked' : ''}> <b>공익요원 모드</b> <span class="muted">(이 PC는 [고지서 분류]만 보이고 시작 화면도 그 탭 — 끄려면 [설정·백업]에서 해제)</span></label>
-    <label class="row" style="gap:8px"><input type="checkbox" id="s-biz" ${S.opt && S.opt.biz ? 'checked' : ''}> <b>과 전체 예산</b> 탭 표시 (전체 사업 진척 · 과 요약 보고서) ${S.biz ? `<span class="muted">(불러온 자료: ${esc(S.biz.file)} · ${S.biz.entries.length}건)</span>` : '<span class="muted">(통계목별 조회 엑셀을 불러오면 채워집니다)</span>'}</label></div>
+    <label class="row" style="gap:8px"><input type="checkbox" id="s-biz" ${S.opt && S.opt.biz === false ? '' : 'checked'}> <b>과 전체 예산</b> 탭 표시 (전체 사업 진척 · 과 요약 보고서) ${S.biz ? `<span class="muted">(불러온 자료: ${esc(S.biz.file)} · ${S.biz.entries.length}건)</span>` : '<span class="muted">(통계목별 조회 엑셀을 불러오면 채워집니다)</span>'}</label></div>
   <div class="card"><h2>경고 기준 <span class="muted" style="font-weight:400;font-size:12px">과 요약 보고서의 주의 표시</span></h2><div class="row" style="gap:18px;flex-wrap:wrap">
     <label class="fld" style="margin:0">「집행 저조」: 집행률이 연 경과율보다<input type="number" id="s-thrlow" min="1" max="90" value="${(S.opt && S.opt.thrLow) || 20}" style="width:80px"> %p 이상 낮을 때</label>
     <label class="fld" style="margin:0">「잔액 소진 임박」: 집행률이<input type="number" id="s-thrhot" min="50" max="100" value="${(S.opt && S.opt.thrHot) || 95}" style="width:80px"> % 이상일 때</label></div></div>
@@ -49,7 +49,7 @@ $('#p-settings').addEventListener('change', e => { if (e.target.id === 's-thrlow
 /* 숫자 칸을 떠날 때 콤마 형식 복원 */
 document.addEventListener('focusout', e => { const t = e.target; if (t.matches && t.matches('input.cellin[inputmode="numeric"]')) { const v = parseNum(t.value); if (v != null && !isNaN(v)) t.value = won(v); } });
 
-function tabList() { if (S.opt && S.opt.helper) return [['sort', '고지서 분류'], ['guide', '사용법'], ['settings', '설정·백업']]; const t = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황'], ['sort', '고지서 분류']]; if (S.opt && S.opt.biz) t.push(['biz', '전체 사업 진척'], ['report', '과 요약 보고서']); t.push(['import', '파일 불러오기'], ['guide', '사용법'], ['settings', '설정·백업']); return t; }
+function tabList() { if (S.opt && S.opt.helper) return [['sort', '고지서 분류'], ['guide', '사용법'], ['settings', '설정·백업']]; const t = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황'], ['sort', '고지서 분류']]; if (!(S.opt && S.opt.biz === false)) t.push(['biz', '전체 사업 진척'], ['report', '과 요약 보고서']); t.push(['import', '파일 불러오기'], ['guide', '사용법'], ['settings', '설정·백업']); return t; }
 const TABS_ALL = ['daily', 'util', 'sort', 'biz', 'report', 'import', 'guide', 'settings'];
 const RENDER = { daily: renderDaily, util: renderUtil, sort: renderSort, biz: renderBiz, report: renderReport, import: renderImport, guide: renderGuide, settings: renderSettings };
 function showTab(t) {
@@ -64,7 +64,7 @@ function updateTitle() { const t = `${S.year} ${S.dept ? S.dept + ' ' : ''}일�
 function renderTabBar() { $('#tabs').innerHTML = tabList().map(([k, n]) => `<button role="tab" data-t="${k}" aria-selected="${k === UI.tab}">${n}</button>`).join(''); }
 function init() {
   for (const k in S.util) ensurePaid(S.util[k]);
-  S.tx = S.tx || []; S.opt = S.opt || {}; if (S.biz && !(S.hist || []).some(h => h.asOf === S.biz.asOf)) pushHist(S.biz); if ((UI.tab === 'biz' || UI.tab === 'report') && !S.opt.biz) UI.tab = 'daily'; if (S.opt.helper && !['sort', 'guide', 'settings'].includes(UI.tab)) UI.tab = 'sort'; updateTitle();
+  S.tx = S.tx || []; S.opt = S.opt || {}; if (S.biz && !(S.hist || []).some(h => h.asOf === S.biz.asOf)) pushHist(S.biz); if ((UI.tab === 'biz' || UI.tab === 'report') && S.opt.biz === false) UI.tab = 'daily'; if (S.opt.helper && !['sort', 'guide', 'settings'].includes(UI.tab)) UI.tab = 'sort'; updateTitle();
   { const sv = $('#sv'); if (sv && S.updatedAt) { const u = new Date(S.updatedAt); sv.textContent = '데이터 기준 ' + (u.getMonth() + 1) + '/' + u.getDate() + ' ' + String(u.getHours()).padStart(2, '0') + ':' + String(u.getMinutes()).padStart(2, '0'); } }
   $('#asof').value = S.asOf; updateBackupChip();
   renderTabBar();

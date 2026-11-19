@@ -32,3 +32,43 @@ for i in MALE:
     Image.fromarray(fit(lo, FL, 1).astype(np.uint8), 'RGBA').save(b1, format='PNG'); Image.fromarray(fit(hd, FH, 2).astype(np.uint8), 'RGBA').save(b2, format='PNG')
     open(f'{mod}/{n}.d', 'wb').write(b1.getvalue() + b2.getvalue() + raw[e2:])
 print('남자 표정 조각 이음새 정리', len(MALE))
+
+# 구레나룻: 바탕 얼굴(fd0) 옆, 머리 조각(fh0~fh5) 아래로 비는 자리(배경이 비침)를 머리카락 색으로 메운다
+def save_layers(n, raw, e2, lo, hd):
+    b1, b2 = io.BytesIO(), io.BytesIO(); Image.fromarray(lo.astype(np.uint8), 'RGBA').save(b1, format='PNG'); Image.fromarray(hd.astype(np.uint8), 'RGBA').save(b2, format='PNG')
+    open(f'{mod}/{n}.d', 'wb').write(b1.getvalue() + b2.getvalue() + raw[e2:])
+def sideburn(a, k):
+    a = a.copy(); h, w = a.shape[:2]; op = a[..., 3] > 100; lum = a[..., :3].mean(2)
+    hair = op & (lum < 90); hc = np.median(a[hair][:, :3], axis=0) if hair.any() else np.array([50., 30., 30.])
+    sk = skin(a)
+    for y in range(int(h * 0.62)):
+        xs = np.where(sk[y])[0]
+        if len(xs) < 2: continue
+        L, R = xs.min(), xs.max(); wd = max(1, int(round((0.62 * h - y) / (0.62 * h) * 5 * k / 2 + 1)))   # 위는 넓게, 귀 아래로 갈수록 좁게
+        for x in range(max(0, L - wd), L):
+            if a[y, x, 3] < 100: a[y, x, :3] = hc * (0.9 + 0.1 * (x - L + wd) / wd); a[y, x, 3] = 255
+        for x in range(R + 1, min(w, R + 1 + wd)):
+            if a[y, x, 3] < 100: a[y, x, :3] = hc * (0.9 + 0.1 * (R + wd - x) / wd); a[y, x, 3] = 255
+    return a
+for n in ('fd0', 'fd2'):
+    if os.path.exists(f'{mod}/{n}.d'):
+        raw, e1, e2, lo, hd = layers(n); save_layers(n, raw, e2, sideburn(lo, 1), sideburn(hd, 2))
+# 어깨: 상체 조각(fb0, fb2) 위쪽 줄의 안쪽 빈칸(목과 어깨 사이)을 양옆 색으로 메운다
+def fill_top(a, rows):
+    a = a.copy(); h, w = a.shape[:2]
+    for y in range(min(rows, h)):
+        op = np.where(a[y, :, 3] > 100)[0]
+        if len(op) < 2: continue
+        for x in range(op.min(), op.max() + 1):
+            if a[y, x, 3] <= 100:
+                l = x - 1
+                while l > op.min() and a[y, l, 3] <= 100: l -= 1
+                r = x + 1
+                while r < op.max() and a[y, r, 3] <= 100: r += 1
+                a[y, x] = a[y, l] if (x - l) <= (r - x) else a[y, r]
+    return a
+for n in ('fb0', 'fb2'):
+    if os.path.exists(f'{mod}/{n}.d'):
+        raw, e1, e2, lo, hd = layers(n)
+        if b'BIGH' not in raw: save_layers(n, raw, e2, fill_top(lo, 6), fill_top(hd, 12))
+print('남자 구레나룻·어깨 빈칸 메움')

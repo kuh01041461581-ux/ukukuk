@@ -299,6 +299,192 @@ class HwpBridge:
         except Exception as e:                             # noqa: BLE001
             raise BridgeError("쪽 번호를 넣지 못했어요: %s" % e)
 
+    # ------------------------------------------------------------------ 레시피 재생용 기본 동작
+    # 참고 프로그램(범정부 오피스)이 쓰는 한글 명령·항목 이름을 그대로 따른다(동작 만들기 → 항목 지정 → 실행).
+    _ALIGN = {"JUSTIFY": "ParagraphShapeAlignJustify", "LEFT": "ParagraphShapeAlignLeft", "RIGHT": "ParagraphShapeAlignRight",
+              "CENTER": "ParagraphShapeAlignCenter", "DISTRIBUTE": "ParagraphShapeAlignDistribute",
+              "DISTRIBUTE_SPACE": "ParagraphShapeAlignDistribute"}
+
+    def _act(self, name, items):
+        hwp = self._need()
+        act = hwp.CreateAction(name)
+        st = act.CreateSet()
+        act.GetDefault(st)
+        for k, v in items:
+            st.SetItem(k, v)
+        return act.Execute(st)
+
+    def rp_char(self, cs):
+        """글자 모양: 글꼴·크기(1/100pt)·색·자간·장평 → 굵게·기울임·밑줄"""
+        hwp = self._need()
+        items = []
+        for lg in self._LANGS:
+            # 언어별 글꼴·자간·장평 그대로(기호 글자는 기호용 글꼴로 — 한 글꼴로 뭉치면 ◦ ▸ 같은 한컴 기호가 엉뚱한 글자로 보인다)
+            face = (cs.get("fonts") or {}).get(lg.lower()) or cs.get("font")
+            if face:
+                items += [("FaceName" + lg, face), ("FontType" + lg, 1)]
+            items += [("Spacing" + lg, int((cs.get("spacings") or {}).get(lg.lower(), cs.get("spacing", 0)))),
+                      ("Ratio" + lg, int((cs.get("ratios") or {}).get(lg.lower(), cs.get("ratio", 100))))]
+        if cs.get("h"):
+            items.append(("Height", int(cs["h"])))
+        c = cs.get("color")
+        if c:
+            items.append(("TextColor", hwp.RGBColor(int(c[1:3], 16), int(c[3:5], 16), int(c[5:7], 16))))
+        self._act("CharShape", items)
+        hwp.HAction.Run("CharShapeNormal")
+        for flag, act in (("bold", "CharShapeBold"), ("italic", "CharShapeItalic"), ("ul", "CharShapeUnderline")):
+            if cs.get(flag):
+                hwp.HAction.Run(act)
+
+    def rp_para(self, ps):
+        """문단 모양: 정렬(명령) + 왼쪽·오른쪽 여백·들여쓰기·문단 위 아래·줄 간격(항목, 값은 HWPUNIT×2)"""
+        hwp = self._need()
+        hwp.HAction.Run(self._ALIGN.get(ps.get("align", "JUSTIFY"), "ParagraphShapeAlignJustify"))
+        self._act("ParagraphShape", [
+            ("LeftMargin", int(ps.get("left", 0)) * 2), ("RightMargin", int(ps.get("right", 0)) * 2),
+            ("Indentation", int(ps.get("indent", 0)) * 2), ("PrevSpacing", int(ps.get("prev", 0)) * 2),
+            ("NextSpacing", int(ps.get("next", 0)) * 2), ("LineSpacingType", 0), ("LineSpacing", int(ps.get("ls", 160)))])
+
+    def rp_table(self, rows, cols, colw, rowh):
+        """표 만들기: 칸 너비·줄 높이(HWPUNIT) 지정, 글자처럼 취급. 만든 뒤 커서는 첫 칸"""
+        hwp = self._need()
+        ps = hwp.HParameterSet.HTableCreation
+        hwp.HAction.GetDefault("TableCreate", ps.HSet)
+        ps.Rows, ps.Cols = int(rows), int(cols)
+        ps.WidthType, ps.HeightType = 2, 1
+        ps.CreateItemArray("ColWidth", int(cols))
+        for i in range(int(cols)):
+            ps.ColWidth.SetItem(i, int(colw[i]))
+        ps.CreateItemArray("RowHeight", int(rows))
+        for i in range(int(rows)):
+            ps.RowHeight.SetItem(i, int(rowh[i]))
+        ps.TableProperties.TreatAsChar = 1
+        if hwp.HAction.Execute("TableCreate", ps.HSet) is False:
+            raise BridgeError("표를 만들지 못했어요")
+
+    def rp_merge(self, rs, cs):
+        """지금 칸에서 오른쪽 cs-1칸, 아래 rs-1칸까지 블록을 잡아 합친다(안 되면 그냥 둔다)"""
+        try:
+            self.run_action("TableCellBlock")
+            for _ in range(cs - 1):
+                self.run_action("TableCellBlockRight", "MoveRight")
+            for _ in range(rs - 1):
+                self.run_action("TableCellBlockDown", "MoveDown")
+            self.run_action("TableMergeCell")
+        except Exception:                                  # noqa: BLE001
+            try:
+                self.run_action("Cancel")
+            except Exception:                              # noqa: BLE001
+                pass
+
+    def rp_cell_format(self, c):
+        """칸 하나의 배경색·테두리(없음/굵기)·세로 맞춤 — 칸을 블록으로 잡고 지정한 뒤 선택을 푼다"""
+        hwp = self._need()
+        try:
+            hwp.HAction.Run("TableCellBlock")
+        except Exception:                                  # noqa: BLE001
+            return
+        try:
+            fill = c.get("fill")
+            if fill and fill.upper() != "#FFFFFF":
+                self.cell_fill(int(fill[1:3], 16), int(fill[3:5], 16), int(fill[5:7], 16))
+        except Exception:                                  # noqa: BLE001
+            pass
+        try:
+            from .recipe import bd_index
+            none_code = hwp.HwpLineType("None") if hasattr(hwp, "HwpLineType") else 0
+            names = {"l": "Left", "r": "Right", "t": "Top", "b": "Bottom"}
+            items = []
+            for k, nm in names.items():
+                typ, mm = (c.get("bd") or {}).get(k, ["SOLID", 0.12])
+                if typ == "NONE":
+                    items.append(("BorderType" + nm, none_code))
+                else:
+                    items.append(("BorderWidth" + nm, bd_index(mm)))
+            self._act("CellBorderFill", items)
+        except Exception:                                  # noqa: BLE001
+            pass
+        try:
+            va = {"TOP": 0, "CENTER": 1, "BOTTOM": 2}.get(c.get("va", "TOP"), 0)
+            ps = hwp.HParameterSet.HShapeObject
+            hwp.HAction.GetDefault("TablePropertyDialog", ps.HSet)
+            ps.HSet.SetItem("ShapeType", 3)
+            ps.HSet.SetItem("ShapeCellSize", 0)
+            ps.ShapeTableCell.VertAlign = va
+            hwp.HAction.Execute("TablePropertyDialog", ps.HSet)
+        except Exception:                                  # noqa: BLE001
+            pass
+        try:                                               # 칸 안 여백(참고 프로그램의 '셀여백지정' 방식)
+            mg = c.get("margin")
+            if mg:
+                ps = hwp.HParameterSet.HShapeObject
+                hwp.HAction.GetDefault("TablePropertyDialog", ps.HSet)
+                ps.HSet.SetItem("ShapeType", 3)
+                ps.HSet.SetItem("ShapeCellSize", 0)
+                ps.ShapeTableCell.HasMargin = 1
+                ps.ShapeTableCell.MarginLeft, ps.ShapeTableCell.MarginRight = int(mg[0]), int(mg[1])
+                ps.ShapeTableCell.MarginTop, ps.ShapeTableCell.MarginBottom = int(mg[2]), int(mg[3])
+                hwp.HAction.Execute("TablePropertyDialog", ps.HSet)
+        except Exception:                                  # noqa: BLE001
+            pass
+        try:
+            hwp.HAction.Run("Cancel")
+        except Exception:                                  # noqa: BLE001
+            pass
+
+    def rp_table_leave(self):
+        """표에서 나와 그 표가 든 문단 끝으로(참고 프로그램의 '표나가기')"""
+        hwp = self._need()
+        hwp.HAction.Run("CloseEx")
+        hwp.HAction.Run("MoveLineEnd")
+
+    def rp_picture(self, path):
+        hwp = self._need()
+        hwp.InsertPicture(path, 1, 3, 0, 0, 0)
+        hwp.HAction.Run("ParagraphShapeAlignCenter")
+
+    # ------------------------------------------------------------------ 엔진 검증용
+    def save_hwpx(self, path):
+        """지금 문서를 hwpx 로 저장(참고 프로그램의 FileSaveAs_S 방식, 안 되면 SaveAs)"""
+        hwp = self._need()
+        path = os.path.abspath(path)
+        try:
+            act = hwp.CreateAction("FileSaveAs_S")
+            st = act.CreateSet()
+            act.GetDefault(st)
+            st.SetItem("FileName", path)
+            st.SetItem("Format", "HWPX")
+            if act.Execute(st) is not False and os.path.exists(path):
+                return True
+        except Exception:                                  # noqa: BLE001
+            pass
+        try:
+            hwp.SaveAs(path, "HWPX", "")
+            return os.path.exists(path)
+        except Exception as e:                             # noqa: BLE001
+            raise BridgeError("hwpx 로 저장하지 못했어요: %s" % e)
+
+    def scratch_build(self, recipe_, images, page, out_path):
+        """새 문서를 열어 레시피를 명령으로 만들고 out_path(hwpx)로 저장한 뒤 그 문서를 닫는다 — 지금 열어 둔 문서는 건드리지 않는다"""
+        from .recipe import Player
+        hwp = self._need()
+        hwp.HAction.Run("FileNew")
+        try:
+            if page:
+                self.apply_page_setup(page)
+            Player(self, recipe_, images or {}, fresh=True, first_page=True).run()
+            if not self.save_hwpx(out_path):
+                raise BridgeError("검증용 파일을 저장하지 못했어요")
+        finally:
+            try:
+                hwp.Clear(1)                               # 저장 여부를 묻지 않고 비운 뒤 닫는다
+            except Exception:                              # noqa: BLE001
+                pass
+            try:
+                hwp.HAction.Run("FileClose")
+            except Exception:                              # noqa: BLE001
+                pass
+
     def insert_table(self, rows, cols):
         """커서 위치에 rows × cols 표 만들기(한글 표 만들기 명령)"""
         hwp = self._need()

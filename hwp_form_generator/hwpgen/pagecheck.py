@@ -23,22 +23,28 @@ class Styles:
     def __init__(self, pkg):
         h = pkg.header()
         self.fonts = {}
+        self.fonts_by = {}
         for ff in h.iter(HH + "fontface"):
-            if ff.get("lang") == "HANGUL":
-                for f in ff.findall(HH + "font"):
-                    self.fonts[f.get("id")] = f.get("face")
+            lg = (ff.get("lang") or "").lower()
+            self.fonts_by[lg] = {f.get("id"): f.get("face") for f in ff.findall(HH + "font")}
+            if lg == "hangul":
+                self.fonts = self.fonts_by[lg]
         self.char = {}
+        LANGS = ("hangul", "latin", "hanja", "japanese", "other", "symbol", "user")
         for cp in h.iter(HH + "charPr"):
             fr, ra, sp = (cp.find(HH + t) for t in ("fontRef", "ratio", "spacing"))
             ul = cp.find(HH + "underline")
             self.char[cp.get("id")] = {
                 "font": self.fonts.get(fr.get("hangul")) if fr is not None else None,
+                "fonts": {lg: self.fonts_by.get(lg, {}).get(fr.get(lg)) for lg in LANGS} if fr is not None else {},
                 "h": int(cp.get("height", "1000")),
                 "bold": cp.find(HH + "bold") is not None, "italic": cp.find(HH + "italic") is not None,
                 "ul": ul is not None and ul.get("type", "NONE") not in ("NONE", ""),
                 "color": _hex(cp.get("textColor")) or "#000000",
                 "ratio": int(ra.get("hangul", "100")) if ra is not None else 100,
                 "spacing": int(sp.get("hangul", "0")) if sp is not None else 0,
+                "ratios": {lg: int(ra.get(lg, "100")) for lg in LANGS} if ra is not None else {},
+                "spacings": {lg: int(sp.get(lg, "0")) for lg in LANGS} if sp is not None else {},
             }
         self.para = {}
         for pp in h.iter(HH + "paraPr"):

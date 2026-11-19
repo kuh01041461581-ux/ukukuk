@@ -2197,6 +2197,12 @@ class Widget(tk.Tk):
                       highlightbackground=C_LINE, highlightcolor=C_ACC)
         ke.pack(fill="x", ipady=5, pady=(4, 0))
         ke.bind("<KeyRelease>", lambda e: self.ui.__setitem__("ai_key", self._ai_key.get().strip()))
+        self.section(parent, "엔진 실험 (양식 만들기에는 쓰지 않아요)")
+        tk.Label(parent, text="한글 명령으로 직접 만드는 엔진을 다듬는 중이에요. 아래 검증은 새 문서에서 시험만 하고, 양식 만들기 결과에는 영향이 없어요.",
+                 bg=C_BG, fg=C_SUB, font=FONT_S, anchor="w", wraplength=WIDGET_W - 40, justify="left").pack(fill="x", padx=4)
+        Btn(parent, "엔진 검증 (모든 양식)", self.run_engine_check, icon_name="calc",
+            tip="새 문서에서 모든 양식을 명령으로 만들어 원본과 비교해요. 결과 파일을 보내 주시면 엔진을 고쳐요").pack(fill="x", pady=(6, 2))
+        Btn(parent, "검증 결과 보기", self.open_engine_report, kind="flat", icon_name="doc").pack(fill="x", pady=2)
         self.section(parent, "창 투명도")
         row = tk.Frame(parent, bg=C_BG)
         row.pack(fill="x")
@@ -2565,6 +2571,42 @@ class Widget(tk.Tk):
         ok = self.bridge.connected
         self.chip.config(text=("●  한글에 연결됨" if ok else "●  한글 연결 안 됨 — 눌러서 연결"),
                          fg=C_OK if ok else C_BAD)
+
+    def run_engine_check(self):
+        if not self._need_hwp("엔진 검증"):
+            return
+        from . import enginecheck, registry as R2
+        ids = [fid for fid, _f, meta in R2.list_forms()]
+        if not messagebox.askyesno("엔진 검증", "양식 %d개를 새 문서에서 한글 명령으로 만들어 원본과 비교해요.\n"
+                                   "문서가 잠깐씩 열렸다 닫히고 몇 분 걸려요(지금 열어 둔 문서는 그대로예요).\n계속할까요?" % len(ids)):
+            return
+
+        def prog(i, n, fid):
+            self.say("엔진 검증 %d/%d  %s" % (i, n, fid))
+            self.update()
+        self.config(cursor="watch")
+        try:
+            res = enginecheck.run_all(self.bridge, ids, tempfile.gettempdir(), prog)
+        except Exception as e:                           # noqa: BLE001
+            write_error_log("engine_check", e)
+            messagebox.showerror("엔진 검증", str(e))
+            return
+        finally:
+            self.config(cursor="")
+        ok = sum(1 for v in res.values() if v[0])
+        self.say("엔진 검증 끝: 통과 %d / 다름 %d" % (ok, len(res) - ok))
+        if messagebox.askyesno("엔진 검증", "통과 %d개 / 원본과 다름 %d개\n\n(양식 만들기 결과에는 영향이 없어요. 어긋난 곳을 보고 엔진을 고칩니다)\n"
+                               "어긋난 곳 목록을 열어 볼까요?" % (ok, len(res) - ok)):
+            self.open_engine_report()
+
+    def open_engine_report(self):
+        p = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "HwpFormGenerator", "engine_check.txt")
+        if os.path.exists(p) and hasattr(os, "startfile"):
+            os.startfile(p)
+        elif os.path.exists(p):
+            messagebox.showinfo("엔진 검증", p)
+        else:
+            messagebox.showinfo("엔진 검증", "아직 검증한 기록이 없어요")
 
     def open_log_dir(self):
         d = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "HwpFormGenerator")

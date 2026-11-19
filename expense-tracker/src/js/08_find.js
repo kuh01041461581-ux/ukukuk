@@ -68,7 +68,7 @@ $('#dlg').addEventListener('change', e => {
   if (fu === 'rcv') setRcv(it, m, t.checked ? 1 : 0);
   else if (fu === 'paid') setPaid(it, m, t.checked);
   else if (fu === 'amt') { const v = parseNum(t.value); if (Number.isNaN(v)) { toast('숫자나 계산식만 입력할 수 있습니다'); redrawFind(); return; } setAmt(it, m, v); }
-  save(); redrawFind();
+  save(); setTimeout(() => { const a = document.activeElement; const nav = a && a.dataset && a.dataset.nav; redrawFind(nav || 'search'); }, 0);
 });
 $('#dlg').addEventListener('keydown', e => {
   if (!$('#fq')) return;

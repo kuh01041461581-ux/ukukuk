@@ -7,7 +7,11 @@ function openDlg(html, onMount) {
   return d;
 }
 function closeDlg() { const d = $('#dlg'); if (d.open) d.close(); }
-$('#dlg').addEventListener('click', e => { if (e.target.id === 'dlg') closeDlg(); });
+/* 창 바깥(어두운 부분)을 '눌렀다 떼야' 닫힘. 창 안쪽 여백을 누르거나, 글자를 끌어서 선택하다가 바깥에서 마우스를 놓아도 닫히지 않음 */
+let dlgDownOutside = false;
+const outsideDlg = (d, e) => { const r = d.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
+$('#dlg').addEventListener('pointerdown', e => { const d = $('#dlg'); dlgDownOutside = e.target === d && outsideDlg(d, e); });
+$('#dlg').addEventListener('click', e => { const d = $('#dlg'); if (e.target === d && dlgDownOutside && outsideDlg(d, e)) closeDlg(); dlgDownOutside = false; });
 
 function barHTML(paid, sch, budget, opt = {}) {
   if (!(budget > 0)) return '<div class="bar' + (opt.lg ? ' lg' : '') + '"></div>';

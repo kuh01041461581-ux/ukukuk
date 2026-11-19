@@ -91,6 +91,8 @@ class Output:
             app.say("쪽 여백을 맞추지 못했어요 — 한글 파일 > 편집 용지에서 확인해 주세요", ok=False)
         strip_section_props(pkg)                     # 이미 내용이 있는 문서의 쪽 설정도 건드리지 않는다
         from .package import trim_trailing_blanks, trim_leading_pagebreak_blanks, big_tables_own_page, starts_new_page
+        from .pagecheck import fit_page_tables
+        fit_page_tables(pkg)                         # 제목+큰 표가 한 쪽을 넘으면 표 줄 높이를 줄여 한 쪽에(제목만 한 쪽 차지하는 것 방지)
         big_tables_own_page(pkg)                     # 쪽만 한 큰 표는 새 쪽에서(사이의 빈 줄만 다음 쪽에 남는 빈 쪽 방지)
         trim_trailing_blanks(pkg)                    # 끝의 빈 문단은 빼서 쪽이 넘치지 않게(빈 쪽 방지)
         trim_leading_pagebreak_blanks(pkg)           # '빈 문단 + 쪽 나눔'으로 시작하는 양식의 빈 쪽 방지
@@ -133,7 +135,8 @@ class Output:
                     time.sleep(app.ui.get("insert_delay", min(0.45, max(0.12, 3.0 / n))))
             app.say("열려 있는 문서의 커서 위치에 넣었어요")
             # 빈 문서에 양식 하나를 넣은 상태라면 기억해 둔다 → 다른 보고서 양식을 누르면 쓴 내용을 그 양식으로 옮겨 준다
-            app.single_doc = {"fid": prefix, "key": br.doc_key() if hasattr(br, "doc_key") else None} if (empty and not replace_partial) else None
+            sig = re.sub(r"\s+", "", "".join(t.text or "" for t in pkg.section(0).iter(HP + "t")))
+            app.single_doc = {"fid": prefix, "key": br.doc_key() if hasattr(br, "doc_key") else None, "sig": sig} if (empty and not replace_partial) else None
         except Exception as e:                       # noqa: BLE001
             log = write_error_log("insert %s chunk %d/%d step=%s" % (prefix, i, n, step), e)
             try:                                     # 실패한 양식 파일을 그대로 남겨 두면 원인을 정확히 볼 수 있다
@@ -2286,7 +2289,13 @@ class Widget(tk.Tk):
                 sd = getattr(self, "single_doc", None)
                 if not src.strip() and sd and sd.get("fid") != fid and self._same_doc(sd) and self._is_report_body(sd.get("fid")):
                     src = self.bridge.get_all_text()
-                    whole = moved = bool(src.strip())
+                    if src.strip() and self._unchanged(sd, src):
+                        # 방금 넣은 양식에서 아무것도 쓰지 않았다 → 옮길 내용이 없으니 그 양식을 지우고 누른 양식을 처음 모양 그대로 넣는다
+                        replace = "all"
+                        self.say("아직 쓴 내용이 없어서 '%s' 양식으로 새로 넣었어요" % f.meta["name"].split(" (")[0])
+                        src = ""
+                    else:
+                        whole = moved = bool(src.strip())
                 elif not src.strip() and self.ui.get("convert"):
                     src = self.bridge.get_all_text()
                     whole = bool(src.strip())
@@ -2331,6 +2340,16 @@ class Widget(tk.Tk):
     def _is_report_body(self, fid):
         """내용을 옮겨 줄 수 있는 보고서 양식(행사·사업·시장님 보고)인지"""
         return fid in ("report_event", "report_project", "report_mayor")
+
+    @staticmethod
+    def _unchanged(sd, text):
+        """문서 글이 방금 넣은 양식의 글 그대로인지(빈 틀) — 비슷하면(공백·기호 차이 허용) 그대로로 본다"""
+        import difflib
+        a = sd.get("sig") or ""
+        b = re.sub(r"\s+", "", text or "")
+        if not a:
+            return False
+        return difflib.SequenceMatcher(None, a[:3000], b[:3000]).ratio() >= 0.93
 
     def _same_doc(self, sd):
         """기억해 둔 문서가 지금 열린 문서인지(다른 문서로 옮겨 갔다면 건드리지 않는다)"""

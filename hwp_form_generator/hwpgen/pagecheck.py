@@ -125,3 +125,36 @@ def estimate_height(pkg):
     """양식 본문 전체 높이(HWPUNIT) 어림값"""
     st = Styles(pkg)
     return sum(para_height(p, st, DEFAULT_BODY[1]) for p in pkg.section(0).findall(HP + "p"))
+
+
+def fit_page_tables(pkg, body_h=None, margin=2200, min_scale=0.75):
+    """쪽 한 장에 가까운 큰 표가 같은 쪽의 앞 문단(제목 등)과 합쳐 쪽을 넘으면 표의 줄 높이를 줄여 한 쪽에 들어가게 한다.
+    (예: 주간업무계획 표지의 '순 서' 제목 + 국 이름 표가 한 쪽에 안 들어가 제목만 한 쪽을 차지하고 표가 다음 쪽으로 밀리던 것)
+    body_h: 본문 영역 높이(기본: 한글 기본 용지). 원래 높이의 min_scale 배까지만 줄인다. → 줄인 표 수"""
+    body_h = body_h or DEFAULT_BODY[0]
+    st = Styles(pkg)
+    width = DEFAULT_BODY[1]
+    n, used = 0, 0
+    for p in pkg.section(0).findall(HP + "p"):
+        if p.get("pageBreak") == "1":
+            used = 0
+        tbls = [t for t in p.iter(HP + "tbl")]
+        sizes = [(int(t.find(HP + "sz").get("height", "0")), t) for t in tbls if t.find(HP + "sz") is not None]
+        big = max(sizes, key=lambda x: x[0])[1] if sizes else None
+        h = para_height(p, st, width)
+        if big is not None and big.find(HP + "sz") is not None:
+            th = int(big.find(HP + "sz").get("height", "0"))
+            avail = body_h - margin - used
+            if th >= 40000 and th > avail and avail >= th * min_scale:
+                k = avail / float(th)
+                for tc in big.findall(HP + "tr/" + HP + "tc"):
+                    sz = tc.find(HP + "cellSz")
+                    if sz is not None:
+                        sz.set("height", str(int(int(sz.get("height", "0")) * k)))
+                big.find(HP + "sz").set("height", str(int(th * k)))
+                h = max(0, h - (th - int(th * k)))
+                n += 1
+        used += h
+        if used > body_h:
+            used = h
+    return n

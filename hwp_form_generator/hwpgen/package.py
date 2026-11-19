@@ -548,7 +548,7 @@ def big_tables_own_page(pkg, min_h=52000):
         while j >= 0 and _is_blank_para(ps[j]) and not list(ps[j].iter(HP + "secPr")):
             blanks.append(ps[j])
             j -= 1
-        if j < 0:                                  # 앞에 내용이 없으면(맨 앞) 그대로
+        if j < 0 or not blanks:                    # 앞에 내용이 없거나(맨 앞), 앞 빈 문단이 없으면(제목 바로 아래 표) 그대로
             continue
         for b in blanks:
             sec.remove(b)

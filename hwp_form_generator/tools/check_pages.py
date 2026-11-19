@@ -48,6 +48,8 @@ def prepared(fid, first):
     area = body_area(pkg) if first else DEFAULT_BODY
     if not first:
         P.strip_section_props(pkg)
+    from hwpgen.pagecheck import fit_page_tables
+    fit_page_tables(pkg)
     P.big_tables_own_page(pkg)
     P.trim_trailing_blanks(pkg)
     P.trim_leading_pagebreak_blanks(pkg)

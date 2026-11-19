@@ -29,6 +29,7 @@ class FakeBridge:
         self.inserted.append((p, os.path.getsize(p)))
         from hwpgen.package import Package, ptext
         self.last_text = ptext(Package.load(p).section(0))
+        self.all_texts = getattr(self, "all_texts", []) + [self.last_text]
 
     def compose_chars(self, text, shape_no, char_size=-3):
         self.composed = getattr(self, 'composed', []) + [(text, shape_no)]
@@ -281,6 +282,21 @@ class GuiTests(unittest.TestCase):
         self.assertIn("2025. 1. ~ 2027. 2.", br.last_text)
         self.assertIn("준공시기 미도래", br.last_text)
         self.assertIn("미륵사지 정비", br.last_text)
+
+    def test_unwritten_template_is_replaced_not_converted(self):
+        """행사 보고를 넣고 아무것도 안 쓴 채 사업 보고를 누르면, 행사 틀을 옮기지 않고 사업 보고 처음 모양(사업개요…)으로 넣는다"""
+        w, br = self.widget, self.br
+        w.make_report("report_event")
+        br.text = w.single_doc["sig"]                           # 문서 글이 방금 넣은 틀 그대로
+        br.cleared = []
+        n0 = len(br.all_texts)
+        w.make_report("report_project")
+        new = "".join(br.all_texts[n0:])
+        self.assertEqual(br.cleared[-1], True)
+        self.assertIn("사업개요", new)
+        self.assertIn("사 업 명", new)
+        self.assertNotIn("행사개요", new)
+        self.assertNotIn("행 사 명", new)
 
     def test_symbols(self):
         self.widget.put_symbol('○')

@@ -19,7 +19,7 @@ W, H = 112, 40
 WB = int(os.environ.get('WIDE', '112'))                                # 상체를 조각 폭(112)보다 넓은 WB 로 그린다(게임 쪽 BIGH 통그림 기능이 조각 밖까지 그린다)
 CROP = float(os.environ.get('CROP_TOP', '0.0')); o = o.crop((0, int(o.height * CROP), o.width, o.height))      # 위쪽 목 부분을 잘라 낸다
 NECK_DST = float(os.environ.get('NECK_DST', '57')); NECK_FRAC = float(os.environ.get('NECK_FRAC', str(0.53)))
-UP = int(os.environ.get('UP', '3')); H = 40 + UP                         # 위로 UP줄 더 그려 얼굴 아래에 겹치게(상체 머리가 얼굴 머리 밑으로 이어진다)
+UP = int(os.environ.get('UP', '3')); BS = float(os.environ.get('BODY_SCALE', '1.0')); BDY = int(os.environ.get('BODY_DY', '0')); WB = int(round(WB * BS)); H = int(round((40 + UP) * BS))                         # 위로 UP줄 더 그려 얼굴 아래에 겹치게(상체 머리가 얼굴 머리 밑으로 이어진다)
 cv = o.resize((WB, H), Image.LANCZOS); fa = np.asarray(cv).astype(np.float32); BIGX = int(round(NECK_DST - NECK_FRAC * WB))
 W = WB
 lum = fa[..., :3] @ np.array([.3, .59, .11])
@@ -38,4 +38,4 @@ fa[0] = fa[2]; fa[1] = fa[2]
 hd = Image.fromarray(np.clip(fa, 0, 255).astype(np.uint8), 'RGBA')
 raw = open(f'{mod}/fb1.d', 'rb').read(); i = raw.find(b'IEND') + 8; j = raw.find(b'BIGH'); first = raw[:i]
 b2 = io.BytesIO(); hd.save(b2, format='PNG', optimize=True)
-open(f'{mod}/fb1.d', 'wb').write(first + b'BIGH' + int(BIGX).to_bytes(2, 'big', signed=True) + int(-UP).to_bytes(2, 'big', signed=True) + b2.getvalue()); print('상체(와이드) 적용', WB, BIGX)
+open(f'{mod}/fb1.d', 'wb').write(first + b'BIGH' + int(BIGX).to_bytes(2, 'big', signed=True) + int(-UP - BDY - (H - 40 - UP)).to_bytes(2, 'big', signed=True) + b2.getvalue()); print('상체(와이드) 적용', WB, BIGX)

@@ -283,7 +283,10 @@ class NewFormsTests(unittest.TestCase):
             self.assertIn(s, txt)
         m = registry.load_form("meeting_issue", ROOTS)
         keys = [x["key"] for x in m.meta["fields"]]
-        self.assertEqual(keys[:1], ["org"])                                  # 상단 국 이름 상자(3×3)가 들어 있다
+        self.assertEqual(keys, ["no", "title", "dept"])
+        txt_m = ptext(m.render({"no": "5", "title": "T", "dept": "과"}, "□ 지난주 실적\n▪ 묶음\n◦ 항목").section(0))
+        self.assertIn("□ 추 진 방 향", txt_m)                                  # 샘플의 고정 3칸 표(추진방향)가 들어 있다
+        self.assertIn("▪ 묶음", txt_m)                                         # ▪ 묶음 제목 단계
         self.assertTrue(next(x for x in m.meta["fields"] if x["key"] == "title").get("default"))      # 현안 제목 기본값
         txt = ptext(m.render({"no": "5", "title": "제목", "dept": "문화유산과"}, m.meta["starter"]).section(0))
         for s in ("지난주 실적", "금 후 계 획", "참 석 자", "▸일시/장소"):

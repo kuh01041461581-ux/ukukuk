@@ -87,6 +87,8 @@ def classify(p):
         if re.match(r"^[%s]\s*(\([^()]{1,12}\)|[^\s:：()][^:：]{0,11}?\s*[:：])" % re.escape(T.BULLETS), s):
             return "kv"
         return "item1"
+    if s[0] == "▪":
+        return "item0"
     if s[0] in T.SUB_MARKS:
         return "item2"
     if s[0] in T.DASH_MARKS:
@@ -169,7 +171,7 @@ def _kv_label(p):
 def _prefix_of(p):
     """글머리 앞부분(들여쓰기+기호)과 기호 뒤 공백 유무"""
     s = own_text(p)
-    m = re.match(r"^(\s*[%s])(\s?)" % re.escape(T.BULLETS + T.SUB_MARKS + T.DASH_MARKS), s)
+    m = re.match(r"^(\s*[%s])(\s?)" % re.escape(T.BULLETS + T.SUB_MARKS + T.DASH_MARKS + "▪"), s)
     return (m.group(1), m.group(2)) if m else ("", " ")
 
 
@@ -440,7 +442,7 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
         kinds = collections.defaultdict(list)
         for p in region:
             kinds[classify(p)].append(p)
-        for k in ("h1", "item1", "item2", "item3", "blank"):
+        for k in ("h1", "item0", "item1", "item2", "item3", "blank"):
             if kinds.get(k):
                 protos[k] = _empty_like(kinds[k][0])
         if kinds.get("h1"):
@@ -465,14 +467,14 @@ def register_report(sample_path, out_dir, form_id, name, audience, fields, kind=
             style["kv"]["by_label"] = {k: typical_cp(info, v) for k, v in by.items()}
         if kinds.get("item1"):
             style["item1_prefix"] = _prefix_of(kinds["item1"][0])[0] or style["item1_prefix"]
-        for lvl in ("item1", "item2", "item3"):       # 글머리(앞 조각)와 본문(가장 긴 조각)의 글자 모양을 따로
+        for lvl in ("item0", "item1", "item2", "item3"):       # 글머리(앞 조각)와 본문(가장 긴 조각)의 글자 모양을 따로
             if kinds.get(lvl):
                 first = [next((x.get("charPrIDRef") for x in p.findall(HP + "run")
                                if "".join(t.text or "" for t in x.findall(HP + "t")) != ""), None) for p in kinds[lvl]]
                 dom = [dominant_cp(p) for p in kinds[lvl]]
                 mode = lambda xs: collections.Counter(x for x in xs if x).most_common(1)[0][0] if any(xs) else None  # noqa: E731
                 style[lvl + "_cps"] = [mode(first), typical_cp(cp_info(pkg), dom)]
-        for lvl in ("item2", "item3"):                # ▸ 둘째 단계, - 셋째 단계: 들여쓰기·기호·기호 뒤 공백을 샘플 그대로
+        for lvl in ("item0", "item2", "item3"):       # ▪ 묶음 제목, ▸ 둘째 단계, - 셋째 단계: 들여쓰기·기호·기호 뒤 공백을 샘플 그대로
             if kinds.get(lvl):
                 pre, sep = _prefix_of(kinds[lvl][0])
                 style[lvl + "_prefix"], style[lvl + "_sep"] = pre, sep
@@ -726,11 +728,13 @@ class ReportForm:
         """◦(item1) ▸(item2) -(item3) 줄. 샘플에 없는 단계는 아래 단계 견본을 빌려 쓴다."""
         st = self.meta["style"]
         protos = self._load_protos()[0]
-        defaults = {"item1": (st["item1_prefix"], " "), "item2": ("    ▸", ""), "item3": ("      -", "")}
+        defaults = {"item0": (" ▪", " "), "item1": (st["item1_prefix"], " "), "item2": ("    ▸", ""), "item3": ("      -", "")}
         pre, sep = defaults[kind]
         if kind != "item1":
             pre, sep = st.get(kind + "_prefix", pre), st.get(kind + "_sep", sep)
         proto = kind if kind in protos else ("item2" if kind == "item3" and "item2" in protos else "item1")
+        if kind == "item0" and "item0" not in protos:
+            pre, sep = (st["item1_prefix"].replace("◦", "▪"), " ")
         if proto == "item1" and kind == "item1" and not pre.endswith(" "):
             sep = " "
         cps = st.get(proto + "_cps") or [self._first_cp(proto)] * 2
@@ -856,7 +860,7 @@ class ReportForm:
                 out.append(self._heading(b[1]))
             elif k == "kv":
                 out.append(self._kv(b[1], b[2]))
-            elif k in ("item1", "item2", "item3"):
+            elif k in ("item0", "item1", "item2", "item3"):
                 out.append(self._item(k, b[1]))
             elif k == "kv2":
                 out.append(self._kv2(b[1], b[2], widths.get(i, 0)))

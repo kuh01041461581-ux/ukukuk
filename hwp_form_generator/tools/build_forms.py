@@ -119,8 +119,8 @@ def _flat_texts(path, section_index=0):
     return [t.text for t in sec.iter(HP + "t") if t.text and t.text.strip()]
 
 
-ISSUE_STARTER = ("□ 지난주 실적\n◦ \n▸일시/장소: \n▸참 석 자: \n▸주요내용: \n\n"
-                 "□ 금 후 계 획\n◦ \n▸일시/장소: \n▸참 석 자: \n- \n▸주요내용: \n")
+ISSUE_STARTER = ("□ 지난주 실적\n▪ \n◦ \n▸일시/장소: \n▸참 석 자: \n▸주요내용: \n\n"
+                 "□ 금 후 계 획\n▪ \n◦ \n▸일시/장소: \n▸참 석 자: \n- \n▸주요내용: \n")
 
 
 def build_extra(paths):
@@ -141,7 +141,7 @@ def build_extra(paths):
                 {"key": "dept", "label": "부서(과)", "sample": cover_dept, "profile": "dept"},
             ], note="간부회의 표지: 날짜·시각 상자 + 현안·당면 업무보고 + 부서", slice_=(0, 8), allow_no_body=True)
         hdr = _flat_texts(paths["meeting"])
-        no_t = next(t for t in hdr if _re.fullmatch(r"현안업무\(\d+\)", t.strip()))
+        no_t = next(t for t in hdr if re.fullmatch(r"현안업무\(\d+\)", t.strip()))
         k = hdr.index(no_t)
         out["meeting_issue"] = report.register_report(
             paths["meeting"], os.path.join(F, "meeting_issue"), "meeting_issue", "간부회의 현안업무 보고", "간부회의", [
@@ -155,7 +155,7 @@ def build_extra(paths):
     if "meeting_ref" in paths:
         pr = paths["meeting_ref"]
         ts0 = _flat_texts_para(pr, 0, 6)
-        k0 = next(i for i, t in enumerate(ts0) if _re.fullmatch(r"현안업무\(\d+\)", t.strip()))
+        k0 = next(i for i, t in enumerate(ts0) if re.fullmatch(r"현안업무\(\d+\)", t.strip()))
         no_t0 = ts0[k0]
         info0 = next(t for t in ts0 if _re.match(r"\S*계장\s+\S+\s+\d+\s*/", t))
         team0, lead0 = info0.split(None, 1)
@@ -163,7 +163,7 @@ def build_extra(paths):
     if "meeting_ref" in paths:
         pr = paths["meeting_ref"]
         ts0 = _flat_texts_para(pr, 0, 6)
-        k0 = next(i for i, t in enumerate(ts0) if _re.fullmatch(r"현안업무\(\d+\)", t.strip()))
+        k0 = next(i for i, t in enumerate(ts0) if re.fullmatch(r"현안업무\(\d+\)", t.strip()))
         no_t0 = ts0[k0]
         info0 = next(t for t in ts0 if _re.match(r"\S*계장\s+\S+\s+\d+\s*/", t))
         team0, lead0 = info0.split(None, 1)
@@ -183,15 +183,6 @@ def build_extra(paths):
                  "blank": "이름 내선 / 휴대폰"},
             ], note="현안 제목 + 사업명 + 계장·담당자 줄 + 개요 상자(사업기간·장소·사업비·운영횟수·사업내용·수행단체) + 프로그램 표 + □ 지난주 실적 + □ 금 후 계 획",
             starter=ISSUE_STARTER, slice_=(0, 48), drop=list(range(6, 37)), fix=_card_box_fix)
-        out["meeting_issue"] = report.register_report(           # 현안업무 보고: 상단 3×3 국 이름 상자 + 제목 상자 + 본문(□ 지난주 실적·금 후 계 획)
-            pr, os.path.join(F, "meeting_issue"), "meeting_issue", "간부회의 현안업무 보고", "간부회의", [
-                {"key": "org", "label": "국 이름", "sample": ts0[0], "profile": "org"},
-                {"key": "no", "label": "현안업무 번호", "sample": no_t0, "repl": "현안업무({{no}})",
-                 "default": _re.search(r"\d+", no_t0).group(0)},
-                {"key": "title", "label": "현안 제목", "sample": ts0[k0 + 1], "default": ts0[k0 + 1]},
-                {"key": "dept", "label": "부서(과)", "sample": ts0[k0 + 2], "repl": "({{dept}})", "profile": "dept"},
-            ], note="상단 국 이름 상자 + 현안업무(번호) 제목 상자 + □ 지난주 실적 + □ 금 후 계 획 + ◦ ▸ - 단계",
-            starter=ISSUE_STARTER, slice_=(0, 48), drop=list(range(2, 37)))
     if "audit_item" in paths:
         ai = paths["audit_item"]
         a0 = _flat_texts_para(ai, 0, 6)
@@ -501,6 +492,25 @@ def _ref_std_fix(section):
     box = ps[-1]
     section.remove(box)
     section.insert(list(section).index(ps[0]), box)
+
+
+def _direction_table_fix(section):
+    """'□ 추 진 방 향' 아래 3칸 표(고정 틀): 칸 제목과 세부 글은 비우고 틀·'- ' 글머리만 남긴다"""
+    from hwpgen.package import ptext
+    tb = next(t for t in section.iter(HP + "tbl") if "추진" not in ptext(t) and len(t.findall(HP + "tr")) == 2 and t.get("colCnt") == "5")
+    for ri, tr in enumerate(tb.findall(HP + "tr")):
+        for tc in tr.findall(HP + "tc"):
+            ps = tc.find(HP + "subList").findall(HP + "p")
+            if not ptext(tc).strip():
+                continue
+            for j, q in enumerate(ps):
+                ts = list(q.iter(HP + "t"))
+                for t in ts:
+                    t.text = ""
+                if ri == 1 and ts:
+                    ts[0].text = "- "
+            for q in ps[1:] if ri == 0 else ps[1:]:
+                pass
 
 
 def _card_box_fix(section):
@@ -843,16 +853,27 @@ def build_more(paths):
                 {"key": "no", "label": "참고 번호", "sample": " 000", "repl": " {{no}}", "default": "1"},
             ], note="'참 고 ○' 제목 상자 — 뒤에 참고 내용을 붙입니다", allow_no_body=True, frame_only=True, slice_=(31, 32))
         out["ref_std"] = report.register_report(
-            ip, os.path.join(F, "ref_std"), "ref_std", "참고자료 (표준: 참 고 상자 + □ ◦ ▸)", "간부회의", [
+            ip, os.path.join(F, "ref_std"), "ref_std", "참고자료 (사업개요·추진현황·금후계획)", "간부회의", [
                 {"key": "no", "label": "참고 번호", "sample": " 000", "repl": " {{no}}", "default": "1"},
-            ], note="'참 고 ○' 제목 상자 + □ 제목 · ◦ 항목 · ▸ 세부 본문(표가 아닌 글 참고자료용)",
-            starter="□ \n◦ \n▸\n\n□ \n◦ \n▸", slice_=(26, 32), fix=_ref_std_fix, body_from_text="□ 금")
+            ], note="'참 고 ○' 제목 상자 + □ 사업개요(사업명·기간·장소·사업비·내용) + □ 추진현황 + □ 금 후 계 획 — 표가 아닌 글 참고자료의 기본 양식",
+            starter="□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n□ 추진현황\n◦ \n▸\n\n□ 금 후 계 획\n◦ \n▸", slice_=(26, 32), fix=_ref_std_fix, body_from_text="□ 금")
     if "carry" in paths:
         out["carry_item"] = report.register_report(
             paths["carry"], os.path.join(F, "carry_item"), "carry_item", "명시이월 사업현황", "이월 조서", [
                 {"key": "title", "label": "사업명", "sample": "{{title}}", "default": "(사업명)"},
             ], note="명시이월 사업현황 한 건: 담당부서 상자 + 사업명 + □ 사업개요 + □ 이 월 액(표) + □ 예산편성시점 + □ 그간 추진경과 + □ 이월사유",
             allow_no_body=True, frame_only=True, slice_=(0, 22), fix=_carry_fix)
+    if "mi" in paths:                                              # 현안업무 보고(샘플 49934ed3): 제목 상자 + □ 추 진 방 향 + 3칸 표 + 지난주 실적·금 후 계 획(▪ ◦ ▸ -)
+        mp = paths["mi"]
+        mt = _flat_texts_para(mp, 12, 13)
+        k = next(i for i, t in enumerate(mt) if re.fullmatch(r"현안업무\(\d+\)", t.strip()))
+        out["meeting_issue"] = report.register_report(
+            mp, os.path.join(F, "meeting_issue"), "meeting_issue", "간부회의 현안업무 보고", "간부회의", [
+                {"key": "no", "label": "현안업무 번호", "sample": mt[k], "repl": "현안업무({{no}})", "default": re.search(r"\d+", mt[k]).group(0)},
+                {"key": "title", "label": "현안 제목", "sample": mt[k + 1], "default": mt[k + 1].strip()},
+                {"key": "dept", "label": "부서(과)", "sample": mt[k + 2], "repl": "({{dept}})", "profile": "dept"},
+            ], note="현안업무(번호) 제목 상자 + □ 추 진 방 향 3칸 표(고정) + □ 지난주 실적 + □ 금 후 계 획 + ▪ ◦ ▸ - 단계",
+            starter=ISSUE_STARTER, slice_=(12, 56), body_from_text="□ 지난주", fix=_direction_table_fix)
     if "carry2" in paths:
         out["carry_acc"] = report.register_report(
             paths["carry2"], os.path.join(F, "carry_acc"), "carry_acc", "사고이월 사업현황", "이월 조서", [
@@ -884,8 +905,8 @@ if __name__ == "__main__":
         sys.exit(1)
     res = build(*pos) if pos else {}
     if extra:
-        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "carry2", "nbud", "issue", "audit2")}))
-        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "carry2", "nbud", "issue", "audit2")}))
+        res.update(build_extra({k: v for k, v in extra.items() if k not in ("written", "policy", "carry", "carry2", "nbud", "issue", "audit2", "mi")}))
+        res.update(build_more({k: v for k, v in extra.items() if k in ("carry", "carry2", "nbud", "issue", "audit2", "mi")}))
         res.update(build_queries({k: v for k, v in extra.items() if k in ("written", "policy")}))
     for k, v in res.items():
         print(k, "→", {a: b for a, b in v.items() if a != "style"})

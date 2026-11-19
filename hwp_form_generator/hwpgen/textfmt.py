@@ -103,6 +103,9 @@ def parse_outline(text):
         if s.startswith("#"):
             blocks.append(("h1", s.lstrip("#").strip()))
             continue
+        if s[0] == "▪":                                         # ▪ 묶음 제목(◦ 항목들 위의 작은 네모 줄)
+            blocks.append(("item0", s[1:].strip()))
+            continue
         if s[0] in SUB_MARKS:                                   # ▸ 둘째 단계 ("▸ 일시: 값" 이면 이름 맞춤)
             body = s[1:].strip()
             m = re.match(r"^([^\s:：()][^:：]{0,11}?)\s*[:：]\s*(.*)$", body)
@@ -139,7 +142,7 @@ DEFAULT_STARTER = ("□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦
 # ---------------------------------------------------------------- 다른 서식으로 쓴 글 → 개요 글
 _H1 = "□■ㅁ▣"
 _B1 = "○◦ㅇ❍●∘o"
-_B2 = "▸‣▪·ㆍ▷►▶◆"
+_B2 = "▸‣·ㆍ▷►▶◆"
 _B3 = "-–—"
 
 
@@ -162,6 +165,8 @@ def normalize_outline(text):
         rest = s[1:].strip()
         if c in _H1:
             out.append("□ " + rest)
+        elif c == "▪":
+            out.append("▪ " + rest)
         elif c in _B2 and c != "o":
             out.append("▸ " + rest)
         elif c in _B1 and not (c == "o" and rest[:1].isalpha() and not s[1:2].isspace()):

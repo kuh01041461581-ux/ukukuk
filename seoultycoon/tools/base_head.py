@@ -68,7 +68,7 @@ for y in range(gh):
 CUTB = int(os.environ.get('BASE_CUT', '1')) * 2; chb = int(round((960 - BB[1]) * f))
 if CUTB: out = np.concatenate([out[:chb - CUTB], out[chb:]], axis=0)                 # 베이스 얼굴 턱 바로 위 CUTB 줄 삭제 → 턱이 1줄 올라간다
 _rgb = out[..., :3]; _l = _rgb.mean(2); _med = np.dstack([ndi.median_filter(_rgb[..., c], size=7) for c in range(3)]); _ml = _med.mean(2)
-_sk = (out[..., 3] > 200) & (_med[..., 0] > 190) & (_med[..., 0] > _med[..., 2] + 40); _spot = _sk & (_l < _ml - 18)
+_sk = (out[..., 3] > 200) & (_med[..., 0] > 190) & (_med[..., 0] > _med[..., 2] + 40); _spot = _sk & ((_l < _ml - 18) | ((_rgb[..., 0] - _rgb[..., 2] < 70) & (_rgb[..., 0] > 140)))      # 회색 띤 화소(귀 안쪽 선 등)도 살색으로
 out[..., :3] = np.where(_spot[..., None], _med, _rgb)                                  # 얼굴 살색 안의 작은 어두운 점(지우고 남은 눈썹 끝 등) 제거
 big = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), 'RGBA')
 bx = round(FF_DX + cx_ff - ccx - PADX); by = round(FF_DY + ey_ff - ey_b * f)
@@ -97,12 +97,13 @@ def fit_ff(name):
         if both.sum() > 10:
             wgt = ndi.gaussian_filter(both.astype(float), sig) + 1e-3
             diff = np.dstack([ndi.gaussian_filter(np.where(both, under[..., c] - a[..., c], 0), sig) for c in range(3)]) / wgt[..., None]
-            diff = np.clip(diff, -60, 60); a = a.copy(); edge_w = np.clip(1.0 - ndi.distance_transform_edt(a[..., 3] > 30) / (14.0 / k), 0, 1)[..., None]   # 가장자리로 갈수록 베이스 색에 완전히 맞춘다
+            diff = np.clip(diff, -60, 60); a = a.copy(); edge_w = np.clip(1.0 - ndi.distance_transform_edt(np.pad(a[..., 3] > 30, 1))[1:-1, 1:-1] / (14.0 / k), 0, 1)[..., None]   # 가장자리로 갈수록 베이스 색에 완전히 맞춘다
             a[..., :3] = np.clip(a[..., :3] + diff * sk[..., None] * (0.75 + 0.25 * edge_w), 0, 255)
-        _d0 = ndi.distance_transform_edt(a[..., 3] > 30); _lum = a[..., :3].mean(2); _med = np.median(_lum[sk]) if sk.any() else 200
+        _d0 = ndi.distance_transform_edt(np.pad(a[..., 3] > 30, 1))[1:-1, 1:-1]; _lum = a[..., :3].mean(2); _med = np.median(_lum[sk]) if sk.any() else 200
         _cont = (_d0 < 15.0 / k) & ((_lum < _med * 0.9) | (a[..., 0] - a[..., 2] < 70)) & ub & (a[..., 3] > 30)            # 표정 조각 바깥 윤곽선(어두운 얼굴선)이 베이스 살색 위에 남으면 베이스 색으로 바꾼다
         a[..., :3] = np.where(_cont[..., None], under[..., :3], a[..., :3])
-        dist = ndi.distance_transform_edt(a[..., 3] > 30); R = 11.0 / k                # 바깥 윤곽에서 R 화소 안쪽까지 서서히 불투명
+        _gry = (_d0 < 15.0 / k) & (a[..., 0] - a[..., 2] < 70) & (_lum > 100) & ~ub; a[..., 3] = np.where(_gry, 0, a[..., 3])   # 베이스 살색 밖의 회색 테두리(시트 배경 번짐)는 지운다
+        dist = ndi.distance_transform_edt(np.pad(a[..., 3] > 30, 1))[1:-1, 1:-1]; R = 11.0 / k          # 그림 경계도 바깥으로 본다(맨 끝 열이 안 흐려져 세로선이 남던 문제)                # 바깥 윤곽에서 R 화소 안쪽까지 서서히 불투명
         fade = np.clip(dist / R, 0, 1) ** 1.2
         h_ = a.shape[0]; top = np.clip((np.arange(h_)[:, None] - 1.0 / k) / (12.0 / k), 0, 1) ** 1.5   # 이마 쪽은 더 길게(12화소) 흐려 위 경계 띠를 없앤다
         fade = np.minimum(fade, np.broadcast_to(top, fade.shape))

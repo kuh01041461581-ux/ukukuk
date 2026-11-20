@@ -45,7 +45,7 @@ internal sealed class LottoForm : Form
 
 	private const float MX = 180f, MY = 250f, MR = 118f, BR = 16f, TUBE = 38f, RAIL = 452f, SLOTY = 508f, PIPEX = 396f, TOPY = 76f;
 	private readonly List<Ball> pool = new List<Ball>(); private readonly List<PBall> pipe = new List<PBall>(); private readonly List<int> drawn = new List<int>();
-	private readonly Random rnd = new Random(); private readonly Timer tm = new Timer(); private readonly Path[] slotPath = new Path[7]; private Path railPath;
+	private readonly Random rnd = new Random(); private readonly FrameTimer tm = new FrameTimer(); private readonly System.Diagnostics.Stopwatch clk = System.Diagnostics.Stopwatch.StartNew(); private double lastClk; private readonly Path[] slotPath = new Path[7]; private Path railPath;
 	private Ball pull; private float pullT, pullCd; private bool running, finished; private float tAir;
 	private RectangleF btn = new RectangleF(120, 568, 180, 38);
 	private Bitmap layBack, layGlass, layPipe; private bool layDark; private readonly Bitmap[] spr = new Bitmap[46];
@@ -54,8 +54,19 @@ internal sealed class LottoForm : Form
 	public LottoForm()
 	{
 		Text = "로또 추첨기 (재미용)"; FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false; StartPosition = FormStartPosition.CenterScreen; ClientSize = new Size((int)(420 * sc), (int)(620 * sc)); DoubleBuffered = true; BackColor = Theme.Bg;
-		BuildPaths(); Reset(); tm.Interval = 16; tm.Tick += delegate { try { Step(0.016f); Invalidate(); } catch (Exception ex) { Program.LogErr(ex); tm.Stop(); } }; tm.Start();
-		FormClosed += delegate { tm.Stop(); tm.Dispose(); if (layBack != null) layBack.Dispose(); if (layGlass != null) layGlass.Dispose(); if (layPipe != null) layPipe.Dispose(); for (int i = 0; i < spr.Length; i++) if (spr[i] != null) spr[i].Dispose(); for (int i = 0; i < baseSpr.Length; i++) if (baseSpr[i] != null) baseSpr[i].Dispose(); if (shadeSpr != null) shadeSpr.Dispose(); };
+		BuildPaths(); Reset(); tm.Tick += delegate
+		{
+			try
+			{
+				// 화면 주사율(vsync)에 맞춰 돌고, 실제 흐른 시간만큼 계산해요 (프레임이 흔들려도 움직임은 일정). 계산은 잘게 쪼개서 공이 서로 뚫고 지나가지 않게 해요
+				double now = clk.Elapsed.TotalSeconds; float dt = (float)Math.Min(0.05, Math.Max(0.001, now - lastClk)); lastClk = now;
+				int sub = Math.Max(1, (int)Math.Ceiling(dt / 0.009f)); for (int q = 0; q < sub; q++) Step(dt / sub);
+				Invalidate();
+			}
+			catch (Exception ex) { Program.LogErr(ex); tm.Stop(); }
+		};
+		lastClk = clk.Elapsed.TotalSeconds; tm.Start();
+		FormClosed += delegate { tm.Stop(); if (layBack != null) layBack.Dispose(); if (layGlass != null) layGlass.Dispose(); if (layPipe != null) layPipe.Dispose(); for (int i = 0; i < spr.Length; i++) if (spr[i] != null) spr[i].Dispose(); for (int i = 0; i < baseSpr.Length; i++) if (baseSpr[i] != null) baseSpr[i].Dispose(); if (shadeSpr != null) shadeSpr.Dispose(); };
 		MouseDown += delegate(object s, MouseEventArgs e) { if (btn.Contains(e.X / sc, e.Y / sc)) { if (finished || (!running && drawn.Count == 0)) { if (finished) Reset(); running = true; pullCd = 1.0f; try { Sfx.Play("whoosh"); } catch { } } } };
 	}
 
@@ -94,14 +105,14 @@ internal sealed class LottoForm : Form
 
 	private void Step(float dt)
 	{
-		tAir += dt; float lim = MR - BR - 1f; float stir = running ? 1f : 0.32f;
+		tAir += dt; float lim = MR - BR - 1f; float nfac = (float)Math.Sqrt(0.016f / Math.Max(0.002f, dt)); float stir = running ? 1f : 0.32f;
 		for (int i = 0; i < pool.Count; i++)
 		{
 			Ball b = pool[i]; if (b == pull) continue;
 			b.Vy += 330f * dt;
 			float fy = (b.Y + lim * 0.1f) / (lim * 1.1f); if (fy < 0) fy = 0; if (fy > 1) fy = 1;   // 아래쪽일수록 바람이 세요
 			b.Vy -= (900f + (float)rnd.NextDouble() * 1300f) * dt * stir * fy;
-			b.Vx += ((float)(rnd.NextDouble() - 0.5) * 900f - b.Z * 5f * stir) * dt * stir; b.Vz += ((float)(rnd.NextDouble() - 0.5) * 900f + b.X * 5f * stir) * dt * stir;
+			b.Vx += ((float)(rnd.NextDouble() - 0.5) * 900f * nfac - b.Z * 5f * stir) * dt * stir; b.Vz += ((float)(rnd.NextDouble() - 0.5) * 900f * nfac + b.X * 5f * stir) * dt * stir;
 			float sp = (float)Math.Sqrt(b.Vx * b.Vx + b.Vy * b.Vy + b.Vz * b.Vz), mx = running ? 520f : 250f; if (sp > mx) { float k = mx / sp; b.Vx *= k; b.Vy *= k; b.Vz *= k; }
 			b.X += b.Vx * dt; b.Y += b.Vy * dt; b.Z += b.Vz * dt;
 			{ float wx = (b.Vy * b.Kz - b.Vz * b.Ky) * 0.012f, wy = (b.Vz * b.Kx - b.Vx * b.Kz) * 0.012f, wz = (b.Vx * b.Ky - b.Vy * b.Kx) * 0.012f; Spin(b.R, wx, wy, wz, dt); if (++b.Cnt % 40 == 0) Ortho(b.R); }
@@ -142,18 +153,38 @@ internal sealed class LottoForm : Form
 		for (int i = 0; i < jets.Length; i++) { float[] j = jets[i]; j[1] -= dt * j[2] * (running ? 1.3f : 0.4f); if (j[1] < 0f) { j[1] = 1f; j[0] = (float)(rnd.NextDouble() - 0.5) * 120f; j[2] = 0.6f + (float)rnd.NextDouble() * 0.8f; j[3] = (float)(rnd.NextDouble() - 0.5) * 80f; } }
 	}
 
-	// 관: 가운데는 밝고 가장자리는 어두운 원통 단면 + 빛이 오는 왼쪽 위로 치우친 하이라이트
+	private static Color A(Color c, int a) { return Color.FromArgb(Math.Max(0, Math.Min(255, a)), c.R, c.G, c.B); }
+	// 금속 띠(조임쇠): 가운데 선이 축 방향. 원통의 옆면 빛 반사를 가로로 줄 세워서 크롬처럼 보이게 해요
+	private void MetalBand(Graphics g, PointF c, float tangentDeg, float w, float h, bool cap)
+	{
+		GraphicsState gs = g.Save(); g.TranslateTransform(c.X, c.Y); g.RotateTransform(tangentDeg + 90f);
+		RectangleF body = new RectangleF(-w / 2f, -h / 2f, w, h); float eh = Math.Max(5f, w * 0.2f);
+		Color d = Color.FromArgb(Theme.Dark ? 70 : 96, Theme.Dark ? 78 : 104, Theme.Dark ? 92 : 120), m = Color.FromArgb(168, 176, 190), l = Color.FromArgb(238, 242, 248);
+		using (SolidBrush sh = new SolidBrush(Color.FromArgb(60, 0, 0, 0))) g.FillEllipse(sh, -w / 2f + 2f, h / 2f - eh / 2f + 3f, w, eh);
+		using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(body.X, body.Y, body.Width, 1), d, d, 0f))
+		{
+			ColorBlend cb = new ColorBlend(); cb.Positions = new[] { 0f, 0.12f, 0.3f, 0.42f, 0.55f, 0.78f, 1f }; cb.Colors = new[] { d, m, l, Color.White, m, d, Theme.Mix(d, Color.Black, 0.4) }; lb.InterpolationColors = cb;
+			g.FillRectangle(lb, body); g.FillEllipse(lb, body.X, body.Bottom - eh / 2f, body.Width, eh);
+			if (cap) { using (SolidBrush top = new SolidBrush(Color.FromArgb(235, 214, 220, 230))) g.FillEllipse(top, body.X, body.Y - eh / 2f, body.Width, eh); using (SolidBrush hole = new SolidBrush(Color.FromArgb(150, 40, 50, 70))) g.FillEllipse(hole, body.X + w * 0.14f, body.Y - eh * 0.36f, w * 0.72f, eh * 0.72f); }
+			else using (SolidBrush top = new SolidBrush(Color.FromArgb(120, 214, 220, 230))) g.FillEllipse(top, body.X, body.Y - eh / 2f, body.Width, eh);
+			using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 1f)) g.DrawArc(p, body.X + 0.5f, body.Y - eh / 2f, body.Width - 1f, eh, 180, 180);
+			using (Pen p = new Pen(Color.FromArgb(90, 40, 50, 70), 1f)) g.DrawArc(p, body.X + 0.5f, body.Bottom - eh / 2f, body.Width - 1f, eh, 0, 180);
+		}
+		g.Restore(gs);
+	}
+	// 관: 가장자리는 어둡고 가운데는 맑은 유리 원통 + 빛이 오는 쪽의 반사줄
 	private void DrawTube(Graphics g, Color tubeIn, Color tubeOut)
 	{
 		using (GraphicsPath gp = new GraphicsPath())
 		{
 			gp.AddLines(railPath.P.ToArray());
-			using (Pen p = new Pen(Color.FromArgb(Theme.Dark ? 90 : 50, 0, 0, 0), TUBE + 8f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) { GraphicsState s = g.Save(); g.TranslateTransform(5f, 7f); g.DrawPath(p, gp); g.Restore(s); }
-			using (Pen p = new Pen(tubeOut, TUBE + 4f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawPath(p, gp);
-			Color lit = Theme.Mix(tubeIn, Color.White, Theme.Dark ? 0.25 : 0.55);
-			for (int k = 0; k < 6; k++)
+			for (int k = 3; k >= 0; k--) using (Pen p = new Pen(Color.FromArgb(Theme.Dark ? 12 : 5, 0, 0, 0), TUBE + 4f + k * 3f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) { GraphicsState s = g.Save(); g.TranslateTransform(5f, 8f); g.DrawPath(p, gp); g.Restore(s); }   // 부드러운 그림자
+			Color edge = Theme.Mix(tubeOut, Theme.Bg, Theme.Dark ? 0.1 : 0.32), clear = Theme.Mix(Theme.Bg, tubeIn, Theme.Dark ? 0.3 : 0.18);
+			const int N = 11;
+			for (int k = 0; k <= N; k++)
 			{
-				float u = k / 5f; using (Pen p = new Pen(Theme.Mix(Theme.Mix(tubeOut, tubeIn, 0.55), lit, u), TUBE - k * (TUBE - 8f) / 6f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) { GraphicsState s = g.Save(); g.TranslateTransform(-1.2f * u * 3f, -1.2f * u * 3f); g.DrawPath(p, gp); g.Restore(s); }
+				double u = k / (double)N, e = u * u * (3 - 2 * u); float w = (TUBE + 5f) * (1f - (float)u * 0.93f) ; Color c = Theme.Mix(edge, clear, Math.Pow(e, 0.45));
+				float off = (float)u * 2.2f; using (Pen p = new Pen(c, w) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) { GraphicsState s = g.Save(); g.TranslateTransform(-off * 0.6f, -off * 0.6f); g.DrawPath(p, gp); g.Restore(s); }
 			}
 		}
 	}
@@ -168,26 +199,43 @@ internal sealed class LottoForm : Form
 		using (Graphics g = Graphics.FromImage(layBack))
 		{
 			Gfx.HQ(g); g.Clear(Theme.Bg); g.ScaleTransform(sc, sc);
-			// 바닥 그림자 + 받침대(원통)
-			using (GraphicsPath sp = new GraphicsPath()) { sp.AddEllipse(MX - 118, 392, 236, 30); using (PathGradientBrush pb = new PathGradientBrush(sp)) { pb.CenterColor = Color.FromArgb(Theme.Dark ? 120 : 70, 0, 0, 0); pb.SurroundColors = new[] { Color.FromArgb(0, 0, 0, 0) }; g.FillPath(pb, sp); } }
-			Color red = Color.FromArgb(206, 66, 76), redD = Theme.Mix(red, Color.Black, 0.45), redL = Theme.Mix(red, Color.White, 0.5);
+			// 스튜디오 배경: 구체 뒤가 은은하게 밝아요
+			using (GraphicsPath bgp = new GraphicsPath()) { bgp.AddEllipse(MX - 250, MY - 230, 500, 470); using (PathGradientBrush pb = new PathGradientBrush(bgp)) { pb.CenterPoint = new PointF(MX - 20, MY - 40); pb.CenterColor = Color.FromArgb(Theme.Dark ? 34 : 120, 255, 255, 255); pb.SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) }; g.FillPath(pb, bgp); } }
+			// 바닥 그림자(겹겹) + 받침대
+			for (int k = 0; k < 4; k++) using (GraphicsPath sp = new GraphicsPath()) { sp.AddEllipse(MX - 124 - k * 10, 394 - k * 2, 248 + k * 20, 34 + k * 6); using (PathGradientBrush pb = new PathGradientBrush(sp)) { pb.CenterColor = Color.FromArgb(Theme.Dark ? 70 : 40, 0, 0, 0); pb.SurroundColors = new[] { Color.FromArgb(0, 0, 0, 0) }; g.FillPath(pb, sp); } }
+			Color red = Color.FromArgb(200, 58, 70), redD = Theme.Mix(red, Color.Black, 0.55), redL = Theme.Mix(red, Color.White, 0.55);
 			RectangleF body = new RectangleF(MX - 98, 360, 196, 40);
-			using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(body.X, body.Y, body.Width, 1), redD, redD, 0f)) { ColorBlend cb = new ColorBlend(); cb.Positions = new[] { 0f, 0.22f, 0.5f, 1f }; cb.Colors = new[] { redD, red, redL, redD }; lb.InterpolationColors = cb; g.FillRectangle(lb, body); g.FillEllipse(lb, body.X, body.Bottom - 9, body.Width, 18); }
-			using (SolidBrush b = new SolidBrush(redL)) g.FillEllipse(b, body.X, body.Y - 9, body.Width, 18);
-			using (SolidBrush b = new SolidBrush(Theme.Mix(red, Color.Black, 0.25))) g.FillEllipse(b, body.X + 14, body.Y - 6, body.Width - 28, 12);
-			using (Pen p = new Pen(Color.FromArgb(200, 238, 196, 80), 3f)) g.DrawArc(p, body.X + 3, body.Bottom - 8, body.Width - 6, 14, 10, 160);
-			// 관 몸통 (불투명)
+			using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(body.X, body.Y, body.Width, 1), redD, redD, 0f)) { ColorBlend cb = new ColorBlend(); cb.Positions = new[] { 0f, 0.1f, 0.26f, 0.38f, 0.55f, 0.82f, 1f }; cb.Colors = new[] { redD, Theme.Mix(red, Color.Black, 0.25), red, redL, red, redD, Theme.Mix(redD, Color.Black, 0.4) }; lb.InterpolationColors = cb; g.FillRectangle(lb, body); g.FillEllipse(lb, body.X, body.Bottom - 9, body.Width, 18); }
+			using (LinearGradientBrush vb = new LinearGradientBrush(new RectangleF(body.X, body.Y, 1, body.Height + 9), Color.FromArgb(70, 255, 255, 255), Color.FromArgb(80, 0, 0, 0), 90f)) g.FillRectangle(vb, body.X, body.Y, body.Width, body.Height);
+			// 받침대 윗면: 크롬 링 + 구체가 앉는 홈
+			using (LinearGradientBrush mb = new LinearGradientBrush(new RectangleF(body.X, 1, body.Width, 1), Color.Gray, Color.Gray, 0f)) { ColorBlend cb = new ColorBlend(); cb.Positions = new[] { 0f, 0.2f, 0.45f, 0.55f, 0.8f, 1f }; cb.Colors = new[] { Color.FromArgb(120, 126, 140), Color.FromArgb(220, 226, 236), Color.White, Color.FromArgb(200, 206, 218), Color.FromArgb(120, 126, 140), Color.FromArgb(80, 86, 100) }; mb.InterpolationColors = cb; g.FillEllipse(mb, body.X, body.Y - 9, body.Width, 18); }
+			using (SolidBrush b = new SolidBrush(Theme.Mix(red, Color.Black, 0.5))) g.FillEllipse(b, body.X + 12, body.Y - 6, body.Width - 24, 12);
+			using (SolidBrush b = new SolidBrush(Color.FromArgb(80, 0, 0, 0))) g.FillEllipse(b, body.X + 20, body.Y - 4, body.Width - 40, 8);
+			using (Pen p = new Pen(Color.FromArgb(220, 238, 196, 80), 2.4f)) g.DrawArc(p, body.X + 2, body.Bottom - 10, body.Width - 4, 16, 8, 164);
+			using (Pen p = new Pen(Color.FromArgb(90, 255, 255, 255), 1f)) g.DrawArc(p, body.X + 2, body.Y - 8, body.Width - 4, 16, 195, 150);
+			// 관 몸통
 			DrawTube(g, tubeIn, tubeOut);
 			// 결과 트레이
-			using (GraphicsPath gp = Gfx.Round(new RectangleF(16, 408, 388, 150), 16)) { using (SolidBrush b = new SolidBrush(Theme.Page)) g.FillPath(b, gp); using (Pen p = new Pen(Theme.Line, 1f)) g.DrawPath(p, gp); }
-			// 관을 다시 위에 (트레이 위로 지나가도록): 레일 부분만 한 번 더
-			DrawTube(g, tubeIn, tubeOut);
-			for (int i = 0; i < 7; i++) { float x = SlotX(i); using (SolidBrush b = new SolidBrush(Color.FromArgb(Theme.Dark ? 60 : 24, 0, 0, 0))) g.FillEllipse(b, x - 24, SLOTY - 21, 48, 48); using (Pen p = new Pen(Theme.Line, 2f) { DashStyle = DashStyle.Dash }) g.DrawEllipse(p, x - 21, SLOTY - 21, 42, 42); }
-			// 유리 구체 뒷면
+			using (GraphicsPath gp = Gfx.Round(new RectangleF(16, 408, 388, 150), 16))
+			{
+				using (SolidBrush b = new SolidBrush(Color.FromArgb(Theme.Dark ? 70 : 28, 0, 0, 0))) { GraphicsState s = g.Save(); g.TranslateTransform(0, 4); g.FillPath(b, gp); g.Restore(s); }
+				using (SolidBrush b = new SolidBrush(Theme.Page)) g.FillPath(b, gp); using (Pen p = new Pen(Theme.Line, 1f)) g.DrawPath(p, gp);
+			}
+			DrawTube(g, tubeIn, tubeOut);   // 트레이 위로 지나가도록 한 번 더
+			for (int i = 0; i < 7; i++)
+			{
+				float x = SlotX(i);
+				using (SolidBrush b = new SolidBrush(Color.FromArgb(Theme.Dark ? 60 : 26, 0, 0, 0))) g.FillEllipse(b, x - 23, SLOTY - 22, 46, 46);
+				using (Pen p = new Pen(Color.FromArgb(Theme.Dark ? 130 : 80, 0, 0, 0), 3f)) g.DrawArc(p, x - 22, SLOTY - 21, 44, 44, 150, 130);   // 안쪽 그림자(윗면)
+				using (Pen p = new Pen(Color.FromArgb(Theme.Dark ? 60 : 200, 255, 255, 255), 2f)) g.DrawArc(p, x - 23, SLOTY - 22, 46, 46, 330, 100);   // 아랫면 반사
+			}
+			// 유리 구체 뒷면 (두께가 있는 유리: 가장자리가 짙고 가운데는 맑아요)
 			using (GraphicsPath gp = new GraphicsPath())
 			{
-				gp.AddEllipse(MX - MR, MY - MR, MR * 2, MR * 2); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterPoint = new PointF(MX - MR * 0.25f, MY - MR * 0.3f); pb.CenterColor = Theme.Mix(Theme.Bg, glassC, Theme.Dark ? 0.16 : 0.1); pb.SurroundColors = new[] { Theme.Mix(Theme.Bg, glassC, Theme.Dark ? 0.5 : 0.4) }; g.FillPath(pb, gp); }
-				using (Pen p = new Pen(Color.FromArgb(70, 40, 80, 140), 1.5f)) g.DrawEllipse(p, MX - MR + 6, MY - MR + 6, MR * 2 - 12, MR * 2 - 12);
+				gp.AddEllipse(MX - MR, MY - MR, MR * 2, MR * 2); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterPoint = new PointF(MX - MR * 0.2f, MY - MR * 0.25f); pb.CenterColor = Theme.Mix(Theme.Bg, Color.White, Theme.Dark ? 0.05 : 0.45); ColorBlend cb = new ColorBlend(); cb.Positions = new[] { 0f, 0.12f, 0.5f, 1f }; cb.Colors = new[] { Theme.Mix(Theme.Bg, glassC, Theme.Dark ? 0.62 : 0.5), Theme.Mix(Theme.Bg, glassC, Theme.Dark ? 0.3 : 0.2), Theme.Mix(Theme.Bg, glassC, Theme.Dark ? 0.12 : 0.07), pb.CenterColor }; pb.InterpolationColors = cb; g.FillPath(pb, gp); }
+				using (Pen p = new Pen(Color.FromArgb(60, 30, 70, 130), 1.4f)) g.DrawEllipse(p, MX - MR + 7, MY - MR + 7, MR * 2 - 14, MR * 2 - 14);
+				// 바닥에 비치는 빨간 받침 (유리 아래쪽에 반사)
+				using (GraphicsPath rp = new GraphicsPath()) { rp.AddEllipse(MX - 70, MY + MR - 34, 140, 40); using (PathGradientBrush pb = new PathGradientBrush(rp)) { pb.CenterColor = Color.FromArgb(70, 200, 58, 70); pb.SurroundColors = new[] { Color.FromArgb(0, 200, 58, 70) }; g.FillPath(pb, rp); } }
 			}
 			// 바닥 송풍구
 			using (SolidBrush b = new SolidBrush(Color.FromArgb(Theme.Dark ? 130 : 60, 20, 40, 90))) g.FillEllipse(b, MX - 42, MY + MR - 20, 84, 22);
@@ -196,22 +244,43 @@ internal sealed class LottoForm : Form
 		using (Graphics g = Graphics.FromImage(layGlass))
 		{
 			Gfx.HQ(g); g.ScaleTransform(sc, sc);
-			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(MX - MR, MY - MR, MR * 2, MR * 2); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterPoint = new PointF(MX, MY); pb.CenterColor = Color.FromArgb(0, 200, 225, 255); pb.SurroundColors = new[] { Color.FromArgb(Theme.Dark ? 80 : 70, 150, 190, 240) }; ColorBlend cb = new ColorBlend(); cb.Positions = new[] { 0f, 0.55f, 1f }; cb.Colors = new[] { Color.FromArgb(Theme.Dark ? 80 : 70, 150, 190, 240), Color.FromArgb(0, 200, 225, 255), Color.FromArgb(0, 200, 225, 255) }; pb.InterpolationColors = cb; g.FillPath(pb, gp); } }
-			// 테두리 + 반사
-			using (Pen p = new Pen(Color.FromArgb(200, 120, 160, 215), 5f)) g.DrawEllipse(p, MX - MR, MY - MR, MR * 2, MR * 2);
-			using (Pen p = new Pen(Color.FromArgb(150, 255, 255, 255), 6f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(p, MX - MR + 14, MY - MR + 14, MR * 2 - 28, MR * 2 - 28, 205, 62);
-			using (Pen p = new Pen(Color.FromArgb(90, 255, 255, 255), 3f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(p, MX - MR + 14, MY - MR + 14, MR * 2 - 28, MR * 2 - 28, 280, 22);
-			using (Pen p = new Pen(Color.FromArgb(70, 255, 255, 255), 3f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(p, MX - MR + 12, MY - MR + 12, MR * 2 - 24, MR * 2 - 24, 20, 40);
-			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(MX - MR * 0.62f, MY - MR * 0.82f, MR * 0.5f, MR * 0.22f); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterColor = Color.FromArgb(110, 255, 255, 255); pb.SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) }; g.FillPath(pb, gp); } }
-			// 목(구체 위 이음부)
-			using (SolidBrush b = new SolidBrush(Color.FromArgb(235, 200, 156, 52))) g.FillRectangle(b, MX - TUBE / 2f - 3f, MY - MR - 7f, TUBE + 6f, 10f);
-			using (Pen p = new Pen(Color.FromArgb(180, 120, 90, 20), 1.2f)) g.DrawRectangle(p, MX - TUBE / 2f - 3f, MY - MR - 7f, TUBE + 6f, 10f);
+			// 프레넬: 가장자리로 갈수록 유리가 진하게 보여요
+			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(MX - MR, MY - MR, MR * 2, MR * 2); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterPoint = new PointF(MX, MY); pb.CenterColor = Color.FromArgb(0, 200, 225, 255); ColorBlend cb = new ColorBlend(); cb.Positions = new[] { 0f, 0.1f, 0.55f, 1f }; cb.Colors = new[] { Color.FromArgb(Theme.Dark ? 130 : 120, 130, 175, 235), Color.FromArgb(Theme.Dark ? 70 : 60, 150, 190, 240), Color.FromArgb(0, 200, 225, 255), Color.FromArgb(0, 200, 225, 255) }; pb.InterpolationColors = cb; g.FillPath(pb, gp); } }
+			// 유리 두께: 바깥 어두운 선 · 안쪽 밝은 선
+			using (Pen p = new Pen(Color.FromArgb(150, 70, 110, 170), 2.2f)) g.DrawEllipse(p, MX - MR, MY - MR, MR * 2, MR * 2);
+			using (Pen p = new Pen(Color.FromArgb(100, 210, 232, 255), 3.4f)) g.DrawEllipse(p, MX - MR + 3.4f, MY - MR + 3.4f, MR * 2 - 6.8f, MR * 2 - 6.8f);
+			using (Pen p = new Pen(Color.FromArgb(70, 60, 100, 160), 1f)) g.DrawEllipse(p, MX - MR + 6.5f, MY - MR + 6.5f, MR * 2 - 13f, MR * 2 - 13f);
+			// 창문 모양 반사 (왼쪽 위): 구체 안으로 잘라서 곡면에 맞춰요
+			GraphicsState gs = g.Save();
+			using (GraphicsPath clip = new GraphicsPath()) { clip.AddEllipse(MX - MR + 8, MY - MR + 8, MR * 2 - 16, MR * 2 - 16); g.SetClip(clip, CombineMode.Intersect); }
+			g.TranslateTransform(MX - MR * 0.46f, MY - MR * 0.5f); g.RotateTransform(-38f);
+			using (GraphicsPath win = Gfx.Round(new RectangleF(-34, -20, 68, 40), 10f))
+			using (LinearGradientBrush lb = new LinearGradientBrush(new RectangleF(-34, -20, 68, 40), Color.FromArgb(185, 255, 255, 255), Color.FromArgb(10, 255, 255, 255), 60f)) { g.FillPath(lb, win); }
+			using (Pen p = new Pen(Color.FromArgb(120, 140, 170, 210), 1.6f)) { g.DrawLine(p, 0, -20, 0, 20); g.DrawLine(p, -34, 0, 34, 0); }   // 창틀
+			g.Restore(gs);
+			using (Pen p = new Pen(Color.FromArgb(170, 255, 255, 255), 5f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(p, MX - MR + 12, MY - MR + 12, MR * 2 - 24, MR * 2 - 24, 200, 40);
+			using (Pen p = new Pen(Color.FromArgb(90, 255, 255, 255), 2.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(p, MX - MR + 12, MY - MR + 12, MR * 2 - 24, MR * 2 - 24, 244, 18);
+			using (Pen p = new Pen(Color.FromArgb(80, 255, 255, 255), 3f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(p, MX - MR + 10, MY - MR + 10, MR * 2 - 20, MR * 2 - 20, 15, 48);   // 오른쪽 아래 반사광
+			using (Pen p = new Pen(Color.FromArgb(50, 255, 200, 150), 5f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(p, MX - MR + 6, MY - MR + 6, MR * 2 - 12, MR * 2 - 12, 62, 46);   // 아래쪽 따뜻한 반사
+			// 구체가 받침에 앉는 크롬 링 (앞쪽 반)
+			{
+				float rw = 156f, rh = 22f, rx = MX - rw / 2f, ry = MY + MR - 8f;
+				using (Pen p = new Pen(Color.FromArgb(Theme.Dark ? 120 : 150, 70, 78, 96), 7f)) g.DrawArc(p, rx, ry, rw, rh, 0, 180);
+				using (Pen p = new Pen(Color.FromArgb(230, 214, 220, 232), 4f)) g.DrawArc(p, rx, ry - 0.5f, rw, rh, 8, 164);
+				using (Pen p = new Pen(Color.FromArgb(230, 255, 255, 255), 1.4f)) g.DrawArc(p, rx + 6, ry - 1.6f, rw - 12, rh, 30, 100);
+			}
 		}
 		using (Graphics g = Graphics.FromImage(layPipe))
 		{
 			Gfx.HQ(g); g.ScaleTransform(sc, sc);
-			using (GraphicsPath gp = new GraphicsPath()) { gp.AddLines(railPath.P.ToArray()); using (Pen p = new Pen(Color.FromArgb(120, 255, 255, 255), 3f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) { Matrix m = new Matrix(); m.Translate(-8f, -7f); gp.Transform(m); g.DrawPath(p, gp); } }
-			using (GraphicsPath gp = new GraphicsPath()) { gp.AddLines(railPath.P.ToArray()); using (Pen p = new Pen(Color.FromArgb(50, 255, 255, 255), 2f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) { Matrix m = new Matrix(); m.Translate(9f, 8f); gp.Transform(m); g.DrawPath(p, gp); } }
+			// 유리관의 빛 반사 (왼쪽 위에서 오는 빛)
+			using (GraphicsPath gp = new GraphicsPath()) { gp.AddLines(railPath.P.ToArray()); using (Pen p = new Pen(Color.FromArgb(170, 255, 255, 255), 2.6f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) { Matrix m = new Matrix(); m.Translate(-9f, -8f); gp.Transform(m); g.DrawPath(p, gp); } }
+			using (GraphicsPath gp = new GraphicsPath()) { gp.AddLines(railPath.P.ToArray()); using (Pen p = new Pen(Color.FromArgb(60, 255, 255, 255), 1.6f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) { Matrix m = new Matrix(); m.Translate(10f, 9f); gp.Transform(m); g.DrawPath(p, gp); } }
+			// 금속 이음쇠: 구체 목 · 관 연결 마디 · 끝 마개 (공이 지나갈 때 띠 뒤로 잠깐 가려져요)
+			MetalBand(g, new PointF(MX, MY - MR + 2f), -90f, TUBE + 30f, 7f, false);     // 구체 목의 받침 플랜지
+			MetalBand(g, new PointF(MX, MY - MR - 8f), -90f, TUBE + 12f, 12f, true);      // 관을 물고 있는 목 조임쇠
+			MetalBand(g, new PointF(PIPEX, 230f), 90f, TUBE + 8f, 7f, false);
+			MetalBand(g, new PointF(40f, RAIL), 180f, TUBE + 10f, 9f, false);
 		}
 	}
 
@@ -222,33 +291,42 @@ internal sealed class LottoForm : Form
 	private Bitmap BaseSprite(int n)
 	{
 		int k = n <= 10 ? 0 : (n <= 20 ? 1 : (n <= 30 ? 2 : (n <= 40 ? 3 : 4))); if (baseSpr[k] != null) return baseSpr[k];
-		const int S = 96; Bitmap bm = new Bitmap(S, S, PixelFormat.Format32bppPArgb); float r = S / 2f - 2f, x = S / 2f, y = S / 2f; Color c = BallColor(n);
-		using (Graphics g = Graphics.FromImage(bm)) { Gfx.HQ(g); using (SolidBrush b = new SolidBrush(c)) g.FillEllipse(b, x - r, y - r, r * 2, r * 2); }
+		const int S = 88; Bitmap bm = new Bitmap(S, S, PixelFormat.Format32bppPArgb); float r = S / 2f - 2f, x = S / 2f, y = S / 2f; Color c = BallColor(n);
+		using (Graphics g = Graphics.FromImage(bm)) { Gfx.HQ(g); using (SolidBrush b = new SolidBrush(c)) g.FillEllipse(b, x - r, y - r, r * 2, r * 2); using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(x - r, y - r, r * 2, r * 2); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterPoint = new PointF(x - r * 0.3f, y - r * 0.34f); pb.CenterColor = Theme.Mix(c, Color.White, 0.22); pb.SurroundColors = new[] { Theme.Mix(c, Color.Black, 0.18) }; g.FillPath(pb, gp); } } }
 		baseSpr[k] = bm; return bm;
 	}
 	private Bitmap Decal(int n)
 	{
 		if (spr[n] != null) return spr[n];
-		const int S = 80; Bitmap bm = new Bitmap(S, S, PixelFormat.Format32bppPArgb); float x = S / 2f;
+		const int S = 64; Bitmap bm = new Bitmap(S, S, PixelFormat.Format32bppPArgb); float x = S / 2f;
 		using (Graphics g = Graphics.FromImage(bm))
 		{
 			Gfx.HQ(g); using (SolidBrush w = new SolidBrush(Color.FromArgb(250, 250, 250, 246))) g.FillEllipse(w, 1, 1, S - 2, S - 2);
-			using (Font f = new Font("Arial", n >= 10 ? 36f : 42f, FontStyle.Bold, GraphicsUnit.Pixel)) using (StringFormat sf = new StringFormat(StringFormat.GenericTypographic) { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center }) using (SolidBrush tb = new SolidBrush(Color.FromArgb(36, 36, 48))) { g.TextRenderingHint = TextRenderingHint.AntiAlias; g.DrawString(n.ToString(), f, tb, new RectangleF(0, 3, S, S), sf); }
-			if (n == 6 || n == 9 || n == 66) using (Pen p = new Pen(Color.FromArgb(36, 36, 48), 4f)) g.DrawLine(p, x - 14, S - 12, x + 14, S - 12);   // 6·9 구분 밑줄
+			using (Font f = new Font("Arial", n >= 10 ? 29f : 34f, FontStyle.Bold, GraphicsUnit.Pixel)) using (StringFormat sf = new StringFormat(StringFormat.GenericTypographic) { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center }) using (SolidBrush tb = new SolidBrush(Color.FromArgb(36, 36, 48))) { g.TextRenderingHint = TextRenderingHint.AntiAlias; g.DrawString(n.ToString(), f, tb, new RectangleF(0, 2, S, S), sf); }
+			if (n == 6 || n == 9 || n == 66) using (Pen p = new Pen(Color.FromArgb(36, 36, 48), 4f)) g.DrawLine(p, x - 11, S - 10, x + 11, S - 10);   // 6·9 구분 밑줄
 		}
 		spr[n] = bm; return bm;
 	}
 	private Bitmap Shade()
 	{
 		if (shadeSpr != null) return shadeSpr;
-		const int S = 96; Bitmap bm = new Bitmap(S, S, PixelFormat.Format32bppPArgb); float r = S / 2f - 2f, x = S / 2f, y = S / 2f;
+		const int S = 88; Bitmap bm = new Bitmap(S, S, PixelFormat.Format32bppPArgb); float r = S / 2f - 2f, x = S / 2f, y = S / 2f;
 		using (Graphics g = Graphics.FromImage(bm))
 		{
 			Gfx.HQ(g);
-			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(x - r, y - r, r * 2, r * 2); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterPoint = new PointF(x - r * 0.36f, y - r * 0.4f); pb.CenterColor = Color.FromArgb(70, 255, 255, 255); ColorBlend cb = new ColorBlend(); cb.Positions = new[] { 0f, 0.45f, 0.8f, 1f }; cb.Colors = new[] { Color.FromArgb(150, 20, 20, 40), Color.FromArgb(70, 20, 20, 40), Color.FromArgb(0, 20, 20, 40), Color.FromArgb(70, 255, 255, 255) }; pb.InterpolationColors = cb; g.FillPath(pb, gp); } }
-			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(x - r * 0.62f, y - r * 0.82f, r * 0.62f, r * 0.34f); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterColor = Color.FromArgb(230, 255, 255, 255); pb.SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) }; g.FillPath(pb, gp); } }
-			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(x + r * 0.2f, y + r * 0.38f, r * 0.62f, r * 0.34f); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterColor = Color.FromArgb(50, 255, 255, 255); pb.SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) }; g.FillPath(pb, gp); } }   // 바닥에서 튀어 오른 빛
-			using (Pen p = new Pen(Color.FromArgb(70, 0, 0, 0), 1.4f)) g.DrawEllipse(p, x - r, y - r, r * 2, r * 2);
+			// ① 부드러운 명암: 빛 쪽은 환하고 반대쪽은 깊게 어두워요
+			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(x - r, y - r, r * 2, r * 2); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterPoint = new PointF(x - r * 0.34f, y - r * 0.38f); pb.CenterColor = Color.FromArgb(46, 255, 255, 255); ColorBlend cb = new ColorBlend(); cb.Positions = new[] { 0f, 0.3f, 0.62f, 0.86f, 1f }; cb.Colors = new[] { Color.FromArgb(190, 14, 14, 34), Color.FromArgb(118, 14, 14, 34), Color.FromArgb(34, 14, 14, 34), Color.FromArgb(0, 14, 14, 34), pb.CenterColor }; pb.InterpolationColors = cb; g.FillPath(pb, gp); } }
+			// ② 가장자리 프레넬 반사(하늘색 테두리) — 윤이 나는 공의 느낌
+			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(x - r, y - r, r * 2, r * 2); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterColor = Color.FromArgb(0, 200, 225, 255); pb.SurroundColors = new[] { Color.FromArgb(70, 190, 215, 255) }; ColorBlend cb = new ColorBlend(); cb.Positions = new[] { 0f, 0.8f, 1f }; cb.Colors = new[] { Color.FromArgb(70, 190, 215, 255), Color.FromArgb(0, 200, 225, 255), Color.FromArgb(0, 200, 225, 255) }; pb.InterpolationColors = cb; g.FillPath(pb, gp); } }
+			// ③ 바닥에서 튀어 오른 빛(오른쪽 아래)
+			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(x + r * 0.05f, y + r * 0.3f, r * 0.8f, r * 0.5f); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterColor = Color.FromArgb(74, 255, 244, 224); pb.SurroundColors = new[] { Color.FromArgb(0, 255, 244, 224) }; g.FillPath(pb, gp); } }
+			// ④ 창문 모양 반사: 크고 부드러운 면광 + 또렷한 핵심 반사
+			GraphicsState gs = g.Save(); g.TranslateTransform(x - r * 0.36f, y - r * 0.44f); g.RotateTransform(-32f);
+			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(-r * 0.46f, -r * 0.27f, r * 0.92f, r * 0.54f); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterColor = Color.FromArgb(214, 255, 255, 255); pb.SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) }; g.FillPath(pb, gp); } }
+			using (GraphicsPath gp = Gfx.Round(new RectangleF(-r * 0.27f, -r * 0.13f, r * 0.54f, r * 0.26f), r * 0.07f)) using (SolidBrush b = new SolidBrush(Color.FromArgb(150, 255, 255, 255))) g.FillPath(b, gp);
+			g.Restore(gs);
+			using (GraphicsPath gp = new GraphicsPath()) { gp.AddEllipse(x - r * 0.5f, y - r * 0.62f, r * 0.17f, r * 0.17f); using (PathGradientBrush pb = new PathGradientBrush(gp)) { pb.CenterColor = Color.FromArgb(255, 255, 255, 255); pb.SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) }; g.FillPath(pb, gp); } }
+			using (Pen p = new Pen(Color.FromArgb(80, 0, 0, 0), 1.2f)) g.DrawEllipse(p, x - r, y - r, r * 2, r * 2);
 		}
 		shadeSpr = bm; return bm;
 	}
@@ -277,8 +355,9 @@ internal sealed class LottoForm : Form
 	private void Rings(Graphics g, bool front)
 	{
 		float ca = (float)Math.Cos(PITCH), sa = (float)Math.Sin(PITCH); float ph = tAir * 0.55f; const int NP = 48;
-		PointF[] pt = new PointF[NP + 1]; float[] zz = new float[NP + 1];
-		using (Pen p = new Pen(front ? Color.FromArgb(200, 232, 184, 64) : Color.FromArgb(90, 150, 110, 40), front ? 2.6f : 2f))
+		PointF[] pt = ringPt; float[] zz = ringZ;
+		Pen p = front ? ringFront : ringBack;
+		{
 			for (int ring = 0; ring < 3; ring++)
 			{
 				for (int k = 0; k <= NP; k++)
@@ -293,10 +372,14 @@ internal sealed class LottoForm : Form
 				{
 					bool on = k < NP && ((zz[k] + zz[k + 1]) * 0.5f >= 0f) == front;
 					if (on && st < 0) st = k;
-					if (!on && st >= 0) { PointF[] seg = new PointF[k - st + 1]; Array.Copy(pt, st, seg, 0, seg.Length); if (seg.Length >= 2) g.DrawLines(p, seg); st = -1; }
+					if (!on && st >= 0) { int cnt = k - st + 1; if (cnt >= 2) { Array.Copy(pt, st, ringSeg, 0, cnt); g.DrawLines(p, cnt == ringSeg.Length ? ringSeg : Sub(ringSeg, cnt)); } st = -1; }
 				}
 			}
+		}
 	}
+	private readonly PointF[] ringPt = new PointF[49], ringSeg = new PointF[49]; private readonly float[] ringZ = new float[49];
+	private readonly Pen ringFront = new Pen(Color.FromArgb(200, 232, 184, 64), 2.6f), ringBack = new Pen(Color.FromArgb(90, 150, 110, 40), 2f);
+	private static PointF[] Sub(PointF[] a, int n) { PointF[] r = new PointF[n]; Array.Copy(a, r, n); return r; }
 
 	protected override void OnPaint(PaintEventArgs e)
 	{

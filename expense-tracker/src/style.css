@@ -1120,3 +1120,21 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
 .now-legend .l3{background:rgba(217,143,0,.35)}.now-legend .l4{width:3px;height:14px;background:var(--text);vertical-align:-3px;margin-right:7px}.now-legend .l5{background:var(--bad)}
 .fit-now{max-height:calc(100vh - 268px)}
 @media (max-width:1100px){.fit-now{max-height:none}}
+
+
+/* 단위 · 공식 양식 */
+.unitcap{text-align:right;font-size:12px;color:var(--text-2);margin:2px 4px}
+.of{background:#fff;border:1px solid var(--edge-dark,#cfd6e0);border-radius:12px;padding:18px 22px}
+.of-meta{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--text-2);margin-bottom:6px}.of-unit{margin-left:auto;color:var(--text)}
+.of-sec{font-size:17px;font-weight:800;margin:16px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--text)}.of-sec .of-unit{font-size:12px;font-weight:400;margin-left:8px}
+.of-sum{margin:4px 0 10px;padding-left:20px;line-height:1.9;font-size:15px}.of-sum li::marker{content:"○ "}
+.of-why{font-size:13px;margin:0 0 4px;color:var(--text-2)}
+.of-tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.of-tbl th{background:var(--track,#eef1f6);border:1px solid var(--edge-dark,#c9d0dc);padding:6px 8px;text-align:center;font-weight:700}
+.of-tbl td{border:1px solid var(--edge,#d9dee8);padding:5px 8px}.of-tbl td.num{text-align:right;font-variant-numeric:tabular-nums}.of-tbl td.c{text-align:center}
+.of-tbl tr.of-tot td{background:var(--track,#f3f5f9);font-weight:800}
+.ost{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.ost.ok{background:var(--good-soft);color:var(--good)}.ost.warn{background:var(--warn-soft);color:var(--warn)}.ost.bad{background:var(--bad-soft);color:var(--bad)}.ost.gray{background:var(--track,#eef0f4);color:var(--text-2)}
+.of-d{font-size:11px;color:var(--text-2);margin-left:4px}
+.of-foot{margin-top:12px;font-size:12px;line-height:1.7;color:var(--text-2)}
+@media print{.of{border:0;padding:0}.of-tbl{font-size:10.5px}.of-tbl td,.of-tbl th{padding:3px 5px}.of-sum{font-size:12px;line-height:1.6}.of-sec{font-size:14px}.of-foot{font-size:9.5px}.ost{print-color-adjust:exact;-webkit-print-color-adjust:exact}.of-tbl tr{break-inside:avoid}.of-tbl thead{display:table-header-group}.of-tbl th{print-color-adjust:exact;-webkit-print-color-adjust:exact}}

@@ -130,16 +130,22 @@ function donutCard(T) {
 
 /* 현황 탭: 사업명과 남은 잔액이 가장 잘 보이게 */
 function remCls(l) { const c = calc(l); if (l.budget <= 0) return ''; if (c.remainAfter < 0) return 'rem-bad'; if (c.remainAfter / l.budget <= 0.05) return 'rem-low'; return ''; }
+function nowBarCell(spent, sch, budget, rate, el) {
+  const th = thr(), over = budget > 0 && (rate >= th.hot || spent + sch > budget), lag = budget > 0 && !over && rate < el - th.low;
+  const want = budget * Math.min(100, el) / 100;
+  const tip = `지출 ${won(spent)}원 (${pct1(rate)})${sch ? `\n지급예정 ${won(sch)}원` : ''}\n지금쯤(경과율 ${pct1(el)}) ${won(want)}원은 써야 하는 기준${lag ? `\n→ ${won(Math.max(0, want - spent))}원 부족` : ''}`;
+  return `<div class="nowbar" data-tip="${esc(tip)}">${easyBar({ rate, gap: sch, budget }, el, false, over ? 'bad' : '', !lag)}<b class="${over ? 'ov' : lag ? 'lg' : ''}">${pct1(rate)}</b></div>`;
+}
 function dailyNow(T, el, diff, alerts) {
   const rows = GROUPS.map(g => {
     const Ls = visLines().filter(l => l.group === g); if (!Ls.length) return ''; const gt = groupTotals(Ls);
-    return `<tr class="grp"><td>${g}</td><td class="num remv ${gt.remain < 0 ? 'neg' : ''}">${won(gt.remain)}</td><td class="num sm">${won(gt.budget)}</td><td class="num sm">${won(gt.spent)}</td><td class="pcol">${pct1(gt.rate)}</td></tr>` +
-      Ls.map(l => { const c = calc(l); return `<tr class="clk ${remCls(l)}" data-act="goline" data-id="${l.id}"><td class="nm2">${esc(l.label)}${statusBadges(l)}${c.sch ? `<span class="hint">예정 ${won(c.sch)} → 예정 반영 잔액 ${won(c.remainAfter)}</span>` : ''}</td><td class="num remv">${won(c.remain)}</td><td class="num sm">${won(l.budget)}</td><td class="num sm">${won(l.spent)}</td><td class="pcol"><div class="rate">${barHTML(l.spent, c.sch, l.budget)}<b>${pct1(c.rate)}</b></div></td></tr>`; }).join('');
+    return `<tr class="grp"><td class="nm2">${g}<span class="hint">예산 ${won(gt.budget)} · 지출 ${won(gt.spent)}</span></td><td class="num remv ${gt.remain < 0 ? 'neg' : ''}">${won(gt.remain)}</td><td class="pcol">${nowBarCell(gt.spent, gt.sch, gt.budget, gt.rate, el)}</td></tr>` +
+      Ls.map(l => { const c = calc(l); return `<tr class="clk ${remCls(l)}" data-act="goline" data-id="${l.id}"><td class="nm2">${esc(l.label)}${statusBadges(l)}<span class="hint">예산 ${won(l.budget)} · 지출 ${won(l.spent)}${c.sch ? ` · 예정 ${won(c.sch)} → 예정 반영 잔액 ${won(c.remainAfter)}` : ''}</span></td><td class="num remv">${won(c.remain)}</td><td class="pcol">${nowBarCell(l.spent, c.sch, l.budget, c.rate, el)}</td></tr>`; }).join('');
   }).join('');
   const nAl = UI.alertsAll ? 99 : 3;
   return `<div class="now">
-    <div class="now-l"><div class="tbl-wrap fit fit-now"><table class="t nowt"><thead><tr><th>사업명</th><th>남은 잔액</th><th>예산</th><th>지출</th><th>집행률</th></tr></thead><tbody>${rows}
-      <tr class="tot"><td>전체 합계${hiddenNote()}</td><td class="num remv">${won(T.remain)}</td><td class="num sm">${won(T.budget)}</td><td class="num sm">${won(T.spent)}</td><td class="pcol">${pct1(T.rate)}</td></tr></tbody></table></div></div>
+    <div class="now-l"><div class="now-legend"><span><i class="l1"></i>지출</span><span><i class="l2"></i>지급예정</span><span><i class="l3"></i>지금쯤 써야 하는데 아직 안 쓴 만큼</span><span><i class="l4"></i>오늘까지 지난 기간(경과율 ${pct1(el)})</span><span class="lr"><i class="l5"></i>95% 이상·초과</span></div><div class="tbl-wrap fit fit-now"><table class="t nowt"><thead><tr><th>사업명</th><th>남은 잔액</th><th>집행률</th></tr></thead><tbody>${rows}
+      <tr class="tot"><td class="nm2">전체 합계${hiddenNote()}<span class="hint">예산 ${won(T.budget)} · 지출 ${won(T.spent)}</span></td><td class="num remv">${won(T.remain)}</td><td class="pcol">${nowBarCell(T.spent, T.sch, T.budget, T.rate, el)}</td></tr></tbody></table></div></div>
     <div class="now-r">
       <div class="kpi bigrem"><div class="k">전체 남은 예산 (잔액)${hiddenNote()}</div><div class="v ${T.remain < 0 ? 'neg' : ''}">${won(T.remain)}<small>원</small></div>
         <div class="s">지급예정 ${won(T.sch)}원 반영 후 <b>${won(T.remainAfter)}원</b> · 집행률 <b>${pct1(T.rate)}</b> <span class="pace ${diff < -10 ? 'slow' : diff > 5 ? 'fast' : 'ok'}">경과율 ${pct1(el)} 대비 ${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%p</span></div></div>

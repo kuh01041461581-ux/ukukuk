@@ -1060,3 +1060,41 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
 .ez-tile{flex:1 1 150px;display:flex;flex-direction:column;gap:2px;padding:10px 16px;border-radius:12px;background:#fff;border:1px solid var(--edge-dark,#cfd6e0)}
 .ez-tile span{font-size:13px;color:var(--text-2)}.ez-tile b{font-size:22px}.ez-tile.w{border-color:var(--warn);background:var(--warn-soft)}.ez-tile.w b{color:var(--warn)}.ez-tile.b{border-color:var(--bad);background:var(--bad-soft)}.ez-tile.b b{color:var(--bad)}
 @media print{.ez-big{font-size:28px}.ez-tile b{font-size:15px}.ez-tile{padding:6px 10px}.ez-tile,.ez-tile.w,.ez-tile.b{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+
+/* 쉬운 보기 막대 v2: 읽기 쉬운 막대 (쓴 돈 · 부족한 구간 · 오늘 표시 · 눈금) */
+.ezbar{position:relative;height:20px;background:var(--track,#e4e8ef);border-radius:10px;overflow:visible;margin:4px 0}
+.ezbar.big{height:34px;border-radius:17px}
+.ezbar .tk{position:absolute;top:0;bottom:0;width:1px;background:rgba(80,90,110,.22);z-index:1}
+.ezbar .f{position:absolute;left:0;top:0;bottom:0;background:var(--accent,#2a78d6);border-radius:inherit;min-width:6px;z-index:2;display:flex;align-items:center;justify-content:flex-end;overflow:hidden}
+.ezbar .f.warn{background:#d98f00}.ezbar .f.bad{background:var(--bad)}.ezbar .f.ok{background:var(--accent,#2a78d6)}.ezbar .f.gray{background:var(--text-2)}
+.ezbar .fl{color:#fff;font-weight:800;font-size:14px;padding-right:12px;white-space:nowrap}
+.ezbar .g{position:absolute;top:0;bottom:0;z-index:2;background:repeating-linear-gradient(45deg,#eda100 0 3px,#fff 3px 6px)}
+.ezbar .sf{position:absolute;top:2px;bottom:2px;z-index:2;border:2px dashed #d98f00;border-left:0;border-radius:0 8px 8px 0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(217,143,0,.10)}
+.ezbar .sf span{font-size:12px;font-weight:800;color:#8a5a00;white-space:nowrap;padding:0 4px}
+.ezbar.big .sf{border-radius:0 14px 14px 0}.ezbar.big .sf span{font-size:14px}
+.ezbar .mk{position:absolute;top:-5px;bottom:-5px;width:3px;margin-left:-1.5px;background:var(--text);border-radius:2px;z-index:3}
+.ezbar .mk::before{content:"";position:absolute;top:-6px;left:-4px;border:5.5px solid transparent;border-top-color:var(--text);border-bottom:0}
+.ez{display:block!important;padding:14px 10px 12px 12px!important;border-bottom:1px solid var(--edge,#e6e9f0)}
+.ez .ez-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}
+.ez .ezn{font-size:17px;font-weight:800;line-height:1.3}
+.ez .ezp{display:flex;align-items:center;gap:10px}.ez .ezp b{font-size:24px;min-width:56px;text-align:right}
+.ez .ezd{font-size:14px;margin-top:6px;line-height:1.5}.ez .ezd b{font-size:15px}.ez .lack{color:#8a5a00;font-weight:700}
+.ez-legend i{display:inline-block;width:16px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.ez-legend .lgf{background:var(--accent,#2a78d6)}.ez-legend .lgs{border:2px dashed #d98f00;background:rgba(217,143,0,.1);height:10px;box-sizing:border-box}.ez-legend .lgm{width:3px;height:14px;background:var(--text);margin-right:7px;vertical-align:-3px}
+.ez-hero .ezbar{margin:10px 0 4px}
+@media print{.ezbar .g,.ezbar .sf,.ezbar .f,.ezbar .mk{print-color-adjust:exact;-webkit-print-color-adjust:exact}.ez{padding:8px 6px 6px 8px!important}.ez .ezn{font-size:12px}.ez .ezp b{font-size:15px}.ez .ezd{font-size:10px}.ezbar{height:12px}.ezbar.big{height:22px}.ezbar .sf span{font-size:9px}.ezbar .fl{font-size:11px}}
+
+/* 쉬운 보기 막대 v3: 파랑 = 쓴 돈(항상), 연한 주황 = 지금쯤 써야 하는데 아직 안 쓴 구간 */
+.ezbar i{font-style:normal}
+.ezbar .f.warn,.ezbar .f.gray{background:var(--accent,#2a78d6)}
+.ezbar .f.gray{display:none}
+.ezbar .sf{top:0;bottom:0;border:0;border-radius:0;background:rgba(217,143,0,.20)}
+.ezbar .sf span{font-style:normal;font-size:12px;font-weight:700;color:#7a5000}
+.ezbar.big .sf span{font-size:15px}
+.ez-legend > span > i{display:inline-block;width:16px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.ez-legend .lgs{border:0;background:rgba(217,143,0,.35);height:10px}
+.ez-legend .ezs i{width:auto;height:auto;margin:0;background:none;vertical-align:baseline}
+.ez-legend{gap:16px 14px}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .ezbar .sf span,:root:where(:not([data-theme="light"])) .ez .lack{color:#f0c060}:root:where(:not([data-theme="light"])) .ezbar .sf{background:rgba(224,165,58,.28)}:root:where(:not([data-theme="light"])) .ezbar .tk{background:rgba(220,225,240,.22)}}
+:root[data-theme="dark"] .ezbar .sf span,:root[data-theme="dark"] .ez .lack{color:#f0c060}:root[data-theme="dark"] .ezbar .sf{background:rgba(224,165,58,.28)}:root[data-theme="dark"] .ezbar .tk{background:rgba(220,225,240,.22)}

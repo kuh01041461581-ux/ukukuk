@@ -270,8 +270,8 @@ internal partial class Program
 		Lbl(side, "초과근무 알리미", 11.5f, 2, Theme.Ink, 62, 19, 134, 22);
 		Lbl(side, "마룡이와 함께", 9.5f, 0, Theme.Sub, 62, 40, 134, 18);
 		string[] navNames = { "홈", "기록", "알림", "휴대폰", "업무", "설정", "사용법", "오락실" };
-		int[][] navGroup = { new int[] { 0 }, new int[] { 2 }, new int[] { 1, 3 }, new int[] { 5 }, new int[] { 7, 10, 6, 8 }, new int[] { 4 }, new int[] { 9 }, new int[] { 11 } };   // 메뉴 하나에 모이는 페이지들
-		string[][] subNames = { null, null, new string[] { "알림 시간", "휴일" }, null, new string[] { "공문 도우미", "금액·합계", "기한", "수당" }, null, null, null };
+		int[][] navGroup = { new int[] { 0 }, new int[] { 2 }, new int[] { 1, 3 }, new int[] { 5 }, new int[] { 7, 10, 6, 8, 12 }, new int[] { 4 }, new int[] { 9 }, new int[] { 11 } };   // 메뉴 하나에 모이는 페이지들
+		string[][] subNames = { null, null, new string[] { "알림 시간", "휴일" }, null, new string[] { "공문 도우미", "금액·합계", "기한", "수당", "분개·후기" }, null, null, null };
 		Func<int, int> grpOf = delegate(int pg) { for (int q = 0; q < navGroup.Length; q++) if (Array.IndexOf(navGroup[q], pg) >= 0) return q; return 0; };
 		int[] lastSub = { 0, 2, 1, 5, 7, 4, 9, 11 };
 		NavIcon[] navIcons = { NavIcon.Home, NavIcon.Clock, NavIcon.Bell, NavIcon.Phone, NavIcon.Doc, NavIcon.Gear, NavIcon.Help, NavIcon.Game };
@@ -334,8 +334,8 @@ internal partial class Program
 
 		// ── 페이지 ──
 		BM("사이드바·상단바");
-		Panel[] pages = new Panel[12];
-		for (int i = 0; i < 12; i++)
+		Panel[] pages = new Panel[13];
+		for (int i = 0; i < 13; i++)
 		{
 			pages[i] = new WashPanel(); pages[i].BackColor = Theme.Page;
 			pages[i].Location = new Point(Zs(SIDE), Zs(TOP)); pages[i].Size = new Size(Zs(PW), Zs(PH));
@@ -877,6 +877,22 @@ internal partial class Program
 			openAr.Click += delegate { MaryongGame.OpenMenu(); }; cg.Controls.Add(openAr);
 			Lbl(cg, "비밀 게임은 모든 게임을 한 번씩 해보면 열려요", 9f, 0, Theme.Muted, 18, 62, 400, 18);
 		}
+		Panel pJr = pages[12];
+		head(pJr, "분개·후기 도우미", "지출결의 분개와 수강 후기를 도와줘요");
+		{
+			Card cj = card(pJr, 78, 96);
+			Lbl(cj, "다중분개 도우미 (e호조 지급결의)", 11f, 1, Theme.Ink, 18, 12, CW - 36 - 130, 22);
+			Lbl(cj, "지출 내용을 넣으면 차변·대변 계정과목과 원천징수까지 분개해 줘요", 9f, 0, Theme.Sub, 18, 38, CW - 36 - 130, 18);
+			TButton bj = new TButton("열기", BK.Primary); bj.Pt = 9.5f; bj.Location = new Point(Zs(CW - 18 - 100), Zs(30)); bj.Size = new Size(Zs(100), Zs(36));
+			bj.Click += delegate { JournalForm.Open(); }; cj.Controls.Add(bj);
+			Lbl(cj, "트레이 메뉴에서도 열 수 있어요", 9f, 0, Theme.Muted, 18, 62, 400, 18);
+			Card cv = card(pJr, 186, 96);
+			Lbl(cv, "수강후기 도우미 (200자)", 11f, 1, Theme.Ink, 18, 12, CW - 36 - 130, 22);
+			Lbl(cv, "강의명을 넣으면 200~210자 후기를 만들어 줘요", 9f, 0, Theme.Sub, 18, 38, CW - 36 - 130, 18);
+			TButton bv = new TButton("열기", BK.Primary); bv.Pt = 9.5f; bv.Location = new Point(Zs(CW - 18 - 100), Zs(30)); bv.Size = new Size(Zs(100), Zs(36));
+			bv.Click += delegate { ReviewForm.Open(); }; cv.Controls.Add(bv);
+			Lbl(cv, "만든 글은 복사해서 바로 붙여넣을 수 있어요", 9f, 0, Theme.Muted, 18, 62, 400, 18);
+		}
 		Panel pGu = pages[9];
 		head(pGu, "사용법", "처음이라면 위에서부터 차례로 읽어 보세요");
 		string[][] gs = {
@@ -927,7 +943,7 @@ internal partial class Program
 		tCard.Tag = "frac"; rCard.Tag = "frac"; rPrev.Tag = "right"; rMonth.Tag = "right"; rNext.Tag = "right";
 		for (int q = 0; q < hb.Length; q++) hb[q].Tag = "frac";
 		BM("쪽 10개 만들기");
-		for (int q = 0; q < 12; q++) Fluid.Attach(pages[q]);
+		for (int q = 0; q < 13; q++) Fluid.Attach(pages[q]);
 		// 카드 밖에 직접 놓인 것들은 '바탕색'으로 (카드는 흰색으로 떠 보이게)
 		Action<Control> toPage = null;
 		toPage = delegate(Control pc)
@@ -939,10 +955,10 @@ internal partial class Program
 				if (c is Panel) toPage(c);
 			}
 		};
-		for (int q = 0; q < 12; q++) toPage(pages[q]);
+		for (int q = 0; q < 13; q++) toPage(pages[q]);
 		toPage(foot);
 		BM("색 정리");
-		f.Controls.AddRange(new Control[] { side, top, pages[0], pages[1], pages[2], pages[3], pages[4], pages[5], pages[6], pages[7], pages[8], pages[9], pages[10], pages[11], foot });
+		f.Controls.AddRange(new Control[] { side, top, pages[0], pages[1], pages[2], pages[3], pages[4], pages[5], pages[6], pages[7], pages[8], pages[9], pages[10], pages[11], pages[12], foot });
 
 		BM("폼에 붙이기");
 		// ── 반응형 배치 ──
@@ -968,7 +984,7 @@ internal partial class Program
 			top.SetBounds(sw, 0, avail, Zs(TOP));
 			{ int wb = Zs(36), gp = Zs(4), ty = (Zs(TOP) - bClose.Height) / 2; bClose.SetBounds(avail - Zs(10) - wb, ty, wb, bClose.Height); bMax.SetBounds(bClose.Left - gp - wb, ty, wb, bClose.Height); bMin.SetBounds(bMax.Left - gp - wb, ty, wb, bClose.Height); }
 			bMax.Restore = f.WindowState == FormWindowState.Maximized;
-			for (int i = 0; i < 12; i++) pages[i].SetBounds(sw + px0, Zs(TOP), pw, H - Zs(TOP) - Zs(FOOT));
+			for (int i = 0; i < 13; i++) pages[i].SetBounds(sw + px0, Zs(TOP), pw, H - Zs(TOP) - Zs(FOOT));
 			foot.SetBounds(sw, H - Zs(FOOT), avail, Zs(FOOT));
 			int cr = px0 + pw - Zs(PX);
 			closeB.Left = cr - closeB.Width; saveBtn.Left = closeB.Left - Zs(8) - saveBtn.Width;
@@ -1043,7 +1059,7 @@ internal partial class Program
 		bool skipUpd = false;
 		Action<int> swap = delegate(int idx)
 		{
-			for (int i = 0; i < 12; i++) pages[i].Visible = i == idx;
+			for (int i = 0; i < 13; i++) pages[i].Visible = i == idx;
 			saveBtn.Visible = false;
 			if (!dirty && !invalid) { foot1.Fore = Theme.Sub; foot1.Text = footDefault; }
 			if (idx == 0 && !skipUpd) sky.Restart();   // 전환 중에는 덮개 아래라 안 보이니, 끝난 뒤에 시작해요
@@ -1151,7 +1167,7 @@ internal partial class Program
 		// 창이 뜬 뒤 한가할 때 다른 쪽의 화면 부품(창 핸들)을 미리 만들어 둬요 → 처음 그 쪽으로 갈 때 멈칫하지 않아요
 		f.Shown += delegate
 		{
-			Queue<int> pre = new Queue<int>(); for (int i = 0; i < 12; i++) if (i != curPage) pre.Enqueue(i);
+			Queue<int> pre = new Queue<int>(); for (int i = 0; i < 13; i++) if (i != curPage) pre.Enqueue(i);
 			System.Windows.Forms.Timer pt = new System.Windows.Forms.Timer(); pt.Interval = 90;
 			pt.Tick += delegate
 			{

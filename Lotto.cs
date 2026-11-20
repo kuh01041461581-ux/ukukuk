@@ -47,6 +47,9 @@ internal sealed class LottoForm : Form
 	private readonly List<Ball> pool = new List<Ball>(); private readonly List<PBall> pipe = new List<PBall>(); private readonly List<int> drawn = new List<int>();
 	private readonly Random rnd = new Random(); private readonly FrameTimer tm = new FrameTimer(); private readonly System.Diagnostics.Stopwatch clk = System.Diagnostics.Stopwatch.StartNew(); private double lastClk; private readonly Path[] slotPath = new Path[7]; private Path railPath;
 	private Ball pull; private float pullT, pullCd; private bool running, finished; private float tAir;
+	private float resT = -1f; private bool resOpen; private float copiedT;   // 당첨 번호 큰 화면: 추첨이 끝나면 번호만 크게 보여줘요
+	private static readonly RectangleF ResCard = new RectangleF(24, 120, 372, 372), ResCopy = new RectangleF(48, 436, 148, 38), ResAgain = new RectangleF(224, 436, 148, 38), ResX = new RectangleF(362, 128, 26, 26);
+	private bool ResVisible { get { return finished && resOpen && resT > 0.8f; } }
 	private RectangleF btn = new RectangleF(120, 568, 180, 38);
 	private Bitmap layBack, layGlass, layPipe; private bool layDark; private readonly Bitmap[] spr = new Bitmap[46];
 	private readonly float[][] jets = new float[16][];
@@ -67,7 +70,19 @@ internal sealed class LottoForm : Form
 		};
 		lastClk = clk.Elapsed.TotalSeconds; tm.Start();
 		FormClosed += delegate { tm.Stop(); if (layBack != null) layBack.Dispose(); if (layGlass != null) layGlass.Dispose(); if (layPipe != null) layPipe.Dispose(); for (int i = 0; i < spr.Length; i++) if (spr[i] != null) spr[i].Dispose(); for (int i = 0; i < baseSpr.Length; i++) if (baseSpr[i] != null) baseSpr[i].Dispose(); if (shadeSpr != null) shadeSpr.Dispose(); };
-		MouseDown += delegate(object s, MouseEventArgs e) { if (btn.Contains(e.X / sc, e.Y / sc)) { if (finished || (!running && drawn.Count == 0)) { if (finished) Reset(); running = true; pullCd = 1.0f; try { Sfx.Play("whoosh"); } catch { } } } };
+		MouseDown += delegate(object s, MouseEventArgs e)
+		{
+			float mx = e.X / sc, my = e.Y / sc;
+			if (ResVisible)
+			{
+				if (ResAgain.Contains(mx, my)) { Reset(); running = true; pullCd = 1.0f; try { Sfx.Play("whoosh"); } catch { } }
+				else if (ResCopy.Contains(mx, my)) { try { Clipboard.SetText(ResultText()); copiedT = 1.8f; Sfx.Play("ok"); } catch { } }
+				else if (ResX.Contains(mx, my) || !ResCard.Contains(mx, my)) { resOpen = false; try { Sfx.Play("tick"); } catch { } }
+				return;
+			}
+			if (finished && !resOpen && new RectangleF(16, 408, 388, 150).Contains(mx, my)) { resOpen = true; resT = 0.8f; return; }
+			if (btn.Contains(mx, my)) { if (finished || (!running && drawn.Count == 0)) { if (finished) Reset(); running = true; pullCd = 1.0f; try { Sfx.Play("whoosh"); } catch { } } }
+		};
 	}
 
 	// 둥근 모서리 꺾은선 (관 중심선)
@@ -93,7 +108,7 @@ internal sealed class LottoForm : Form
 	}
 	private void Reset()
 	{
-		pool.Clear(); pipe.Clear(); drawn.Clear(); pull = null; running = false; finished = false;
+		pool.Clear(); pipe.Clear(); drawn.Clear(); pull = null; running = false; finished = false; resT = -1f; resOpen = false;
 		for (int i = 1; i <= 45; i++)
 		{
 			double a = rnd.NextDouble() * 6.283, u = rnd.NextDouble() * 2 - 1; float rr = (float)Math.Pow(rnd.NextDouble(), 0.33) * (MR - BR - 4f), s = (float)Math.Sqrt(1 - u * u);
@@ -105,7 +120,7 @@ internal sealed class LottoForm : Form
 
 	private void Step(float dt)
 	{
-		tAir += dt; float lim = MR - BR - 1f; float nfac = (float)Math.Sqrt(0.016f / Math.Max(0.002f, dt)); float stir = running ? 1f : 0.32f;
+		if (resT >= 0f) resT += dt; if (copiedT > 0f) copiedT -= dt; tAir += dt; float lim = MR - BR - 1f; float nfac = (float)Math.Sqrt(0.016f / Math.Max(0.002f, dt)); float stir = running ? 1f : 0.32f;
 		for (int i = 0; i < pool.Count; i++)
 		{
 			Ball b = pool[i]; if (b == pull) continue;
@@ -147,7 +162,7 @@ internal sealed class LottoForm : Form
 			for (int i = pipe.Count - 1; i >= 0; i--)
 			{
 				PBall pb = pipe[i]; Path pt = slotPath[pb.Slot]; pb.S += (pb.S < 60f ? 300f : 400f) * dt;
-				if (pb.S >= pt.Len) { drawn.Add(pb.N); pipe.RemoveAt(i); try { Sfx.Play(drawn.Count == 7 ? "fanfare" : "ok"); } catch { } if (drawn.Count >= 7) { running = false; finished = true; } }
+				if (pb.S >= pt.Len) { drawn.Add(pb.N); pipe.RemoveAt(i); try { Sfx.Play(drawn.Count == 7 ? "fanfare" : "ok"); } catch { } if (drawn.Count >= 7) { running = false; finished = true; resT = 0f; resOpen = true; } }
 			}
 		}
 		for (int i = 0; i < jets.Length; i++) { float[] j = jets[i]; j[1] -= dt * j[2] * (running ? 1.3f : 0.4f); if (j[1] < 0f) { j[1] = 1f; j[0] = (float)(rnd.NextDouble() - 0.5) * 120f; j[2] = 0.6f + (float)rnd.NextDouble() * 0.8f; j[3] = (float)(rnd.NextDouble() - 0.5) * 80f; } }
@@ -381,6 +396,65 @@ internal sealed class LottoForm : Form
 	private readonly Pen ringFront = new Pen(Color.FromArgb(200, 232, 184, 64), 2.6f), ringBack = new Pen(Color.FromArgb(90, 150, 110, 40), 2f);
 	private static PointF[] Sub(PointF[] a, int n) { PointF[] r = new PointF[n]; Array.Copy(a, r, n); return r; }
 
+	private string ResultText()
+	{
+		List<int> m = new List<int>(); for (int i = 0; i < Math.Min(6, drawn.Count); i++) m.Add(drawn[i]); m.Sort();
+		return string.Join(", ", m.ConvertAll(x => x.ToString()).ToArray()) + (drawn.Count >= 7 ? " + 보너스 " + drawn[6] : "");
+	}
+	private static float Pop(float u) { if (u <= 0f) return 0f; if (u >= 1f) return 1f; float c1 = 1.9f, c3 = c1 + 1f, v = u - 1f; return 1f + c3 * v * v * v + c1 * v * v; }   // 튀어 오르듯 커지는 효과
+	private void DrawResult(Graphics g)
+	{
+		float t = resT - 0.8f; float fade = Math.Min(1f, t / 0.25f);
+		using (SolidBrush dim = new SolidBrush(Color.FromArgb((int)(fade * (Theme.Dark ? 200 : 170)), 12, 14, 28))) g.FillRectangle(dim, 0, 0, 420, 620);
+		float cy = ResCard.Y + (1f - Pop(Math.Min(1f, t / 0.4f))) * 30f;
+		RectangleF card = new RectangleF(ResCard.X, cy, ResCard.Width, ResCard.Height);
+		using (GraphicsPath gp = Gfx.Round(card, 22))
+		{
+			using (SolidBrush sh = new SolidBrush(Color.FromArgb((int)(fade * 70), 0, 0, 0))) { GraphicsState s = g.Save(); g.TranslateTransform(0, 8); g.FillPath(sh, gp); g.Restore(s); }
+			using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(fade * 255), Theme.Page))) g.FillPath(b, gp);
+			using (Pen p = new Pen(Color.FromArgb((int)(fade * 255), Theme.Accent), 2.5f)) g.DrawPath(p, gp);
+		}
+		if (fade < 1f) return;
+		float oy = cy - ResCard.Y;
+		FUi.Text(g, "🎉 당첨 번호", FUi.F(22f, 1), Theme.Ink, new RectangleF(card.X, card.Y + 18, card.Width, 40), StringAlignment.Center, StringAlignment.Center, false);
+		FUi.Text(g, "이번 추첨 결과 (재미용)", FUi.F(9f, 0), Theme.Muted, new RectangleF(card.X, card.Y + 56, card.Width, 20), StringAlignment.Center, StringAlignment.Center, false);
+		using (Pen p = new Pen(Color.FromArgb(120, Theme.Line), 1f)) g.DrawLine(p, card.X + 30, card.Y + 86, card.Right - 30, card.Y + 86);
+		List<int> main = new List<int>(); for (int i = 0; i < Math.Min(6, drawn.Count); i++) main.Add(drawn[i]); main.Sort();
+		float R = 27f, gap = 58f, x0 = card.X + card.Width / 2f - gap * 2.5f, by = card.Y + 142f;
+		for (int i = 0; i < main.Count; i++)
+		{
+			float u = Pop((t - 0.2f - i * 0.16f) / 0.4f); if (u <= 0f) continue; float x = x0 + i * gap, r = R * u;
+			using (GraphicsPath gl = new GraphicsPath()) { gl.AddEllipse(x - R * 1.6f, by - R * 1.6f, R * 3.2f, R * 3.2f); using (PathGradientBrush pb = new PathGradientBrush(gl)) { pb.CenterColor = Color.FromArgb((int)(Math.Min(1f, u) * 70), BallColor(main[i])); pb.SurroundColors = new[] { Color.FromArgb(0, BallColor(main[i])) }; g.FillPath(pb, gl); } }
+			DrawBall3(g, x, by, r, main[i], Front, 0.7f);
+		}
+		float bt = t - 0.2f - 6 * 0.16f - 0.15f;
+		if (drawn.Count >= 7)
+		{
+			FUi.Text(g, "+", FUi.F(22f, 1), Theme.Muted, new RectangleF(card.X + card.Width / 2f - 20, by + 40, 40, 30), StringAlignment.Center, StringAlignment.Center, false);
+			float u = Pop(bt / 0.45f);
+			if (u > 0f)
+			{
+				float bx = card.X + card.Width / 2f, bcy = by + 112f;
+				using (GraphicsPath gl = new GraphicsPath()) { gl.AddEllipse(bx - R * 2f, bcy - R * 2f, R * 4f, R * 4f); using (PathGradientBrush pb = new PathGradientBrush(gl)) { pb.CenterColor = Color.FromArgb((int)(Math.Min(1f, u) * 90), 255, 210, 90); pb.SurroundColors = new[] { Color.FromArgb(0, 255, 210, 90) }; g.FillPath(pb, gl); } }
+				DrawBall3(g, bx, bcy, R * 1.1f * u, drawn[6], Front, 0.7f);
+				FUi.Text(g, "보너스", FUi.F(9.5f, 1), Theme.Sub, new RectangleF(bx - 40, bcy + R * 1.1f + 4, 80, 20), StringAlignment.Center, StringAlignment.Center, false);
+			}
+		}
+		bool cp = copiedT > 0f;
+		foreach (int k in new[] { 0, 1 })
+		{
+			RectangleF r = k == 0 ? new RectangleF(ResCopy.X, ResCopy.Y + oy, ResCopy.Width, ResCopy.Height) : new RectangleF(ResAgain.X, ResAgain.Y + oy, ResAgain.Width, ResAgain.Height);
+			using (GraphicsPath gp = Gfx.Round(r, 19))
+			{
+				if (k == 1) using (SolidBrush b = new SolidBrush(Theme.Accent)) g.FillPath(b, gp);
+				else { using (SolidBrush b = new SolidBrush(Theme.Bg)) g.FillPath(b, gp); using (Pen p = new Pen(Theme.Accent, 1.6f)) g.DrawPath(p, gp); }
+			}
+			FUi.Text(g, k == 1 ? "다시 뽑기" : (cp ? "복사했어요 ✓" : "번호 복사"), FUi.F(11f, 1), k == 1 ? Color.White : Theme.Accent, r, StringAlignment.Center, StringAlignment.Center, false);
+		}
+		RectangleF xr = new RectangleF(ResX.X, ResX.Y + oy, ResX.Width, ResX.Height);
+		FUi.Text(g, "✕", FUi.F(11f, 1), Theme.Muted, xr, StringAlignment.Center, StringAlignment.Center, false);
+	}
+
 	protected override void OnPaint(PaintEventArgs e)
 	{
 		Graphics g = e.Graphics; if (layBack == null || layDark != Theme.Dark) BuildLayers();
@@ -416,5 +490,7 @@ internal sealed class LottoForm : Form
 		bool can = finished || (!running && drawn.Count == 0);
 		using (GraphicsPath gp = Gfx.Round(btn, 19)) using (SolidBrush b = new SolidBrush(can ? Theme.Accent : Theme.Line)) g.FillPath(b, gp);
 		FUi.Text(g, finished ? "다시 뽑기" : (running ? "추첨 중…" : "추첨 시작!"), FUi.F(11f, 1), can ? Color.White : Theme.Muted, btn, StringAlignment.Center, StringAlignment.Center, false);
+		if (finished && !resOpen) FUi.Text(g, "결과 칸을 누르면 당첨 번호를 크게 볼 수 있어요", FUi.F(8.5f, 0), Theme.Muted, new RectangleF(16, 598, 388, 16), StringAlignment.Center, StringAlignment.Center, false);
+		if (ResVisible) DrawResult(g);
 	}
 }

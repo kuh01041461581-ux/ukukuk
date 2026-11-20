@@ -97,8 +97,9 @@ function renderReport() {
   const dailyT = S.lines.length ? groupTotals(visLines()) : null; const ts = todoSummary();
   const dprev = D.prev && T.dlt != null ? `<br>직전 자료(${esc(D.prev.asOf)}) 대비 ${T.dlt >= 0 ? '+' : '−'}${Math.abs(T.dlt).toFixed(1)}%p` : '';
   const head = `<div class="rep-head"><div><h1>${esc(S.year)}년 ${esc(S.dept || '')} 예산 집행 현황</h1><div class="muted">기준일 ${esc(S.asOf)} · 자료: ${esc(D.B.file)} (통계목별 조회 · 집행액=집행누계액)${UI.rep.view === 'sum' || UI.rep.view === 'full' ? ` · <b>단위: ${ul()}</b>` : ''}</div></div>
-      <div class="row noprint"><div class="pills" role="group" aria-label="보기">${[['easy', '쉬운 보기'], ['sum', '요약'], ['full', '상세'], ['official', '공식 양식']].map(([k, n]) => `<button class="pill sm" aria-pressed="${UI.rep.view === k}" data-act="repview" data-v="${k}">${n}</button>`).join('')}</div>${UI.rep.view === 'easy' ? '' : `<div class="pills" role="group" aria-label="단위"><span class="muted" style="align-self:center;font-size:12px;margin-right:4px">단위</span>${UNITS.map(u => `<button class="pill sm" aria-pressed="${ul() === u[0]}" data-act="repunit" data-v="${u[0]}">${u[0]}</button>`).join('')}</div>`}<button class="btn sm" data-act="reptsv" data-tip="사업별 표를 엑셀·한글에 붙여넣을 수 있게 복사합니다">사업별 표 복사</button><button class="btn primary sm" data-act="repprint">인쇄 / PDF 저장</button></div></div>`;
+      <div class="row noprint"><div class="pills" role="group" aria-label="보기">${[['easy', '쉬운 보기'], ['sum', '요약'], ['full', '상세'], ['graph', '그래프'], ['official', '공식 양식']].map(([k, n]) => `<button class="pill sm" aria-pressed="${UI.rep.view === k}" data-act="repview" data-v="${k}">${n}</button>`).join('')}</div>${UI.rep.view === 'easy' ? '' : `<div class="pills" role="group" aria-label="단위"><span class="muted" style="align-self:center;font-size:12px;margin-right:4px">단위</span>${UNITS.map(u => `<button class="pill sm" aria-pressed="${ul() === u[0]}" data-act="repunit" data-v="${u[0]}">${u[0]}</button>`).join('')}</div>`}<button class="btn sm" data-act="reptsv" data-tip="사업별 표를 엑셀·한글에 붙여넣을 수 있게 복사합니다">사업별 표 복사</button><button class="btn primary sm" data-act="repprint">인쇄 / PDF 저장</button></div></div>`;
   if (UI.rep.view === 'easy') { P.innerHTML = `<div class="rep" id="rep-doc">${head}${renderEasy(D)}</div>`; return; }
+  if (UI.rep.view === 'graph') { P.innerHTML = `<div class="rep" id="rep-doc">${head}${renderGraphView(D)}</div>`; return; }
   if (UI.rep.view === 'official') { P.innerHTML = `<div class="rep" id="rep-doc">${head}${renderOfficial(D)}</div>`; return; }
   P.innerHTML = `<div class="rep" id="rep-doc">${head}
     <div class="repks">${kpi('예산현액', fu(T.budget) + '<small>' + ul() + '</small>', '과 전체')}${kpi('집행액', fu(T.paid) + '<small>' + ul() + '</small>', `집행률 <b>${pct1(T.rate)}</b><br>원인행위 포함 ${pct1(T.rateAll)}`)}${kpi('남은 예산 (잔액)', fu(T.remain) + '<small>' + ul() + '</small>', `<span class="${diff < -10 ? 'neg' : ''}">경과율 ${pct1(el)} 대비 ${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%p</span>${dprev}`, 'main')}${kpi('계약·결의 후 미집행', fu(T.gap) + '<small>' + ul() + '</small>', '원인행위 − 집행액')}</div>
@@ -118,7 +119,8 @@ function renderReport() {
 }
 $('#p-report').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
-  if (a === 'repunit') { S.opt = S.opt || {}; S.opt.repUnit = b.dataset.v; save(); UI._noKeep = true; renderReport(); }
+  if (a === 'repgraphall') { UI.rep.graphAll = !UI.rep.graphAll; UI._noKeep = true; renderReport(); }
+  else if (a === 'repunit') { S.opt = S.opt || {}; S.opt.repUnit = b.dataset.v; save(); UI._noKeep = true; renderReport(); }
   else if (a === 'repsort') { UI.rep.sort = b.dataset.v; renderReport(); }
   else if (a === 'reconfix') { const n = reconApply([b.dataset.id]); toast(n ? 'e-호조 값으로 맞췄습니다' : '이미 같습니다'); UI._noKeep = true; renderReport(); }
   else if (a === 'reconfixall') { const rc = reconcile(); if (rc && confirm(`${rc.diffs.length}곳의 일상경비 지출을 e-호조 값으로 바꿉니다. 계속할까요?`)) { const n = reconApply(); toast(`${n}곳을 e-호조 값으로 맞췄습니다`); UI._noKeep = true; renderReport(); } }

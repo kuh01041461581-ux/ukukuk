@@ -5,15 +5,15 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
 
-// ── 마룡이 솔리테어 (발라트로식 포커) ──
+// ── 마룡이 포커&솔리테어 ──
 //  손패 8장 중 최대 5장을 위쪽 판으로 끌어 올려 포커 족보를 만들고 [내기]. 점수 = (족보 칩 + 카드 칩) × 배수.
 //  판마다 핸드 4번 · 버리기 3번 안에 목표 점수를 넘기면 다음 판 + 부적(조커) 하나. 낸·버린 만큼 덱에서 다시 받아요.
 internal sealed class SoliGame : MiniGame
 {
 	public override bool NoLimit { get { return true; } }
-	public override string Name { get { return "마룡이 발라트로"; } }
+	public override string Name { get { return "마룡이 포커&솔리테어"; } }
 	public override string Key { get { return "soli"; } }
-	public override string Desc { get { return "발라트로식 포커 · 족보로 목표 점수 넘기기"; } }
+	public override string Desc { get { return "포커 · 족보로 목표 점수 넘기기"; } }
 	public override string Help { get { return "손패를 위 [내는 판]으로 끌어 올려요 (최대 5장) → [내기]로 포커 족보 점수!\n필요 없는 카드는 [쓰레기통]으로 끌어 버리고 새 카드를 받아요\n판마다 내기 4번 · 버리기 3번 안에 목표 점수를 넘기면 다음 판 + 부적"; } }
 	public override string RightText { get { return "판 " + (round + 1); } }
 	public override void Icon(Graphics g, float cx, float cy)

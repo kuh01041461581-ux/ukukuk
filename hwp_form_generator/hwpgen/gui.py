@@ -463,6 +463,7 @@ class WeeklyTab(ttk.Frame):
     # ---- 가져오기
     def _import_lines(self, lines):
         orgs = [self.org()] + [o for o in weekly.DEFAULT_ORGS if o != self.org()]
+        lines = weekly.clean_plan_lines(lines)                 # 표지·목차 찌꺼기(ㅍ, □, ……, 순 서 …)는 일정으로 읽지 않는다
         secs = weekly.split_org_sections(lines, orgs)
         key = self.org().replace(" ", "")
         src = lines if key not in secs else secs[key]          # 국 이름표가 없으면 전체를 우리 국 글로 본다

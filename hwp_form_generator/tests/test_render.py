@@ -923,3 +923,16 @@ class EngineCharShapeTests(unittest.TestCase):
                    "ratios": {"hangul": 95}, "spacings": {"hangul": -5}, "color": "#112233"})
         self.assertEqual((seen["FaceNameHangul"], seen["FaceNameSymbol"], seen["FaceNameLatin"]), ("휴먼명조", "한컴 기호", "Arial"))
         self.assertEqual((seen["RatioHangul"], seen["SpacingHangul"], seen["Height"]), (95, -5, 1500))
+
+
+class CleanPlanLinesTests(unittest.TestCase):
+    def test_cover_leftovers_are_not_read_as_events(self):
+        """표지·목차에서 딸려 온 'ㅍ' '□' '……' '순 서' 같은 줄은 일정(제목)으로 읽지 않는다"""
+        from hwpgen import weekly
+        text = ("ㅍ\n26. 11. 9. ~ 11. 15.\n주간업무계획\n순    서\n□\n문화교육국\n……\n1\n"
+                "\U000f02ce 가을 음악회 (문화유산과 홍길동 5708)\n◦ 일    시 : 2026. 11. 9.(월) 10:00\n◦ 장    소 : 시청\n")
+        its = weekly.parse_rough_plan(text, "문화교육국", "", "", 2026)
+        self.assertEqual([i["title"] for i in its], ["가을 음악회"])
+        cleaned = [x for x in weekly.clean_plan_lines(text.split("\n")) if x.strip()]
+        for junk in ("ㅍ", "□", "……", "1", "순    서", "주간업무계획"):
+            self.assertNotIn(junk, cleaned)

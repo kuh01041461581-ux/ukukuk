@@ -536,6 +536,29 @@ _DATE_RE = re.compile(r"(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*(?:\(([월화�
 _TIME_RE = re.compile(r"(\d{1,2}):(\d{2})")
 
 
+_COVER_WORDS = {"주간업무계획", "순서", "목차", "주간주요일정", "주요일정"}
+
+
+def clean_plan_lines(lines):
+    """표지·목차에서 딸려 온 찌꺼기 줄('ㅍ', '□', '……', '1', '순 서' 같은 글자 없는 줄·표지 글)을 뺀다.
+    날짜만 적은 줄(일시 줄)과 글자가 있는 줄은 그대로 둔다."""
+    out = []
+    for ln in lines:
+        t = ln.strip()
+        if not t:
+            out.append(ln)
+            continue
+        flat = re.sub(r"[\s·ㆍ]", "", t)
+        if flat in _COVER_WORDS:
+            continue
+        if not re.search(r"[가-힣A-Za-z]", re.sub(r"[ㄱ-ㅣ]", "", t)):      # 한글 완성 글자·영문이 하나도 없다
+            if _DATE_LOOSE.search(t) or _TIME_RE.search(t):
+                out.append(ln)                                              # 날짜·시각 줄은 일시일 수 있어 남긴다
+            continue
+        out.append(ln)
+    return out
+
+
 def split_org_sections(lines, orgs):
     """줄 목록에서 국 이름만 적힌 줄을 경계로 나눈다 → {국이름: [줄]}"""
     out = collections.OrderedDict()
@@ -939,7 +962,7 @@ def parse_loose_plan(lines, dept="", staff="", phone="", year=None):
 
 def parse_rough_plan(text, dept="", staff="", phone="", year=None):
     """선택한 글 → 항목: 엄격한 서식(❶ 제목(부서 담당자) + ◦ 일시 : …)이면 그대로, 아니면 제목 기준으로 느슨하게 읽는다"""
-    lines = (text or "").replace("\r", "").split("\n")
+    lines = clean_plan_lines((text or "").replace("\r", "").split("\n"))
     strict = parse_plan_lines(lines)
     if strict and sum(1 for it in strict if it.get("date") or it.get("place")) * 2 >= len(strict):
         return strict

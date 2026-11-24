@@ -3,7 +3,7 @@ st2android/mod/data1.pak 로 쓴다(앱은 assets st2mod/data1.pak 를 먼저 �
 사용: python3 -I tools/make_iksan_cityhall.py && python3 -I tools/st2_pak_build.py"""
 import struct, os, sys
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-src, modd, dst = root + '/work/st2/data1.pak', root + '/work/pak_mod', root + '/st2android/mod/data1.pak'
+src, modd, dst = root + '/work/st2/data1.pak', os.environ.get('PAK_MOD', root + '/work/pak_mod'), os.environ.get('PAK_DST', root + '/st2android/mod/data1.pak')
 d = open(src, 'rb').read(); total, n = struct.unpack('>II', d[:8]); base = 8 + n * 16
 ents = []
 for i in range(n):

@@ -1,0 +1,23 @@
+// node seomu/tests/e2e_outtrip.mjs — 관외출장: 이름 밑 과 이름이 사람으로 읽히지 않는지 실제 브라우저로 시험
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.env.PW_PATH || 'playwright');
+import path from 'path'; import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url));
+const dist = process.env.DIST || path.resolve(here, '../dist/서무종합프로그램.html');
+const b = await chromium.launch(); const pg = await b.newPage();
+pg.on('dialog', d => d.accept()); pg.on('pageerror', e => console.log('PAGEERR', e.message));
+await pg.goto('file://' + dist + '#outtrip');
+const fr = pg.frameLocator('#frame-outtrip');
+await fr.locator('#tripImportFile').waitFor({ state: 'attached', timeout: 60000 });
+await pg.waitForTimeout(3000);
+await fr.locator('#tripImportFile').setInputFiles(path.join(here, 'fixtures/outtrip_names.xlsx'));
+await pg.waitForTimeout(1500);
+const frame = await (await pg.locator('#frame-outtrip').elementHandle()).contentFrame();
+const names = await frame.evaluate(() => tripDB.map(t => t.name + '|' + t.dept));
+console.log(JSON.stringify(names));
+await b.close();
+const expect = ['홍길동|문화유산과', '김영희|총무과', '소성국|문화유산과'];
+const ok = JSON.stringify(names.map(x=>x)) === JSON.stringify(expect);
+console.log(ok ? 'OUTTRIP OK' : 'OUTTRIP FAIL (기대 ' + JSON.stringify(expect) + ')');
+process.exit(ok ? 0 : 1);

@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>HWPX 이미지 압축 도구 v2</title>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  body { font-family: "Malgun Gothic", sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 22px; }
+  .box { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  label { display: block; margin: 12px 0 4px; font-weight: bold; font-size: 14px; }
+  label.chk { font-weight: normal; display: flex; align-items: flex-start; gap: 6px; margin: 8px 0; }
+  label.chk input { margin-top: 3px; }
+  input[type=file] { display: block; margin: 10px 0; }
+  input[type=range] { width: 100%; }
+  select { padding: 6px; font-size: 14px; }
+  button { background: #2f6fed; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-size: 15px; cursor: pointer; }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+  th, td { border-bottom: 1px solid #eee; padding: 6px 4px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; word-break: break-all; }
+  .muted { color: #777; font-size: 13px; }
+  #summary { margin-top: 14px; font-weight: bold; }
+  #downloadBtn { display: none; margin-top: 14px; background: #16a34a; }
+</style>
+<style id="seomu-tool">
+button{min-height:32px;padding:0 12px;background:var(--u-primary);color:#fff;border:1px solid var(--u-primary);border-radius:var(--u-r-ctl);font-size:13px;font-weight:500;cursor:pointer;transition:background .12s ease;}
+button:hover:not(:disabled){background:var(--u-primary-hover);}
+button:disabled{opacity:.45;cursor:not-allowed;}
+body{max-width:none !important;margin:0 !important;padding:0 0 40px !important;}
+body > h1{display:none !important;}
+input[type=file]{width:100%;max-width:420px;}
+.box label{display:block;margin-top:14px;}
+.box label:first-child{margin-top:0;}
+.box label.chk{display:flex;align-items:center;gap:8px;font-weight:400 !important;}
+th,td{border-bottom:1px solid var(--u-border);}
+</style>
+<style id="seomu-common">
+/* ============================================================
+   서무 종합프로그램 · 공통 디자인 v2 (모든 도구 화면에 같이 들어간다)
+
+   디자인 언어
+   - Notion  : 따뜻한 회색 바탕, 그림자 없는 납작한 카드, 얇은 선, 글자 위주, 연한 호버
+   - Linear  : 촘촘한 32px 컨트롤, 13px 글자, 선명한 한 가지 포인트색(인디고), 절제된 모션
+   - Win 11  : 8px 카드·6px 컨트롤, 세그먼트/피벗 탭, 선택 항목 왼쪽 알약 표시, 부드러운 포커스
+
+   규칙 (도구가 달라도 이것만 쓴다)
+   - 글자  : 본문 13.5 / 섹션 제목 15·600 / 라벨 13·500 / 보조 12.5
+   - 모서리: 컨트롤 6 · 카드 8 · 팝업 12     - 높이: 컨트롤 32 · 큰 단추 36
+   - 카드  : 흰 바탕 + 1px 선 + 그림자 없음   - 포인트색: --u-primary 하나
+   ============================================================ */
+:root{
+  --u-bg:#FFFFFF;--u-sub:#F7F7F5;--u-card:#FFFFFF;
+  --u-primary:#5E6AD2;--u-primary-hover:#4F5BC4;--u-tint:#EEF0FB;--u-tint2:#DDE1F7;
+  --u-text:#37352F;--u-text2:#787774;--u-text3:#9B9A97;
+  --u-border:#E9E9E7;--u-border2:#DEDDDA;--u-hover:#F1F1EF;
+  --u-ok:#0F7B6C;--u-ok-tint:#EDF3EC;--u-warn:#B7791F;--u-warn-tint:#FBF3DB;--u-danger:#D44C47;--u-danger-tint:#FDEBEC;
+  --u-r-ctl:6px;--u-r-card:8px;--u-r-pop:12px;
+  --u-r-btn:6px;--u-r-input:6px;
+  --u-shadow:none;
+  --u-pop:0 12px 40px rgba(15,15,15,.18),0 0 0 1px rgba(15,15,15,.06);
+  --u-ring:0 0 0 3px rgba(94,106,210,.22);
+  --u-font:'Pretendard Variable',Pretendard,'Segoe UI Variable Text','Segoe UI','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+}
+:root.seomu-dark{
+  --u-bg:#101113;--u-sub:#16171A;--u-card:#16171A;
+  --u-primary:#7B86E6;--u-primary-hover:#939CF0;--u-tint:#1D2040;--u-tint2:#282C58;
+  --u-text:#ECEDEF;--u-text2:#8B8F97;--u-text3:#62666E;
+  --u-border:#26282D;--u-border2:#33363C;--u-hover:#1F2024;
+  --u-ok:#4FB8A5;--u-ok-tint:#10261F;--u-warn:#E0B04A;--u-warn-tint:#2B2411;--u-danger:#F0706B;--u-danger-tint:#2E1717;
+  --u-pop:0 12px 40px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06);
+  --u-ring:0 0 0 3px rgba(123,134,230,.32);
+  color-scheme:dark;
+}
+
+/* ---------- 바탕 · 글꼴 · 스크롤 ---------- */
+html{scrollbar-width:thin;scrollbar-color:var(--u-border2) transparent;-webkit-text-size-adjust:100%;}
+*::-webkit-scrollbar{width:12px;height:12px;}
+*::-webkit-scrollbar-track{background:transparent;}
+*::-webkit-scrollbar-thumb{background:var(--u-border2);border-radius:999px;border:3px solid transparent;background-clip:content-box;}
+*::-webkit-scrollbar-thumb:hover{background:var(--u-text3);background-clip:content-box;}
+html body{font-family:var(--u-font) !important;font-size:14px;line-height:1.6;background:transparent !important;color:var(--u-text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;letter-spacing:-.006em;word-break:keep-all;overflow-wrap:break-word;}
+/* 금액·숫자는 자릿수가 맞게 */
+td,th,input[type=number],.amt,.num,.amt-input{font-variant-numeric:tabular-nums;}
+button,input,select,textarea{font-family:inherit;}
+.seal,.app-icon,.brand-mark{display:none !important;}
+:focus-visible{outline:2px solid var(--u-primary);outline-offset:2px;}
+::selection{background:var(--u-tint2);}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
+
+/* ---------- 글자 규칙 ---------- */
+/* 섹션 제목: 도구마다 12~18px 제각각이던 것을 하나로 */
+html body .card h2,html body .card-head h2,html body .card-head h3,html body .step-title,html body .card-title,
+html body .section-head h2,html body .panel > h2,html body .panel h2,html body .box > h3,html body .panel h3{
+  font-size:15px !important;font-weight:600 !important;line-height:1.4;letter-spacing:-.01em;text-transform:none !important;
+  color:var(--u-text) !important;margin:0 0 4px !important;padding:0 !important;border:0 !important;
+}
+html body .panel > h2{margin-bottom:12px !important;}
+/* 섹션 설명 */
+html body .card .sub,html body .step-desc,html body .section-sub,html body .card-sub{
+  font-size:13px !important;line-height:1.65;color:var(--u-text2) !important;margin:0 0 14px !important;
+}
+/* 라벨 */
+html body .field-label,html body .control-label,html body .formrow > label,html body .box > label,html body .ctrl > label,html body .panel label:not(.chk):not(.checkline){
+  font-size:13.5px !important;font-weight:500 !important;color:var(--u-text) !important;
+}
+/* 번호 배지: 흐린 회색 동그라미 */
+html body .step-no,html body .step-badge{
+  display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;min-width:20px;border-radius:50% !important;
+  background:var(--u-hover) !important;color:var(--u-text2) !important;font-size:11.5px !important;font-weight:600 !important;margin-right:8px;
+}
+html body .section-head,html body .step-head{display:flex;align-items:center;gap:0;margin:0 0 10px;}
+
+/* ---------- 버튼 (역할별 한 벌) ---------- */
+html body .btn,html body .btn-primary,html body .btn-ghost,html body .btn-outline,html body .btn-secondary,html body .btn-export,html body .run,html body .mini-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-height:32px;padding:0 12px;border-radius:var(--u-r-ctl);font-family:inherit;font-size:13.5px;font-weight:500;letter-spacing:-.005em;
+  line-height:1.2;cursor:pointer;white-space:nowrap;text-decoration:none;border:1px solid transparent;box-shadow:none;
+  transition:background .12s ease,border-color .12s ease,color .12s ease,transform .06s ease;
+}
+html body .btn.sm{min-height:28px;padding:0 10px;font-size:12.5px;}
+html body .btn:active,html body .btn-primary:active,html body .btn-ghost:active,html body .btn-outline:active,html body .btn-secondary:active,html body .btn-export:active,html body .run:active{transform:scale(.985);}
+/* 주 동작 */
+html body .btn:not(.outline):not(.ghost):not(.danger):not(.gold):not(.btn-ghost):not(.btn-outline):not(.btn-secondary),
+html body .btn-primary,html body .btn-export,html body .run{
+  background:var(--u-primary);color:#fff;border-color:var(--u-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+}
+html body .btn:not(.outline):not(.ghost):not(.danger):not(.gold):not(.btn-ghost):not(.btn-outline):not(.btn-secondary):hover,
+html body .btn-primary:hover,html body .btn-export:hover,html body .run:hover{background:var(--u-primary-hover);border-color:var(--u-primary-hover);}
+/* 보조 */
+html body .btn.outline,html body .btn-outline,html body .btn-secondary,html body .btn.gold,html body .mini-btn{
+  background:var(--u-card);color:var(--u-text);border-color:var(--u-border2);
+}
+html body .btn.outline:hover,html body .btn-outline:hover,html body .btn-secondary:hover,html body .btn.gold:hover,html body .mini-btn:hover{background:var(--u-hover);}
+/* 약한: 보조와 같은 테두리에 글자만 흐리게 */
+html body .btn.ghost,html body .btn-ghost{background:var(--u-card);color:var(--u-text2);border-color:var(--u-border2);}
+html body .btn.ghost:hover,html body .btn-ghost:hover{background:var(--u-hover);color:var(--u-text);}
+/* 위험 */
+html body .btn.danger{background:transparent;color:var(--u-danger);border-color:transparent;}
+html body .btn.danger:hover{background:var(--u-danger-tint);}
+/* 꺼짐 */
+html body .btn:disabled,html body .btn-primary:disabled,html body .btn-ghost:disabled,html body .btn-outline:disabled,html body .btn-secondary:disabled,html body .btn-export:disabled,html body .run:disabled,
+html body .btn[disabled],html body .btn.disabled{opacity:.45;cursor:not-allowed;transform:none;}
+html body .btn-block{width:100%;}
+html body .btn-lg,html body .run{min-height:36px;font-size:13.5px;padding:0 16px;}
+/* 아이콘 단추 */
+html body .icon-btn,html body .btn-icon{border-radius:var(--u-r-ctl);color:var(--u-text2);}
+html body .icon-btn:hover,html body .btn-icon:hover{background:var(--u-hover);color:var(--u-text);}
+
+/* ---------- 입력칸 (32px · 6px · 포커스 시 포인트색 테두리 + 은은한 링) ---------- */
+html body input[type=text],html body input[type=number],html body input[type=password],html body input[type=search],html body input[type=email],
+html body input[type=date],html body input[type=time],html body input[type=datetime-local],html body input[type=month],html body input:not([type]),html body select,html body textarea{
+  font-family:inherit;font-size:13.5px;color:var(--u-text);background:var(--u-card);
+  border:1px solid var(--u-border2);border-radius:var(--u-r-input);box-shadow:none;
+  transition:border-color .12s ease,box-shadow .12s ease,background .12s ease;
+}
+html body input[type=text],html body input[type=number],html body input[type=password],html body input[type=search],html body input[type=email],
+html body input[type=date],html body input[type=time],html body input[type=datetime-local],html body input[type=month],html body input:not([type]),html body select{min-height:32px;padding:0 10px;}
+html body textarea{padding:8px 10px;line-height:1.55;}
+html body select:not([multiple]){
+  appearance:none;-webkit-appearance:none;padding-right:28px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23878580' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 9px center;
+}
+html body input:hover:not(:disabled):not([type=range]):not([type=checkbox]):not([type=radio]):not([type=file]),html body select:hover:not(:disabled),html body textarea:hover:not(:disabled){border-color:var(--u-text3);}
+html body input:focus:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=file]),html body select:focus,html body textarea:focus{outline:none;border-color:var(--u-primary);box-shadow:var(--u-ring);}
+input::placeholder,textarea::placeholder{color:var(--u-text3);}
+html body input:disabled,html body select:disabled,html body textarea:disabled,html body input[readonly]{background:var(--u-sub);color:var(--u-text2);}
+input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--u-primary);}
+input[type=checkbox],input[type=radio]{width:15px;height:15px;cursor:pointer;}
+input[type=file]{font-size:13px;color:var(--u-text2);}
+input[type=file]::file-selector-button{font:inherit;font-size:13px;font-weight:500;min-height:30px;padding:0 12px;margin-right:10px;border-radius:var(--u-r-ctl);border:1px solid var(--u-border2);background:var(--u-card);color:var(--u-text);cursor:pointer;}
+input[type=file]::file-selector-button:hover{background:var(--u-hover);}
+
+/* ---------- 카드 · 안내 상자 (납작하게: 선 1px, 그림자 없음) ---------- */
+html body .card,html body .box,html body .panel,html body .step,html body .launcher-card,html body .summary-card{
+  background:var(--u-card);border:1px solid var(--u-border);border-radius:var(--u-r-card) !important;box-shadow:none !important;
+}
+html body .card,html body .step,html body .box,html body .panel:not(.ctrl){padding:20px !important;margin-bottom:12px;}
+html body .launcher-card{padding:28px 28px 24px !important;}
+/* 안내(Notion 콜아웃): 회색 바탕, 선 없음 */
+header.top .title-block p,.app-header p,body > p.muted,body > p.sub,.hero p.sub,.seomu-intro{
+  margin:0 0 14px !important;padding:12px 14px;max-width:none !important;
+  background:var(--u-sub);border:1px solid var(--u-border);border-radius:var(--u-r-card);
+  color:var(--u-text2) !important;font-size:13px !important;line-height:1.7 !important;
+}
+header.top .title-block p b,.app-header p b,body > p.muted b,.hero p.sub b{color:var(--u-text);font-weight:600;}
+.hint,.small{color:var(--u-text2);}
+a{color:var(--u-primary);text-decoration-color:color-mix(in srgb,var(--u-primary) 40%,transparent);text-underline-offset:2px;}
+
+/* ---------- 파일 끌어놓는 곳: 전 도구 같은 모양 ---------- */
+html body .dropzone,html body .drop-zone,html body .opt-dropzone,html body #drop,html body .dz{
+  border:1px dashed var(--u-border2) !important;border-radius:var(--u-r-card) !important;background:var(--u-sub) !important;
+  color:var(--u-text2) !important;opacity:1 !important;transition:border-color .12s ease,background .12s ease;
+}
+html body .dropzone:hover,html body .drop-zone:hover,html body .opt-dropzone:hover,html body #drop:hover,html body .dz:hover,
+html body .dropzone.drag,html body .dropzone.dragover,html body .drop-zone.dragover,html body #drop.on,html body #drop.drag{
+  border-color:var(--u-primary) !important;background:var(--u-tint) !important;
+}
+html body .dropzone b,html body .dz-title,html body .dropzone strong{color:var(--u-text) !important;font-size:13.5px !important;font-weight:600 !important;}
+
+/* ---------- 탭 · 세그먼트 ---------- */
+/* 세그먼트(알약 묶음): 고지서 종류, 블러 방식 */
+html body .typetabs,html body .segmented{display:flex;gap:2px;padding:3px;background:var(--u-hover);border:0;border-radius:8px;flex-wrap:wrap;}
+html body .typebtn{min-width:0;min-height:30px;padding:0 14px;border-radius:6px;font-size:13px;font-weight:500;color:var(--u-text2);background:transparent;box-shadow:none;}
+html body .typebtn:hover{background:transparent;color:var(--u-text);}
+html body .typebtn.active{background:var(--u-card);color:var(--u-text);box-shadow:0 1px 2px rgba(15,15,15,.12);}
+html body .segmented-option span{border-radius:6px;font-size:13px;font-weight:500;}
+html body .segmented-option input:checked + span{background:var(--u-card);color:var(--u-text);box-shadow:0 1px 2px rgba(15,15,15,.12);}
+
+/* ---------- 표 (Notion 표: 머리 글자만 흐리게, 행 사이 얇은 선) ---------- */
+table{border-collapse:collapse;}
+html body thead th{background:transparent !important;color:var(--u-text2);font-weight:500;font-size:12px;text-align:left;border-bottom:1px solid var(--u-border2) !important;padding:8px 10px;}
+html body tbody td{border-bottom:1px solid var(--u-border) !important;padding:7px 10px;}
+html body tbody tr:hover td{background:var(--u-sub);}
+html body .tablewrap{border:1px solid var(--u-border);border-radius:var(--u-r-card);overflow:auto;background:var(--u-card);}
+
+/* ---------- 팝업 ---------- */
+html body .modal,html body .modal-box{border-radius:var(--u-r-pop) !important;box-shadow:var(--u-pop) !important;background:var(--u-card) !important;border:0 !important;}
+html body .modal-bg,html body .modal-overlay{background:rgba(15,15,15,.45) !important;backdrop-filter:none !important;}
+
+/* ---------- 도구 안 도우미 ---------- */
+/* 단계 이동(이전/다음) 줄 */
+.seomu-stepnav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 0;padding-top:14px;border-top:1px solid var(--u-border);}
+.seomu-stepnav .mid{font-size:12px;color:var(--u-text3);}
+
+</style>
+<script>
+/* 서무 종합프로그램 공통 스크립트 (모든 도구 화면에 같이 들어간다) */
+(function(){
+  /* 1) 셸의 다크모드 신호 받기 */
+  window.addEventListener('message',function(e){
+    var d=e.data;if(!d||!d.__seomuTheme)return;
+    document.documentElement.classList.toggle('seomu-dark',d.__seomuTheme==='dark');
+    /* 자체 data-theme 를 쓰는 도구(수료증 취합)도 같이 맞춘다 */
+    if(document.documentElement.hasAttribute('data-theme'))document.documentElement.setAttribute('data-theme',d.__seomuTheme==='dark'?'dark':'light');
+  });
+  try{window.parent.postMessage({__seomuReady:1},'*');}catch(e){}
+
+  /* 2) 큰 라이브러리는 필요할 때만 내려받는다 (첫 화면이 CDN 때문에 멈추지 않게)
+        같은 주소는 도구끼리 브라우저 캐시를 같이 쓴다 */
+  var CD='https://cdnjs.cloudflare.com/ajax/libs/';
+  var LIBS={
+    xlsx:{u:CD+'xlsx/0.18.5/xlsx.full.min.js',g:'XLSX'},
+    jszip:{u:CD+'jszip/3.10.1/jszip.min.js',g:'JSZip'},
+    exceljs:{u:CD+'exceljs/4.4.0/exceljs.min.js',g:'ExcelJS'},
+    pdf:{u:CD+'pdf.js/3.11.174/pdf.min.js',g:'pdfjsLib',after:function(){
+      try{window.pdfjsLib.GlobalWorkerOptions.workerSrc=CD+'pdf.js/3.11.174/pdf.worker.min.js';}catch(e){}
+    }}
+  };
+  var pending={};
+  window.seomuLoad=function(name){
+    var L=LIBS[name];
+    if(!L)return Promise.resolve(false);
+    if(window[L.g]){if(L.after)L.after();return Promise.resolve(true);}
+    if(pending[name])return pending[name];
+    pending[name]=new Promise(function(res){
+      var s=document.createElement('script');
+      s.src=L.u;s.async=true;
+      s.onload=function(){if(L.after)L.after();res(!!window[L.g]);};
+      s.onerror=function(){delete pending[name];res(false);};
+      document.head.appendChild(s);
+    });
+    return pending[name];
+  };
+
+  /* 3) 화면 밖에 파일을 놓아도 브라우저가 파일을 열어 버려 작업이 날아가지 않게 */
+  ['dragover','drop'].forEach(function(t){
+    window.addEventListener(t,function(e){
+      if(e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types||[],'Files')>=0)e.preventDefault();
+    });
+  });
+
+  /* 4) 글꼴(Pretendard, 필요한 글자만 조각으로 받음)은 첫 그림을 막지 않게 뒤늦게 불러온다 (그 전엔 윈도우 기본 한글 글꼴) */
+  var f=document.createElement('link');
+  f.rel='stylesheet';f.media='print';
+  f.href='https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css';
+  f.onload=function(){f.media='all';};
+  document.head.appendChild(f);
+
+  /* 5) 단계가 있는 도구(.tabbtn 단계 + .tab 화면)에는 아래쪽에 '이전 · 다음' 단추를 붙인다 */
+  window.seomuStepNav=function(opt){
+    var btns=[].slice.call(document.querySelectorAll(opt.btns));
+    if(btns.length<2)return;
+    var host=document.querySelector(opt.host);if(!host)return;
+    var bar=document.createElement('div');bar.className='seomu-stepnav';
+    bar.innerHTML='<button type="button" class="btn outline" data-d="-1">← 이전 단계</button><span class="mid"></span><button type="button" class="btn" data-d="1">다음 단계 →</button>';
+    host.appendChild(bar);
+    var prev=bar.querySelector('[data-d="-1"]'),next=bar.querySelector('[data-d="1"]'),mid=bar.querySelector('.mid');
+    function cur(){for(var i=0;i<btns.length;i++)if(btns[i].classList.contains('active'))return i;return 0;}
+    function sync(){
+      var i=cur(),b=btns[i];
+      prev.style.visibility=i===0?'hidden':'visible';
+      next.style.visibility=i===btns.length-1?'hidden':'visible';
+      mid.textContent=(i+1)+' / '+btns.length+' 단계';
+      if(i>0)prev.textContent='← '+(btns[i-1].getAttribute('data-title')||btns[i-1].textContent.trim());
+      if(i<btns.length-1)next.textContent=(btns[i+1].getAttribute('data-title')||btns[i+1].textContent.trim())+' →';
+      var sc=document.scrollingElement||document.documentElement;
+      if(opt.scroller)opt.scroller.scrollTop=0;else sc.scrollTop=0;
+    }
+    bar.addEventListener('click',function(e){
+      var t=e.target.closest('button');if(!t)return;
+      var j=cur()+parseInt(t.getAttribute('data-d'),10);
+      if(btns[j])btns[j].click();
+    });
+    btns.forEach(function(b){b.addEventListener('click',function(){setTimeout(sync,0);});});
+    sync();
+  };
+})();
+
+</script></head>
+<body>
+<h1>HWPX 이미지 압축 도구 v2</h1>
+<p class="muted">.hwpx 파일 안의 사진(BinData)과 미리보기 썸네일을 줄여 파일 용량을 낮춥니다.
+문서에서 <b>실제로 표시되는 크기(인치)×목표 DPI</b>만큼만 해상도를 남기고(자동 축소), 사진 같은 불투명 PNG/BMP/TIFF는 JPEG로, 그 외는 PNG로 변환하며
+내부 매니페스트(content.hpf)를 자동 갱신합니다. 결과가 원본보다 커지는 이미지는 원본을 그대로 유지합니다.<br>
+※ 구버전 .hwp(바이너리)는 지원하지 않습니다. 한글에서 "다른 이름으로 저장 → HWPX"로 변환 후 사용하세요.</p>
+
+<div class="box">
+  <label>1. .hwpx 파일 선택</label>
+  <input type="file" id="fileInput" accept=".hwpx">
+
+  <label>2. 압축 강도 프리셋</label>
+  <select id="preset">
+    <option value="balanced">균형 (150dpi, JPEG 75%)</option>
+    <option value="strong">강력 (110dpi, JPEG 60%)</option>
+    <option value="max">최대 (96dpi, JPEG 50%)</option>
+    <option value="custom">직접 설정</option>
+  </select>
+
+  <label class="chk"><input type="checkbox" id="autoDpi" checked>
+    <span>문서 내 표시 크기 기준으로 자동 축소 (실제 인쇄/화면 크기보다 큰 해상도 제거 — 압축률에 가장 큰 효과)</span></label>
+
+  <label>목표 DPI: <span id="dpiVal">150</span></label>
+  <input type="range" id="dpiRange" min="72" max="300" step="6" value="150">
+
+  <label>이미지 최대 가로/세로 크기(상한): <span id="dimVal">1600</span>px</label>
+  <input type="range" id="dimRange" min="400" max="3000" step="100" value="1600">
+
+  <label>JPEG 압축 품질: <span id="qVal">75</span>%</label>
+  <input type="range" id="qRange" min="30" max="95" step="5" value="75">
+
+  <label class="chk"><input type="checkbox" id="png2jpg" checked>
+    <span>사진형 PNG/BMP/TIFF를 JPEG로 자동 변환 (용량이 40% 이상 줄 때만 적용, 투명 이미지·도표·캡처 화면은 PNG 유지)</span></label>
+
+  <button id="runBtn" disabled>압축 시작</button>
+  <div id="status" class="muted"></div>
+</div>
+
+<div class="box" id="resultBox" style="display:none">
+  <div id="summary"></div>
+  <table id="resultTable">
+    <thead><tr><th>이미지</th><th>크기(px)</th><th>원본</th><th>압축 후</th><th>절감률</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button id="downloadBtn">압축된 HWPX 다운로드</button>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fileInput = $('fileInput'), runBtn = $('runBtn');
+const dimRange = $('dimRange'), qRange = $('qRange'), dpiRange = $('dpiRange');
+const dimVal = $('dimVal'), qVal = $('qVal'), dpiVal = $('dpiVal');
+const preset = $('preset'), autoDpi = $('autoDpi'), png2jpg = $('png2jpg');
+const statusEl = $('status'), resultBox = $('resultBox');
+const resultTable = document.querySelector('#resultTable tbody');
+const summary = $('summary'), downloadBtn = $('downloadBtn');
+
+let selectedFile = null;
+let outputBlob = null;
+
+const PRESETS = {
+  balanced: { dpi: 150, dim: 1600, q: 75 },
+  strong:   { dpi: 110, dim: 1280, q: 60 },
+  max:      { dpi: 96,  dim: 1024, q: 50 }
+};
+function syncLabels() { dimVal.textContent = dimRange.value; qVal.textContent = qRange.value; dpiVal.textContent = dpiRange.value; }
+function applyPreset() {
+  const p = PRESETS[preset.value];
+  if (!p) return;
+  dpiRange.value = p.dpi; dimRange.value = p.dim; qRange.value = p.q;
+  syncLabels();
+}
+[dimRange, qRange, dpiRange].forEach(r => r.oninput = () => { preset.value = 'custom'; syncLabels(); });
+preset.onchange = applyPreset;
+autoDpi.onchange = () => { dpiRange.disabled = !autoDpi.checked; };
+applyPreset();
+
+fileInput.onchange = () => {
+  selectedFile = fileInput.files[0] || null;
+  runBtn.disabled = !selectedFile;
+  resultBox.style.display = 'none';
+};
+
+function fmt(bytes) {
+  if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+  return (bytes / 1024).toFixed(1) + ' KB';
+}
+const getExt = p => ((p.match(/\.([a-zA-Z0-9]+)$/) || [])[1] || '').toLowerCase();
+const SRC_MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', bmp: 'image/bmp', gif: 'image/gif', tif: 'image/tiff', tiff: 'image/tiff' };
+const kid = (n, name) => Array.from(n.children).find(c => c.localName === name);
+
+// ───────── 매니페스트(content.hpf) 읽기 ─────────
+async function readManifest(zip) {
+  const res = { hpfPath: null, text: null, pathToItem: {} };
+  for (const p of Object.keys(zip.files)) {
+    if (/(^|\/)content\.hpf$/i.test(p)) { res.hpfPath = p; break; }
+  }
+  if (!res.hpfPath) return res;
+  res.text = await zip.files[res.hpfPath].async('string');
+  let doc = null;
+  try {
+    doc = new DOMParser().parseFromString(res.text, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) doc = null;
+  } catch (e) { doc = null; }
+  if (!doc) return res;
+  const lowerMap = {};
+  for (const p of Object.keys(zip.files)) lowerMap[p.toLowerCase()] = p;
+  for (const item of Array.from(doc.getElementsByTagName('*')).filter(el => el.localName === 'item')) {
+    const href = item.getAttribute('href') || '';
+    if (!/^bindata\//i.test(href)) continue;
+    const actual = lowerMap[href.toLowerCase()];
+    if (!actual) continue;
+    res.pathToItem[actual.toLowerCase()] = { id: item.getAttribute('id'), href, actualPath: actual };
+  }
+  return res;
+}
+
+// 원본 텍스트에서 해당 href의 item 태그의 href/media-type 값만 치환 (나머지는 바이트 그대로)
+function replaceManifestItemAttrs(text, oldHref, newHref, newMediaType) {
+  const esc = oldHref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const m = text.match(new RegExp('<[^>]*\\shref="' + esc + '"[^>]*/?>'));
+  if (!m) return text;
+  let tag = m[0].replace(`href="${oldHref}"`, `href="${newHref}"`);
+  if (/\smedia-type="[^"]*"/.test(tag)) tag = tag.replace(/(\smedia-type=")[^"]*(")/, `$1${newMediaType}$2`);
+  return text.slice(0, m.index) + tag + text.slice(m.index + m[0].length);
+}
+
+// ───────── 문서 내 이미지 표시 크기 분석 ─────────
+// binaryItemIDRef 별로 "문서에서 가장 크게 표시되는 길이(inch)"를 구한다.
+// 크기를 확정할 수 없는 경우(그룹 개체, 배경 채우기 등)는 unrestricted 로 표시 → 축소하지 않음.
+async function analyzeUsage(zip) {
+  const usage = {};
+  const mark = (id, inch) => {
+    const u = usage[id] || (usage[id] = { unrestricted: false, inch: 0 });
+    if (inch == null) u.unrestricted = true; else u.inch = Math.max(u.inch, inch);
+  };
+  for (const p of Object.keys(zip.files)) {
+    if (zip.files[p].dir || !/\.xml$/i.test(p)) continue;
+    const text = await zip.files[p].async('string');
+    if (!text.includes('binaryItemIDRef')) continue;
+    let doc = null;
+    try {
+      doc = new DOMParser().parseFromString(text, 'application/xml');
+      if (doc.getElementsByTagName('parsererror').length) doc = null;
+    } catch (e) { doc = null; }
+    if (!doc) {
+      for (const m of text.matchAll(/binaryItemIDRef="([^"]*)"/g)) mark(m[1], null);
+      continue;
+    }
+    for (const el of Array.from(doc.getElementsByTagName('*'))) {
+      const id = el.getAttribute('binaryItemIDRef');
+      if (!id) continue;
+      if (el.localName !== 'img') { mark(id, null); continue; }
+      const pic = el.parentNode;
+      if (!pic || pic.localName !== 'pic') { mark(id, null); continue; }
+      let inContainer = false;
+      for (let n = pic.parentNode; n && n.nodeType === 1; n = n.parentNode) {
+        if (n.localName === 'container') { inContainer = true; break; }
+      }
+      if (inContainer) { mark(id, null); continue; }
+      const cur = kid(pic, 'curSz');
+      const curW = cur ? parseInt(cur.getAttribute('width'), 10) : 0;
+      const curH = cur ? parseInt(cur.getAttribute('height'), 10) : 0;
+      if (!(curW > 0 && curH > 0)) { mark(id, null); continue; }
+      let fraction = 1;
+      const clip = kid(pic, 'imgClip'), org = kid(pic, 'orgSz');
+      if (clip && org) {
+        const orgW = parseInt(org.getAttribute('width'), 10), orgH = parseInt(org.getAttribute('height'), 10);
+        const cw = parseInt(clip.getAttribute('right'), 10) - parseInt(clip.getAttribute('left'), 10);
+        const ch = parseInt(clip.getAttribute('bottom'), 10) - parseInt(clip.getAttribute('top'), 10);
+        if (orgW > 0 && orgH > 0 && cw > 0 && ch > 0) {
+          fraction = Math.min(1, cw / orgW, ch / orgH);
+          fraction = Math.max(0.02, fraction);
+        }
+      }
+      // HWPUNIT: 1/7200 inch
+      mark(id, (Math.max(curW, curH) / 7200) / fraction);
+    }
+  }
+  return usage;
+}
+
+// ───────── 이미지 1장 처리 ─────────
+function isAnimatedGif(data) {
+  let n = 0;
+  for (let i = 0; i < data.length - 3; i++) {
+    if (data[i] === 0x21 && data[i + 1] === 0xF9 && data[i + 2] === 0x04) { if (++n > 1) return true; }
+  }
+  return false;
+}
+
+async function processImage(data, srcExt, o) {
+  const bitmap = await createImageBitmap(new Blob([data], SRC_MIME[srcExt] ? { type: SRC_MIME[srcExt] } : {}));
+  const ow = bitmap.width, oh = bitmap.height, longSide = Math.max(ow, oh);
+  let target = Math.min(o.maxDim, o.limitPx || Infinity);
+  target = Math.max(target, Math.min(longSide, 96)); // 너무 작아지는 것 방지
+  const scale = Math.min(1, target / longSide);
+  const w = Math.max(1, Math.round(ow * scale)), h = Math.max(1, Math.round(oh * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (srcExt === 'bmp') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); } // BMP는 알파 정보가 불확실
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  if (bitmap.close) bitmap.close();
+
+  const srcJpeg = srcExt === 'jpg' || srcExt === 'jpeg';
+  let opaque = srcJpeg || srcExt === 'bmp';
+  if (!opaque) {
+    const px = ctx.getImageData(0, 0, w, h).data;
+    opaque = true;
+    for (let i = 3; i < px.length; i += 4) { if (px[i] !== 255) { opaque = false; break; } }
+  }
+  const toBytes = async (type, q) => {
+    const b = await new Promise(res => canvas.toBlob(res, type, q));
+    return new Uint8Array(await b.arrayBuffer());
+  };
+
+  const cands = [];
+  if (srcJpeg) {
+    cands.push({ ext: 'jpg', bytes: await toBytes('image/jpeg', o.quality) });
+  } else {
+    const png = await toBytes('image/png');
+    cands.push({ ext: 'png', bytes: png });
+    if (o.allowFormatChange && o.png2jpg && opaque) {
+      const jpg = await toBytes('image/jpeg', o.quality);
+      if (jpg.length < png.length * 0.6) cands.push({ ext: 'jpg', bytes: jpg });
+    }
+  }
+  cands.sort((a, b) => a.bytes.length - b.bytes.length);
+  const best = cands[0];
+  if (best.bytes.length >= data.length) return { keep: true, ow, oh, w: ow, h: oh };
+  return { keep: false, bytes: best.bytes, ext: best.ext, ow, oh, w, h };
+}
+
+// ───────── 메인 ─────────
+runBtn.onclick = async () => {
+  if (!selectedFile) return;
+  runBtn.disabled = true;
+  statusEl.textContent = '분석 중...';
+  resultBox.style.display = 'none';
+  resultTable.innerHTML = '';
+
+  try {
+    const opts = {
+      maxDim: parseInt(dimRange.value, 10),
+      quality: parseInt(qRange.value, 10) / 100,
+      dpi: parseInt(dpiRange.value, 10),
+      auto: autoDpi.checked,
+      png2jpg: png2jpg.checked
+    };
+
+    const zip = await JSZip.loadAsync(selectedFile);
+    const newZip = new JSZip();
+    const rows = [];
+    const manifest = await readManifest(zip);
+    const usage = opts.auto ? await analyzeUsage(zip) : {};
+    const used = new Set(Object.keys(zip.files).map(n => n.toLowerCase()));
+    const manifestChanges = [];
+    let formatChanged = 0, resizedCount = 0, keptCount = 0, failCount = 0;
+    let otherBinBefore = 0, otherBinCount = 0;
+
+    const paths = Object.keys(zip.files).filter(p => !zip.files[p].dir);
+    let done = 0;
+    for (const path of paths) {
+      done++;
+      if (manifest.hpfPath && path === manifest.hpfPath) continue; // 마지막에 갱신본 기록
+      statusEl.textContent = `처리 중... (${done}/${paths.length})`;
+      const entry = zip.files[path];
+      const lower = path.toLowerCase();
+      const ext = getExt(lower);
+      const isMime = path === 'mimetype';
+      const isBin = /^bindata\//.test(lower);
+      const isPrv = /^preview\//.test(lower);
+      const isRaster = !!SRC_MIME[ext] && ext !== '';
+      const data = await entry.async('uint8array');
+
+      if (!((isBin || isPrv) && isRaster)) {
+        newZip.file(path, data, { compression: isMime ? 'STORE' : 'DEFLATE' });
+        if (isBin) { otherBinBefore += data.length; otherBinCount++; }
+        continue;
+      }
+
+      const item = isBin ? manifest.pathToItem[lower] : null;
+      const canChange = !!(item && manifest.hpfPath && manifest.text !== null);
+      const needsChange = !(ext === 'jpg' || ext === 'jpeg' || ext === 'png');
+      const label = (isPrv ? '[미리보기] ' : '') + path.split('/').pop();
+
+      // 매니페스트에 없는 BMP/GIF/TIFF, 움직이는 GIF 는 건드리지 않음
+      if ((needsChange && !canChange) || (ext === 'gif' && isAnimatedGif(data))) {
+        newZip.file(path, data, { compression: 'DEFLATE' });
+        otherBinBefore += data.length; otherBinCount++;
+        continue;
+      }
+
+      // 자동 축소 한계(px): 표시 크기(inch) × DPI
+      let limitPx = Infinity;
+      if (isPrv) limitPx = 320;
+      else if (opts.auto && item && item.id && usage[item.id] && !usage[item.id].unrestricted && usage[item.id].inch > 0) {
+        limitPx = Math.ceil(usage[item.id].inch * opts.dpi);
+      }
+
+      let r = null;
+      try {
+        r = await processImage(data, ext, {
+          maxDim: opts.maxDim, quality: opts.quality, limitPx,
+          png2jpg: opts.png2jpg, allowFormatChange: canChange
+        });
+      } catch (e) { r = null; }
+
+      if (!r) {
+        newZip.file(path, data, { compression: 'DEFLATE' });
+        failCount++;
+        continue;
+      }
+      if (r.keep) {
+        newZip.file(path, data, { compression: 'DEFLATE' });
+        keptCount++;
+        rows.push({ name: label + ' (원본 유지)', dim: `${r.ow}×${r.oh}`, before: data.length, after: data.length });
+        continue;
+      }
+
+      const outExt = r.ext;
+      const sameFamily = (outExt === 'jpg' && (ext === 'jpg' || ext === 'jpeg')) || outExt === ext;
+      let outPath = path, outName = label;
+      if (!sameFamily) {
+        // 형식이 바뀌는 경우: 새 경로(충돌 회피) + 매니페스트 갱신
+        let base = path.replace(/\.[a-zA-Z0-9]+$/, ''), hbase = item.href.replace(/\.[a-zA-Z0-9]+$/, '');
+        let suffix = '';
+        while (used.has((base + suffix + '.' + outExt).toLowerCase())) suffix += '_c';
+        outPath = base + suffix + '.' + outExt;
+        const newHref = hbase + suffix + '.' + outExt;
+        used.add(outPath.toLowerCase());
+        manifestChanges.push({ href: item.href, newHref, mime: outExt === 'jpg' ? 'image/jpg' : 'image/png' });
+        formatChanged++;
+        outName = `${label} → ${outPath.split('/').pop()}`;
+      }
+      if (r.w !== r.ow || r.h !== r.oh) resizedCount++;
+      newZip.file(outPath, r.bytes, { compression: 'DEFLATE' });
+      rows.push({
+        name: outName,
+        dim: (r.w !== r.ow || r.h !== r.oh) ? `${r.ow}×${r.oh} → ${r.w}×${r.h}` : `${r.ow}×${r.oh}`,
+        before: data.length, after: r.bytes.length
+      });
+    }
+
+    if (manifest.hpfPath) {
+      let hpfOut = manifest.text;
+      for (const c of manifestChanges) hpfOut = replaceManifestItemAttrs(hpfOut, c.href, c.newHref, c.mime);
+      newZip.file(manifest.hpfPath, hpfOut, { compression: 'DEFLATE' });
+    }
+
+    statusEl.textContent = '압축 파일 생성 중...';
+    outputBlob = await newZip.generateAsync({
+      type: 'blob', mimeType: 'application/octet-stream',
+      compression: 'DEFLATE', compressionOptions: { level: 9 }
+    });
+
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const pct = r.before > 0 ? Math.round((1 - r.after / r.before) * 100) : 0;
+      [r.name, r.dim, fmt(r.before), fmt(r.after), pct + '%'].forEach(t => {
+        const td = document.createElement('td'); td.textContent = t; tr.appendChild(td);
+      });
+      resultTable.appendChild(tr);
+    });
+
+    const origTotal = selectedFile.size, newTotal = outputBlob.size;
+    let html = '';
+    if (newTotal >= origTotal) {
+      html = `전체 파일 크기: ${fmt(origTotal)} → ${fmt(newTotal)} (더 줄일 수 있는 이미지가 없습니다. 프리셋을 "강력"으로 바꿔 보세요)`;
+    } else {
+      const totalPct = Math.round((1 - newTotal / origTotal) * 100);
+      html = `전체 파일 크기: ${fmt(origTotal)} → ${fmt(newTotal)} (${totalPct}% 감소)`;
+    }
+    html += `<br><span class="muted">이미지 ${rows.length}개 처리: 해상도 축소 ${resizedCount}개, 형식 변환 ${formatChanged}개, 원본 유지 ${keptCount}개</span>`;
+    if (failCount > 0) html += `<br><span class="muted">${failCount}개는 브라우저가 디코딩하지 못해 원본 그대로 두었습니다.</span>`;
+    if (otherBinCount > 0) html += `<br><span class="muted">그 외 첨부 데이터(움직이는 GIF·폰트·OLE 등) ${otherBinCount}개(원본 ${fmt(otherBinBefore)})는 무손실 압축(레벨 9)만 적용했습니다.</span>`;
+    summary.innerHTML = html;
+
+    resultBox.style.display = 'block';
+    downloadBtn.style.display = 'inline-block';
+    statusEl.textContent = '완료';
+  } catch (e) {
+    statusEl.textContent = '오류: ' + e.message;
+    console.error(e);
+  } finally {
+    runBtn.disabled = false;
+  }
+};
+
+downloadBtn.onclick = () => {
+  if (!outputBlob || !selectedFile) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(outputBlob);
+  a.download = selectedFile.name.replace(/\.hwpx$/i, '') + '_압축.hwpx';
+  a.click();
+};
+</script>
+<script>
+(function(){function p(){try{var h=(function(){var b=document.body,cs=getComputedStyle(b);return Math.ceil(b.getBoundingClientRect().height+(parseFloat(cs.marginTop)||0)+(parseFloat(cs.marginBottom)||0));})();window.parent.postMessage({__tabHeight:h,__tabId:'imgzip'},'*');}catch(e){}}
+window.addEventListener('load',p);window.addEventListener('resize',p);document.addEventListener('input',p,true);document.addEventListener('click',function(){setTimeout(p,60)},true);
+if(window.MutationObserver)new MutationObserver(p).observe(document.body,{childList:true,subtree:true,attributes:true});setInterval(p,400);})();
+</script></body>
+</html>

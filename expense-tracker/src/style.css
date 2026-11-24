@@ -1156,3 +1156,13 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
 .bl .blv{display:flex;align-items:center;gap:8px;justify-content:flex-end;white-space:nowrap}.bl .blv b{font-size:16px;min-width:46px;text-align:right}.bl .blv small{font-size:12px;color:var(--text-2)}
 @media(max-width:1100px){.bl{grid-template-columns:1fr}.bl .blv{justify-content:flex-start}}
 @media print{.tmwrap,.tm,.ost,.bl .ezbar i{print-color-adjust:exact;-webkit-print-color-adjust:exact}.tm .tr.big{font-size:16px}.tm .tn{font-size:9px}.tm .tr{font-size:10px}.bl{padding:3px 2px}.bl .bln{font-size:10px}.bl .blv b{font-size:11px}.bl .blv small{font-size:9px}.tmwrap{min-height:0}}
+
+
+/* 여러 건 일치: 후보 목록 */
+.vcands{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.vcand{display:grid;grid-template-columns:auto minmax(120px,1.4fr) minmax(110px,1fr) auto auto;gap:10px;align-items:center;text-align:left;width:100%;padding:9px 12px;border:1px solid var(--edge-dark,#cfd6e0);border-left-width:6px;border-radius:10px;background:#fff;cursor:pointer;font:inherit;color:var(--text)}
+.vcand.own{border-left-color:var(--good)}.vcand.fwd{border-left-color:var(--warn)}
+.vcand:hover{background:var(--track,#f3f5f9);outline:2px solid var(--accent,#2a78d6);outline-offset:-2px}
+.vcand .vcn{font-size:15px}.vcand .vcno{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--text-2)}
+.vcv{font-weight:800;font-size:13px;padding:2px 10px;border-radius:999px;white-space:nowrap}.vcv.own{background:var(--good-soft);color:var(--good)}.vcv.fwd{background:var(--warn-soft);color:var(--warn)}
+@media(max-width:900px){.vcand{grid-template-columns:1fr 1fr}}

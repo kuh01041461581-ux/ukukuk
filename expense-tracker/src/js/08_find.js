@@ -85,6 +85,7 @@ $('#dlg').addEventListener('keydown', e => {
 });
 $('#dlg').addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('fin')) { const v = parseNum(e.target.value); e.target.value = v == null || isNaN(v) ? '' : String(v); e.target.select(); } });
 $('#dlg').addEventListener('click', e => {
+  const vp = e.target.closest('[data-vp]'); if (vp) { vdPick(vp.dataset.vp); return; }
   const b = e.target.closest('[data-fo]'); if (!b) return; const a = b.dataset.fo;
   if (a === 'close') { closeDlg(); return; }
   if (a === 'mode') { S.opt = S.opt || {}; S.opt.findMode = b.dataset.v; save(); redrawFind('search'); return; }
@@ -103,7 +104,27 @@ $('#dlg').addEventListener('click', e => {
 function findMode() { return 'amt'; }
 function vdOf(h) { if (h.kind === 'fwd') return { v: 'fwd', to: h.f.to || '-' }; return h.it.forward ? { v: 'fwd', to: h.it.forward } : { v: 'own' }; }
 function vdBadge(it) { return it.forward ? `<span class="vd fwd">→ ${esc(it.forward)} 전달</span>` : '<span class="vd own">우리 계</span>'; }
-function vdHits(q) { return findHits(q).filter(h => h.kind === 'util' || h.kind === 'fwd'); }
+function vdHits(q) {
+  const digits = String(q || '').replace(/\D/g, ''), hasText = /[^\d\s\-]/.test(String(q || ''));
+  if (digits.length < 3 || hasText) return findHits(q).filter(h => h.kind === 'util' || h.kind === 'fwd');   // 이름 등으로 찾을 때
+  const out = [];
+  for (const [k, nm] of CATS) { const sec = S.util[k]; if (!sec) continue;
+    for (const it of sec.items) { if (it.inactive) continue; if ([it.no1, it.no2].some(v => String(v || '').replace(/\D/g, '').includes(digits))) out.push({ kind: 'util', k, nm, sec, it }); }
+    (sec.forwards || []).forEach(f => { if (String(f.numbers || '').split(/\s*\/\s*/).some(v => v.replace(/\D/g, '').includes(digits))) out.push({ kind: 'fwd', k, nm, f }); });
+  }
+  if (out.length > 1) { const tail = out.filter(h => (h.kind === 'util' ? [h.it.no1, h.it.no2] : String(h.f.numbers || '').split(/\s*\/\s*/)).some(v => String(v || '').replace(/\D/g, '').endsWith(digits))); if (tail.length && tail.length < out.length) return tail; }   // 뒤 자리가 맞는 것을 우선
+  return out;
+}
+function vdNo(h, q) {   // 어느 번호가 일치했는지
+  const dg = String(q || '').replace(/\D/g, '');
+  if (h.kind === 'util') {
+    const l2 = String(h.sec.no2Label || '납부번호').replace(/\(.*\)/, ''), l1 = String(h.sec.no1Label || '계약번호');
+    if (dg && String(h.it.no2 || '').replace(/\D/g, '').includes(dg)) return [l2, h.it.no2];
+    if (dg && String(h.it.no1 || '').replace(/\D/g, '').includes(dg)) return [l1, h.it.no1];
+    return [l2, h.it.no2 || h.it.no1 || ''];
+  }
+  const parts = String(h.f.numbers || '').split(/\s*\/\s*/); return ['전달처 번호', (dg && parts.find(v => v.replace(/\D/g, '').includes(dg))) || parts[0] || ''];
+}
 function vdMonth(h) { return h.kind === 'util' ? findMonth(h) : (FIND.month === 'auto' ? defaultMonth(S.util[h.k]) : +FIND.month); }
 function fwdKey(h, m) { if (h.kind === 'fwd') { if (!h.f.id) h.f.id = uid('F'); return h.k + '|' + h.f.id + '|' + m; } return h.k + '|' + h.it.id + '|' + m; }
 function vdLabel(h) { const d = vdOf(h); return d.v === 'own' ? '수령 체크' : (h.kind === 'util' ? '수령 + 전달함' : '전달함'); }
@@ -113,7 +134,9 @@ function verdictCard(q, key) {
   if (!hs.length) return `<div class="verdict none"><div class="vt">목록에 없음</div><div class="vs">새 납부처일 수 있습니다. 번호를 다시 확인하거나 아래 버튼으로 등록하세요.</div><div class="row" style="margin-top:8px"><button class="btn" data-fo="addfwd">다른 계 전달처로 추가</button><button class="btn" data-fo="additem">우리 계 항목으로 추가</button></div></div>`;
   if (hs.length > 1) {
     const own = hs.filter(h => vdOf(h).v === 'own').length;
-    return `<div class="verdict multi"><div class="vt">${hs.length}건이 일치합니다</div><div class="vs">우리 계 ${own}건 · 다른 계 ${hs.length - own}건 — 번호를 더 입력하면 한 건으로 좁혀집니다 (Enter 처리는 한 건일 때만)</div></div>`;
+    const cand = (h, i) => { const d = vdOf(h), m = vdMonth(h), nm = String(h.kind === 'util' ? h.it.name : h.f.name).replace(/\n/g, ' '), no = vdNo(h, q);
+      return `<button class="vcand ${d.v}" data-vp="${i}"><span class="badge" style="background:color-mix(in srgb,${CATCOLOR[h.k]} 18%,transparent);color:var(--text)">${h.nm}</span><b class="vcn">${esc(nm)}</b><span class="vcno"><small>${esc(no[0])}</small> <b>${esc(no[1])}</b></span><span class="vcv ${d.v}">${d.v === 'own' ? '우리 계' : '→ ' + esc(d.to) + ' 전달'}</span><span class="muted vcm">${h.kind === 'util' ? MON[m] + '분' : '전달처 목록'}</span></button>`; };
+    return `<div class="verdict multi"><div class="vt">${hs.length}건이 일치합니다 — 아래에서 맞는 것을 누르세요</div><div class="vs">우리 계 ${own}건 · 다른 계 ${hs.length - own}건 (번호를 더 입력해도 좁혀집니다)</div><div class="vcands">${hs.slice(0, 8).map(cand).join('')}${hs.length > 8 ? `<div class="muted" style="padding:4px 8px">외 ${hs.length - 8}건 — 번호를 더 입력하세요</div>` : ''}</div></div>`;
   }
   const h = hs[0], d = vdOf(h), m = vdMonth(h); let name, nums, state = '', done = false;
   if (h.kind === 'util') {
@@ -142,6 +165,14 @@ function undoLog(i) {
   if (x.key && !x.hadKey && S.fwdDone) delete S.fwdDone[x.key];
   FIND.log.splice(i, 1); save(); toast('되돌렸습니다');
   if ($('#fq')) redrawFind(); if (UI.tab === 'sort' && typeof redrawSort === 'function') redrawSort();
+}
+function vdPick(i) {
+  const hs = vdHits(FIND.q.trim()), h = hs[+i]; if (!h) return;
+  const cands = h.kind === 'util' ? [h.it.no2, h.it.no1, h.it.name] : [String(h.f.numbers || '').split(/\s*\/\s*/)[0], h.f.name];
+  let q = cands.map(c => String(c || '').replace(/\n/g, ' ').trim()).filter(Boolean).find(c => vdHits(c).length === 1);
+  if (!q) { const nm = String(h.kind === 'util' ? h.it.name : h.f.name).replace(/\n/g, ' ').trim(); q = nm + ' ' + (h.nm || ''); if (vdHits(q).length !== 1) q = nm; }
+  FIND.q = q; const a = $('#sq'), b = $('#fq'); if (a) a.value = q; if (b) b.value = q;
+  if ($('#fq')) redrawFind('search'); if (UI.tab === 'sort' && typeof redrawSort === 'function') { redrawSort(); if (a) a.focus(); }
 }
 function verdictAct() {
   const q = FIND.q.trim(); if (!q) return; const hs = vdHits(q);

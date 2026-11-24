@@ -99,10 +99,10 @@ function donutSVG(items, centerTop, centerSub) {
   const total = sum(items, x => x.v) || 1, R = 62, C = 2 * Math.PI * R; let off = 0;
   const segs = items.filter(x => x.v > 0).map(x => {
     const len = x.v / total * C, gap = items.filter(y => y.v > 0).length > 1 ? 2.5 : 0, dash = Math.max(len - gap, 0.6);
-    const s = `<circle class="dseg" cx="80" cy="80" r="${R}" fill="none" stroke="${x.color}" stroke-width="26" stroke-dasharray="${dash.toFixed(2)} ${(C - dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 80 80)" data-tip="${esc(x.name)}\n${won(x.v)}원 (${pct1(x.v / total * 100)})"/>`;
+    const s = `<circle class="dseg" cx="80" cy="80" r="${R}" fill="none" stroke="${x.color}" stroke-width="20" stroke-dasharray="${dash.toFixed(2)} ${(C - dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 80 80)" data-tip="${esc(x.name)}\n${won(x.v)}원 (${pct1(x.v / total * 100)})"/>`;
     off += len; return s;
   }).join('');
-  return `<svg class="donut" viewBox="0 0 160 160" role="img" aria-label="집행 내역 원그래프"><circle cx="80" cy="80" r="${R}" fill="none" stroke="var(--track)" stroke-width="26"/>${segs}
+  return `<svg class="donut" viewBox="0 0 160 160" role="img" aria-label="집행 내역 원그래프"><circle cx="80" cy="80" r="${R}" fill="none" stroke="var(--track)" stroke-width="20"/>${segs}
     <text x="80" y="76" text-anchor="middle" style="font-size:20px;font-weight:800;fill:var(--text)">${esc(centerTop)}</text><text x="80" y="96" text-anchor="middle" style="font-size:11px;fill:var(--text-2)">${esc(centerSub)}</text></svg>`;
 }
 function donutData(mode, T) {
@@ -112,8 +112,8 @@ function donutData(mode, T) {
   }
   if (mode === 'biz') {
     const rows = visLines().filter(l => l.spent > 0).map(l => ({ name: l.label, v: l.spent })).sort((a, b) => b.v - a.v);
-    const top = rows.slice(0, 6), rest = sum(rows.slice(6), x => x.v);
-    const items = top.map((x, i) => ({ ...x, color: dcol(i) })); if (rest > 0) items.push({ name: '기타 ' + (rows.length - 6) + '개', v: rest, color: '#9aa3b2' });
+    const top = rows.slice(0, 5), rest = sum(rows.slice(5), x => x.v);
+    const items = top.map((x, i) => ({ ...x, color: dcol(i) })); if (rest > 0) items.push({ name: '기타 ' + (rows.length - 5) + '개', v: rest, color: '#9aa3b2' });
     return { items, top: won(T.spent / 1e6 | 0) + '백만', sub: '지출 합계', total: T.spent };
   }
   const items = GROUPS.map((g, i) => ({ name: g, v: sum(visLines().filter(l => l.group === g), l => l.spent), color: dcol(i) })).filter(x => x.v > 0);

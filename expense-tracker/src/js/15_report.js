@@ -71,8 +71,8 @@ function repTrend() {
     <svg viewBox="0 0 ${W} ${H}" class="trend" role="img" aria-label="집행률 추이">
       ${[0, 50, 100].map(v => `<line x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--edge,#e6e9f0)"/><text x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end" style="font-size:10px;fill:var(--text-2)">${v}%</text>`).join('')}
       <polyline points="${ep.map(p => p.join(',')).join(' ')}" fill="none" stroke="var(--text-2)" stroke-width="1.5" stroke-dasharray="4 4"/>
-      <polyline points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}" fill="none" stroke="var(--accent,#2a78d6)" stroke-width="2.5"/>
-      ${pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="var(--accent,#2a78d6)" stroke="#fff" stroke-width="2" data-tip="${p[3]}\n집행률 ${pct1(p[2])}"/><text x="${p[0]}" y="${p[1] - 9}" text-anchor="middle" style="font-size:11px;font-weight:700;fill:var(--text)">${pct1(p[2])}</text><text x="${p[0]}" y="${H - 10}" text-anchor="middle" style="font-size:10px;fill:var(--text-2)">${p[3].slice(5).replace('-', '/')}</text>`).join('')}
+      <polyline points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}" fill="none" stroke="var(--accent,#2a78d6)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="var(--accent,#2a78d6)" stroke="#fff" stroke-width="2" data-tip="${p[3]}\n집행률 ${pct1(p[2])}"/>${(i === 0 || i === pts.length - 1) ? `<text x="${p[0]}" y="${p[1] - 10}" text-anchor="${i === 0 ? 'start' : 'end'}" style="font-size:12px;font-weight:700;fill:var(--text)">${pct1(p[2])}</text>` : ''}<text x="${p[0]}" y="${H - 10}" text-anchor="middle" style="font-size:10px;fill:var(--text-2)">${p[3].slice(5).replace('-', '/')}</text>`).join('')}
     </svg></div>`;
 }
 function repNoteCell(r) {

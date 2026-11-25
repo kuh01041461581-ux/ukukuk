@@ -111,6 +111,14 @@ html.dark{
   .frame-card iframe{width:100%;height:600px;border:0;display:block;background:transparent;color-scheme:normal;opacity:0;transition:opacity .18s ease;}
   .frame-card.ready iframe{opacity:1;}
   .frame-card.fixed iframe{height:calc(100vh - var(--top-h) - 140px);min-height:520px;}
+  /* 높이가 고정인 도구(관외출장·얼굴 블러·수료증): 제목 줄을 얇게 하고 도구가 화면 높이를 꽉 채워 위쪽 공간 낭비와 이중 스크롤을 없앤다 */
+  body.fixed-tab main.content{padding:0 20px 8px;max-width:none;}
+  body.fixed-tab .page-head{padding:8px 0;gap:10px;}
+  body.fixed-tab .page-ico{width:28px;height:28px;border-radius:8px;}
+  body.fixed-tab .page-ico svg{width:15px;height:15px;}
+  body.fixed-tab .page-head h1{font-size:17px;}
+  body.fixed-tab .page-head p{display:none;}
+  body.fixed-tab .frame-card.fixed iframe{height:calc(100vh - var(--top-h) - 52px);min-height:480px;}
   .frame-load{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:center;gap:10px;height:140px;color:var(--u-text3);font-size:13px;pointer-events:none;}
   .frame-card.ready .frame-load{display:none;}
   .spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--u-border2);border-top-color:var(--u-primary);animation:spin .7s linear infinite;}
@@ -258,6 +266,7 @@ html.dark{
     btns.forEach(function(b){b.classList.toggle('active',b===btn);});
     document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab);});
     loadTab(tab);
+    body.classList.toggle('fixed-tab',!!document.querySelector('#panel-'+tab+' .frame-card.fixed'));
     document.getElementById('currentMenuName').textContent=btn.getAttribute('data-label');
     document.getElementById('pageTitle').textContent=btn.getAttribute('data-label');
     document.getElementById('pageDesc').textContent=btn.getAttribute('data-desc')||'';

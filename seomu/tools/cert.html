@@ -172,12 +172,13 @@ body::before,body::after{display:none !important;}
 .brand-mark{display:none !important;}
 .launcher-card{box-shadow:none !important;border:1px solid var(--border) !important;border-radius:var(--u-r-card) !important;}
 .launcher-brand{display:none !important;}
-#launcherScreen{min-height:0 !important;padding:0 !important;display:block !important;}
+#launcherScreen:not([style*="display: none"]){min-height:0 !important;padding:0 !important;display:block !important;}
+#launcherScreen[style*="display: none"]{display:none !important;}   /* 추출을 시작하면 첫 화면을 확실히 접는다(예전엔 !important 때문에 안 접혀 위쪽이 통째로 비었음) */
 .launcher-card{max-width:none !important;padding:34px 32px 28px !important;}
 .launcher-gear{top:14px;right:14px;}
 .dropzone{max-width:720px;margin-left:auto;margin-right:auto;}
 .app-topbar .brand{display:none !important;}
-.app-topbar{position:static !important;background:transparent !important;border:0 !important;padding:0 0 12px !important;justify-content:flex-end !important;}
+.app-topbar{position:static !important;background:transparent !important;border:0 !important;padding:0 0 6px !important;justify-content:flex-end !important;}
 
 :root,:root[data-theme="dark"]{--accent:var(--u-primary);--accent-hover:var(--u-primary-hover);--accent-light:var(--u-tint);--accent-ink:var(--u-primary);
   --bg:var(--u-bg);--surface:var(--u-card);--surface-solid:var(--u-card);--surface-2:var(--u-hover);--ink:var(--u-text);--muted:var(--u-text2);--muted-2:var(--u-text3);
@@ -885,6 +886,49 @@ html body .modal-bg,html body .modal-overlay{background:rgba(15,15,15,.45) !impo
     .launcher-card{ padding:26px 20px 24px; }
   }
   :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* ---------- 서무 종합프로그램 안에서의 공간 활용 ----------
+     이 도구는 원래 전체 창용이라 폭 1180px 이하면 파일 목록·미리보기를 위아래로 쌓았다. 종합프로그램 안에서는 폭이 약 1100px 이라
+     늘 쌓여서 위쪽 공간이 낭비됐다 → 좌(파일 목록)·중(결과)·우(미리보기) 3열을 유지하고, 정말 좁을 때(860px 이하)만 쌓는다.
+     도구 자체 상단바의 제목은 바깥 화면 제목과 겹쳐 숨기고 버튼 줄만 얇게 남긴다. */
+  .app-topbar{ padding:4px 12px; justify-content:flex-end; }
+  .app-topbar .brand{ display:none; }
+  .icon-btn{ width:28px; height:28px; border-radius:8px; }
+  .icon-btn svg{ width:15px; height:15px; }
+  .app-body{ padding:10px 14px 24px; gap:12px; max-width:none; }
+  .side-files{ width:208px; top:8px; }
+  .split-view{ width:350px; top:8px; }
+  .side-file-list{ max-height:calc(100vh - 110px); }
+  .center-col{ min-width:0; flex:1 1 0; }
+  @media (max-width:1180px){
+    .app-body{ flex-direction:row; }
+    .side-files{ width:208px; position:sticky; }
+    .split-view{ width:350px; position:sticky; }
+    .side-file-list{ max-height:calc(100vh - 110px); }
+  }
+
+  /* 진행 상황·요약을 촘촘하게: 결과 표가 화면 위쪽에서 바로 보이도록 */
+  .center-col > .card{ padding:12px 16px !important; margin-bottom:10px !important; }
+  .center-col > .card .card-head{ margin-bottom:8px; }
+  .stage-grid{ gap:8px; }
+  .stage-item{ display:grid; grid-template-columns:auto 1fr auto; grid-template-rows:auto auto; column-gap:8px; align-items:center; text-align:left; }
+  .stage-circle{ grid-row:1 / span 2; width:24px !important; height:24px !important; font-size:11px !important; margin:0 !important; }
+  .stage-label{ font-size:12px; }
+  .stage-count{ font-size:11px; }
+  .stage-item .progress-track{ grid-column:2 / span 2; }
+  .summary-grid{ grid-template-columns:repeat(auto-fit, minmax(118px,1fr)); gap:6px; }
+  .summary-cell{ padding:7px 9px !important; gap:8px !important; }
+  .summary-icon{ width:26px !important; height:26px !important; flex:0 0 auto; }
+  .summary-icon svg{ width:13px !important; height:13px !important; }
+  .summary-text .num{ font-size:15px !important; line-height:1.15; }
+  .summary-text .lbl{ font-size:11px !important; }
+  .summary-text .pct{ display:none; }
+  #helpBtn, #themeToggleBtn{ display:none; }   /* 바깥 화면(서무 종합프로그램) 위쪽에 같은 단추가 있음 */
+  @media (max-width:860px){
+    .app-body{ flex-direction:column; }
+    .side-files, .split-view{ width:100%; position:static; }
+    .side-file-list{ max-height:220px; }
+  }
 </style>
 
 <!-- ================= MAIN SCREEN ================= -->

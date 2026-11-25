@@ -1190,3 +1190,15 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
 .donut circle.dseg{stroke-linecap:butt}
 .tm .tflag{align-self:flex-start}
 .tflag.warn{background:#fff3d6!important;color:#6b4500!important}.tflag.bad{background:#fde3e3!important;color:#9c2424!important}.tflag.gray{background:#eef0f4!important;color:#3c4452!important}
+
+
+/* 막대 통일 + 처리 현황 표 정리 */
+.ezbar{width:100%;box-sizing:border-box}
+.ezbar:not(.big) .sf span{display:none}
+.rate .ezbar{flex:1;height:12px;margin:0;min-width:70px}
+.rate .ezbar .mk{top:-2px;bottom:-2px}.rate .ezbar .mk::before,.rate .ezbar .tk{display:none}
+.chart-row .ezbar,.gcard .ezbar,.g-card .ezbar{height:14px;margin:6px 0}
+.ezbar .g{background:repeating-linear-gradient(45deg,#eda100 0 3px,var(--surface,#fff) 3px 6px)}
+.hmc{padding:7px 2px}.hmc.ok{color:var(--good);opacity:.9}.hmc.ok b{font-size:15px}
+.hbt{background:var(--track-b);border-radius:4px}.hbt i{border-radius:0 4px 4px 0}
+.ezbar:not(.big) .mk::before{display:none}.ezbar:not(.big) .mk{top:-3px;bottom:-3px;width:2px;margin-left:-1px}

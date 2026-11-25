@@ -18,7 +18,7 @@ function monthlyChart() {
     a.forEach((v, i) => {
       const k = vis[i][0], nm = vis[i][1]; const h = v / nice * ih; const x = gx + i * bw + 1, w = Math.max(2, bw - 2);
       if (v) {
-        const y = Tp + ih - h, r = Math.min(5, w / 2), c = CATCOLOR[k];
+        const y = Tp + ih - h, r = Math.min(4, w / 2), c = CATCOLOR[k];
         g += `<path class="barflat" d="M${x},${Tp + ih}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${Tp + ih}Z" fill="${c}" data-tip="${MON[m]}분 ${nm}\n${won(v)}원"/>`;
         if (showVal) g += `<text x="${x + w / 2}" y="${y - 6}" text-anchor="middle" style="fill:var(--text);font-weight:600">${manKey(v)}</text>`;
       }

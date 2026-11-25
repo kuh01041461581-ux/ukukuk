@@ -14,16 +14,13 @@ $('#dlg').addEventListener('pointerdown', e => { const d = $('#dlg'); dlgDownOut
 $('#dlg').addEventListener('click', e => { const d = $('#dlg'); if (e.target === d && dlgDownOutside && outsideDlg(d, e)) closeDlg(); dlgDownOutside = false; });
 
 function barHTML(paid, sch, budget, opt = {}) {
-  if (!(budget > 0)) return '<div class="bar' + (opt.lg ? ' lg' : '') + '"></div>';
-  const scale = Math.max(1, (paid + sch) / budget);
-  const pw = Math.max(0, paid) / (budget * scale) * 100, sw = Math.max(0, sch) / (budget * scale) * 100;
-  const over = paid > budget;
-  const mk = opt.noMark ? '' : `<i class="mark" style="left:${(elapsed() / scale).toFixed(2)}%"></i>`;
-  const tip = `지출 ${won(paid)}원 (${pct1(pct(paid, budget))})` + (sch ? `\n지급예정 ${won(sch)}원` : '') +
+  // 앱 전체에서 같은 막대: 파랑=지출, 줄무늬=지급예정, 세로선=경과율, 95% 이상·초과=빨강
+  if (!(budget > 0)) return `<div class="ezbar${opt.lg ? ' big' : ''}"></div>`;
+  const rate = pct(paid, budget), el = elapsed(), th = thr();
+  const over = paid > budget || paid + sch > budget || rate >= th.hot;
+  const tip = `지출 ${won(paid)}원 (${pct1(rate)})` + (sch ? `\n지급예정 ${won(sch)}원` : '') +
     `\n잔액 ${won(budget - paid)}원` + (sch ? `\n예정 반영 잔액 ${won(budget - paid - sch)}원 · 집행률 ${pct1(pct(paid + sch, budget))}` : '');
-  return `<div class="bar${opt.lg ? ' lg' : ''}" data-tip="${esc(tip)}" role="img" aria-label="${esc(tip.replace(/\n/g, ', '))}">` +
-    `<span class="seg paid${over ? ' over' : ''}" style="width:${pw.toFixed(2)}%"></span>` +
-    (sch > 0 ? `<span class="seg sch" style="width:${sw.toFixed(2)}%"></span>` : '') + mk + '</div>';
+  return easyBar({ rate, gap: sch, budget, noMark: !!opt.noMark }, el, !!opt.lg, over ? 'bad' : '', true, tip);
 }
 function statusBadges(l) {
   const c = calc(l); let h = '';

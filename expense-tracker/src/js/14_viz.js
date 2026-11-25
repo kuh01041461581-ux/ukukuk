@@ -21,16 +21,16 @@ function procHeatmap() {
   return `<div class="card"><h2>월별 처리 현황 <span class="muted" style="font-weight:400;font-size:12px">칸을 누르면 그 달의 납부 확인으로 이동 · 숫자는 납부 완료 / 전체</span></h2>
     <div class="legend noprint" style="margin-bottom:8px"><span class="hmk ok">✓ 모두 납부</span><span class="hmk unp">● 수령 완료·납부 대기</span><span class="hmk miss">! 미수령 있음</span><span class="hmk wait">아직 안 온 달</span></div>
     <div class="hm"><div class="hmrow hmhead"><span class="hmlab"></span>${MON.map((n, m) => `<span class="${m === cur ? 'cur' : ''}">${n}</span>`).join('')}</div>
-    ${rows.map(r => `<div class="hmrow"><span class="hmlab"><i style="background:${CATCOLOR[r.k]}"></i>${r.nm}</span>${r.cells.map(c => `<button class="hmc ${c.cls}" data-act="hm" data-k="${r.k}" data-m="${c.m}" data-tip="${r.nm} ${MON[c.m]}분\n납부 ${c.paid} · 수령·미납 ${c.unp} · 미수령 ${c.miss}">${c.tot ? `<b>${c.sym}</b>${c.paid}/${c.tot}` : '–'}</button>`).join('')}</div>`).join('')}</div></div>`;
+    ${rows.map(r => `<div class="hmrow"><span class="hmlab"><i style="background:${CATCOLOR[r.k]}"></i>${r.nm}</span>${r.cells.map(c => `<button class="hmc ${c.cls}" data-act="hm" data-k="${r.k}" data-m="${c.m}" data-tip="${r.nm} ${MON[c.m]}분\n납부 ${c.paid} · 수령·미납 ${c.unp} · 미수령 ${c.miss}">${c.tot ? (c.cls === 'ok' ? `<b>${c.sym}</b>` : `<b>${c.sym}</b>${c.paid}/${c.tot}`) : '–'}</button>`).join('')}</div>`).join('')}</div></div>`;
 }
 
 /* 전체 사업 진척 요약 */
 function bizVizHTML(rows, T) {
   const b = [
-    { name: '미집행 (0%)', test: r => r.paid <= 0, color: '#9aa3b2' },
-    { name: '1~49%', test: r => r.rate > 0 && r.rate < 50, color: '#bcd6f6' },
-    { name: '50~89%', test: r => r.rate >= 50 && r.rate < 90, color: '#6fa6ea' },
-    { name: '90% 이상', test: r => r.rate >= 90, color: '#14509a' },
+    { name: '미집행 (0%)', test: r => r.paid <= 0, color: '#b9c0cc' },
+    { name: '1~49%', test: r => r.rate > 0 && r.rate < 50, color: '#bad4f6' },
+    { name: '50~89%', test: r => r.rate >= 50 && r.rate < 90, color: '#6199e4' },
+    { name: '90% 이상', test: r => r.rate >= 90, color: '#3a78cc' },
   ];
   const items = b.map(x => ({ name: x.name, v: rows.filter(r => r.budget > 0 && x.test(r)).length, color: x.color }));
   const nTot = sum(items, x => x.v) || 1;

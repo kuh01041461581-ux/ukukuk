@@ -16,12 +16,12 @@ function easyState(r, el, th) {
   if (r.rate < el - th.low) return { cls: 'warn', sym: '▲', word: '쓰는 속도가 느려요' };
   return { cls: 'ok', sym: '●', word: '잘 쓰고 있어요' };
 }
-function easyBar(r, el, big, cls, noShort) {
+function easyBar(r, el, big, cls, noShort, tip) {
   const cl = v => Math.max(0, Math.min(100, v)), f = v => cl(v).toFixed(2);
   const rate = cl(r.rate), gapW = r.budget > 0 ? Math.min(100 - rate, r.gap / r.budget * 100) : 0;
   const short = !noShort && r.budget > 0 && el - rate > 0.5 ? cl(el) - rate : 0;                 // 지금쯤 써야 할 만큼까지 비어 있는 구간
   const tk = [25, 50, 75].map(v => `<u class="tk" style="left:${v}%"></u>`).join('');
-  return `<div class="ezbar${big ? ' big' : ''}" role="img" aria-label="쓴 비율 ${pct1(r.rate)}, 오늘까지 지난 기간 ${pct1(el)}">${tk}<i class="f ${cls || ''}" style="width:${f(rate)}%">${big && rate >= 14 ? `<span class="fl">쓴 돈 ${Math.round(rate)}%</span>` : ''}</i>${gapW > 0.4 ? `<i class="g" style="left:${f(rate)}%;width:${f(gapW)}%"></i>` : ''}${short > 0.5 ? `<i class="sf" style="left:${f(rate)}%;width:${f(short)}%">${short >= (big ? 12 : 22) ? `<span>부족 ${Math.round(short)}%p</span>` : ''}</i>` : ''}<b class="mk" style="left:${f(el)}%"></b></div>`;
+  return `<div class="ezbar${big ? ' big' : ''}"${tip ? ` data-tip="${esc(tip)}"` : ''} role="img" aria-label="쓴 비율 ${pct1(r.rate)}, 오늘까지 지난 기간 ${pct1(el)}">${tk}<i class="f ${cls || ''}" style="width:${f(rate)}%">${big && rate >= 14 ? `<span class="fl">쓴 돈 ${Math.round(rate)}%</span>` : ''}</i>${gapW > 0.4 ? `<i class="g" style="left:${f(rate)}%;width:${f(gapW)}%"></i>` : ''}${short > 0.5 ? `<i class="sf" style="left:${f(rate)}%;width:${f(short)}%">${short >= (big ? 12 : 22) ? `<span>부족 ${Math.round(short)}%p</span>` : ''}</i>` : ''}${r.noMark ? '' : `<b class="mk" style="left:${f(el)}%"></b>`}</div>`;
 }
 function renderEasy(D) {
   const { T, el, th } = D; const st = easyState(T, el, th);

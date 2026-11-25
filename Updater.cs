@@ -11,7 +11,7 @@ using System.Windows.Forms;
 // 배포 방법: 저장소에 새 Release를 만들고 태그를 ot-v1.4.1 처럼 붙인 뒤 OvertimeReminder.exe 를 첨부하면 끝. (같은 저장소의 다른 앱 릴리스와 섞여도 이 앱 것만 골라요)
 internal partial class Program
 {
-	internal const string AppVersion = "1.4.84";
+	internal const string AppVersion = "1.4.85";
 	// ← 본인 GitHub 저장소로 바꾸세요 (예: "uk/overtime-reminder"). 'OWNER'가 들어 있으면 업데이트 확인을 하지 않아요.
 	private const string UpdateRepo = "kuh01041461581-ux/ukukuk";
 	private static int updBusy; private static MenuItem updItem;
@@ -47,13 +47,13 @@ internal partial class Program
 			{
 				ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768 | (SecurityProtocolType)192;
 				string json = "";
-				try { using (WebClient wc = NewWc()) { wc.Headers["Accept"] = "application/vnd.github+json"; json = wc.DownloadString("https://api.github.com/repos/" + repo + "/releases?per_page=30"); } UpdLog("확인: api.github.com 응답 " + json.Length + "자"); }
+				try { json = Net<string>(delegate(WebClient wc) { wc.Headers["Accept"] = "application/vnd.github+json"; return wc.DownloadString("https://api.github.com/repos/" + repo + "/releases?per_page=30"); }); UpdLog("확인: api.github.com 응답 " + json.Length + "자"); }
 				catch (Exception ex1)
 				{   // api.github.com 이 막힌 네트워크(회사·관공서)에서는 github.com 의 릴리스 목록(atom)으로 대신 확인해요
 					UpdLog("api.github.com 실패: " + Why(ex1));
 					try
 					{
-						string atom; using (WebClient wc = NewWc()) atom = wc.DownloadString("https://github.com/" + repo + "/releases.atom"); StringBuilder fs = new StringBuilder();
+						string atom = Net<string>(delegate(WebClient wc) { return wc.DownloadString("https://github.com/" + repo + "/releases.atom"); }); StringBuilder fs = new StringBuilder();
 						foreach (Match am in Regex.Matches(atom, "/releases/tag/([^\"<]+)")) { string tg0 = Uri.UnescapeDataString(am.Groups[1].Value); if (tg0.StartsWith("ot-", StringComparison.OrdinalIgnoreCase)) fs.Append("{\"tag_name\":\"" + tg0 + "\",\"assets\":[{\"browser_download_url\":\"https://github.com/" + repo + "/releases/download/" + tg0 + "/OvertimeReminder.exe\"}]},"); }
 						json = fs.ToString(); UpdLog("확인: releases.atom 으로 대신 확인");
 					}
@@ -96,8 +96,25 @@ internal partial class Program
 		});
 		th.IsBackground = true; th.Start();
 	}
-	private sealed class TWc : WebClient { protected override WebRequest GetWebRequest(Uri a) { WebRequest r = base.GetWebRequest(a); r.Timeout = 20000; return r; } }
-	private static WebClient NewWc() { TWc w = new TWc(); w.Encoding = Encoding.UTF8; w.Headers["User-Agent"] = "OvertimeReminder-Updater"; try { IWebProxy p = WebRequest.GetSystemWebProxy(); p.Credentials = CredentialCache.DefaultCredentials; w.Proxy = p; } catch { } return w; }   // 회사 프록시(윈도우 로그인 계정으로 인증)도 쓰고, 20초 안에 응답이 없으면 포기해요
+	private sealed class TWc : WebClient { protected override WebRequest GetWebRequest(Uri a) { WebRequest r = base.GetWebRequest(a); r.Timeout = 20000; HttpWebRequest h = r as HttpWebRequest; if (h != null) { h.KeepAlive = false; h.Pipelined = false; } return r; } }
+	// "기본 연결이 닫혔습니다" 같은 일시적·보안 연결 오류가 나면 연결 방식을 바꿔가며 최대 4번 다시 시도해요
+	private static T Net<T>(Func<WebClient, T> f)
+	{
+		Exception last = null;
+		for (int i = 0; i < 4; i++)
+		{
+			try
+			{
+				ServicePointManager.SecurityProtocol = i == 2 ? ((SecurityProtocolType)3072 | (SecurityProtocolType)768 | (SecurityProtocolType)192) : (SecurityProtocolType)3072;
+				ServicePointManager.Expect100Continue = false; ServicePointManager.CheckCertificateRevocationList = false; ServicePointManager.DefaultConnectionLimit = 8;
+				using (WebClient wc = NewWc(i != 3)) return f(wc);
+			}
+			catch (Exception ex) { last = ex; UpdLog("재시도 " + (i + 1) + "/4: " + Why(ex)); Thread.Sleep(1500 * (i + 1)); }
+		}
+		throw last;
+	}
+	private static WebClient NewWc() { return NewWc(true); }
+	private static WebClient NewWc(bool useProxy) { TWc w = new TWc(); w.Encoding = Encoding.UTF8; w.Headers["User-Agent"] = "OvertimeReminder-Updater"; if (useProxy) { try { IWebProxy p = WebRequest.GetSystemWebProxy(); p.Credentials = CredentialCache.DefaultCredentials; w.Proxy = p; } catch { } } else { w.Proxy = null; } return w; }   // 회사 프록시(윈도우 로그인 계정으로 인증)도 쓰고, 20초 안에 응답이 없으면 포기해요
 	private static string Why(Exception e) { string m = e.GetType().Name + ": " + e.Message; WebException we = e as WebException; if (we != null && we.Response is HttpWebResponse) m += " (HTTP " + (int)((HttpWebResponse)we.Response).StatusCode + ")"; if (e.InnerException != null) m += " / " + e.InnerException.Message; return m; }
 	private static void UpdLog(string t) { try { Directory.CreateDirectory(Dir); string f = Path.Combine(Dir, "update.log"); if (File.Exists(f) && new FileInfo(f).Length > 60000) File.Delete(f); File.AppendAllText(f, DateTime.Now.ToString("MM-dd HH:mm:ss ") + t + "\r\n"); } catch { } }
 	private static void Post(SynchronizationContext c, Action a) { if (c != null) c.Post(delegate { try { a(); } catch { } }, null); else a(); }
@@ -122,7 +139,7 @@ internal partial class Program
 			{
 				Directory.CreateDirectory(UpdDir); string nf = Path.Combine(UpdDir, "new.exe");
 				ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768 | (SecurityProtocolType)192;
-				using (WebClient wc = NewWc()) { wc.DownloadFile(url, nf); } UpdLog("내려받기 완료: " + url);
+				Net<bool>(delegate(WebClient wc) { wc.DownloadFile(url, nf); return true; }); UpdLog("내려받기 완료: " + url);
 				FileInfo fi = new FileInfo(nf); bool ok = fi.Length > 1000000; if (ok) using (FileStream fs = File.OpenRead(nf)) ok = fs.ReadByte() == 'M' && fs.ReadByte() == 'Z';
 				if (!ok) { Post(ctx, delegate { MessageBox.Show("받은 파일이 올바르지 않아 업데이트하지 않았어요.", "초과근무 알리미"); }); try { File.Delete(nf); } catch { } return; }
 				string cur = Application.ExecutablePath, bat = Path.Combine(UpdDir, "apply.bat");

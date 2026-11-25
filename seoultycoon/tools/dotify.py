@@ -33,3 +33,51 @@ def tint(F, mul, add=(0, 0, 0)):
     m = (a[..., 3] > 0) & (sat < 0.30) & (lum > 120)
     for c in range(3): a[..., c] = np.where(m, np.clip(lum * mul[c] + add[c], 0, 255), a[..., c])
     return Image.fromarray(a.astype(np.uint8), 'RGBA')
+
+LAST_HD = None
+def pixelize2(F1, F2, ncol=26, mul=None):
+    """옛 석탑처럼 고해상도로 그려 둔 그림을 그대로 도트화: 2배판(F2)을 소수 팔레트로 모으고(디더 없음) 3x3 다수결로 잡티를 지운 뒤,
+    1배판은 2x2 블록 다수결로 만든다. 체크 디더 잡음이 없어 또렷하다. 돌 색 보정(mul)과 나무 제거도 여기서."""
+    global LAST_HD
+    F2 = untree(F2)
+    if mul: F2 = tint(F2, mul)
+    a = np.asarray(F2.convert('RGBA')); al = a[..., 3] > 127
+    q = Image.fromarray(a[..., :3]).quantize(colors=ncol, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    idx = np.asarray(q).astype(int); pal = np.asarray(q.getpalette()[:ncol * 3]).reshape(-1, 3)
+    from scipy import ndimage as _nd
+    def mode3(ix):
+        best = np.zeros_like(ix); cnt = np.full(ix.shape, -1)
+        for c in np.unique(ix[al]):
+            n = _nd.uniform_filter((ix == c).astype(float), 3)
+            m = n > cnt; best[m] = c; cnt[m] = n[m]
+        return best
+    idx = np.where(al, mode3(idx), idx)
+    rgb = pal[idx].astype(np.uint8); e = al & ~(np.roll(al, 1, 0) & np.roll(al, -1, 0) & np.roll(al, 1, 1) & np.roll(al, -1, 1))
+    rgb[e] = (rgb[e] * 0.72).astype(np.uint8)
+    hd = Image.fromarray(np.dstack([rgb, (al * 255).astype(np.uint8)]), 'RGBA'); LAST_HD = hd
+    # 1배: 2x2 블록에서 가장 많은 팔레트 색
+    h, w = idx.shape; h2, w2 = h // 2, w // 2; lo = np.zeros((h2, w2, 4), np.uint8)
+    for y in range(h2):
+        for x in range(w2):
+            blk = idx[2 * y:2 * y + 2, 2 * x:2 * x + 2].ravel(); ab = al[2 * y:2 * y + 2, 2 * x:2 * x + 2].ravel()
+            if ab.sum() < 2: continue
+            vals, cts = np.unique(blk[ab], return_counts=True); c = vals[np.argmax(cts)]; lo[y, x, :3] = pal[c]; lo[y, x, 3] = 255
+    la = lo[..., 3] > 0; e1 = la & ~(np.roll(la, 1, 0) & np.roll(la, -1, 0) & np.roll(la, 1, 1) & np.roll(la, -1, 1)); lo[e1, :3] = (lo[e1, :3] * 0.72).astype(np.uint8)
+    return Image.fromarray(lo, 'RGBA')
+
+def flatdot(F, ncol=24, mul=None):
+    """1배 그림을 그대로 도트화: 나무 제거·돌 색 보정 → 팔레트 ncol 색(디더 없음) → 외톨이 화소만 주변 다수색으로 → 윤곽은 한 단계 어두운 톤."""
+    F = untree(F)
+    if mul: F = tint(F, mul)
+    a = np.asarray(F.convert('RGBA')); al = a[..., 3] > 127
+    q = Image.fromarray(a[..., :3]).quantize(colors=ncol, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    idx = np.asarray(q).astype(int); pal = np.asarray(q.getpalette()[:ncol * 3]).reshape(-1, 3)
+    H, W = idx.shape; out = idx.copy()
+    for y in range(1, H - 1):
+        for x in range(1, W - 1):
+            if not al[y, x]: continue
+            nb = idx[y - 1:y + 2, x - 1:x + 2].ravel(); same = (nb == idx[y, x]).sum() - 1
+            if same == 0:
+                m = al[y - 1:y + 2, x - 1:x + 2].ravel(); v, c = np.unique(nb[m], return_counts=True); out[y, x] = v[np.argmax(c)]
+    rgb = pal[out].astype(np.uint8); e = al & ~(np.roll(al, 1, 0) & np.roll(al, -1, 0) & np.roll(al, 1, 1) & np.roll(al, -1, 1)); rgb[e] = (rgb[e] * 0.72).astype(np.uint8)
+    return Image.fromarray(np.dstack([rgb, (al * 255).astype(np.uint8)]), 'RGBA')

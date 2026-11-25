@@ -25,9 +25,10 @@ def conv(data):
     if hd.size != (lo.shape[1] * 2, lo.shape[0] * 2): return data
     b = io.BytesIO(); Image.fromarray(scale2x(lo), 'RGBA').save(b, format='PNG', optimize=True)
     return data[:e1] + b.getvalue() + data[e2:]
+KEEP = {f'b{k}.png' for k in (2, 13, 20, 21, 26, 33, 38, 42)}     # 새로 만든 건물·도트화한 석탑은 이미 또렷한 2배 층이 있다
 if __name__ == '__main__':
     os.makedirs(dst, exist_ok=True); n = 0; only = set(sys.argv[1:])
     for f in sorted(os.listdir(src)):
         if not f.endswith('.png') or (only and f[:-4] not in only): continue
-        d = open(f'{src}/{f}', 'rb').read(); nd = conv(d); open(f'{dst}/{f}', 'wb').write(nd); n += nd is not d
+        d = open(f'{src}/{f}', 'rb').read(); nd = d if f in KEEP else conv(d); open(f'{dst}/{f}', 'wb').write(nd); n += nd is not d
     print('PC 2배 층(Scale2x)', n, '장')

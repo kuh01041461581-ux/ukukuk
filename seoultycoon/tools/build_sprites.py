@@ -18,8 +18,10 @@ import make_iksan_buildings as MB, make_iksan_hq as HQ, make_iksan_more as MO, m
 import pixel_direct as PXD, pixel_buildings as PB
 PIXEL = {21, 2, 38, 42, 33, 20, 13, 26}                                                       # 직접 도트로 찍은 건물(평면 색 + 윤곽선)
 import dotify as DT
-def old_mireuksa(): return DT.dotify(DT.tint(DT.untree(LM.mireuksa()), (0.78, 0.76, 0.72)), 24)                    # 옛 모양(층층 탑 + 남은 벽돌 더미) 그대로, 질감만 도트·회색 화강암
-def old_baekje(): return DT.dotify(DT.tint(DT.untree(MO.baekje()), (1.0, 0.80, 0.52)), 26)                         # 왕궁리: 옛 모양 그대로, 황갈색 석재
+def old_mireuksa():
+    F = LM.mireuksa(); DT.LAST_HD = DT.flatdot(Sc.LAST_HD, 28, (0.78, 0.76, 0.72)) if Sc.LAST_HD is not None else None; return DT.flatdot(F, 24, (0.78, 0.76, 0.72))          # 옛 모양 그대로 도트화(디더 없음), 2배 층은 Scale2x
+def old_baekje():
+    F = MO.baekje(); DT.LAST_HD = DT.flatdot(Sc.LAST_HD, 30, (1.0, 0.80, 0.52)) if Sc.LAST_HD is not None else None; return DT.flatdot(F, 28, (1.0, 0.80, 0.52))
 ITEMS = {2: old_mireuksa, 13: PB.church, 20: PB.library, 21: PXD.make_pixel_chunpo, 33: PB.baseball, 38: old_baekje, 42: PB.arts, 26: PB.jeonsu}
 # 롯데시네마·코스트코·테슬라·하림·농협은행·공설운동장·방송국·마룡이식당은 원본 도트에 간판만 고친다(make_iksan_retouch) → 아래에서 퀄리티 보정까지 받는다
 yx = bytearray(open(root + '/work/st2/yx.d', 'rb').read()); show = []; hd_show = []
@@ -49,6 +51,10 @@ for k, fn in sorted(ITEMS.items()):
     F2 = None      # 새 건물도 원본과 같은 처리(저해상도 도트 → 벡터풍 2배 층)를 거치게 해 이질감을 없앤다                                              # 2배 해상도판(없으면 1배 그림만)
     if F.size != (96, Hc): Fx = Image.new('RGBA', (96, Hc), (0, 0, 0, 0)); Fx.alpha_composite(F.crop((0, 0, 96, min(F.height, Hc)))); F = Fx
     F = on_tile(F, yc)
+    if k in PIXEL:                                                     # 직접 찍은 도트·도트화한 석탑: 2배 층을 뭉개지 않고 또렷하게(석탑은 고해상도에서 도트화한 판, 나머지는 Scale2x)
+        import pc_hd as _PH, numpy as _np2
+        F2 = DT.LAST_HD if (k in (2, 38) and DT.LAST_HD is not None and DT.LAST_HD.size == (192, Hc * 2)) else Image.fromarray(_PH.scale2x(_np2.asarray(F.convert('RGBA'))), 'RGBA')
+        DT.LAST_HD = None
     if k != 9 and k not in PIXEL:
         F = PS.stylize(F)
         # 도트 티 내기: 색을 NCOL 개로 줄이고(디더 없음), 알파는 이진, 윤곽에 한 칸 어두운 선을 둔다 — 원본 건물처럼 또렷한 면 단위 색

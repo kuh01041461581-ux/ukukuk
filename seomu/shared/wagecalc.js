@@ -115,6 +115,26 @@ var WAGE = (function () {
     return y;
   }
 
+  /* ---------- 소득세: 근로소득 간이세액표(소득세법 시행령 별표 2) ----------
+     월급여액(비과세 제외, 4대보험 공제 전 금액) 천원 구간 × 공제대상가족 수(본인 포함, 8~20세 자녀는 1명당 1명 더)로 찾는다.
+     샘플로 확인: 월급여 1,653,940원 → 1,650~1,660천원 구간, 가족 1명 = 12,020원 (최병학 칸과 같음) */
+  function simpleTax(gross, fam) {
+    var T = (typeof SEOMU_TAXTABLE !== 'undefined') ? SEOMU_TAXTABLE : null;
+    fam = Math.max(1, Math.floor(+fam || 1));
+    var r = { tax: 0, row: null, fam: fam, known: true };
+    if (!T) { r.known = false; return r; }
+    var k = gross / 1000;
+    if (k < T.rows[0][0]) return r;                                       // 770천원 미만 = 0원
+    var last = T.rows[T.rows.length - 1];
+    if (k >= last[1]) { r.known = false; r.row = [last[1], null]; return r; } // 10,000천원 이상은 표 밖 → 직접 입력
+    var lo = 0, hi = T.rows.length - 1;
+    while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (T.rows[mid][0] <= k) lo = mid; else hi = mid - 1; }
+    var row = T.rows[lo]; r.row = [row[0], row[1]];
+    if (fam <= 11) r.tax = row[1 + fam];
+    else r.tax = Math.max(0, row[12] - (row[11] - row[12]) * (fam - 11));    // 11명 초과: 별표 2 제4호
+    return r;
+  }
+
   /* ---------- 근로자 한 명 계산 ---------- */
   function hourlyOf(S) { var p = parseYm(S.ym); return +((S.hourlyByYear || {})[p.y]) || +S.hourly || 0; }
 
@@ -138,17 +158,23 @@ var WAGE = (function () {
     var basePay = days * dayRate, juPay = joo * juUnit, wolchaPay = wolcha * juUnit, extraPay = Math.round(extraHours * hourly);
     var gross = basePay + juPay + wolchaPay + extraPay;
     var ins = w.ins || { found: false, health: [0, 0], pension: [0, 0], employ: [0, 0], accident: 0 };
-    var incomeTax = +w.tax || 0, localTax = floor10(incomeTax * 0.1);
+    var st = simpleTax(gross, (+w.fam || 1) + (+w.kids || 0));
+    var manual = (w.tax != null && w.tax !== '');
+    var taxPct = (S.taxPct != null && S.taxPct !== '') ? +S.taxPct : 100;          // 간이세액표의 80/100/120% 중 선택(원천징수 선택)
+    var taxAuto = floor10(st.tax * taxPct / 100);
+    var incomeTax = manual ? (+w.tax || 0) : taxAuto, localTax = floor10(incomeTax * 0.1);
     var ded = { health: ins.health[0], pension: ins.pension[0], employ: ins.employ[0], incomeTax: incomeTax, localTax: localTax };
     var dedTotal = ded.health + ded.pension + ded.employ + ded.incomeTax + ded.localTax;
     var er = { health: ins.health[1], pension: ins.pension[1], employ: ins.employ[1], accident: ins.accident };
     var erTotal = er.health + er.pension + er.employ + er.accident;
     return {
+      full: full, firstYear: firstYear, juRaw: Math.min(weeklyHours, 40) / 40 * 8 * hourly,
       hourly: hourly, hoursPerDay: hpd, dayRate: dayRate, worked: worked, days: days, weeklyDays: wd, weeklyHours: weeklyHours,
       juEligible: juEligible, juUnit: juUnit, joo: joo, wolcha: wolcha, extraHours: extraHours,
       basePay: basePay, juPay: juPay, wolchaPay: wolchaPay, extraPay: extraPay, gross: gross,
       ded: ded, dedTotal: dedTotal, net: gross - dedTotal, er: er, erTotal: erTotal, total: gross + erTotal,
-      special: joo + wolcha > 0 || extraHours > 0
+      special: joo + wolcha > 0 || extraHours > 0,
+      tax: { auto: taxAuto, manual: manual, row: st.row, fam: st.fam, known: st.known, pct: taxPct, base: gross }
     };
   }
   function calcAll(workers, S) {
@@ -270,7 +296,8 @@ var WAGE = (function () {
   var ROSTER_HEAD = {
     name: /^(성명|이름|근로자명|근로자|성함)$/, rrn: /^(주민등록번호|주민번호|주민등록|생년월일|생년|주민\(생년월일\))$/,
     bank: /^(은행|은행명|금융기관)$/, acct: /^(계좌번호|계좌|계좌\(번호\)|입금계좌)$/, kind: /^(구분|근무구분|근무형태|근무|평일주말)$/,
-    hire: /^(입사일|고용일|취득일|입사일자|근무시작일)$/, tax: /^(소득세|근로소득세)$/, note: /^(비고)$/
+    hire: /^(입사일|고용일|취득일|입사일자|근무시작일)$/, tax: /^(소득세|근로소득세)$/, note: /^(비고)$/,
+    fam: /^(공제대상가족|공제대상가족수|부양가족|부양가족수|가족수|공제가족)$/, kids: /^(자녀|자녀수|8세이상20세이하자녀|8~20세자녀)$/
   };
   var BANKS = ['국민', '신한', '우리', '하나', '농협', 'NH', '기업', 'IBK', 'SC', '제일', '씨티', '카카오', '케이', '토스', '새마을', '신협', '우체국', '수협', '산림', '부산', '대구', '경남', '광주', '전북', '제주', 'KDB', '산업'];
   function splitBankAccount(s) {
@@ -301,8 +328,9 @@ var WAGE = (function () {
       var kindTxt = map.kind != null ? String(row[map.kind] || '') : '';
       var kind = /주말|토|일/.test(kindTxt) && !/평일/.test(kindTxt) ? 'weekend' : 'weekday';
       var hire = map.hire != null ? dateOnly(row[map.hire]) : '';
-      var tax = map.tax != null && row[map.tax] !== '' && row[map.tax] != null ? num(row[map.tax]) : 0;
-      out.push({ name: name, birth6: rr.birth6, birth8: rr.birth8, rrnOk: rr.ok, bank: bank, account: acct, kind: kind, hire: hire, tax: tax, note: map.note != null ? String(row[map.note] || '') : '' });
+      var tax = map.tax != null && row[map.tax] !== '' && row[map.tax] != null ? num(row[map.tax]) : null;
+      var fam = map.fam != null && row[map.fam] !== '' ? Math.max(1, num(row[map.fam])) : 1, kids = map.kids != null && row[map.kids] !== '' ? Math.max(0, num(row[map.kids])) : 0;
+      out.push({ name: name, birth6: rr.birth6, birth8: rr.birth8, rrnOk: rr.ok, bank: bank, account: acct, kind: kind, hire: hire, tax: tax, fam: fam, kids: kids, note: map.note != null ? String(row[map.note] || '') : '' });
     }
     return { workers: out, skipped: skipped };
   }
@@ -323,7 +351,7 @@ var WAGE = (function () {
   var api = {
     floor10: floor10, DOW_KO: DOW_KO, parseYm: parseYm, monthDates: monthDates, holidayName: holidayName, isoOf: isoOf, iso: iso,
     parseRrn: parseRrn, birth6Of: birth6Of, scheduledDow: scheduledDow, workDates: workDates, scheduledDatesInMonth: scheduledDatesInMonth,
-    calcWorker: calcWorker, calcAll: calcAll, hourlyOf: hourlyOf, parseInsurance: parseInsurance, matchInsurance: matchInsurance,
+    calcWorker: calcWorker, calcAll: calcAll, simpleTax: simpleTax, hourlyOf: hourlyOf, parseInsurance: parseInsurance, matchInsurance: matchInsurance,
     parseRoster: parseRoster, parsePayNotice: parsePayNotice, splitBankAccount: splitBankAccount
   };
   if (typeof module !== 'undefined') module.exports = api;

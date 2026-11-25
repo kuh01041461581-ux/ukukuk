@@ -117,10 +117,74 @@ table.t th,table.t td{padding-left:6px;padding-right:6px;}
   .paper{zoom:1;margin:0;box-shadow:none;}
   .noprint{display:none !important;}
 }
+
+/* ===== v2: 입력칸 겹침 해결 · 확정표 ===== */
+*,*::before,*::after{box-sizing:border-box;}
+.grid{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px 14px;}
+.grid > *{min-width:0;}
+.field input,.field select{min-width:0;max-width:100%;}
+.field.wide{grid-column:auto;}
+.acct-grid{grid-template-columns:84px minmax(0,.8fr) minmax(0,1.4fr) minmax(0,.9fr);}
+.acct-grid input{min-width:0;width:100%;}
+@media (max-width:640px){.acct-grid{grid-template-columns:70px minmax(0,1fr);}.acct-grid .h{display:none;}}
+.tablewrap{overflow-x:auto;}
+table.t{min-width:600px;}
+#rosterT{min-width:820px;table-layout:fixed;}
+#rosterT th:nth-child(1){width:15%;}#rosterT th:nth-child(2){width:15%;}#rosterT th:nth-child(3){width:12%;}#rosterT th:nth-child(4){width:19%;}
+#rosterT th:nth-child(5){width:11%;}#rosterT th:nth-child(6),#rosterT th:nth-child(7){width:7%;}#rosterT th:nth-child(8){width:14%;}#rosterT th:nth-child(9){width:40px;}
+#insT{min-width:760px;}
+table.sheet{min-width:980px;font-size:13px;}
+table.sheet th,table.sheet td{padding:7px 8px;white-space:nowrap;}
+table.sheet tr.fx > td{border-bottom:1px solid var(--u-border);}
+table.sheet tr.tt td{font-weight:700;background:var(--u-sub);border-top:2px solid var(--u-border2);}
+table.sheet td.net,table.sheet th.net{background:var(--u-tint);font-weight:700;color:var(--u-primary);}
+table.sheet tr.dt > td{white-space:normal;background:var(--u-sub);padding:14px 16px;}
+.tog{all:unset;cursor:pointer;width:20px;height:20px;text-align:center;border-radius:5px;color:var(--u-text2);margin-right:4px;}
+.tog:hover{background:var(--u-hover);}
+.dt-body{display:grid;grid-template-columns:minmax(250px,320px) minmax(0,1fr) minmax(0,1.2fr);gap:18px;align-items:start;}
+@media (max-width:900px){.dt-body{grid-template-columns:1fr;}}
+.adj{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;font-size:13px;}
+.adj label{color:var(--u-text2);}
+.adj input{width:92px;text-align:right;min-height:28px;}
+.adj h4,.why h4{grid-column:1/-1;margin:0 0 2px;font-size:12px;color:var(--u-text3);font-weight:600;}
+.why{font-size:12.5px;line-height:1.75;}
+.why ul{margin:0;padding-left:16px;}
+.why li{margin-bottom:3px;}
+.prog{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;}
+.prog .st{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--u-border);border-radius:999px;font-size:12.5px;background:var(--u-card);color:var(--u-text2);}
+.prog .st.ok{border-color:var(--u-ok);color:var(--u-ok);background:var(--u-ok-tint);}
+.prog .st.cur{border-color:var(--u-primary);color:var(--u-primary);background:var(--u-tint);font-weight:600;}
+details.algo{margin:0 0 14px;border:1px solid var(--u-border);border-radius:var(--u-r-card);padding:0 14px;background:var(--u-card);}
+details.algo > summary{cursor:pointer;padding:10px 0;font-size:13.5px;font-weight:600;}
+details.algo ol{margin:0 0 12px;padding-left:20px;font-size:13px;line-height:1.8;color:var(--u-text2);}
+details.algo ol b{color:var(--u-text);}
+.mk{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 4px;font-size:13px;}
+.mk label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;}
+.row.big .btn{min-height:38px;padding:0 20px;font-size:14px;}
+
+/* 폭 조정 */
+table.sheet{min-width:0;font-size:12.5px;}
+table.sheet th,table.sheet td{padding:7px 5px;}
+table.sheet th:first-child,table.sheet td:first-child{padding-left:8px;}
+.dt-body{grid-template-columns:250px 210px minmax(0,1fr);}
+@media (max-width:1000px){.dt-body{grid-template-columns:1fr;}}
+.adj{grid-template-columns:1fr 88px;}
+.adj label{line-height:1.3;}
+#rosterT{min-width:860px;}
+#rosterT th:nth-child(1){width:12%;}#rosterT th:nth-child(2){width:14%;}#rosterT th:nth-child(3){width:11%;}#rosterT th:nth-child(4){width:18%;}
+#rosterT th:nth-child(5){width:10%;}#rosterT th:nth-child(6),#rosterT th:nth-child(7){width:6%;}#rosterT th:nth-child(8){width:17%;}#rosterT th:nth-child(9){width:5%;}
+.field.span2{grid-column:span 2;}
+#closedRow{flex-wrap:nowrap;}
+#closedRow label{padding:3px 8px;}
+
+.cal{max-width:340px;}
+.adj{max-width:360px;}
+#insT input.amt{padding:0 6px;font-size:12.5px;}
 </style>
 <script>
 /*@include personname.js*/
 /*@include holidays.js*/
+/*@include taxtable.js*/
 /*@include wagecalc.js*/
 /*@include hwpx.js*/
 </script>
@@ -130,6 +194,20 @@ table.t th,table.t td{padding-left:6px;padding-right:6px;}
 <div class="wrap">
 <p class="seomu-intro">기간제 근로자 <b>명부 엑셀</b>과 월별 <b>4대보험 고지서 엑셀</b>을 넣으면, 근로자를 찾아 보험료를 넣고 <b>최저시급</b>으로 인부임을 계산해
   <b>지급명세서 엑셀(임금지급 명세서 · 은행이체 · 개인별 급여지급 명세서)</b>, <b>일일점검부</b>, <b>청구서</b>를 만듭니다. 모든 처리는 이 브라우저 안에서만 이뤄지고, 주민번호 뒷자리는 읽자마자 버립니다.</p>
+
+<div class="prog" id="prog"></div>
+<details class="algo"><summary>급여는 이렇게 확정됩니다 (계산 순서)</summary><ol>
+<li><b>근무일 확정</b> — 근로 요일(평일/주말)에서 휴관 요일을 빼고, 공휴일 근무 여부와 달력에서 고른 결근·추가 근무를 반영합니다. 이 달 입사자는 입사일 이전을 뺍니다.</li>
+<li><b>기본급</b> = 근무일수 × 1일 단가 (1일 단가 = 그 해 최저시급 × 1일 소정근로시간).</li>
+<li><b>주휴수당</b> = (주 소정근로시간 ÷ 40) × 8시간 × 시급, 10원 미만 절사. 주 15시간 이상이고, 그 주의 소정근로일이 모두 이 달 안에 있으며 개근한 주만 셉니다.</li>
+<li><b>월차수당</b> — 주휴 대상자가 한 달 소정근로일을 모두 채우고 입사 1년 미만이면 1일분(주휴 1주 단가).</li>
+<li><b>산출액(청구금액)</b> = 기본급 + 주휴수당 + 월차수당 + 추가근무수당. 청구서·소득세 계산의 기준 금액입니다.</li>
+<li><b>4대보험</b> — 월별 고지서에서 이름 + 생년월일로 찾아 근로자 부담분(공제)과 사업장 부담분을 넣습니다.</li>
+<li><b>소득세</b> — 산출액(월급여)으로 국세청 근로소득 간이세액표(소득세법 시행령 별표 2)를 찾습니다. 공제대상가족 수(본인 포함, 8~20세 자녀는 1명당 1명 추가)가 열을 정합니다.</li>
+<li><b>지방소득세</b> = 소득세의 10%, 10원 미만 절사.</li>
+<li><b>실지급액</b> = 산출액 − (건강 + 연금 + 고용 + 소득세 + 지방소득세). <b>총 지출액</b> = 산출액 + 사업장 부담 4대보험.</li>
+<li><b>지급 서류</b> — 지급명세서 엑셀, 이호조 거래처입력 엑셀, 일일점검부, 청구서(한글·인쇄)를 같은 값으로 한꺼번에 만듭니다.</li>
+</ol></details>
 
 <!-- 1. 설정 -->
 <section class="card" id="s1">
@@ -143,7 +221,8 @@ table.t th,table.t td{padding-left:6px;padding-right:6px;}
     <div class="field"><label id="hourlyLabel">최저시급(원)</label><input type="number" id="hourly" min="0" step="10"></div>
     <div class="field"><label>1일 소정근로시간</label><input type="number" id="hpd" min="1" max="12" step="0.5"></div>
     <div class="field"><label>1일 단가(자동)</label><input type="text" id="dayRate" readonly></div>
-    <div class="field wide"><label>휴관 요일</label><div class="dow-row" id="closedRow"></div></div>
+    <div class="field"><label>소득세 원천징수(간이세액표 대비)</label><select id="taxPct"><option value="100">100% (기본)</option><option value="80">80%</option><option value="120">120%</option></select></div>
+    <div class="field span2"><label>휴관 요일</label><div class="dow-row" id="closedRow"></div></div>
   </div>
   <p class="note" id="hourlyNote"></p>
   <label class="row note" style="margin-top:8px;gap:6px"><input type="checkbox" id="exHol"> 공휴일에는 근무하지 않음(기본은 공휴일에도 근무 — 유적지처럼 개관하는 경우)</label>
@@ -183,9 +262,9 @@ table.t th,table.t td{padding-left:6px;padding-right:6px;}
     <span class="muted" style="font-size:12.5px" id="rosterInfo"></span>
   </div>
   <div class="tablewrap" id="rosterWrap" style="display:none">
-    <table class="t" id="rosterT"><thead><tr><th>성명</th><th>생년월일</th><th>은행</th><th>계좌번호</th><th>구분</th><th>입사일</th><th style="width:34px"></th></tr></thead><tbody></tbody></table>
+    <table class="t" id="rosterT"><thead><tr><th>성명</th><th>생년월일</th><th>은행</th><th>계좌번호</th><th>구분</th><th title="본인 포함 공제대상가족 수">가족</th><th title="8세 이상 20세 이하 자녀 수">자녀</th><th>입사일</th><th></th></tr></thead><tbody></tbody></table>
   </div>
-  <p class="note">주민등록번호는 앞 6자리와 성별 숫자만 쓰고 <b>뒷자리는 저장·표시하지 않고 버립니다</b>. 4대보험 고지서와는 <b>이름 + 생년월일(6자리)</b>로 짝을 찾습니다.</p>
+  <p class="note"><b>가족</b>은 본인을 포함한 공제대상가족 수, <b>자녀</b>는 8~20세 자녀 수입니다(소득세 산정에 쓰입니다). 주민등록번호는 앞 6자리와 성별 숫자만 쓰고 <b>뒷자리는 저장·표시하지 않고 버립니다</b>. 4대보험 고지서와는 <b>이름 + 생년월일(6자리)</b>로 짝을 찾습니다.</p>
 </section>
 
 <!-- 3. 고지서 -->
@@ -201,13 +280,12 @@ table.t th,table.t td{padding-left:6px;padding-right:6px;}
   <p class="note">고지서에 같은 사람이 두 줄(정산·소급)이면 <b>합산</b>합니다. 국민연금·고용보험이 0원인 것(60세·65세 이상 등)은 고지서에 없으면 0으로 둡니다. 금액은 칸에서 직접 고칠 수 있습니다.</p>
 </section>
 
-<!-- 4. 근무일·급여 -->
+<!-- 4. 급여 확정 -->
 <section class="card" id="s4">
-  <h2><span class="step-no">4</span>근무일 · 급여 확인</h2>
-  <p class="sub">근로 요일대로 달력에 근무일을 채웠습니다. 날짜를 눌러 근무/휴무를 바꾸면 급여가 다시 계산됩니다.</p>
-  <div id="cards"><p class="muted" style="font-size:13px">먼저 근로자 명부를 넣어 주세요.</p></div>
-  <div class="sumbar" id="sumbar" style="display:none"></div>
-  <p class="note" id="rulesNote"></p>
+  <h2><span class="step-no">4</span>급여 확정</h2>
+  <p class="sub">근무일 · 보험료 · 소득세까지 자동 계산한 결과입니다. 행 앞의 ▸ 를 누르면 달력과 계산 근거가 열리고, 날짜를 눌러 근무/휴무를 바꾸면 바로 다시 계산됩니다.</p>
+  <div class="tablewrap"><table class="t sheet" id="fixT"><thead><tr><th>성명</th><th class="n">근무일</th><th class="n">주휴</th><th class="n">월차</th><th class="n">산출액</th><th class="n">건강</th><th class="n">연금</th><th class="n">고용</th><th class="n">소득세</th><th class="n">지방세</th><th class="n net">실지급액</th><th class="n">사업장 부담</th></tr></thead><tbody><tr><td colspan="12" class="muted">먼저 근로자 명부를 넣어 주세요.</td></tr></tbody></table></div>
+  <p class="note" id="fixNote"></p>
 </section>
 
 <!-- 5. 납부서 -->
@@ -222,6 +300,9 @@ table.t th,table.t td{padding-left:6px;padding-right:6px;}
 <section class="card" id="s6">
   <h2><span class="step-no">6</span>서류 만들기</h2>
   <div id="checks"></div>
+  <div class="mk" id="mk"><label><input type="checkbox" data-mk="xlsx" checked>지급명세서 엑셀</label><label><input type="checkbox" data-mk="ihojo" checked>이호조 거래처입력 엑셀</label><label><input type="checkbox" data-mk="hwpxd" checked>일일점검부(한글)</label><label><input type="checkbox" data-mk="hwpxc" checked>청구서(한글)</label></div>
+  <div class="row big"><button class="btn" id="btnMakeAll" type="button">선택한 서류 한 번에 내려받기</button><span class="muted" style="font-size:12.5px">여러 파일이 내려받아집니다(브라우저가 허용을 물으면 '허용').</span></div>
+  <p class="note" style="margin-top:14px"><b>개별로 만들기 · 인쇄</b></p>
   <div class="out">
     <div class="o"><h3>지급명세서 엑셀</h3><p>임금지급 명세서 · 은행이체(개인별) · 근로자별 급여지급 명세서 탭을 한 파일로 만듭니다. 수식이 들어 있어 고치면 같이 바뀝니다.</p><button class="btn" id="btnXlsx" type="button">엑셀 내려받기</button></div>
     <div class="o"><h3>일일점검부</h3><p>달력 날짜를 인식해 근로자별로 한 장씩 만듭니다. 근무일 칸은 도장 자리 사선이 그려지고 휴관일은 '휴관'으로 표시됩니다.</p><div class="row"><button class="btn" id="btnPrDaily" type="button">인쇄 / PDF</button><button class="btn outline" id="btnPvDaily" type="button">미리보기</button></div></div>
@@ -271,13 +352,14 @@ function bindDrop(zone,input,fn){
 function readBuf(file){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsArrayBuffer(file);});}
 function ymParts(){return WAGE.parseYm(S.ym);}
 function lastDay(){var p=ymParts();return new Date(p.y,p.m,0).getDate();}
-function ctxS(){return {ym:S.ym,hourlyByYear:S.hourlyByYear,hoursPerDay:S.hoursPerDay,closedDow:S.closedDow,excludeHoliday:S.excludeHoliday};}
+function ctxS(){return {taxPct:S.taxPct,ym:S.ym,hourlyByYear:S.hourlyByYear,hoursPerDay:S.hoursPerDay,closedDow:S.closedDow,excludeHoliday:S.excludeHoliday};}
 function calc(w){return WAGE.calcWorker(w,ctxS());}
 
 /* ---------- 1. 설정 화면 ---------- */
 function initSettings(){
   var map=['ym','site','org','dept','staffTitle','staffName','confTitle','confName'];
   map.forEach(function(k){var el=$('#'+k);el.value=S[k]||'';el.addEventListener('input',function(){S[k]=el.value;saveS();if(k==='ym')syncHourly();refreshAll();});});
+  $('#taxPct').value=String(S.taxPct||100);$('#taxPct').addEventListener('change',function(){S.taxPct=+$('#taxPct').value;saveS();refreshAll(true);});
   $('#hpd').value=S.hoursPerDay;$('#hpd').addEventListener('input',function(){S.hoursPerDay=+$('#hpd').value||7;saveS();syncHourly();refreshAll();});
   $('#exHol').checked=!!S.excludeHoliday;$('#exHol').addEventListener('change',function(){S.excludeHoliday=$('#exHol').checked;saveS();refreshAll();});
   $('#closedRow').innerHTML=[1,2,3,4,5,6,0].map(function(d){return '<label><input type="checkbox" data-d="'+d+'"'+(S.closedDow.indexOf(d)>=0?' checked':'')+'>'+DOWK[d]+'</label>';}).join('');
@@ -298,15 +380,16 @@ function syncHourly(){
 }
 
 /* ---------- 2. 명부 ---------- */
-function newWorker(o){return Object.assign({id:uid++,name:'',birth6:'',birth8:'',bank:'',account:'',kind:'weekday',dow:[],hire:'',extraHours:0,tax:0,off:[],on:[],ovr:{},ins:null,note:''},o||{});}
+function newWorker(o){return Object.assign({id:uid++,name:'',birth6:'',birth8:'',bank:'',account:'',kind:'weekday',dow:[],hire:'',extraHours:0,tax:null,fam:1,kids:0,open:false,off:[],on:[],ovr:{},ins:null,note:''},o||{});}
 function renderRoster(){
   var tb=$('#rosterT tbody');$('#rosterWrap').style.display=workers.length?'':'none';
   tb.innerHTML=workers.map(function(w){
-    var dowRow=w.kind==='custom'?'<tr data-w="'+w.id+'" class="sub"><td colspan="7"><div class="dow-row">'+[1,2,3,4,5,6,0].map(function(d){return '<label><input type="checkbox" data-wd="'+d+'" data-w="'+w.id+'"'+(w.dow.indexOf(d)>=0?' checked':'')+'>'+DOWK[d]+'</label>';}).join('')+'</div></td></tr>':'';
+    var dowRow=w.kind==='custom'?'<tr data-w="'+w.id+'" class="sub"><td colspan="9"><div class="dow-row">'+[1,2,3,4,5,6,0].map(function(d){return '<label><input type="checkbox" data-wd="'+d+'" data-w="'+w.id+'"'+(w.dow.indexOf(d)>=0?' checked':'')+'>'+DOWK[d]+'</label>';}).join('')+'</div></td></tr>':'';
     return '<tr data-w="'+w.id+'"><td><input type="text" data-f="name" value="'+esc(w.name)+'"></td>'
       +'<td><input type="text" data-f="birth" value="'+esc(w.birth8||w.birth6)+'" placeholder="1950-09-10"></td>'
       +'<td><input type="text" data-f="bank" value="'+esc(w.bank)+'"></td><td><input type="text" data-f="account" value="'+esc(w.account)+'"></td>'
       +'<td><select data-f="kind">'+Object.keys(KIND).map(function(k){return '<option value="'+k+'"'+(w.kind===k?' selected':'')+'>'+KIND[k]+'</option>';}).join('')+'</select></td>'
+      +'<td><input type="number" min="1" max="20" data-f="fam" value="'+(w.fam||1)+'"></td><td><input type="number" min="0" max="20" data-f="kids" value="'+(w.kids||0)+'"></td>'
       +'<td><input type="date" data-f="hire" value="'+esc(w.hire)+'"></td><td><button class="btn danger sm" data-del="'+w.id+'" title="삭제">✕</button></td></tr>'+dowRow;
   }).join('');
   $('#rosterInfo').textContent=workers.length?workers.length+'명':'';
@@ -319,6 +402,7 @@ $('#rosterT').addEventListener('input',function(e){
   else if(f==='kind'){w.kind=v;if(w.kind==='custom'&&!w.dow.length)w.dow=[1,2,3,4,5];renderRoster();refreshAll();}
   else if(f==='name'){w.name=v;rematch();renderIns();renderCards();renderChecks();}
   else if(f==='hire'){w.hire=v;refreshAll();}
+  else if(f==='fam'||f==='kids'){w[f]=Math.max(f==='fam'?1:0,+v||0);refreshAll(true);}
   else{w[f]=v;renderChecks();}
 });
 $('#rosterT').addEventListener('click',function(e){var b=e.target.closest('[data-del]');if(!b)return;workers=workers.filter(function(w){return w.id!=b.getAttribute('data-del');});renderRoster();refreshAll();});
@@ -344,7 +428,7 @@ async function loadRoster(file){
   });
   if(!best||!best.res.workers.length){alert('근로자를 찾지 못했습니다. 첫 줄에 "성명, 주민등록번호, 은행, 계좌번호" 같은 머리글이 있는지 확인해 주세요.');return;}
   var prev={};workers.forEach(function(w){prev[w.name+'|'+w.birth6]=w;});
-  workers=best.res.workers.map(function(r){var o=prev[r.name+'|'+r.birth6]||{};return newWorker({name:r.name,birth6:r.birth6,birth8:r.birth8,bank:r.bank,account:r.account,kind:r.kind,hire:r.hire,tax:r.tax,note:r.note,off:o.off||[],on:o.on||[],ovr:o.ovr||{},extraHours:o.extraHours||0});});
+  workers=best.res.workers.map(function(r){var o=prev[r.name+'|'+r.birth6]||{};return newWorker({name:r.name,birth6:r.birth6,birth8:r.birth8,bank:r.bank,account:r.account,kind:r.kind,hire:r.hire,tax:r.tax,fam:r.fam,kids:r.kids,note:r.note,off:o.off||[],on:o.on||[],ovr:o.ovr||{},extraHours:o.extraHours||0});});
   rematch();renderRoster();refreshAll();
   var sk=best.res.skipped;
   toast(workers.length+'명을 불러왔습니다.'+(sk.length?' (사람 이름이 아닌 칸은 건너뜀: '+sk.slice(0,4).join(', ')+(sk.length>4?' 외':'')+')':''));
@@ -388,7 +472,7 @@ $('#insT').addEventListener('input',function(e){
   updateComputed();
 });
 
-/* ---------- 4. 근무일 · 급여 ---------- */
+/* ---------- 4. 급여 확정 ---------- */
 function calHtml(w){
   var S2=ctxS(),dates=WAGE.monthDates(S.ym),worked={},base={};
   WAGE.workDates(w,S2).forEach(function(d){worked[d]=1;});
@@ -402,68 +486,90 @@ function calHtml(w){
   });
   return '<div class="cal">'+h+'</div><div class="legend"><span><i style="background:var(--u-tint);border:1px solid var(--u-primary)"></i>근무</span><span><i style="background:repeating-linear-gradient(45deg,var(--u-hover),var(--u-hover) 3px,transparent 3px,transparent 6px)"></i>휴관</span><span style="color:#DC2626">빨강 = 공휴일</span><span>날짜를 눌러 바꾸기</span></div>';
 }
+
+var FX_CELLS=['days','joo','wolcha','gross','d_health','d_pension','d_employ','d_income','d_local','net','erTotal'];
 function renderCards(){
-  var box=$('#cards'),list=workers.filter(function(w){return w.name;});
-  if(!list.length){box.innerHTML='<p class="muted" style="font-size:13px">먼저 근로자 명부를 넣어 주세요.</p>';$('#sumbar').style.display='none';return;}
-  box.innerHTML=list.map(function(w){
-    return '<div class="wk" data-w="'+w.id+'"><div class="wk-head"><b>'+esc(w.name)+'</b><span class="chip">'+KIND[w.kind]+'</span><span data-b="ins"></span><span class="muted" style="font-size:12px" data-b="info"></span></div>'
-    +'<div class="wk-body"><div data-b="cal">'+calHtml(w)+'</div><div class="calc">'
-    +'<h4>지급</h4>'
-    +'<div class="ln"><span>근무일수 <small class="muted" data-b="daysAuto"></small></span><span><input type="number" min="0" step="1" data-o="days" placeholder="자동"></span></div>'
-    +'<div class="ln"><span>주휴수당 주수</span><span><input type="number" min="0" step="1" data-o="joo" placeholder="자동"></span></div>'
-    +'<div class="ln"><span>월차 일수</span><span><input type="number" min="0" step="1" data-o="wolcha" placeholder="자동"></span></div>'
-    +'<div class="ln"><span>추가근무 시간</span><span><input type="number" min="0" step="0.5" data-o="extra" value="'+(w.extraHours||0)+'"></span></div>'
-    +'<div class="ln"><span>기본급 <small class="muted" data-b="baseF"></small></span><b data-b="basePay"></b></div>'
-    +'<div class="ln"><span>주휴수당 <small class="muted" data-b="juF"></small></span><b data-b="juPay"></b></div>'
-    +'<div class="ln"><span>월차수당</span><b data-b="wolchaPay"></b></div>'
-    +'<div class="ln"><span>추가근무수당</span><b data-b="extraPay"></b></div>'
-    +'<div class="ln big"><span>산출액(청구금액)</span><b data-b="gross"></b></div>'
-    +'<h4>공제</h4>'
-    +'<div class="ln"><span>건강보험(요양 포함)</span><b data-b="d_health"></b></div>'
-    +'<div class="ln"><span>국민연금</span><b data-b="d_pension"></b></div>'
-    +'<div class="ln"><span>고용보험</span><b data-b="d_employ"></b></div>'
-    +'<div class="ln"><span>소득세</span><span><input type="number" min="0" step="10" data-o="tax" value="'+(w.tax||0)+'"></span></div>'
-    +'<div class="ln"><span>지방소득세 <small class="muted">(소득세의 10%)</small></span><b data-b="d_local"></b></div>'
-    +'<div class="ln"><span>공제 합계</span><b data-b="dedTotal"></b></div>'
-    +'<div class="ln big"><span>실지급액</span><b data-b="net"></b></div>'
-    +'<div class="ln"><span>사업장 부담 합계</span><b data-b="erTotal"></b></div>'
-    +'</div></div></div>';
-  }).join('');
-  $('#sumbar').style.display='';
-  list.forEach(function(w){var el=$('.wk[data-w="'+w.id+'"]');['days','joo','wolcha'].forEach(function(k){var v=(w.ovr||{})[k];if(v!=null&&v!=='')$('[data-o="'+k+'"]',el).value=v;});});
+  var list=workers.filter(function(w){return w.name;}),tb=$('#fixT tbody');
+  if(!list.length){tb.innerHTML='<tr><td colspan="12" class="muted">먼저 근로자 명부를 넣어 주세요.</td></tr>';$('#fixNote').textContent='';renderProg();return;}
+  tb.innerHTML=list.map(function(w){
+    var tds=FX_CELLS.map(function(k){return '<td class="n'+(k==='net'?' net':'')+'" data-b="'+k+'"></td>';}).join('');
+    return '<tr class="fx" data-w="'+w.id+'"><td><button class="tog" type="button" data-tog="'+w.id+'" title="달력·계산 근거">'+(w.open?'▾':'▸')+'</button><b>'+esc(w.name)+'</b> <span class="chip">'+KIND[w.kind]+'</span> <span data-b="ins"></span></td>'+tds+'</tr>'
+      +'<tr class="dt" data-w="'+w.id+'"'+(w.open?'':' hidden')+'><td colspan="12"><div class="dt-body">'
+      +'<div data-b="cal">'+(w.open?calHtml(w):'')+'</div>'
+      +'<div class="adj"><h4>직접 조정 (비우면 자동)</h4>'
+      +'<label>근무일수</label><input type="number" min="0" step="1" data-o="days" placeholder="자동">'
+      +'<label>주휴수당 주수</label><input type="number" min="0" step="1" data-o="joo" placeholder="자동">'
+      +'<label>월차 일수</label><input type="number" min="0" step="1" data-o="wolcha" placeholder="자동">'
+      +'<label>추가근무 시간</label><input type="number" min="0" step="0.5" data-o="extra" value="'+(w.extraHours||0)+'">'
+      +'<label>소득세 직접 입력</label><input type="number" min="0" step="10" data-o="tax" placeholder="자동" value="'+(w.tax!=null&&w.tax!==''?w.tax:'')+'"></div>'
+      +'<div class="why"><h4>계산 근거</h4><ul data-b="why"></ul></div></div></td></tr>';
+  }).join('')+'<tr class="tt"><td>합계 <span data-b="cnt"></span></td>'+FX_CELLS.map(function(k){return '<td class="n'+(k==='net'?' net':'')+'" data-t="'+k+'"></td>';}).join('')+'</tr>';
+  list.forEach(function(w){var el=$('tr.dt[data-w="'+w.id+'"]');['days','joo','wolcha'].forEach(function(k){var v=(w.ovr||{})[k];if(v!=null&&v!=='')$('[data-o="'+k+'"]',el).value=v;});});
   updateComputed();
+}
+function whyHtml(w,c){
+  var L=[],t=c.tax,ins=w.ins;
+  L.push('<b>1일 단가</b> = 최저시급 '+won(c.hourly)+'원 × '+c.hoursPerDay+'시간 = '+won(c.dayRate)+'원');
+  L.push('<b>기본급</b> = '+c.days+'일 × '+won(c.dayRate)+'원 = '+won(c.basePay)+'원'+((w.ovr&&w.ovr.days!=null&&w.ovr.days!=='')?' (근무일수를 직접 입력함)':''));
+  if(c.juEligible){
+    L.push('<b>주휴수당</b> 1주 = (주 '+c.weeklyHours+'시간 ÷ 40) × 8시간 × '+won(c.hourly)+'원 = '+won(c.juRaw)+'원 → 10원 미만 절사 <b>'+won(c.juUnit)+'원</b>, 개근한 '+c.joo+'주 → '+won(c.juPay)+'원');
+    L.push('<b>월차수당</b> '+(c.wolcha?'한 달 개근 · 입사 1년 미만 → '+c.wolcha+'일 × '+won(c.juUnit)+'원 = '+won(c.wolchaPay)+'원':'해당 없음 ('+(!c.full?'이 달 소정근로일을 모두 채우지 않음':!c.firstYear?'입사 1년 이상':'직접 입력')+')'));
+  }else L.push('<b>주휴·월차</b> 없음 — 주 '+c.weeklyHours+'시간으로 15시간 미만');
+  if(c.extraPay)L.push('<b>추가근무수당</b> = '+c.extraHours+'시간 × '+won(c.hourly)+'원 = '+won(c.extraPay)+'원');
+  L.push('<b>산출액(청구금액)</b> = '+won(c.basePay)+(c.juPay?' + '+won(c.juPay):'')+(c.wolchaPay?' + '+won(c.wolchaPay):'')+(c.extraPay?' + '+won(c.extraPay):'')+' = <b>'+won(c.gross)+'원</b>');
+  L.push('<b>4대보험</b> '+(ins&&ins.found?'고지서 값 — 건강 '+won(c.ded.health)+' · 연금 '+won(c.ded.pension)+' · 고용 '+won(c.ded.employ)+'원 (사업장 부담 건강 '+won(c.er.health)+' · 연금 '+won(c.er.pension)+' · 고용 '+won(c.er.employ)+' · 산재 '+won(c.er.accident)+'원)':parsedIns?'<span style="color:var(--u-danger)">고지서에서 못 찾음 → 0원</span>':'고지서를 넣으면 채워집니다'));
+  if(t.manual)L.push('<b>소득세</b> = 직접 입력 '+won(c.ded.incomeTax)+'원 (간이세액표로는 '+won(t.auto)+'원)');
+  else if(!t.known)L.push('<b>소득세</b> <span style="color:var(--u-danger)">월급여가 간이세액표 범위(1,000만원 미만)를 넘어 직접 입력해야 합니다</span>');
+  else L.push('<b>소득세</b> = 월급여 '+won(c.gross)+'원 → 간이세액표 '+won(t.row?t.row[0]*1000:0)+'~'+won(t.row?t.row[1]*1000:0)+'원 구간 · 공제대상가족 '+t.fam+'명 → <b>'+won(t.auto)+'원</b>'+(t.pct!==100?' × '+t.pct+'%':''));
+  L.push('<b>지방소득세</b> = '+won(c.ded.incomeTax)+'원 × 10% = '+won(c.ded.incomeTax*0.1)+'원 → 10원 미만 절사 <b>'+won(c.ded.localTax)+'원</b>');
+  L.push('<b>실지급액</b> = '+won(c.gross)+' − '+won(c.dedTotal)+' = <b>'+won(c.net)+'원</b> · 사업장 부담 '+won(c.erTotal)+'원 · 총 지출 '+won(c.total)+'원');
+  return L.map(function(x){return '<li>'+x+'</li>';}).join('');
 }
 function updateComputed(){
-  var list=workers.filter(function(w){return w.name;}),tot={gross:0,ded:0,net:0,er:0,total:0};
+  var list=workers.filter(function(w){return w.name;}),tot={};FX_CELLS.forEach(function(k){tot[k]=0;});
   list.forEach(function(w){
-    var el=$('.wk[data-w="'+w.id+'"]');if(!el)return;var c=calc(w),set=function(k,v){var n=$('[data-b="'+k+'"]',el);if(n)n.textContent=v;};
+    var el=$('tr.fx[data-w="'+w.id+'"]'),dt=$('tr.dt[data-w="'+w.id+'"]');if(!el)return;var c=calc(w);
     var auto=WAGE.calcWorker(Object.assign({},w,{ovr:{}}),ctxS());
-    set('daysAuto','(자동 '+auto.days+'일)');
-    set('baseF',c.days+'일 × '+won(c.dayRate));set('juF',c.joo+'주 × '+won(c.juUnit));
-    ['basePay','juPay','wolchaPay','extraPay','gross','dedTotal','net','erTotal'].forEach(function(k){set(k,won(c[k])+'원');});
-    set('d_health',won(c.ded.health)+'원');set('d_pension',won(c.ded.pension)+'원');set('d_employ',won(c.ded.employ)+'원');set('d_local',won(c.ded.localTax)+'원');
+    var v={days:c.days+'일',joo:c.joo,wolcha:c.wolcha,gross:won(c.gross),d_health:won(c.ded.health),d_pension:won(c.ded.pension),d_employ:won(c.ded.employ),d_income:won(c.ded.incomeTax),d_local:won(c.ded.localTax),net:won(c.net),erTotal:won(c.erTotal)};
+    FX_CELLS.forEach(function(k){var n=$('[data-b="'+k+'"]',el);if(n)n.textContent=v[k];});
     var ins=w.ins,b=$('[data-b="ins"]',el);
-    b.innerHTML=!parsedIns?'<span class="chip">고지서 없음</span>':ins&&ins.found?'<span class="chip ok">보험료 반영</span>':'<span class="chip bad">고지서에서 못 찾음</span>';
-    set('info',c.weeklyDays?'주 '+c.weeklyDays+'일 · 주 '+c.weeklyHours+'시간'+(c.juEligible?' (주휴 대상)':' (주 15시간 미만 — 주휴·월차 없음)'):'');
-    tot.gross+=c.gross;tot.ded+=c.dedTotal;tot.net+=c.net;tot.er+=c.erTotal;tot.total+=c.total;
+    b.innerHTML=!parsedIns?'':ins&&ins.found?'':'<span class="chip bad">고지서 없음</span>';
+    var tx=c.tax;if(tx.manual)b.innerHTML+=' <span class="chip warn" title="간이세액표 값과 다르게 직접 입력함">소득세 직접</span>';else if(!tx.known)b.innerHTML+=' <span class="chip bad">소득세 입력 필요</span>';
+    tot.days+=c.days;tot.joo+=c.joo;tot.wolcha+=c.wolcha;tot.gross+=c.gross;tot.d_health+=c.ded.health;tot.d_pension+=c.ded.pension;tot.d_employ+=c.ded.employ;tot.d_income+=c.ded.incomeTax;tot.d_local+=c.ded.localTax;tot.net+=c.net;tot.erTotal+=c.erTotal;
+    if(!dt.hidden){
+      $('[data-o="days"]',dt).placeholder='자동 '+auto.days;$('[data-o="joo"]',dt).placeholder='자동 '+auto.joo;$('[data-o="wolcha"]',dt).placeholder='자동 '+auto.wolcha;$('[data-o="tax"]',dt).placeholder='자동 '+won(c.tax.auto);
+      $('[data-b="why"]',dt).innerHTML=whyHtml(w,c);
+    }
   });
-  $('#sumbar').innerHTML='<span>근로자 <b>'+list.length+'명</b></span><span>산출액 합계 <b>'+won(tot.gross)+'원</b></span><span>공제 합계 <b>'+won(tot.ded)+'원</b></span><span>현금지급액 <b>'+won(tot.net)+'원</b></span><span>사업장 부담 <b>'+won(tot.er)+'원</b></span><span>총 지출액 <b>'+won(tot.total)+'원</b></span>';
-  var p=ymParts();$('#rulesNote').innerHTML='계산 규칙: 1일 단가 = '+p.y+'년 최저시급 × '+S.hoursPerDay+'시간. 주휴수당 = 주 소정근로시간 ÷ 40 × 8 × 시급(10원 미만 절사, 주 15시간 이상). 그 주의 소정근로일이 모두 이 달 안에 있고 개근한 주만 셉니다. 월차 = 주휴 대상자가 한 달을 개근하면 1일(근속 1년 미만). 지방소득세 = 소득세의 10%(10원 미만 절사). <b>소득세는 간이세액표로 구한 값을 직접 넣거나 5번에서 납부서 값으로 채우세요.</b>';
-  renderChecks();
+  FX_CELLS.forEach(function(k){var n=$('[data-t="'+k+'"]');if(n)n.textContent=(k==='days'?tot[k]+'일':k==='joo'||k==='wolcha'?tot[k]:won(tot[k]));});
+  var cn=$('[data-b="cnt"]');if(cn)cn.textContent='('+list.length+'명)';
+  var T=0;list.forEach(function(w){T+=calc(w).total;});
+  $('#fixNote').innerHTML='총 지출액(산출액 + 사업장 부담 4대보험) <b>'+won(T)+'원</b>. 소득세는 '+esc((typeof SEOMU_TAXTABLE!=='undefined'&&SEOMU_TAXTABLE.ver)||'간이세액표')+' 기준입니다. 실제 원천징수액과 다르면 ▸ 를 열어 직접 입력하세요.';
+  renderChecks();renderProg();
 }
-$('#cards').addEventListener('click',function(e){
-  var b=e.target.closest('button[data-d]');if(!b)return;var w=findW(b.getAttribute('data-w')),d=b.getAttribute('data-d');
-  var S2=ctxS(),isW=WAGE.workDates(w,S2).indexOf(d)>=0,baseW=WAGE.workDates(Object.assign({},w,{off:[],on:[]}),S2).indexOf(d)>=0,want=!isW;
-  w.off=w.off.filter(function(x){return x!==d;});w.on=w.on.filter(function(x){return x!==d;});
-  if(want!==baseW)(want?w.on:w.off).push(d);
-  $('.wk[data-w="'+w.id+'"] [data-b="cal"]').innerHTML=calHtml(w);updateComputed();
+$('#fixT').addEventListener('click',function(e){
+  var tg=e.target.closest('[data-tog]');
+  if(tg){var w=findW(tg.getAttribute('data-tog'));w.open=!w.open;var dt=$('tr.dt[data-w="'+w.id+'"]');dt.hidden=!w.open;tg.textContent=w.open?'▾':'▸';
+    if(w.open){$('[data-b="cal"]',dt).innerHTML=calHtml(w);}updateComputed();return;}
+  var b=e.target.closest('button[data-d]');if(!b)return;var w2=findW(b.getAttribute('data-w')),d=b.getAttribute('data-d');
+  var S2=ctxS(),isW=WAGE.workDates(w2,S2).indexOf(d)>=0,baseW=WAGE.workDates(Object.assign({},w2,{off:[],on:[]}),S2).indexOf(d)>=0,want=!isW;
+  w2.off=w2.off.filter(function(x){return x!==d;});w2.on=w2.on.filter(function(x){return x!==d;});
+  if(want!==baseW)(want?w2.on:w2.off).push(d);
+  $('tr.dt[data-w="'+w2.id+'"] [data-b="cal"]').innerHTML=calHtml(w2);updateComputed();
 });
-$('#cards').addEventListener('input',function(e){
-  var t=e.target,o=t.getAttribute('data-o');if(!o)return;var w=findW(t.closest('.wk').getAttribute('data-w'));w.ovr=w.ovr||{};
-  if(o==='extra')w.extraHours=+t.value||0;else if(o==='tax')w.tax=+t.value||0;else w.ovr[o]=t.value===''?null:+t.value;
+$('#fixT').addEventListener('input',function(e){
+  var t=e.target,o=t.getAttribute('data-o');if(!o)return;var w=findW(t.closest('tr.dt').getAttribute('data-w'));w.ovr=w.ovr||{};
+  if(o==='extra')w.extraHours=+t.value||0;else if(o==='tax')w.tax=t.value===''?null:(+t.value||0);else w.ovr[o]=t.value===''?null:+t.value;
   updateComputed();
 });
-
+function renderProg(){
+  var list=workers.filter(function(w){return w.name;}),p=ymParts(),hasH=p&&S.hourlyByYear[p.y];
+  var found=list.filter(function(w){return w.ins&&w.ins.found;}).length;
+  var steps=[['설정',!!hasH,hasH?p.y+'년 '+p.m+'월 · 시급 '+won(S.hourlyByYear[p.y]):'시급 입력'],['명부',list.length>0,list.length?list.length+'명':'명부 엑셀'],
+    ['고지서',!!parsedIns&&list.length>0&&found===list.length,parsedIns?found+'/'+list.length+'명 찾음':'고지서 엑셀'],['급여 확정',list.length>0,list.length?'확인':'-'],['서류',list.length>0,'내려받기']];
+  var cur=-1;steps.forEach(function(s2,i){if(cur<0&&!s2[1])cur=i;});
+  $('#prog').innerHTML=steps.map(function(s2,i){return '<div class="st'+(s2[1]?' ok':i===cur?' cur':'')+'">'+(s2[1]?'✓':(i+1))+' '+s2[0]+' <small>'+esc(s2[2])+'</small></div>';}).join('');
+}
 /* ---------- 5. 납부서 PDF ---------- */
 async function loadNotice(file){
   if(!(await seomuLoad('pdf'))){alert('PDF 부품을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');return;}
@@ -484,9 +590,9 @@ function renderNotice(){
     var gross=(inc||loc).gross;
     if(!w){rows+='<tr><td>'+esc(nm)+'</td><td colspan="5"><span class="chip warn">명부에 없는 이름</span></td></tr>';return;}
     var c=calc(w),chk=function(a,b){return a==null?'<span class="chip">없음</span>':a===b?'<span class="chip ok">일치</span>':'<span class="chip bad">다름</span>';};
-    var incomeAmt=inc?inc.amount:null,localCalc=WAGE.floor10((incomeAmt!=null?incomeAmt:w.tax)*0.1);
+    var incomeAmt=inc?inc.amount:null,localCalc=WAGE.floor10((incomeAmt!=null?incomeAmt:c.ded.incomeTax)*0.1);
     rows+='<tr><td>'+esc(nm)+'</td><td class="n">'+won(gross)+'</td><td>'+chk(gross,c.gross)+' <span class="muted">계산 '+won(c.gross)+'</span></td>'
-      +'<td class="n">'+(incomeAmt==null?'-':won(incomeAmt))+'</td><td class="n">'+(loc?won(loc.amount):'-')+'</td>'
+      +'<td class="n">'+(incomeAmt==null?'-':won(incomeAmt))+(incomeAmt==null?'':' '+chk(incomeAmt,c.tax.auto)+'<div class="muted" style="font-size:11.5px">간이세액표 '+won(c.tax.auto)+'</div>')+'</td><td class="n">'+(loc?won(loc.amount):'-')+'</td>'
       +'<td>'+(loc?chk(loc.amount,localCalc):'')+' <span class="muted">소득세의 10% = '+won(localCalc)+'</span></td></tr>';
   });
   $('#noticeOut').innerHTML='<div class="tablewrap"><table class="t"><thead><tr><th>성명</th><th class="n">납부서 급여액</th><th>급여액 확인</th><th class="n">소득세</th><th class="n">지방소득세</th><th>지방소득세 확인</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
@@ -510,7 +616,7 @@ function renderChecks(){
     if(parsedIns&&(!w.ins||!w.ins.found))warn.push(w.name+': 고지서에서 찾지 못했습니다(보험료 0원).');
     if(!w.bank||!w.account)warn.push(w.name+': 은행 또는 계좌번호가 비어 있습니다.');
     if(!c.days)warn.push(w.name+': 근무일수가 0일입니다.');
-    if(c.gross>0&&!w.tax&&c.gross>1000000)warn.push(w.name+': 소득세가 0원입니다(맞는지 확인).');
+    if(!c.tax.known&&!c.tax.manual)warn.push(w.name+': 월급여가 간이세액표 범위를 넘어 소득세를 직접 입력해야 합니다.');
   });
   $('#checks').innerHTML=warn.length?'<div class="warnbox"><b>만들기 전에 확인하세요</b><ul>'+warn.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>':'<div class="warnbox okbox">확인할 항목이 없습니다.</div>';
 }
@@ -819,6 +925,15 @@ async function downloadHwpx(mode){
     saveBlob(buf,'application/hwp+zip',S.site+' 기간제근로자 '+(mode==='claim'?'청구서':'일일점검부')+'('+p.y+'.'+String(p.m).padStart(2,'0')+').hwpx');
   }catch(e){console.error(e);alert('한글 파일을 만들지 못했습니다: '+e.message);}
 }
+async function makeAll(){
+  var want=$$('#mk input:checked').map(function(i){return i.getAttribute('data-mk');});
+  if(!want.length){toast('만들 서류를 고르세요.');return;}
+  if(!workers.some(function(w){return w.name;})){toast('근로자 명부를 먼저 넣어 주세요.');return;}
+  for(var i=0;i<want.length;i++){var k=want[i];
+    if(k==='xlsx')await downloadXlsx();else if(k==='ihojo')await downloadIhojo();else if(k==='hwpxd')await downloadHwpx('daily');else if(k==='hwpxc')await downloadHwpx('claim');
+    await new Promise(function(r){setTimeout(r,600);});}
+  toast(want.length+'개 서류를 내려받았습니다.');
+}
 window.__wage={buildHwpx:buildHwpx,buildXlsx:buildXlsx,buildIhojo:buildIhojo,state:function(){return {S:S,workers:workers};},calc:calc,dailyHtml:dailyHtml,claimHtml:claimHtml};
 
 /* ---------- 연결 ---------- */
@@ -828,7 +943,7 @@ function refreshAll(light){
   renderIns();renderCards();if(notices.length)renderNotice();renderChecks();
 }
 bindDrop($('#dz1'),$('#f1'),loadRoster);bindDrop($('#dz2'),$('#f2'),loadInsurance);bindDrop($('#dz3'),$('#f3'),loadNotice);
-$('#btnXlsx').addEventListener('click',downloadXlsx);$('#btnIhojo').addEventListener('click',downloadIhojo);$('#btnHwpxDaily').addEventListener('click',function(){downloadHwpx('daily');});$('#btnHwpxClaim').addEventListener('click',function(){downloadHwpx('claim');});
+$('#btnXlsx').addEventListener('click',downloadXlsx);$('#btnMakeAll').addEventListener('click',makeAll);$('#btnIhojo').addEventListener('click',downloadIhojo);$('#btnHwpxDaily').addEventListener('click',function(){downloadHwpx('daily');});$('#btnHwpxClaim').addEventListener('click',function(){downloadHwpx('claim');});
 $('#btnPrDaily').addEventListener('click',function(){printDocs('daily');});$('#btnPrClaim').addEventListener('click',function(){printDocs('claim');});$('#btnPrBoth').addEventListener('click',function(){printDocs('both');});
 $('#btnPvDaily').addEventListener('click',function(){preview('daily');});$('#btnPvClaim').addEventListener('click',function(){preview('claim');});
 initSettings();renderRoster();refreshAll();

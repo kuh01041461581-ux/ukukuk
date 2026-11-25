@@ -28,15 +28,19 @@ ok(st[0].ins === 'ok' && st[1].ins === 'ok', '고지서에서 두 명 모두 찾
 ok(st[0].c.days === 18 && st[0].c.joo === 4 && st[0].c.wolcha === 1 && st[0].c.gross === 1653940, '평일 근로자 18일·주휴4·월차1 = 1,653,940');
 ok(st[1].c.days === 9 && st[1].c.gross === 676620, '주말 근로자 9일 = 676,620');
 // 소득세 입력
-await fr.fill('.wk:nth-child(1) [data-o="tax"]', '12020');
-await pg.waitForTimeout(300);
-const net1 = await fr.evaluate(() => __wage.calc(__wage.state().workers[0]).net);
-ok(net1 === 1575650, '소득세 12,020 입력 → 실지급 1,575,650');
+const tx0 = await fr.evaluate(() => { const c = __wage.calc(__wage.state().workers[0]); return [c.ded.incomeTax, c.ded.localTax, c.net]; });
+ok(JSON.stringify(tx0) === '[12020,1200,1575650]', '소득세 자동(간이세액표) 12,020 · 지방 1,200 · 실지급 1,575,650: ' + tx0);
+const tx1 = await fr.evaluate(() => __wage.calc(__wage.state().workers[1]).ded.incomeTax);
+ok(tx1 === 0, '주말 근로자 소득세 0');
+await fr.click('tr.fx:nth-of-type(1) [data-tog]');
+await fr.waitForSelector('tr.dt:not([hidden]) [data-b="why"] li');
+const why = await fr.$eval('tr.dt:not([hidden]) [data-b="why"]', e => e.textContent);
+ok(/간이세액표 1,650,000~1,660,000원 구간/.test(why) && /60,140원/.test(why), '계산 근거에 간이세액표 구간·주휴 단가 표시');
 // 달력 날짜 눌러 휴무 처리
-await fr.click('.wk:nth-child(1) button[data-d="2026-10-14"]');
+await fr.click('tr.dt:not([hidden]) button[data-d="2026-10-14"]');
 const d2 = await fr.evaluate(() => { const c = __wage.calc(__wage.state().workers[0]); return [c.days, c.joo, c.wolcha]; });
 ok(JSON.stringify(d2) === '[17,3,0]', '10/14 휴무 → 17일·주휴3·월차0');
-await fr.click('.wk:nth-child(1) button[data-d="2026-10-14"]');
+await fr.click('tr.dt:not([hidden]) button[data-d="2026-10-14"]');
 // 계좌(공단) 입력 — 접힌 칸을 펼친 뒤
 await fr.evaluate(() => document.querySelectorAll('details.fold').forEach(d => d.open = true));
 await fr.fill('[data-a="health"][data-f="bank"]', '농협'); await fr.fill('[data-a="health"][data-f="no"]', '000-0000-0000-00');

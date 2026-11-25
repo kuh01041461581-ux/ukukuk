@@ -3,6 +3,7 @@
 const assert = require('assert'), fs = require('fs'), path = require('path'), vm = require('vm');
 const XLSX = require('xlsx');
 const here = __dirname;
+global.SEOMU_TAXTABLE = vm.runInNewContext(fs.readFileSync(path.join(here, '../shared/taxtable.js'), 'utf8') + ';SEOMU_TAXTABLE');
 global.SEOMU_HOLIDAYS = vm.runInNewContext(fs.readFileSync(path.join(here, '../shared/holidays.js'), 'utf8') + ';SEOMU_HOLIDAYS');
 const W = require('../shared/wagecalc.js');
 const P = require('../shared/personname.js');
@@ -39,6 +40,15 @@ assert.strictEqual(W.matchInsurance({ name: '김주말', birth6: '770707' }, par
 assert.strictEqual(a.hire, ''); a.hire = a.ins.hire; assert.strictEqual(a.hire, '2026-01-06');
 
 // 3) 계산 — 2026.10 샘플: 평일(화~금) 18일 + 주휴 4주 + 월차 1, 주말 9일
+// 소득세는 간이세액표로 자동 산정: 월급여 1,653,940원 · 가족 1명 → 12,020원, 지방소득세 1,200원 (사용자 샘플과 같음)
+const st0 = W.simpleTax(1653940, 1); assert.strictEqual(st0.tax, 12020); assert.deepStrictEqual(st0.row, [1650, 1660]);
+assert.strictEqual(W.simpleTax(676620, 1).tax, 0);                 // 주말 근로자: 소득세 0
+assert.strictEqual(W.simpleTax(1653940, 2).tax, 7520);             // 가족 2명 칸
+assert.strictEqual(W.simpleTax(500000, 1).tax, 0);                 // 770천원 미만
+assert.strictEqual(W.simpleTax(1650000, 1).tax, 12020); assert.strictEqual(W.simpleTax(1649999, 1).tax, 11810);   // 구간 경계
+assert.strictEqual(W.simpleTax(10000000, 1).known, false);         // 표 밖 → 직접 입력 안내
+assert.strictEqual(W.calcWorker(a, S).ded.incomeTax, 12020);       // 입력 없이도 자동
+assert.strictEqual(W.calcWorker(Object.assign({}, a, { kids: 1 }), S).ded.incomeTax, W.simpleTax(1653940, 2).tax);   // 8~20세 자녀 1명 = 가족 +1
 a.tax = 12020;
 const ca = W.calcWorker(a, S), cb = W.calcWorker(b, S);
 assert.strictEqual(ca.dayRate, 75180);

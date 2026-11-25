@@ -199,10 +199,17 @@ def baseball():
         a0 = A - 0.01 - step * (i + 1); a1 = a0 + step                                                                         # 오른쪽 뒤 관중석(b 방향)
         p.poly([(a1, A - 0.04, z - 1.15), (a1, 0.99, z - 1.15), (a1, 0.99, z), (a1, A - 0.04, z)], shade(c1, 0.62), None)
         checker(p, [(a0, A - 0.04, z), (a1, A - 0.04, z), (a1, 0.99, z), (a0, 0.99, z)], shade(c1, 0.85), shade(c2, 0.85), 1)
-        for _ in range(9):                                                                                                     # 관중(머리 색 점)
-            t = rr.uniform(0.18, 0.98); col = rr.choice((hx('f0c8a0'), hx('e84b4b'), hx('3a3a4a'), hx('fff0a0'), hx('f4a8c0'), hx('2c2c38')))
-            x, y = p.G(t, b0 + 0.006, z + 0.6); p.d.point((x, y), fill=col)
-            x, y = p.G(a0 + 0.006, t, z + 0.6); p.d.point((x, y), fill=shade(col, 0.8))
+        AIS = (0.30, 0.52, 0.74, 0.94)                                                                                         # 통로 계단(밝은 회색 세로 줄)
+        for t0 in AIS:
+            p.poly([(t0, b0, z), (t0 + 0.014, b0, z), (t0 + 0.014, b1, z), (t0, b1, z)], hx('dfe2ea'), None); p.poly([(t0, b1, z - 1.15), (t0 + 0.014, b1, z - 1.15), (t0 + 0.014, b1, z), (t0, b1, z)], hx('9aa0b0'), None)
+            p.poly([(a0, t0, z), (a1, t0, z), (a1, t0 + 0.014, z), (a0, t0 + 0.014, z)], hx('cdd0dc'), None); p.poly([(a1, t0, z - 1.15), (a1, t0 + 0.014, z - 1.15), (a1, t0 + 0.014, z), (a1, t0, z)], hx('8a90a0'), None)
+        t = 0.19                                                                                                               # 관중: 좌석 줄을 따라 고르게(통로는 비움), 셔츠색 한 점 + 머리 한 점
+        while t < 0.98:
+            if i % 2 == 0 and not any(t0 - 0.006 < t < t0 + 0.02 for t0 in AIS) and rr.random() < 0.45:
+                col = rr.choice((hx('ffffff'), hx('ffffff'), hx('e84b4b'), hx('ffe070')))
+                x, y = p.G(t, b0 + 0.006, z + 0.5); p.d.point((x, y), fill=col); p.d.point((x, y - 1), fill=hx('2c2430'))
+                x, y = p.G(a0 + 0.006, t, z + 0.5); p.d.point((x, y), fill=shade(col, 0.78)); p.d.point((x, y - 1), fill=hx('241c28'))
+            t += 0.034
     # 폴대: 양쪽 파울 라인 끝에 노랗고 긴 기둥(왼쪽 밝은 면 + 오른쪽 어두운 면 + 흰 그물 줄)
     for (a, b) in ((0.88, B), (A, 0.88)):
         x, y = p.G(a, b, 0)
@@ -211,8 +218,13 @@ def baseball():
         p.d.rectangle([x - 1, y - 26, x + 2, y - 24], fill=hx('f8e84a'))
     # 전광판(뒤 중앙) + 지붕 캐노피 + 조명탑 + 더그아웃
     box(p, 0.32, 0.62, 0.0, 0.05, 11, 15, hx('222a48'))
-    for k in range(5): p.rect_wall(0.35 + 0.05 * k, 0.375 + 0.05 * k, 0.05, 12, 14, hx('7af0a8') if k % 2 == 0 else hx('ffd84a'), None)
+    p.rect_wall(0.33, 0.61, 0.05, 11.4, 14.6, hx('3a4468'), None)                                                           # 전광판 테두리
+    for k in range(9): p.rect_wall(0.345 + 0.029 * k, 0.362 + 0.029 * k, 0.05, 13.0, 14.0, hx('7af0a8') if k % 3 == 0 else (hx('ffd84a') if k % 3 == 1 else hx('ff7a6a')), None)   # 점수 칸
+    p.rect_wall(0.36, 0.58, 0.05, 11.8, 12.6, hx('9ad8ff'), None)                                                           # 아래 화면 띠
     p.poly([(0.0, 0.0, 12), (0.99, 0.0, 12), (0.99, 0.05, 12), (0.0, 0.05, 12)], hx('f4f6fc'), None); p.poly([(0.0, 0.0, 12), (0.05, 0.0, 12), (0.05, 0.99, 12), (0.0, 0.99, 12)], hx('d8dcea'), None)
+    for k in range(8):                                                                                                         # 캐노피 지붕 트러스(가는 회색 줄) + 아래 그늘
+        t = 0.08 + 0.12 * k; p.line((t, 0.0, 12.1), (t, 0.05, 12.1), hx('b0b6c8')); p.line((0.0, t, 12.1), (0.05, t, 12.1), hx('a8aec0'))
+    p.line((0.0, 0.05, 11.6), (0.99, 0.05, 11.6), hx('6a7088')); p.line((0.05, 0.0, 11.6), (0.05, 0.99, 11.6), hx('5a6078'))
     box(p, 0.30, 0.40, 0.88, 0.93, 0, 2.4, hx('2a4aa8')); box(p, 0.88, 0.93, 0.30, 0.40, 0, 2.4, hx('2a4aa8'))
     for (a, b) in ((0.02, 0.02), (0.97, 0.02), (0.02, 0.97)):
         p.line((a, b, 0), (a, b, 19), hx('9aa2b8')); box(p, a - 0.03, a + 0.03, b - 0.02, b + 0.02, 19, 20.5, hx('f4f0c0'))

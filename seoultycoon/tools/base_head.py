@@ -49,17 +49,26 @@ W0, H0 = im.size; mk = Image.new('L', (W0, H0), 255); d = ImageDraw.Draw(mk); R 
 d.rectangle([xl, 0, xl + R, R], fill=0); d.ellipse([xl, 0, xl + 2 * R, 2 * R], fill=255); d.rectangle([xr - R, 0, xr, R], fill=0); d.ellipse([xr - 2 * R, 0, xr, 2 * R], fill=255)
 d.rectangle([0, 0, xl - 1, R], fill=0); d.rectangle([xr + 1, 0, W0, R], fill=0)
 al = (m * 255).astype(np.uint8) & np.asarray(mk)
-PADT = int(os.environ.get('CROWN', '90'))                                             # 원본 그림은 정수리가 잘려 있다: 위에 둥근 정수리 머리를 덧붙인다(맨 위 머리 띠를 반사해 결을 이음)
+PADT = int(os.environ.get('CROWN', '150'))                                             # 원본 그림은 정수리가 잘려 있다: 위에 둥근 정수리 머리를 덧붙인다(맨 위 머리 띠를 반사해 결을 이음)
 if PADT:
     al = (m * 255).astype(np.uint8)                                                  # 정수리를 붙이면 모서리 깎기는 필요 없다
-    band = 36; src_rows = [(band - 1 - ((PADT - 1 - y) % (2 * band))) if ((PADT - 1 - y) % (2 * band)) < band else ((PADT - 1 - y) % band) for y in range(PADT)]
-    pad = a[src_rows].astype(float); cxm = (xl + xr) / 2.0; HW = (xr - xl) / 2.0 - 4
-    pal_ = np.zeros((PADT, W0), np.uint8)
+    cxm = (xl + xr) / 2.0; HW = (xr - xl) / 2.0 - 4; band = 14
+    _src = a[:band].astype(float); _sm = m[:band] & (a[:band].mean(2) < 125)               # 맨 위 머리 띠(머리카락 화소만)
+    _hc = np.median(a[:band][_sm], axis=0) if _sm.any() else np.array([70., 35., 35.])
+    pad = np.zeros((PADT, W0, 3)); TOPH0 = PADT + 110
     for y in range(PADT):
-        t = (PADT - y) / float(PADT); hw = HW * np.sqrt(max(0.0, 1 - t ** 2.2)); x0, x1 = int(cxm - hw), int(cxm + hw)
-        pal_[y, max(0, x0):min(W0, x1)] = 255; pad[y] *= (0.80 + 0.20 * (1 - t))                # 위로 갈수록 조금 어둡게(둥근 입체감)
+        t = (TOPH0 - y) / float(TOPH0); fr = np.sqrt(max(0.05, 1 - t * t))                  # 이 줄의 머리 폭 비율(타원)
+        xs = np.arange(W0); xsrc = np.clip((cxm + (xs - cxm) / fr).astype(int), 0, W0 - 1)  # 정수리 쪽은 아래 머리결을 가운데로 모아 그린다 → 가운데서 퍼지는 머리결
+        ry = band - 1 - (y % band) if (y // band) % 2 == 0 else (y % band)
+        row = _src[ry, xsrc]; ok = _sm[ry, xsrc]; row[~ok] = _hc
+        u = y / float(PADT)                                                                  # 볼륨 음영: 위 가장자리는 어둡게, 1/3 지점에 윤기 띠
+        gl = 1.0 + 0.28 * np.exp(-((u - 0.42) / 0.16) ** 2) * np.exp(-((xs - cxm + HW * 0.25) / (HW * 0.55)) ** 2)
+        pad[y] = np.clip(row * (0.72 + 0.28 * u) * gl[:, None], 0, 255)
     a = np.concatenate([pad.astype(int), a], axis=0); al = np.concatenate([np.full((PADT, W0), 255, np.uint8), al], axis=0)
-    TOPH = PADT + 260                                                                # 정수리부터 원본 260줄까지 하나의 둥근 머리 윤곽(타원)으로 깎는다
+    for _k in range(6): al[PADT + _k] = np.maximum(al[PADT + _k], np.minimum(al[PADT - 1], al[PADT + 6]))   # 원래 그림 맨 윗줄은 알파가 비어 있어 배경이 비친다 → 위·아래 줄로 채움
+    _y0, _y1 = PADT - 40, PADT + 40; _seg = a[_y0:_y1].astype(float); _bl = ndi.gaussian_filter(_seg, (14, 0, 0))   # 정수리와 원래 머리 경계 줄을 세로로 섞어 이음
+    _w = np.exp(-((np.arange(_y1 - _y0) - 40) / 18.0) ** 2)[:, None, None]; a[_y0:_y1] = (_seg * (1 - _w) + _bl * _w).astype(int)
+    TOPH = PADT + 110                                                                # 정수리부터 원본 260줄까지 하나의 둥근 머리 윤곽(타원)으로 깎는다
     for y in range(TOPH):
         t = (TOPH - y) / float(TOPH); hw = HW * np.sqrt(max(0.0, 1 - t * t)); x0, x1 = int(cxm - hw), int(cxm + hw)
         al[y, :max(0, x0)] = 0; al[y, min(W0, x1):] = 0

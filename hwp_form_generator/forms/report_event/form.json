@@ -1,7 +1,7 @@
 {
   "id": "report_event",
   "name": "행사 보고 (식순·시간표)",
-  "audience": "문화교육국 보고",
+  "audience": "문화유산과 보고",
   "kind": "report",
   "note": "제목 상자 + 담당자 줄 + 행사개요 + 식순·시간표(표) + 국장님 하실 일",
   "fields": [

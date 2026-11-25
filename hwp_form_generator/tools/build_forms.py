@@ -77,7 +77,7 @@ def build(dept_report, mayor_report, plan, schedule):
         {"key": "staff", "label": "담당자 (이름(내선))", "sample": s["staff"], "profile": "staff", "blank": "(      )"},
     ]
     out["report_event"] = report.register_report(
-        dept_report, os.path.join(FORMS, "report_event"), "report_event", "행사 보고 (식순·시간표)", "문화교육국 보고",
+        dept_report, os.path.join(FORMS, "report_event"), "report_event", "행사 보고 (식순·시간표)", "문화유산과 보고",
         [dict(f, default="(행사명)") if f["key"] == "title" else f for f in fields],
         note="제목 상자 + 담당자 줄 + 행사개요 + 식순·시간표(표) + 국장님 하실 일",
         starter="□ 행사개요\n◦ 행 사 명: \n◦ 회의주제: \n◦ 일시: \n◦ 장소: \n◦ 사업내용: \n◦ 대행기관: \n\n"
@@ -85,7 +85,7 @@ def build(dept_report, mayor_report, plan, schedule):
                 "| | **기념촬영** | |\n| | **장내 정리** |\n| **본 행 사** |\n| | | |\n| | | |\n| | **폐회사** |\n\n"
                 "□ 국장님 하실 일\n◦ \n")
     out["report_project"] = report.register_report(
-        dept_report, os.path.join(FORMS, "report_project"), "report_project", "사업 보고 (개요·실적·계획)", "문화교육국 보고",
+        dept_report, os.path.join(FORMS, "report_project"), "report_project", "사업 보고 (개요·실적·계획)", "문화유산과 보고",
         [dict(f, default="(사업명)") if f["key"] == "title" else f for f in fields],
         note="제목 상자 + 담당자 줄 + 사업개요 + 지난 실적 + 향후 계획 + 참고자료",
         starter="□ 사업개요\n◦ 사 업 명: \n◦ 사업기간: \n◦ 사업장소: \n◦ 사 업 비: \n◦ 사업내용: \n\n"

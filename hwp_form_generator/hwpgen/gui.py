@@ -1114,7 +1114,7 @@ SHOW_BTN_ICONS = True         # 단추 왼쪽에 문서 종류별 색 아이콘 
 # 분류(탭)·묶음·양식마다 색을 달리해 문서 종류를 구별한다
 TAB_COLOR = {"report": "#c4675c", "week": "#6f5bb5", "budget": "#2f8a7e", "assembly": "#3d73b0", "audit": "#b45873",
              "press": "#b9568b", "nat": "#c4821f", "tools": "#3b8cb8", "sym": "#7c8497", "more": "#6b7280"}
-GROUP_COLOR = {"문화교육국 보고": "#c4675c", "시장님 보고": "#3d73b0", "간부회의": "#6f5bb5", "예산 설명자료": "#2f8a7e",
+GROUP_COLOR = {"문화유산과 보고": "#c4675c", "시장님 보고": "#3d73b0", "간부회의": "#6f5bb5", "예산 설명자료": "#2f8a7e",
                "참고자료(백데이터)": "#4a8c58", "이월 조서": "#c4821f", "보도자료": "#b9568b", "국회단계 서면질의서": "#3d73b0",
                "국회단계 정책질의서": "#5361b8", "국회단계 질의서": "#3d73b0", "행정사무감사": "#b45873", "감사자료 항목": "#b45873", "국가예산 신규사업": "#c4821f",
                "주간업무": "#6f5bb5"}
@@ -1570,11 +1570,11 @@ class Widget(tk.Tk):
             ("국회", "assembly"), ("감사", "audit"), ("국비", "nat"), ("도구", "tools"), ("기호", "sym"),
             ("설정", "more")]
     # 양식 묶음(audience) → 탭. 사용자가 추가한 양식은 '보고' 탭에 들어간다
-    AUDIENCE_TAB = {"문화교육국 보고": "report", "시장님 보고": "report", "간부회의": "week", "예산 설명자료": "budget", "참고자료(백데이터)": "budget",
+    AUDIENCE_TAB = {"문화유산과 보고": "report", "시장님 보고": "report", "간부회의": "week", "예산 설명자료": "budget", "참고자료(백데이터)": "budget",
                     "보도자료": "press", "국회단계 질의서": "assembly", "국회단계 서면질의서": "assembly",
                     "국회단계 정책질의서": "assembly", "행정사무감사": "audit", "감사자료 항목": "audit", "이월 조서": "budget",
                     "국가예산 신규사업": "nat"}
-    GROUP_ORDER = ["문화교육국 보고", "시장님 보고", "간부회의", "예산 설명자료", "참고자료(백데이터)", "보도자료", "국회단계 서면질의서",
+    GROUP_ORDER = ["문화유산과 보고", "시장님 보고", "간부회의", "예산 설명자료", "참고자료(백데이터)", "보도자료", "국회단계 서면질의서",
                    "국회단계 정책질의서", "국회단계 질의서", "행정사무감사", "감사자료 항목", "이월 조서", "국가예산 신규사업"]
     FORM_ORDER = ["report_event", "report_project", "report_mayor", "meeting_cover", "meeting_issue", "meeting_card", "issue_list", "issue_card", "issue_ref", "ref_std", "nbud_meet_list", "nbud_meet_item",
                   "budget_cover", "budget_project", "budget_ref_cover", "budget_ref_detail", "budget_ref_return", "press_release",

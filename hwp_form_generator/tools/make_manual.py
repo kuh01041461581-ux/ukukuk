@@ -169,7 +169,7 @@ def main():
     b_tabs = (tiles["report"]["x"] - 3, tiles["report"]["y"] - 3, tiles["audit"]["x"] + tiles["audit"]["w"] + 3, tiles["__more"]["y"] + tiles["__more"]["h"] + 3)
     ev = find(w.body, "행사 보고")
     b_event = rel(ev, w) if ev else (10, 190, 240, 232)
-    sec1 = find(w.body, "문화교육국 보고")
+    sec1 = find(w.body, "문화유산과 보고")
     b_group = rel(sec1.master if sec1 is not None else w.body, w) if sec1 is not None else (10, 160, 240, 180)
     mayor = find(w.body, "시장님 보고", exact=True)
     b_mayor = rel(mayor, w) if mayor else None
@@ -207,7 +207,7 @@ def main():
     if b_mayor:
         boxes.append((b_mayor, 3))
     pages.append(("보고 양식", dict(steps=[
-        ("문화교육국 보고 (①)", "행사 보고(식순·시간표 표 포함)와 사업 보고(개요·지난 실적·향후 계획)가 있습니다. 제목 상자부터 첫 줄에서 시작합니다."),
+        ("문화유산과 보고 (①)", "행사 보고(식순·시간표 표 포함)와 사업 보고(개요·지난 실적·향후 계획)가 있습니다. 제목 상자부터 첫 줄에서 시작합니다."),
         ("양식 버튼 (②)", "누르면 제목 상자 · 담당자 줄 · □ 소제목 · ◦ ▸ 표시가 샘플과 같은 글꼴로 한글에 입력됩니다. 내용 칸은 비어 있어서 바로 쓰면 됩니다."),
         ("시장님 보고 (③)", "보고 내용은 1장으로 만들고, 참고자료가 필요하면 '참고자료 쪽 추가'로 뒤에 쪽을 붙입니다."),
     ], tips=["설정의 '내 정보'에 과 · 담당자를 적어 두면 담당자 줄이 자동으로 채워집니다. 비워 두면 빈칸으로 나옵니다.",

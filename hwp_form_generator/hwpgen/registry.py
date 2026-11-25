@@ -52,6 +52,8 @@ def list_forms(roots=None):
             if os.path.isfile(fj):
                 with open(fj, encoding="utf-8") as f:
                     meta = json.load(f)
+                if meta.get("audience") == "문화교육국 보고":              # 옛 이름으로 저장된 사용자 양식도 같은 묶음에
+                    meta["audience"] = "문화유산과 보고"
                 found[meta["id"]] = (meta["id"], os.path.join(root, name), meta)
     return list(found.values())
 

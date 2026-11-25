@@ -1,7 +1,7 @@
 {
   "id": "report_project",
   "name": "사업 보고 (개요·실적·계획)",
-  "audience": "문화교육국 보고",
+  "audience": "문화유산과 보고",
   "kind": "report",
   "note": "제목 상자 + 담당자 줄 + 사업개요 + 지난 실적 + 향후 계획 + 참고자료",
   "fields": [

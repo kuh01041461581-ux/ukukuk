@@ -180,6 +180,11 @@ table.sheet th:first-child,table.sheet td:first-child{padding-left:8px;}
 .cal{max-width:340px;}
 .adj{max-width:360px;}
 #insT input.amt{padding:0 6px;font-size:12.5px;}
+
+.scan-tbl td{vertical-align:top;white-space:normal;font-size:12.5px;line-height:1.6;}
+.scan-tbl select{min-width:110px;}
+.scan-tbl .ok{color:var(--u-ok);} .scan-tbl .bad{color:var(--u-danger);font-weight:600;}
+.scan-thumb{width:64px;border:1px solid var(--u-border);border-radius:4px;display:block;}
 </style>
 <script>
 /*@include personname.js*/
@@ -187,6 +192,7 @@ table.sheet th:first-child,table.sheet td:first-child{padding-left:8px;}
 /*@include taxtable.js*/
 /*@include wagecalc.js*/
 /*@include hwpx.js*/
+/*@include scanread.js*/
 </script>
 <script>/*@include common.js*/</script>
 </head>
@@ -278,6 +284,14 @@ table.sheet th:first-child,table.sheet td:first-child{padding-left:8px;}
       <tr><th class="n">근로자</th><th class="n">사업장</th><th class="n">근로자</th><th class="n">사업장</th><th class="n">근로자</th><th class="n">사업장</th><th class="n">사업장</th></tr></thead><tbody></tbody></table>
   </div>
   <p class="note">고지서에 같은 사람이 두 줄(정산·소급)이면 <b>합산</b>합니다. 국민연금·고용보험이 0원인 것(60세·65세 이상 등)은 고지서에 없으면 0으로 둡니다. 금액은 칸에서 직접 고칠 수 있습니다.</p>
+</section>
+
+<!-- 3+. 도장 받은 일일점검부·청구서 -->
+<section class="card" id="s3b">
+  <h2><span class="step-no">+</span>도장 받은 일일점검부 · 청구서 PDF <span class="chip">선택</span></h2>
+  <p class="sub">서명·도장을 받아 스캔한 PDF를 넣으면 <b>도장이 찍힌 칸을 출근일</b>로 읽어 근무일을 맞추고, 청구서의 금액·계좌를 계산값과 대조합니다. 한 파일에 여러 쪽(근로자별 일일점검부·청구서)이 섞여 있어도 됩니다.</p>
+  <label class="dropzone" id="dz4">스캔 PDF를 끌어다 놓거나 눌러서 고르기<small>일일점검부는 표의 칸 위치와 빨간 인주로, 청구서는 글자 인식(OCR)으로 읽습니다 · 처음엔 글자 인식 부품을 내려받느라 조금 걸립니다</small><input type="file" id="f4" accept=".pdf"></label>
+  <div id="scanOut"></div>
 </section>
 
 <!-- 4. 급여 확정 -->
@@ -472,6 +486,153 @@ $('#insT').addEventListener('input',function(e){
   updateComputed();
 });
 
+
+/* ---------- 3+. 도장 받은 일일점검부 · 청구서 스캔 PDF ---------- */
+var scans = [];
+function loadTesseract(){
+  if(window.Tesseract)return Promise.resolve(true);
+  return new Promise(function(res){var sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';sc.onload=function(){res(!!window.Tesseract);};sc.onerror=function(){res(false);};document.head.appendChild(sc);});
+}
+async function renderPage(pdf,p,dpi){
+  var pg=await pdf.getPage(p),vp=pg.getViewport({scale:dpi/72}),c=document.createElement('canvas');c.width=Math.round(vp.width);c.height=Math.round(vp.height);
+  await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;return c;
+}
+function grayRed(c){
+  var W=c.width,H=c.height,D=c.getContext('2d').getImageData(0,0,W,H).data,G=new Uint8Array(W*H),R=new Uint8Array(W*H);
+  for(var i=0,j=0;i<W*H;i++,j+=4){var r=D[j],g=D[j+1],b=D[j+2];G[i]=Math.round(.299*r+.587*g+.114*b);R[i]=(r>120&&r-g>40&&r-b>30)?1:0;}
+  return {G:G,R:R,W:W,H:H};
+}
+function cleanForOcr(c,y0,y1){   // 도장(빨강)을 지우고 흑백으로
+  var W=c.width,h=Math.max(1,Math.min(c.height,y1||c.height)-(y0||0)),k=document.createElement('canvas');k.width=W;k.height=h;
+  var kx=k.getContext('2d');kx.drawImage(c,0,y0||0,W,h,0,0,W,h);var id=kx.getImageData(0,0,W,h),D=id.data;
+  for(var i=0;i<D.length;i+=4){var r=D[i],g=D[i+1],b=D[i+2],red=r>110&&r-g>35&&r-b>25,v=red?255:(.299*r+.587*g+.114*b);v=v<170?0:255;D[i]=D[i+1]=D[i+2]=v;}
+  kx.putImageData(id,0,0);return k;
+}
+function scanMsg(h){$('#scanOut').innerHTML='<div class="warnbox okbox">'+h+'</div>';}
+async function ocrCell(ocr,hi,box,wl){   // 150dpi 좌표의 칸을 300dpi 그림에서 잘라 한 줄로 읽는다
+  var x0=box.x0*2+8,y0=box.y0*2+6,cw=Math.max(8,(box.x1-box.x0)*2-16),ch=Math.max(8,(box.y1-box.y0)*2-12),k=document.createElement('canvas');k.width=cw+40;k.height=ch+40;
+  var kx=k.getContext('2d');kx.fillStyle='#fff';kx.fillRect(0,0,k.width,k.height);kx.drawImage(hi,x0,y0,cw,ch,20,20,cw,ch);
+  var id=kx.getImageData(0,0,k.width,k.height),D=id.data;
+  for(var i=0;i<D.length;i+=4){var r=D[i],g=D[i+1],b=D[i+2],v=(r>110&&r-g>35&&r-b>25)?255:(.299*r+.587*g+.114*b);v=v<170?0:255;D[i]=D[i+1]=D[i+2]=v;}
+  kx.putImageData(id,0,0);
+  await ocr.setParameters({tessedit_pageseg_mode:'7',tessedit_char_whitelist:wl||''});
+  var r2=await ocr.recognize(k);return {text:r2.data.text.trim(),conf:Math.round(r2.data.confidence)};
+}
+async function loadScan(file){
+  if(!(await seomuLoad('pdf'))){alert('PDF 부품을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');return;}
+  var pdf;try{pdf=await pdfjsLib.getDocument({data:new Uint8Array(await readBuf(file))}).promise;}catch(e){alert('PDF를 열지 못했습니다: '+e.message);return;}
+  scans=[];var ocr=null,cellOcr=null,n=pdf.numPages,names=workers.filter(function(w){return w.name;}).map(function(w){return w.name;});
+  try{
+    scanMsg('글자 인식 부품 준비 중(처음 한 번만 내려받습니다)…');
+    if(await loadTesseract()){try{ocr=await Tesseract.createWorker('kor');cellOcr=await Tesseract.createWorker('kor');}catch(e){ocr=cellOcr=null;}}
+    for(var p=1;p<=n;p++){
+      scanMsg(p+' / '+n+'쪽 읽는 중…');
+      var c=await renderPage(pdf,p,150),im=grayRed(c),grid=SCANREAD.detectCalendar(im.G,im.W,im.H),hi=await renderPage(pdf,p,300);
+      var thumb=document.createElement('canvas');thumb.width=128;thumb.height=Math.round(128*c.height/c.width);thumb.getContext('2d').drawImage(c,0,0,thumb.width,thumb.height);
+      var item={page:p,thumb:thumb.toDataURL('image/jpeg',.7)};
+      if(grid){
+        var fr=SCANREAD.stampFractions(im.R,im.W,grid),title='',nm=null;
+        if(ocr){try{title=(await ocr.recognize(cleanForOcr(hi,0,grid.ys[0]*2))).data.text;}catch(e){}
+          var cell=SCANREAD.summaryNameCell(im.G,im.W,im.H,grid.ys[0]);if(cell&&cellOcr){try{nm=await ocrCell(cellOcr,hi,cell);}catch(e){}}}
+        var tt=SCANREAD.parseDailyTitle(title),ym=tt.ym||S.ym,st=SCANREAD.stampedDates(fr,ym),sk=SCANREAD.kindOfDates(st.dates);
+        // 평일/주말은 도장 찍힌 요일로 먼저 판단(제목 OCR 은 틀릴 수 있음), 섞여 있으면 제목을 따른다
+        Object.assign(item,{type:'daily',frac:fr,ym:tt.ym,kind:(sk==='weekday'||sk==='weekend')?sk:(tt.kind||sk),stamps:st,filled:grid.filled,
+          ocrName:nm?nm.text:'',name:nm?SCANREAD.bestName(nm.text,names):null});
+      }else if(ocr){
+        scanMsg(p+' / '+n+'쪽 글자 인식 중…');
+        var text=(await ocr.recognize(cleanForOcr(hi))).data.text,cl=SCANREAD.parseClaim(text);
+        if(cl.isClaim){
+          var cc=SCANREAD.claimCells(im.G,im.W,im.H);
+          if(cc&&cellOcr){
+            try{var a1=await ocrCell(cellOcr,hi,cc.name),a2=await ocrCell(cellOcr,hi,cc.bank),a3=await ocrCell(cellOcr,hi,cc.account,'0123456789-'),a4=await ocrCell(cellOcr,hi,cc.gross,'0123456789,');
+              cl.ocrName=a1.text;cl.name=SCANREAD.bestName(a1.text,names);cl.bank=SCANREAD.fixBank(a2.text);
+              var ac=SCANREAD.cleanAccount(a3.text);if(ac)cl.account=ac;var gv=+String(a4.text).replace(/\D/g,'');if(gv>=10000)cl.gross=gv;}catch(e){console.warn(e);}
+          }
+          Object.assign(item,{type:'claim',claim:cl});
+        }else item.type='other';
+        item.text=text;
+      }else item.type='other';
+      scans.push(item);
+    }
+  }finally{[ocr,cellOcr].forEach(function(o){if(o)try{o.terminate();}catch(e){}});}
+  assignScans();renderScan();
+}
+function assignScans(){
+  var list=workers.filter(function(w){return w.name;}),byName=function(n){return list.filter(function(w){return w.name===n;})[0];},used={};
+  // 1) 이름으로 읽힌 것부터
+  scans.forEach(function(x){var n=x.type==='daily'?x.name:x.type==='claim'?x.claim.name:null,w=n&&byName(n),key=(x.type==='daily'?'d':'c');
+    if(w&&!used[key+w.id]){x.wid=w.id;x.why='이름 일치';used[key+w.id]=1;}else x.wid=null;});
+  // 2) 나머지: 일일점검부는 평일/주말+근무일 겹침, 청구서는 계좌·금액·평일/주말
+  scans.filter(function(x){return x.type==='daily'&&!x.wid;}).forEach(function(x){
+    var cands=list.filter(function(w){return !used['d'+w.id];}).map(function(w){return {id:w.id,kind:w.kind,worked:WAGE.workDates(w,ctxS())};});
+    var m=SCANREAD.matchDaily(x.kind,x.stamps.dates,cands);if(m){x.wid=m.id;x.why='평일/주말·근무일로 추정';used['d'+m.id]=1;}
+  });
+  scans.filter(function(x){return x.type==='claim'&&!x.wid;}).forEach(function(x){
+    var cands=list.filter(function(w){return !used['c'+w.id];}).map(function(w){return {id:w.id,account:w.account,kind:w.kind,gross:calc(w).gross};});
+    var m=SCANREAD.matchClaim(x.claim,cands);if(m){x.wid=m.id;x.why=m.why;used['c'+m.id]=1;}
+  });
+}
+/* 명부가 비어 있을 때: 스캔에서 읽은 이름·평일/주말·은행·계좌로 근로자를 만든다 */
+function workersFromScan(){
+  var made={},order=[];
+  scans.forEach(function(x){
+    var nm=x.type==='daily'?String(x.ocrName||'').replace(/[^가-힣]/g,''):x.type==='claim'?String(x.claim.ocrName||'').replace(/[^가-힣]/g,''):'';
+    if(!nm||nm.length<2||nm.length>4)return;
+    var o=made[nm]||(made[nm]={name:nm,kind:'',bank:'',account:''});if(order.indexOf(nm)<0)order.push(nm);
+    if(x.type==='daily'&&!o.kind)o.kind=x.kind;
+    if(x.type==='claim'){if(!o.kind&&x.claim.kind)o.kind=x.claim.kind;o.bank=o.bank||x.claim.bank||'';o.account=o.account||x.claim.account||'';}
+  });
+  return order.map(function(n){return made[n];});
+}
+function setWorkedDates(w,dates){
+  var base=WAGE.workDates(Object.assign({},w,{off:[],on:[]}),ctxS()),set={};dates.forEach(function(d){set[d]=1;});
+  w.on=dates.filter(function(d){return base.indexOf(d)<0;});w.off=base.filter(function(d){return !set[d];});
+}
+function md(iso){return +iso.slice(5,7)+'/'+(+iso.slice(8,10));}
+function renderScan(){
+  var box=$('#scanOut');if(!scans.length){box.innerHTML='';return;}
+  var list=workers.filter(function(w){return w.name;}),sel=function(x){return '<select data-scan="'+x.page+'"><option value="">(누구인지 고르기)</option>'+list.map(function(w){return '<option value="'+w.id+'"'+(x.wid==w.id?' selected':'')+'>'+esc(w.name)+' ('+KIND[w.kind]+')</option>';}).join('')+'</select>';};
+  var ck=function(a,b){return a==null?'<span class="muted">못 읽음</span>':a===b?'<span class="ok">✓ '+won(a)+'</span>':'<span class="bad">✗ '+won(a)+' (계산 '+won(b)+')</span>';};
+  var warn=[],rows=scans.map(function(x){
+    var w=x.wid?findW(x.wid):null,head='<td><img class="scan-thumb" src="'+x.thumb+'" alt=""><span class="muted">'+x.page+'쪽</span></td>';
+    if(x.type==='daily'){
+      if(x.ym&&x.ym!==S.ym)warn.push(x.page+'쪽 일일점검부는 '+x.ym+'월분인데 대상 월은 '+S.ym+'입니다.');
+      if(x.stamps.outside)warn.push(x.page+'쪽: 달력 밖 칸에 도장 '+x.stamps.outside+'개 — 대상 월이 맞는지 확인하세요.');
+      var cmp='';
+      if(w){var cur=WAGE.workDates(w,ctxS()),plus=x.stamps.dates.filter(function(d){return cur.indexOf(d)<0;}),minus=cur.filter(function(d){return x.stamps.dates.indexOf(d)<0;});
+        cmp=(!plus.length&&!minus.length)?'<span class="ok">✓ 지금 근무일과 같음 ('+cur.length+'일)</span>':'<span class="bad">지금 근무일과 다름</span>'+(plus.length?'<br>도장 있음·근무일 아님: '+plus.map(md).join(', '):'')+(minus.length?'<br>근무일인데 도장 없음: '+minus.map(md).join(', '):'')
+          +'<br><button class="btn sm" type="button" data-apply="'+x.page+'">도장대로 근무일 맞추기</button>';}
+      return '<tr>'+head+'<td><b>일일점검부</b><br>'+(x.kind==='weekday'?'평일':x.kind==='weekend'?'주말':'')+(x.ym?' · '+x.ym:'')+(x.ocrName?'<br><span class="muted">비고 칸: '+esc(x.ocrName)+'</span>':'')+(x.why?'<br><span class="muted">'+esc(x.why)+'</span>':'')+'</td><td>'+sel(x)+'</td>'
+        +'<td>도장 <b>'+x.stamps.dates.length+'칸</b>: '+x.stamps.dates.map(md).join(', ')+(x.stamps.weak.length?'<br><span class="muted">흐린 도장(확인): '+x.stamps.weak.map(md).join(', ')+'</span>':'')+(x.filled?'<br><span class="muted">표 선 '+x.filled+'개는 흐려서 칸 비율로 보정</span>':'')+'</td><td>'+cmp+'</td></tr>';
+    }
+    if(x.type==='claim'){
+      var k=x.claim,c=w?calc(w):null,cmp2='';
+      if(c){var dd=SCANREAD.digitDiff(k.account,w.account);
+        cmp2='청구금액 '+ck(k.gross,c.gross)+'<br>사역일수 '+(k.days==null?'<span class="muted">못 읽음</span>':k.days===c.days?'<span class="ok">✓ '+k.days+'일</span>':'<span class="bad">✗ '+k.days+'일 (계산 '+c.days+'일)</span>')
+          +' · 단가 '+ck(k.dayRate,c.dayRate)+'<br>기본급 '+ck(k.base,c.basePay)+(k.ju!=null||c.juPay?' · 주휴 '+ck(k.ju,c.juPay):'')+(k.wolcha!=null||c.wolchaPay?' · 월차 '+ck(k.wolcha,c.wolchaPay):'')
+          +'<br>계좌 '+(!k.account?'<span class="muted">못 읽음</span>':!w.account?'<span class="bad">명부에 계좌 없음</span> → 청구서: '+esc(k.account)+' <button class="btn sm outline" type="button" data-acct="'+x.page+'">이 계좌로 채우기</button>':dd===0?'<span class="ok">✓ '+esc(k.account)+'</span>':'<span class="bad">✗ 청구서 '+esc(k.account)+' / 명부 '+esc(w.account)+'</span>');}
+      return '<tr>'+head+'<td><b>청구서</b><br>'+(k.kind==='weekday'?'평일':k.kind==='weekend'?'주말':'')+(x.why?'<br><span class="muted">'+esc(x.why)+'</span>':'')+'</td><td>'+sel(x)+'</td>'
+        +'<td>'+(k.ocrName?'성명 '+esc(k.ocrName)+' · ':'')+'청구금액 '+(k.gross!=null?won(k.gross)+'원':'?')+' · '+(k.days!=null?k.days+'일':'?')+' × '+(k.dayRate!=null?won(k.dayRate):'?')+'<br>'+(k.bank?esc(k.bank)+' ':'')+'계좌 '+esc(k.account||'?')+'</td><td>'+(cmp2||'<span class="muted">근로자를 고르면 대조합니다</span>')+'</td></tr>';
+    }
+    return '<tr>'+head+'<td colspan="4" class="muted">일일점검부·청구서로 보이지 않는 쪽입니다.</td></tr>';
+  }).join('');
+  var anyDaily=scans.some(function(x){return x.type==='daily'&&x.wid;});
+  var tym=(scans.filter(function(x){return x.type==='daily'&&x.ym;})[0]||{}).ym;
+  var noRoster=!list.length,fromScan=noRoster?workersFromScan():[];
+  box.innerHTML=(noRoster?'<div class="warnbox">명부가 비어 있습니다.'+(fromScan.length?' 스캔에서 '+fromScan.length+'명('+fromScan.map(function(o){return esc(o.name);}).join(', ')+')을 읽었습니다. <button class="btn sm" type="button" id="scanMake">이 사람들로 명부 만들기</button> <span class="muted">생년월일은 비어 있어 고지서는 이름으로만 찾습니다.</span>':' 명부 엑셀을 넣거나 근로자를 직접 추가해 주세요.')+'</div>':'')+(warn.length?'<div class="warnbox">'+warn.map(esc).join('<br>')+(tym&&tym!==S.ym?' <button class="btn sm" type="button" id="scanYm">대상 월을 '+tym+'(으)로 바꾸기</button>':'')+'</div>':'')
+    +'<div class="tablewrap"><table class="t scan-tbl"><thead><tr><th style="width:90px">쪽</th><th style="width:110px">종류</th><th style="width:150px">근로자</th><th>읽은 내용</th><th>계산과 대조</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +(anyDaily?'<div class="row" style="margin-top:10px"><button class="btn" type="button" id="scanApplyAll">모든 일일점검부 도장대로 근무일 맞추기</button><span class="muted" style="font-size:12.5px">도장이 있는 날 = 출근일. 맞춘 뒤 4번 급여 확정에서 바로 다시 계산됩니다.</span></div>':'')
+    +'<p class="note">근로자 짝은 일일점검부의 비고(이름) 칸·청구서의 성명 칸을 먼저 보고, 못 읽으면 계좌·금액·평일/주말로 맞춥니다. 틀리면 근로자 칸에서 바꾸세요. 계좌번호·은행은 글자 인식(OCR) 값이라 <b>채우기 전에 반드시 눈으로 확인</b>하세요.</p>';
+}
+$('#scanOut').addEventListener('change',function(e){var t=e.target;if(!t.hasAttribute('data-scan'))return;var x=scans.filter(function(y){return y.page==t.getAttribute('data-scan');})[0];x.wid=t.value?+t.value:null;renderScan();});
+$('#scanOut').addEventListener('click',function(e){
+  var t=e.target;
+  if(t.id==='scanMake'){workersFromScan().forEach(function(o){workers.push(newWorker(o));});rematch();assignScans();renderRoster();refreshAll();toast('스캔에서 읽은 근로자로 명부를 만들었습니다 — 이름·계좌를 꼭 확인하세요.');return;}
+  if(t.id==='scanYm'){var ym=(scans.filter(function(x){return x.type==='daily'&&x.ym;})[0]||{}).ym;if(ym){S.ym=ym;saveS();$('#ym').value=ym;scans.forEach(function(x){if(x.type==='daily')x.stamps=SCANREAD.stampedDates(x.frac,ym);});refreshAll();}return;}
+  var ap=t.getAttribute('data-apply'),all=t.id==='scanApplyAll',ac=t.getAttribute('data-acct');
+  if(ap||all){var n=0;scans.forEach(function(x){if(x.type==='daily'&&x.wid&&(all||x.page==ap)){setWorkedDates(findW(x.wid),x.stamps.dates);n++;}});refreshAll();toast(n+'명의 근무일을 도장대로 맞췄습니다.');return;}
+  if(ac){var x2=scans.filter(function(y){return y.page==ac;})[0],w=findW(x2.wid);if(w){w.account=x2.claim.account;if(!w.bank&&x2.claim.bank)w.bank=x2.claim.bank;renderRoster();refreshAll();toast(w.name+' 계좌를 청구서 값으로 채웠습니다 — 꼭 확인하세요.');}}
+});
 /* ---------- 4. 급여 확정 ---------- */
 function calHtml(w){
   var S2=ctxS(),dates=WAGE.monthDates(S.ym),worked={},base={};
@@ -934,15 +1095,15 @@ async function makeAll(){
     await new Promise(function(r){setTimeout(r,600);});}
   toast(want.length+'개 서류를 내려받았습니다.');
 }
-window.__wage={buildHwpx:buildHwpx,buildXlsx:buildXlsx,buildIhojo:buildIhojo,state:function(){return {S:S,workers:workers};},calc:calc,dailyHtml:dailyHtml,claimHtml:claimHtml};
+window.__wage={scans:function(){return scans;},buildHwpx:buildHwpx,buildXlsx:buildXlsx,buildIhojo:buildIhojo,state:function(){return {S:S,workers:workers};},calc:calc,dailyHtml:dailyHtml,claimHtml:claimHtml};
 
 /* ---------- 연결 ---------- */
 function refreshAll(light){
   syncHourly();
   if(light){updateComputed();return;}
-  renderIns();renderCards();if(notices.length)renderNotice();renderChecks();
+  renderIns();renderCards();if(notices.length)renderNotice();if(scans.length)renderScan();renderChecks();
 }
-bindDrop($('#dz1'),$('#f1'),loadRoster);bindDrop($('#dz2'),$('#f2'),loadInsurance);bindDrop($('#dz3'),$('#f3'),loadNotice);
+bindDrop($('#dz1'),$('#f1'),loadRoster);bindDrop($('#dz2'),$('#f2'),loadInsurance);bindDrop($('#dz3'),$('#f3'),loadNotice);bindDrop($('#dz4'),$('#f4'),loadScan);
 $('#btnXlsx').addEventListener('click',downloadXlsx);$('#btnMakeAll').addEventListener('click',makeAll);$('#btnIhojo').addEventListener('click',downloadIhojo);$('#btnHwpxDaily').addEventListener('click',function(){downloadHwpx('daily');});$('#btnHwpxClaim').addEventListener('click',function(){downloadHwpx('claim');});
 $('#btnPrDaily').addEventListener('click',function(){printDocs('daily');});$('#btnPrClaim').addEventListener('click',function(){printDocs('claim');});$('#btnPrBoth').addEventListener('click',function(){printDocs('both');});
 $('#btnPvDaily').addEventListener('click',function(){preview('daily');});$('#btnPvClaim').addEventListener('click',function(){preview('claim');});

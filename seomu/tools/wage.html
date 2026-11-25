@@ -122,6 +122,7 @@ table.t th,table.t td{padding-left:6px;padding-right:6px;}
 /*@include personname.js*/
 /*@include holidays.js*/
 /*@include wagecalc.js*/
+/*@include hwpx.js*/
 </script>
 <script>/*@include common.js*/</script>
 </head>
@@ -158,6 +159,16 @@ table.t th,table.t td{padding-left:6px;padding-right:6px;}
   <details class="fold"><summary>지급처 계좌 (4대보험 · 세금) — 은행이체 내역에 들어갑니다</summary>
     <div class="acct-grid" id="acctGrid"></div>
     <p class="note">공단 납부 계좌와 소득세·지방소득세 가상계좌를 한 번만 적어 두면 매달 그대로 쓰입니다.</p>
+  </details>
+  <details class="fold"><summary>이호조 거래처 정보 (4대보험 · 세금 줄에 들어갑니다)</summary>
+    <div class="grid">
+      <div class="field"><label>4대보험 거래처명</label><input type="text" data-ih="name"></div>
+      <div class="field"><label>사업자등록번호(10자리)</label><input type="text" data-ih="bizno"></div>
+      <div class="field"><label>대표자명</label><input type="text" data-ih="rep"></div>
+      <div class="field"><label>기본주소</label><input type="text" data-ih="addr"></div>
+      <div class="field"><label>상세주소</label><input type="text" data-ih="addr2"></div>
+      <div class="field"><label>입금명세(선택, 비우면 지출결의 것 적용)</label><input type="text" data-ih="memo"></div>
+    </div>
   </details>
 </section>
 
@@ -216,7 +227,8 @@ table.t th,table.t td{padding-left:6px;padding-right:6px;}
     <div class="o"><h3>일일점검부</h3><p>달력 날짜를 인식해 근로자별로 한 장씩 만듭니다. 근무일 칸은 도장 자리 사선이 그려지고 휴관일은 '휴관'으로 표시됩니다.</p><div class="row"><button class="btn" id="btnPrDaily" type="button">인쇄 / PDF</button><button class="btn outline" id="btnPvDaily" type="button">미리보기</button></div></div>
     <div class="o"><h3>청구서</h3><p>근로자별 청구서(청구금액 · 계좌 · 사역일수 · 기본급/주휴/월차 내역)를 만듭니다.</p><div class="row"><button class="btn" id="btnPrClaim" type="button">인쇄 / PDF</button><button class="btn outline" id="btnPvClaim" type="button">미리보기</button></div></div>
     <div class="o"><h3>일일점검부 + 청구서</h3><p>근로자별로 일일점검부 다음에 청구서가 오도록 한꺼번에 인쇄합니다.</p><button class="btn outline" id="btnPrBoth" type="button">함께 인쇄 / PDF</button></div>
-    <div class="o wait"><h3>이호조 지급폼 <span class="chip">양식 대기</span></h3><p>이호조 양식 파일을 받으면 같은 계산값으로 지급폼을 만들 수 있게 붙입니다.</p><button class="btn outline" type="button" disabled>준비 중</button></div>
+    <div class="o"><h3>이호조 거래처입력 엑셀</h3><p>근로자·4대보험·소득세·지방소득세 줄을 이호조 양식(거래처입력)에 맞춰 만듭니다. 은행 이름은 은행코드로 바꿔 넣습니다.</p><button class="btn" id="btnIhojo" type="button">엑셀 내려받기</button></div>
+    <div class="o"><h3>한글(HWPX) 서류</h3><p>일일점검부와 청구서를 한글 파일로 만듭니다. 한글에서 열어 도장·내용을 고칠 수 있습니다.</p><div class="row"><button class="btn" id="btnHwpxDaily" type="button">일일점검부 .hwpx</button><button class="btn outline" id="btnHwpxClaim" type="button">청구서 .hwpx</button></div></div>
   </div>
   <div id="pv"></div>
   <p class="note">인쇄 창에서 <b>대상: PDF로 저장</b>을 고르면 PDF 파일이 됩니다. 도장은 인쇄한 뒤 찍거나, 도장 추출 도구로 만든 이미지를 PDF에 붙이세요.</p>
@@ -241,9 +253,10 @@ function defYm(){var d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return
 function defaults(){
   var ac={};ACCT_ITEMS.forEach(function(a){ac[a[0]]={bank:'',no:'',memo:a[2]};});
   return {ym:defYm(),site:'익산 구 춘포역사',org:'익산시청',dept:'문화유산과',closedDow:[1],hourlyByYear:{2025:10030,2026:10740},hoursPerDay:7,excludeHoliday:false,
-    staffTitle:'',staffName:'',confTitle:'',confName:'',accts:ac};
+    staffTitle:'',staffName:'',confTitle:'',confName:'',accts:ac,
+    ihojo:{name:'익산시청행정지원과',bizno:'4038300013',rep:'익산시청',addr:'전라북도 익산시 인북로1길 32',addr2:'(남중동)',memo:''}};
 }
-var S = (function(){var d=defaults();try{var j=JSON.parse(localStorage.getItem(KEY)||'{}');for(var k in j){if(k==='accts'){for(var a in j.accts)d.accts[a]=Object.assign(d.accts[a]||{},j.accts[a]);}else d[k]=j[k];}}catch(e){}return d;})();
+var S = (function(){var d=defaults();try{var j=JSON.parse(localStorage.getItem(KEY)||'{}');for(var k in j){if(k==='accts'){for(var a in j.accts)d.accts[a]=Object.assign(d.accts[a]||{},j.accts[a]);}else if(k==='ihojo'){d.ihojo=Object.assign(d.ihojo,j.ihojo);}else d[k]=j[k];}}catch(e){}return d;})();
 function saveS(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 var workers = [], parsedIns = null, notices = [], uid = 1;
 
@@ -273,6 +286,7 @@ function initSettings(){
   $('#acctGrid').innerHTML='<div class="h"></div><div class="h">은행</div><div class="h">계좌번호</div><div class="h">비고</div>'+ACCT_ITEMS.map(function(a){var k=a[0],v=S.accts[k]||{};
     return '<div>'+a[1]+'</div><input type="text" data-a="'+k+'" data-f="bank" value="'+esc(v.bank)+'" placeholder="농협"><input type="text" data-a="'+k+'" data-f="no" value="'+esc(v.no)+'" placeholder="계좌번호"><input type="text" data-a="'+k+'" data-f="memo" value="'+esc(v.memo)+'">';}).join('');
   $('#acctGrid').addEventListener('input',function(e){var t=e.target,k=t.getAttribute('data-a');if(!k)return;S.accts[k][t.getAttribute('data-f')]=t.value;saveS();});
+  $$('[data-ih]').forEach(function(el){var k=el.getAttribute('data-ih');el.value=S.ihojo[k]||'';el.addEventListener('input',function(){S.ihojo[k]=el.value;saveS();});});
   syncHourly();
 }
 function syncHourly(){
@@ -679,11 +693,11 @@ async function buildXlsx(){
 }
 /* ExcelJS 는 저장할 때 통합문서 기본 글꼴(표준 스타일)을 Calibri 로 바꿔 버린다. 열 너비는 기본 글꼴의 글자 폭을 단위로 하므로
    그대로 두면 열이 좁아져 숫자가 ### 로 보인다 → 양식의 기본 글꼴(돋움 11)로 되돌린다. */
-async function keepDefaultFont(buf){
+async function keepDefaultFont(buf,fontXml){
   if(!(await seomuLoad('jszip')))return buf;
   var zip=await JSZip.loadAsync(buf),f=zip.file('xl/styles.xml');if(!f)return buf;
   var xml=await f.async('string');
-  xml=xml.replace(/(<fonts[^>]*>)<font>[\s\S]*?<\/font>/,'$1<font><sz val="11"/><color rgb="FF000000"/><name val="돋움"/></font>');
+  xml=xml.replace(/(<fonts[^>]*>)<font>[\s\S]*?<\/font>/,function(m,a){return a+(fontXml||'<font><sz val="11"/><color rgb="FF000000"/><name val="돋움"/></font>');});
   zip.file('xl/styles.xml',xml);
   return await zip.generateAsync({type:'arraybuffer',compression:'DEFLATE'});
 }
@@ -696,7 +710,116 @@ async function downloadXlsx(){
     document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);
   }catch(e){console.error(e);alert('엑셀을 만들지 못했습니다: '+e.message);}
 }
-window.__wage={buildXlsx:buildXlsx,state:function(){return {S:S,workers:workers};},calc:calc,dailyHtml:dailyHtml,claimHtml:claimHtml};
+
+/* ----- 이호조 거래처입력 엑셀 ----- */
+var IHOJO_B64 = '/*@b64 ihojo_template.xlsx*/';
+function bankCodeOf(txt,list){
+  txt=String(txt||'').trim();if(!txt)return '';if(/^\d{3}:/.test(txt))return txt;
+  var n=function(x){return String(x).replace(/^\d+:/,'').replace(/[\s\(\)（）]|중앙회|은행|뱅크/g,'').toLowerCase();},t=n(txt);if(!t)return txt;
+  var hit=list.filter(function(x){var m=n(x);return m&&(m===t||m.indexOf(t)===0||t.indexOf(m)===0);})[0];
+  if(!hit&&/nh|농협/.test(t))hit=list.filter(function(x){return x.indexOf('011:')===0;})[0];
+  return hit||txt;
+}
+async function buildIhojo(){
+  if(!(await seomuLoad('exceljs')))throw new Error('엑셀 부품(ExcelJS)을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
+  var wb=new ExcelJS.Workbook();await wb.xlsx.load(b64ToBuf(IHOJO_B64));
+  var ws=wb.getWorksheet('거래처입력'),bw=wb.getWorksheet('은행코드_참고자료'),codes=[];
+  bw.eachRow(function(r,i){if(i>1&&r.getCell(1).value)codes.push(String(r.getCell(1).value));});
+  var list=workers.filter(function(w){return w.name;}).map(function(w){return {w:w,c:calc(w)};}),I=S.ihojo,rows=[],warn=[];
+  var bank=function(t,who){var c=bankCodeOf(t,codes);if(t&&!/^\d{3}:/.test(c))warn.push(who+': 은행 "'+t+'" 의 은행코드를 못 찾았습니다(은행코드_참고자료 확인)');return c;};
+  var hasCol=function(a){return a&&(a.no||a.bank);};
+  list.forEach(function(x){
+    if(x.c.net<=0)return;var w=x.w;
+    rows.push([w.name,'30:개인','','',w.account?'10:계좌이체':'',bank(w.bank,w.name),w.name,w.account||'',x.c.net,0,0,x.c.net,'','','',w.name,'','','','','',I.memo||'']);
+  });
+  var sumF=function(f){return list.reduce(function(a,x){return a+f(x.c);},0);};
+  [['health',sumF(function(c){return c.ded.health+c.er.health;})],['pension',sumF(function(c){return c.ded.pension+c.er.pension;})],['employ',sumF(function(c){return c.ded.employ+c.er.employ;})],['accident',sumF(function(c){return c.er.accident;})]].forEach(function(f){
+    if(f[1]<=0)return;var a=S.accts[f[0]]||{};
+    rows.push([I.name,'10:법인사업자',I.bizno?+String(I.bizno).replace(/\D/g,''):'','',hasCol(a)?'10:계좌이체':'',bank(a.bank,I.name),I.name,a.no||'',f[1],0,0,f[1],'','','',I.rep,'',I.addr,I.addr2,'','',I.memo||'']);
+  });
+  [['소득세','incomeTax','40:기타',sumF(function(c){return c.ded.incomeTax;})],['지방소득세','localTax','41:기타',sumF(function(c){return c.ded.localTax;})]].forEach(function(f){
+    if(f[3]<=0)return;var a=S.accts[f[1]]||{};
+    rows.push([f[0],f[2],'','',hasCol(a)?'10:계좌이체':'',bank(a.bank,f[0]),f[0],a.no||'',f[3],0,0,f[3],'','','',f[0],'',I.addr,I.addr2,'','',I.memo||'']);
+  });
+  var srcStyle=[],dv=[];for(var c=1;c<=22;c++){srcStyle[c]=clone(ws.getCell(2,c).style);dv[c]=clone(ws.getCell(2,c).dataValidation);}
+  rows.forEach(function(r,i){
+    var rn=2+i,row=ws.getRow(rn);
+    for(var c=1;c<=22;c++){var ce=row.getCell(c);if(rn>9){ce.style=clone(srcStyle[c])||{};if(dv[c])ce.dataValidation=clone(dv[c]);}
+      var v=r[c-1];ce.value=(v===''||v==null)?null:v;}
+  });
+  var buf=await wb.xlsx.writeBuffer();
+  buf=await keepDefaultFont(buf,'<font><sz val="11"/><color theme="1"/><name val="맑은 고딕"/><family val="2"/><charset val="129"/></font>');
+  return {buf:buf,rows:rows.length,warn:warn};
+}
+function saveBlob(buf,type,name){
+  var blob=new Blob([buf],{type:type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[\\\/:*?"<>|]/g,'');
+  document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);
+}
+async function downloadIhojo(){
+  if(!workers.some(function(w){return w.name;})){toast('근로자 명부를 먼저 넣어 주세요.');return;}
+  try{
+    var r=await buildIhojo(),p=ymParts();
+    saveBlob(r.buf,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','이호조 거래처입력('+p.y+'.'+String(p.m).padStart(2,'0')+').xlsx');
+    toast('이호조 거래처입력 '+r.rows+'줄을 만들었습니다.'+(r.warn.length?' ⚠ '+r.warn.join(' / '):''));
+    if(r.warn.length)alert(r.warn.join('\n'));
+  }catch(e){console.error(e);alert('이호조 엑셀을 만들지 못했습니다: '+e.message);}
+}
+
+/* ----- 한글(HWPX) 서류 ----- */
+function hwpxDailyBlocks(w){
+  var H=SEOMU_HWPX,CS=H.CS,S2=ctxS(),p=ymParts(),dates=WAGE.monthDates(S.ym),worked={};WAGE.workDates(w,S2).forEach(function(d){worked[d]=1;});
+  var wd=0,we=0;Object.keys(worked).forEach(function(d){var dow=new Date(d).getDay();(dow===0||dow===6)?we++:wd++;});
+  var weeks=[],cur=new Array(7).fill(null);
+  dates.forEach(function(d){var idx=(d.dow+6)%7;cur[idx]=d;if(idx===6){weeks.push(cur);cur=new Array(7).fill(null);}});
+  if(cur.some(Boolean))weeks.push(cur);while(weeks.length<6)weeks.push(new Array(7).fill(null));
+  var kind=w.kind==='weekday'?'평일':w.kind==='weekend'?'주말':'';
+  var cell=function(t,o){o=o||{};return {lines:[{t:t,cs:o.cs||0}],al:'CENTER',bf:o.bf||H.BF.THIN};};
+  var rows=[];
+  weeks.forEach(function(wk){
+    rows.push({h:9,cells:[cell('일자(요일)',{cs:CS.SMALL,bf:H.BF.SHADE})].concat(wk.map(function(d){return cell(d?p.m+'/'+d.d+'('+DOWK[d.dow]+')':'',{cs:CS.SMALL,bf:H.BF.SHADE});}))});
+    rows.push({h:15,cells:[cell('확인',{cs:CS.SMALL})].concat(wk.map(function(d){
+      if(!d)return cell('');if(worked[d.iso])return cell('',{bf:H.BF.DIAG});return cell(S.closedDow.indexOf(d.dow)>=0?'휴관':'');}))});
+  });
+  return [{k:'p',text:'',space:0},{k:'p',text:''},
+    {k:'tbl',al:'CENTER',widths:[112],rows:[{h:30,cells:[{lines:[{t:S.site+(kind?' '+kind:''),cs:CS.TITLE},{t:'기간제근로자 일일점검부',cs:CS.TITLE},{t:'('+monthLabel()+')',cs:CS.BODY12}],al:'CENTER',bf:H.BF.THICK}]}]},
+    {k:'p',text:''},
+    {k:'tbl',al:'LEFT',widths:[30,30,30],rows:[{h:8,cells:[cell('평일근무일수',{cs:CS.SMALL}),cell('주말근무일수',{cs:CS.SMALL}),cell('비고',{cs:CS.SMALL})]},{h:9,cells:[cell(String(wd||'-')),cell(String(we||'-')),cell(w.name)]}]},
+    {k:'p',text:''},
+    {k:'tbl',al:'CENTER',widths:[22,22,22,22,22,22,22,22],rows:rows}];
+}
+function hwpxClaimBlocks(w){
+  var H=SEOMU_HWPX,CS=H.CS,c=calc(w),p=ymParts(),ld=lastDay(),startDay=1;
+  if(w.hire&&w.hire.slice(0,7)===S.ym)startDay=+w.hire.slice(8,10)||1;
+  var kind=w.kind==='weekday'?'(평일)':w.kind==='weekend'?'(주말)':'';
+  var cell=function(t,o){o=o||{};return {lines:(Array.isArray(t)?t:[t]).map(function(x){return {t:x,cs:o.cs||0};}),al:'CENTER',bf:H.BF.THIN};};
+  var parts=['총 '+won(c.gross)+'원','(기본급 '+won(c.basePay)+'원)'];
+  if(c.juPay)parts.push('(주휴수당 '+won(c.juPay)+'원)');if(c.wolchaPay)parts.push('(월차수당 '+won(c.wolchaPay)+'원)');if(c.extraPay)parts.push('(추가근무수당 '+won(c.extraPay)+'원)');
+  var hd=function(a){return a.map(function(t){return cell(t,{cs:CS.BOLD});});};
+  return [{k:'p',text:''},{k:'p',text:'청 구 서',al:'CENTER',cs:CS.BIG},{k:'p',text:''},
+    {k:'p',text:S.site+' 기간제 사역 인부임을 아래와 같이 청구합니다.',cs:CS.BODY12},{k:'p',text:''},
+    {k:'p',text:'□ 인적사항',cs:CS.BOLD13},
+    {k:'tbl',widths:[28,34,30,56,28],rows:[{h:8,cells:hd(['성명','청구금액','은행','계좌번호','청구인'])},{h:9,cells:[cell(w.name),cell(won(c.gross)),cell(w.bank),cell(w.account),cell('')]}]},
+    {k:'p',text:''},{k:'p',text:'□ 지출내역',cs:CS.BOLD13},
+    {k:'tbl',widths:[44,24,28,56,24],rows:[{h:8,cells:hd(['사역기간','사역일수','단가','지급금액','비고'])},{h:38,cells:[cell(p.m+'.'+startDay+'. ~ '+p.m+'.'+ld+'.'+kind),cell(String(c.days)),cell(won(c.dayRate)+'원'),cell(parts),cell('')]}]},
+    {k:'p',text:''},{k:'p',text:''},{k:'p',text:''},
+    {k:'p',text:'상기와 같이 사역하였음을 확인합니다.',al:'CENTER',cs:CS.BODY12},{k:'p',text:p.y+'. '+p.m+'.',al:'CENTER',cs:CS.BODY12},
+    {k:'p',text:''},{k:'p',text:''},
+    {k:'p',text:'담당자 : '+(S.staffTitle||'')+'   '+(S.staffName||'')+'   (인)',al:'CENTER',cs:CS.BODY12},
+    {k:'p',text:'확인자 : '+(S.confTitle||'')+'   '+(S.confName||'')+'   (인)',al:'CENTER',cs:CS.BODY12}];
+}
+async function buildHwpx(mode){
+  if(!(await seomuLoad('jszip')))throw new Error('압축 부품(JSZip)을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
+  var list=workers.filter(function(w){return w.name;}),pages=[];
+  list.forEach(function(w){if(mode!=='claim')pages.push(hwpxDailyBlocks(w));if(mode!=='daily')pages.push(hwpxClaimBlocks(w));});
+  return SEOMU_HWPX.build(pages,JSZip,'/*@b64 skeleton.hwpx*/',S.site+(mode==='claim'?' 청구서':' 일일점검부'));
+}
+async function downloadHwpx(mode){
+  if(!workers.some(function(w){return w.name;})){toast('근로자 명부를 먼저 넣어 주세요.');return;}
+  try{var buf=await buildHwpx(mode),p=ymParts();
+    saveBlob(buf,'application/hwp+zip',S.site+' 기간제근로자 '+(mode==='claim'?'청구서':'일일점검부')+'('+p.y+'.'+String(p.m).padStart(2,'0')+').hwpx');
+  }catch(e){console.error(e);alert('한글 파일을 만들지 못했습니다: '+e.message);}
+}
+window.__wage={buildHwpx:buildHwpx,buildXlsx:buildXlsx,buildIhojo:buildIhojo,state:function(){return {S:S,workers:workers};},calc:calc,dailyHtml:dailyHtml,claimHtml:claimHtml};
 
 /* ---------- 연결 ---------- */
 function refreshAll(light){
@@ -705,7 +828,7 @@ function refreshAll(light){
   renderIns();renderCards();if(notices.length)renderNotice();renderChecks();
 }
 bindDrop($('#dz1'),$('#f1'),loadRoster);bindDrop($('#dz2'),$('#f2'),loadInsurance);bindDrop($('#dz3'),$('#f3'),loadNotice);
-$('#btnXlsx').addEventListener('click',downloadXlsx);
+$('#btnXlsx').addEventListener('click',downloadXlsx);$('#btnIhojo').addEventListener('click',downloadIhojo);$('#btnHwpxDaily').addEventListener('click',function(){downloadHwpx('daily');});$('#btnHwpxClaim').addEventListener('click',function(){downloadHwpx('claim');});
 $('#btnPrDaily').addEventListener('click',function(){printDocs('daily');});$('#btnPrClaim').addEventListener('click',function(){printDocs('claim');});$('#btnPrBoth').addEventListener('click',function(){printDocs('both');});
 $('#btnPvDaily').addEventListener('click',function(){preview('daily');});$('#btnPvClaim').addEventListener('click',function(){preview('claim');});
 initSettings();renderRoster();refreshAll();

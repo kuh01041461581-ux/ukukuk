@@ -46,6 +46,17 @@ const dl = pg.waitForEvent('download', { timeout: 60000 });
 await fr.click('#btnXlsx');
 const d = await dl; const xl = path.join(out, 'wage_out.xlsx'); await d.saveAs(xl);
 ok(fs.statSync(xl).size > 5000, '엑셀 내려받기: ' + d.suggestedFilename());
+// 이호조 거래처입력
+await fr.fill('[data-a="incomeTax"][data-f="bank"]','농협'); await fr.fill('[data-a="incomeTax"][data-f="no"]','79000000000001');
+const ih = await fr.evaluate(async () => { const r = await __wage.buildIhojo(); let s=''; const u=new Uint8Array(r.buf); for (let i=0;i<u.length;i++) s+=String.fromCharCode(u[i]); return {rows:r.rows, warn:r.warn, b64:btoa(s)}; });
+fs.writeFileSync(path.join(out, 'ihojo_out.xlsx'), Buffer.from(ih.b64, 'base64'));
+ok(ih.rows === 9, '이호조 줄 수 9 (근로자3+보험4+소득세+지방소득세): ' + ih.rows);
+// 한글(HWPX)
+for (const m of ['daily', 'claim']) {
+  const hx = await fr.evaluate(async (m) => { const u = await __wage.buildHwpx(m); let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }, m);
+  fs.writeFileSync(path.join(out, 'wage_' + m + '.hwpx'), Buffer.from(hx, 'base64'));
+  ok(Buffer.from(hx, 'base64').subarray(0, 2).toString() === 'PK', 'HWPX(' + m + ') 만들어짐');
+}
 // 일일점검부·청구서 미리보기
 await fr.click('#btnPvDaily'); await pg.waitForTimeout(300);
 ok((await fr.$$eval('.previewbox .paper.daily', e => e.length)) === 3, '일일점검부 3장(근로자별)');

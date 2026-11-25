@@ -185,6 +185,28 @@ table.sheet th:first-child,table.sheet td:first-child{padding-left:8px;}
 .scan-tbl select{min-width:110px;}
 .scan-tbl .ok{color:var(--u-ok);} .scan-tbl .bad{color:var(--u-danger);font-weight:600;}
 .scan-thumb{width:64px;border:1px solid var(--u-border);border-radius:4px;display:block;}
+
+.ccal{display:grid;grid-template-columns:repeat(7,minmax(0,44px));gap:3px;font-size:12px;}
+.ccal .hd{text-align:center;color:var(--u-text3);}
+.ccal button{all:unset;box-sizing:border-box;text-align:center;padding:4px 0;border-radius:6px;cursor:pointer;border:1px solid var(--u-border);background:var(--u-card);}
+.ccal button:hover{border-color:var(--u-primary);}
+.ccal button.on{background:var(--u-danger-tint);border-color:var(--u-danger);color:var(--u-danger);font-weight:600;}
+.ccal button.dow{background:repeating-linear-gradient(45deg,var(--u-hover),var(--u-hover) 3px,transparent 3px,transparent 6px);color:var(--u-text3);cursor:default;}
+.ccal button.hol{color:#DC2626;}
+table.sheet td[data-b]:not([data-b="net"]):not([data-b="erTotal"]){cursor:pointer;}
+table.sheet td[data-b]:not([data-b="net"]):not([data-b="erTotal"]):hover{text-decoration:underline dotted;}
+table.sheet td.ed{color:#B45309;font-weight:600;}
+table.sheet td.ed::after{content:" ✎";font-size:10px;}
+.adj input.ed{border-color:#D97706;background:#FFFBEB;}
+.adj .reset{grid-column:1/-1;margin-top:6px;}
+
+/* 직접 수정 칸: 넓게, 두 칸씩 */
+.dt-body{grid-template-columns:250px minmax(0,1.4fr) minmax(0,1fr);}
+@media (max-width:1000px){.dt-body{grid-template-columns:1fr;}}
+.adj{display:grid !important;grid-template-columns:repeat(auto-fill,minmax(220px,1fr)) !important;gap:6px 16px !important;max-width:none !important;align-items:center;}
+.adj h4,.adj .reset{grid-column:1/-1;}
+.adj .ap{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.adj .ap input{width:140px !important;}
 </style>
 <script>
 /*@include personname.js*/
@@ -220,7 +242,7 @@ table.sheet th:first-child,table.sheet td:first-child{padding-left:8px;}
   <h2><span class="step-no">1</span>기본 설정</h2>
   <p class="sub">한 번 적어 두면 이 컴퓨터에 기억됩니다(근로자 정보는 기억하지 않음).</p>
   <div class="grid">
-    <div class="field"><label>지급하는 달 (이 달 달력으로 서류를 만듭니다)</label><input type="month" id="ym"></div>
+    <div class="field"><label title="이 달 달력으로 일일점검부·청구서를 만듭니다">지급하는 달</label><input type="month" id="ym"></div>
     <div class="field"><label>현장(사업)명</label><input type="text" id="site" placeholder="예: 익산 구 춘포역사"></div>
     <div class="field"><label>기관</label><input type="text" id="org" placeholder="예: 익산시청"></div>
     <div class="field"><label>부서(과)</label><input type="text" id="dept" placeholder="예: 문화유산과"></div>
@@ -230,6 +252,7 @@ table.sheet th:first-child,table.sheet td:first-child{padding-left:8px;}
     <div class="field"><label>소득세 원천징수(간이세액표 대비)</label><select id="taxPct"><option value="100">100% (기본)</option><option value="80">80%</option><option value="120">120%</option></select></div>
     <div class="field span2"><label>휴관 요일</label><div class="dow-row" id="closedRow"></div></div>
   </div>
+  <div class="field" style="margin-top:12px"><label>휴관 날짜 (이 달) — 날짜를 눌러 휴관/해제 · 휴관 요일은 빗금</label><div class="ccal" id="closedCal"></div></div>
   <p class="note" id="hourlyNote"></p>
   <label class="row note" style="margin-top:8px;gap:6px"><input type="checkbox" id="exHol"> 공휴일에는 근무하지 않음(기본은 공휴일에도 근무 — 유적지처럼 개관하는 경우)</label>
   <details class="fold"><summary>서류에 찍히는 담당자 · 확인자</summary>
@@ -297,7 +320,7 @@ table.sheet th:first-child,table.sheet td:first-child{padding-left:8px;}
 <!-- 4. 급여 확정 -->
 <section class="card" id="s4">
   <h2><span class="step-no">4</span>급여 확정</h2>
-  <p class="sub">근무일 · 보험료 · 소득세까지 자동 계산한 결과입니다. 행 앞의 ▸ 를 누르면 달력과 계산 근거가 열리고, 날짜를 눌러 근무/휴무를 바꾸면 바로 다시 계산됩니다.</p>
+  <p class="sub">근무일 · 임금 · 보험료 · 세금을 자동 계산한 결과입니다. <b>숫자를 누르면 그 값을 직접 고칠 수 있고</b>(고친 값은 주황 ✎), 행 앞의 ▸ 로 달력·계산 근거를 엽니다. 날짜를 눌러 근무/휴무를 바꾸면 다시 계산됩니다.</p>
   <div class="tablewrap"><table class="t sheet" id="fixT"><thead><tr><th>성명</th><th class="n">근무일</th><th class="n">주휴</th><th class="n">월차</th><th class="n">산출액</th><th class="n">건강</th><th class="n">연금</th><th class="n">고용</th><th class="n">소득세</th><th class="n">지방세</th><th class="n net">실지급액</th><th class="n">사업장 부담</th></tr></thead><tbody><tr><td colspan="12" class="muted">먼저 근로자 명부를 넣어 주세요.</td></tr></tbody></table></div>
   <p class="note" id="fixNote"></p>
 </section>
@@ -348,7 +371,7 @@ var ACCT_ITEMS = [['health','건강보험료','계좌이체'],['pension','국민
 function defYm(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 function defaults(){
   var ac={};ACCT_ITEMS.forEach(function(a){ac[a[0]]={bank:'',no:'',memo:a[2]};});
-  return {ym:defYm(),site:'익산 구 춘포역사',org:'익산시청',dept:'문화유산과',closedDow:[1],hourlyByYear:{2025:10030,2026:10740},hoursPerDay:7,excludeHoliday:false,
+  return {ym:defYm(),site:'익산 구 춘포역사',org:'익산시청',dept:'문화유산과',closedDow:[1],closedDates:[],hourlyByYear:{2025:10030,2026:10740},hoursPerDay:7,excludeHoliday:false,
     staffTitle:'',staffName:'',confTitle:'',confName:'',accts:ac,
     ihojo:{name:'익산시청행정지원과',bizno:'4038300013',rep:'익산시청',addr:'전라북도 익산시 인북로1길 32',addr2:'(남중동)',memo:''}};
 }
@@ -367,7 +390,8 @@ function bindDrop(zone,input,fn){
 function readBuf(file){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsArrayBuffer(file);});}
 function ymParts(){return WAGE.parseYm(S.ym);}
 function lastDay(){var p=ymParts();return new Date(p.y,p.m,0).getDate();}
-function ctxS(){return {taxPct:S.taxPct,ym:S.ym,hourlyByYear:S.hourlyByYear,hoursPerDay:S.hoursPerDay,closedDow:S.closedDow,excludeHoliday:S.excludeHoliday};}
+function isClosedDay(iso,dow){return S.closedDow.indexOf(dow)>=0||(S.closedDates||[]).indexOf(iso)>=0;}
+function ctxS(){return {taxPct:S.taxPct,ym:S.ym,hourlyByYear:S.hourlyByYear,hoursPerDay:S.hoursPerDay,closedDow:S.closedDow,closedDates:S.closedDates||[],excludeHoliday:S.excludeHoliday};}
 function calc(w){return WAGE.calcWorker(w,ctxS());}
 
 /* ---------- 1. 설정 화면 ---------- */
@@ -384,7 +408,18 @@ function initSettings(){
     return '<div>'+a[1]+'</div><input type="text" data-a="'+k+'" data-f="bank" value="'+esc(v.bank)+'" placeholder="농협"><input type="text" data-a="'+k+'" data-f="no" value="'+esc(v.no)+'" placeholder="계좌번호"><input type="text" data-a="'+k+'" data-f="memo" value="'+esc(v.memo)+'">';}).join('');
   $('#acctGrid').addEventListener('input',function(e){var t=e.target,k=t.getAttribute('data-a');if(!k)return;S.accts[k][t.getAttribute('data-f')]=t.value;saveS();});
   $$('[data-ih]').forEach(function(el){var k=el.getAttribute('data-ih');el.value=S.ihojo[k]||'';el.addEventListener('input',function(){S.ihojo[k]=el.value;saveS();});});
+  $('#closedCal').addEventListener('click',function(e){var b=e.target.closest('[data-cd]');if(!b||b.classList.contains('dow'))return;var d=b.getAttribute('data-cd');S.closedDates=S.closedDates||[];
+    var i=S.closedDates.indexOf(d);if(i>=0)S.closedDates.splice(i,1);else S.closedDates.push(d);saveS();renderClosedCal();refreshAll();});
   syncHourly();
+}
+
+function renderClosedCal(){
+  var el=$('#closedCal');if(!el)return;var dates=WAGE.monthDates(S.ym),lead=(dates[0].dow+6)%7,h='';
+  [1,2,3,4,5,6,0].forEach(function(d){h+='<div class="hd">'+DOWK[d]+'</div>';});
+  for(var i=0;i<lead;i++)h+='<div></div>';
+  dates.forEach(function(d){var hol=WAGE.holidayName(d.iso),dowC=S.closedDow.indexOf(d.dow)>=0,on=(S.closedDates||[]).indexOf(d.iso)>=0;
+    h+='<button type="button" data-cd="'+d.iso+'" class="'+(dowC?'dow':on?'on':'')+(hol?' hol':'')+'" title="'+(hol?esc(hol)+' · ':'')+(dowC?'휴관 요일':on?'휴관(누르면 해제)':'누르면 휴관')+'">'+d.d+'</button>';});
+  el.innerHTML=h;
 }
 function syncHourly(){
   var p=ymParts();if(!p)return;var h=S.hourlyByYear[p.y];
@@ -484,6 +519,7 @@ function renderIns(){
 $('#insT').addEventListener('input',function(e){
   var t=e.target,w=findW(t.getAttribute('data-w'));if(!w||!w.ins)return;var k=t.getAttribute('data-k'),v=+t.value||0;
   if(k==='accident')w.ins.accident=v;else w.ins[k][+t.getAttribute('data-i')]=v;
+  if(+t.getAttribute('data-i')===0&&k!=='accident'){var ik='ins_'+{health:'h',pension:'p',employ:'e'}[k];w.insEdited=(w.insEdited||[]).filter(function(x){return x!==ik;}).concat([ik]);}
   updateComputed();
 });
 
@@ -643,7 +679,7 @@ function calHtml(w){
   [1,2,3,4,5,6,0].forEach(function(d){h+='<div class="hd'+(d===6?' sat':d===0?' sun':'')+'">'+DOWK[d]+'</div>';});
   for(var i=0;i<lead;i++)h+='<div class="blank"></div>';
   dates.forEach(function(d){
-    var hol=WAGE.holidayName(d.iso),closed=S.closedDow.indexOf(d.dow)>=0,cls=(worked[d.iso]?'work':closed?'closed':'')+(hol?' hol':'');
+    var hol=WAGE.holidayName(d.iso),closed=isClosedDay(d.iso,d.dow),cls=(worked[d.iso]?'work':closed?'closed':'')+(hol?' hol':'');
     h+='<button type="button" data-w="'+w.id+'" data-d="'+d.iso+'" class="'+cls+'" title="'+(hol||'')+'">'+d.d+'<small>'+(worked[d.iso]?'근무':closed?'휴관':hol?esc(hol.slice(0,4)):'')+'</small></button>';
   });
   return '<div class="cal">'+h+'</div><div class="legend"><span><i style="background:var(--u-tint);border:1px solid var(--u-primary)"></i>근무</span><span><i style="background:repeating-linear-gradient(45deg,var(--u-hover),var(--u-hover) 3px,transparent 3px,transparent 6px)"></i>휴관</span><span style="color:#DC2626">빨강 = 공휴일</span><span>날짜를 눌러 바꾸기</span></div>';
@@ -658,17 +694,29 @@ function renderCards(){
     return '<tr class="fx" data-w="'+w.id+'"><td><button class="tog" type="button" data-tog="'+w.id+'" title="달력·계산 근거">'+(w.open?'▾':'▸')+'</button><b>'+esc(w.name)+'</b> <span class="chip">'+KIND[w.kind]+'</span> <span data-b="ins"></span></td>'+tds+'</tr>'
       +'<tr class="dt" data-w="'+w.id+'"'+(w.open?'':' hidden')+'><td colspan="12"><div class="dt-body">'
       +'<div data-b="cal">'+(w.open?calHtml(w):'')+'</div>'
-      +'<div class="adj"><h4>직접 조정 (비우면 자동)</h4>'
-      +'<label>근무일수</label><input type="number" min="0" step="1" data-o="days" placeholder="자동">'
-      +'<label>주휴수당 주수</label><input type="number" min="0" step="1" data-o="joo" placeholder="자동">'
-      +'<label>월차 일수</label><input type="number" min="0" step="1" data-o="wolcha" placeholder="자동">'
-      +'<label>추가근무 시간</label><input type="number" min="0" step="0.5" data-o="extra" value="'+(w.extraHours||0)+'">'
-      +'<label>소득세 직접 입력</label><input type="number" min="0" step="10" data-o="tax" placeholder="자동" value="'+(w.tax!=null&&w.tax!==''?w.tax:'')+'"></div>'
+      +adjHtml(w)
       +'<div class="why"><h4>계산 근거</h4><ul data-b="why"></ul></div></div></td></tr>';
   }).join('')+'<tr class="tt"><td>합계 <span data-b="cnt"></span></td>'+FX_CELLS.map(function(k){return '<td class="n'+(k==='net'?' net':'')+'" data-t="'+k+'"></td>';}).join('')+'</tr>';
-  list.forEach(function(w){var el=$('tr.dt[data-w="'+w.id+'"]');['days','joo','wolcha'].forEach(function(k){var v=(w.ovr||{})[k];if(v!=null&&v!=='')$('[data-o="'+k+'"]',el).value=v;});});
   updateComputed();
 }
+
+/* 직접 수정 칸: 비우면 자동, 값을 넣으면 그 값(주황 표시). 보험료는 고지서 값을 바로 고친다 */
+var ADJ=[['근무',[['days','근무일수',1],['joo','주휴수당 주수',1],['wolcha','월차 일수',1],['extra','추가근무 시간',0.5]]],
+  ['임금',[['dayRate','1일 단가',10],['juUnit','주휴 1주 단가',10],['basePay','기본급',10],['juPay','주휴수당',10],['wolchaPay','월차수당',10],['extraPay','추가근무수당',10]]],
+  ['세금',[['tax','소득세',10],['localTax','지방소득세',10]]],
+  ['4대보험(근로자 부담)',[['ins_h','건강보험',10],['ins_p','국민연금',10],['ins_e','고용보험',10]]]];
+function adjVal(w,k){
+  if(k==='extra')return w.extraHours||0;if(k==='tax')return (w.tax!=null&&w.tax!=='')?w.tax:'';
+  if(k.indexOf('ins_')===0){var m={h:'health',p:'pension',e:'employ'}[k.slice(4)];return w.ins?w.ins[m][0]:'';}
+  var v=(w.ovr||{})[k];return v!=null&&v!==''?v:'';
+}
+function adjHtml(w){
+  return '<div class="adj"><h4>자동 계산값 — 고치려면 숫자를 넣으세요 (비우면 자동)</h4>'+ADJ.map(function(g){return '<h4 style="margin-top:6px">'+g[0]+'</h4>'+g[1].map(function(f){
+    return '<div class="ap"><label>'+f[1]+'</label><input type="number" min="0" step="'+f[2]+'" data-o="'+f[0]+'" placeholder="자동" value="'+adjVal(w,f[0])+'"></div>';}).join('');}).join('')
+    +'<button class="btn sm outline reset" type="button" data-reset="'+w.id+'">모두 자동 계산으로 되돌리기</button></div>';
+}
+var CELL_KEYS={days:['days'],joo:['joo'],wolcha:['wolcha'],gross:['days','joo','wolcha','dayRate','juUnit','basePay','juPay','wolchaPay','extraPay'],d_income:['tax'],d_local:['localTax'],d_health:['ins_h'],d_pension:['ins_p'],d_employ:['ins_e']};
+var CELL_FOCUS={days:'days',joo:'joo',wolcha:'wolcha',gross:'basePay',d_health:'ins_h',d_pension:'ins_p',d_employ:'ins_e',d_income:'tax',d_local:'localTax'};
 function whyHtml(w,c){
   var L=[],t=c.tax,ins=w.ins;
   L.push('<b>1일 단가</b> = 최저시급 '+won(c.hourly)+'원 × '+c.hoursPerDay+'시간 = '+won(c.dayRate)+'원');
@@ -693,13 +741,16 @@ function updateComputed(){
     var el=$('tr.fx[data-w="'+w.id+'"]'),dt=$('tr.dt[data-w="'+w.id+'"]');if(!el)return;var c=calc(w);
     var auto=WAGE.calcWorker(Object.assign({},w,{ovr:{}}),ctxS());
     var v={days:c.days+'일',joo:c.joo,wolcha:c.wolcha,gross:won(c.gross),d_health:won(c.ded.health),d_pension:won(c.ded.pension),d_employ:won(c.ded.employ),d_income:won(c.ded.incomeTax),d_local:won(c.ded.localTax),net:won(c.net),erTotal:won(c.erTotal)};
-    FX_CELLS.forEach(function(k){var n=$('[data-b="'+k+'"]',el);if(n)n.textContent=v[k];});
+    var edited=c.edited.concat(w.insEdited||[]);
+    FX_CELLS.forEach(function(k){var n=$('[data-b="'+k+'"]',el);if(n){n.textContent=v[k];n.classList.toggle('ed',(CELL_KEYS[k]||[]).some(function(x){return edited.indexOf(x)>=0;}));}});
     var ins=w.ins,b=$('[data-b="ins"]',el);
     b.innerHTML=!parsedIns?'':ins&&ins.found?'':'<span class="chip bad">고지서 없음</span>';
-    var tx=c.tax;if(tx.manual)b.innerHTML+=' <span class="chip warn" title="간이세액표 값과 다르게 직접 입력함">소득세 직접</span>';else if(!tx.known)b.innerHTML+=' <span class="chip bad">소득세 입력 필요</span>';
+    var tx=c.tax;if(edited.length)b.innerHTML+=' <span class="chip warn" title="직접 고친 값이 있습니다">✎ 수정 '+edited.length+'</span>';if(!tx.manual&&!tx.known)b.innerHTML+=' <span class="chip bad">소득세 입력 필요</span>';
     tot.days+=c.days;tot.joo+=c.joo;tot.wolcha+=c.wolcha;tot.gross+=c.gross;tot.d_health+=c.ded.health;tot.d_pension+=c.ded.pension;tot.d_employ+=c.ded.employ;tot.d_income+=c.ded.incomeTax;tot.d_local+=c.ded.localTax;tot.net+=c.net;tot.erTotal+=c.erTotal;
     if(!dt.hidden){
-      $('[data-o="days"]',dt).placeholder='자동 '+auto.days;$('[data-o="joo"]',dt).placeholder='자동 '+auto.joo;$('[data-o="wolcha"]',dt).placeholder='자동 '+auto.wolcha;$('[data-o="tax"]',dt).placeholder='자동 '+won(c.tax.auto);
+      var ph={days:auto.days,joo:auto.joo,wolcha:auto.wolcha,dayRate:won(c.autoDayRate),juUnit:won(c.autoJuUnit),basePay:won(c.days*c.dayRate),juPay:won(c.joo*c.juUnit),wolchaPay:won(c.wolcha*c.juUnit),
+        extraPay:won(Math.round(c.extraHours*c.hourly)),tax:won(c.tax.auto),localTax:won(c.localAuto)};
+      $$('[data-o]',dt).forEach(function(inp){var k=inp.getAttribute('data-o');if(ph[k]!=null)inp.placeholder='자동 '+ph[k];inp.classList.toggle('ed',edited.indexOf(k)>=0);});
       $('[data-b="why"]',dt).innerHTML=whyHtml(w,c);
     }
   });
@@ -710,6 +761,12 @@ function updateComputed(){
   renderChecks();renderProg();
 }
 $('#fixT').addEventListener('click',function(e){
+  var rs=e.target.closest('[data-reset]');
+  if(rs){var w0=findW(rs.getAttribute('data-reset'));w0.ovr={};w0.tax=null;w0.extraHours=0;w0.insEdited=[];if(parsedIns)w0.ins=WAGE.matchInsurance(w0,parsedIns);renderIns();renderCards();toast(w0.name+': 자동 계산값으로 되돌렸습니다.');return;}
+  var cellTd=e.target.closest('tr.fx td[data-b]');
+  if(cellTd&&CELL_FOCUS[cellTd.getAttribute('data-b')]){var wc=findW(cellTd.closest('tr.fx').getAttribute('data-w')),dtc=$('tr.dt[data-w="'+wc.id+'"]');
+    if(!wc.open){wc.open=true;dtc.hidden=false;$('[data-tog="'+wc.id+'"]').textContent='▾';$('[data-b="cal"]',dtc).innerHTML=calHtml(wc);updateComputed();}
+    var inp=$('[data-o="'+CELL_FOCUS[cellTd.getAttribute('data-b')]+'"]',dtc);if(inp){inp.focus();inp.select&&inp.select();}return;}
   var tg=e.target.closest('[data-tog]');
   if(tg){var w=findW(tg.getAttribute('data-tog'));w.open=!w.open;var dt=$('tr.dt[data-w="'+w.id+'"]');dt.hidden=!w.open;tg.textContent=w.open?'▾':'▸';
     if(w.open){$('[data-b="cal"]',dt).innerHTML=calHtml(w);}updateComputed();return;}
@@ -721,7 +778,10 @@ $('#fixT').addEventListener('click',function(e){
 });
 $('#fixT').addEventListener('input',function(e){
   var t=e.target,o=t.getAttribute('data-o');if(!o)return;var w=findW(t.closest('tr.dt').getAttribute('data-w'));w.ovr=w.ovr||{};
-  if(o==='extra')w.extraHours=+t.value||0;else if(o==='tax')w.tax=t.value===''?null:(+t.value||0);else w.ovr[o]=t.value===''?null:+t.value;
+  if(o==='extra')w.extraHours=+t.value||0;
+  else if(o==='tax')w.tax=t.value===''?null:(+t.value||0);
+  else if(o.indexOf('ins_')===0){var m={h:'health',p:'pension',e:'employ'}[o.slice(4)];w.ins=w.ins||{found:false,health:[0,0],pension:[0,0],employ:[0,0],accident:0};w.ins[m][0]=+t.value||0;w.insEdited=(w.insEdited||[]).filter(function(x){return x!==o;}).concat([o]);renderIns();}
+  else w.ovr[o]=t.value===''?null:+t.value;
   updateComputed();
 });
 function renderProg(){
@@ -797,7 +857,7 @@ function dailyHtml(w){
     return '<tr class="dates"><th class="lbl">일자(요일)</th>'+wk.map(function(d){return '<td>'+(d?p.m+'/'+d.d+'('+DOWK[d.dow]+')':'')+'</td>';}).join('')+'</tr>'
       +'<tr class="chk"><th class="lbl">확인</th>'+wk.map(function(d){
         if(!d)return '<td></td>';if(worked[d.iso])return '<td class="work"></td>';
-        return '<td>'+(S.closedDow.indexOf(d.dow)>=0?'휴관':'')+'</td>';}).join('')+'</tr>';
+        return '<td>'+(isClosedDay(d.iso,d.dow)?'휴관':'')+'</td>';}).join('')+'</tr>';
   }).join('');
   return '<div class="paper daily"><div class="box"><b>'+esc(S.site)+' '+kind+'<br>기간제근로자 일일점검부</b><span>('+monthLabel()+')</span></div>'
     +'<table class="dsum"><tr><th>평일근무일수</th><th>주말근무일수</th><th>비고</th></tr><tr><td>'+(wd||'-')+'</td><td>'+(we||'-')+'</td><td>'+esc(w.name)+'</td></tr></table>'
@@ -863,31 +923,31 @@ async function buildXlsx(){
     sumRows.push(R);baseRows.push(R1);netRows.push(R);if(n===3)specRows.push(R2);
     cell(ws1,'A'+R,i+1);cell(ws1,'B'+R,w.name+(kindTxt?'\n('+kindTxt+')':''));
     cell(ws1,'C'+R,'소계');cell(ws1,'C'+R1,'기본');
-    var baseK=c.days*c.dayRate+Math.round(c.extraHours*c.hourly);
+    var baseK=c.basePay+c.extraPay,baseF=(c.basePay===c.days*c.dayRate&&c.extraPay===Math.round(c.extraHours*c.hourly)),specF=(c.juPay+c.wolchaPay===(c.joo+c.wolcha)*c.juUnit);
     if(n===3){
       cell(ws1,'D'+R,c.days+c.joo+c.wolcha,'SUM(E'+R+':G'+R+')');cell(ws1,'E'+R,c.joo,'E'+R2);cell(ws1,'F'+R,c.wolcha,'F'+R2);cell(ws1,'G'+R,c.days,'G'+R1);
       cell(ws1,'H'+R,0);cell(ws1,'I'+R,0);cell(ws1,'J'+R,c.hourly);cell(ws1,'K'+R,c.gross,'K'+R1+'+K'+R2);
       cell(ws1,'C'+R2,'특별');cell(ws1,'D'+R2,c.joo+c.wolcha,'E'+R2+'+F'+R2);cell(ws1,'E'+R2,c.joo);cell(ws1,'F'+R2,c.wolcha);cell(ws1,'G'+R2,'-');
-      cell(ws1,'H'+R2,c.juUnit);cell(ws1,'I'+R2,0);cell(ws1,'J'+R2,0);cell(ws1,'K'+R2,c.joo*c.juUnit+c.wolcha*c.juUnit,'SUM(E'+R2+':F'+R2+')*H'+R2);
+      cell(ws1,'H'+R2,c.juUnit);cell(ws1,'I'+R2,0);cell(ws1,'J'+R2,0);cell(ws1,'K'+R2,c.juPay+c.wolchaPay,specF?'SUM(E'+R2+':F'+R2+')*H'+R2:null);
     }else{
       cell(ws1,'D'+R,c.days);cell(ws1,'E'+R,0,'E'+R1);cell(ws1,'F'+R,0,'F'+R1);cell(ws1,'G'+R,c.days,'D'+R);cell(ws1,'H'+R,c.dayRate);cell(ws1,'I'+R,0);cell(ws1,'J'+R,0);cell(ws1,'K'+R,baseK,'K'+R1);
     }
     cell(ws1,'D'+R1,c.days,n===3?null:'D'+R);cell(ws1,'E'+R1,0);cell(ws1,'F'+R1,0);cell(ws1,'G'+R1,c.days,'D'+R1);
-    cell(ws1,'H'+R1,c.dayRate);cell(ws1,'I'+R1,c.extraHours||0);cell(ws1,'J'+R1,c.extraHours?c.hourly:0);cell(ws1,'K'+R1,baseK,'G'+R1+'*H'+R1+'+I'+R1+'*J'+R1);
+    cell(ws1,'H'+R1,c.dayRate);cell(ws1,'I'+R1,c.extraHours||0);cell(ws1,'J'+R1,c.extraHours?c.hourly:0);cell(ws1,'K'+R1,baseK,baseF?'G'+R1+'*H'+R1+'+I'+R1+'*J'+R1:null);
     if(n===3&&!c.extraHours){/* 소계 줄 추가수당 단가는 양식대로 표시 */}
     cell(ws1,'L'+R,c.ded.health);cell(ws1,'M'+R,c.ded.pension);cell(ws1,'N'+R,c.ded.employ);cell(ws1,'O'+R,c.ded.incomeTax);cell(ws1,'P'+R,c.ded.localTax);
     cell(ws1,'Q'+R,c.dedTotal,'L'+R+'+M'+R+'+N'+R+'+O'+R+'+P'+R);cell(ws1,'R'+R,c.net,'K'+R+'-Q'+R);
     cell(ws1,'T'+R,c.er.health);cell(ws1,'U'+R,c.er.pension);cell(ws1,'V'+R,c.er.employ);cell(ws1,'W'+R,c.er.accident);cell(ws1,'X'+R,c.erTotal,'SUM(T'+R+':W'+Rend+')');
     'ABLMNOPQRSTUVWX'.split('').forEach(function(col){if(col!=='K')ws1.mergeCells(col+R+':'+col+Rend);});
   });
-  var tot=list.reduce(function(a,x){a.days+=x.c.days;a.joo+=x.c.joo;a.wolcha+=x.c.wolcha;a.gross+=x.c.gross;a.dedT+=x.c.dedTotal;a.net+=x.c.net;a.er+=x.c.erTotal;a.h+=x.c.ded.health;a.pn+=x.c.ded.pension;a.em+=x.c.ded.employ;a.it+=x.c.ded.incomeTax;a.lt+=x.c.ded.localTax;a.ex+=x.c.extraHours;a.spec+=x.c.joo*x.c.juUnit+x.c.wolcha*x.c.juUnit;return a;},{days:0,joo:0,wolcha:0,gross:0,dedT:0,net:0,er:0,h:0,pn:0,em:0,it:0,lt:0,ex:0,spec:0});
+  var tot=list.reduce(function(a,x){a.days+=x.c.days;a.joo+=x.c.joo;a.wolcha+=x.c.wolcha;a.gross+=x.c.gross;a.dedT+=x.c.dedTotal;a.net+=x.c.net;a.er+=x.c.erTotal;a.h+=x.c.ded.health;a.pn+=x.c.ded.pension;a.em+=x.c.ded.employ;a.it+=x.c.ded.incomeTax;a.lt+=x.c.ded.localTax;a.ex+=x.c.extraHours;a.spec+=x.c.juPay+x.c.wolchaPay;return a;},{days:0,joo:0,wolcha:0,gross:0,dedT:0,net:0,er:0,h:0,pn:0,em:0,it:0,lt:0,ex:0,spec:0});
   var sum=function(col,rows){return rows.length?rows.map(function(r){return col+r;}).join('+'):'0';};
   var firstSpec=list.filter(function(x){return x.n===3;})[0];
   cell(ws1,'B1','『'+S.site+' 기간제근로자』 인부임지급 내역');cell(ws1,'X2',S.org+' '+S.dept);
   cell(ws1,'B5',list.length+'명','COUNTA(B8:B'+last+')&"명"');
   cell(ws1,'D5',tot.days+tot.joo+tot.wolcha,sum('D',sumRows));cell(ws1,'E5',tot.joo,sum('E',sumRows));cell(ws1,'F5',tot.wolcha,sum('F',sumRows));cell(ws1,'G5',tot.days,sum('G',sumRows));
   cell(ws1,'H5',dayRate);cell(ws1,'I5',0);cell(ws1,'J5',hourly);cell(ws1,'K5',tot.gross,'K6+K7');
-  cell(ws1,'D6',tot.days,'G6');cell(ws1,'E6',0);cell(ws1,'F6',0);cell(ws1,'G6',tot.days,sum('G',baseRows));cell(ws1,'H6',dayRate);cell(ws1,'I6',tot.ex,sum('I',baseRows));cell(ws1,'J6',hourly);cell(ws1,'K6',tot.days*dayRate+Math.round(tot.ex*hourly),'G6*H6+I6*J6');
+  cell(ws1,'D6',tot.days,'G6');cell(ws1,'E6',0);cell(ws1,'F6',0);cell(ws1,'G6',tot.days,sum('G',baseRows));cell(ws1,'H6',dayRate);cell(ws1,'I6',tot.ex,sum('I',baseRows));cell(ws1,'J6',hourly);cell(ws1,'K6',list.reduce(function(a,x){return a+x.c.basePay+x.c.extraPay;},0),sum('K',baseRows));
   cell(ws1,'D7',tot.joo+tot.wolcha,'E7+F7');cell(ws1,'E7',tot.joo,sum('E',specRows));cell(ws1,'F7',tot.wolcha,sum('F',specRows));cell(ws1,'G7',0);cell(ws1,'H7',firstSpec?firstSpec.c.juUnit:0);cell(ws1,'I7',0);cell(ws1,'J7',0);cell(ws1,'K7',tot.spec,sum('K',specRows));
   [['L',tot.h],['M',tot.pn],['N',tot.em],['O',tot.it],['P',tot.lt]].forEach(function(a){cell(ws1,a[0]+'5',a[1],'SUM('+a[0]+'8:'+a[0]+last+')');});
   cell(ws1,'Q5',tot.dedT,'SUM(L5:P7)');cell(ws1,'R5',tot.net+tot.dedT,'SUM(R6:R7)');cell(ws1,'R6',tot.net,sum('R',netRows));cell(ws1,'R7',tot.dedT,'Q5');
@@ -945,11 +1005,11 @@ async function buildXlsx(){
     var R=x.R,R1=R+1,R2=R+2,bankRow=8+i;
     cell(ws,'B3',w.name,B2+'B'+bankRow);cell(ws,'B4','  '+p.y+'. '+p.m+'. 1. ~ '+p.m+'. '+ld+'.',B2+'C3');
     cell(ws,'B5',(w.bank+' '+w.account).trim());cell(ws,'B6',c.net,W1+'R'+R);
-    cell(ws,'B11',c.dayRate,W1+'H'+R1);cell(ws,'C11',c.days,W1+'G'+R1);cell(ws,'D11',c.basePay,'B11*C11');
+    cell(ws,'B11',c.dayRate,W1+'H'+R1);cell(ws,'C11',c.days,W1+'G'+R1);cell(ws,'D11',c.basePay,c.basePay===c.dayRate*c.days?'B11*C11':null);
     if(x.n===3){
-      cell(ws,'A12','초과근무');cell(ws,'B12',c.hourly,W1+'J'+R);cell(ws,'C12',c.extraHours,W1+'I'+R1);cell(ws,'D12',c.extraPay,'B12*C12');
-      cell(ws,'A13','주휴수당');cell(ws,'B13',c.juUnit,W1+'H'+R2);cell(ws,'C13',c.joo,W1+'E'+R2);cell(ws,'D13',c.juPay,'B13*C13');
-      cell(ws,'A14','월차수당');cell(ws,'B14',c.juUnit,W1+'H'+R2);cell(ws,'C14',c.wolcha,W1+'F'+R2);cell(ws,'D14',c.wolchaPay,'B14*C14');
+      cell(ws,'A12','초과근무');cell(ws,'B12',c.hourly,W1+'J'+R);cell(ws,'C12',c.extraHours,W1+'I'+R1);cell(ws,'D12',c.extraPay,c.extraPay===Math.round(c.hourly*c.extraHours)?'B12*C12':null);
+      cell(ws,'A13','주휴수당');cell(ws,'B13',c.juUnit,W1+'H'+R2);cell(ws,'C13',c.joo,W1+'E'+R2);cell(ws,'D13',c.juPay,c.juPay===c.juUnit*c.joo?'B13*C13':null);
+      cell(ws,'A14','월차수당');cell(ws,'B14',c.juUnit,W1+'H'+R2);cell(ws,'C14',c.wolcha,W1+'F'+R2);cell(ws,'D14',c.wolchaPay,c.wolchaPay===c.juUnit*c.wolcha?'B14*C14':null);
     }else{['A12','A13','A14'].forEach(function(a){ws.getCell(a).value=null;});}
     cell(ws,'D10',c.gross,'SUM(D11:D14)');
     cell(ws,'F10',c.dedTotal,'SUM(F11:F16)');
@@ -1046,7 +1106,7 @@ function hwpxDailyBlocks(w){
   weeks.forEach(function(wk){
     rows.push({h:9,cells:[cell('일자(요일)',{cs:CS.SMALL,bf:H.BF.SHADE})].concat(wk.map(function(d){return cell(d?p.m+'/'+d.d+'('+DOWK[d.dow]+')':'',{cs:CS.SMALL,bf:H.BF.SHADE});}))});
     rows.push({h:15,cells:[cell('확인',{cs:CS.SMALL})].concat(wk.map(function(d){
-      if(!d)return cell('');if(worked[d.iso])return cell('',{bf:H.BF.DIAG});return cell(S.closedDow.indexOf(d.dow)>=0?'휴관':'');}))});
+      if(!d)return cell('');if(worked[d.iso])return cell('',{bf:H.BF.DIAG});return cell(isClosedDay(d.iso,d.dow)?'휴관':'');}))});
   });
   return [{k:'p',text:'',space:0},{k:'p',text:''},
     {k:'tbl',al:'CENTER',widths:[112],rows:[{h:30,cells:[{lines:[{t:S.site+(kind?' '+kind:''),cs:CS.TITLE},{t:'기간제근로자 일일점검부',cs:CS.TITLE},{t:'('+monthLabel()+')',cs:CS.BODY12}],al:'CENTER',bf:H.BF.THICK}]}]},
@@ -1100,7 +1160,7 @@ window.__wage={scans:function(){return scans;},buildHwpx:buildHwpx,buildXlsx:bui
 
 /* ---------- 연결 ---------- */
 function refreshAll(light){
-  syncHourly();
+  syncHourly();renderClosedCal();
   if(light){updateComputed();return;}
   renderIns();renderCards();if(notices.length)renderNotice();if(scans.length)renderScan();renderChecks();
 }

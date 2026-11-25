@@ -95,4 +95,12 @@ assert.deepStrictEqual([cl.isClaim, cl.gross, cl.account, cl.days, cl.dayRate, c
 assert.deepStrictEqual(SR.parseDailyTitle('익산 구 춘포역사 주말\n기간제근로자 일일점검부\n(2026년 10월)'), { kind: 'weekend', ym: '2026-10', isDaily: true });
 assert.strictEqual(SR.monthGrid('2026-10')[0][3], '2026-10-01');   // 10/1 = 목요일 칸
 assert.strictEqual(SR.kindOfDates(['2026-10-03', '2026-10-04']), 'weekend');
+// 휴관 날짜: 근무일에서 빠지지만 결근이 아니라 주휴·월차는 그대로
+const cl0 = W.calcWorker(Object.assign({}, a, { tax: null }), Object.assign({}, S, { closedDates: ['2026-10-14'] }));
+assert.deepStrictEqual([cl0.days, cl0.joo, cl0.wolcha], [17, 4, 1]);
+// 직접 수정: 단가·주휴수당·지방소득세를 고치면 합계가 따라가고 무엇을 고쳤는지 남는다
+const ed = W.calcWorker(Object.assign({}, a, { tax: null, ovr: { dayRate: 80000, juPay: 200000, localTax: 1000 } }), S);
+assert.strictEqual(ed.basePay, 18 * 80000); assert.strictEqual(ed.juPay, 200000); assert.strictEqual(ed.gross, 18 * 80000 + 200000 + 60140);
+assert.strictEqual(ed.ded.localTax, 1000); assert.deepStrictEqual(ed.edited.sort(), ['dayRate', 'juPay', 'localTax']);
+assert.strictEqual(ed.ded.incomeTax, W.simpleTax(ed.gross, 1).tax);   // 소득세는 바뀐 산출액으로 다시 자동 산정
 console.log('wagecalc OK');

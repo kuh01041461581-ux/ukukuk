@@ -74,7 +74,9 @@ var WAGE = (function () {
     var base = w.kind === 'weekend' ? [0, 6] : w.kind === 'custom' ? (w.dow || []) : [1, 2, 3, 4, 5];
     return base.filter(function (x) { return closed.indexOf(x) < 0; });
   }
-  function isOffHoliday(isoStr, S) { return !!S.excludeHoliday && !!holidayName(isoStr); }
+  /* 쉬는 날(근무일에서 빠지지만 결근이 아님 → 주휴·월차 개근 판단에서도 빼고 본다):
+     공휴일 제외를 켠 경우의 공휴일 + 설정에서 지정한 휴관 날짜 */
+  function isOffHoliday(isoStr, S) { return (!!S.excludeHoliday && !!holidayName(isoStr)) || ((S.closedDates || []).indexOf(isoStr) >= 0); }
 
   function workDates(w, S) {
     var dows = scheduledDow(w, S), off = w.off || [], on = w.on || [], out = [];
@@ -150,19 +152,24 @@ var WAGE = (function () {
     var p = parseYm(S.ym), monthEnd = iso(p.y, p.m, daysInMonth(p.y, p.m));
     var firstYear = !(w.hire) || yearsBetween(w.hire, monthEnd) < 1;
     var wolcha = (juEligible && full && firstYear) ? 1 : 0;
-    var ovr = w.ovr || {};
-    var days = ovr.days != null && ovr.days !== '' ? +ovr.days : worked.length;
-    if (ovr.joo != null && ovr.joo !== '') joo = +ovr.joo;
-    if (ovr.wolcha != null && ovr.wolcha !== '') wolcha = +ovr.wolcha;
+    /* 직접 수정한 값(w.ovr)이 있으면 그 값을, 없으면 자동 값을 쓴다. edited 에 무엇을 고쳤는지 남긴다 */
+    var ovr = w.ovr || {}, edited = [], has = function (k) { return ovr[k] != null && ovr[k] !== ''; };
+    var pick = function (k, auto) { if (has(k)) { edited.push(k); return +ovr[k]; } return auto; };
+    var autoJu = juUnit, autoRate = dayRate;
+    var days = pick('days', worked.length);
+    joo = pick('joo', joo); wolcha = pick('wolcha', wolcha);
+    dayRate = pick('dayRate', dayRate); juUnit = pick('juUnit', juUnit);
     var extraHours = +w.extraHours || 0;
-    var basePay = days * dayRate, juPay = joo * juUnit, wolchaPay = wolcha * juUnit, extraPay = Math.round(extraHours * hourly);
+    var basePay = pick('basePay', days * dayRate), juPay = pick('juPay', joo * juUnit), wolchaPay = pick('wolchaPay', wolcha * juUnit), extraPay = pick('extraPay', Math.round(extraHours * hourly));
     var gross = basePay + juPay + wolchaPay + extraPay;
     var ins = w.ins || { found: false, health: [0, 0], pension: [0, 0], employ: [0, 0], accident: 0 };
     var st = simpleTax(gross, (+w.fam || 1) + (+w.kids || 0));
     var manual = (w.tax != null && w.tax !== '');
     var taxPct = (S.taxPct != null && S.taxPct !== '') ? +S.taxPct : 100;          // 간이세액표의 80/100/120% 중 선택(원천징수 선택)
     var taxAuto = floor10(st.tax * taxPct / 100);
-    var incomeTax = manual ? (+w.tax || 0) : taxAuto, localTax = floor10(incomeTax * 0.1);
+    var incomeTax = manual ? (+w.tax || 0) : taxAuto, localAuto = floor10(incomeTax * 0.1);
+    if (manual) edited.push('tax');
+    var localTax = pick('localTax', localAuto);
     var ded = { health: ins.health[0], pension: ins.pension[0], employ: ins.employ[0], incomeTax: incomeTax, localTax: localTax };
     var dedTotal = ded.health + ded.pension + ded.employ + ded.incomeTax + ded.localTax;
     var er = { health: ins.health[1], pension: ins.pension[1], employ: ins.employ[1], accident: ins.accident };
@@ -174,7 +181,8 @@ var WAGE = (function () {
       basePay: basePay, juPay: juPay, wolchaPay: wolchaPay, extraPay: extraPay, gross: gross,
       ded: ded, dedTotal: dedTotal, net: gross - dedTotal, er: er, erTotal: erTotal, total: gross + erTotal,
       special: joo + wolcha > 0 || extraHours > 0,
-      tax: { auto: taxAuto, manual: manual, row: st.row, fam: st.fam, known: st.known, pct: taxPct, base: gross }
+      tax: { auto: taxAuto, manual: manual, row: st.row, fam: st.fam, known: st.known, pct: taxPct, base: gross },
+      edited: edited, autoDayRate: autoRate, autoJuUnit: autoJu, localAuto: localAuto
     };
   }
   function calcAll(workers, S) {

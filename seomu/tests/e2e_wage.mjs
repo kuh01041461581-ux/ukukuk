@@ -41,6 +41,21 @@ await fr.click('tr.dt:not([hidden]) button[data-d="2026-10-14"]');
 const d2 = await fr.evaluate(() => { const c = __wage.calc(__wage.state().workers[0]); return [c.days, c.joo, c.wolcha]; });
 ok(JSON.stringify(d2) === '[17,3,0]', '10/14 휴무 → 17일·주휴3·월차0');
 await fr.click('tr.dt:not([hidden]) button[data-d="2026-10-14"]');
+// 휴관 날짜: 설정 달력에서 10/14 를 휴관으로 → 근무일 17, 주휴·월차는 그대로(결근 아님) → 다시 눌러 해제
+await fr.click('#closedCal [data-cd="2026-10-14"]');
+const cd = await fr.evaluate(() => { const c = __wage.calc(__wage.state().workers[0]); return [c.days, c.joo, c.wolcha, /휴관/.test(__wage.dailyHtml(__wage.state().workers[0]).split('10/14')[1].slice(0, 400))]; });
+ok(JSON.stringify(cd) === '[17,4,1,true]', '휴관 날짜 10/14 → 17일 · 주휴 4 · 월차 1 · 일일점검부에 휴관: ' + cd);
+await fr.click('#closedCal [data-cd="2026-10-14"]');
+// 직접 수정: 표의 소득세 숫자를 눌러 고치기 → 지방소득세·실지급 따라감, 되돌리기
+await fr.click('tr.fx:nth-of-type(1) td[data-b="d_income"]');
+await fr.fill('tr.dt:not([hidden]) [data-o="tax"]', '15000');
+await fr.fill('tr.dt:not([hidden]) [data-o="dayRate"]', '80000');
+const ov = await fr.evaluate(() => { const c = __wage.calc(__wage.state().workers[0]); return [c.ded.incomeTax, c.ded.localTax, c.basePay, c.edited.sort().join(',')]; });
+ok(JSON.stringify(ov) === '[15000,1500,1440000,"dayRate,tax"]', '직접 수정: 소득세 15,000 → 지방 1,500 · 단가 80,000 → 기본급 1,440,000: ' + ov);
+ok(await fr.$eval('tr.fx:nth-of-type(1) td[data-b="d_income"]', e => e.classList.contains('ed')), '고친 칸 표시(✎)');
+await fr.click('tr.dt:not([hidden]) [data-reset]');
+const rv = await fr.evaluate(() => { const c = __wage.calc(__wage.state().workers[0]); return [c.ded.incomeTax, c.basePay, c.edited.length]; });
+ok(JSON.stringify(rv) === '[12020,1353240,0]', '자동 계산으로 되돌리기: ' + rv);
 // 계좌(공단) 입력 — 접힌 칸을 펼친 뒤
 await fr.evaluate(() => document.querySelectorAll('details.fold').forEach(d => d.open = true));
 await fr.fill('[data-a="health"][data-f="bank"]', '농협'); await fr.fill('[data-a="health"][data-f="no"]', '000-0000-0000-00');

@@ -49,7 +49,21 @@ W0, H0 = im.size; mk = Image.new('L', (W0, H0), 255); d = ImageDraw.Draw(mk); R 
 d.rectangle([xl, 0, xl + R, R], fill=0); d.ellipse([xl, 0, xl + 2 * R, 2 * R], fill=255); d.rectangle([xr - R, 0, xr, R], fill=0); d.ellipse([xr - 2 * R, 0, xr, 2 * R], fill=255)
 d.rectangle([0, 0, xl - 1, R], fill=0); d.rectangle([xr + 1, 0, W0, R], fill=0)
 al = (m * 255).astype(np.uint8) & np.asarray(mk)
-rgba = Image.fromarray(np.dstack([a.astype(np.uint8), al]), 'RGBA'); BB = rgba.getbbox(); rgba = rgba.crop(BB)
+PADT = int(os.environ.get('CROWN', '90'))                                             # 원본 그림은 정수리가 잘려 있다: 위에 둥근 정수리 머리를 덧붙인다(맨 위 머리 띠를 반사해 결을 이음)
+if PADT:
+    al = (m * 255).astype(np.uint8)                                                  # 정수리를 붙이면 모서리 깎기는 필요 없다
+    band = 36; src_rows = [(band - 1 - ((PADT - 1 - y) % (2 * band))) if ((PADT - 1 - y) % (2 * band)) < band else ((PADT - 1 - y) % band) for y in range(PADT)]
+    pad = a[src_rows].astype(float); cxm = (xl + xr) / 2.0; HW = (xr - xl) / 2.0 - 4
+    pal_ = np.zeros((PADT, W0), np.uint8)
+    for y in range(PADT):
+        t = (PADT - y) / float(PADT); hw = HW * np.sqrt(max(0.0, 1 - t ** 2.2)); x0, x1 = int(cxm - hw), int(cxm + hw)
+        pal_[y, max(0, x0):min(W0, x1)] = 255; pad[y] *= (0.80 + 0.20 * (1 - t))                # 위로 갈수록 조금 어둡게(둥근 입체감)
+    a = np.concatenate([pad.astype(int), a], axis=0); al = np.concatenate([np.full((PADT, W0), 255, np.uint8), al], axis=0)
+    TOPH = PADT + 260                                                                # 정수리부터 원본 260줄까지 하나의 둥근 머리 윤곽(타원)으로 깎는다
+    for y in range(TOPH):
+        t = (TOPH - y) / float(TOPH); hw = HW * np.sqrt(max(0.0, 1 - t * t)); x0, x1 = int(cxm - hw), int(cxm + hw)
+        al[y, :max(0, x0)] = 0; al[y, min(W0, x1):] = 0
+rgba = Image.fromarray(np.dstack([a.astype(np.uint8), al]), 'RGBA'); BB = rgba.getbbox(); rgba = rgba.crop(BB); BB = (BB[0], BB[1] - PADT, BB[2], BB[3] - PADT)
 b = np.asarray(rgba).astype(int); skb = skin(b); ey_b = eyes(b, skb); xs = np.where(skb[ey_b + int(rgba.height * 0.04)])[0]
 cx_b = (xs.min() + xs.max()) / 2; fw_b = xs.max() - xs.min() + 1
 # 크기: 표정 조각의 눈~턱 길이(HD) = 베이스 그림의 눈(431)~턱(960) 길이. 위치: 두 눈 가운데(825,431)를 표정 조각의 두 눈 가운데에 맞춘다(원본 좌표, 이목구비를 지우기 전 측정)

@@ -144,10 +144,20 @@ def item_lines(item):
     return out
 
 
+def safe_date(v):
+    """날짜 글 → date, 못 읽으면 None (엉뚱한 날짜 하나 때문에 문서 전체가 안 만들어지지 않게)"""
+    try:
+        return T.parse_date(v) if v else None
+    except Exception:                                  # noqa: BLE001
+        return None
+
+
 def when_text(item):
     if not item.get("date"):
         return ""
-    d = T.parse_date(item["date"])
+    d = safe_date(item["date"])
+    if d is None:
+        return str(item["date"])                        # 못 읽은 날짜는 적은 글 그대로 보여 준다
     s = T.fmt_date_long(d)
     tm = (item.get("time") or "").strip()
     et = (item.get("end_time") or "").strip()
@@ -449,7 +459,9 @@ class WeeklyScheduleForm:
         big.remove(big.find(HP + "tr"))
         by_date = collections.defaultdict(list)
         for ev in data.get("events", []):
-            by_date[T.parse_date(ev["date"])].append(ev)
+            dd = safe_date(ev.get("date"))
+            if dd is not None:                          # 날짜를 못 읽은 일정은 표에서 뺀다
+                by_date[dd].append(ev)
         min_rows = int(data.get("min_rows", 3))
         row_h = int(self.meta.get("row_height", 2400))
         rows = [clone(self.header)]
@@ -710,8 +722,10 @@ def extract_events(items, attend_default=""):
                 "attend": attend, "note": note, "important": bool(it.get("important"))}
         days = [it["date"]]
         try:                                             # 여러 날 행사는 날마다 해당 요일 칸에 넣는다(시각은 첫날만)
-            d0 = T.parse_date(it["date"])
-            d1 = T.parse_date(it["end_date"]) if it.get("end_date") else d0
+            d0 = safe_date(it["date"])
+            d1 = (safe_date(it["end_date"]) if it.get("end_date") else d0) or d0
+            if d0 is None:
+                raise ValueError("bad date")
             if 0 < (d1 - d0).days <= 14:
                 days = [(d0 + datetime.timedelta(days=i)).isoformat() for i in range((d1 - d0).days + 1)]
         except Exception:                                # noqa: BLE001

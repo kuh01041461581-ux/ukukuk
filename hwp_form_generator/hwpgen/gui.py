@@ -531,7 +531,7 @@ class WeeklyTab(ttk.Frame):
                 f = registry.load_form("weekly_schedule")
                 evs_all = weekly.extract_events(items)
                 end_w = self.monday + datetime.timedelta(days=6)
-                evs = [e for e in evs_all if self.monday <= T.parse_date(e["date"]) <= end_w]
+                evs = [e for e in evs_all if (weekly.safe_date(e["date"]) or datetime.date.min) >= self.monday and (weekly.safe_date(e["date"]) or datetime.date.max) <= end_w]
                 out_w = [e for e in evs_all if e not in evs]
                 nodate = [i.get("title", "") for i in items if not i.get("date")]
                 if out_w or nodate:                      # 표에 못 들어가는 일정은 말없이 빼지 않고 알려 준다
@@ -2423,7 +2423,7 @@ class Widget(tk.Tk):
             else:
                 end = monday + datetime.timedelta(days=6)
                 allev = weekly.extract_events(data["items"])
-                evs = [e for e in allev if monday <= T.parse_date(e["date"]) <= end]
+                evs = [e for e in allev if weekly.safe_date(e["date"]) and monday <= weekly.safe_date(e["date"]) <= end]
                 skipped = len(allev) - len(evs) + sum(1 for i in data["items"] if not i.get("date"))
                 if skipped:
                     messagebox.showinfo("주요일정에서 빠진 일정", "이 주(%s ~ %s)에 들어가지 못한 일정이 %d개 있어요.\n(날짜가 다른 주이거나 일시가 없는 일정)" % (

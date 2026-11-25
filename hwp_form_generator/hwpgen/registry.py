@@ -6,6 +6,7 @@
 양식 폴더 하나 = form.json(이름·입력 칸·서식 규칙) + template.hwpx(틀) + protos.xml(문단·표 견본).
 """
 import json
+import re
 import os
 import shutil
 import sys
@@ -55,10 +56,34 @@ def list_forms(roots=None):
     return list(found.values())
 
 
+_BAD_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff\ud800-\udfff]")
+
+
+def clean_text(s):
+    """XML 에 못 들어가는 제어 글자(한글에서 복사한 글에 섞여 오는 \x02·\x0b 같은 것)를 뺀다 — 안 빼면 '만들 수 없어요'로 멈춘다"""
+    return _BAD_XML.sub("", s) if isinstance(s, str) else s
+
+
+def deep_clean(o):
+    if isinstance(o, str):
+        return clean_text(o)
+    if isinstance(o, dict):
+        return {k: deep_clean(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return type(o)(deep_clean(v) for v in o)
+    return o
+
+
 def load_form(form_id, roots=None):
     for fid, folder, meta in list_forms(roots):
         if fid == form_id:
-            return KINDS[meta["kind"]](folder)
+            form = KINDS[meta["kind"]](folder)
+            raw = form.render
+
+            def render(*a, **k):                          # 입력(칸 값·본문·일정)의 제어 글자를 먼저 걸러 낸다
+                return raw(*deep_clean(a), **deep_clean(k))
+            form.render = render
+            return form
     raise KeyError("양식을 찾을 수 없어요: %s" % form_id)
 
 

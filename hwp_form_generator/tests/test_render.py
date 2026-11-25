@@ -936,3 +936,19 @@ class CleanPlanLinesTests(unittest.TestCase):
         cleaned = [x for x in weekly.clean_plan_lines(text.split("\n")) if x.strip()]
         for junk in ("ㅍ", "□", "……", "1", "순    서", "주간업무계획"):
             self.assertNotIn(junk, cleaned)
+
+
+class RobustInputTests(unittest.TestCase):
+    def test_control_chars_and_bad_dates_do_not_break_forms(self):
+        """한글에서 복사한 글의 제어 글자·엉뚱한 날짜 하나 때문에 문서 전체가 안 만들어지지 않는다"""
+        f = registry.load_form("report_project", ROOTS)
+        f.render({x["key"]: "가\x02나\x0b다" for x in f.fields}, "□ 제목\x1f\n◦ 일시: 2026\x01").to_bytes()
+        from hwpgen import weekly
+        pl = registry.load_form("weekly_plan", ROOTS)
+        pl.render({"org": "국", "items": [{"title": "t\x02", "date": "bad", "lines": [("내용", "x\x0b")]}]}).to_bytes()
+        sc = registry.load_form("weekly_schedule", ROOTS)
+        pkg = sc.render({"org": "국", "start": "2026-11-23", "events": [{"date": "2026-11-23", "title": "정상"}, {"date": "2026-13-40", "title": "엉뚱"}]})
+        txt = ptext(pkg.section(0))
+        self.assertIn("정상", txt)
+        self.assertNotIn("엉뚱", txt)
+        self.assertIsNone(weekly.safe_date("2026-13-40"))

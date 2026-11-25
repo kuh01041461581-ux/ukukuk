@@ -50,9 +50,9 @@ $('#p-settings').addEventListener('change', e => { if (e.target.id === 's-thrlow
 /* 숫자 칸을 떠날 때 콤마 형식 복원 */
 document.addEventListener('focusout', e => { const t = e.target; if (t.matches && t.matches('input.cellin[inputmode="numeric"]')) { const v = parseNum(t.value); if (v != null && !isNaN(v)) t.value = won(v); } });
 
-function tabList() { if (S.opt && S.opt.helper) return [['sort', '고지서 분류'], ['guide', '사용법'], ['settings', '설정·백업']]; const t = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황'], ['sort', '고지서 분류']]; if (!(S.opt && S.opt.biz === false)) t.push(['biz', '전체 사업 진척'], ['report', '과 요약 보고서']); t.push(['import', '파일 불러오기'], ['guide', '사용법'], ['settings', '설정·백업']); return t; }
-const TABS_ALL = ['daily', 'util', 'sort', 'biz', 'report', 'import', 'guide', 'settings'];
-const RENDER = { daily: renderDaily, util: renderUtil, sort: renderSort, biz: renderBiz, report: renderReport, import: renderImport, guide: renderGuide, settings: renderSettings };
+function tabList() { if (S.opt && S.opt.helper) return [['sort', '고지서 분류'], ['guide', '사용법'], ['settings', '설정·백업']]; const t = [['daily', '일상경비 집행현황'], ['util', '공공요금 집행현황'], ['sort', '고지서 분류']]; if (!(S.opt && S.opt.biz === false)) t.push(['biz', '전체 사업 진척'], ['report', '과 요약 보고서'], ['doc', '보고서 출력']); t.push(['import', '파일 불러오기'], ['guide', '사용법'], ['settings', '설정·백업']); return t; }
+const TABS_ALL = ['daily', 'util', 'sort', 'biz', 'report', 'doc', 'import', 'guide', 'settings'];
+const RENDER = { daily: renderDaily, util: renderUtil, sort: renderSort, biz: renderBiz, report: renderReport, doc: renderDoc, import: renderImport, guide: renderGuide, settings: renderSettings };
 function showTab(t) {
   UI._noKeep = true; UI.tab = t; $$('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));
   TABS_ALL.forEach(k => { $('#p-' + k).hidden = k !== t; }); RENDER[t](); UI._noKeep = false; window.scrollTo(0, 0);
@@ -62,10 +62,10 @@ function updateBackupChip() {
   c.textContent = lb ? '백업 ' + (lb.getMonth() + 1) + '/' + lb.getDate() : '백업 안 함'; c.classList.toggle('warn', days > 14); c.title = '[설정·백업] 탭에서 백업 파일을 저장하세요';
 }
 function updateTitle() { const t = `${S.year} ${S.dept ? S.dept + ' ' : ''}일상경비·공공요금 관리`; $('#ttl').textContent = t; document.title = t; }
-function renderTabBar() { $('#tabs').innerHTML = tabList().map(([k, n]) => `<button role="tab" data-t="${k}" aria-selected="${k === UI.tab}">${n}</button>`).join(''); }
+function renderTabBar() { $('#tabs').innerHTML = tabList().map(([k, n]) => `${k === 'biz' || k === 'import' ? '<span class="tabsep" aria-hidden="true"></span>' : ''}<button role="tab" data-t="${k}" aria-selected="${k === UI.tab}">${n}</button>`).join(''); }
 function init() {
   for (const k in S.util) ensurePaid(S.util[k]);
-  S.tx = S.tx || []; S.opt = S.opt || {}; applyChartTheme(); if (S.biz && !(S.hist || []).some(h => h.asOf === S.biz.asOf)) pushHist(S.biz); if ((UI.tab === 'biz' || UI.tab === 'report') && S.opt.biz === false) UI.tab = 'daily'; if (S.opt.helper && !['sort', 'guide', 'settings'].includes(UI.tab)) UI.tab = 'sort'; updateTitle();
+  S.tx = S.tx || []; S.opt = S.opt || {}; applyChartTheme(); if (S.biz && !(S.hist || []).some(h => h.asOf === S.biz.asOf)) pushHist(S.biz); if (['biz', 'report', 'doc'].includes(UI.tab) && S.opt.biz === false) UI.tab = 'daily'; if (S.opt.helper && !['sort', 'guide', 'settings'].includes(UI.tab)) UI.tab = 'sort'; updateTitle();
   { const sv = $('#sv'); if (sv && S.updatedAt) { const u = new Date(S.updatedAt); sv.textContent = '데이터 기준 ' + (u.getMonth() + 1) + '/' + u.getDate() + ' ' + String(u.getHours()).padStart(2, '0') + ':' + String(u.getMinutes()).padStart(2, '0'); } }
   $('#asof').value = S.asOf; updateBackupChip();
   renderTabBar();

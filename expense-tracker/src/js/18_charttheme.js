@@ -12,7 +12,7 @@ const tmB = () => TM_LABELS.map((l, i) => [l, tmRamp()[i]]);
 
 /* 선택한 스타일을 CSS 변수로 적용 (어두운 화면이면 어두운 단계) */
 function applyChartTheme() {
-  const t = CHART_THEMES[chartThemeKey()], dk = typeof isDarkUI === 'function' && isDarkUI(), st = document.documentElement.style;
+  const t = CHART_THEMES[chartThemeKey()], dk = !window.__printLight && typeof isDarkUI === 'function' && isDarkUI(), st = document.documentElement.style;
   st.setProperty('--cs-fill', dk ? t.fillD : t.fill); st.setProperty('--cs-track', dk ? t.trackD : t.track);
   st.setProperty('--cs-short', t.short); st.setProperty('--cs-short-ink', dk ? t.inkD : t.ink); st.setProperty('--cs-r', t.r); st.setProperty('--cs-tr', t.tr);
 }
@@ -29,3 +29,6 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-ct]'); if (!b || !b.closest('#p-settings')) return;
   S.opt = S.opt || {}; S.opt.chartTheme = b.dataset.ct; save(); applyChartTheme(); renderSettings(); toast('그래프 스타일: ' + CHART_THEMES[S.opt.chartTheme].name);
 });
+
+window.addEventListener('beforeprint', () => { window.__printLight = true; applyChartTheme(); });
+window.addEventListener('afterprint', () => { window.__printLight = false; applyChartTheme(); });

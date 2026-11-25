@@ -140,12 +140,10 @@ function dailyNow(T, el, diff, alerts) {
       Ls.map(l => { const c = calc(l); return `<tr class="clk ${remCls(l)}" data-act="goline" data-id="${l.id}"><td class="nm2">${esc(l.label)}${statusBadges(l)}<span class="hint">예산 ${won(l.budget)} · 지출 ${won(l.spent)}${c.sch ? ` · 예정 ${won(c.sch)} → 예정 반영 잔액 ${won(c.remainAfter)}` : ''}</span></td><td class="num remv">${won(c.remain)}</td><td class="pcol">${nowBarCell(l.spent, c.sch, l.budget, c.rate, el)}</td></tr>`; }).join('');
   }).join('');
   const nAl = UI.alertsAll ? 99 : 3;
-  return `<div class="now">
+  return dashStrip(T, el, diff, alerts) + `<div class="now">
     <div class="now-l"><div class="now-legend"><span><i class="l1"></i>지출</span><span><i class="l2"></i>지급예정</span><span><i class="l3"></i>지금쯤 써야 하는데 아직 안 쓴 만큼</span><span><i class="l4"></i>오늘까지 지난 기간(경과율 ${pct1(el)})</span><span class="lr"><i class="l5"></i>95% 이상·초과</span></div><div class="tbl-wrap fit fit-now"><table class="t nowt"><thead><tr><th>사업명</th><th>남은 잔액</th><th>집행률</th></tr></thead><tbody>${rows}
       <tr class="tot"><td class="nm2">전체 합계${hiddenNote()}<span class="hint">예산 ${won(T.budget)} · 지출 ${won(T.spent)}</span></td><td class="num remv">${won(T.remain)}</td><td class="pcol">${nowBarCell(T.spent, T.sch, T.budget, T.rate, el)}</td></tr></tbody></table></div></div>
     <div class="now-r">
-      <div class="kpi bigrem"><div class="k">전체 남은 예산 (잔액)${hiddenNote()}</div><div class="v ${T.remain < 0 ? 'neg' : ''}">${won(T.remain)}<small>원</small></div>
-        <div class="s">지급예정 ${won(T.sch)}원 반영 후 <b>${won(T.remainAfter)}원</b> · 집행률 <b>${pct1(T.rate)}</b> <span class="pace ${diff < -10 ? 'slow' : diff > 5 ? 'fast' : 'ok'}">경과율 ${pct1(el)} 대비 ${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%p</span></div></div>
       ${donutCard(T)}
       <div class="card alerts" style="margin-top:12px"><h2>지금 확인할 것 <span class="muted" style="font-weight:400;font-size:12px">${alerts.length ? alerts.length + '건' : ''}</span></h2>
         ${alerts.length ? alerts.slice(0, nAl).map(al => `<div class="alert sev${al.sev}"><span class="badge ${al.sev >= 3 ? 'bad' : al.sev === 2 ? 'warn' : 'gray'}">${al.tag}</span><div class="al-main"><b>${esc(al.title)}</b><span class="al-d">${al.detail}</span></div><button class="btn sm" data-act="${al.act}" data-id="${al.id || ''}" data-cat="${al.cat || ''}">보기</button></div>`).join('') + (alerts.length > 3 ? `<button class="btn sm noprint" style="margin-top:4px" data-act="alertsall">${UI.alertsAll ? '접기' : '더보기 (' + (alerts.length - 3) + '건)'}</button>` : '') : '<div class="empty" style="padding:10px">✓ 지금 확인할 항목이 없습니다</div>'}</div>

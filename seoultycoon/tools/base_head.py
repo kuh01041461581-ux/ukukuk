@@ -107,6 +107,8 @@ if NECKW > 1.0:
         L, R = seg.min(), seg.max(); half = (R - L) / 2.0; cm = (L + R) / 2.0; t = min(1.0, (y - chy - 2) / 5.0)
         nh = half * (1 + (NECKW - 1) * t); xs2 = np.arange(int(np.floor(cm - nh)), int(np.ceil(cm + nh)) + 1)
         xs2 = xs2[(xs2 >= 0) & (xs2 < out.shape[1])]; src = cm + (xs2 - cm) / (nh / max(half, 0.5)); s0 = np.clip(np.round(src).astype(int), L, R)
+        hair_r = (r[xs2, 3] > 120) & (r[xs2, :3].mean(1) < 110) & ~((xs2 >= L) & (xs2 <= R))   # 원래 머리카락 화소는 덮지 않는다(머리 끝과 목이 계단처럼 어긋나던 문제)
+        xs2 = xs2[~hair_r]; s0 = s0[~hair_r]
         newr = r.copy(); newr[xs2] = r[s0]
         newr[xs2, :3] = newr[xs2, :3] * 0.45 + FACE_SKIN * 0.55 * (0.92 + 0.08 * t)             # 턱 밑 그늘을 얼굴 살색 쪽으로 밝혀 상체 살색과 이어지게
         out[y] = newr

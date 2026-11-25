@@ -14,7 +14,6 @@ function squarify(items, W, H) {
   return out;
 }
 /* 집행률 구간 → 색 (한 가지 파랑의 밝기: 많이 쓸수록 진함). 상태는 기호로 따로 표시 */
-const TM_BUCKETS = [['0%', '#e1e5ec'], ['1~24%', '#dce9fb'], ['25~49%', '#bad4f6'], ['50~74%', '#8fb9ef'], ['75~94%', '#6199e4'], ['95%~', '#3a78cc']];   // 한 가지 파랑, 밝음→진함 (큰 면에는 채도를 낮춤)
 const tmBucket = r => !(r.rate > 0) ? 0 : r.rate < 25 ? 1 : r.rate < 50 ? 2 : r.rate < 75 ? 3 : r.rate < 95 ? 4 : 5;
 function tmInk(hex) {   // 칸 색의 밝기에 따라 글자를 흰색/거의 검정 중 대비가 더 큰 쪽으로
   const c = hex.slice(1).match(/../g).map(h => parseInt(h, 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)), L = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -25,7 +24,7 @@ function renderGraphView(D) {
   const { T, el, th, nats } = D; const rows = [...D.rows].filter(r => r.budget > 0).sort((a, b) => b.budget - a.budget);
   const tiles = squarify(rows.map(r => ({ v: r.budget, r })), 160, 64);
   const tile = t => {
-    const r = t.r, s = offState(r, el, th), bk = TM_BUCKETS[tmBucket(r)], ink = tmInk(bk[1]);
+    const r = t.r, s = offState(r, el, th), bk = tmB()[tmBucket(r)], ink = tmInk(bk[1]);
     const big = t.w > 20 && t.h > 14, mid = t.w > 9 && t.h > 6, flag = s[0] === 'warn' ? '▲ 느림' : s[0] === 'bad' ? (s[2] === '초과' ? '■ 초과' : '▲ 소진') : s[2] === '미집행' ? '○ 미집행' : '';
     const tip = `${r.biz}\n예산 ${fuw(r.budget)} (전체의 ${(r.budget / T.budget * 100).toFixed(1)}%)\n집행 ${fuw(r.paid)} · 집행률 ${pct1(r.rate)}\n집행잔액 ${fuw(r.remain)}\n상태: ${s[2]}`;
     return `<div class="tm" tabindex="0" style="left:${(t.x / 160 * 100).toFixed(3)}%;top:${(t.y / 64 * 100).toFixed(3)}%;width:${(t.w / 160 * 100).toFixed(3)}%;height:${(t.h / 64 * 100).toFixed(3)}%;background:${bk[1]};color:${ink}" data-tip="${esc(tip)}" aria-label="${esc(r.biz)} 집행률 ${Math.round(r.rate)}% ${s[2]}"><span class="tmi">${mid ? `<span class="tn">${esc(r.biz)}</span>` : ''}<b class="tr${big ? ' big' : ''}">${Math.round(r.rate)}%</b>${flag && mid ? `<span class="tflag ${s[0]}">${flag}</span>` : ''}</span></div>`;
@@ -37,7 +36,7 @@ function renderGraphView(D) {
   return `<div class="gv">
     <div class="ez-tiles"><div class="ez-tile"><span>예산현액</span><b>${fuw(T.budget)}</b></div><div class="ez-tile"><span>지출액 (집행률 ${pct1(T.rate)})</span><b>${fuw(T.paid)}</b></div><div class="ez-tile"><span>집행잔액</span><b>${fuw(T.remain)}</b></div><div class="ez-tile ${T.rate < el - th.low ? 'w' : ''}"><span>연 경과율 ${pct1(el)} 대비</span><b>${dlt(T.rate - el)}</b></div></div>
     <div class="card"><h2>예산 지도 <span class="muted" style="font-weight:400;font-size:12px">칸 크기 = 예산 · 칸 색 = 집행률 (진할수록 많이 씀) · 칸의 꼬리표 = 주의 상태 · 마우스를 올리면 금액</span></h2>
-      <div class="tm-legend">${TM_BUCKETS.map(b => `<span><i style="background:${b[1]}"></i>${b[0]}</span>`).join('')}<span class="tm-lg-sym"><span class="tflag warn">▲ 느림</span> <span class="tflag bad">▲ 소진 · ■ 초과</span> <span class="tflag gray">○ 미집행</span></span></div>
+      <div class="tm-legend">${tmB().map(b => `<span><i style="background:${b[1]}"></i>${b[0]}</span>`).join('')}<span class="tm-lg-sym"><span class="tflag warn">▲ 느림</span> <span class="tflag bad">▲ 소진 · ■ 초과</span> <span class="tflag gray">○ 미집행</span></span></div>
       <div class="tmwrap">${tiles.map(tile).join('')}</div></div>
     <div class="card"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">사업별 집행 <span class="muted" style="font-weight:400;font-size:12px">막대 길이 = 예산 크기 · 파랑 = 집행 · 연한 주황 = 지금쯤 써야 하는데 부족 · 세로선 = 연 경과율${showAll ? '' : ` · 예산 큰 순 ${list.length}/${rows.length}개`}</span></h2>${rows.length > 15 ? `<button class="btn sm noprint" data-act="repgraphall">${showAll ? '접기' : `전체 ${rows.length}개 보기`}</button>` : ''}</div>
       ${list.map(bl).join('')}</div>

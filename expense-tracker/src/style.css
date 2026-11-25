@@ -1202,3 +1202,25 @@ td.notecol textarea.cellin{font-size:12px;min-width:280px;color:var(--text-2)}
 .hmc{padding:7px 2px}.hmc.ok{color:var(--good);opacity:.9}.hmc.ok b{font-size:15px}
 .hbt{background:var(--track-b);border-radius:4px}.hbt i{border-radius:0 4px 4px 0}
 .ezbar:not(.big) .mk::before{display:none}.ezbar:not(.big) .mk{top:-3px;bottom:-3px;width:2px;margin-left:-1px}
+
+
+/* 그래프 스타일: 선택한 색·모양을 모든 그래프에 적용 */
+.ezbar{background:var(--cs-track,var(--track-b))}
+.ezbar .f,.ezbar .f.ok,.ezbar .f.warn,.ezbar .f.gray{background:var(--cs-fill,var(--accent,#2a78d6))}
+.ezbar .f.bad{background:var(--bad)}
+.ezbar,.ezbar .f,.nowt .nowbar .ezbar,.bl .blt .ezbar,.rate .ezbar,.nowt tr.grp .nowbar .ezbar{border-radius:var(--cs-r,4px)}
+.ezbar.big{border-radius:var(--cs-r,5px)}
+.ezbar .sf,.ezbar .g{border-radius:0 var(--cs-r,4px) var(--cs-r,4px) 0}
+.ezbar .sf{background:var(--cs-short,rgba(217,143,0,.20))}.ezbar .sf span{color:var(--cs-short-ink,#7a5000)}
+.ez .lack,.nowt .nowbar b.lg{color:var(--cs-short-ink,#8a5a00)}
+.tm{border-radius:var(--cs-tr,4px)}
+.hbt{background:var(--cs-track,var(--track-b))}.hbt i{background:var(--cs-fill,var(--accent,#2a78d6))}
+.now-legend .l1,.ez-legend .lgf{background:var(--cs-fill,var(--accent,#2a78d6))}
+.ez-legend .lgs,.now-legend .l3{background:var(--cs-short,rgba(217,143,0,.3))}
+.ctgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.ctcard{text-align:left;padding:14px 16px;border:2px solid var(--edge-dark,#cfd6e0);border-radius:12px;background:var(--surface,#fff);cursor:pointer;font:inherit;color:var(--text)}
+.ctcard:hover{border-color:var(--text-2)}.ctcard.on{border-color:var(--cs-fill);box-shadow:inset 0 0 0 1px var(--cs-fill)}
+.ctname{font-weight:800;font-size:15px;margin-bottom:2px}
+.ctcard .ezbar{margin:4px 0 10px;height:16px}.ctcard .ezbar .mk::before{display:none}
+.ctramp{display:flex;gap:4px}.ctramp i{flex:1;height:18px;display:block}
+.ctsel{display:inline-flex;align-items:center;gap:6px;font-size:12px}

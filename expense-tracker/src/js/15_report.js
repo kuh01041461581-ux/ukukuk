@@ -71,8 +71,8 @@ function repTrend() {
     <svg viewBox="0 0 ${W} ${H}" class="trend" role="img" aria-label="집행률 추이">
       ${[0, 50, 100].map(v => `<line x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--edge,#e6e9f0)"/><text x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end" style="font-size:10px;fill:var(--text-2)">${v}%</text>`).join('')}
       <polyline points="${ep.map(p => p.join(',')).join(' ')}" fill="none" stroke="var(--text-2)" stroke-width="1.5" stroke-dasharray="4 4"/>
-      <polyline points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}" fill="none" stroke="var(--accent,#2a78d6)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-      ${pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="var(--accent,#2a78d6)" stroke="#fff" stroke-width="2" data-tip="${p[3]}\n집행률 ${pct1(p[2])}"/>${(i === 0 || i === pts.length - 1) ? `<text x="${p[0]}" y="${p[1] - 10}" text-anchor="${i === 0 ? 'start' : 'end'}" style="font-size:12px;font-weight:700;fill:var(--text)">${pct1(p[2])}</text>` : ''}<text x="${p[0]}" y="${H - 10}" text-anchor="middle" style="font-size:10px;fill:var(--text-2)">${p[3].slice(5).replace('-', '/')}</text>`).join('')}
+      <polyline points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}" fill="none" stroke="var(--cs-fill,var(--accent,#2a78d6))" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="var(--cs-fill,var(--accent,#2a78d6))" stroke="#fff" stroke-width="2" data-tip="${p[3]}\n집행률 ${pct1(p[2])}"/>${(i === 0 || i === pts.length - 1) ? `<text x="${p[0]}" y="${p[1] - 10}" text-anchor="${i === 0 ? 'start' : 'end'}" style="font-size:12px;font-weight:700;fill:var(--text)">${pct1(p[2])}</text>` : ''}<text x="${p[0]}" y="${H - 10}" text-anchor="middle" style="font-size:10px;fill:var(--text-2)">${p[3].slice(5).replace('-', '/')}</text>`).join('')}
     </svg></div>`;
 }
 function repNoteCell(r) {
@@ -97,7 +97,7 @@ function renderReport() {
   const dailyT = S.lines.length ? groupTotals(visLines()) : null; const ts = todoSummary();
   const dprev = D.prev && T.dlt != null ? `<br>직전 자료(${esc(D.prev.asOf)}) 대비 ${T.dlt >= 0 ? '+' : '−'}${Math.abs(T.dlt).toFixed(1)}%p` : '';
   const head = `<div class="rep-head"><div><h1>${esc(S.year)}년 ${esc(S.dept || '')} 예산 집행 현황</h1><div class="muted">기준일 ${esc(S.asOf)} · 자료: ${esc(D.B.file)} (통계목별 조회 · 집행액=집행누계액)${UI.rep.view === 'sum' || UI.rep.view === 'full' ? ` · <b>단위: ${ul()}</b>` : ''}</div></div>
-      <div class="row noprint"><div class="pills" role="group" aria-label="보기">${[['easy', '쉬운 보기'], ['sum', '요약'], ['full', '상세'], ['graph', '그래프'], ['official', '공식 양식']].map(([k, n]) => `<button class="pill sm" aria-pressed="${UI.rep.view === k}" data-act="repview" data-v="${k}">${n}</button>`).join('')}</div>${UI.rep.view === 'easy' ? '' : `<div class="pills" role="group" aria-label="단위"><span class="muted" style="align-self:center;font-size:12px;margin-right:4px">단위</span>${UNITS.map(u => `<button class="pill sm" aria-pressed="${ul() === u[0]}" data-act="repunit" data-v="${u[0]}">${u[0]}</button>`).join('')}</div>`}<button class="btn sm" data-act="reptsv" data-tip="사업별 표를 엑셀·한글에 붙여넣을 수 있게 복사합니다">사업별 표 복사</button><button class="btn primary sm" data-act="repprint">인쇄 / PDF 저장</button></div></div>`;
+      <div class="row noprint"><div class="pills" role="group" aria-label="보기">${[['easy', '쉬운 보기'], ['sum', '요약'], ['full', '상세'], ['graph', '그래프'], ['official', '공식 양식']].map(([k, n]) => `<button class="pill sm" aria-pressed="${UI.rep.view === k}" data-act="repview" data-v="${k}">${n}</button>`).join('')}</div>${UI.rep.view === 'easy' ? '' : `<div class="pills" role="group" aria-label="단위"><span class="muted" style="align-self:center;font-size:12px;margin-right:4px">단위</span>${UNITS.map(u => `<button class="pill sm" aria-pressed="${ul() === u[0]}" data-act="repunit" data-v="${u[0]}">${u[0]}</button>`).join('')}</div>`}<label class="ctsel noprint" data-tip="그래프 색감·모양을 바꿉니다 (설정에도 있습니다)"><span class="muted">스타일</span><select id="rep-ct" class="fsel">${Object.entries(CHART_THEMES).map(([k, t]) => `<option value="${k}" ${k === chartThemeKey() ? 'selected' : ''}>${t.name}</option>`).join('')}</select></label><button class="btn sm" data-act="reptsv" data-tip="사업별 표를 엑셀·한글에 붙여넣을 수 있게 복사합니다">사업별 표 복사</button><button class="btn primary sm" data-act="repprint">인쇄 / PDF 저장</button></div></div>`;
   if (UI.rep.view === 'easy') { P.innerHTML = `<div class="rep" id="rep-doc">${head}${renderEasy(D)}</div>`; return; }
   if (UI.rep.view === 'graph') { P.innerHTML = `<div class="rep" id="rep-doc">${head}${renderGraphView(D)}</div>`; return; }
   if (UI.rep.view === 'official') { P.innerHTML = `<div class="rep" id="rep-doc">${head}${renderOfficial(D)}</div>`; return; }
@@ -137,6 +137,7 @@ $('#p-report').addEventListener('click', e => {
 });
 $('#p-report').addEventListener('change', e => {
   const t = e.target;
+  if (t.id === 'rep-ct') { S.opt = S.opt || {}; S.opt.chartTheme = t.value; save(); applyChartTheme(); UI._noKeep = true; renderReport(); return; }
   if (t.id === 'rep-flag') { UI.rep.flagOnly = t.checked; renderReport(); }
   else if (t.dataset.rn !== undefined) { S.repNote = S.repNote || {}; const v = t.value.trim(); if (v) S.repNote[t.dataset.rn] = v; else delete S.repNote[t.dataset.rn]; save(); }
 });

@@ -27,10 +27,10 @@ function procHeatmap() {
 /* 전체 사업 진척 요약 */
 function bizVizHTML(rows, T) {
   const b = [
-    { name: '미집행 (0%)', test: r => r.paid <= 0, color: '#b9c0cc' },
-    { name: '1~49%', test: r => r.rate > 0 && r.rate < 50, color: '#bad4f6' },
-    { name: '50~89%', test: r => r.rate >= 50 && r.rate < 90, color: '#6199e4' },
-    { name: '90% 이상', test: r => r.rate >= 90, color: '#3a78cc' },
+    { name: '미집행 (0%)', test: r => r.paid <= 0, color: tmRamp()[0] === '#e1e5ec' ? '#b9c0cc' : '#b9c0cc' },
+    { name: '1~49%', test: r => r.rate > 0 && r.rate < 50, color: tmRamp()[2] },
+    { name: '50~89%', test: r => r.rate >= 50 && r.rate < 90, color: tmRamp()[4] },
+    { name: '90% 이상', test: r => r.rate >= 90, color: tmRamp()[5] },
   ];
   const items = b.map(x => ({ name: x.name, v: rows.filter(r => r.budget > 0 && x.test(r)).length, color: x.color }));
   const nTot = sum(items, x => x.v) || 1;

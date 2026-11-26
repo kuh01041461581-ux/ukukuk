@@ -69,9 +69,10 @@ var SCANREAD = (function () {
     return out;
   }
   /* 그 달 달력: 6주 × 7칸(월~일) → 'YYYY-MM-DD' 또는 null */
-  function monthGrid(ym) {
-    var m = /^(\d{4})-(\d{1,2})$/.exec(ym), y = +m[1], mo = +m[2], first = new Date(y, mo - 1, 1);
-    var start = new Date(first); start.setDate(1 - ((first.getDay() + 6) % 7));
+  /* weekStart: 0 = 일요일부터(일월화수목금토, 기본) · 1 = 월요일부터(예전 양식) */
+  function monthGrid(ym, weekStart) {
+    var m = /^(\d{4})-(\d{1,2})$/.exec(ym), y = +m[1], mo = +m[2], first = new Date(y, mo - 1, 1), ws = weekStart === 1 ? 1 : 0;
+    var start = new Date(first); start.setDate(1 - ((first.getDay() - ws + 7) % 7));
     var P = function (n) { return String(n).padStart(2, '0'); }, out = [];
     for (var wi = 0; wi < 6; wi++) {
       var row = [];
@@ -83,10 +84,23 @@ var SCANREAD = (function () {
     }
     return out;
   }
+
+  /* 스캔한 일일점검부가 일요일 시작인지 월요일 시작인지: 첫 주 '일자' 줄에서 글자가 없는 앞칸 수로 판단 */
+  function detectWeekStart(G, W, grid, ym) {
+    var m = /^(\d{4})-(\d{1,2})$/.exec(ym), dow = new Date(+m[1], +m[2] - 1, 1).getDay();
+    var ya = grid.ys[0] + 4, yb = grid.ys[1] - 4, lead = 0;
+    for (var ci = 1; ci <= 7; ci++) {
+      var xa = grid.xs[ci] + 5, xb = grid.xs[ci + 1] - 5, n = 0, all = 0;
+      for (var y = ya; y < yb; y++) for (var x = xa; x < xb; x++) { all++; if (G[y * W + x] < 140) n++; }
+      if (all && n / all < 0.004) lead++; else break;
+    }
+    if (lead === (dow + 6) % 7) return 1;
+    return 0;
+  }
   var STAMP_ON = 0.04, STAMP_WEAK = 0.02;
   /* 도장 비율표 → 출근일 목록 · 흐린 칸 · 달력 밖 도장 */
-  function stampedDates(frac, ym) {
-    var g = monthGrid(ym), dates = [], weak = [], outside = 0;
+  function stampedDates(frac, ym, weekStart) {
+    var g = monthGrid(ym, weekStart), dates = [], weak = [], outside = 0;
     for (var wi = 0; wi < 6; wi++) for (var ci = 0; ci < 7; ci++) {
       var f = frac[wi][ci], iso = g[wi][ci];
       if (f >= STAMP_ON) { if (iso) dates.push(iso); else outside++; if (iso && f < 0.08) weak.push(iso); }
@@ -206,7 +220,7 @@ var SCANREAD = (function () {
     });
     return best ? best.b : t;
   }
-  var api = { fixBank: fixBank, summaryNameCell: summaryNameCell, claimCells: claimCells, bestName: bestName, cleanAccount: cleanAccount, vlines: vlines, grp: grp, detectCalendar: detectCalendar, stampFractions: stampFractions, monthGrid: monthGrid, stampedDates: stampedDates, kindOfDates: kindOfDates,
+  var api = { detectWeekStart: detectWeekStart, fixBank: fixBank, summaryNameCell: summaryNameCell, claimCells: claimCells, bestName: bestName, cleanAccount: cleanAccount, vlines: vlines, grp: grp, detectCalendar: detectCalendar, stampFractions: stampFractions, monthGrid: monthGrid, stampedDates: stampedDates, kindOfDates: kindOfDates,
     parseDailyTitle: parseDailyTitle, parseClaim: parseClaim, digitDiff: digitDiff, matchClaim: matchClaim, matchDaily: matchDaily, STAMP_ON: STAMP_ON };
   if (typeof module !== 'undefined') module.exports = api;
   return api;

@@ -7,8 +7,9 @@ const tmp = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'scanfx-'));
 const b = await chromium.launch(); const pg = await b.newPage();
 await pg.goto('file://' + path.resolve(here, '../dist/서무종합프로그램.html') + '#wage');
 const fr = await (await pg.locator('#frame-wage').elementHandle()).contentFrame();
-await fr.waitForSelector('#f1', { state: 'attached', timeout: 60000 }); await fr.fill('#ym', '2026-10');
-await fr.setInputFiles('#f1', fx('roster.xlsx')); await fr.waitForSelector('#rosterT tbody tr');
+await fr.waitForSelector('#f1', { state: 'attached', timeout: 60000 });
+await fr.click('.wtabs .tabbtn[data-tab="prep"]'); await fr.fill('#ym', '2026-10');
+await fr.setInputFiles('#f1', fx('roster.xlsx')); await fr.waitForSelector('#rosterT tbody tr', { state: 'attached' });
 const doc = await fr.evaluate(() => {
   const ws = __wage.state().workers.slice(0, 2), css = document.getElementById('wage-css').outerHTML;
   const html = ws.map(w => __wage.dailyHtml(w)).join('') + ws.map(w => __wage.claimHtml(w)).join('');

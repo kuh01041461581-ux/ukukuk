@@ -16,7 +16,7 @@ def grp(a, gap=4):
 def stamp(d, cx, cy, r=26):
     d.ellipse([cx - r, cy - r * 1.25, cx + r, cy + r * 1.25], outline=(210, 40, 50), width=5)
     d.text((cx - 10, cy - 12), "인", fill=(210, 40, 50))
-first = datetime.date(2026, 10, 1); start = first - datetime.timedelta(days=first.weekday())
+first = datetime.date(2026, 10, 1); start = first - datetime.timedelta(days=(first.weekday() + 1) % 7)   # 일요일 시작 달력
 ims = []
 for i, p in enumerate(pages):
     im = Image.open(p).convert("RGB"); g = np.asarray(im.convert("L")).astype(int); H, W = g.shape; d = ImageDraw.Draw(im)

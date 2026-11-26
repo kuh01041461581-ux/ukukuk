@@ -441,7 +441,7 @@ function initSettings(){
   $('#taxPct').value=String(S.taxPct||100);$('#taxPct').addEventListener('change',function(){S.taxPct=+$('#taxPct').value;saveS();refreshAll(true);});
   $('#hpd').value=S.hoursPerDay;$('#hpd').addEventListener('input',function(){S.hoursPerDay=+$('#hpd').value||7;saveS();syncHourly();refreshAll();});
   $('#exHol').checked=!!S.excludeHoliday;$('#exHol').addEventListener('change',function(){S.excludeHoliday=$('#exHol').checked;saveS();refreshAll();});
-  $('#closedRow').innerHTML=[1,2,3,4,5,6,0].map(function(d){return '<label><input type="checkbox" data-d="'+d+'"'+(S.closedDow.indexOf(d)>=0?' checked':'')+'>'+DOWK[d]+'</label>';}).join('');
+  $('#closedRow').innerHTML=[0,1,2,3,4,5,6].map(function(d){return '<label><input type="checkbox" data-d="'+d+'"'+(S.closedDow.indexOf(d)>=0?' checked':'')+'>'+DOWK[d]+'</label>';}).join('');
   $('#closedRow').addEventListener('change',function(){S.closedDow=$$('#closedRow input:checked').map(function(i){return +i.getAttribute('data-d');});saveS();refreshAll();});
   $('#hourly').addEventListener('input',function(){var p=ymParts();S.hourlyByYear[p.y]=+$('#hourly').value||0;saveS();syncHourly();refreshAll();});
   $('#acctGrid').innerHTML='<div class="h"></div><div class="h">은행</div><div class="h">계좌번호</div><div class="h">비고</div>'+ACCT_ITEMS.map(function(a){var k=a[0],v=S.accts[k]||{};
@@ -454,8 +454,8 @@ function initSettings(){
 }
 
 function renderClosedCal(){
-  var el=$('#closedCal');if(!el)return;var dates=WAGE.monthDates(S.ym),lead=(dates[0].dow+6)%7,h='';
-  [1,2,3,4,5,6,0].forEach(function(d){h+='<div class="hd">'+DOWK[d]+'</div>';});
+  var el=$('#closedCal');if(!el)return;var dates=WAGE.monthDates(S.ym),lead=dates[0].dow,h='';
+  [0,1,2,3,4,5,6].forEach(function(d){h+='<div class="hd">'+DOWK[d]+'</div>';});
   for(var i=0;i<lead;i++)h+='<div></div>';
   dates.forEach(function(d){var hol=WAGE.holidayName(d.iso),dowC=S.closedDow.indexOf(d.dow)>=0,on=(S.closedDates||[]).indexOf(d.iso)>=0;
     h+='<button type="button" data-cd="'+d.iso+'" class="'+(dowC?'dow':on?'on':'')+(hol?' hol':'')+'" title="'+(hol?esc(hol)+' · ':'')+(dowC?'휴관 요일':on?'휴관(누르면 해제)':'누르면 휴관')+'">'+d.d+'</button>';});
@@ -474,7 +474,7 @@ function newWorker(o){return Object.assign({id:uid++,name:'',birth6:'',birth8:''
 function renderRoster(){
   var tb=$('#rosterT tbody');$('#rosterWrap').style.display=workers.length?'':'none';
   tb.innerHTML=workers.map(function(w){
-    var dowRow=w.kind==='custom'?'<tr data-w="'+w.id+'" class="sub"><td colspan="9"><div class="dow-row">'+[1,2,3,4,5,6,0].map(function(d){return '<label><input type="checkbox" data-wd="'+d+'" data-w="'+w.id+'"'+(w.dow.indexOf(d)>=0?' checked':'')+'>'+DOWK[d]+'</label>';}).join('')+'</div></td></tr>':'';
+    var dowRow=w.kind==='custom'?'<tr data-w="'+w.id+'" class="sub"><td colspan="9"><div class="dow-row">'+[0,1,2,3,4,5,6].map(function(d){return '<label><input type="checkbox" data-wd="'+d+'" data-w="'+w.id+'"'+(w.dow.indexOf(d)>=0?' checked':'')+'>'+DOWK[d]+'</label>';}).join('')+'</div></td></tr>':'';
     return '<tr data-w="'+w.id+'"><td><input type="text" data-f="name" value="'+esc(w.name)+'"></td>'
       +'<td><input type="text" data-f="birth" value="'+esc(w.birth8||w.birth6)+'" placeholder="1950-09-10"></td>'
       +'<td><input type="text" data-f="bank" value="'+esc(w.bank)+'"></td><td><input type="text" data-f="account" value="'+esc(w.account)+'"></td>'
@@ -654,9 +654,9 @@ async function loadScan(file){
         var fr=SCANREAD.stampFractions(im.R,im.W,grid),title='',nm=null;
         if(ocr){try{title=(await ocr.recognize(cleanForOcr(hi,0,grid.ys[0]*2))).data.text;}catch(e){}
           var cell=SCANREAD.summaryNameCell(im.G,im.W,im.H,grid.ys[0]);if(cell&&cellOcr){try{nm=await ocrCell(cellOcr,hi,cell);}catch(e){}}}
-        var tt=SCANREAD.parseDailyTitle(title),ym=tt.ym||S.ym,st=SCANREAD.stampedDates(fr,ym),sk=SCANREAD.kindOfDates(st.dates);
+        var tt=SCANREAD.parseDailyTitle(title),ym=tt.ym||S.ym,wst=SCANREAD.detectWeekStart(im.G,im.W,grid,ym),st=SCANREAD.stampedDates(fr,ym,wst),sk=SCANREAD.kindOfDates(st.dates);
         // 평일/주말은 도장 찍힌 요일로 먼저 판단(제목 OCR 은 틀릴 수 있음), 섞여 있으면 제목을 따른다
-        Object.assign(item,{type:'daily',frac:fr,ym:tt.ym,kind:(sk==='weekday'||sk==='weekend')?sk:(tt.kind||sk),stamps:st,filled:grid.filled,
+        Object.assign(item,{type:'daily',frac:fr,ym:tt.ym,weekStart:wst,kind:(sk==='weekday'||sk==='weekend')?sk:(tt.kind||sk),stamps:st,filled:grid.filled,
           ocrName:nm?nm.text:'',name:nm?SCANREAD.bestName(nm.text,names):null});
       }else if(ocr){
         scanMsg(p+' / '+n+'쪽 글자 인식 중…');
@@ -750,7 +750,7 @@ $('#scanOut').addEventListener('change',function(e){var t=e.target;if(!t.hasAttr
 $('#scanOut').addEventListener('click',function(e){
   var t=e.target;
   if(t.id==='scanMake'){workersFromScan().forEach(function(o){workers.push(newWorker(o));});rematch();assignScans();renderRoster();refreshAll();toast('스캔에서 읽은 근로자로 명부를 만들었습니다 — 이름·계좌를 꼭 확인하세요.');return;}
-  if(t.id==='scanYm'){var ym=(scans.filter(function(x){return x.type==='daily'&&x.ym;})[0]||{}).ym;if(ym){S.ym=ym;saveS();$('#ym').value=ym;scans.forEach(function(x){if(x.type==='daily')x.stamps=SCANREAD.stampedDates(x.frac,ym);});refreshAll();}return;}
+  if(t.id==='scanYm'){var ym=(scans.filter(function(x){return x.type==='daily'&&x.ym;})[0]||{}).ym;if(ym){S.ym=ym;saveS();$('#ym').value=ym;scans.forEach(function(x){if(x.type==='daily')x.stamps=SCANREAD.stampedDates(x.frac,ym,x.weekStart);});refreshAll();}return;}
   var ap=t.getAttribute('data-apply'),all=t.id==='scanApplyAll',ac=t.getAttribute('data-acct');
   if(ap||all){var n=0;scans.forEach(function(x){if(x.type==='daily'&&x.wid&&(all||x.page==ap)){setWorkedDates(findW(x.wid),x.stamps.dates);n++;}});refreshAll();toast(n+'명의 근무일을 도장대로 맞췄습니다.');return;}
   if(ac){var x2=scans.filter(function(y){return y.page==ac;})[0],w=findW(x2.wid);if(w){w.account=x2.claim.account;if(!w.bank&&x2.claim.bank)w.bank=x2.claim.bank;renderRoster();refreshAll();toast(w.name+' 계좌를 청구서 값으로 채웠습니다 — 꼭 확인하세요.');}}
@@ -760,8 +760,8 @@ function calHtml(w){
   var S2=ctxS(),dates=WAGE.monthDates(S.ym),worked={},base={};
   WAGE.workDates(w,S2).forEach(function(d){worked[d]=1;});
   WAGE.workDates(Object.assign({},w,{off:[],on:[]}),S2).forEach(function(d){base[d]=1;});
-  var lead=(dates[0].dow+6)%7,h='';
-  [1,2,3,4,5,6,0].forEach(function(d){h+='<div class="hd'+(d===6?' sat':d===0?' sun':'')+'">'+DOWK[d]+'</div>';});
+  var lead=dates[0].dow,h='';
+  [0,1,2,3,4,5,6].forEach(function(d){h+='<div class="hd'+(d===6?' sat':d===0?' sun':'')+'">'+DOWK[d]+'</div>';});
   for(var i=0;i<lead;i++)h+='<div class="blank"></div>';
   dates.forEach(function(d){
     var hol=WAGE.holidayName(d.iso),closed=isClosedDay(d.iso,d.dow),cls=(worked[d.iso]?'work':closed?'closed':'')+(hol?' hol':'');
@@ -935,7 +935,7 @@ function dailyHtml(w){
   var S2=ctxS(),p=ymParts(),dates=WAGE.monthDates(S.ym),worked={};WAGE.workDates(w,S2).forEach(function(d){worked[d]=1;});
   var wd=0,we=0;Object.keys(worked).forEach(function(d){var dow=new Date(d).getDay();(dow===0||dow===6)?we++:wd++;});
   var weeks=[],cur=new Array(7).fill(null),first=true;
-  dates.forEach(function(d){var idx=(d.dow+6)%7;cur[idx]=d;if(idx===6){weeks.push(cur);cur=new Array(7).fill(null);}});
+  dates.forEach(function(d){var idx=d.dow;cur[idx]=d;if(idx===6){weeks.push(cur);cur=new Array(7).fill(null);}});
   if(cur.some(Boolean))weeks.push(cur);
   while(weeks.length<6)weeks.push(new Array(7).fill(null));
   var kind=w.kind==='weekday'?'평일 ':w.kind==='weekend'?'주말 ':'';
@@ -1184,7 +1184,7 @@ function hwpxDailyBlocks(w){
   var H=SEOMU_HWPX,CS=H.CS,S2=ctxS(),p=ymParts(),dates=WAGE.monthDates(S.ym),worked={};WAGE.workDates(w,S2).forEach(function(d){worked[d]=1;});
   var wd=0,we=0;Object.keys(worked).forEach(function(d){var dow=new Date(d).getDay();(dow===0||dow===6)?we++:wd++;});
   var weeks=[],cur=new Array(7).fill(null);
-  dates.forEach(function(d){var idx=(d.dow+6)%7;cur[idx]=d;if(idx===6){weeks.push(cur);cur=new Array(7).fill(null);}});
+  dates.forEach(function(d){var idx=d.dow;cur[idx]=d;if(idx===6){weeks.push(cur);cur=new Array(7).fill(null);}});
   if(cur.some(Boolean))weeks.push(cur);while(weeks.length<6)weeks.push(new Array(7).fill(null));
   var kind=w.kind==='weekday'?'평일':w.kind==='weekend'?'주말':'';
   var cell=function(t,o){o=o||{};return {lines:[{t:t,cs:o.cs||0}],al:'CENTER',bf:o.bf||H.BF.THIN};};

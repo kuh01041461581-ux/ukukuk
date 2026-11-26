@@ -93,7 +93,8 @@ assert.strictEqual(SR.bestName('죄병학', ['최병학', '김향은']), '최병
 const cl = SR.parseClaim('청 구 서\n 1,653,940 1021-01-6139189 7\n총 1,653,940원\n기본급 1,353,240원\n10.1. ~ 10.31.(평얄   18   75,180원\n(주휴수당 240,560원)\n(월차수당 60,140원)\n2026. 10.');
 assert.deepStrictEqual([cl.isClaim, cl.gross, cl.account, cl.days, cl.dayRate, cl.base, cl.ju, cl.wolcha, cl.kind, cl.ym], [true, 1653940, '1021-01-6139189', 18, 75180, 1353240, 240560, 60140, 'weekday', '2026-10']);
 assert.deepStrictEqual(SR.parseDailyTitle('익산 구 춘포역사 주말\n기간제근로자 일일점검부\n(2026년 10월)'), { kind: 'weekend', ym: '2026-10', isDaily: true });
-assert.strictEqual(SR.monthGrid('2026-10')[0][3], '2026-10-01');   // 10/1 = 목요일 칸
+assert.strictEqual(SR.monthGrid('2026-10')[0][4], '2026-10-01');      // 일요일 시작: 10/1(목) = 다섯째 칸
+assert.strictEqual(SR.monthGrid('2026-10', 1)[0][3], '2026-10-01');   // 월요일 시작(예전 양식): 넷째 칸
 assert.strictEqual(SR.kindOfDates(['2026-10-03', '2026-10-04']), 'weekend');
 // 휴관 날짜: 근무일에서 빠지지만 결근이 아니라 주휴·월차는 그대로
 const cl0 = W.calcWorker(Object.assign({}, a, { tax: null }), Object.assign({}, S, { closedDates: ['2026-10-14'] }));

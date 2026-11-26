@@ -49,7 +49,7 @@ W0, H0 = im.size; mk = Image.new('L', (W0, H0), 255); d = ImageDraw.Draw(mk); R 
 d.rectangle([xl, 0, xl + R, R], fill=0); d.ellipse([xl, 0, xl + 2 * R, 2 * R], fill=255); d.rectangle([xr - R, 0, xr, R], fill=0); d.ellipse([xr - 2 * R, 0, xr, 2 * R], fill=255)
 d.rectangle([0, 0, xl - 1, R], fill=0); d.rectangle([xr + 1, 0, W0, R], fill=0)
 al = (m * 255).astype(np.uint8) & np.asarray(mk)
-PADT = int(os.environ.get('CROWN', '120'))                                             # 원본 그림은 정수리가 잘려 있다: 위에 둥근 정수리 머리를 덧붙인다(맨 위 머리 띠를 반사해 결을 이음)
+PADT = int(os.environ.get('CROWN', '220'))                                             # 원본 그림은 정수리가 잘려 있다: 위에 둥근 정수리 머리를 덧붙인다(맨 위 머리 띠를 반사해 결을 이음)
 if PADT:
     al = (m * 255).astype(np.uint8)                                                  # 정수리를 붙이면 모서리 깎기는 필요 없다
     cxm = (xl + xr) / 2.0; HW = (xr - xl) / 2.0 - 4; S = int(os.environ.get('CROWN_SRC', '60'))
@@ -60,7 +60,7 @@ if PADT:
     _y0, _y1 = PADT + S - 20, PADT + S + 20; _seg = a[_y0:_y1].astype(float); _bl = ndi.gaussian_filter(_seg, (8, 0, 0))
     _w = np.exp(-((np.arange(_y1 - _y0) - 20) / 9.0) ** 2)[:, None, None]; a[_y0:_y1] = (_seg * (1 - _w) + _bl * _w).astype(int)
     PADT = PADT - 1                                                                    # 맨 윗줄 하나를 버렸으므로 좌표 보정
-    TOPH = PADT + int(os.environ.get('DOME', '200'))                                                                # 정수리부터 원본 260줄까지 하나의 둥근 머리 윤곽(타원)으로 깎는다
+    TOPH = PADT + int(os.environ.get('DOME', '300'))                                                                # 정수리부터 원본 260줄까지 하나의 둥근 머리 윤곽(타원)으로 깎는다
     for y in range(TOPH):
         t = (TOPH - y) / float(TOPH); hw = HW * np.sqrt(max(0.0, 1 - t * t)); x0, x1 = int(cxm - hw), int(cxm + hw)
         al[y, :max(0, x0)] = 0; al[y, min(W0, x1):] = 0
@@ -182,6 +182,13 @@ print('여자 시장 고정 베이스', big.size, '오프셋', bx, by, '표정 �
 
 # 상체(fb1) 목 중심을 얼굴 중심에 맞춘다: 상체 조각은 화면 x=92(HD 184), 표정 조각은 116(HD 232). 앱(드레스)·PC(양복) 어느 상체든 같은 규칙.
 p = f'{mod}/fb1.d'; raw = open(p, 'rb').read(); j = raw.find(b'BIGH')
+if j > 0 and os.environ.get('ALIGN_BODY', '0') == 'v':                               # 옷깃 V 꼭짓점(목·가슴 살색이 끝나는 곳)을 얼굴 중심 아래로
+    oby = int.from_bytes(raw[j + 6:j + 8], 'big', signed=True); bimg = np.asarray(Image.open(io.BytesIO(raw[j + 8:])).convert('RGBA')).astype(int)
+    skv = (bimg[..., 3] > 100) & (bimg[..., 0] > 200) & (bimg[..., 1] > 140) & (bimg[..., 2] < 150) & (bimg[..., 2] > 90)
+    rows = [y for y in range(bimg.shape[0]) if skv[y].any()]
+    if rows:
+        ty = max(rows); tipx = np.where(skv[ty])[0].mean(); face_cx = 232 + cx_ff; nbx = int(round(face_cx - 184 - tipx))
+        open(p, 'wb').write(raw[:j + 4] + int(nbx).to_bytes(2, 'big', signed=True) + int(oby).to_bytes(2, 'big', signed=True) + raw[j + 8:]); print('상체 V 맞춤 bx', nbx)
 if j > 0 and os.environ.get('ALIGN_BODY', '0') == '1':
     oby = int.from_bytes(raw[j + 6:j + 8], 'big', signed=True); bimg = np.asarray(Image.open(io.BytesIO(raw[j + 8:])).convert('RGBA')).astype(int)
     rows = bimg[4:14]; skn = (rows[..., 3] > 150) & (rows[..., 0] > 150) & (rows[..., 0] > rows[..., 2] + 30) & (rows[..., :3].mean(2) > 120)

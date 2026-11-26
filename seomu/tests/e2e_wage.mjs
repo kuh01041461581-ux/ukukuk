@@ -16,7 +16,10 @@ pg.on('dialog', d => { console.log('DIALOG', d.message()); d.accept(); });
 await pg.goto('file://' + dist + '#wage');
 const fr = await (await pg.locator('#frame-wage').elementHandle({ timeout: 30000 })).contentFrame();
 await fr.waitForSelector('#f1', { state: 'attached', timeout: 60000 });
+const tab = async n => { await fr.click('.wtabs .tabbtn[data-tab="' + n + '"]'); await pg.waitForTimeout(120); };
+await tab('prep');
 await fr.fill('#ym', '2026-10');
+await tab('files');
 await fr.setInputFiles('#f1', fx('roster.xlsx'));
 await fr.waitForSelector('#rosterT tbody tr', { timeout: 30000 });
 ok((await fr.$$eval('#rosterT tbody tr', r => r.length)) === 3, '명부 3명 인식(과 이름 줄은 제외)');
@@ -32,6 +35,7 @@ const tx0 = await fr.evaluate(() => { const c = __wage.calc(__wage.state().worke
 ok(JSON.stringify(tx0) === '[12020,1200,1575650]', '소득세 자동(간이세액표) 12,020 · 지방 1,200 · 실지급 1,575,650: ' + tx0);
 const tx1 = await fr.evaluate(() => __wage.calc(__wage.state().workers[1]).ded.incomeTax);
 ok(tx1 === 0, '주말 근로자 소득세 0');
+await tab('fix');
 await fr.click('tr.fx:nth-of-type(1) [data-tog]');
 await fr.waitForSelector('tr.dt:not([hidden]) [data-b="why"] li');
 const why = await fr.$eval('tr.dt:not([hidden]) [data-b="why"]', e => e.textContent);
@@ -42,11 +46,13 @@ const d2 = await fr.evaluate(() => { const c = __wage.calc(__wage.state().worker
 ok(JSON.stringify(d2) === '[17,3,0]', '10/14 휴무 → 17일·주휴3·월차0');
 await fr.click('tr.dt:not([hidden]) button[data-d="2026-10-14"]');
 // 휴관 날짜: 설정 달력에서 10/14 를 휴관으로 → 근무일 17, 주휴·월차는 그대로(결근 아님) → 다시 눌러 해제
+await tab('prep');
 await fr.click('#closedCal [data-cd="2026-10-14"]');
 const cd = await fr.evaluate(() => { const c = __wage.calc(__wage.state().workers[0]); return [c.days, c.joo, c.wolcha, /휴관/.test(__wage.dailyHtml(__wage.state().workers[0]).split('10/14')[1].slice(0, 400))]; });
 ok(JSON.stringify(cd) === '[17,4,1,true]', '휴관 날짜 10/14 → 17일 · 주휴 4 · 월차 1 · 일일점검부에 휴관: ' + cd);
 await fr.click('#closedCal [data-cd="2026-10-14"]');
 // 직접 수정: 표의 소득세 숫자를 눌러 고치기 → 지방소득세·실지급 따라감, 되돌리기
+await tab('fix');
 await fr.click('tr.fx:nth-of-type(1) td[data-b="d_income"]');
 await fr.fill('tr.dt:not([hidden]) [data-o="tax"]', '15000');
 await fr.fill('tr.dt:not([hidden]) [data-o="dayRate"]', '80000');
@@ -58,14 +64,17 @@ const rv = await fr.evaluate(() => { const c = __wage.calc(__wage.state().worker
 ok(JSON.stringify(rv) === '[12020,1353240,0]', '자동 계산으로 되돌리기: ' + rv);
 // 계좌(공단) 입력 — 접힌 칸을 펼친 뒤
 await fr.evaluate(() => document.querySelectorAll('details.fold').forEach(d => d.open = true));
+await tab('prep');
 await fr.fill('[data-a="health"][data-f="bank"]', '농협'); await fr.fill('[data-a="health"][data-f="no"]', '000-0000-0000-00');
 await pg.screenshot({ path: path.join(out, 'wage_page.png'), fullPage: true });
 // 엑셀 만들기
 const dl = pg.waitForEvent('download', { timeout: 60000 });
+await tab('docs');
 await fr.click('#btnXlsx');
 const d = await dl; const xl = path.join(out, 'wage_out.xlsx'); await d.saveAs(xl);
 ok(fs.statSync(xl).size > 5000, '엑셀 내려받기: ' + d.suggestedFilename());
 // 이호조 거래처입력
+await tab('prep');
 await fr.fill('[data-a="incomeTax"][data-f="bank"]','농협'); await fr.fill('[data-a="incomeTax"][data-f="no"]','79000000000001');
 const ih = await fr.evaluate(async () => { const r = await __wage.buildIhojo(); let s=''; const u=new Uint8Array(r.buf); for (let i=0;i<u.length;i++) s+=String.fromCharCode(u[i]); return {rows:r.rows, warn:r.warn, b64:btoa(s)}; });
 fs.writeFileSync(path.join(out, 'ihojo_out.xlsx'), Buffer.from(ih.b64, 'base64'));
@@ -77,6 +86,7 @@ for (const m of ['daily', 'claim']) {
   ok(Buffer.from(hx, 'base64').subarray(0, 2).toString() === 'PK', 'HWPX(' + m + ') 만들어짐');
 }
 // 일일점검부·청구서 미리보기
+await tab('docs');
 await fr.click('#btnPvDaily'); await pg.waitForTimeout(300);
 ok((await fr.$$eval('.previewbox .paper.daily', e => e.length)) === 3, '일일점검부 3장(근로자별)');
 const dailyHtml = await fr.evaluate(() => __wage.dailyHtml(__wage.state().workers[0]));

@@ -7,11 +7,16 @@ const b = await chromium.launch(); const pg = await (await b.newContext({ viewpo
 pg.on('pageerror', e => { console.log('PAGEERR', e.message); fails++; }); pg.on('dialog', d => d.accept());
 await pg.goto('file://' + path.resolve(here, '../dist/서무종합프로그램.html') + '#wage');
 const fr = await (await pg.locator('#frame-wage').elementHandle()).contentFrame();
-await fr.waitForSelector('#f1', { state: 'attached', timeout: 60000 }); await fr.fill('#ym', '2026-10');
-await fr.setInputFiles('#f1', fx('roster.xlsx')); await fr.waitForSelector('#rosterT tbody tr');
-await fr.setInputFiles('#f2', fx('insurance.xlsx')); await fr.waitForSelector('#insT tbody tr');
-await fr.setInputFiles('#f4', fx('scan_signed.pdf'));
-await fr.waitForSelector('.scan-tbl', { timeout: 300000 });
+await fr.waitForSelector('#fAll', { state: 'attached', timeout: 60000 });
+const tab = async n => { await fr.click('.wtabs .tabbtn[data-tab="' + n + '"]'); await pg.waitForTimeout(120); };
+await tab('prep'); await fr.fill('#ym', '2026-10'); await tab('files');
+// '파일 한꺼번에 넣기'에 명부·고지서·스캔을 한 번에 (순서 섞어서)
+await fr.setInputFiles('#fAll', [fx('scan_signed.pdf'), fx('insurance.xlsx'), fx('roster.xlsx')]);
+await fr.waitForFunction(() => document.querySelector('.wtabs .tabbtn.active').dataset.tab === 'fix', null, { timeout: 300000 });
+const log = await fr.$eval('#allOut', e => e.textContent);
+ok(/근로자 명부/.test(log) && /4대보험 고지서/.test(log) && /도장 받은 스캔/.test(log) && !/✗/.test(log), '한꺼번에 넣기: 세 파일 종류를 알아서 구분: ' + log.replace(/\s+/g, ' '));
+ok(true, '다 읽으면 급여 확정 탭으로 이동');
+await tab('files');
 const sc = await fr.evaluate(() => __wage.scans().map(x => ({ t: x.type, kind: x.kind || (x.claim && x.claim.kind), n: x.stamps && x.stamps.dates.length, miss: x.stamps && !x.stamps.dates.includes('2026-10-14'),
   name: x.type === 'daily' ? x.name : x.claim && x.claim.name, who: x.wid && __wage.state().workers.find(w => w.id === x.wid).name, gross: x.claim && x.claim.gross, acct: x.claim && x.claim.account, bank: x.claim && x.claim.bank })));
 console.log(JSON.stringify(sc));
@@ -21,9 +26,8 @@ ok(sc[1].kind === 'weekend' && sc[1].n === 9, '주말 일일점검부: 도장 9�
 ok(sc[0].who === '홍평일' && sc[1].who === '김주말', '일일점검부 → 근로자 짝(비고 칸 이름)');
 ok(sc[2].who === '홍평일' && sc[2].gross === 1653940 && sc[2].acct === '1021-01-0000001', '청구서(평일): 이름·청구금액·계좌');
 ok(sc[3].who === '김주말' && sc[3].gross === 676620, '청구서(주말): 이름·청구금액');
-const diff = await fr.$eval('.scan-tbl tbody tr:nth-child(1)', e => e.textContent);
-ok(/근무일인데 도장 없음: 10\/14/.test(diff), '도장 없는 날(10/14)을 찾아 표시');
-await fr.click('#scanApplyAll'); await pg.waitForTimeout(400);
+const row1 = await fr.$eval('.scan-tbl tbody tr:nth-child(1)', e => e.textContent);
+ok(/도장대로 자동 반영/.test(row1) && /지금 근무일과 같음 \(17일\)/.test(row1), '이름 확인된 일일점검부는 도장대로 자동 반영(10/14 빠짐 → 17일)');
 const c = await fr.evaluate(() => { const c = __wage.calc(__wage.state().workers[0]); return [c.days, c.joo, c.wolcha]; });
-ok(JSON.stringify(c) === '[17,3,0]', '도장대로 맞춤 → 17일 · 주휴 3주 · 월차 0: ' + c);
+ok(JSON.stringify(c) === '[17,3,0]', '도장대로 → 17일 · 주휴 3주 · 월차 0: ' + c);
 await b.close(); console.log(fails ? 'SCAN FAIL ' + fails : 'SCAN OK'); process.exit(fails ? 1 : 0);
